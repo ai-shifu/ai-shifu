@@ -1558,6 +1558,7 @@ def test_verbatim_markers_never_reach_the_learner(
         "Press the ` key.\n\n===Before=== Use `x`.",
         '[docs](url "<script>") ===Before===',
         "    <script> literal\n\n===Before===",
+        "[docs][<script>] ===Before===\n\n[<script>]: /url",
     ],
     ids=[
         "plain-prose",
@@ -1565,6 +1566,7 @@ def test_verbatim_markers_never_reach_the_learner(
         "unmatched-backtick-paragraph",
         "literal-html-in-link-title",
         "literal-html-in-indented-code",
+        "literal-html-in-forward-reference",
     ],
 )
 def test_html_script_operators_survive_delivery_and_persistence(

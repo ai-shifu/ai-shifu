@@ -730,6 +730,132 @@ def test_a_valid_next_line_reference_title_is_preserved_at_eof() -> None:
 
 
 @pytest.mark.parametrize(
+    "definition",
+    ["[<script>]: /url", "[===<script>===]: /url", "[<SCRIPT>]: /url"],
+)
+@pytest.mark.parametrize("defined_first", [False, True])
+def test_full_reference_labels_use_actual_definitions_at_turn_end(
+    definition: str, defined_first: bool
+) -> None:
+    reference = "[docs][<script>] ===after==="
+    text = (
+        definition + "\n\n" + reference
+        if defined_first
+        else reference + "\n\n" + definition
+    )
+    expected = text.replace("===after===", "after").replace(
+        "===<script>===", "<script>"
+    )
+    _assert_streaming_output(text, expected)
+
+
+def test_duplicate_reference_definitions_keep_all_their_labels_out_of_html() -> None:
+    text = "[<script>]: /first\n[<script>]: /second\n\n[docs][<script>] ===after===\n"
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "[docs][<script>/*]*/ const eq = a === b;</script>",
+        "[docs][<script>const eq = a === b;</script>",
+        "[docs][nested[<script>const eq = a === b;</script>]]",
+        "[<script>const eq = a === b;</script>](url)",
+        "[<script>const eq = a === b;</script>]",
+    ],
+    ids=["undefined", "unfinished", "nested-invalid", "visible-label", "shortcut"],
+)
+def test_unresolved_reference_candidates_preserve_real_script_operators(
+    reference: str,
+) -> None:
+    text = reference + " ===after===\n"
+    _assert_streaming_output(text, reference + " after\n")
+
+
+def test_fake_definitions_in_code_do_not_resolve_html_looking_references() -> None:
+    reference = "[docs][<script>/*]*/ const eq = a === b;</script>"
+    text = reference + " ===after===\n\n```md\n[<script>/*]: /url\n```\n"
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+def test_reference_replay_preserves_existing_private_use_characters() -> None:
+    text = "\ue000 ===before=== [docs][<script>] ===after===\n\n[<script>]: /url"
+    expected = text.replace("===before===", "before").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
+
+
+def test_only_the_ambiguous_reference_suffix_waits_for_a_future_definition() -> None:
+    marker_filter = PreserveMarkerFilter()
+    emitted = marker_filter.feed("===before=== [docs][<script>] ===after===\n\n")
+    assert emitted == "before [docs]["
+    assert marker_filter.feed("[<script>]: /url") == ""
+    assert emitted + marker_filter.flush() == (
+        "before [docs][<script>] after\n\n[<script>]: /url"
+    )
+    assert marker_filter.flush() == ""
+
+
+def test_ordinary_references_continue_streaming_without_waiting_for_definitions() -> (
+    None
+):
+    marker_filter = PreserveMarkerFilter()
+    emitted = marker_filter.feed("[docs][ordinary] ===after===\n\n")
+    assert emitted == "[docs][ordinary] after\n\n"
+    assert marker_filter.feed("[ordinary]: /url\n\n") == "[ordinary]: /url\n\n"
+    assert marker_filter.flush() == ""
+
+
+def test_a_full_reference_label_can_continue_on_the_next_line() -> None:
+    text = "[docs][<script>\n name] ===after===\n\n[<script> name]: /url\n"
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+def test_an_escaped_separator_cannot_make_a_full_reference_label() -> None:
+    reference = r"[docs]\\[<script>]const equal = a === b;</script>"
+    text = reference + " ===after===\n\n[<script>]: /url\n"
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+def test_a_defined_reference_image_keeps_its_nested_link_out_of_the_outer_link() -> (
+    None
+):
+    text = (
+        '[outer ![image [inner](i)][<script>]](o "<style>") ===after===\n\n'
+        "[<script>]: /url\n"
+    )
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+def test_a_reference_image_does_not_restore_an_already_invalid_outer_link() -> None:
+    text = (
+        '[outer [a](u) ![image [inner](i)][<script>]](o "===title=== '
+        '<style>a === b;</style>") ===after===\n\n[<script>]: /url\n'
+    )
+    expected = text.replace("===title===", "title").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
+
+
+def test_reference_definition_metadata_inside_a_container_cannot_open_raw_html() -> (
+    None
+):
+    text = (
+        "[docs][<script>] ===after===\n\n"
+        '> [<script>]: url "<style> ===title==="\n\n===tail==='
+    )
+    expected = text.replace("===after===", "after").replace("===tail===", "tail")
+    _assert_streaming_output(text, expected)
+
+
+def test_reference_replay_can_use_supplementary_private_use_characters() -> None:
+    prefix = "".join(chr(code) for code in range(0xE000, 0xF900)) + "\n\n"
+    reference = "[docs][<script>] ===after===\n\n[<script>]: /url\n"
+    marker_filter = PreserveMarkerFilter()
+    out = marker_filter.feed(prefix) + marker_filter.feed(reference)
+    out += marker_filter.flush()
+    assert out == prefix + reference.replace("===after===", "after")
+
+
+@pytest.mark.parametrize(
     "svg", ['<svg viewBox="0 0 1 1" />', '<SVG viewBox="0 0 1 1"/>']
 )
 def test_a_self_closing_svg_does_not_disable_following_markdown(svg: str) -> None:

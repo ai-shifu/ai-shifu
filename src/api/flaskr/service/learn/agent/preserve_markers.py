@@ -21,9 +21,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from itertools import chain
 from string import punctuation
 
 from markdown_flow.formatter.patterns import block_html_open_re, heading_re
+from markdown_it import MarkdownIt
+from markdown_it.common.utils import normalizeReference
 
 # The same shapes `markdown_flow` recognises: a fence line of `!` and three or more `=`, and the
 # inline tokens `!===` and `===`.
@@ -142,6 +145,76 @@ class _LinkLabel:
     contains_link: bool = False
     reference: bool = False
     content: bool = False
+    source: str | None = ""
+    full_reference: bool = False
+    reference_image: bool = False
+    restore_outer: tuple[tuple[_LinkLabel, bool, bool], ...] = ()
+
+
+def _reference_label_end(text: str, start: int = 0) -> int | None:
+    """Find a reference label's unescaped end, rejecting nested or overlong labels."""
+    pos = start
+    while pos < len(text) and pos - start <= 999:
+        char = text[pos]
+        if char == "\\":
+            pos += 2
+        elif char == "[":
+            return None
+        elif char == "]":
+            return pos
+        else:
+            pos += 1
+    return None
+
+
+def _reference_name(label: str) -> str:
+    """Match reference names after the same marker removal used in output labels."""
+    return normalizeReference(_MARKERS.sub("", label))
+
+
+def _reference_replay_source(source: str) -> tuple[str, frozenset[str], dict[int, str]]:
+    """Keep parser-confirmed definitions, including container metadata, out of HTML state."""
+    parser = MarkdownIt("commonmark", {"inline_definitions": True})
+    tokens = parser.parse(source)
+    offsets = [0]
+    for line in source.splitlines(keepends=True):
+        offsets.append(offsets[-1] + len(line))
+    present = set(source)
+    candidates = chain(
+        range(0xE000, 0xF900),
+        range(0xF0000, 0xFFFFE),
+        range(0x100000, 0x10FFFE),
+        range(0x100, 0xD800),
+    )
+    masks = {
+        char: chr(next(code for code in candidates if chr(code) not in present))
+        for char in "<`\\[]!="
+    }
+    protected = list(source)
+    names: set[str] = set()
+    for token in tokens:
+        if token.type != "definition" or token.map is None:
+            continue
+        name = _reference_name(token.meta["label"])
+        if name:
+            names.add(name)
+        first, last = token.map
+        start, end = offsets[first], offsets[min(last, len(offsets) - 1)]
+        opening = source.find("[", start, end)
+        if opening < 0:
+            continue
+        closing = _reference_label_end(source[opening + 1 : end])
+        if closing is None:
+            continue
+        label_end = opening + 1 + closing
+        for pos in range(opening + 1, end):
+            char = protected[pos]
+            if pos == label_end:
+                continue
+            if char in masks and (pos > label_end or char not in "!="):
+                protected[pos] = masks[char]
+    restore = {ord(mask): char for char, mask in masks.items()}
+    return "".join(protected), frozenset(names), restore
 
 
 def _link_suffix_end(
@@ -267,10 +340,10 @@ def _tag_end(text: str, start: int) -> int | None:
     return None
 
 
-class PreserveMarkerFilter:
-    """Remove verbatim markers from streamed text, one chunk at a time."""
+class _MarkerCleaner:
+    """Stream markers away, stopping only at reference labels needing future definitions."""
 
-    def __init__(self) -> None:
+    def __init__(self, references: frozenset[str] | None = None) -> None:
         """Start with nothing buffered and no code fence open."""
         self._line = ""
         # Classification needs the whole source line even after partial output was streamed.
@@ -287,6 +360,9 @@ class PreserveMarkerFilter:
         self._inline_tail = ""
         self._inline_scanned: int | None = 0
         self._labels: list[_LinkLabel] = []
+        self._next_reference: _LinkLabel | None = None
+        self._references = references
+        self.needs_references = False
         self._image_pending = False
         self._link_suffix: _LinkSuffix | None = None
         self._replay_source: str | None = None
@@ -300,6 +376,13 @@ class PreserveMarkerFilter:
         """Track the output line position, including HTML wrapped in removed markers."""
         emitted = _MARKERS.sub("", source) if prose else source
         out.append(emitted)
+        for label in self._labels:
+            if label.source is not None:
+                label.source = (
+                    label.source + source
+                    if len(label.source) + len(source) <= 999
+                    else None
+                )
         if emitted.strip(" \t\n"):
             for label in self._labels:
                 label.content = True
@@ -323,6 +406,8 @@ class PreserveMarkerFilter:
                 line, self._line = self._line.split("\n", 1)
                 out.append(self._complete_line(line))
                 self._released_some_of_line = False
+                if self.needs_references:
+                    return "".join(out)
                 if self._inline_scanned is None or self._replay_source is not None:
                     break
             if self._inline_scanned is not None and self._replay_source is None:
@@ -339,6 +424,8 @@ class PreserveMarkerFilter:
                             or self._html_block_tag is not None
                         )
                         out.append(self._filter_html(head))
+                        if self.needs_references:
+                            return "".join(out)
             if self._replay_source is not None:
                 text = self._replay_source + self._line
                 self._replay_source = None
@@ -361,7 +448,9 @@ class PreserveMarkerFilter:
     def flush(self) -> str:
         """Release what was held back, because no more text is coming."""
         out = [self._flush_buffer()]
-        while self._inline_tail or self._replay_source is not None:
+        while not self.needs_references and (
+            self._inline_tail or self._replay_source is not None
+        ):
             if self._replay_source is not None:
                 replay, self._replay_source = self._replay_source, None
                 out.append(self.feed(replay))
@@ -382,7 +471,12 @@ class PreserveMarkerFilter:
         """Release one failed link bracket or an unmatched backtick run."""
         if pending.startswith("]"):
             label = self._labels.pop()
+            self._next_reference = label if label.active else None
             if label.image and label.contains_link:
+                label.restore_outer = tuple(
+                    (ancestor, ancestor.active, ancestor.contains_link)
+                    for ancestor in self._labels
+                )
                 self._disable_outer_links()
             self._link_suffix = None
             return 1
@@ -527,6 +621,8 @@ class PreserveMarkerFilter:
             special = _PROSE_SPECIAL.search(text, index)
             if special is None:
                 tail = text[index:]
+                if tail:
+                    self._next_reference = None
                 self._image_pending = tail.endswith("!") and (
                     len(tail) > 1 or self._backslashes % 2 == 0
                 )
@@ -536,6 +632,7 @@ class PreserveMarkerFilter:
             start = special.start()
             prefix = text[index:start]
             if prefix:
+                self._next_reference = None
                 self._image_pending = prefix.endswith("!") and (
                     len(prefix) > 1 or self._backslashes % 2 == 0
                 )
@@ -550,6 +647,7 @@ class PreserveMarkerFilter:
                 index = end
                 continue
             if char == "\\":
+                self._next_reference = None
                 self._image_pending = False
                 end = _run_end(text, start)
                 self._emit(out, text[start:end])
@@ -559,6 +657,7 @@ class PreserveMarkerFilter:
             escaped = self._backslashes % 2 == 1
             self._backslashes = 0
             if escaped:
+                self._next_reference = None
                 self._image_pending = False
                 self._emit(out, char)
                 index = start + 1
@@ -566,6 +665,17 @@ class PreserveMarkerFilter:
             if char == "[":
                 label = _LinkLabel(
                     image=self._image_pending,
+                    full_reference=self._next_reference is not None,
+                    reference_image=(
+                        self._next_reference.image
+                        if self._next_reference is not None
+                        else False
+                    ),
+                    restore_outer=(
+                        self._next_reference.restore_outer
+                        if self._next_reference is not None
+                        else ()
+                    ),
                     reference=(
                         not self._labels
                         and not self._image_pending
@@ -573,11 +683,13 @@ class PreserveMarkerFilter:
                         and self._line_indent <= 3
                     ),
                 )
+                self._next_reference = None
                 self._image_pending = False
                 self._emit(out, char)
                 self._labels.append(label)
                 index = start + 1
                 continue
+            self._next_reference = None
             self._image_pending = False
             if char == "]":
                 if not self._labels or not self._labels[-1].active:
@@ -647,6 +759,36 @@ class PreserveMarkerFilter:
                     self._emit(out, "<")
                     index = start + 1
                     continue
+                if (
+                    not fragment.startswith("</")
+                    and match.group(1).lower() in _RAW_TEXT_END
+                    and self._labels
+                    and self._labels[-1].source is not None
+                    and _reference_label_end(self._labels[-1].source + "]")
+                    == len(self._labels[-1].source)
+                ):
+                    if self._references is None:
+                        # A future definition can make this HTML-looking source reference metadata.
+                        # The wrapper finishes only this ambiguous suffix once the turn ends.
+                        self.needs_references = True
+                        break
+                    protected_end = self._resolved_reference_end(
+                        text, start, final=final
+                    )
+                    if protected_end == -1:
+                        self._inline_tail = text[start:]
+                        self._inline_scanned = 0
+                        break
+                    if protected_end is not None:
+                        label = self._labels.pop()
+                        self._emit(out, text[start : protected_end + 1], prose=True)
+                        for ancestor, active, contains_link in label.restore_outer:
+                            ancestor.active = active
+                            ancestor.contains_link = contains_link
+                        if not label.reference_image:
+                            self._disable_outer_links()
+                        index = protected_end + 1
+                        continue
                 end = _tag_end(text, match.end())
                 tag = match.group(1).lower() if not fragment.startswith("</") else None
             if end is None:
@@ -685,6 +827,28 @@ class PreserveMarkerFilter:
             index = end
         return "".join(out)
 
+    def _resolved_reference_end(
+        self, text: str, start: int, *, final: bool
+    ) -> int | None:
+        """Protect only a defined full-reference's second label, never its visible label."""
+        label = self._labels[-1]
+        if not label.full_reference or label.source is None:
+            return None
+        source = label.source + text[start:]
+        end = _reference_label_end(source)
+        if end is None:
+            if (
+                not final
+                and len(source) <= 999
+                and _reference_label_end(source + "]") == len(source)
+                and _inline_boundary(source, 0) == len(source)
+            ):
+                return -1
+            return None
+        if _reference_name(source[:end]) not in self._references:
+            return None
+        return start + end - len(label.source)
+
     def _split_partial(self, text: str) -> tuple[str, str]:
         """Split an unfinished line into what can go out now and what must wait."""
         if not text:
@@ -705,3 +869,46 @@ class PreserveMarkerFilter:
         run = closing.group(1)
         char, length = self._fence
         return run[0] == char and len(run) >= length
+
+
+class PreserveMarkerFilter:
+    """Stream normally; resolve rare HTML-looking reference labels when the turn ends."""
+
+    def __init__(self) -> None:
+        """Keep external source separate from the cleaner's internal source replays."""
+        self._cleaner = _MarkerCleaner()
+        self._source: list[str] = []
+        self._emitted: list[str] = []
+        self._finished = False
+
+    def feed(self, text: str) -> str:
+        """Clean ordinary chunks immediately, holding only an ambiguous reference suffix."""
+        if not text:
+            return ""
+        self._source.append(text)
+        self._finished = False
+        if self._cleaner.needs_references:
+            return ""
+        out = self._cleaner.feed(text)
+        self._emitted.append(out)
+        return out
+
+    def flush(self) -> str:
+        """Use actual definitions to distinguish reference metadata from real HTML."""
+        if self._finished:
+            return ""
+        out = "" if self._cleaner.needs_references else self._cleaner.flush()
+        if self._cleaner.needs_references:
+            source, references, restore = _reference_replay_source(
+                "".join(self._source)
+            )
+            cleaner = _MarkerCleaner(references)
+            complete = (cleaner.feed(source) + cleaner.flush()).translate(restore)
+            emitted = "".join(self._emitted)
+            if not complete.startswith(emitted):
+                message = "Reference replay changed text already streamed"
+                raise ValueError(message)
+            out = complete[len(emitted) :]
+        self._emitted.append(out)
+        self._finished = True
+        return out
