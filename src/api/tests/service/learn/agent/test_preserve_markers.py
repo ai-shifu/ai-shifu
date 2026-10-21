@@ -856,6 +856,48 @@ def test_reference_replay_can_use_supplementary_private_use_characters() -> None
 
 
 @pytest.mark.parametrize(
+    "candidate",
+    [
+        "[docs][<script>] ===after===\n\n[<script>]: /url\n",
+        "Use ` unmatched [docs][<script>const eq = a === b;</script>] ===after===",
+        '[broken](url "[docs][<script>const eq = a === b;</script>] ===after===',
+    ],
+    ids=["future-definition", "flush-unmatched-code", "flush-invalid-link"],
+)
+def test_reference_replay_does_not_change_metadata_already_streamed(
+    candidate: str,
+) -> None:
+    prefix = '> [id]: url "===title==="\n\n'
+    text = prefix + candidate
+    expected = prefix.replace("===title===", "title") + candidate.replace(
+        "===after===", "after"
+    )
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_a_definition_title_cannot_hide_a_real_raw_html_closer(tag: str) -> None:
+    text = (
+        f"[<{tag}>]const equal = a === b;\n\n"
+        f'[id]: /url "</{tag}><style>"\n\n===after===\n'
+    )
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("tag", ["textarea", "title"])
+def test_definition_metadata_inside_text_only_html_keeps_prose_marker_cleanup(
+    tag: str,
+) -> None:
+    text = f'[<{tag}>]===body===\n\n[id]: /url "===title==="\n\n</{tag}>\n===after===\n'
+    expected = (
+        text.replace("===body===", "body")
+        .replace("===title===", "title")
+        .replace("===after===", "after")
+    )
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize(
     "svg", ['<svg viewBox="0 0 1 1" />', '<SVG viewBox="0 0 1 1"/>']
 )
 def test_a_self_closing_svg_does_not_disable_following_markdown(svg: str) -> None:

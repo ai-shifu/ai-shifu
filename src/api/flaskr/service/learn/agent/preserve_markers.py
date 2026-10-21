@@ -172,8 +172,10 @@ def _reference_name(label: str) -> str:
     return normalizeReference(_MARKERS.sub("", label))
 
 
-def _reference_replay_source(source: str) -> tuple[str, frozenset[str], dict[int, str]]:
-    """Keep parser-confirmed definitions, including container metadata, out of HTML state."""
+def _reference_replay_source(
+    source: str, mask_start: int
+) -> tuple[str, frozenset[str], dict[int, str]]:
+    """Protect confirmed definitions only after the source suffix that stopped streaming."""
     parser = MarkdownIt("commonmark", {"inline_definitions": True})
     tokens = parser.parse(source)
     offsets = [0]
@@ -207,7 +209,7 @@ def _reference_replay_source(source: str) -> tuple[str, frozenset[str], dict[int
         if closing is None:
             continue
         label_end = opening + 1 + closing
-        for pos in range(opening + 1, end):
+        for pos in range(max(opening + 1, mask_start), end):
             char = protected[pos]
             if pos == label_end:
                 continue
@@ -343,7 +345,11 @@ def _tag_end(text: str, start: int) -> int | None:
 class _MarkerCleaner:
     """Stream markers away, stopping only at reference labels needing future definitions."""
 
-    def __init__(self, references: frozenset[str] | None = None) -> None:
+    def __init__(
+        self,
+        references: frozenset[str] | None = None,
+        definition_restore: dict[int, str] | None = None,
+    ) -> None:
         """Start with nothing buffered and no code fence open."""
         self._line = ""
         # Classification needs the whole source line even after partial output was streamed.
@@ -362,7 +368,9 @@ class _MarkerCleaner:
         self._labels: list[_LinkLabel] = []
         self._next_reference: _LinkLabel | None = None
         self._references = references
+        self._definition_restore = definition_restore or {}
         self.needs_references = False
+        self.reference_tail_size = 0
         self._image_pending = False
         self._link_suffix: _LinkSuffix | None = None
         self._replay_source: str | None = None
@@ -595,25 +603,34 @@ class _MarkerCleaner:
         index = 0
         while index < len(text):
             if self._raw_tag is not None:
+                # A real HTML parent controls its body even when the Markdown block parser
+                # found a definition there. Keep the masked view for text after its closer.
+                raw_text = (
+                    text.translate(self._definition_restore)
+                    if self._definition_restore
+                    else text
+                )
                 prose = self._raw_tag not in ("script", "style")
-                match = _RAW_TEXT_END[self._raw_tag].search(text, index)
+                match = _RAW_TEXT_END[self._raw_tag].search(raw_text, index)
                 if match is None:
                     # Keep only a possible closing-tag prefix; stream all other code.
-                    last_lt = text.rfind("<", index)
+                    last_lt = raw_text.rfind("<", index)
                     closer = f"</{self._raw_tag}"
-                    if last_lt >= index and closer.startswith(text[last_lt:].lower()):
-                        self._emit(out, text[index:last_lt], prose=prose)
-                        self._html_tail = text[last_lt:]
+                    if last_lt >= index and closer.startswith(
+                        raw_text[last_lt:].lower()
+                    ):
+                        self._emit(out, raw_text[index:last_lt], prose=prose)
+                        self._html_tail = raw_text[last_lt:]
                     else:
-                        self._emit(out, text[index:], prose=prose)
+                        self._emit(out, raw_text[index:], prose=prose)
                     break
-                end = _tag_end(text, match.end())
+                end = _tag_end(raw_text, match.end())
                 if end is None:
-                    self._emit(out, text[index : match.start()], prose=prose)
-                    self._html_tail = text[match.start() :]
+                    self._emit(out, raw_text[index : match.start()], prose=prose)
+                    self._html_tail = raw_text[match.start() :]
                     break
-                self._emit(out, text[index : match.start()], prose=prose)
-                self._emit(out, text[match.start() : end])
+                self._emit(out, raw_text[index : match.start()], prose=prose)
+                self._emit(out, raw_text[match.start() : end])
                 self._raw_tag = None
                 index = end
                 continue
@@ -771,6 +788,8 @@ class _MarkerCleaner:
                         # A future definition can make this HTML-looking source reference metadata.
                         # The wrapper finishes only this ambiguous suffix once the turn ends.
                         self.needs_references = True
+                        # _line also contains any held marker tail or later complete source lines.
+                        self.reference_tail_size = len(text) - start + len(self._line)
                         break
                     protected_end = self._resolved_reference_end(
                         text, start, final=final
@@ -878,6 +897,8 @@ class PreserveMarkerFilter:
         """Keep external source separate from the cleaner's internal source replays."""
         self._cleaner = _MarkerCleaner()
         self._source: list[str] = []
+        self._source_size = 0
+        self._reference_offset: int | None = None
         self._emitted: list[str] = []
         self._finished = False
 
@@ -886,10 +907,15 @@ class PreserveMarkerFilter:
         if not text:
             return ""
         self._source.append(text)
+        self._source_size += len(text)
         self._finished = False
         if self._cleaner.needs_references:
             return ""
         out = self._cleaner.feed(text)
+        if self._cleaner.needs_references:
+            self._reference_offset = (
+                self._source_size - self._cleaner.reference_tail_size
+            )
         self._emitted.append(out)
         return out
 
@@ -899,10 +925,14 @@ class PreserveMarkerFilter:
             return ""
         out = "" if self._cleaner.needs_references else self._cleaner.flush()
         if self._cleaner.needs_references:
+            if self._reference_offset is None:
+                self._reference_offset = (
+                    self._source_size - self._cleaner.reference_tail_size
+                )
             source, references, restore = _reference_replay_source(
-                "".join(self._source)
+                "".join(self._source), self._reference_offset
             )
-            cleaner = _MarkerCleaner(references)
+            cleaner = _MarkerCleaner(references, restore)
             complete = (cleaner.feed(source) + cleaner.flush()).translate(restore)
             emitted = "".join(self._emitted)
             if not complete.startswith(emitted):
