@@ -1779,6 +1779,49 @@ def test_unfinished_inline_html_is_cleaned_at_turn_end_before_delivery_and_histo
 
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+def test_mathml_self_closing_scripts_keep_following_lesson_text_as_prose(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+) -> None:
+    """MathML raw-looking elements cannot protect prose before a later real script closes."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    first_visual = "<div><math><script/><style/><mi>x</mi></math></div>"
+    second_visual = (
+        '<div><button id="nextBtn">Next</button><script>'
+        "const equal = a === b;</script></div>"
+    )
+    lesson = f"{first_visual}\n\n===AfterMath===\n\n{second_visual}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    html = "".join(text for text, kind, _ in parts if kind == "html")
+    assert first_visual in html
+    assert second_visual in html
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert first_visual in content
+        assert second_visual in content
+        assert "===AfterMath===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 def test_the_closing_sentence_comes_before_the_question_it_leads_to(
     monkeypatch: pytest.MonkeyPatch, listen: bool
 ) -> None:

@@ -1183,6 +1183,94 @@ def test_nested_svg_restores_the_surrounding_html_integration_point() -> None:
     _assert_streaming_output(html + "\n===after===", html + "\nafter")
 
 
+@pytest.mark.parametrize("tag", ["script", "style"])
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "<math>{empty}</math>",
+        "<div><math>{empty}</math></div>",
+        "<math><mrow>{empty}</mrow></math>",
+        "<svg><foreignObject><math>{empty}</math></foreignObject></svg>",
+    ],
+)
+def test_self_closing_mathml_script_and_style_do_not_consume_prose(
+    tag: str, wrapper: str
+) -> None:
+    html = wrapper.format(empty=f"<{tag} />")
+    _assert_streaming_output(html + "\n===after===", html + "\nafter")
+
+
+@pytest.mark.parametrize("parent", ["mi", "mo", "mn", "ms", "mtext"])
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_mathml_text_integration_points_keep_html_raw_text_semantics(
+    parent: str, tag: str
+) -> None:
+    html = f"<math><{parent}><{tag}/>const equal = a === b;</{tag}></{parent}></math>"
+    _assert_streaming_output(html + "\n===after===", html + "\nafter")
+
+
+@pytest.mark.parametrize("exception", ["mglyph", "malignmark"])
+def test_mathml_text_integration_exceptions_keep_their_foreign_children(
+    exception: str,
+) -> None:
+    html = (
+        f"<math><mtext><{exception}><script /></{exception}>"
+        "===visible===<script/>const equal = a === b;</script></mtext></math>"
+    )
+    _assert_streaming_output(
+        html + "\n===after===", html.replace("===visible===", "visible") + "\nafter"
+    )
+
+
+@pytest.mark.parametrize(
+    ("attributes", "html_children"),
+    [
+        ('encoding="text/html"', True),
+        ("encoding='APPLICATION/XHTML+XML'", True),
+        ('encoding="text&#x2f;html"', True),
+        ("", False),
+        ('encoding="text/plain"', False),
+        ("title='encoding=\"text/html\"'", False),
+        ("encoding='text/plain' encoding='text/html'", False),
+        ("encoding=' text/html '", False),
+    ],
+)
+def test_mathml_annotation_encoding_controls_its_html_integration(
+    attributes: str, html_children: bool
+) -> None:
+    script = (
+        "<script/>const equal = a === b;</script>" if html_children else "<script />"
+    )
+    html = f"<math><annotation-xml {attributes}>{script}</annotation-xml></math>"
+    _assert_streaming_output(html + "\n===after===", html + "\nafter")
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<svg><math><mi><script /></mi></math></svg>",
+        "<math><svg><foreignObject><script /></foreignObject></svg></math>",
+        "<math><annotation-xml encoding='text/plain'><svg><foreignObject>"
+        "<script/>const equal = a === b;</script>"
+        "</foreignObject></svg></annotation-xml></math>",
+        "<svg><foreignObject><math><mi><script/>const equal = a === b;</script>"
+        "</mi></math></foreignObject></svg>",
+        "<math><mtext><div><mglyph><script/>const equal = a === b;</script>"
+        "</mglyph></div></mtext></math>",
+    ],
+)
+def test_nested_foreign_elements_keep_their_inherited_namespace(html: str) -> None:
+    _assert_streaming_output(html + "\n===after===", html + "\nafter")
+
+
+@pytest.mark.parametrize("literal", ["`<math>`", "\\<math>", "<!--<math>-->"])
+def test_literal_mathml_does_not_change_later_html_raw_text(literal: str) -> None:
+    html = "<script/>const equal = a === b;</script>"
+    _assert_streaming_output(
+        literal + "\n" + html + "\n===after===", literal + "\n" + html + "\nafter"
+    )
+
+
 @pytest.mark.parametrize(
     "literal",
     [

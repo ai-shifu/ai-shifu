@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from itertools import chain
 from string import punctuation
 from typing import TYPE_CHECKING
@@ -611,6 +612,40 @@ def _tag_end(text: str, start: int) -> int | None:
     return None
 
 
+class _AnnotationEncoding(HTMLParser):
+    """Read annotation-xml's effective encoding using the standard HTML attribute parser."""
+
+    html_children = False
+
+    def handle_starttag(self, _tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Honor the first encoding attribute, as the HTML tokenizer does."""
+        for name, value in attrs:
+            if name == "encoding":
+                self.html_children = (value or "").lower() in (
+                    "text/html",
+                    "application/xhtml+xml",
+                )
+                break
+
+
+@dataclass
+class _ForeignElement:
+    """One explicit namespace scope under an SVG or MathML ancestor."""
+
+    name: str
+    namespace: str
+    html_integration: bool = False
+    text_integration: bool = False
+
+
+def _opens_raw_text(tag: str, namespace: str, self_closing: bool) -> bool:
+    """Keep HTML raw-text behavior while honoring foreign self-closing elements."""
+    return tag in _RAW_TEXT_END and not (
+        namespace != "html"
+        and (self_closing or (namespace == "svg" and tag == "title"))
+    )
+
+
 class _MarkerCleaner:
     """Stream markers away, stopping only at reference labels needing future definitions."""
 
@@ -667,29 +702,81 @@ class _MarkerCleaner:
         self._line_indent = 0
         self._html_block_tag: str | None = None
         self._html_block_depth = 0
-        # Track only SVG roots and its HTML integration points, independently of
-        # the visual's outer HTML root (which may be a div containing the SVG).
-        self._svg_context: list[str] = []
+        # Namespace scopes are independent of the visual's outer HTML root.
+        # Ordinary HTML outside an SVG or MathML ancestor needs no element stack.
+        self._foreign_context: list[_ForeignElement] = []
 
-    def _track_svg_namespace(
-        self, name: str, *, opening: bool, self_closing: bool
-    ) -> bool:
-        """Return this element's SVG namespace and update the scoped SVG context."""
-        in_svg = bool(self._svg_context and self._svg_context[-1] == "svg")
+    def _foreign_namespace(self, name: str) -> str:
+        """Apply the SVG and MathML integration-point rules to one explicit child."""
+        namespace = "html"
+        if self._foreign_context:
+            parent = self._foreign_context[-1]
+            namespace = parent.namespace
+            if (
+                parent.html_integration
+                or (parent.text_integration and name not in ("mglyph", "malignmark"))
+                or (
+                    namespace == "math"
+                    and parent.name == "annotation-xml"
+                    and name == "svg"
+                )
+            ):
+                namespace = "html"
+        return name if namespace == "html" and name in ("svg", "math") else namespace
+
+    def _track_foreign_namespace(
+        self, name: str, source: str, *, opening: bool, self_closing: bool
+    ) -> str:
+        """Track only explicit namespace scopes while a foreign ancestor is open."""
+        namespace = self._foreign_namespace(name)
         if opening:
-            if name == "svg":
-                in_svg = True
-                if not self_closing:
-                    self._svg_context.append(name)
-            elif in_svg and name in ("foreignobject", "desc", "title"):
-                if not self_closing:
-                    self._svg_context.append(name)
+            if not self._foreign_context and namespace == "html":
+                return namespace
+            html_void = namespace == "html" and name in (
+                "area",
+                "base",
+                "br",
+                "col",
+                "embed",
+                "hr",
+                "img",
+                "input",
+                "link",
+                "meta",
+                "param",
+                "source",
+                "track",
+                "wbr",
+            )
+            if not (
+                (self_closing and namespace != "html")
+                or html_void
+                or _opens_raw_text(name, namespace, self_closing)
+            ):
+                html_integration = namespace == "svg" and name in (
+                    "foreignobject",
+                    "desc",
+                    "title",
+                )
+                if namespace == "math" and name == "annotation-xml":
+                    annotation = _AnnotationEncoding()
+                    annotation.feed(source)
+                    html_integration = annotation.html_children
+                self._foreign_context.append(
+                    _ForeignElement(
+                        name,
+                        namespace,
+                        html_integration,
+                        namespace == "math"
+                        and name in ("mi", "mo", "mn", "ms", "mtext"),
+                    )
+                )
         else:
-            for index in range(len(self._svg_context) - 1, -1, -1):
-                if self._svg_context[index] == name:
-                    del self._svg_context[index:]
+            for index in range(len(self._foreign_context) - 1, -1, -1):
+                if self._foreign_context[index].name == name:
+                    del self._foreign_context[index:]
                     break
-        return in_svg
+        return namespace
 
     def _emit(self, out: list[str], source: str, *, prose: bool = False) -> None:
         """Track the output line position, including HTML wrapped in removed markers."""
@@ -1091,12 +1178,11 @@ class _MarkerCleaner:
                     break
                 # This opener has full-turn CommonMark block provenance, even
                 # when its container prefix or attributes are not inline HTML.
-                in_svg = bool(self._svg_context and self._svg_context[-1] == "svg")
-                if not (in_svg and text[start:end].endswith("/>")):
-                    self._raw_tag = (
-                        text[start + 1 : end].split(maxsplit=1)[0].rstrip(">").lower()
-                    )
-                    self._raw_block = not in_svg
+                raw_tag = text[start + 1 : end].split(maxsplit=1)[0].rstrip(">").lower()
+                namespace = self._foreign_namespace(raw_tag)
+                if _opens_raw_text(raw_tag, namespace, text[start:end].endswith("/>")):
+                    self._raw_tag = raw_tag
+                    self._raw_block = namespace == "html"
                 self._emit(out, "<" + text[start + 1 : end])
                 index = end
                 continue
@@ -1312,8 +1398,11 @@ class _MarkerCleaner:
             if match is not None:
                 name = match.group(1).lower()
                 self_closing = text[start:end].endswith("/>")
-                in_svg = self._track_svg_namespace(
-                    name, opening=tag is not None, self_closing=self_closing
+                namespace = self._track_foreign_namespace(
+                    name,
+                    text[start:end],
+                    opening=tag is not None,
+                    self_closing=self_closing,
                 )
                 self_closing_svg = tag == "svg" and self_closing
                 if self._html_block_tag == name and not self_closing_svg:
@@ -1336,8 +1425,8 @@ class _MarkerCleaner:
                     self._html_block_depth = 1
                     self._labels.clear()
             leading_metadata = match is None and self._at_line_start
-            opens_raw_text = tag in _RAW_TEXT_END and not (
-                in_svg and (self_closing or tag == "title")
+            opens_raw_text = tag in _RAW_TEXT_END and _opens_raw_text(
+                tag, namespace, self_closing
             )
             if opens_raw_text:
                 self._raw_block = (
