@@ -3641,3 +3641,43 @@ def test_prepared_html_feedback_is_saved_before_any_typed_content(
         )
         assert not any(event.type == GeneratedType.INTERACTION for event in events)
     assert len([name for name, _ in calls if name == "record_content"]) == 1
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("scheme", ["git+ssh", "example.v1"])
+@pytest.mark.parametrize("ending", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_native_uri_autolinks_keep_typed_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    scheme: str,
+    ending: str,
+) -> None:
+    """Keep URI source beside prose and HTML in both delivery and saved history."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    autolink = f"<{scheme}://example/a===b?literal=!===>"
+    visual = "<div><script>const equal = a === b;</script></div>"
+    lesson = ending.join([f"===Before=== {autolink}", "", visual, "", "===After==="])
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert visual in "".join(text for text, kind, _ in parts if kind == "html")
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    expected = lesson.replace("===Before===", "Before").replace("===After===", "After")
+    for content in (delivered, saved):
+        assert content == expected

@@ -332,3 +332,85 @@ def test_invalid_info_in_quoted_prose_uses_native_inline_rules() -> None:
 def test_invalid_opener_text_inside_a_real_fence_stays_literal(newline: str) -> None:
     code = newline.join(["```js", "```bad`info", "===literal===", "```", ""])
     _assert_streaming_output(code + "===After===", code + "After")
+
+
+@pytest.mark.parametrize("ending", ["\n", "\r\n"], ids=["lf", "crlf"])
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "git+ssh://example/a===b",
+        "foo.bar:!===payload===",
+        "AB:a===b",
+        "a" * 32 + ":a===b",
+        "a0+.-://example/a!===b===",
+        "https://example/a===b",
+        r"git+ssh://example/a`[x]\!===b===",
+        "git+ssh://example/\u00a0===body===",
+        "data:image/png;base64,a===b",
+        "ab:",
+    ],
+)
+def test_native_uri_autolinks_keep_source_across_stream_chunks(
+    uri: str, ending: str
+) -> None:
+    """Native schemes and URI punctuation stay literal in classified prose."""
+    source = f"===before=== <{uri}> ===after==={ending}"
+    _assert_streaming_output(source, f"before <{uri}> after{ending}")
+    _assert_streaming_output(f"===before==={ending}<{uri}>", f"before{ending}<{uri}>")
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "<x:a===b>",
+        "<1ab:a===b>",
+        "<git_ssh:a===b>",
+        "<" + "a" * 33 + ":a===b>",
+        "<git+ssh://a===b c>",
+        "<git+ssh://a===b\tc>",
+        "<git+ssh://a===b\nc>",
+        "<git+ssh://a===b\x1fc>",
+        "<git+ssh://a===b<c>",
+        "<git+ssh://a===b",
+        "<javascript:alert(===body===)>",
+        "<vbscript:alert(===body===)>",
+        "<file:a===b>",
+        "<data:===body===>",
+    ],
+)
+def test_rejected_uri_autolinks_keep_native_prose_cleanup(source: str) -> None:
+    """Malformed, incomplete and rejected URI candidates remain ordinary prose."""
+    _assert_streaming_output(
+        source + " ===after===", source.replace("===", "") + " after"
+    )
+
+
+@pytest.mark.parametrize("ending", ["\n", "\r\n"], ids=["lf", "crlf"])
+@pytest.mark.parametrize(
+    "source",
+    [
+        "[docs][<script>] ===before===\n\n[<script>]: /url\n\n"
+        "<git+ssh://example/a===b> ===after===",
+        "<git+ssh://example/a===b> ===before===\n\n"
+        "[docs][<script>] ===after===\n\n[<script>]: /url",
+        "![===caption=== <git+ssh://example/a===b>](/img) ===after===",
+        "![<script>===caption===</script> <git+ssh://example/a===b>](/img) ===after===",
+        "![===caption=== <git+ssh://example/a===b>][pic] ===after===\n\n[pic]: /img",
+        "![outer ![<script>===caption=== <git+ssh://example/a===b>](/inner)]"
+        "(/outer) ===after===",
+        '[outer <git+ssh://example/a===b>](url "<script>") ===after===',
+    ],
+)
+def test_native_uri_autolinks_keep_source_in_images_and_reference_paragraphs(
+    source: str, ending: str
+) -> None:
+    """Image descriptions and deferred references use the same native URI grammar."""
+    source = source.replace("\n", ending)
+    expected = (
+        source.replace("===before===", "before")
+        .replace("===after===", "after")
+        .replace("===caption===", "caption")
+    )
+    _assert_streaming_output(source + ending, expected + ending)
+    if ending == "\n":
+        _assert_streaming_output(source, expected)
