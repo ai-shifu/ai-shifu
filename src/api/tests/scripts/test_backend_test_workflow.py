@@ -71,6 +71,7 @@ def _select_targets(changed_paths: list[str], tmp_path: Path) -> dict[str, str]:
         ),
         (["src/api/requirements.txt"], "tests", "--testmon-noselect"),
         (["src/api/requirements-ci.txt"], "tests", "--testmon-noselect"),
+        (["ruff.toml"], "tests", "--testmon-noselect"),
         (["src/api/flaskr/route/user.py"], "tests", "--testmon-noselect"),
         ([".github/workflows/backend-tests.yml"], "tests", "--testmon-noselect"),
         (
@@ -137,6 +138,43 @@ def test_pr_changes_select_the_required_pytest_mode(
         expected_flag,
         *expected_targets.split(),
     ]
+
+
+@pytest.mark.parametrize(
+    ("changed_path", "expected_run"),
+    [
+        ("ruff.toml", "true"),
+        (".github/workflows/backend-tests.yml", "true"),
+        ("src/api/flaskr/route/user.py", "true"),
+        ("src/web/package.json", "false"),
+        ("README.md", "false"),
+    ],
+)
+def test_backend_change_detection_covers_policy_inputs(
+    tmp_path: Path, changed_path: str, expected_run: str
+) -> None:
+    script = _workflow_script("Detect backend changes").replace(
+        "/tmp/backend-changed-files.txt",  # noqa: S108 - rewrite workflow source only
+        str(tmp_path / "changed-files.txt"),
+    )
+    output_file = tmp_path / "github_output"
+    result = subprocess.run(
+        ["bash", "-e", "-c", 'git() { printf "%s\\n" "$CHANGED_PATH"; }\n' + script],
+        cwd=REPO_ROOT,
+        env={
+            **os.environ,
+            "EVENT_NAME": "pull_request",
+            "BASE_SHA": "base",
+            "HEAD_SHA": "head",
+            "CHANGED_PATH": changed_path,
+            "GITHUB_OUTPUT": str(output_file),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert output_file.read_text(encoding="utf-8") == f"run={expected_run}\n"
 
 
 def test_pr_control_plane_only_changes_still_skip_backend_tests(tmp_path: Path) -> None:
