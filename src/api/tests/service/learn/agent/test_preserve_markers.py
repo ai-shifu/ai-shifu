@@ -1962,6 +1962,57 @@ def test_html_integration_points_restore_text_only_parent_semantics(
     _assert_streaming_output(text, expected)
 
 
+@pytest.mark.parametrize("replay", [False, True], ids=["stream", "full-replay"])
+@pytest.mark.parametrize(
+    ("namespace", "parent"),
+    [
+        ("svg", "textarea"),
+        ("svg", "iframe"),
+        ("svg", "xmp"),
+        ("svg", "noembed"),
+        ("svg", "noframes"),
+        ("math", "textarea"),
+        ("math", "iframe"),
+        ("math", "xmp"),
+        ("math", "noembed"),
+        ("math", "noframes"),
+        ("math", "title"),
+    ],
+)
+def test_foreign_text_parent_names_keep_real_script_and_style_children(
+    namespace: str, parent: str, replay: bool
+) -> None:
+    prefix = "[docs][<script>] ===before===\n\n[<script>]: /url\n\n" if replay else ""
+    visual = (
+        f"<{namespace}><{parent}><script>const equal = a === b;</script>"
+        f'<style>p::after {{ content: "==="; }}</style></{parent}></{namespace}>'
+    )
+    _assert_streaming_output(
+        prefix + visual + "\n===after===",
+        prefix.replace("===before===", "before") + visual + "\nafter",
+    )
+
+
+@pytest.mark.parametrize("parent", ["textarea", "title"])
+@pytest.mark.parametrize(
+    ("opening", "closing"),
+    [
+        ("<svg><foreignObject>", "</foreignObject></svg>"),
+        ("<svg><title>", "</title></svg>"),
+        ("<math><mtext>", "</mtext></math>"),
+    ],
+)
+def test_foreign_integration_points_keep_html_text_parent_bodies_literal(
+    opening: str, closing: str, parent: str
+) -> None:
+    text = (
+        f"{opening}<{parent}><script>===literal===</script></{parent}>"
+        f"<script>const equal = a === b;</script>{closing}\n===after==="
+    )
+    expected = text.replace("===literal===", "literal").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
+
+
 @pytest.mark.parametrize("namespace", ["svg", "math"])
 @pytest.mark.parametrize(
     "tag",

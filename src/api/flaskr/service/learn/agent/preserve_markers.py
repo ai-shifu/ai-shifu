@@ -710,14 +710,9 @@ class _ForeignElement:
 
 
 def _opens_raw_text(tag: str, namespace: str, self_closing: bool) -> bool:
-    """Keep HTML raw-text behavior while honoring foreign self-closing elements."""
-    return tag in _RAW_TEXT_END and not (
-        namespace != "html"
-        and (
-            tag in ("noscript", "plaintext")
-            or self_closing
-            or (namespace == "svg" and tag == "title")
-        )
+    """Only foreign script/style bodies need raw-code protection."""
+    return tag in _RAW_TEXT_END and (
+        namespace == "html" or (tag in ("script", "style") and not self_closing)
     )
 
 

@@ -1945,6 +1945,54 @@ def test_html_text_parents_keep_literal_tags_out_of_scripts_in_delivery_and_hist
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 @pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
 @pytest.mark.parametrize(
+    ("namespace", "parent"),
+    [("svg", "textarea"), ("svg", "iframe"), ("math", "title")],
+    ids=["svg-textarea", "svg-iframe", "math-title"],
+)
+def test_foreign_text_parent_names_keep_real_child_scripts_in_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    namespace: str,
+    parent: str,
+) -> None:
+    """Foreign elements with HTML text-parent names still have real child tags."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = (
+        f"<div><{namespace}><{parent}><script>const equal = a === b;</script>"
+        '<style>.node::after { content: "==="; }</style>'
+        f"</{parent}></{namespace}></div>"
+    )
+    lesson = f"===Before===\n\n{visual}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    visual_kind = "svg" if namespace == "svg" else "html"
+    assert visual in "".join(text for text, kind, _ in parts if kind == visual_kind)
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert visual in content
+        assert "===Before===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
     ("opening", "closing"),
     [
         ("<svg><div>", "</div></svg>"),
