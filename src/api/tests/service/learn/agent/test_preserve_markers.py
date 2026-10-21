@@ -285,6 +285,65 @@ def test_html_lookalikes_do_not_protect_prose(text: str, expected: str) -> None:
 
 
 @pytest.mark.parametrize(
+    "text",
+    [
+        'Explain <span title="unfinished ===after===',
+        "Explain <!-- unfinished ===after===",
+        "Explain <?instruction unfinished ===after===",
+        "Explain <![CDATA[unfinished ===after===",
+        'Explain <script data-note="unfinished ===after===',
+        "Explain </svg ===after===",
+        '<span title="unfinished ===after===',
+        'Explain <span title="unfinished\nmore ===after===',
+        'Explain <span title="unfinished `a === b` ===after===',
+        "Paragraph\n12. <!-- unfinished ===after===",
+    ],
+)
+def test_unfinished_inline_html_is_replayed_as_literal_markdown(text: str) -> None:
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("opener", ["<!-- unfinished ", "<?instruction ", "<![CDATA["])
+def test_literal_unfinished_html_can_be_followed_by_a_real_script(opener: str) -> None:
+    text = f"Explain {opener}<script>const equal = a === b;</script> ===after==="
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        '<div title="unfinished ===attribute===',
+        '<script data-note="unfinished ===attribute===',
+        '<style data-note="unfinished ===attribute===',
+        '<textarea data-note="unfinished ===attribute===',
+        '<title data-note="unfinished ===attribute===',
+        "<!-- unfinished ===attribute===",
+        "<?instruction unfinished ===attribute===",
+        "<![CDATA[unfinished ===attribute===",
+        "<!DOCTYPE html unfinished ===attribute===",
+        "> <!-- unfinished ===attribute===",
+        '- <div title="unfinished ===attribute===',
+        'Intro <svg title="unfinished ===attribute===',
+        '<div>Intro <span title="unfinished ===attribute===',
+        '<svg><g></g><span title="unfinished ===attribute===',
+        "<script>const equal = a === b; </scr",
+        '<style>.node { content: "==="; } </sty',
+    ],
+)
+def test_unfinished_real_html_keeps_its_original_source(html: str) -> None:
+    _assert_streaming_output(html, html)
+
+
+def test_unfinished_inline_html_preserves_the_prefix_already_streamed() -> None:
+    marker_filter = PreserveMarkerFilter()
+    prefix = marker_filter.feed("Explain ")
+    assert prefix == "Explain "
+    assert marker_filter.feed('<span title="unfinished ===after===') == ""
+    assert prefix + marker_filter.flush() == 'Explain <span title="unfinished after'
+    assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize(
     "opaque",
     [
         "<![CDATA[<script> a === b > <style>]]>",

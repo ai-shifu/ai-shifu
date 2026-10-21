@@ -1734,6 +1734,51 @@ def test_valid_image_alt_keeps_delivery_and_history_out_of_raw_html(
 
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    "unfinished",
+    [
+        '<span title="unfinished',
+        "<!-- unfinished",
+        "<!-- unfinished <script>const equal = a === b;</script>",
+    ],
+    ids=["tag", "comment", "comment-before-real-script"],
+)
+def test_unfinished_inline_html_is_cleaned_at_turn_end_before_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    unfinished: str,
+) -> None:
+    """An unfinished inline tag or comment ends as literal lesson text."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    lesson = f"===Before=== Explain {unfinished} ===After==="
+    expected = lesson.replace("===Before===", "Before").replace("===After===", "After")
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert expected in content
+        assert "===Before===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 def test_the_closing_sentence_comes_before_the_question_it_leads_to(
     monkeypatch: pytest.MonkeyPatch, listen: bool
 ) -> None:

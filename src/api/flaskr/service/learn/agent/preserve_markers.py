@@ -36,6 +36,8 @@ from markdown_it.rules_inline.html_inline import html_inline as parse_inline_htm
 from markdown_it.rules_inline.image import image as parse_image
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from markdown_it.rules_inline.state_inline import StateInline
     from markdown_it.token import Token
 
@@ -763,16 +765,44 @@ class _MarkerCleaner:
             self._released_some_of_line = True
         return "".join(out)
 
-    def flush(self) -> str:
+    def flush(self, source: str = "") -> str:
         """Release what was held back, because no more text is coming."""
-        out = [self._flush_buffer()]
+        html_blocks: list[tuple[int, int]] | None = None
+
+        def keep_html_tail(tail: str) -> bool:
+            nonlocal html_blocks
+            if (
+                self._raw_tag is not None
+                or self._html_block_tag is not None
+                or tail[:1] in self._raw_block_openers
+            ):
+                return True
+            head = _HTML_TAG_HEAD.match(tail)
+            if (
+                head is not None
+                and head.group(1).lower() == "svg"
+                and not tail.startswith("</")
+            ):
+                # The downstream formatter recognizes SVG after introductory prose too.
+                return True
+            if html_blocks is None:
+                html_blocks = [
+                    (token.map[0], token.map[1])
+                    for token in MarkdownIt("commonmark").parse(source)
+                    if token.type == "html_block" and token.map is not None
+                ]
+            prefix = source[: len(source) - len(tail)]
+            line = prefix.replace("\r\n", "\n").replace("\r", "\n").count("\n")
+            return any(first <= line < last for first, last in html_blocks)
+
+        out = [self._flush_buffer(keep_html_tail)]
         while not self.needs_references and (
             self._inline_tail or self._replay_source is not None
         ):
             if self._replay_source is not None:
                 replay, self._replay_source = self._replay_source, None
                 out.append(self.feed(replay))
-                out.append(self._flush_buffer())
+                out.append(self._flush_buffer(keep_html_tail))
                 continue
             # An unmatched opener is ordinary Markdown text. Replay its remainder
             # so real HTML, later code spans, and whole-line fences still work.
@@ -782,7 +812,7 @@ class _MarkerCleaner:
             self._emit(out, pending[:opening_end])
             self._released_some_of_line = True
             out.append(self.feed(pending[opening_end:]))
-            out.append(self._flush_buffer())
+            out.append(self._flush_buffer(keep_html_tail))
         return "".join(out)
 
     def _pending_opener_end(self, pending: str) -> int:
@@ -808,7 +838,7 @@ class _MarkerCleaner:
                 break
             label.active = False
 
-    def _flush_buffer(self) -> str:
+    def _flush_buffer(self, keep_html_tail: Callable[[str], bool]) -> str:
         """Finish buffered source, allowing a code span to close at end of stream."""
         whole_line = not self._released_some_of_line
         tail, self._line = self._line, ""
@@ -825,8 +855,15 @@ class _MarkerCleaner:
             if self._fence or (whole_line and self._starts_indented_code(tail))
             else self._filter_html(tail, final=True)
         )
-        # An unfinished tag is still source text, not a MarkdownFlow marker.
         html_tail, self._html_tail = self._html_tail, ""
+        if html_tail and not keep_html_tail(html_tail):
+            # An unfinished inline tag is literal Markdown. Release just its first
+            # character so later code spans and real HTML are replayed normally.
+            released = [out]
+            self._emit(released, html_tail[:1])
+            self._replay_source = html_tail[1:]
+            self._released_some_of_line = True
+            return "".join(released)
         return out + html_tail
 
     def _inside_literal(self) -> bool:
@@ -1410,7 +1447,12 @@ class PreserveMarkerFilter:
         """Use actual definitions to distinguish reference metadata from real HTML."""
         if self._finished:
             return ""
-        out = "" if self._cleaner.needs_references else self._cleaner.flush()
+        original_source = "".join(self._source)
+        out = (
+            ""
+            if self._cleaner.needs_references
+            else self._cleaner.flush(original_source)
+        )
         if self._cleaner.needs_references:
             if self._reference_offset is None:
                 self._reference_offset = (
@@ -1424,7 +1466,7 @@ class PreserveMarkerFilter:
                 raw_block_openers,
                 inline_boundaries,
                 image_restore,
-            ) = _reference_replay_source("".join(self._source), self._reference_offset)
+            ) = _reference_replay_source(original_source, self._reference_offset)
             cleaner = _MarkerCleaner(
                 references,
                 restore,
@@ -1433,7 +1475,9 @@ class PreserveMarkerFilter:
                 inline_boundaries,
                 image_restore,
             )
-            complete = (cleaner.feed(source) + cleaner.flush()).translate(restore)
+            complete = (
+                cleaner.feed(source) + cleaner.flush(original_source)
+            ).translate(restore)
             emitted = "".join(self._emitted)
             if not complete.startswith(emitted):
                 message = "Reference replay changed text already streamed"
