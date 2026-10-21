@@ -45,7 +45,7 @@ jobs:
           fi
 
           git diff --name-only "$BASE_SHA...$HEAD_SHA" > /tmp/backend-changed-files.txt
-          if grep -Eq '^(\.github/workflows/backend-tests\.yml$|src/api/)' /tmp/backend-changed-files.txt; then
+          if grep -Eq '^(ruff\.toml$|\.github/workflows/backend-tests\.yml$|src/api/)' /tmp/backend-changed-files.txt; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -225,6 +225,7 @@ jobs:
 
           for path in changed:
               if path in {
+                  "ruff.toml",
                   ".github/workflows/backend-tests.yml",
                   "src/api/requirements.txt",
                   "src/api/requirements-ci.txt",
