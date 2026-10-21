@@ -449,3 +449,43 @@ def test_a_new_html_block_interrupts_an_unmatched_inline_opener(
         "Use ` unmatched\n" + html + "\n===after===\n",
         "Use ` unmatched\n" + expected_html + "\nafter\n",
     )
+
+
+@pytest.mark.parametrize("blank", ["", " ", "\t"], ids=["empty", "space", "tab"])
+def test_a_blank_line_interrupts_an_unmatched_inline_opener(blank: str) -> None:
+    text = f"Press the ` key.\n{blank}\n===Important=== Use `x`.\n"
+    expected = f"Press the ` key.\n{blank}\nImportant Use `x`.\n"
+    _assert_streaming_output(text, expected)
+
+
+def test_a_blank_line_releases_unmatched_source_before_the_stream_ends() -> None:
+    marker_filter = PreserveMarkerFilter()
+    text = "Press the ` key.\n\n===Important=== Use `x`.\n"
+    expected = "Press the ` key.\n\nImportant Use `x`.\n"
+    assert marker_filter.feed(text) == expected
+    assert marker_filter.flush() == ""
+
+
+def test_an_html_block_releases_unmatched_source_before_the_stream_ends() -> None:
+    marker_filter = PreserveMarkerFilter()
+    html = "<div><script>const equal = a === b;</script></div>\n"
+    text = "Press the ` key.\n" + html + "===after===\n"
+    expected = "Press the ` key.\n" + html + "after\n"
+    assert marker_filter.feed(text) == expected
+    assert marker_filter.flush() == ""
+
+
+def test_released_paragraphs_and_html_blocks_preserve_source_order() -> None:
+    html = "<div><script>const equal = a === b;</script></div>\n"
+    text = (
+        "Press the ` key.\n\n===First=== Use `x`.\n\n"
+        "Press the `` key.\n" + html + "===Last===\n"
+    )
+    expected = (
+        "Press the ` key.\n\nFirst Use `x`.\n\nPress the `` key.\n" + html + "Last\n"
+    )
+    _assert_streaming_output(text, expected)
+    for chunks in ([text], list(text)):
+        marker_filter = PreserveMarkerFilter()
+        assert "".join(marker_filter.feed(chunk) for chunk in chunks) == expected
+        assert marker_filter.flush() == ""

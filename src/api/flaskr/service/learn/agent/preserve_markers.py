@@ -59,12 +59,12 @@ def _run_end(text: str, start: int) -> int:
 def _code_span_end(
     text: str, start: int, scanned: int | None, *, final: bool
 ) -> tuple[int | None, int | None]:
-    """Pair backticks; a None scan offset means an HTML block forced an unmatched opener."""
+    """Pair backticks; a None scan offset means a block forced an unmatched opener."""
     if scanned is None:
         return None, None
     opening_end = _run_end(text, start)
     width = opening_end - start
-    # Inline code cannot consume a following HTML block. Revisit the previous
+    # Inline code cannot cross a paragraph break or consume an HTML block. Revisit the previous
     # chunk's last line too: its opening tag may only now have become complete.
     newline = text.rfind("\n", start, start + scanned)
     if newline < 0:
@@ -73,10 +73,12 @@ def _code_span_end(
     while newline >= 0:
         line_start = newline + 1
         newline = text.find("\n", line_start)
-        line = _MARKERS.sub("", text[line_start : newline if newline >= 0 else None])
+        raw_line = text[line_start : newline if newline >= 0 else None]
+        line = _MARKERS.sub("", raw_line)
         candidate = line.lstrip(" \t")
         if (
-            block_html_open_re.match(line)
+            (newline >= 0 and not raw_line.strip(" \t"))
+            or block_html_open_re.match(line)
             or _HTML_ROOT_HEAD.match(candidate)
             or _HTML_DOCTYPE_HEAD.match(candidate)
             or candidate.startswith("<!--")
@@ -92,7 +94,7 @@ def _code_span_end(
         if closing.end() - closing.start() == width:
             return closing.end(), 0
     if boundary < len(text):
-        # Flush replays unmatched source through the line/fence parser too.
+        # The caller replays unmatched source through the line/fence parser too.
         return None, None
     return None, len(text) - start
 
@@ -145,19 +147,34 @@ class PreserveMarkerFilter:
         if not text:
             return ""
         out: list[str] = []
-        self._line += text
-        while "\n" in self._line:
-            line, self._line = self._line.split("\n", 1)
-            out.append(self._complete_line(line))
-            self._released_some_of_line = False
-        head, held = self._split_partial(self._line)
-        self._line = held
-        if head:
+        while True:
+            self._line += text
+            while "\n" in self._line:
+                line, self._line = self._line.split("\n", 1)
+                out.append(self._complete_line(line))
+                self._released_some_of_line = False
+                if self._inline_scanned is None:
+                    break
+            if self._inline_scanned is not None:
+                head, held = self._split_partial(self._line)
+                self._line = held
+                if head:
+                    self._released_some_of_line = True
+                    if self._fence:
+                        self._emit(out, head)
+                    else:
+                        out.append(self._filter_html(head))
+            if self._inline_scanned is not None or not self._inline_tail:
+                break
+            # A block boundary proves the opener is unmatched. Replay now so
+            # streaming resumes, keeping any held marker/fence suffix last.
+            pending, self._inline_tail = self._inline_tail, ""
+            self._inline_scanned = 0
+            opening_end = _run_end(pending, 0)
+            self._emit(out, pending[:opening_end])
+            text = pending[opening_end:] + self._line
+            self._line = ""
             self._released_some_of_line = True
-            if self._fence:
-                self._emit(out, head)
-            else:
-                out.append(self._filter_html(head))
         return "".join(out)
 
     def flush(self) -> str:

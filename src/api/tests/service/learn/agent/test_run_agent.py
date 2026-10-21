@@ -1547,8 +1547,12 @@ def test_verbatim_markers_never_reach_the_learner(
 @pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
 @pytest.mark.parametrize(
     "prose",
-    ["===Before===", r"Use `<script>` and \<style> literally. ===Before==="],
-    ids=["plain-prose", "literal-html-tags"],
+    [
+        "===Before===",
+        r"Use `<script>` and \<style> literally. ===Before===",
+        "Press the ` key.\n\n===Before=== Use `x`.",
+    ],
+    ids=["plain-prose", "literal-html-tags", "unmatched-backtick-paragraph"],
 )
 def test_html_script_operators_survive_delivery_and_persistence(
     monkeypatch: pytest.MonkeyPatch,
