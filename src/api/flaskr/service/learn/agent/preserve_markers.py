@@ -75,7 +75,7 @@ _HTML_RAW_BLOCK_HEAD = re.compile(
 _HTML_OPAQUE = {"<!--": "-->", "<![CDATA[": "]]>", "<?": "?>"}
 # Raw-text and RCDATA bodies cannot open nested HTML elements. Only script/style
 # contain code; other text-only elements still have prose markers removed.
-_RAW_TEXT_END = {
+_RAW_TEXT_END: dict[str, re.Pattern[str] | None] = {
     tag: re.compile(rf"</{tag}(?=[\s/>])", re.IGNORECASE)
     for tag in (
         "script",
@@ -86,8 +86,11 @@ _RAW_TEXT_END = {
         "xmp",
         "noembed",
         "noframes",
+        "noscript",
     )
 }
+# HTML plaintext consumes text until EOF, including any apparent closing tag.
+_RAW_TEXT_END["plaintext"] = None
 _PROSE_SPECIAL = re.compile(r"[<`\\\[\]]")
 _BACKTICKS = re.compile(r"`+")
 
@@ -651,7 +654,11 @@ def _opens_raw_text(tag: str, namespace: str, self_closing: bool) -> bool:
     """Keep HTML raw-text behavior while honoring foreign self-closing elements."""
     return tag in _RAW_TEXT_END and not (
         namespace != "html"
-        and (self_closing or (namespace == "svg" and tag == "title"))
+        and (
+            tag in ("noscript", "plaintext")
+            or self_closing
+            or (namespace == "svg" and tag == "title")
+        )
     )
 
 
@@ -1123,7 +1130,11 @@ class _MarkerCleaner:
                     else text
                 )
                 prose = self._raw_tag not in ("script", "style")
-                match = _RAW_TEXT_END[self._raw_tag].search(raw_text, index)
+                closer_re = _RAW_TEXT_END[self._raw_tag]
+                if closer_re is None:
+                    self._emit(out, raw_text[index:], prose=prose)
+                    break
+                match = closer_re.search(raw_text, index)
                 if match is None:
                     # Keep only a possible closing-tag prefix; stream all other code.
                     last_lt = raw_text.rfind("<", index)

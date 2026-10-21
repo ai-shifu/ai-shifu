@@ -1891,3 +1891,72 @@ def test_actual_html_visual_has_priority_over_parser_image_metadata() -> None:
     _assert_streaming_output(
         text, prefix.replace("===before===", "before") + visual + "after\n"
     )
+
+
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_noscript_text_ignores_nested_raw_looking_tags_with_scripting_enabled(
+    tag: str,
+) -> None:
+    text = f"<noscript>===body===<{tag}>fallback</noscript>\n===after==="
+    expected = text.replace("===body===", "body").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
+
+
+def test_noscript_requires_its_own_complete_closing_tag() -> None:
+    text = (
+        "<noscript><script>===one===</noscripture>===two===</NoScript>"
+        "<script>const equal = a === b;</script>===after==="
+    )
+    expected = text.replace("===one===", "one").replace("===two===", "two")
+    _assert_streaming_output(text, expected.replace("===after===", "after"))
+
+
+def test_plaintext_ignores_even_its_own_apparent_closer_until_end_of_stream() -> None:
+    text = (
+        "<plaintext><script>===one===</plaintext><style>===two===</style>\n===after==="
+    )
+    expected = text.replace("===one===", "one").replace("===two===", "two")
+    _assert_streaming_output(text, expected.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("parent", ["noscript", "plaintext"])
+def test_unclosed_text_parents_keep_cleaning_literal_html_text(parent: str) -> None:
+    text = f"<{parent}><script>===body===</{parent[:3]}"
+    _assert_streaming_output(text, text.replace("===body===", "body"))
+
+
+@pytest.mark.parametrize("parent", ["noscript", "plaintext"])
+def test_self_closing_html_text_parents_still_have_text_only_bodies(
+    parent: str,
+) -> None:
+    text = f"<{parent}/><script>===body===</{parent}>\n===after==="
+    expected = text.replace("===body===", "body").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize("namespace", ["svg", "math"])
+@pytest.mark.parametrize("parent", ["noscript", "plaintext"])
+def test_foreign_text_parent_names_do_not_hide_real_script_or_style_children(
+    namespace: str, parent: str
+) -> None:
+    visual = (
+        f"<{namespace}><{parent}><script>const equal = a === b;</script>"
+        f'<style>p::after {{ content: "==="; }}</style></{parent}></{namespace}>'
+    )
+    _assert_streaming_output(visual + "\n===after===", visual + "\nafter")
+
+
+@pytest.mark.parametrize(
+    ("opening", "closing"),
+    [
+        ("<svg><foreignObject>", "</foreignObject></svg>"),
+        ("<math><mtext>", "</mtext></math>"),
+    ],
+)
+@pytest.mark.parametrize("parent", ["noscript", "plaintext"])
+def test_html_integration_points_restore_text_only_parent_semantics(
+    opening: str, closing: str, parent: str
+) -> None:
+    text = f"{opening}<{parent}><script>===body===</{parent}>{closing}\n===after==="
+    expected = text.replace("===body===", "body").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
