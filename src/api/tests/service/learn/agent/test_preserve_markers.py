@@ -1339,3 +1339,107 @@ def test_container_raw_html_blocks_end_unmatched_inline_candidates(prefix: str) 
 def test_container_raw_block_attributes_can_continue_on_the_next_line() -> None:
     text = "> <script\n> =>const equal = a === b;</script>\n===after===\n"
     _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize(
+    "block",
+    [
+        "# ===Important=== `x`\n",
+        "- ===Important=== `x`\n",
+        "1. ===Important=== `x`\n",
+        "> ===Important=== `x`\n",
+        "***\n===Important=== `x`\n",
+        "---\n===Important=== `x`\n",
+        "===\n===Important=== `x`\n",
+    ],
+    ids=[
+        "atx",
+        "bullet",
+        "ordered",
+        "quote",
+        "thematic",
+        "setext-dash",
+        "setext-equal",
+    ],
+)
+def test_markdown_blocks_end_an_unmatched_code_span(block: str) -> None:
+    text = "Press the ` key.\n" + block
+    expected = text.replace("===Important===", "Important").replace("\n===\n", "\n\n")
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize(
+    "continuation",
+    [
+        "#not-heading ===literal=== `x`\n",
+        "####### heading ===literal=== `x`\n",
+        "    # heading ===literal=== `x`\n",
+        "2. item ===literal=== `x`\n",
+        "+ \n===literal=== `x`\n",
+    ],
+)
+def test_potential_block_starts_can_continue_the_same_code_span(
+    continuation: str,
+) -> None:
+    text = "Use `code\n" + continuation
+    _assert_streaming_output(text, text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "> Use `code\n> ordinary ===literal=== `x`\n",
+        "> Use `code\nlazy ===literal=== `x`\n",
+        "Use `code\nordinary ===literal=== `x`\n---\n",
+    ],
+)
+def test_inline_spans_within_a_single_parser_block_remain_paired(text: str) -> None:
+    _assert_streaming_output(text, text)
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_body"),
+    [
+        ("`a === b` ===after===\n", "`a === b` after\n"),
+        (
+            '[===label===](url "<style>") ===after===\n',
+            '[label](url "<style>") after\n',
+        ),
+        (
+            "<script>a === b;</script> ===after===\n",
+            "<script>a === b;</script> after\n",
+        ),
+        (
+            "<textarea>===body===</textarea> ===after===\n",
+            "<textarea>body</textarea> after\n",
+        ),
+        (r"\<script> ===after===" + "\n", r"\<script> after" + "\n"),
+    ],
+    ids=["code", "link", "script", "textarea", "escape"],
+)
+def test_a_new_paragraph_keeps_its_original_inline_opener(
+    body: str, expected_body: str
+) -> None:
+    prefix = "Press the ` key.\n***\n"
+    _assert_streaming_output(prefix + body, prefix + expected_body)
+
+
+def test_a_heading_ends_unmatched_link_metadata() -> None:
+    text = '[broken](url "pending\n# ===Important=== `x`\n'
+    _assert_streaming_output(text, text.replace("===Important===", "Important"))
+
+
+def test_a_list_child_heading_can_have_more_than_three_source_indent_columns() -> None:
+    text = "- text ` key\n    # ===Heading=== `x`\n"
+    _assert_streaming_output(text, text.replace("===Heading===", "Heading"))
+
+
+def test_real_raw_html_keeps_priority_over_parser_inline_boundaries() -> None:
+    html = "[<script>]const eq = a === b;\n***\n===literal===\n</script>\n"
+    _assert_streaming_output(html + "===after===\n", html + "after\n")
+
+
+def test_a_matched_inline_span_without_block_candidates_streams_immediately() -> None:
+    marker_filter = PreserveMarkerFilter()
+    assert marker_filter.feed("Use `a === b` ===after===\n") == "Use `a === b` after\n"
+    assert marker_filter.flush() == ""
