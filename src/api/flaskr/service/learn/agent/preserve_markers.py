@@ -1135,7 +1135,7 @@ class _MarkerCleaner:
                 elif (
                     self._html_block_tag is None
                     and not self_closing_svg
-                    and self._at_line_start
+                    and (self._at_line_start or tag == "svg")
                     and tag not in _RAW_TEXT_END
                     and tag is not None
                     and (

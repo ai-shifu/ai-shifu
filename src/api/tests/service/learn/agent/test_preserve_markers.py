@@ -1015,16 +1015,25 @@ def test_definition_metadata_inside_text_only_html_keeps_prose_marker_cleanup(
 @pytest.mark.parametrize(
     "svg", ['<svg viewBox="0 0 1 1" />', '<SVG viewBox="0 0 1 1"/>']
 )
-def test_a_self_closing_svg_does_not_disable_following_markdown(svg: str) -> None:
+@pytest.mark.parametrize("prefix", ["", "Intro "])
+def test_a_self_closing_svg_does_not_disable_following_markdown(
+    svg: str, prefix: str
+) -> None:
     markdown = "Use `<script>` literally. ===after===\n"
     _assert_streaming_output(
-        svg + "\n" + markdown,
-        svg + "\n" + markdown.replace("===after===", "after"),
+        prefix + svg + "\n" + markdown,
+        prefix + svg + "\n" + markdown.replace("===after===", "after"),
     )
 
 
-def test_a_nested_self_closing_svg_does_not_keep_the_outer_svg_open() -> None:
-    svg = '<svg>\n<svg viewBox="0 0 1 1" />\n<text>===caption===</text>\n</svg>\n'
+@pytest.mark.parametrize("prefix", ["", "Intro "])
+def test_a_nested_self_closing_svg_does_not_keep_the_outer_svg_open(
+    prefix: str,
+) -> None:
+    svg = (
+        prefix
+        + '<svg>\n<svg viewBox="0 0 1 1" />\n<text>===caption===</text>\n</svg>\n'
+    )
     markdown = "Use `<script>` literally. ===after===\n"
     expected = svg.replace("===caption===", "caption") + markdown.replace(
         "===after===", "after"
@@ -1033,6 +1042,43 @@ def test_a_nested_self_closing_svg_does_not_keep_the_outer_svg_open() -> None:
     marker_filter = PreserveMarkerFilter()
     assert marker_filter.feed(svg + markdown) == expected
     assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize("prefix", ["Intro ", "===Intro=== "])
+@pytest.mark.parametrize(
+    "body",
+    [
+        "<g></g><script =>const equal = a === b;</script>\n",
+        "<g></g>`<script =>const label = `value`; const equal = a === b;</script>\n"
+        '\\<style =>.node::after { content: "==="; }</style>\n',
+    ],
+    ids=["recoverable-script-attributes", "literal-backtick-and-backslash"],
+)
+def test_svg_after_inline_prose_keeps_its_html_body(prefix: str, body: str) -> None:
+    svg = prefix + "<svg>\n" + body + "</svg>\n"
+    markdown = "Use `<script>` literally. ===after===\n"
+    expected = svg.replace("===Intro===", "Intro") + markdown.replace(
+        "===after===", "after"
+    )
+    _assert_streaming_output(svg + markdown, expected)
+
+
+@pytest.mark.parametrize(
+    "literal",
+    [
+        "Intro `<svg>` literally.\n",
+        "Intro \\<svg> literally.\n",
+        "Intro <!--<svg>--> literally.\n",
+        "```html\nIntro <svg>\n```\n",
+        "<textarea>Intro <svg></textarea>\n",
+    ],
+    ids=["inline-code", "escaped", "comment", "fenced-code", "text-only-html"],
+)
+def test_literal_svg_tags_do_not_open_an_html_visual(literal: str) -> None:
+    markdown = "Explain <script => literally. ===after===\n"
+    _assert_streaming_output(
+        literal + markdown, literal + markdown.replace("===after===", "after")
+    )
 
 
 def test_self_closing_syntax_still_opens_a_nonvoid_html_container() -> None:
