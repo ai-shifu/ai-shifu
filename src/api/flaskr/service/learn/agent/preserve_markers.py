@@ -26,6 +26,7 @@ from string import punctuation
 
 from markdown_flow.formatter.patterns import block_html_open_re, heading_re
 from markdown_it import MarkdownIt
+from markdown_it.common.html_re import HTML_OPEN_CLOSE_TAG_RE
 from markdown_it.common.utils import normalizeReference
 
 # The same shapes `markdown_flow` recognises: a fence line of `!` and three or more `=`, and the
@@ -47,6 +48,9 @@ _HTML_TAG_HEAD = re.compile(r"</?([a-zA-Z][a-zA-Z0-9:-]*)(?=[\s/>])")
 _HTML_TAG_PREFIX = re.compile(r"</?[a-zA-Z][a-zA-Z0-9:-]*$")
 _HTML_DOCTYPE_HEAD = re.compile(r"<!DOCTYPE(?=[\s>])", re.IGNORECASE)
 _HTML_ROOT_HEAD = re.compile(r"<(?:html|body|svg)(?=[\s>/])", re.IGNORECASE)
+_HTML_RAW_BLOCK_HEAD = re.compile(
+    r"<(?:script|style|textarea)(?=[\s>]|$)", re.IGNORECASE
+)
 _HTML_OPAQUE = {"<!--": "-->", "<![CDATA[": "]]>", "<?": "?>"}
 # Raw-text and RCDATA bodies cannot open nested HTML elements. Only script/style
 # contain code; other text-only elements still have prose markers removed.
@@ -832,6 +836,21 @@ class _MarkerCleaner:
             if end is None:
                 self._html_tail = fragment
                 break
+            if (
+                tag in _RAW_TEXT_END
+                and self._html_block_tag is None
+                and not HTML_OPEN_CLOSE_TAG_RE.fullmatch(text[start:end])
+                and not (
+                    self._at_line_start
+                    and self._line_indent <= 3
+                    and _HTML_RAW_BLOCK_HEAD.match(fragment)
+                )
+            ):
+                # Inline HTML requires valid attributes. HTML blocks and visuals instead
+                # reach the browser as raw source, including recoverable malformed tags.
+                self._emit(out, "<")
+                index = start + 1
+                continue
             if match is not None:
                 name = match.group(1).lower()
                 self_closing_svg = tag == "svg" and text[start:end].endswith("/>")

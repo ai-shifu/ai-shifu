@@ -180,6 +180,70 @@ def test_script_attributes_do_not_end_or_nest_the_raw_text_tag(opening: str) -> 
 
 
 @pytest.mark.parametrize(
+    "opening",
+    [
+        "<script =>",
+        "<script a= >",
+        "<script value=`bad`>",
+        "<script / >",
+        "<style =>",
+        "<textarea =>",
+        "<title =>",
+        "<iframe =>",
+    ],
+)
+def test_invalid_inline_raw_text_openers_do_not_hide_prose_markers(
+    opening: str,
+) -> None:
+    """Markdown renders malformed inline tags as ordinary lesson text."""
+    text = f"Explain {opening} literally. ===after==="
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("indent", ["    ", "\t"])
+def test_a_malformed_tag_in_an_indented_paragraph_continuation_is_literal(
+    indent: str,
+) -> None:
+    text = f"Paragraph\n{indent}<script => literal\n===after==="
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("parent", ["textarea", "title"])
+def test_a_literal_parent_opener_does_not_hide_a_later_real_script(parent: str) -> None:
+    text = (
+        f"Explain <{parent} =><script>const equal = a === b;</{parent}> "
+        "===source===</script> ===after==="
+    )
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("prefix", ["", "   ", "==="])
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_raw_html_blocks_allow_browser_recoverable_attribute_syntax(
+    prefix: str, tag: str
+) -> None:
+    """CommonMark's script/style blocks do not require valid inline attributes."""
+    html = f"<{tag} =>const equal = a === b;</{tag}>\n"
+    _assert_streaming_output(
+        prefix + html + "===after===", prefix.strip("=") + html + "after"
+    )
+
+
+def test_a_malformed_textarea_block_still_ignores_fake_nested_script_tags() -> None:
+    text = "<textarea =><script>literal ===body===</textarea>\n===after==="
+    expected = text.replace("===body===", "body").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_html_visuals_preserve_scripts_with_browser_recoverable_attributes(
+    tag: str,
+) -> None:
+    html = f"<div>\n    <{tag} =>const equal = a === b;</{tag}>\n</div>\n"
+    _assert_streaming_output(html + "===after===", html + "after")
+
+
+@pytest.mark.parametrize(
     ("text", "expected"),
     [
         (
