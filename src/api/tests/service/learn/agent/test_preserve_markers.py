@@ -489,3 +489,16 @@ def test_released_paragraphs_and_html_blocks_preserve_source_order() -> None:
         marker_filter = PreserveMarkerFilter()
         assert "".join(marker_filter.feed(chunk) for chunk in chunks) == expected
         assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_an_inline_opener_cannot_pair_with_backticks_inside_a_code_fence(
+    fence: str,
+) -> None:
+    code = f"{fence}js\nconst x = `foo`; a === b;\n{fence}\n"
+    text = "Press the ` key.\n" + code + "===after===\n"
+    expected = "Press the ` key.\n" + code + "after\n"
+    _assert_streaming_output(text, expected)
+    marker_filter = PreserveMarkerFilter()
+    assert marker_filter.feed(text) == expected
+    assert marker_filter.flush() == ""

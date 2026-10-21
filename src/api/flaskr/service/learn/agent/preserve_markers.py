@@ -64,7 +64,7 @@ def _code_span_end(
         return None, None
     opening_end = _run_end(text, start)
     width = opening_end - start
-    # Inline code cannot cross a paragraph break or consume an HTML block. Revisit the previous
+    # Inline code cannot cross a paragraph break or consume a code/HTML block. Revisit the previous
     # chunk's last line too: its opening tag may only now have become complete.
     newline = text.rfind("\n", start, start + scanned)
     if newline < 0:
@@ -78,6 +78,7 @@ def _code_span_end(
         candidate = line.lstrip(" \t")
         if (
             (newline >= 0 and not raw_line.strip(" \t"))
+            or _CODE_FENCE_OPEN.match(raw_line)
             or block_html_open_re.match(line)
             or _HTML_ROOT_HEAD.match(candidate)
             or _HTML_DOCTYPE_HEAD.match(candidate)
