@@ -1544,6 +1544,49 @@ def test_verbatim_markers_never_reach_the_learner(
 
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+def test_html_script_operators_survive_delivery_and_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+) -> None:
+    """Interactive HTML must keep its JavaScript in live pages and saved history."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = (
+        '<div><button id="nextBtn">Next</button><script>'
+        "const isPick = (candidate === selected);"
+        'document.getElementById("nextBtn").onclick = () => isPick;'
+        "</script></div>"
+    )
+    lesson = f"===Before===\n\n{visual}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert visual in "".join(text for text, kind, _ in parts if kind == "html")
+    delivered = "".join(text for text, _, _ in parts)
+    assert "===Before===" not in delivered
+    assert "===After===" not in delivered
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    assert visual in saved
+    assert "===Before===" not in saved
+    assert "===After===" not in saved
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 def test_the_closing_sentence_comes_before_the_question_it_leads_to(
     monkeypatch: pytest.MonkeyPatch, listen: bool
 ) -> None:

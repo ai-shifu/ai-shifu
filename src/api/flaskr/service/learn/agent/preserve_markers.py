@@ -14,7 +14,7 @@ Text arrives in chunks that can split a marker, so a trailing run of `=` that co
 one is held back until the next chunk, or released as it is when the turn ends. A line that could
 still turn out to be a fence -- a code fence, or a `!===` line -- is held whole until its end, since
 that is a decision about the line, not about a fragment of it. Code is passed through as it is:
-`a === b` inside a fence is an operator, not a marker.
+`a === b` inside a fence or an HTML script is an operator, not a marker.
 """
 
 from __future__ import annotations
@@ -35,6 +35,26 @@ _MARKERS = re.compile(r"!?={3,}")
 _MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]|^[ \t]*!?=*$")
 # The tail of an unfinished line that may still become a marker once more text arrives.
 _PARTIAL_TAIL = re.compile(r"!?=*$")
+_HTML_TAG_HEAD = re.compile(r"</?([a-zA-Z][a-zA-Z0-9:-]*)(?=[\s/>])")
+_HTML_TAG_PREFIX = re.compile(r"</?[a-zA-Z][a-zA-Z0-9:-]*$")
+_RAW_TEXT_END = {
+    tag: re.compile(rf"</{tag}(?=[\s/>])", re.IGNORECASE) for tag in ("script", "style")
+}
+
+
+def _tag_end(text: str, start: int) -> int | None:
+    """Find an HTML tag's end without treating a quoted '>' as its end."""
+    quote: str | None = None
+    for index in range(start, len(text)):
+        char = text[index]
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char == ">":
+            return index + 1
+    return None
 
 
 class PreserveMarkerFilter:
@@ -46,6 +66,9 @@ class PreserveMarkerFilter:
         self._released_some_of_line = False
         # The fence that opened the code block we are in: its character and length, or None.
         self._fence: tuple[str, int] | None = None
+        self._raw_tag: str | None = None
+        # A tag/comment or raw-text closing tag may be split between chunks.
+        self._html_tail = ""
 
     def feed(self, text: str) -> str:
         """Return `text` with markers removed, less any tail that might still become one."""
@@ -61,17 +84,18 @@ class PreserveMarkerFilter:
         self._line = held
         if head:
             self._released_some_of_line = True
-            out.append(head if self._fence else _MARKERS.sub("", head))
+            out.append(head if self._fence else self._filter_html(head))
         return "".join(out)
 
     def flush(self) -> str:
         """Release what was held back, because no more text is coming."""
         tail, self._line = self._line, ""
         self._released_some_of_line = False
-        if not tail:
-            return ""
         # A fragment that never became a marker is text, and is shown as it is.
-        return tail if self._fence else _MARKERS.sub("", tail)
+        out = tail if self._fence else self._filter_html(tail)
+        # An unfinished tag is still source text, not a MarkdownFlow marker.
+        html_tail, self._html_tail = self._html_tail, ""
+        return out + html_tail
 
     def _complete_line(self, line: str) -> str:
         whole_line = not self._released_some_of_line
@@ -79,17 +103,82 @@ class PreserveMarkerFilter:
             if whole_line and self._closes_fence(line):
                 self._fence = None
             return line + "\n"
-        if whole_line:
+        in_html = self._raw_tag is not None or bool(self._html_tail)
+        if whole_line and not in_html:
             opening = _CODE_FENCE_OPEN.match(line)
             if opening:
                 run = opening.group(1)
                 self._fence = (run[0], len(run))
                 return line + "\n"
-        if whole_line and _FENCE_LINE.match(line):
+        if whole_line and not in_html and _FENCE_LINE.match(line):
             # The fence line itself: not content. Its newline goes too, or every fenced block
             # would gain a blank line.
             return ""
-        return _MARKERS.sub("", line) + "\n"
+        return self._filter_html(line + "\n")
+
+    def _filter_html(self, text: str) -> str:
+        """Strip prose markers while copying HTML source and raw text unchanged."""
+        text = self._html_tail + text
+        self._html_tail = ""
+        out: list[str] = []
+        index = 0
+        while index < len(text):
+            if self._raw_tag is not None:
+                match = _RAW_TEXT_END[self._raw_tag].search(text, index)
+                if match is None:
+                    # Keep only a possible closing-tag prefix; stream all other code.
+                    last_lt = text.rfind("<", index)
+                    closer = f"</{self._raw_tag}"
+                    if last_lt >= index and closer.startswith(text[last_lt:].lower()):
+                        out.append(text[index:last_lt])
+                        self._html_tail = text[last_lt:]
+                    else:
+                        out.append(text[index:])
+                    break
+                end = _tag_end(text, match.end())
+                if end is None:
+                    out.append(text[index : match.start()])
+                    self._html_tail = text[match.start() :]
+                    break
+                out.append(text[index:end])
+                self._raw_tag = None
+                index = end
+                continue
+
+            start = text.find("<", index)
+            if start < 0:
+                out.append(_MARKERS.sub("", text[index:]))
+                break
+            out.append(_MARKERS.sub("", text[index:start]))
+            fragment = text[start:]
+            if fragment.startswith("<!--"):
+                end = text.find("-->", start + 4)
+                end = end + 3 if end >= 0 else None
+                tag = None
+            else:
+                match = _HTML_TAG_HEAD.match(text, start)
+                if match is None:
+                    if (
+                        fragment in ("<", "</")
+                        or "<!--".startswith(fragment)
+                        or _HTML_TAG_PREFIX.fullmatch(fragment)
+                    ):
+                        self._html_tail = fragment
+                        break
+                    out.append("<")
+                    index = start + 1
+                    continue
+                end = _tag_end(text, match.end())
+                tag = match.group(1).lower() if not fragment.startswith("</") else None
+            if end is None:
+                self._html_tail = fragment
+                break
+            out.append(text[start:end])
+            if tag in _RAW_TEXT_END:
+                # In HTML, <script/> still opens a non-void raw-text element.
+                self._raw_tag = tag
+            index = end
+        return "".join(out)
 
     def _split_partial(self, text: str) -> tuple[str, str]:
         """Split an unfinished line into what can go out now and what must wait."""

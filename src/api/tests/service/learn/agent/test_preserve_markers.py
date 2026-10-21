@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import random
 
+import pytest
 from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 
 
@@ -119,3 +120,141 @@ def test_the_output_is_the_same_wherever_the_stream_is_cut() -> None:
     # The operator inside the code fence survives; the markers around prose do not.
     assert "a === b" in whole
     assert "===kept===" not in whole
+
+
+def _from_chunks(chunks: list[str]) -> str:
+    marker_filter = PreserveMarkerFilter()
+    return (
+        "".join(marker_filter.feed(chunk) for chunk in chunks) + marker_filter.flush()
+    )
+
+
+def _assert_streaming_output(text: str, expected: str) -> None:
+    """Check each two-part cut, single-character delivery, and sampled model chunks."""
+    for cut in range(len(text) + 1):
+        assert _from_chunks([text[:cut], text[cut:]]) == expected, f"cut at {cut}"
+    assert _from_chunks(list(text)) == expected, "single-character chunks"
+    for seed in range(10):
+        assert _through(text, seed) == expected, f"seed {seed}"
+
+
+@pytest.mark.parametrize(
+    ("tag", "body"),
+    [
+        ("script", "const isPick = (candidate === selected);"),
+        ("style", '.candidate::after { content: "===selected==="; }'),
+    ],
+)
+def test_html_raw_text_preserves_code_and_filters_neighboring_prose(
+    tag: str, body: str
+) -> None:
+    text = f"===before===<{tag}>{body}</{tag}>===after==="
+    expected = f"before<{tag}>{body}</{tag}>after"
+    _assert_streaming_output(text, expected)
+
+
+def test_raw_text_ends_before_another_block_on_the_same_line() -> None:
+    text = (
+        "===before===<script>const equal = a === b;</script>"
+        '===between===<style>p::after { content: "==="; }</style>===after==='
+    )
+    expected = (
+        "before<script>const equal = a === b;</script>"
+        'between<style>p::after { content: "==="; }</style>after'
+    )
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize(
+    "opening",
+    [
+        '<ScRiPt type="text/javascript" data-note="> <style>">',
+        "<script data-note='> <style>'>",
+        '<script\n type="text/javascript"\n data-note="a > b">',
+    ],
+    ids=["mixed-case-double-quotes", "single-quotes", "multiline-attributes"],
+)
+def test_script_attributes_do_not_end_or_nest_the_raw_text_tag(opening: str) -> None:
+    protected = opening + "const equal = a === b;</sCrIpT>"
+    _assert_streaming_output(protected + "===after===", protected + "after")
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "<!-- <script> -->===after===",
+            "<!-- <script> -->after",
+        ),
+        (
+            "<!--\n<script>\n-->===after===",
+            "<!--\n<script>\n-->after",
+        ),
+        (
+            '<div title="<script>">===body===</div>===after===',
+            '<div title="<script>">body</div>after',
+        ),
+        (
+            "<div title='<style>'>===body===</div>===after===",
+            "<div title='<style>'>body</div>after",
+        ),
+        (
+            "<scripture>===body===</scripture>===after===",
+            "<scripture>body</scripture>after",
+        ),
+        (
+            "&lt;script&gt;===body===&lt;/script&gt;===after===",
+            "&lt;script&gt;body&lt;/script&gt;after",
+        ),
+    ],
+    ids=[
+        "comment",
+        "multiline-comment",
+        "double-quoted-attribute",
+        "single-quoted-attribute",
+        "longer-tag-name",
+        "escaped-tag",
+    ],
+)
+def test_html_lookalikes_do_not_protect_prose(text: str, expected: str) -> None:
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_html_inside_a_markdown_code_fence_does_not_leak_raw_text_state(
+    fence: str,
+) -> None:
+    code = f"{fence}html\n<script>const equal = a === b;\n{fence}\n"
+    _assert_streaming_output(code + "===after===\n", code + "after\n")
+
+
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_markdown_fences_and_marker_lines_inside_raw_text_are_literal(tag: str) -> None:
+    protected = f"<{tag}>\n```\n!===\na === b\n~~~\n</{tag}>\n"
+    _assert_streaming_output(protected + "===after===\n", protected + "after\n")
+
+
+@pytest.mark.parametrize(
+    "protected",
+    [
+        '<script>const equal = a === b; const unfinished = "===',
+        "<script>const equal = a === b;</scr",
+        '<style>p::after { content: "===',
+        '<style>p::after { content: "==="; }</sty',
+    ],
+    ids=["script-body", "script-close-prefix", "style-body", "style-close-prefix"],
+)
+def test_unclosed_raw_text_is_preserved_when_the_stream_ends(protected: str) -> None:
+    _assert_streaming_output(protected, protected)
+
+
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_raw_text_closing_tag_requires_a_name_boundary(tag: str) -> None:
+    protected = f"<{tag}>a === b;</{tag}ure>c === d;</{tag}>"
+    _assert_streaming_output(protected + "===after===", protected + "after")
+
+
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_html_self_closing_syntax_still_opens_nonvoid_raw_text(tag: str) -> None:
+    protected = f"<{tag}/>a === b;</{tag}>"
+    _assert_streaming_output(protected + "===after===", protected + "after")
