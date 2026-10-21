@@ -1693,6 +1693,47 @@ def test_self_closing_svg_raw_elements_keep_delivery_and_history_in_sync(
 
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+def test_valid_image_alt_keeps_delivery_and_history_out_of_raw_html(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+) -> None:
+    """HTML-looking image alt text stays prose before the lesson's real HTML visual."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    image = "![<script>===Alt===](image.png) ===Image==="
+    visual = (
+        '<div><button id="nextBtn">Next</button><script>'
+        "const equal = a === b;</script></div>"
+    )
+    lesson = "===Before===\n\n" + image + "\n\n" + visual + "\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert visual in "".join(text for text, kind, _ in parts if kind == "html")
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert "![<script>Alt](image.png) Image" in content
+        assert visual in content
+        for marker in ("===Before===", "===Alt===", "===Image===", "===After==="):
+            assert marker not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 def test_the_closing_sentence_comes_before_the_question_it_leads_to(
     monkeypatch: pytest.MonkeyPatch, listen: bool
 ) -> None:

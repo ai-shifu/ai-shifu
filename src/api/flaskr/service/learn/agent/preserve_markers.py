@@ -26,11 +26,18 @@ import re
 from dataclasses import dataclass
 from itertools import chain
 from string import punctuation
+from typing import TYPE_CHECKING
 
 from markdown_flow.formatter.patterns import block_html_open_re, heading_re
 from markdown_it import MarkdownIt
 from markdown_it.common.html_re import HTML_OPEN_CLOSE_TAG_RE
 from markdown_it.common.utils import normalizeReference
+from markdown_it.rules_inline.html_inline import html_inline as parse_inline_html
+from markdown_it.rules_inline.image import image as parse_image
+
+if TYPE_CHECKING:
+    from markdown_it.rules_inline.state_inline import StateInline
+    from markdown_it.token import Token
 
 # The same shapes `markdown_flow` recognises: a fence line of `!` and three or more `=`, and the
 # inline tokens `!===` and `===`.
@@ -267,6 +274,80 @@ def _reference_name(label: str) -> str:
     return normalizeReference(_MARKERS.sub("", label))
 
 
+def _image_with_alt_range(state: StateInline, silent: bool) -> bool:
+    """Keep the native image rule's confirmed alt bounds in its own inline source."""
+    start = state.pos
+    matched = parse_image(state, silent)
+    if matched and not silent:
+        token = state.tokens[-1]
+        token.meta["marker_alt_range"] = (start + 2, start + 2 + len(token.content))
+    return matched
+
+
+def _html_with_source_range(state: StateInline, silent: bool) -> bool:
+    """Keep native HTML token bounds so image attributes stay opaque to Markdown."""
+    start = state.pos
+    matched = parse_inline_html(state, silent)
+    if matched and not silent:
+        state.tokens[-1].meta["marker_html_range"] = (start, state.pos)
+    return matched
+
+
+def _image_html_positions(
+    token: Token, source_lines: list[str], offsets: list[int]
+) -> dict[int, str]:
+    """Map confirmed image metadata through each physical line's container prefix."""
+    ranges: list[tuple[int, int]] = []
+    opaque_ranges: list[tuple[int, int]] = []
+
+    def collect_html(children: list[Token], base: int) -> None:
+        for child in children:
+            if child.type == "html_inline":
+                start, end = child.meta["marker_html_range"]
+                opaque_ranges.append((base + start, base + end))
+            elif child.type == "image":
+                start, _ = child.meta["marker_alt_range"]
+                collect_html(child.children or [], base + start)
+
+    for child in token.children or ():
+        if child.type == "image":
+            start, end = child.meta["marker_alt_range"]
+            ranges.append((start, end))
+            collect_html(child.children or [], start)
+    if not ranges or token.map is None:
+        return {}
+    opaque_ranges.sort()
+    positions: dict[int, str] = {}
+    range_index = opaque_index = content_offset = 0
+    for index, line in enumerate(token.content.splitlines(keepends=True), token.map[0]):
+        # Block parsing strips quote/list prefixes and can leave virtual tab indentation.
+        leading = len(line) - len(line.lstrip(" \t"))
+        body = line[leading:].rstrip("\r\n")
+        raw_line = source_lines[index].replace("\x00", "\ufffd")
+        column = raw_line.rfind(body)
+        if column >= 0:
+            for match in re.finditer(r"[<`~\\\[\]!=]", line):
+                position = content_offset + match.start()
+                while range_index < len(ranges) and ranges[range_index][1] <= position:
+                    range_index += 1
+                if range_index == len(ranges):
+                    return positions
+                while (
+                    opaque_index < len(opaque_ranges)
+                    and opaque_ranges[opaque_index][1] <= position
+                ):
+                    opaque_index += 1
+                opaque = (
+                    opaque_index < len(opaque_ranges)
+                    and opaque_ranges[opaque_index][0] <= position
+                )
+                if ranges[range_index][0] <= position and (match[0] == "<" or opaque):
+                    source_position = offsets[index] + column + match.start() - leading
+                    positions[source_position] = match[0]
+        content_offset += len(line)
+    return positions
+
+
 def _reference_replay_source(
     source: str, mask_start: int
 ) -> tuple[
@@ -276,12 +357,16 @@ def _reference_replay_source(
     frozenset[str],
     frozenset[str],
     frozenset[str],
+    dict[int, str],
 ]:
     """Protect parser-confirmed source and boundaries only after the suffix that stopped streaming."""
     parser = MarkdownIt("commonmark", {"inline_definitions": True})
+    parser.inline.ruler.at("image", _image_with_alt_range)
+    parser.inline.ruler.at("html_inline", _html_with_source_range)
     tokens = parser.parse(source)
+    source_lines = source.splitlines(keepends=True)
     offsets = [0]
-    for line in source.splitlines(keepends=True):
+    for line in source_lines:
         offsets.append(offsets[-1] + len(line))
     present = set(source)
     candidates = chain(
@@ -294,6 +379,10 @@ def _reference_replay_source(
         char: chr(next(code for code in candidates if chr(code) not in present))
         for char in "<`~\\[]!="
     }
+    image_masks = {
+        char: chr(next(code for code in candidates if chr(code) not in present))
+        for char in masks
+    }
     protected = list(source)
     names: set[str] = set()
     block_restore: dict[int, str] = {}
@@ -305,6 +394,14 @@ def _reference_replay_source(
             continue
         first, last = token.map
         start, end = offsets[first], offsets[min(last, len(offsets) - 1)]
+        if token.type == "inline":
+            # Image HTML contributes only alt text. Preserve opaque tag attributes,
+            # while leaving the alt's visible prose markers available for cleanup.
+            for position, char in _image_html_positions(
+                token, source_lines, offsets
+            ).items():
+                if position >= mask_start:
+                    protected[position] = image_masks[char]
         if token.type in ("code_block", "fence"):
             for pos in range(max(start, mask_start), end):
                 if protected[pos] in masks:
@@ -361,6 +458,8 @@ def _reference_replay_source(
             if char in masks and (pos > label_end or char not in "!="):
                 protected[pos] = masks[char]
     restore = {ord(mask): char for char, mask in masks.items()}
+    image_restore = {ord(mask): char for char, mask in image_masks.items()}
+    restore.update(image_restore)
     restore.update(block_restore)
     return (
         "".join(protected),
@@ -369,6 +468,7 @@ def _reference_replay_source(
         frozenset(code_boundaries),
         frozenset(raw_block_openers),
         frozenset(inline_boundaries),
+        image_restore,
     )
 
 
@@ -519,6 +619,7 @@ class _MarkerCleaner:
         code_boundaries: frozenset[str] = frozenset(),
         raw_block_openers: frozenset[str] = frozenset(),
         inline_boundaries: frozenset[str] = frozenset(),
+        image_restore: dict[int, str] | None = None,
     ) -> None:
         """Start with nothing buffered and no code fence open."""
         self._line = ""
@@ -543,13 +644,15 @@ class _MarkerCleaner:
         self._code_boundaries = code_boundaries
         self._raw_block_openers = raw_block_openers
         self._inline_boundaries = inline_boundaries
+        self._image_restore = image_restore or {}
+        image_characters = {chr(code) for code in self._image_restore}
         self._prose_special = (
             re.compile(
                 _PROSE_SPECIAL.pattern[:-1]
-                + "".join(raw_block_openers | inline_boundaries)
+                + "".join(raw_block_openers | inline_boundaries | image_characters)
                 + "]"
             )
-            if raw_block_openers or inline_boundaries
+            if raw_block_openers or inline_boundaries or image_characters
             else _PROSE_SPECIAL
         )
         self.needs_references = False
@@ -924,6 +1027,19 @@ class _MarkerCleaner:
             if start > index:
                 self._backslashes = 0
             char = text[start]
+            if ord(char) in self._image_restore:
+                if self._html_block_tag is not None:
+                    # Actual visuals outrank the block parser's image metadata.
+                    text = (
+                        text[:start]
+                        + self._image_restore[ord(char)]
+                        + text[start + 1 :]
+                    )
+                    index = start
+                    continue
+                self._emit(out, char)
+                index = start + 1
+                continue
             if char in self._inline_boundaries:
                 # Keep the first source character visible to the normal lexer:
                 # it may itself open inline code, HTML, a link, or an escape.
@@ -1068,6 +1184,12 @@ class _MarkerCleaner:
                 self._emit(out, text[start:end])
                 index = end
                 continue
+            if self._references is None and any(label.image for label in self._labels):
+                # Native image parsing decides whether this HTML-looking label is inert alt
+                # metadata, including descriptions longer than the reference-label limit.
+                self.needs_references = True
+                self.reference_tail_size = len(text) - start + len(self._line)
+                break
             fragment = text[start:]
             opaque = next(
                 (opener for opener in _HTML_OPAQUE if fragment.startswith(opener)),
@@ -1301,6 +1423,7 @@ class PreserveMarkerFilter:
                 code_boundaries,
                 raw_block_openers,
                 inline_boundaries,
+                image_restore,
             ) = _reference_replay_source("".join(self._source), self._reference_offset)
             cleaner = _MarkerCleaner(
                 references,
@@ -1308,6 +1431,7 @@ class PreserveMarkerFilter:
                 code_boundaries,
                 raw_block_openers,
                 inline_boundaries,
+                image_restore,
             )
             complete = (cleaner.feed(source) + cleaner.flush()).translate(restore)
             emitted = "".join(self._emitted)

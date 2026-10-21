@@ -1552,3 +1552,97 @@ def test_a_matched_inline_span_without_block_candidates_streams_immediately() ->
     marker_filter = PreserveMarkerFilter()
     assert marker_filter.feed("Use `a === b` ===after===\n") == "Use `a === b` after\n"
     assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize("tag", ["script", "style", "textarea"])
+def test_a_valid_image_description_keeps_html_inert_and_cleans_alt_text(
+    tag: str,
+) -> None:
+    text = f"![===caption=== <{tag}>===body===</{tag}>](/img) ===after===\n"
+    expected = text.replace("===caption===", "caption").replace("===body===", "body")
+    _assert_streaming_output(text, expected.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "![<script>][pic] ===after===\n\n[pic]: /img\n",
+        "[pic]: /img\n\n![<script>][pic] ===after===\n",
+        "![<script>][] ===after===\n\n[<script>]: /img\n",
+        "![<script>] ===after===\n\n[<script>]: /img\n",
+        "![outer ![inner <script>](/inner) <style>](/outer) ===after===\n",
+        '[outer ![<script>](/img)](url "<style>") ===after===\n',
+        "![outer [inner <script>](url)](/img) ===after===\n",
+        r"![caption \] <script>](/img) ===after===" + "\n",
+        "> ![caption\n> more <script>](/img) ===after===\n",
+        "- ![caption\n  more <script>](/img) ===after===\n",
+        "# ![caption <script>](/img) ===after===\n",
+    ],
+)
+def test_parser_confirmed_image_descriptions_do_not_open_raw_html(text: str) -> None:
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        "![<script>const eq = a === b;</script>]",
+        "![<script>const eq = a === b;</script>][missing]",
+        '![<script>const eq = a === b;</script>](url "unfinished)',
+        r"\![<script>const eq = a === b;</script>](/img)",
+        r"!\[<script>const eq = a === b;</script>](/img)",
+    ],
+)
+def test_invalid_or_escaped_images_keep_visible_html_semantics(image: str) -> None:
+    _assert_streaming_output(image + " ===after===\n", image + " after\n")
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        "`![<script> a === b;](/img)`",
+        "![`<script> ] a === b;`](/img)",
+    ],
+)
+def test_image_lookalikes_in_code_keep_code_literals(image: str) -> None:
+    _assert_streaming_output(image + " ===after===\n", image + " after\n")
+
+
+@pytest.mark.parametrize("valid", [False, True])
+def test_image_descriptions_are_not_limited_to_reference_label_length(
+    valid: bool,
+) -> None:
+    image = "![" + "long caption " * 85 + "<script>const eq = a === b;</script>]"
+    if valid:
+        image += "(/img)"
+    expected = image.replace("a === b", "a  b") if valid else image
+    _assert_streaming_output(image + " ===after===\n", expected + " after\n")
+
+
+@pytest.mark.parametrize(
+    "tag",
+    ['<script title="`">', '<script data-note="===hidden===">'],
+)
+def test_image_html_attributes_remain_opaque_while_alt_text_is_cleaned(
+    tag: str,
+) -> None:
+    image = f"![{tag}===visible===</script>](/img)"
+    text = image + " ===after=== Use `x`\n"
+    expected = image.replace("===visible===", "visible") + " after Use `x`\n"
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize("alt", ["<svg>", "<svg><script/>"])
+def test_image_alt_cannot_open_an_svg_visual(alt: str) -> None:
+    text = f"![{alt}](/img) ===after===\nUse `<script>` literally. ===last===\n"
+    expected = text.replace("===after===", "after").replace("===last===", "last")
+    _assert_streaming_output(text, expected)
+
+
+def test_actual_html_visual_has_priority_over_parser_image_metadata() -> None:
+    prefix = "![<script>](/img) ===before===\n\n"
+    visual = "<div>\n\n![<script>const equal = a === b;</script>](/img)\n</div>\n"
+    text = prefix + visual + "===after===\n"
+    _assert_streaming_output(
+        text, prefix.replace("===before===", "before") + visual + "after\n"
+    )
