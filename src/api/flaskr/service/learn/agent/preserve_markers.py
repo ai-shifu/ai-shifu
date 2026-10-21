@@ -586,12 +586,14 @@ class PreserveMarkerFilter:
                 break
             if match is not None:
                 name = match.group(1).lower()
-                if self._html_block_tag == name:
+                self_closing_svg = tag == "svg" and text[start:end].endswith("/>")
+                if self._html_block_tag == name and not self_closing_svg:
                     self._html_block_depth += -1 if tag is None else 1
                     if self._html_block_depth == 0:
                         self._html_block_tag = None
                 elif (
                     self._html_block_tag is None
+                    and not self_closing_svg
                     and self._at_line_start
                     and tag not in _RAW_TEXT_END
                     and tag is not None

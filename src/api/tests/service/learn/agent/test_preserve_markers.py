@@ -727,3 +727,36 @@ def test_an_invalid_next_line_title_keeps_the_valid_reference_destination() -> N
 def test_a_valid_next_line_reference_title_is_preserved_at_eof() -> None:
     text = '[docs]: url\n "===title=== <script>"'
     _assert_streaming_output(text, text)
+
+
+@pytest.mark.parametrize(
+    "svg", ['<svg viewBox="0 0 1 1" />', '<SVG viewBox="0 0 1 1"/>']
+)
+def test_a_self_closing_svg_does_not_disable_following_markdown(svg: str) -> None:
+    markdown = "Use `<script>` literally. ===after===\n"
+    _assert_streaming_output(
+        svg + "\n" + markdown,
+        svg + "\n" + markdown.replace("===after===", "after"),
+    )
+
+
+def test_a_nested_self_closing_svg_does_not_keep_the_outer_svg_open() -> None:
+    svg = '<svg>\n<svg viewBox="0 0 1 1" />\n<text>===caption===</text>\n</svg>\n'
+    markdown = "Use `<script>` literally. ===after===\n"
+    expected = svg.replace("===caption===", "caption") + markdown.replace(
+        "===after===", "after"
+    )
+    _assert_streaming_output(svg + markdown, expected)
+    marker_filter = PreserveMarkerFilter()
+    assert marker_filter.feed(svg + markdown) == expected
+    assert marker_filter.flush() == ""
+
+
+def test_self_closing_syntax_still_opens_a_nonvoid_html_container() -> None:
+    html = (
+        "<div/>`<script>const label = `value`; const equal = a === b;</script></div>\n"
+    )
+    markdown = "Use `<script>` literally. ===after===\n"
+    _assert_streaming_output(
+        html + markdown, html + markdown.replace("===after===", "after")
+    )
