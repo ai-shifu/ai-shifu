@@ -139,3 +139,68 @@ def test_removed_outer_mdf_wrappers_do_not_allocate_empty_elements(
     expected = [(HTML + ending, "html", 0), ("after" + ending, "text", 1)]
     for chunks in _chunkings(source):
         assert _page(chunks, clean=True) == expected
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("Checklist [ ] ===now===\n", "Checklist [ ] now\n"),
+        ("Literal [] ===now===\n", "Literal [] now\n"),
+        (
+            "See [docs](https://example/a===b). ===Now===\n",
+            "See [docs](https://example/a===b). Now\n",
+        ),
+        (
+            r"Use `[literal] a===b` and ===now===." + "\n",
+            r"Use `[literal] a===b` and now." + "\n",
+        ),
+        (r"Escaped \[label and ===now===." + "\n", r"Escaped \[label and now." + "\n"),
+        (
+            "Use <git+ssh://example/a===b> and ===now===.\n",
+            "Use <git+ssh://example/a===b> and now.\n",
+        ),
+    ],
+)
+def test_resolved_inline_syntax_does_not_hold_later_visuals(
+    source: str, expected: str
+) -> None:
+    """A complete link/code span must release before a turn or interaction boundary."""
+    for chunks in _chunkings(source):
+        pager = LessonPager(clean_markers=True)
+        pieces = [part for chunk in chunks for part in pager.add(chunk)]
+        assert "".join(content for content, _, _ in pieces) == expected
+        assert pager.add(HTML + "\n") == [(HTML + "\n", "html", 1)]
+        assert pager.flush() == []
+
+
+def test_reference_definitions_keep_native_titles_and_resolve_later_pieces() -> None:
+    """A definition's next-line title must finish before its environment is committed."""
+    cleaner = PreserveMarkerFilter()
+    definition = '[id]: /a===b\n"===title=== cup"\n'
+    assert cleaner.feed("[id]: /a===b\n") == ""
+    assert cleaner.feed('"===title=== cup"\n') == ""
+    assert cleaner.feed("\n") == definition + "\n"
+    assert cleaner.feed(HTML + "\n") == HTML + "\n"
+    assert cleaner.feed("[===caption===][id]\n") == "[caption][id]\n"
+    assert cleaner.flush() == ""
+
+
+def test_a_forward_definition_releases_queued_prose_and_visuals_at_its_boundary() -> (
+    None
+):
+    """Only unresolved reference syntax needs to wait for later document context."""
+    cleaner = PreserveMarkerFilter()
+    assert cleaner.feed("[===caption===][id]\n") == ""
+    assert cleaner.feed(HTML + "\n") == ""
+    assert cleaner.feed("[id]: /a===b\n") == ""
+    assert cleaner.feed("\n") == f"[caption][id]\n{HTML}\n[id]: /a===b\n\n"
+    assert cleaner.feed("===after===\n") == "after\n"
+    assert cleaner.flush() == ""
+
+
+def test_an_empty_inline_link_label_waits_for_its_multiline_destination() -> None:
+    """An empty checkbox is literal, but a pending inline destination still needs its closer."""
+    cleaner = PreserveMarkerFilter()
+    assert cleaner.feed("See [](/a===b\n") == ""
+    assert cleaner.feed(") ===now===\n") == "See [](/a===b\n) now\n"
+    assert cleaner.flush() == ""

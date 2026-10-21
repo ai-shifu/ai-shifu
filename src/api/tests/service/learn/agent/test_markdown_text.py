@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import pytest
-from flaskr.service.learn.agent.markdown_text import clean_markdown_text
+from flaskr.service.learn.agent.markdown_text import (
+    analyze_markdown_text,
+    clean_markdown_text,
+)
 
 CASES = [
     ("===hello===", "hello"),
@@ -127,3 +130,49 @@ def test_a_definition_probe_keeps_leading_markers_inside_multiline_code(
         "===after===", "after"
     )
     assert not environment.get("references")
+
+
+@pytest.mark.parametrize(
+    ("source", "references", "incomplete"),
+    [
+        ("[docs](/url===value)\n", False, False),
+        ("[docs`literal](/url)\n", False, False),
+        ("![alt <span](/image)\n", False, False),
+        ("`array[0] === value`\n", False, False),
+        ("\\[literal\\] ===after===\n", False, False),
+        ("Use <span title='===attr==='>===text===</span>\n", False, False),
+        ("<xmpp:room===one>\n", False, False),
+        ("[docs][later]\n", True, False),
+        ("[later]\n", True, False),
+        ("![alt][later]\n", True, False),
+        ("`unfinished\n", False, True),
+        ("[unfinished\n", False, True),
+        ("![unfinished\n", False, True),
+        ('Explain <span title="unfinished\n', False, True),
+        ("[id]: /url\n", False, True),
+        ("[id]: /url\n\n", False, False),
+        ('[id]: /url\n "===title==="\n', False, True),
+        ('[id]: /url\n "===title==="\n\n', False, False),
+        ("===[id]: /url===value\n", False, True),
+        ("===[id]: /url===value\n\n[docs][id]\n", False, False),
+        ("[docs][id]\n\n[id]: /url\n\n", False, False),
+    ],
+)
+def test_native_analysis_distinguishes_references_from_inline_incompleteness(
+    source: str, references: bool, incomplete: bool
+) -> None:
+    result = analyze_markdown_text(source)
+    assert result.content == clean_markdown_text(source)
+    assert result.needs_references is references
+    assert result.incomplete is incomplete
+
+
+def test_native_analysis_uses_definitions_from_prior_paragraphs() -> None:
+    environment = {}
+    definition = analyze_markdown_text("[id]: /url\n\n", environment)
+    assert not definition.needs_references
+    assert not definition.incomplete
+    result = analyze_markdown_text("[===label===][id]\n", environment)
+    assert result.content == "[label][id]\n"
+    assert not result.needs_references
+    assert not result.incomplete

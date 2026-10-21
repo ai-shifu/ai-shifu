@@ -17,8 +17,14 @@ merging.
 - [x] 2026-10-21 22:18 UTC: Verified streaming, opaque source preservation, persistence
   and learning-mode regressions: 3,984 learn tests passed, 93 environment-dependent skips.
   Architecture, harness and development-tool checks passed.
-- [ ] 2026-10-21 22:01 UTC: Push, update the PR description, and converge latest-head CI
-  and review. Do not merge.
+- [x] 2026-10-21 22:21 UTC: Pushed `dd4c5cb85` and rewrote the PR description.
+- [x] 2026-10-21 22:32 UTC: All checks for `dd4c5cb85` reached terminal states:
+  14 success, one skipped publication check and one neutral Cursor review.
+- [x] 2026-10-21 22:36 UTC: Addressed the review finding that complete links held the
+  remaining stream. Native analysis now distinguishes completed inline syntax, unresolved
+  references and incomplete paragraphs; empty checkboxes cannot become references.
+- [ ] 2026-10-21 22:36 UTC: Verify and push the separate review-fix commit, then follow
+  its latest-head CI and review. Do not merge.
 
 ## Surprises & Discoveries
 
@@ -36,6 +42,13 @@ an empty displayed candidate. The latter reproduced a new 584-character teaching
 continuation being dropped before `finish`, while the old filter delivered it.
 Both are part of coordinating existing callers of the replaced cleaner.
 
+Latest-head review of `dd4c5cb85` found that treating every `[` as a possible forward
+reference stalled completed links and all subsequent visuals. Native inline rule results
+now distinguish actual unresolved candidates from complete links, code or escaped brackets.
+Committed reference environments survive across pieces, while speculative parsing uses a
+copy so a later native definition title remains intact. Empty normalized reference keys are
+rejected by the native definition grammar and must not hold checklists.
+
 ## Decision Log
 
 - 2026-10-21: The user explicitly approved treating whole HTML elements as opaque, including
@@ -51,8 +64,10 @@ The custom HTML parser has been replaced by a small native-classifier adapter. H
 code and other visuals are opaque; native Markdown protects prose metadata without rendering
 or rewriting source. Prepared feedback and narration use the same typed pipeline. Full engine
 validation passed 1,054 tests, and the focused host/marker/pagination suite passed 389 tests.
-Final learn validation passed 3,984 tests with 93 environment-dependent skips. Latest-head
-external acceptance remains tracked by PR #3150 and is pending the push. Existing follow-up PRs #3151 and #3152
+The initial learn validation passed 3,984 tests with 93 environment-dependent skips. The
+independent review fix passed the full learn suite with 4,015 tests and the same 93 skips;
+its 154 focused Markdown/marker/pagination tests also passed. Latest-head external
+acceptance remains tracked by PR #3150. Existing follow-up PRs #3151 and #3152
 remain open; evaluate their applicability after the simplified base is tested.
 
 ## Context and Orientation

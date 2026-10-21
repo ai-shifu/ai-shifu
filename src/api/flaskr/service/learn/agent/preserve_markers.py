@@ -14,7 +14,7 @@ from markdown_flow.formatter.classifier import Classifier, _State
 from markdown_flow.formatter.stream import StreamFormatter
 from markdown_flow.formatter.types import ClassifyResult, FormattedElement
 
-from .markdown_text import clean_markdown_text
+from .markdown_text import analyze_markdown_text, clean_markdown_text
 
 _PROSE = {"text", "title"}
 _PREFIX = re.compile(r"^([ \t]*)(!?={3,})")
@@ -81,6 +81,7 @@ class PreserveMarkerFormatter:
         self._last: FormattedElement | None = None
         self._pending: list[FormattedElement] = []
         self._references = False
+        self._environment: dict = {}
 
     def process(self, chunk: str) -> list[FormattedElement]:
         """Consume complete physical lines without changing their bytes."""
@@ -124,19 +125,32 @@ class PreserveMarkerFormatter:
             self._leading = ""
             self._last = element
         out: list[FormattedElement] = []
-        if self._pending and not self._references:
-            # Native prose grammar ends at a paragraph or visual boundary.
-            # Only reference candidates need a document-wide environment.
-            if not line.strip():
-                self._pending.append(element)
-                return self._drain()
-            if element.type not in _PROSE or element.type != self._pending[-1].type:
+        boundary = (
+            not line.strip()
+            or element.type not in _PROSE
+            or (self._pending and element.type != self._pending[-1].type)
+        )
+        if self._pending and boundary:
+            if self._references:
+                self._references = analyze_markdown_text(
+                    self._prose_source(), deepcopy(self._environment)
+                ).needs_references
+            if not self._references:
+                if not line.strip():
+                    self._pending.append(element)
+                    return self._drain()
                 out.extend(self._drain())
         if self._pending or (
             element.type in _PROSE and any(char in element.content for char in "`[<")
         ):
             self._pending.append(element)
-            self._references |= element.type in _PROSE and "[" in element.content
+            if element.type in _PROSE and not self._references:
+                analysis = analyze_markdown_text(
+                    self._prose_source(), deepcopy(self._environment)
+                )
+                self._references = analysis.needs_references
+                if not analysis.needs_references and not analysis.incomplete:
+                    out.extend(self._drain())
             return out
         if element.type in _PROSE:
             element.content = clean_markdown_text(element.content)
@@ -153,13 +167,7 @@ class PreserveMarkerFormatter:
             self._leading = ""
         return out + self._drain()
 
-    def _drain(self) -> list[FormattedElement]:
-        if not self._pending:
-            return []
-        out: list[FormattedElement] = []
-        # Definitions are document-wide. Native Markdown parses only classified
-        # prose; opaque pieces cannot accidentally supply reference definitions.
-        environment: dict = {}
+    def _groups(self) -> list[list[FormattedElement]]:
         groups: list[list[FormattedElement]] = []
         for element in self._pending:
             if (
@@ -171,17 +179,28 @@ class PreserveMarkerFormatter:
                 groups[-1].append(element)
             else:
                 groups.append([element])
-        prose = "\n\n".join(
+        return groups
+
+    def _prose_source(self) -> str:
+        return "\n\n".join(
             "".join(element.content for element in group)
-            for group in groups
+            for group in self._groups()
             if group[0].type in _PROSE
         )
-        clean_markdown_text(prose, environment)
+
+    def _drain(self) -> list[FormattedElement]:
+        if not self._pending:
+            return []
+        out: list[FormattedElement] = []
+        # Commit reference definitions only when the prose grammar is complete.
+        # The same environment resolves links in later, already-streamed pieces.
+        clean_markdown_text(self._prose_source(), self._environment)
+        groups = self._groups()
         for group in groups:
             first = group[0]
             source = "".join(element.content for element in group)
             content = (
-                clean_markdown_text(source, environment)
+                clean_markdown_text(source, self._environment)
                 if first.type in _PROSE
                 else source
             )
