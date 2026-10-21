@@ -68,7 +68,6 @@ from flaskr.service.learn.agent.listen import LessonVoice
 from flaskr.service.learn.agent.nickname import refresh_nickname
 from flaskr.service.learn.agent.output_language import configure_output_language
 from flaskr.service.learn.agent.pagination import LessonPager
-from flaskr.service.learn.agent.preserve_markers import PreserveMarkerFilter
 from flaskr.service.learn.agent.rewind import (
     RewindPlan,
     RewindUnavailableError,
@@ -116,7 +115,7 @@ from flaskr.service.shifu.models import PublishedOutlineItem
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Generator, Iterable
+    from collections.abc import AsyncIterator, Callable, Generator
 
     from flask import Flask
     from flaskr.service.learn.agent.debug_session import DebugSessionStore
@@ -511,7 +510,7 @@ def run_agent_lesson(
     )
     # Every mode consumes the same typed elements. Only speech depends on listening; classroom
     # and reading still need the formatter to distinguish HTML and other visuals from prose.
-    pager = LessonPager()
+    pager = LessonPager(clean_markers=True)
     try:
         if on_turn_opened is not None:
             on_turn_opened(progress_record_bid, generated_block_bid)
@@ -588,28 +587,6 @@ def _on_this_page(
                 )
                 continue
         yield event
-
-
-def _paged(
-    text: str,
-    *,
-    pager: LessonPager,
-    voice: LessonVoice | None,
-    outline_bid: str,
-    generated_block_bid: str,
-) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Send one stretch of lesson text in formatted pieces, each spoken after it is shown.
-
-    Text first and then its audio, the order a 1.0 lesson sends them in: the browser treats a
-    passage marked speakable with no audio yet as buffering and waits, so audio that arrives ahead
-    of the text it belongs to has no element to attach to.
-    """
-    yield from _pieces(
-        pager.add(text),
-        voice=voice,
-        outline_bid=outline_bid,
-        generated_block_bid=generated_block_bid,
-    )
 
 
 # How far back from the end of the narration a question may sit and still count as just asked.
@@ -854,46 +831,55 @@ def _narrated_question(
     )
 
 
-def _without_markers(
-    events: Iterable[object],
-    markers: PreserveMarkerFilter,
-    syntax: InteractionSyntaxFilter,
-    echoes: EchoedMemoryFilter,
-) -> Generator[object, None, None]:
-    """Pass the turn's events through, with the script's verbatim markers taken out of its text.
+class _NarrationSyntax:
+    """Apply narrated-interaction rules only to classified prose, preserving its identity."""
 
-    A piece that is nothing but markers, or a fragment held back until more text arrives, is not
-    passed on at all; the filter releases what it holds at the end of the turn.
-    """
-    for event in events:
-        if not isinstance(event, ContentDelta):
-            yield event
-            continue
-        text = syntax.feed(markers.feed(echoes.feed(event.text)))
-        if text or event.prepared_content is not None:
-            # Even fully buffered text carries the pre-display commit barrier.
-            # A later filter flush must not expose its correction before saving it.
-            yield (
-                event if text == event.text else event.model_copy(update={"text": text})
-            )
+    def __init__(self, syntax: InteractionSyntaxFilter) -> None:
+        """Keep the last prose identity for a suffix the syntax filter is holding."""
+        self.syntax = syntax
+        self._prose: tuple[str, int] | None = None
+
+    def process(self, pieces: list[tuple[str, str, int]]) -> list[tuple[str, str, int]]:
+        """Return typed pieces without reclassifying text after interaction removal."""
+        out: list[tuple[str, str, int]] = []
+        for content, stream_type, number in pieces:
+            if stream_type not in {"text", "title"}:
+                self.flush(out)
+                out.append((content, stream_type, number))
+                continue
+            identity = (stream_type, number)
+            if self._prose != identity:
+                self.flush(out)
+                self._prose = identity
+            text = self.syntax.feed(content)
+            if text:
+                out.append((text, stream_type, number))
+        return out
+
+    def flush(
+        self, pieces: list[tuple[str, str, int]] | None = None
+    ) -> list[tuple[str, str, int]]:
+        """Release a held suffix with the prose in this batch, preserving its identity."""
+        out = [] if pieces is None else pieces
+        text = self.syntax.flush()
+        identity, self._prose = self._prose, None
+        if text and identity is not None:
+            stream_type, number = identity
+            if out and out[-1][1:] == identity:
+                out[-1] = (out[-1][0] + text, stream_type, number)
+            else:
+                out.append((text, stream_type, number))
+        return out
 
 
-def _say(
-    text: str,
-    *,
-    pager: LessonPager,
-    voice: LessonVoice | None,
-    outline_bid: str,
-    generated_block_bid: str,
-) -> Generator[RunMarkdownFlowDTO, None, None]:
-    """Send lesson text through the shared formatter in every learning mode."""
-    yield from _paged(
-        text,
-        pager=pager,
-        voice=voice,
-        outline_bid=outline_bid,
-        generated_block_bid=generated_block_bid,
-    )
+def _prepared_lesson_text(text: str) -> str:
+    """Project complete feedback through the same typed policy before committing it."""
+    echoes = EchoedMemoryFilter()
+    text = echoes.feed(text) + echoes.flush()
+    pager = LessonPager(clean_markers=True)
+    narration = _NarrationSyntax(InteractionSyntaxFilter())
+    pieces = narration.flush(narration.process(pager.add(text) + pager.flush()))
+    return "".join(content for content, _, _ in pieces)
 
 
 def _pieces(
@@ -1033,23 +1019,17 @@ def _stream_turn(
     preview_question_ids: list[str] = []
     taught: list[str] = []
     persisted = False
-    # The script's verbatim markers come back in the engine's text; they are syntax, not lesson.
-    markers = PreserveMarkerFilter()
     # A question the model typed into its narration instead of asking for one. Held aside while
     # the turn runs: what becomes of it depends on whether the model also called the tool.
     syntax = InteractionSyntaxFilter()
+    narration = _NarrationSyntax(syntax)
     # The model's copy of the `<memory>` section it was given, written out instead of a
     # `remember` call. Input to the model, never lesson text.
     echoes = EchoedMemoryFilter()
     asked = False
     error_code = None
 
-    for event in _without_markers(
-        run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval),
-        markers,
-        syntax,
-        echoes,
-    ):
+    for event in run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval):
         if isinstance(event, ContentDelta):
             session = session_holder.get("session")
             prepared = event.prepared_content if session is not None else None
@@ -1057,12 +1037,7 @@ def _stream_turn(
                 # Structured feedback is complete and its correction is pending before
                 # any text is yielded. Commit that whole response on the host thread;
                 # a disconnect cannot restore the original answered question.
-                saved_echoes = EchoedMemoryFilter()
-                saved_markers = PreserveMarkerFilter()
-                saved_syntax = InteractionSyntaxFilter()
-                prepared = saved_echoes.feed(prepared) + saved_echoes.flush()
-                prepared = saved_markers.feed(prepared) + saved_markers.flush()
-                prepared = saved_syntax.feed(prepared) + saved_syntax.flush()
+                prepared = _prepared_lesson_text(prepared)
                 if debug_store is not None:
                     debug_store.save(session)
                     kept = True
@@ -1090,10 +1065,10 @@ def _stream_turn(
                 pending_memory = []
             if not event.text:
                 continue
-            taught.append(event.text)
-            yield from _paged(
-                event.text,
-                pager=pager,
+            pieces = narration.process(pager.add(echoes.feed(event.text)))
+            taught.extend(content for content, _, _ in pieces)
+            yield from _pieces(
+                pieces,
                 voice=voice,
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
@@ -1111,7 +1086,7 @@ def _stream_turn(
 
         if isinstance(event, (InteractionRequest, TurnDone, ErrorEvent)):
             # A question or turn boundary ends the text before it. The formatter holds the
-            # last line until it sees its end, and the marker filter a trailing fragment; released
+            # last line until it sees its end, and prose syntax may hold a fragment; released
             # only at the end of the turn, the lesson's closing sentence landed after the
             # question's controls, so the last thing in the learner's history was text rather
             # than the question -- and the browser, seeing no question to answer, asked the
@@ -1124,18 +1099,11 @@ def _stream_turn(
                 if isinstance(event, (InteractionRequest, TurnDone))
                 else ""
             )
-            tail = syntax.feed(markers.feed(echoed) + markers.flush()) + syntax.flush()
-            if tail:
-                taught.append(tail)
-                yield from _say(
-                    tail,
-                    pager=pager,
-                    voice=voice,
-                    outline_bid=outline_bid,
-                    generated_block_bid=generated_block_bid,
-                )
+            pieces = narration.process(pager.add(echoed) + pager.flush())
+            narration.flush(pieces)
+            taught.extend(content for content, _, _ in pieces)
             yield from _pieces(
-                pager.flush(),
+                pieces,
                 voice=voice,
                 outline_bid=outline_bid,
                 generated_block_bid=generated_block_bid,
@@ -1280,23 +1248,15 @@ def _stream_turn(
         # A turn that died has no `TurnDone`, so nothing above will have asked what the model
         # typed. Putting it back as text loses nothing: it is what the model wrote, and the
         # learner is being shown a failure rather than a question either way.
-        tail = (
-            syntax.feed(markers.feed(echoes.flush()) + markers.flush())
-            + syntax.flush()
-            + "".join(syntax.spans)
-        )
-        if tail:
-            taught.append(tail)
-            yield from _say(
-                tail,
-                pager=pager,
-                voice=voice,
-                outline_bid=outline_bid,
-                generated_block_bid=generated_block_bid,
-            )
-    if not persisted:
+        pieces = narration.process(pager.add(echoes.flush()) + pager.flush())
+        narration.flush(pieces)
+        # A failed turn has no interaction to promote these spans into: retain its source.
+        restored = "".join(syntax.spans)
+        if restored:
+            pieces.extend(pager.add(restored) + pager.flush())
+        taught.extend(content for content, _, _ in pieces)
         yield from _pieces(
-            pager.flush(),
+            pieces,
             voice=voice,
             outline_bid=outline_bid,
             generated_block_bid=generated_block_bid,

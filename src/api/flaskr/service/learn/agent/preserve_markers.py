@@ -1,111 +1,231 @@
-"""Strip MarkdownFlow's verbatim markers from what the engine says.
+"""Remove MDF markers from classified prose, leaving visual elements opaque.
 
-A script marks content the model must reproduce word for word with `===like this===`, or between
-`!===` fence lines. A 1.0 lesson never shows those markers: the parser recognises the block, emits
-its content as it is, and the model never sees it. The 2.0 engine hands the model the whole script
-and asks it to reproduce such content exactly -- which it does, markers included. Left in, they are
-rendered, spoken and subtitled: a listener heard "===帮助 100 万人顺利走进 AGI 时代===".
-
-The markers are the script's syntax, not the lesson's content, so they are removed here from the
-engine's text before it reaches anything that shows or speaks it, in every mode. What sits between
-them is kept, untouched.
-
-Text arrives in chunks that can split a marker, so a trailing run of `=` that could still become
-one is held back until the next chunk, or released as it is when the turn ends. A line that could
-still turn out to be a fence -- a code fence, or a `!===` line -- is held whole until its end, since
-that is a decision about the line, not about a fragment of it. Code is passed through as it is:
-`a === b` inside a fence is an operator, not a marker.
+The pinned MarkdownFlow formatter is the only authority on element boundaries.
+This adapter retains physical source lines (including CRLF and trailing blanks)
+while reusing its classifications and element numbers. It contains no HTML parser.
 """
 
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 
-# The same shapes `markdown_flow` recognises: a fence line of `!` and three or more `=`, and the
-# inline tokens `!===` and `===`.
-_FENCE_LINE = re.compile(r"^[ \t]*!={3,}[ \t]*$")
-# A code fence opens with three or more backticks or tildes; it closes only with a line of the
-# same character, at least as long, and nothing after it (CommonMark). A tilde line does not
-# close a backtick fence, a shorter fence does not close a longer one, and a line with trailing
-# text is content inside the block.
-_CODE_FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
-_CODE_FENCE_CLOSE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})[ \t]*$")
-_MARKERS = re.compile(r"!?={3,}")
-# An unfinished line that may still become a fence line of either kind.
-_MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]|^[ \t]*!?=*$")
-# The tail of an unfinished line that may still become a marker once more text arrives.
-_PARTIAL_TAIL = re.compile(r"!?=*$")
+from markdown_flow.formatter.classifier import Classifier, _State
+from markdown_flow.formatter.stream import StreamFormatter
+from markdown_flow.formatter.types import ClassifyResult, FormattedElement
+
+from .markdown_text import analyze_markdown_text, clean_markdown_text
+
+_PROSE = {"text", "title"}
+_PREFIX = re.compile(r"^([ \t]*)(!?={3,})")
+_SUFFIX = re.compile(r"!?={3,}([ \t]*\r?)$")
+_MARKER_LINE = re.compile(r"[ \t]*!={3,}[ \t]*\r?$")
+
+
+class _EnvelopeClassifier(Classifier):
+    """Let native classification recognize elements inside an MDF envelope.
+
+    `_handle_text` and `_state` are hooks in the pinned markdown-flow 0.3.4
+    implementation. Reuse that state rather than guessing whether a line is inside HTML or code.
+    Only an outer MDF prefix/suffix is removed from a non-prose element.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.source = ""
+        self._envelope = False
+
+    def _handle_text(self, line: str) -> ClassifyResult:
+        prefix = _PREFIX.match(line)
+        candidate = _PREFIX.sub(r"\1", line, count=1) if prefix else line
+        result = super()._handle_text(candidate)
+        if prefix and result.type not in _PROSE:
+            self.source = candidate
+            self._envelope = True
+        return result
+
+    def classify_line(self, line: str) -> ClassifyResult:
+        if self._envelope and _SUFFIX.search(line):
+            candidate = _SUFFIX.sub(r"\1", line, count=1)
+            probe = deepcopy(self)
+            # A wrapped code closer such as ```=== must be unwrapped before
+            # classification. Ask the native grammar whether it ends the block;
+            # do not remove marker-like data from an opaque continuation line.
+            super(_EnvelopeClassifier, probe).classify_line(candidate)
+            if probe._state == _State.TEXT:
+                line = candidate
+        self.source = line
+        result = super().classify_line(line)
+        if self._envelope and self._state == _State.TEXT:
+            self.source = _SUFFIX.sub(r"\1", self.source, count=1)
+            self._envelope = False
+        return result
+
+
+class PreserveMarkerFormatter:
+    """Format once, then remove markers only from text/title pieces.
+
+    Plain lines stream immediately. A prose suffix containing Markdown openers
+    waits for its grammar to finish. Reference links can resolve later in the
+    document, so queued pieces share a native Markdown reference environment at
+    flush. Visual source is never passed to the Markdown prose cleaner.
+    """
+
+    def __init__(self) -> None:
+        """Start one source-preserving projection."""
+        self._formatter = StreamFormatter()
+        self._classifier = _EnvelopeClassifier()
+        self._formatter._classifier = self._classifier
+        self._line = ""
+        self._leading = ""
+        self._last: FormattedElement | None = None
+        self._pending: list[FormattedElement] = []
+        self._references = False
+        self._environment: dict = {}
+
+    def process(self, chunk: str) -> list[FormattedElement]:
+        """Consume complete physical lines without changing their bytes."""
+        lines = (self._line + chunk).split("\n")
+        self._line = lines.pop()
+        out: list[FormattedElement] = []
+        for line in lines:
+            out.extend(self._line_piece(line + "\n"))
+        return out
+
+    def _line_piece(
+        self, source: str, *, final: bool = False
+    ) -> list[FormattedElement]:
+        line = source.removesuffix("\n")
+        if (
+            not self._pending
+            and self._classifier._state == _State.TEXT
+            and _MARKER_LINE.fullmatch(line)
+        ):
+            return []
+        if not line.strip():
+            if self._last is None:
+                self._leading += source
+                return []
+            element = FormattedElement(
+                content=source, type=self._last.type, number=self._last.number
+            )
+        else:
+            elements = (
+                self._formatter.process(source) + self._formatter.flush()
+                if final
+                else self._formatter.process(source)
+            )
+            if not elements:
+                return []
+            element = elements[0]
+            cleaned = self._classifier.source
+            element.content = (
+                self._leading + cleaned + ("\n" if source.endswith("\n") else "")
+            )
+            self._leading = ""
+            self._last = element
+        out: list[FormattedElement] = []
+        boundary = (
+            not line.strip()
+            or element.type not in _PROSE
+            or (self._pending and element.type != self._pending[-1].type)
+        )
+        if self._pending and boundary:
+            if self._references:
+                self._references = analyze_markdown_text(
+                    self._prose_source(), deepcopy(self._environment)
+                ).needs_references
+            if not self._references:
+                if not line.strip():
+                    self._pending.append(element)
+                    return self._drain()
+                out.extend(self._drain())
+        if self._pending or (
+            element.type in _PROSE and any(char in element.content for char in "`[<")
+        ):
+            self._pending.append(element)
+            if element.type in _PROSE and not self._references:
+                analysis = analyze_markdown_text(
+                    self._prose_source(), deepcopy(self._environment)
+                )
+                self._references = analysis.needs_references
+                if not analysis.needs_references and not analysis.incomplete:
+                    out.extend(self._drain())
+            return out
+        if element.type in _PROSE:
+            element.content = clean_markdown_text(element.content)
+        return out + ([element] if element.content else [])
+
+    def flush(self) -> list[FormattedElement]:
+        """Finish a turn; repeated flushes are empty."""
+        out: list[FormattedElement] = []
+        if self._line:
+            remaining, self._line = self._line, ""
+            out.extend(self._line_piece(remaining, final=True))
+        if self._leading:
+            out.append(FormattedElement(content=self._leading, type="text", number=0))
+            self._leading = ""
+        return out + self._drain()
+
+    def _groups(self) -> list[list[FormattedElement]]:
+        groups: list[list[FormattedElement]] = []
+        for element in self._pending:
+            if (
+                groups
+                and element.type in _PROSE
+                and element.type == groups[-1][-1].type
+                and element.number == groups[-1][-1].number
+            ):
+                groups[-1].append(element)
+            else:
+                groups.append([element])
+        return groups
+
+    def _prose_source(self) -> str:
+        return "\n\n".join(
+            "".join(element.content for element in group)
+            for group in self._groups()
+            if group[0].type in _PROSE
+        )
+
+    def _drain(self) -> list[FormattedElement]:
+        if not self._pending:
+            return []
+        out: list[FormattedElement] = []
+        # Commit reference definitions only when the prose grammar is complete.
+        # The same environment resolves links in later, already-streamed pieces.
+        clean_markdown_text(self._prose_source(), self._environment)
+        groups = self._groups()
+        for group in groups:
+            first = group[0]
+            source = "".join(element.content for element in group)
+            content = (
+                clean_markdown_text(source, self._environment)
+                if first.type in _PROSE
+                else source
+            )
+            if content:
+                out.append(
+                    FormattedElement(
+                        content=content, type=first.type, number=first.number
+                    )
+                )
+        self._pending.clear()
+        self._references = False
+        return out
 
 
 class PreserveMarkerFilter:
-    """Remove verbatim markers from streamed text, one chunk at a time."""
+    """String projection of the same typed cleanup used for lesson delivery."""
 
     def __init__(self) -> None:
-        """Start with nothing buffered and no code fence open."""
-        self._line = ""
-        self._released_some_of_line = False
-        # The fence that opened the code block we are in: its character and length, or None.
-        self._fence: tuple[str, int] | None = None
+        """Start one source-preserving projection."""
+        self._formatter = PreserveMarkerFormatter()
 
     def feed(self, text: str) -> str:
-        """Return `text` with markers removed, less any tail that might still become one."""
-        if not text:
-            return ""
-        out: list[str] = []
-        self._line += text
-        while "\n" in self._line:
-            line, self._line = self._line.split("\n", 1)
-            out.append(self._complete_line(line))
-            self._released_some_of_line = False
-        head, held = self._split_partial(self._line)
-        self._line = held
-        if head:
-            self._released_some_of_line = True
-            out.append(head if self._fence else _MARKERS.sub("", head))
-        return "".join(out)
+        """Release safely classified content in stream order."""
+        return "".join(element.content for element in self._formatter.process(text))
 
     def flush(self) -> str:
-        """Release what was held back, because no more text is coming."""
-        tail, self._line = self._line, ""
-        self._released_some_of_line = False
-        if not tail:
-            return ""
-        # A fragment that never became a marker is text, and is shown as it is.
-        return tail if self._fence else _MARKERS.sub("", tail)
-
-    def _complete_line(self, line: str) -> str:
-        whole_line = not self._released_some_of_line
-        if self._fence is not None:
-            if whole_line and self._closes_fence(line):
-                self._fence = None
-            return line + "\n"
-        if whole_line:
-            opening = _CODE_FENCE_OPEN.match(line)
-            if opening:
-                run = opening.group(1)
-                self._fence = (run[0], len(run))
-                return line + "\n"
-        if whole_line and _FENCE_LINE.match(line):
-            # The fence line itself: not content. Its newline goes too, or every fenced block
-            # would gain a blank line.
-            return ""
-        return _MARKERS.sub("", line) + "\n"
-
-    def _split_partial(self, text: str) -> tuple[str, str]:
-        """Split an unfinished line into what can go out now and what must wait."""
-        if not text:
-            return "", ""
-        if not self._released_some_of_line and _MAY_BE_FENCE.match(text):
-            return "", text
-        if self._fence is not None:
-            return text, ""
-        match = _PARTIAL_TAIL.search(text)
-        return text[: match.start()], text[match.start() :]
-
-    def _closes_fence(self, line: str) -> bool:
-        closing = _CODE_FENCE_CLOSE.match(line)
-        if closing is None or self._fence is None:
-            return False
-        run = closing.group(1)
-        char, length = self._fence
-        return run[0] == char and len(run) >= length
+        """Release a final partial line and any ambiguous Markdown suffix."""
+        return "".join(element.content for element in self._formatter.flush())

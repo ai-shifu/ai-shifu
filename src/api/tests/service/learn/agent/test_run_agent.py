@@ -1390,12 +1390,21 @@ def test_reading_and_classroom_receive_the_same_typed_pieces_as_listening(
     )
     events = _run(engine, listen=False)
 
-    assert [
+    parts = [
         part
         for e in events
         if not isinstance(e, str)
         for part in (e.get_mdflow_stream_parts() or [])
-    ] == [("a\n\n", "text", 0), ("<div>b</div>\n", "html", 1), ("\nc", "text", 2)]
+    ]
+    # Transport chunks can split blank lines, but element identity and source agree.
+    grouped: dict[tuple[str, int], str] = {}
+    for content, kind, number in parts:
+        grouped[kind, number] = grouped.get((kind, number), "") + content
+    assert list(grouped.items()) == [
+        (("text", 0), "a\n\n"),
+        (("html", 1), "<div>b</div>\n\n"),
+        (("text", 2), "c"),
+    ]
 
 
 @pytest.mark.usefixtures("calls")
@@ -1462,13 +1471,19 @@ def test_no_lesson_text_escapes_a_listening_turn_unpaged(
 @pytest.mark.parametrize(
     "listen", [False, True], ids=["reading-classroom", "listening"]
 )
-@pytest.mark.parametrize("cut", [3, 8, 31])
+@pytest.mark.parametrize("cut", [3, 8, 75])
 def test_tool_events_do_not_split_formatted_content(
-    monkeypatch: pytest.MonkeyPatch, listen: bool, cut: int
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    cut: int,
 ) -> None:
     """Tool events inside a tag or fence must not turn a visual into fallback text."""
     monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
-    lesson = '<div class="card">Card</div>\n```js\nconst x = 1;\n```'
+    lesson = (
+        '<div class="card">===Card===<script>const equal = a === b;</script></div>\n'
+        '```js\nconst sample = "===literal===";\n```'
+    )
     engine = _Engine(
         [
             ContentDelta(text=lesson[:cut]),
@@ -1484,6 +1499,10 @@ def test_tool_events_do_not_split_formatted_content(
         for part in event.get_mdflow_stream_parts()
     ]
     assert "".join(text for text, _, _ in parts) == lesson
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    assert saved == lesson
     assert [(kind, number) for _, kind, number in parts] == [
         ("html", 0),
         ("code", 1),
@@ -1540,6 +1559,312 @@ def test_verbatim_markers_never_reach_the_learner(
     assert "===" not in said
     assert "help a million people" in said
     assert said.startswith("My goal: help a million people and that is why.")
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("wrapper", ["", "===", "!===\n"])
+def test_html_script_operators_survive_delivery_and_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    wrapper: str,
+) -> None:
+    """An HTML element is opaque, including operators, attributes and visible markers."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = (
+        '<div data-value="===attribute===">===Visible===\r\n'
+        '<button id="nextBtn">Next</button>\r\n<script>\r\n'
+        "const isPick = (candidate === selected);\r\n"
+        'const sample = "?[literal]";\r\n'
+        'document.getElementById("nextBtn").onclick = () => isPick;\r\n'
+        "</script>\r\n</div>"
+    )
+    suffix = "\n!===" if wrapper == "!===\n" else wrapper
+    lesson = f"===Before===\n\n{wrapper}{visual}{suffix}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    events = _run(engine, listen=listen)
+    parts = [part for event in events for part in event.get_mdflow_stream_parts()]
+    delivered = "".join(text for text, _, _ in parts)
+    html = "".join(text for text, kind, _ in parts if kind == "html")
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    assert visual in html
+    assert saved == delivered == f"Before\n\n{visual}\n\nAfter"
+    assert not _interactions(events)
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    ("kind", "visual"),
+    [
+        ("svg", "<svg><text>===Visible===</text><script>a === b;</script></svg>"),
+        ("code", '```js\nconst sample = "?[literal]"; const equal = a === b;\n```'),
+        ("mermaid", "```mermaid\ngraph TD\nA[===label===] --> B\n```"),
+    ],
+)
+def test_other_opaque_elements_match_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    kind: str,
+    visual: str,
+) -> None:
+    """Every existing visual classification bypasses prose and interaction cleanup."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    lesson = f"===Before===\n{visual}\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    events = _run(engine, listen=listen)
+    parts = [part for event in events for part in event.get_mdflow_stream_parts()]
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    assert visual in "".join(
+        text for text, stream_type, _ in parts if stream_type == kind
+    )
+    assert saved == delivered == f"Before\n{visual}\nAfter"
+    assert not _interactions(events)
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunking", ["whole", "split", "characters"])
+def test_a_partial_marker_fence_inside_inline_code_survives_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunking: str,
+) -> None:
+    """A partial marker-fence lookalike cannot break a valid multiline code span."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    span = "``\n!=== =``"
+    lesson = f"===Before=== {span} ===After==="
+    chunks = {
+        "whole": [lesson],
+        "split": ["===Before=== ``\n!=== =", "`` ===After==="],
+        "characters": list(lesson),
+    }[chunking]
+    engine = _Engine(
+        [ContentDelta(text=chunk) for chunk in chunks] + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert f"Before {span} After" in content
+        assert "===Before===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("indent", ["\t", "    "], ids=["tab", "spaces"])
+def test_indented_marker_fences_are_removed_before_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    indent: str,
+) -> None:
+    """Authored marker fences keep priority over indentation in every learning mode."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = "<div><script>const equal = a === b;</script></div>"
+    lesson = f"{indent}!===\n===Lesson===\n{indent}!===\n{visual}\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert "Lesson" in content
+        assert visual in content
+        assert "!===" not in content
+        assert "===Lesson===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    "literal",
+    [
+        "<noscript><script>===Literal===</noscript>",
+        "<plaintext><script>===Literal===</script></plaintext>",
+    ],
+    ids=["noscript", "plaintext"],
+)
+def test_html_text_parents_keep_literal_tags_out_of_scripts_in_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    literal: str,
+) -> None:
+    """The learner browser's text parents must not activate nested script syntax."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = "<div><script>const equal = a === b;</script></div>"
+    lesson = f"===Before===\n\n{visual}\n\n{literal}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert visual in "".join(text for text, kind, _ in parts if kind == "html")
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert visual in content
+        assert literal.replace("===Literal===", "Literal") in content
+        for marker in ("===Before===", "===Literal===", "===After==="):
+            assert marker not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    ("namespace", "parent"),
+    [("svg", "textarea"), ("svg", "iframe"), ("math", "title")],
+    ids=["svg-textarea", "svg-iframe", "math-title"],
+)
+def test_foreign_text_parent_names_keep_real_child_scripts_in_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    namespace: str,
+    parent: str,
+) -> None:
+    """Foreign elements with HTML text-parent names still have real child tags."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = (
+        f"<div><{namespace}><{parent}><script>const equal = a === b;</script>"
+        '<style>.node::after { content: "==="; }</style>'
+        f"</{parent}></{namespace}></div>"
+    )
+    lesson = f"===Before===\n\n{visual}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    visual_kind = "svg" if namespace == "svg" else "html"
+    assert visual in "".join(text for text, kind, _ in parts if kind == visual_kind)
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert visual in content
+        assert "===Before===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    ("opening", "closing"),
+    [
+        ("<svg><div>", "</div></svg>"),
+        ("<math><p>", "</p></math>"),
+        ('<svg><font COLOR="red">', "</font></svg>"),
+        ("<svg></br>", "</svg>"),
+    ],
+    ids=["svg-div", "math-paragraph", "font-attribute", "closing-break"],
+)
+def test_foreign_html_breakouts_preserve_scripts_in_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    opening: str,
+    closing: str,
+) -> None:
+    """Browser recovery returns breakout children to HTML raw-text behavior."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = (
+        f"<div>{opening}<script/>const equal = a === b;</script>"
+        '<style/>.node::after { content: "==="; }</style>'
+        f"{closing}</div>"
+    )
+    lesson = f"===Before===\n\n{visual}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    visual_kind = "svg" if "<svg>" in opening else "html"
+    assert visual in "".join(text for text, kind, _ in parts if kind == visual_kind)
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert visual in content
+        assert "===Before===" not in content
+        assert "===After===" not in content
 
 
 @pytest.mark.usefixtures("calls")
@@ -3210,3 +3535,62 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     assert accepted is not None
     assert accepted.pending[0].tool_call_id == "next"
     assert requests == (4 if prefix else 3)
+
+
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("disconnect", [False, True], ids=["complete", "disconnect"])
+def test_prepared_html_feedback_is_saved_before_any_typed_content(
+    calls: list[tuple[str, object]],
+    monkeypatch: pytest.MonkeyPatch,
+    listen: bool,
+    chunk_size: int,
+    disconnect: bool,
+) -> None:
+    """Commit the full typed projection before even a buffered response starts displaying."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    monkeypatch.setattr(run_agent, "_retire_block", lambda *_a, **_k: None)
+    visual = (
+        "<div>\n<p>===Visual===</p>\n"
+        '<script>const question = "?[A|B]"; const equal = a === b;</script>\n'
+        "</div>"
+    )
+    lesson = "===Before===\n\n" + visual + "\n\n===After===" + "?"
+    expected = "Before\n\n" + visual + "\n\nAfter?"
+    engine = _Engine(
+        [ContentDelta(text="", prepared_content=lesson)]
+        + [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        listen=listen,
+        iter_turn=_drive,
+    )
+    first = next(stream)
+    assert first.type == GeneratedType.CONTENT
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")
+    assert saved["content"] == expected
+    names = [name for name, _ in calls]
+    assert names.index("record_content") < names.index("save_session")
+    if disconnect:
+        stream.close()
+    else:
+        events = [first, *stream]
+        pieces = [
+            piece for event in events for piece in event.get_mdflow_stream_parts()
+        ]
+        assert "".join(content for content, _, _ in pieces) == expected
+        assert visual in "".join(
+            content for content, kind, _ in pieces if kind == "html"
+        )
+        assert not any(event.type == GeneratedType.INTERACTION for event in events)
+    assert len([name for name, _ in calls if name == "record_content"]) == 1

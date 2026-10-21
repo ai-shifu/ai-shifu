@@ -15,8 +15,9 @@ the formatter does, exactly as it does for 1.0.
 
 All learning modes use these pieces. Classification is independent of whether audio is requested:
 classroom needs the visual types to select what to show, and reading needs the same elements for
-history and later mode changes. Content and numbering belong to the formatter, including literal
-separator lines and script/style pieces appended to earlier HTML.
+history and later mode changes. Content and numbering belong to the formatter, including
+script/style pieces appended to earlier HTML.
+The agent opts into prose-only MDF marker cleanup after that classification; visuals stay opaque.
 Question prompts start a fresh formatter after visuals so they cannot inherit unfinished syntax.
 Consecutive prose keeps its existing element identity, as it does in the 1.0 stream.
 """
@@ -25,18 +26,22 @@ from __future__ import annotations
 
 from markdown_flow.formatter.stream import StreamFormatter
 
+from .preserve_markers import PreserveMarkerFormatter
+
 
 class LessonPager:
     """The formatter a 1.0 lesson streams through, applied to a 2.0 turn.
 
     `add` returns `(content, type, number)` pieces for every complete line in the text so far, in
-    order; `flush` returns whatever is still buffered when the turn ends. Text is never withheld
-    beyond the line it is on. The formatter's content, types, and numbers are passed through.
+    order; `flush` returns whatever is still buffered when the turn ends. The legacy default
+    passes content through exactly. With `clean_markers=True`, prose markers are removed;
+    ambiguous Markdown waits for a boundary or flush, and visual source stays unchanged.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, clean_markers: bool = False) -> None:
         """Start a fresh formatter for one turn."""
-        self._formatter = StreamFormatter()
+        self._clean_markers = clean_markers
+        self._formatter = self._new_formatter()
         self._block_offset = 0
         self._next_number = 0
         self._last_type = ""
@@ -62,9 +67,12 @@ class LessonPager:
         if self._last_type in {"text", "title"}:
             # These types already leave the classifier in its ordinary text state.
             return pieces
-        self._formatter = StreamFormatter()
+        self._formatter = self._new_formatter()
         self._block_offset = self._next_number
         return pieces
+
+    def _new_formatter(self) -> StreamFormatter | PreserveMarkerFormatter:
+        return PreserveMarkerFormatter() if self._clean_markers else StreamFormatter()
 
     def _pieces(self, elements: list) -> list[tuple[str, str, int]]:
         pieces = [
