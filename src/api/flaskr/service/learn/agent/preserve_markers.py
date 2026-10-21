@@ -41,8 +41,20 @@ _HTML_TAG_HEAD = re.compile(r"</?([a-zA-Z][a-zA-Z0-9:-]*)(?=[\s/>])")
 _HTML_TAG_PREFIX = re.compile(r"</?[a-zA-Z][a-zA-Z0-9:-]*$")
 _HTML_DOCTYPE_HEAD = re.compile(r"<!DOCTYPE(?=[\s>])", re.IGNORECASE)
 _HTML_ROOT_HEAD = re.compile(r"<(?:html|body|svg)(?=[\s>/])", re.IGNORECASE)
+# Raw-text and RCDATA bodies cannot open nested HTML elements. Only script/style
+# contain code; other text-only elements still have prose markers removed.
 _RAW_TEXT_END = {
-    tag: re.compile(rf"</{tag}(?=[\s/>])", re.IGNORECASE) for tag in ("script", "style")
+    tag: re.compile(rf"</{tag}(?=[\s/>])", re.IGNORECASE)
+    for tag in (
+        "script",
+        "style",
+        "textarea",
+        "title",
+        "iframe",
+        "xmp",
+        "noembed",
+        "noframes",
+    )
 }
 _PROSE_SPECIAL = re.compile(r"[<`\\]")
 _BACKTICKS = re.compile(r"`+")
@@ -236,23 +248,25 @@ class PreserveMarkerFilter:
         index = 0
         while index < len(text):
             if self._raw_tag is not None:
+                prose = self._raw_tag not in ("script", "style")
                 match = _RAW_TEXT_END[self._raw_tag].search(text, index)
                 if match is None:
                     # Keep only a possible closing-tag prefix; stream all other code.
                     last_lt = text.rfind("<", index)
                     closer = f"</{self._raw_tag}"
                     if last_lt >= index and closer.startswith(text[last_lt:].lower()):
-                        self._emit(out, text[index:last_lt])
+                        self._emit(out, text[index:last_lt], prose=prose)
                         self._html_tail = text[last_lt:]
                     else:
-                        self._emit(out, text[index:])
+                        self._emit(out, text[index:], prose=prose)
                     break
                 end = _tag_end(text, match.end())
                 if end is None:
-                    self._emit(out, text[index : match.start()])
+                    self._emit(out, text[index : match.start()], prose=prose)
                     self._html_tail = text[match.start() :]
                     break
-                self._emit(out, text[index:end])
+                self._emit(out, text[index : match.start()], prose=prose)
+                self._emit(out, text[match.start() : end])
                 self._raw_tag = None
                 index = end
                 continue
@@ -350,7 +364,7 @@ class PreserveMarkerFilter:
                 # Leading HTML metadata may precede the visual's root on this line.
                 self._at_line_start = True
             if tag in _RAW_TEXT_END:
-                # In HTML, <script/> still opens a non-void raw-text element.
+                # Self-closing syntax does not close these non-void HTML text elements.
                 self._raw_tag = tag
             index = end
         return "".join(out)

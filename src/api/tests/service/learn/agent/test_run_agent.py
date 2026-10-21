@@ -1546,6 +1546,11 @@ def test_verbatim_markers_never_reach_the_learner(
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 @pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
 @pytest.mark.parametrize(
+    "text_parent",
+    ["", "<textarea><script>literal</textarea>"],
+    ids=["plain-html", "literal-tag-in-textarea"],
+)
+@pytest.mark.parametrize(
     "prose",
     [
         "===Before===",
@@ -1559,12 +1564,13 @@ def test_html_script_operators_survive_delivery_and_persistence(
     calls: list[tuple[str, object]],
     listen: bool,
     chunk_size: int,
+    text_parent: str,
     prose: str,
 ) -> None:
     """Interactive HTML must keep its JavaScript in live pages and saved history."""
     monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
     visual = (
-        '<div><button id="nextBtn">Next</button><script>'
+        f'<div>{text_parent}<button id="nextBtn">Next</button><script>'
         "const isPick = (candidate === selected);"
         'document.getElementById("nextBtn").onclick = () => isPick;'
         "</script></div>"

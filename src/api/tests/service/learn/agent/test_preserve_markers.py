@@ -261,6 +261,42 @@ def test_html_self_closing_syntax_still_opens_nonvoid_raw_text(tag: str) -> None
 
 
 @pytest.mark.parametrize(
+    "tag", ["textarea", "title", "iframe", "xmp", "noembed", "noframes"]
+)
+def test_html_text_parent_does_not_open_nested_script_or_style(tag: str) -> None:
+    parent = f"<{tag}><script> literal </div> ===sample=== <style> literal</{tag}>"
+    html = "<div>" + parent + "</div>\n"
+    markdown = "Use `<script>` and \\<style>. ===after===\n"
+    expected = html.replace("===sample===", "sample")
+    _assert_streaming_output(
+        html + markdown, expected + markdown.replace("===after===", "after")
+    )
+
+
+@pytest.mark.parametrize(
+    "tag", ["textarea", "title", "iframe", "xmp", "noembed", "noframes"]
+)
+def test_html_text_parent_ends_before_real_script_and_following_prose(tag: str) -> None:
+    parent = (
+        f"<{tag}><script>literal</script><style>literal ===sample===</{tag}ure>"
+        f"more literal</{tag.upper()}>"
+    )
+    script = "<script>const equal = a === b;</script>"
+    expected = parent.replace("===sample===", "sample")
+    _assert_streaming_output(
+        parent + script + "===after===", expected + script + "after"
+    )
+
+
+@pytest.mark.parametrize(
+    "tag", ["textarea", "title", "iframe", "xmp", "noembed", "noframes"]
+)
+def test_html_text_parent_is_preserved_when_its_close_is_unfinished(tag: str) -> None:
+    parent = f"<{tag}><script>literal</script><style>literal===sample===</{tag[:3]}"
+    _assert_streaming_output(parent, parent.replace("===sample===", "sample"))
+
+
+@pytest.mark.parametrize(
     "code",
     [
         "`<script> a === b`",
