@@ -232,3 +232,103 @@ def test_a_standalone_marker_inside_a_native_multiline_code_span_is_literal(
 ) -> None:
     source = f"Use ``line\n{fence}\nend`` and ===after===\n"
     _assert_streaming_output(source, source.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("opening", ["``` `", "````lang`info", "   ```lang\\`info"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+@pytest.mark.parametrize("final_newline", [False, True])
+def test_backtick_info_cannot_start_a_code_fence(
+    opening: str, newline: str, final_newline: bool
+) -> None:
+    text = opening + newline + "===AfterInvalid===" + (newline if final_newline else "")
+    _assert_streaming_output(text, text.replace("===AfterInvalid===", "AfterInvalid"))
+
+
+@pytest.mark.parametrize("opening", ["``` `", "````lang`info"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_invalid_info_before_a_real_fence_does_not_expose_lesson_markers(
+    opening: str, newline: str
+) -> None:
+    text = newline.join(
+        [
+            "===Before===",
+            "",
+            opening,
+            "===AfterInvalid===",
+            "```",
+            "const equal = a === b;",
+            "```",
+            "",
+            "===After===",
+        ]
+    )
+    expected = (
+        text.replace("===Before===", "Before")
+        .replace("===AfterInvalid===", "AfterInvalid")
+        .replace("===After===", "After")
+    )
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize("ending", ["", "\n===After==="])
+def test_invalid_block_info_can_instead_be_a_valid_inline_code_span(
+    ending: str,
+) -> None:
+    text = "```lang`info ===inside===```" + ending
+    _assert_streaming_output(text, text.replace("===After===", "After"))
+
+
+def test_invalid_info_does_not_end_a_multiline_inline_code_span() -> None:
+    text = "``before\n```lang`info ===inside===\nclosing`` ===After==="
+    _assert_streaming_output(text, text.replace("===After===", "After"))
+
+
+def test_invalid_info_does_not_end_a_multiline_link_title() -> None:
+    text = '[docs](url "title\n```lang`info ===hidden===") ===After==='
+    _assert_streaming_output(text, text.replace("===After===", "After"))
+
+
+def test_a_later_backtick_in_invalid_info_can_close_an_inline_span() -> None:
+    text = "Press the ` key.\n```lang`info\n===After==="
+    _assert_streaming_output(text, text.replace("===After===", "After"))
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_forward_reference_context_does_not_restore_invalid_info_fences(
+    newline: str,
+) -> None:
+    text = newline.join(
+        [
+            "[docs][<script>]",
+            "",
+            "```lang`info",
+            "===AfterInvalid===",
+            "",
+            "[<script>]: /docs",
+            "",
+        ]
+    )
+    _assert_streaming_output(text, text.replace("===AfterInvalid===", "AfterInvalid"))
+
+
+@pytest.mark.parametrize("opening", ["```js", "~~~~lang`info"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_valid_fences_keep_code_with_either_line_ending(
+    opening: str, newline: str
+) -> None:
+    closing = "````" if opening.startswith("`") else "~~~~"
+    code = newline.join(
+        [opening, "const equal = a === b;", "===literal===", closing, ""]
+    )
+    _assert_streaming_output(code + "===After===", code + "After")
+
+
+def test_invalid_info_in_quoted_prose_uses_native_inline_rules() -> None:
+    text = "> ```lang`info\n> ===body===\n"
+    _assert_streaming_output(text, text.replace("===body===", "body"))
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_invalid_opener_text_inside_a_real_fence_stays_literal(newline: str) -> None:
+    code = newline.join(["```js", "```bad`info", "===literal===", "```", ""])
+    _assert_streaming_output(code + "===After===", code + "After")

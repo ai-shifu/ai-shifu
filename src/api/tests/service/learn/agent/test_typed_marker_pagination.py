@@ -204,3 +204,27 @@ def test_an_empty_inline_link_label_waits_for_its_multiline_destination() -> Non
     assert cleaner.feed("See [](/a===b\n") == ""
     assert cleaner.feed(") ===now===\n") == "See [](/a===b\n) now\n"
     assert cleaner.flush() == ""
+
+
+@pytest.mark.parametrize("opening", ["``` `", "````lang`info"])
+@pytest.mark.parametrize("prefix", ["", "==="])
+@pytest.mark.parametrize("ending", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_invalid_fence_info_stays_prose_before_real_code(
+    opening: str, prefix: str, ending: str
+) -> None:
+    """Only valid openers allocate opaque code elements in the cleaning pager."""
+    code = ending.join(["```js", "const equal = a === b;", "```", ""])
+    source = f"{prefix}{opening}{ending}===after==={ending}{ending}{code}===end==="
+    expected = f"{opening}{ending}after{ending}{ending}{code}end"
+    for chunks in _chunkings(source):
+        pieces = _page(chunks, clean=True)
+        assert "".join(content for content, _, _ in pieces) == expected
+        assert "".join(content for content, kind, _ in pieces if kind == "code") == code
+        assert {number for _, kind, number in pieces if kind == "code"} == {1}
+        assert opening in "".join(
+            content
+            for content, kind, number in pieces
+            if kind == "text" and number == 0
+        )
+        assert pieces[-1] == ("end", "text", 2)
+        assert _page(chunks, clean=False) == _format(chunks)

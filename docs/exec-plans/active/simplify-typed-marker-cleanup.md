@@ -26,6 +26,11 @@ merging.
 - [ ] 2026-10-21 22:36 UTC: Verify and push the separate review-fix commit, then follow
   its latest-head CI and review. Do not merge.
 
+- [x] 2026-10-21 23:28 UTC: Rebased the independent invalid-fence follow-up (#3151)
+  onto parent head `f1c9a431c5e5`, retaining the typed implementation and migrating regressions.
+- [ ] 2026-10-21 23:28 UTC: Finish follow-up validation, push with an explicit lease,
+  and converge its current-head CI and review without merging.
+
 ## Surprises & Discoveries
 
 The pinned StreamFormatter classifies elements but normalizes blank lines and drops trailing
@@ -57,6 +62,12 @@ rejected by the native definition grammar and must not hold checklists.
   opts into typed cleanup. Markdown inline code and link metadata use native Markdown rules.
 - 2026-10-21: Keep small MDF-envelope handling around the existing classifier; remove HTML
   raw-text, namespace, tag and attribute parsing from the marker cleaner.
+
+- 2026-10-21: The user explicitly requested rebasing #3151 and #3152 after the parent
+  rewrite. For #3151, discard the obsolete fence/replay parser changes. Reuse native
+  `parse_code_fence_start` and reject only backtick info containing another backtick before
+  the typed classifier opens code state. Native CRLF closing already works. Keep the legacy
+  pager unchanged and retain native TEXT classification for quoted fence-looking prose.
 
 ## Outcomes & Retrospective
 
@@ -108,8 +119,10 @@ must be classified and addressed before completion.
 ## Idempotence and Recovery
 
 Repeated flushes emit no duplicate content. Preserve the existing untracked `logs/` directory.
-Do not reset, amend, force-push, merge or enable auto-merge. Keep distinct verified review fixes
-in independent commits and retain this plan until external acceptance is complete.
+The user explicitly authorized rebasing the two follow-ups. Back up their original tips and
+update rewritten branches only with an explicit force-with-lease against those tips. Do not
+merge or enable auto-merge. Keep distinct verified review fixes in independent commits and
+retain this plan until external acceptance is complete.
 
 ## Interfaces and Dependencies
 

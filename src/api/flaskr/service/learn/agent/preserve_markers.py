@@ -13,6 +13,7 @@ from copy import deepcopy
 from markdown_flow.formatter.classifier import Classifier, _State
 from markdown_flow.formatter.stream import StreamFormatter
 from markdown_flow.formatter.types import ClassifyResult, FormattedElement
+from markdown_flow.parser.code_fence_utils import parse_code_fence_start
 
 from .markdown_text import analyze_markdown_text, clean_markdown_text
 
@@ -28,6 +29,7 @@ class _EnvelopeClassifier(Classifier):
     `_handle_text` and `_state` are hooks in the pinned markdown-flow 0.3.4
     implementation. Reuse that state rather than guessing whether a line is inside HTML or code.
     Only an outer MDF prefix/suffix is removed from a non-prose element.
+    Reject invalid backtick-fence info before the pinned classifier opens code state.
     """
 
     def __init__(self) -> None:
@@ -38,6 +40,13 @@ class _EnvelopeClassifier(Classifier):
     def _handle_text(self, line: str) -> ClassifyResult:
         prefix = _PREFIX.match(line)
         candidate = _PREFIX.sub(r"\1", line, count=1) if prefix else line
+        fence = parse_code_fence_start(candidate)
+        if (
+            fence is not None
+            and fence.char == "`"
+            and "`" in candidate[fence.indent + fence.length :]
+        ):
+            return ClassifyResult(type="text")
         result = super()._handle_text(candidate)
         if prefix and result.type not in _PROSE:
             self.source = candidate

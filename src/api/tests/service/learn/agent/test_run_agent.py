@@ -1869,6 +1869,53 @@ def test_foreign_html_breakouts_preserve_scripts_in_delivery_and_history(
 
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("opening", ["``` `", "````lang`info"])
+def test_invalid_backtick_fence_info_cleans_prose_in_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    opening: str,
+) -> None:
+    """Invalid fence info stays prose while the following real fence keeps its code."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = "<div><script>const choice = a === b;</script></div>"
+    lesson = (
+        f"===Before===\n\nUse `a === b`.\n\n{visual}\n\n{opening}\n===AfterInvalid===\n"
+        "```\nconst equal = a === b;\n```\n\n===After==="
+    )
+    expected = lesson
+    for label in ("Before", "AfterInvalid", "After"):
+        expected = expected.replace(f"==={label}===", label)
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert visual in "".join(text for text, kind, _ in parts if kind == "html")
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    assert expected in saved
+    for content in (delivered, saved):
+        assert visual in content
+        assert "`a === b`" in content
+        assert "const equal = a === b;" in content
+        for label in ("Before", "AfterInvalid", "After"):
+            assert f"==={label}===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 def test_the_closing_sentence_comes_before_the_question_it_leads_to(
     monkeypatch: pytest.MonkeyPatch, listen: bool
 ) -> None:
