@@ -843,6 +843,21 @@ class _MarkerCleaner:
                     self._emit(out, char)
                     index = start + 1
                     continue
+                label = self._labels[-1]
+                if (
+                    self._references is None
+                    and not label.reference
+                    and not label.image
+                    and label.content
+                    and label.source is not None
+                    and _reference_label_end(label.source + "]") == len(label.source)
+                    and text[start + 1 : start + 2] == ":"
+                ):
+                    # A quote/list prefix may hide a real definition from this local scanner.
+                    # Wait before emitting its metadata; the final block parser decides validity.
+                    self.needs_references = True
+                    self.reference_tail_size = len(text) - start + len(self._line)
+                    break
                 if self._link_suffix is None:
                     self._link_suffix = _LinkSuffix()
                 if (

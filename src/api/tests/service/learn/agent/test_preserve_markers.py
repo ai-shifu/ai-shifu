@@ -984,11 +984,9 @@ def test_reference_replay_can_use_supplementary_private_use_characters() -> None
 def test_reference_replay_does_not_change_metadata_already_streamed(
     candidate: str,
 ) -> None:
-    prefix = '> [id]: url "===title==="\n\n'
+    prefix = "[`===id===`]: url\n\n"
     text = prefix + candidate
-    expected = prefix.replace("===title===", "title") + candidate.replace(
-        "===after===", "after"
-    )
+    expected = prefix + candidate.replace("===after===", "after")
     _assert_streaming_output(text, expected)
 
 
@@ -1178,4 +1176,75 @@ def test_container_candidates_inside_an_html_visual_remain_real_html() -> None:
 def test_ordinary_container_prose_is_emitted_at_the_end_of_its_line() -> None:
     marker_filter = PreserveMarkerFilter()
     assert marker_filter.feed("> ===quote===\n- ===list===\n") == "> quote\n- list\n"
+    assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize(
+    ("definition", "expected_definition"),
+    [
+        ("> [docs]: <script>\n", "> [docs]: <script>\n"),
+        ("- [docs]: <script>\n", "- [docs]: <script>\n"),
+        (
+            '> [docs]: /===url=== "===title=== <style>"\n',
+            '> [docs]: /===url=== "===title=== <style>"\n',
+        ),
+        (
+            '> [===docs===]: /===url=== "===title=== <style>"\n',
+            '> [docs]: /===url=== "===title=== <style>"\n',
+        ),
+        (
+            '> [docs]: /===url===\n> "===title=== <style>"\n',
+            '> [docs]: /===url===\n> "===title=== <style>"\n',
+        ),
+    ],
+    ids=["blockquote", "list", "metadata-markers", "marked-label", "next-line-title"],
+)
+def test_container_reference_definitions_preserve_metadata_and_clean_following_prose(
+    definition: str, expected_definition: str
+) -> None:
+    _assert_streaming_output(
+        definition + "\n===after===\n", expected_definition + "\nafter\n"
+    )
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        'Prose [docs]: /===url=== "',
+        '> [docs]: /===url=== "unfinished ',
+        '> ![docs]: /===url=== "',
+    ],
+    ids=["midline", "invalid-title", "image"],
+)
+def test_invalid_container_definition_candidates_preserve_real_script_code(
+    prefix: str,
+) -> None:
+    script = "<script>const equal = a === b;</script>"
+    text = prefix + script + " ===after===\n"
+    expected = prefix.replace("===url===", "url") + script + " after\n"
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        '<div>\n[docs]: /url "<script>const equal = a === b;</script>"\n</div>\n',
+        '<script>\n[docs]: /url "const equal = a === b;"\n</script>\n',
+    ],
+    ids=["html-visual", "raw-body"],
+)
+def test_definition_looking_source_in_real_html_keeps_html_semantics(html: str) -> None:
+    _assert_streaming_output(html + "===after===\n", html + "after\n")
+
+
+def test_a_container_definition_holds_metadata_before_it_can_be_streamed() -> None:
+    marker_filter = PreserveMarkerFilter()
+    first = marker_filter.feed("===before===\n\n")
+    assert first == "before\n\n"
+    assert marker_filter.feed("> [===docs===]") == ""
+    first += marker_filter.feed(': /===url=== "===title=== <style>"\n\n===after===')
+    assert first == "before\n\n> [docs"
+    assert first + marker_filter.flush() == (
+        'before\n\n> [docs]: /===url=== "===title=== <style>"\n\nafter'
+    )
     assert marker_filter.flush() == ""
