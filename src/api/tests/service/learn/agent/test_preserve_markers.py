@@ -1081,6 +1081,69 @@ def test_literal_svg_tags_do_not_open_an_html_visual(literal: str) -> None:
     )
 
 
+@pytest.mark.parametrize("tag", ["script", "style"])
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "<svg>{empty}</svg>",
+        "<div><svg>{empty}</svg></div>",
+        "Intro <svg><g>{empty}</g></svg>",
+        "<svg><svg>{empty}</svg></svg>",
+        "<svg><foreignObject/>{empty}</svg>",
+    ],
+    ids=[
+        "svg-root",
+        "html-parent",
+        "prose-prefix",
+        "nested-svg",
+        "empty-integration-point",
+    ],
+)
+def test_self_closing_svg_script_and_style_do_not_consume_following_prose(
+    tag: str, wrapper: str
+) -> None:
+    html = wrapper.format(empty=f"<{tag} />")
+    _assert_streaming_output(html + "\n===after===", html + "\nafter")
+
+
+@pytest.mark.parametrize("tag", ["script", "style"])
+@pytest.mark.parametrize("parent", ["foreignObject", "desc", "title"])
+def test_svg_html_integration_points_keep_html_raw_text_semantics(
+    tag: str, parent: str
+) -> None:
+    html = f"<svg><{parent}><{tag}/>const equal = a === b;</{tag}></{parent}></svg>"
+    _assert_streaming_output(html + "\n===after===", html + "\nafter")
+
+
+def test_nested_svg_restores_the_surrounding_html_integration_point() -> None:
+    html = (
+        "<svg><foreignObject><svg><script /></svg>"
+        "<script/>const equal = a === b;</script>"
+        "</foreignObject><style /></svg>"
+    )
+    _assert_streaming_output(html + "\n===after===", html + "\nafter")
+
+
+@pytest.mark.parametrize(
+    "literal",
+    [
+        "`<svg>`",
+        "\\<svg>",
+        "<!--<svg>-->",
+        "<textarea><svg></textarea>",
+        "```html\n<svg>\n```",
+    ],
+    ids=["inline-code", "escaped", "comment", "text-only-html", "fenced-code"],
+)
+def test_literal_svg_does_not_make_later_html_scripts_self_closing(
+    literal: str,
+) -> None:
+    html = "<script/>const equal = a === b;</script>"
+    _assert_streaming_output(
+        literal + "\n" + html + "\n===after===", literal + "\n" + html + "\nafter"
+    )
+
+
 def test_self_closing_syntax_still_opens_a_nonvoid_html_container() -> None:
     html = (
         "<div/>`<script>const label = `value`; const equal = a === b;</script></div>\n"

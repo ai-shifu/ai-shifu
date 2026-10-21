@@ -562,6 +562,29 @@ class _MarkerCleaner:
         self._line_indent = 0
         self._html_block_tag: str | None = None
         self._html_block_depth = 0
+        # Track only SVG roots and its HTML integration points, independently of
+        # the visual's outer HTML root (which may be a div containing the SVG).
+        self._svg_context: list[str] = []
+
+    def _track_svg_namespace(
+        self, name: str, *, opening: bool, self_closing: bool
+    ) -> bool:
+        """Return this element's SVG namespace and update the scoped SVG context."""
+        in_svg = bool(self._svg_context and self._svg_context[-1] == "svg")
+        if opening:
+            if name == "svg":
+                in_svg = True
+                if not self_closing:
+                    self._svg_context.append(name)
+            elif in_svg and name in ("foreignobject", "desc", "title"):
+                if not self_closing:
+                    self._svg_context.append(name)
+        else:
+            for index in range(len(self._svg_context) - 1, -1, -1):
+                if self._svg_context[index] == name:
+                    del self._svg_context[index:]
+                    break
+        return in_svg
 
     def _emit(self, out: list[str], source: str, *, prose: bool = False) -> None:
         """Track the output line position, including HTML wrapped in removed markers."""
@@ -915,10 +938,12 @@ class _MarkerCleaner:
                     break
                 # This opener has full-turn CommonMark block provenance, even
                 # when its container prefix or attributes are not inline HTML.
-                self._raw_tag = (
-                    text[start + 1 : end].split(maxsplit=1)[0].rstrip(">").lower()
-                )
-                self._raw_block = True
+                in_svg = bool(self._svg_context and self._svg_context[-1] == "svg")
+                if not (in_svg and text[start:end].endswith("/>")):
+                    self._raw_tag = (
+                        text[start + 1 : end].split(maxsplit=1)[0].rstrip(">").lower()
+                    )
+                    self._raw_block = not in_svg
                 self._emit(out, "<" + text[start + 1 : end])
                 index = end
                 continue
@@ -1127,7 +1152,11 @@ class _MarkerCleaner:
                 continue
             if match is not None:
                 name = match.group(1).lower()
-                self_closing_svg = tag == "svg" and text[start:end].endswith("/>")
+                self_closing = text[start:end].endswith("/>")
+                in_svg = self._track_svg_namespace(
+                    name, opening=tag is not None, self_closing=self_closing
+                )
+                self_closing_svg = tag == "svg" and self_closing
                 if self._html_block_tag == name and not self_closing_svg:
                     self._html_block_depth += -1 if tag is None else 1
                     if self._html_block_depth == 0:
@@ -1148,7 +1177,10 @@ class _MarkerCleaner:
                     self._html_block_depth = 1
                     self._labels.clear()
             leading_metadata = match is None and self._at_line_start
-            if tag in _RAW_TEXT_END:
+            opens_raw_text = tag in _RAW_TEXT_END and not (
+                in_svg and (self_closing or tag == "title")
+            )
+            if opens_raw_text:
                 self._raw_block = (
                     self._at_line_start
                     and self._line_indent <= 3
@@ -1158,8 +1190,8 @@ class _MarkerCleaner:
             if leading_metadata:
                 # Leading HTML metadata may precede the visual's root on this line.
                 self._at_line_start = True
-            if tag in _RAW_TEXT_END:
-                # Self-closing syntax does not close these non-void HTML text elements.
+            if opens_raw_text:
+                # HTML raw-text elements remain non-void even with self-closing syntax.
                 self._raw_tag = tag
             index = end
         return "".join(out)
