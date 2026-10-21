@@ -93,6 +93,55 @@ _RAW_TEXT_END: dict[str, re.Pattern[str] | None] = {
 _RAW_TEXT_END["plaintext"] = None
 _PROSE_SPECIAL = re.compile(r"[<`\\\[\]]")
 _BACKTICKS = re.compile(r"`+")
+# HTML's foreign-content start tags pop back to an HTML or integration-point scope.
+_FOREIGN_BREAKOUT_STARTS = frozenset(
+    [
+        "b",
+        "big",
+        "blockquote",
+        "body",
+        "br",
+        "center",
+        "code",
+        "dd",
+        "div",
+        "dl",
+        "dt",
+        "em",
+        "embed",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "head",
+        "hr",
+        "i",
+        "img",
+        "li",
+        "listing",
+        "menu",
+        "meta",
+        "nobr",
+        "ol",
+        "p",
+        "pre",
+        "ruby",
+        "s",
+        "small",
+        "span",
+        "strong",
+        "strike",
+        "sub",
+        "sup",
+        "table",
+        "tt",
+        "u",
+        "ul",
+        "var",
+    ]
+)
 
 
 def _raw_block_head(text: str) -> bool:
@@ -640,6 +689,16 @@ class _AnnotationEncoding(HTMLParser):
                 break
 
 
+class _FontBreakout(HTMLParser):
+    """Check the attribute names that make a foreign font tag reenter HTML."""
+
+    breakout = False
+
+    def handle_starttag(self, _tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Attribute presence counts, including empty or valueless attributes."""
+        self.breakout = any(name in ("color", "face", "size") for name, _ in attrs)
+
+
 @dataclass
 class _ForeignElement:
     """One explicit namespace scope under an SVG or MathML ancestor."""
@@ -745,6 +804,25 @@ class _MarkerCleaner:
     ) -> str:
         """Track only explicit namespace scopes while a foreign ancestor is open."""
         namespace = self._foreign_namespace(name)
+        if namespace != "html":
+            breakout = name in (_FOREIGN_BREAKOUT_STARTS if opening else ("br", "p"))
+            if opening and name == "font":
+                font = _FontBreakout()
+                font.feed(source)
+                breakout = font.breakout
+            if breakout:
+                # Keep the nearest HTML/integration point: later closes must still
+                # restore the surrounding foreign namespace rather than lose it.
+                while self._foreign_context:
+                    parent = self._foreign_context[-1]
+                    if (
+                        parent.namespace == "html"
+                        or parent.html_integration
+                        or parent.text_integration
+                    ):
+                        break
+                    self._foreign_context.pop()
+                namespace = self._foreign_namespace(name)
         if opening:
             if not self._foreign_context and namespace == "html":
                 return namespace

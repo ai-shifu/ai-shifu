@@ -1960,3 +1960,169 @@ def test_html_integration_points_restore_text_only_parent_semantics(
     text = f"{opening}<{parent}><script>===body===</{parent}>{closing}\n===after==="
     expected = text.replace("===body===", "body").replace("===after===", "after")
     _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize("namespace", ["svg", "math"])
+@pytest.mark.parametrize(
+    "tag",
+    [
+        "b",
+        "big",
+        "blockquote",
+        "body",
+        "br",
+        "center",
+        "code",
+        "dd",
+        "div",
+        "dl",
+        "dt",
+        "em",
+        "embed",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "head",
+        "hr",
+        "i",
+        "img",
+        "li",
+        "listing",
+        "menu",
+        "meta",
+        "nobr",
+        "ol",
+        "p",
+        "pre",
+        "ruby",
+        "s",
+        "small",
+        "span",
+        "strong",
+        "strike",
+        "sub",
+        "sup",
+        "table",
+        "tt",
+        "u",
+        "ul",
+        "var",
+    ],
+)
+def test_html_breakout_start_tags_leave_foreign_content(
+    namespace: str, tag: str
+) -> None:
+    visual = (
+        f"<{namespace}><{tag}><script/>const equal = a === b;</script>"
+        f'<style/>p::after {{ content: "==="; }}</style></{tag}></{namespace}>'
+    )
+    _assert_streaming_output(visual + "\n===after===", visual + "\nafter")
+
+
+@pytest.mark.parametrize("namespace", ["svg", "math"])
+@pytest.mark.parametrize(
+    ("attributes", "breakout"),
+    [
+        ('color=""', True),
+        ("FACE", True),
+        ('size="3"', True),
+        ('data-color="red"', False),
+        ('title="color > face size"', False),
+        ('xml:color="red"', False),
+    ],
+)
+def test_only_font_color_face_or_size_attributes_break_out_of_foreign_content(
+    namespace: str, attributes: str, breakout: bool
+) -> None:
+    visual = (
+        f"<{namespace}><font {attributes}><script/>const equal = a === b;</script>"
+        f"</font></{namespace}>"
+    )
+    expected = visual if breakout else visual.replace("a === b", "a  b")
+    _assert_streaming_output(visual + "\n===after===", expected + "\nafter")
+
+
+@pytest.mark.parametrize("namespace", ["svg", "math"])
+@pytest.mark.parametrize("tag", ["br", "p"])
+def test_br_and_p_end_tags_also_break_out_of_foreign_content(
+    namespace: str, tag: str
+) -> None:
+    visual = f"<{namespace}><g></{tag}><script/>const equal = a === b;</script></g></{namespace}>"
+    _assert_streaming_output(visual + "\n===after===", visual + "\nafter")
+
+
+@pytest.mark.parametrize("namespace", ["svg", "math"])
+def test_other_html_end_tags_do_not_break_out_of_foreign_content(
+    namespace: str,
+) -> None:
+    visual = f"<{namespace}><g></div><script/>const equal = a === b;</script></g></{namespace}>"
+    expected = visual.replace("a === b", "a  b")
+    _assert_streaming_output(visual + "\n===after===", expected + "\nafter")
+
+
+@pytest.mark.parametrize("namespace", ["svg", "math"])
+def test_breakout_pops_foreign_frames_instead_of_only_marking_the_html_child(
+    namespace: str,
+) -> None:
+    visual = (
+        f"<{namespace}><g><div><script/>const first = a === b;</script></div>"
+        f"<script/>const second = a === b;</script></g></{namespace}>"
+    )
+    _assert_streaming_output(visual + "\n===after===", visual + "\nafter")
+
+
+@pytest.mark.parametrize(
+    ("opening", "closing", "outer"),
+    [
+        ("<svg><foreignObject>", "</foreignObject>", "svg"),
+        ("<math><mtext>", "</mtext>", "math"),
+        ('<math><annotation-xml encoding="text/html">', "</annotation-xml>", "math"),
+        ("<svg><foreignObject><div>", "</div></foreignObject>", "svg"),
+    ],
+)
+def test_breakout_keeps_the_nearest_html_or_integration_point_frame(
+    opening: str, closing: str, outer: str
+) -> None:
+    visual = (
+        opening
+        + "<svg><g><p><script/>const equal = a === b;</script></p>"
+        + closing
+        + f"<script/>===foreign===</{outer}>"
+    )
+    expected = visual.replace("===foreign===", "foreign")
+    _assert_streaming_output(visual + "\n===after===", expected + "\nafter")
+
+
+@pytest.mark.parametrize(
+    ("opening", "closing"),
+    [("<svg><desc>", "</desc></svg>"), ("<math><mtext>", "</mtext></math>")],
+)
+def test_html_breakout_names_directly_inside_integration_points_keep_the_scope(
+    opening: str, closing: str
+) -> None:
+    first, outer = closing.split(">", 1)
+    visual = (
+        opening
+        + "<div><script/>const equal = a === b;</script></div>"
+        + first
+        + ">"
+        + "<script/>===foreign==="
+        + outer
+    )
+    _assert_streaming_output(
+        visual + "\n===after===", visual.replace("===foreign===", "foreign") + "\nafter"
+    )
+
+
+@pytest.mark.parametrize("namespace", ["svg", "math"])
+@pytest.mark.parametrize(
+    ("opening", "closing"), [("<div/>", "</div>"), ('<font color="red"/>', "</font>")]
+)
+def test_html_breakout_is_not_prevented_by_self_closing_syntax(
+    namespace: str, opening: str, closing: str
+) -> None:
+    visual = f"<{namespace}>{opening}<script/>const equal = a === b;</script>{closing}</{namespace}>"
+    _assert_streaming_output(visual + "\n===after===", visual + "\nafter")
