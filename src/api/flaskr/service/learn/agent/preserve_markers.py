@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 
 # The same shapes `markdown_flow` recognises: a fence line of `!` and three or more `=`, and the
 # inline tokens `!===` and `===`.
-_FENCE_LINE = re.compile(r"^[ \t]*!={3,}[ \t]*$")
+_FENCE_LINE = re.compile(r"^[ \t]*!={3,}[ \t]*\r?$")
 # A code fence opens with three or more backticks or tildes; it closes only with a line of the
 # same character, at least as long, and nothing after it (CommonMark). A tilde line does not
 # close a backtick fence, a shorter fence does not close a longer one, and a line with trailing
@@ -62,7 +62,7 @@ _MARKDOWN_BLOCK_CANDIDATE = re.compile(
 )
 _MARKERS = re.compile(r"!?={3,}")
 # An unfinished line that may still become a fence line of either kind.
-_MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]|^[ \t]*!?=*[ \t]*$")
+_MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]|^[ \t]*!?=*[ \t]*\r?$")
 # The tail of an unfinished line that may still become a marker once more text arrives.
 _PARTIAL_TAIL = re.compile(r"!?=*$")
 _HTML_TAG_HEAD = re.compile(r"</?([a-zA-Z][a-zA-Z0-9:-]*)(?=[\s/>])")
@@ -406,10 +406,19 @@ def _reference_replay_source(
                 if position >= mask_start:
                     protected[position] = image_masks[char]
         if token.type in ("code_block", "fence"):
-            for pos in range(max(start, mask_start), end):
-                if protected[pos] in masks:
-                    protected[pos] = masks[protected[pos]]
-            if start >= mask_start and start < end:
+            marker_lines: set[int] = set()
+            for number in range(first, min(last, len(source_lines))):
+                if token.type == "code_block" and _FENCE_LINE.match(
+                    source_lines[number].removesuffix("\n")
+                ):
+                    # MDF fence lines take precedence over indentation, including
+                    # when native Markdown grouped them into an indented block.
+                    marker_lines.add(number)
+                    continue
+                for pos in range(max(offsets[number], mask_start), offsets[number + 1]):
+                    if protected[pos] in masks:
+                        protected[pos] = masks[protected[pos]]
+            if start >= mask_start and start < end and first not in marker_lines:
                 # Only parser-confirmed code gets a boundary marker. A candidate
                 # inside a quote paragraph may instead be a valid inline span.
                 boundary = chr(
@@ -936,6 +945,16 @@ class _MarkerCleaner:
             self.needs_references = True
             self.reference_tail_size = len(tail)
             return ""
+        if (
+            whole_line
+            and self._fence is None
+            and not self._inside_literal()
+            and _FENCE_LINE.match(tail)
+        ):
+            self._labels.clear()
+            self._indented_code = False
+            self._can_start_indented = True
+            return ""
         # A fragment that never became a marker is text, and is shown as it is.
         out = (
             tail
@@ -1017,6 +1036,12 @@ class _MarkerCleaner:
             # that block, even if an inline HTML tag is still buffered now.
             self._indented_code = False
         in_literal = self._inside_literal()
+        if whole_line and not in_literal and _FENCE_LINE.match(line):
+            # MDF fences precede indented code; their newline is not content.
+            self._labels.clear()
+            self._indented_code = False
+            self._can_start_indented = True
+            return ""
         if whole_line and not in_literal:
             if self._indented_code and not line.strip(" \t"):
                 self._at_line_start = True
@@ -1040,12 +1065,6 @@ class _MarkerCleaner:
                 self._fence = (run[0], len(run))
                 self._can_start_indented = False
                 return line + "\n"
-        if whole_line and not in_literal and _FENCE_LINE.match(line):
-            # The fence line itself: not content. Its newline goes too, or every fenced block
-            # would gain a blank line.
-            self._labels.clear()
-            self._can_start_indented = True
-            return ""
         classification = _MARKERS.sub("", source)
         block_head = block_html_open_re.match(classification)
         leading_raw = _raw_block_head(classification)

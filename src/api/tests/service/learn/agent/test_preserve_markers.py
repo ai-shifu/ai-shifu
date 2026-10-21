@@ -1335,6 +1335,68 @@ def test_self_closing_syntax_still_opens_a_nonvoid_html_container() -> None:
     )
 
 
+@pytest.mark.parametrize("indent", ["    ", "\t"])
+@pytest.mark.parametrize("ending", ["\n", ""])
+def test_indented_marker_fences_still_wrap_the_lesson(indent: str, ending: str) -> None:
+    text = f"{indent}!===\nlesson\n{indent}!==={ending}"
+    _assert_streaming_output(text, "lesson\n")
+
+
+@pytest.mark.parametrize("indent", ["    ", "\t"])
+def test_an_indented_marker_fence_alone_is_removed_at_eof(indent: str) -> None:
+    _assert_streaming_output(indent + "!===", "")
+
+
+@pytest.mark.parametrize("indent", ["    ", "\t"])
+def test_a_marker_fence_ends_existing_indented_code(indent: str) -> None:
+    code = f"{indent}const equal = a === b;\n"
+    text = code + f"{indent}!===\n===lesson===\n{indent}!===\n"
+    _assert_streaming_output(text, code + "lesson\n")
+
+
+@pytest.mark.parametrize("indent", ["    ", "\t"])
+@pytest.mark.parametrize("replay", [False, True], ids=["stream", "reference-replay"])
+@pytest.mark.parametrize("ending", ["\r\n", ""], ids=["newline", "eof"])
+def test_indented_marker_fences_keep_priority_with_crlf(
+    indent: str, replay: bool, ending: str
+) -> None:
+    before = "[<script>]: /docs\r\n\r\n[docs][<script>]\r\n\r\n" if replay else ""
+    text = before + f"{indent}!===\r\nlesson\r\n{indent}!==={ending}"
+    _assert_streaming_output(text, before + "lesson\r\n")
+
+
+@pytest.mark.parametrize("indent", ["    ", "\t"])
+def test_reference_replay_keeps_indented_marker_fences_visible(indent: str) -> None:
+    before = "[docs][<script>]\n\n"
+    after = "\n[<script>]: /docs\n"
+    text = before + f"{indent}!===\nlesson\n{indent}!===\n" + after
+    _assert_streaming_output(text, before + "lesson\n" + after)
+
+
+@pytest.mark.parametrize("indent", ["    ", "\t"])
+def test_reference_replay_keeps_markers_after_indented_code_visible(
+    indent: str,
+) -> None:
+    before = "[docs][<script>]\n\n"
+    code = f"{indent}const equal = a === b;\n"
+    after = "\n[<script>]: /docs\n"
+    text = before + code + f"{indent}!===\nlesson\n{indent}!===\n" + after
+    _assert_streaming_output(text, before + code + "lesson\n" + after)
+
+
+@pytest.mark.parametrize("indent", ["    ", "\t"])
+@pytest.mark.parametrize("reference_replay", [False, True])
+def test_true_code_fences_keep_indented_marker_lines(
+    indent: str, reference_replay: bool
+) -> None:
+    code = f"```text\n{indent}!===\nconst equal = a === b;\n{indent}!===\n```\n"
+    before = "[docs][later]\n\n" if reference_replay else ""
+    after = "\n[later]: /docs\n" if reference_replay else ""
+    _assert_streaming_output(
+        before + code + "===after===\n" + after, before + code + "after\n" + after
+    )
+
+
 @pytest.mark.parametrize("indent", ["    ", "\t", "  \t"])
 def test_indented_code_does_not_open_html_or_markdown_fences(indent: str) -> None:
     code = (
@@ -1342,7 +1404,9 @@ def test_indented_code_does_not_open_html_or_markdown_fences(indent: str) -> Non
         f"{indent}const equal = a === b;\n\n"
         f"{indent}```\n{indent}!===\n"
     )
-    _assert_streaming_output(code + "\n===after===\n", code + "\nafter\n")
+    _assert_streaming_output(
+        code + "\n===after===\n", code.replace(f"{indent}!===\n", "") + "\nafter\n"
+    )
 
 
 def test_indented_code_is_preserved_when_the_stream_ends_without_a_newline() -> None:
