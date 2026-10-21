@@ -1298,3 +1298,44 @@ def test_inline_raw_html_after_code_does_not_keep_the_previous_code_context(
 def test_title_markup_keeps_following_indented_html_text_as_prose(html: str) -> None:
     text = html + "    ===lesson===\n===after===\n"
     _assert_streaming_output(text, html + "    lesson\nafter\n")
+
+
+@pytest.mark.parametrize("prefix", ["> ", "- ", "12. ", "> - ", "- > ", ">\t"])
+@pytest.mark.parametrize("tag", ["script", "style"])
+def test_raw_html_blocks_in_containers_preserve_recoverable_attributes(
+    prefix: str, tag: str
+) -> None:
+    text = f"{prefix}<{tag} =>const equal = a === b;</{tag}>\n\n===after===\n"
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("prefix", ["> ", "- "])
+def test_container_textarea_blocks_ignore_nested_fake_script_tags(prefix: str) -> None:
+    text = f"{prefix}<textarea =><script>fake ===body===</textarea>\n\n===after===\n"
+    expected = text.replace("===body===", "body").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    ["Paragraph\n12. ", "> Explain ", "- Explain ", "> Paragraph\n>     "],
+)
+def test_container_prefixes_do_not_make_invalid_inline_tags_into_blocks(
+    prefix: str,
+) -> None:
+    text = f"{prefix}<script =>const equal = a === b;</script>\n===after===\n"
+    expected = text.replace("a === b", "a  b").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize("prefix", ["Use ` unmatched\n", '[broken](url "pending\n'])
+def test_container_raw_html_blocks_end_unmatched_inline_candidates(prefix: str) -> None:
+    text = (
+        prefix + "> <script =>const equal = a === b;</script>\n===after=== Use `x`.\n"
+    )
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+def test_container_raw_block_attributes_can_continue_on_the_next_line() -> None:
+    text = "> <script\n> =>const equal = a === b;</script>\n===after===\n"
+    _assert_streaming_output(text, text.replace("===after===", "after"))

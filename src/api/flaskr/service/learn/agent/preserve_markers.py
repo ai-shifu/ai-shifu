@@ -117,6 +117,17 @@ def _container_code_candidate(line: str) -> bool:
     )
 
 
+def _container_raw_block_candidate(line: str) -> bool:
+    """Defer possible raw HTML in a container to the complete block parser."""
+    found = False
+    while match := _CONTAINER_HEAD.match(line):
+        found = True
+        line = line[match.end() :]
+        if line.startswith((" ", "\t")):
+            line = line[1:]
+    return found and _HTML_RAW_BLOCK_HEAD.match(line.lstrip(" \t")) is not None
+
+
 def _has_container_candidate(text: str, scanned: int) -> bool:
     """Revisit the previous chunk's last line and inspect only new inline source."""
     newline = text.rfind("\n", 0, scanned)
@@ -125,7 +136,8 @@ def _has_container_candidate(text: str, scanned: int) -> bool:
     while newline >= 0:
         start = newline + 1
         newline = text.find("\n", start)
-        if _container_code_candidate(text[start : newline if newline >= 0 else None]):
+        line = text[start : newline if newline >= 0 else None]
+        if _container_code_candidate(line) or _container_raw_block_candidate(line):
             return True
     return False
 
@@ -135,6 +147,7 @@ def _inline_boundary(
     start: int,
     scanned: int = 0,
     code_boundaries: frozenset[str] = frozenset(),
+    raw_block_openers: frozenset[str] = frozenset(),
 ) -> int:
     """Locate a paragraph or block boundary that ends an inline candidate."""
     # Inline syntax cannot cross a paragraph break or consume a code/HTML block. Revisit the previous
@@ -151,6 +164,7 @@ def _inline_boundary(
         if (
             (newline >= 0 and not raw_line.strip(" \t"))
             or raw_line[:1] in code_boundaries
+            or any(opener in raw_line for opener in raw_block_openers)
             or _CODE_FENCE_OPEN.match(raw_line)
             or _FENCE_LINE.match(raw_line)
             or block_html_open_re.match(line)
@@ -169,13 +183,16 @@ def _code_span_end(
     *,
     final: bool,
     code_boundaries: frozenset[str] = frozenset(),
+    raw_block_openers: frozenset[str] = frozenset(),
 ) -> tuple[int | None, int | None]:
     """Pair backticks; a None scan offset means a block forced an unmatched opener."""
     if scanned is None:
         return None, None
     opening_end = _run_end(text, start)
     width = opening_end - start
-    boundary = _inline_boundary(text, start, scanned, code_boundaries)
+    boundary = _inline_boundary(
+        text, start, scanned, code_boundaries, raw_block_openers
+    )
     for closing in _BACKTICKS.finditer(
         text, max(opening_end, start + scanned), boundary
     ):
@@ -241,7 +258,7 @@ def _reference_name(label: str) -> str:
 
 def _reference_replay_source(
     source: str, mask_start: int
-) -> tuple[str, frozenset[str], dict[int, str], frozenset[str]]:
+) -> tuple[str, frozenset[str], dict[int, str], frozenset[str], frozenset[str]]:
     """Protect confirmed definitions and code only after the source suffix that stopped streaming."""
     parser = MarkdownIt("commonmark", {"inline_definitions": True})
     tokens = parser.parse(source)
@@ -263,6 +280,7 @@ def _reference_replay_source(
     names: set[str] = set()
     block_restore: dict[int, str] = {}
     code_boundaries: set[str] = set()
+    raw_block_openers: set[str] = set()
     for token in tokens:
         if token.map is None:
             continue
@@ -281,6 +299,18 @@ def _reference_replay_source(
                 protected[start] = boundary
                 block_restore[ord(boundary)] = source[start]
                 code_boundaries.add(boundary)
+            continue
+        if token.type == "html_block" and _HTML_RAW_BLOCK_HEAD.match(
+            token.content.lstrip(" \t")
+        ):
+            opening = _HTML_RAW_BLOCK_HEAD.search(source, start, end)
+            if opening is not None and opening.start() >= mask_start:
+                marker = chr(
+                    next(code for code in candidates if chr(code) not in present)
+                )
+                protected[opening.start()] = marker
+                block_restore[ord(marker)] = "<"
+                raw_block_openers.add(marker)
             continue
         if token.type != "definition":
             continue
@@ -302,7 +332,13 @@ def _reference_replay_source(
                 protected[pos] = masks[char]
     restore = {ord(mask): char for char, mask in masks.items()}
     restore.update(block_restore)
-    return "".join(protected), frozenset(names), restore, frozenset(code_boundaries)
+    return (
+        "".join(protected),
+        frozenset(names),
+        restore,
+        frozenset(code_boundaries),
+        frozenset(raw_block_openers),
+    )
 
 
 def _link_suffix_end(
@@ -312,9 +348,12 @@ def _link_suffix_end(
     *,
     final: bool,
     code_boundaries: frozenset[str] = frozenset(),
+    raw_block_openers: frozenset[str] = frozenset(),
 ) -> tuple[int | None, int | None]:
     """Recognize link metadata without rescanning a long destination or title."""
-    maximum = _inline_boundary(text, start, state.position, code_boundaries)
+    maximum = _inline_boundary(
+        text, start, state.position, code_boundaries, raw_block_openers
+    )
     while start + state.position < maximum:
         pos = start + state.position
         char = text[pos]
@@ -441,6 +480,7 @@ class _MarkerCleaner:
         references: frozenset[str] | None = None,
         definition_restore: dict[int, str] | None = None,
         code_boundaries: frozenset[str] = frozenset(),
+        raw_block_openers: frozenset[str] = frozenset(),
     ) -> None:
         """Start with nothing buffered and no code fence open."""
         self._line = ""
@@ -463,6 +503,12 @@ class _MarkerCleaner:
         self._references = references
         self._definition_restore = definition_restore or {}
         self._code_boundaries = code_boundaries
+        self._raw_block_openers = raw_block_openers
+        self._prose_special = (
+            re.compile(_PROSE_SPECIAL.pattern[:-1] + "".join(raw_block_openers) + "]")
+            if raw_block_openers
+            else _PROSE_SPECIAL
+        )
         self.needs_references = False
         self.reference_tail_size = 0
         self._image_pending = False
@@ -646,6 +692,7 @@ class _MarkerCleaner:
             and not self._inside_literal()
             and (
                 _container_code_candidate(text)
+                or _container_raw_block_candidate(text)
                 or (
                     _CODE_INDENT.match(text) is not None
                     and bool(text.strip(" \t"))
@@ -789,7 +836,7 @@ class _MarkerCleaner:
                 index = end
                 continue
 
-            special = _PROSE_SPECIAL.search(text, index)
+            special = self._prose_special.search(text, index)
             if special is None:
                 tail = text[index:]
                 if tail:
@@ -811,6 +858,20 @@ class _MarkerCleaner:
             if start > index:
                 self._backslashes = 0
             char = text[start]
+            if char in self._raw_block_openers:
+                end = _tag_end(text, start + 1)
+                if end is None:
+                    self._html_tail = text[start:]
+                    break
+                # This opener has full-turn CommonMark block provenance, even
+                # when its container prefix or attributes are not inline HTML.
+                self._raw_tag = (
+                    text[start + 1 : end].split(maxsplit=1)[0].rstrip(">").lower()
+                )
+                self._raw_block = True
+                self._emit(out, "<" + text[start + 1 : end])
+                index = end
+                continue
             if self._html_block_tag is not None and char in ("\\", "`", "[", "]", "!"):
                 # Markdown escapes/code spans do not apply inside an HTML visual.
                 end = _run_end(text, start)
@@ -899,6 +960,7 @@ class _MarkerCleaner:
                     self._link_suffix,
                     final=final,
                     code_boundaries=self._code_boundaries,
+                    raw_block_openers=self._raw_block_openers,
                 )
                 if end is None:
                     self._inline_tail = text[start:]
@@ -921,6 +983,7 @@ class _MarkerCleaner:
                     self._inline_scanned,
                     final=final,
                     code_boundaries=self._code_boundaries,
+                    raw_block_openers=self._raw_block_openers,
                 )
                 if end is None:
                     self._inline_tail = text[start:]
@@ -1063,7 +1126,10 @@ class _MarkerCleaner:
                 not final
                 and len(source) <= 999
                 and _reference_label_end(source + "]") == len(source)
-                and _inline_boundary(source, 0, 0, self._code_boundaries) == len(source)
+                and _inline_boundary(
+                    source, 0, 0, self._code_boundaries, self._raw_block_openers
+                )
+                == len(source)
             ):
                 return -1
             return None
@@ -1139,10 +1205,12 @@ class PreserveMarkerFilter:
                 self._reference_offset = (
                     self._source_size - self._cleaner.reference_tail_size
                 )
-            source, references, restore, code_boundaries = _reference_replay_source(
-                "".join(self._source), self._reference_offset
+            source, references, restore, code_boundaries, raw_block_openers = (
+                _reference_replay_source("".join(self._source), self._reference_offset)
             )
-            cleaner = _MarkerCleaner(references, restore, code_boundaries)
+            cleaner = _MarkerCleaner(
+                references, restore, code_boundaries, raw_block_openers
+            )
             complete = (cleaner.feed(source) + cleaner.flush()).translate(restore)
             emitted = "".join(self._emitted)
             if not complete.startswith(emitted):
