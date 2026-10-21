@@ -220,6 +220,59 @@ def test_html_lookalikes_do_not_protect_prose(text: str, expected: str) -> None:
     _assert_streaming_output(text, expected)
 
 
+@pytest.mark.parametrize(
+    "opaque",
+    [
+        "<![CDATA[<script> a === b > <style>]]>",
+        "<?instruction <script> a === b > <style> ?>",
+        "<![CDATA[\n<script> a === b;\n]]>",
+        "<?instruction\n<style> a === b;\n?>",
+    ],
+)
+def test_opaque_html_constructs_do_not_open_raw_text(opaque: str) -> None:
+    text = f"<svg>{opaque}</svg>\n===after==="
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("opener", ["<![CDATA[", "<?instruction "])
+def test_unclosed_opaque_html_is_preserved_until_end_of_stream(opener: str) -> None:
+    text = f"===before==={opener}<script> ===literal==="
+    _assert_streaming_output(text, text.replace("===before===", "before"))
+
+
+@pytest.mark.parametrize(
+    "opaque", ["<![CDATA[` <script>]]>", "<?instruction ` <script> ?>"]
+)
+def test_opaque_html_blocks_end_unmatched_inline_candidates(opaque: str) -> None:
+    text = f"Press the ` key.\n{opaque}\n===after==="
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize(
+    ("opener", "closer"),
+    [("<![CDATA[", "]]>"), ("<?instruction", "?>"), ("<!--", "-->")],
+)
+def test_multiline_opaque_block_allows_following_indented_code(
+    opener: str, closer: str
+) -> None:
+    text = f"{opener}\n<script> literal\n{closer}\n    <script> literal\n===after==="
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize(
+    ("opener", "closer"),
+    [("<![CDATA[", "]]>"), ("<?instruction", "?>"), ("<!--", "-->")],
+)
+def test_inline_opaque_markup_does_not_end_a_prose_paragraph(
+    opener: str, closer: str
+) -> None:
+    text = (
+        f"Paragraph {opener}\n<script> fake\n{closer}\n"
+        "    <script> literal\n===source==="
+    )
+    _assert_streaming_output(text, text)
+
+
 @pytest.mark.parametrize("fence", ["```", "~~~"])
 def test_html_inside_a_markdown_code_fence_does_not_leak_raw_text_state(
     fence: str,

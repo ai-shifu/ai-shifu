@@ -47,6 +47,7 @@ _HTML_TAG_HEAD = re.compile(r"</?([a-zA-Z][a-zA-Z0-9:-]*)(?=[\s/>])")
 _HTML_TAG_PREFIX = re.compile(r"</?[a-zA-Z][a-zA-Z0-9:-]*$")
 _HTML_DOCTYPE_HEAD = re.compile(r"<!DOCTYPE(?=[\s>])", re.IGNORECASE)
 _HTML_ROOT_HEAD = re.compile(r"<(?:html|body|svg)(?=[\s>/])", re.IGNORECASE)
+_HTML_OPAQUE = {"<!--": "-->", "<![CDATA[": "]]>", "<?": "?>"}
 # Raw-text and RCDATA bodies cannot open nested HTML elements. Only script/style
 # contain code; other text-only elements still have prose markers removed.
 _RAW_TEXT_END = {
@@ -94,7 +95,7 @@ def _inline_boundary(text: str, start: int, scanned: int = 0) -> int:
             or block_html_open_re.match(line)
             or _HTML_ROOT_HEAD.match(candidate)
             or _HTML_DOCTYPE_HEAD.match(candidate)
-            or candidate.startswith("<!--")
+            or any(candidate.startswith(opener) for opener in _HTML_OPAQUE)
         ):
             return line_start
     return len(text)
@@ -430,6 +431,7 @@ class _MarkerCleaner:
                         self._line_had_html_context |= (
                             self._raw_tag is not None
                             or self._html_block_tag is not None
+                            or self._in_opaque_block()
                         )
                         out.append(self._filter_html(head))
                         if self.needs_references:
@@ -523,6 +525,14 @@ class _MarkerCleaner:
             or bool(self._html_tail or self._inline_tail)
         )
 
+    def _in_opaque_block(self) -> bool:
+        """Remember a leading declaration when its last line arrives in fragments."""
+        return (
+            self._at_line_start
+            and self._line_indent <= 3
+            and any(self._html_tail.startswith(opener) for opener in _HTML_OPAQUE)
+        )
+
     def _starts_indented_code(self, text: str) -> bool:
         """Recognize four-column code indentation outside a prose paragraph."""
         return (
@@ -579,10 +589,14 @@ class _MarkerCleaner:
             html_context
             or self._raw_tag is not None
             or self._html_block_tag is not None
+            or self._in_opaque_block()
             or block_html_open_re.match(classification)
             or _HTML_ROOT_HEAD.match(classification.lstrip(" \t"))
             or _HTML_DOCTYPE_HEAD.match(classification.lstrip(" \t"))
-            or classification.lstrip(" \t").startswith("<!--")
+            or any(
+                classification.lstrip(" \t").startswith(opener)
+                for opener in _HTML_OPAQUE
+            )
         )
         out = self._filter_html(line + "\n")
         self._can_start_indented = (
@@ -752,9 +766,14 @@ class _MarkerCleaner:
                 index = end
                 continue
             fragment = text[start:]
-            if fragment.startswith("<!--"):
-                end = text.find("-->", start + 4)
-                end = end + 3 if end >= 0 else None
+            opaque = next(
+                (opener for opener in _HTML_OPAQUE if fragment.startswith(opener)),
+                None,
+            )
+            if opaque is not None:
+                closer = _HTML_OPAQUE[opaque]
+                end = text.find(closer, start + len(opaque))
+                end = end + len(closer) if end >= 0 else None
                 match = None
                 tag = None
             elif "<!DOCTYPE".startswith(fragment.upper()) or _HTML_DOCTYPE_HEAD.match(
@@ -768,7 +787,7 @@ class _MarkerCleaner:
                 if match is None:
                     if (
                         fragment in ("<", "</")
-                        or "<!--".startswith(fragment)
+                        or any(opener.startswith(fragment) for opener in _HTML_OPAQUE)
                         or _HTML_TAG_PREFIX.fullmatch(fragment)
                     ):
                         self._html_tail = fragment
