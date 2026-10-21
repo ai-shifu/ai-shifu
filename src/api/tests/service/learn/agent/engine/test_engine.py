@@ -2849,3 +2849,90 @@ async def test_an_untaken_pause_tells_the_model_to_finish_if_nothing_remains() -
 
     assert "`finish`" in NO_PAUSE
     assert "Do not repeat" in NO_PAUSE
+
+
+@pytest.mark.parametrize("terminal", ["finish", "interact"])
+@pytest.mark.parametrize("inline_code", [False, True])
+async def test_new_single_line_teaching_after_closing_streams_before_the_tool(
+    terminal: str, inline_code: bool
+) -> None:
+    """A line-buffered display comparison must not turn new teaching into an empty repeat."""
+    closing = "Closing line."
+    novel = (
+        "A completely new teaching point explains why stored instructions matter. " * 8
+    )
+    if inline_code:
+        novel += "Use `a === b` when comparing these values."
+    calls = 0
+
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            yield "The explanation.\n\n" + closing
+        elif calls == 2:
+            for index in range(0, len(novel), 19):
+                yield novel[index : index + 19]
+            arguments = (
+                {"summary": "done"}
+                if terminal == "finish"
+                else {
+                    "type": "single",
+                    "prompt": "Next?",
+                    "options": [{"display": "Continue"}],
+                }
+            )
+            yield {
+                0: DeltaToolCall(
+                    name=terminal, json_args=json.dumps(arguments), tool_call_id="end"
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Explain names.\n\n===Closing line.===")
+    await collect(engine.run_turn(session))
+    events = await collect(engine.run_turn(session, ContinueTurn()))
+    assert _said(events) == novel
+    first_content = next(
+        index for index, event in enumerate(events) if isinstance(event, ContentDelta)
+    )
+    tool_call = next(
+        index for index, event in enumerate(events) if isinstance(event, ToolCall)
+    )
+    assert first_content < tool_call
+    assert events[-1].reason == ("finished" if terminal == "finish" else "interaction")
+
+
+@pytest.mark.parametrize("marker_tail", ["=", "==", "!"])
+@pytest.mark.parametrize("inline_code", [False, True])
+async def test_long_closing_repeat_waits_for_partial_marker_and_inline_code(
+    marker_tail: str, inline_code: bool
+) -> None:
+    """Comparison-only finalization must not release a repeated closing's unfinished suffix."""
+    closing = "This exact closing sentence explains the same stored value. " * 7
+    if inline_code:
+        closing += "Use `a === b`."
+    marker = "!===" if marker_tail == "!" else "==="
+    again = marker + closing + marker
+    chunks = []
+    if inline_code:
+        cut = again.index("`a ===") + len("`a ===")
+        chunks.append(again[:cut])
+    else:
+        cut = 0
+    tail_start = len(again) - len(marker) + len(marker_tail)
+    chunks.extend([again[cut:tail_start], again[tail_start:]])
+    model = _closing_again_model(["The explanation.\n\n", closing], chunks)
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Explain names.\n\n===" + closing + "===")
+    await collect(engine.run_turn(session))
+    events = await collect(engine.run_turn(session, ContinueTurn()))
+    assert _said(events) == ""
+    assert events[-1].reason == "finished"
+
+
+def test_partial_display_comparison_keeps_a_complete_literal_line() -> None:
+    """A literal equals sign before an arrived newline is no longer an undecided marker."""
+    from flaskr.service.learn.agent.engine.engine import _display_text
+
+    assert _display_text("Closing line.=\n", complete=False) == "Closing line.=\n"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -305,10 +306,13 @@ def _previous_turn_text(
 
 
 def _display_text(text: str, *, complete: bool = True) -> str:
-    """Apply the host's verbatim-marker filtering while retaining line boundaries."""
+    """Project comparison text through the host policy, independently of line buffering."""
+    if not complete:
+        # A comparison needs the current candidate even before its physical line ends.
+        # A trailing marker fragment is still undecided, rather than visible divergence.
+        text = re.sub(r"!?=*\Z", "", text)
     markers = PreserveMarkerFilter()
-    displayed = markers.feed(text)
-    return displayed + markers.flush() if complete else displayed
+    return markers.feed(text) + markers.flush()
 
 
 def _unanswered_interaction_markup(
@@ -1158,10 +1162,21 @@ class Engine:
                 return _out(text)
             held.append(text)
             held_text += "".join(text.split())
-            if _closing_was_shown() and final_line_text.startswith(
-                "".join(_display_text("".join(held), complete=False).split())
-            ):
-                return []
+            if _closing_was_shown():
+                candidate = "".join(held)
+                compared = "".join(_display_text(candidate, complete=False).split())
+                # An unfinished inline construct can change its display when completed.
+                # The author's exact source prefix still identifies that closing safely.
+                source_prefix = re.sub(
+                    r"^!?={3,}", "", re.sub(r"!?=*\Z", "", candidate).lstrip()
+                )
+                if final_line_text.startswith(compared) or (
+                    final_line is not None
+                    and "".join(final_line.split()).startswith(
+                        "".join(source_prefix.split())
+                    )
+                ):
+                    return []
             if len(held_text) < hold_floor or held_text in previous:
                 return []
             holding = False
