@@ -1822,6 +1822,42 @@ def test_mathml_self_closing_scripts_keep_following_lesson_text_as_prose(
 
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunking", ["whole", "split", "characters"])
+def test_a_partial_marker_fence_inside_inline_code_survives_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunking: str,
+) -> None:
+    """A partial marker-fence lookalike cannot break a valid multiline code span."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    span = "``\n!=== =``"
+    lesson = f"===Before=== {span} ===After==="
+    chunks = {
+        "whole": [lesson],
+        "split": ["===Before=== ``\n!=== =", "`` ===After==="],
+        "characters": list(lesson),
+    }[chunking]
+    engine = _Engine(
+        [ContentDelta(text=chunk) for chunk in chunks] + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert f"Before {span} After" in content
+        assert "===Before===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 def test_the_closing_sentence_comes_before_the_question_it_leads_to(
     monkeypatch: pytest.MonkeyPatch, listen: bool
 ) -> None:

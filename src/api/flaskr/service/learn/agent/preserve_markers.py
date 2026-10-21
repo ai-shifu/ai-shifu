@@ -186,7 +186,7 @@ def _inline_boundary(
             or raw_line[:1] in inline_boundaries
             or any(opener in raw_line for opener in raw_block_openers)
             or _CODE_FENCE_OPEN.match(raw_line)
-            or _FENCE_LINE.match(raw_line)
+            or (newline >= 0 and _FENCE_LINE.match(raw_line))
             or block_html_open_re.match(line)
             or _HTML_ROOT_HEAD.match(candidate)
             or _HTML_DOCTYPE_HEAD.match(candidate)

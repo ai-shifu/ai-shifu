@@ -731,6 +731,40 @@ def test_a_marker_fence_interrupts_an_unmatched_inline_opener(fence: str) -> Non
 
 
 @pytest.mark.parametrize(
+    "line", ["!=== =", "!=== \t=", " \t!===== ", "!=== = still text"]
+)
+def test_a_partial_marker_fence_cannot_end_a_valid_inline_code_span(line: str) -> None:
+    text = "``\n" + line + "``"
+    _assert_streaming_output(text, text)
+
+
+def test_a_partial_marker_fence_cannot_end_a_valid_link_title() -> None:
+    text = '[docs](url "title\n!=== =") ===after==='
+    _assert_streaming_output(text, text.replace("===after===", "after"))
+
+
+@pytest.mark.parametrize("ending", ["", "\n"])
+def test_a_real_marker_fence_at_eof_still_ends_an_unmatched_span(ending: str) -> None:
+    text = "Press the ` key.\n!===" + ending
+    _assert_streaming_output(text, "Press the ` key.\n")
+
+
+def test_a_complete_marker_fence_keeps_following_html_outside_the_span() -> None:
+    html = "<div><script>const label = `value`; const equal = a === b;</script></div>\n"
+    text = "Press the ` key.\n!===\n" + html + "===after==="
+    _assert_streaming_output(text, "Press the ` key.\n" + html + "after")
+
+
+def test_a_partial_marker_fence_keeps_held_code_until_the_turn_finishes() -> None:
+    marker_filter = PreserveMarkerFilter()
+    out = marker_filter.feed("``\n!=== =")
+    out += marker_filter.feed("``")
+    out += marker_filter.flush()
+    assert out == "``\n!=== =``"
+    assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize(
     ("link", "expected"),
     [
         ('[===docs===](url "<script>")', '[docs](url "<script>")'),
