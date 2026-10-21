@@ -34,7 +34,7 @@ _CODE_FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})")
 _CODE_FENCE_CLOSE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})[ \t]*$")
 _MARKERS = re.compile(r"!?={3,}")
 # An unfinished line that may still become a fence line of either kind.
-_MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]|^[ \t]*!?=*$")
+_MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]|^[ \t]*!?=*[ \t]*$")
 # The tail of an unfinished line that may still become a marker once more text arrives.
 _PARTIAL_TAIL = re.compile(r"!?=*$")
 _HTML_TAG_HEAD = re.compile(r"</?([a-zA-Z][a-zA-Z0-9:-]*)(?=[\s/>])")
@@ -91,6 +91,7 @@ def _code_span_end(
         if (
             (newline >= 0 and not raw_line.strip(" \t"))
             or _CODE_FENCE_OPEN.match(raw_line)
+            or _FENCE_LINE.match(raw_line)
             or block_html_open_re.match(line)
             or _HTML_ROOT_HEAD.match(candidate)
             or _HTML_DOCTYPE_HEAD.match(candidate)

@@ -538,3 +538,17 @@ def test_an_inline_opener_cannot_pair_with_backticks_inside_a_code_fence(
     marker_filter = PreserveMarkerFilter()
     assert marker_filter.feed(text) == expected
     assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize(
+    "fence", ["!===", " \t!=====\t "], ids=["plain", "padded-long"]
+)
+def test_a_marker_fence_interrupts_an_unmatched_inline_opener(fence: str) -> None:
+    text = (
+        f"Press the ` key.\n{fence}\n===Important=== Use `x`.\n{fence}\n===after===\n"
+    )
+    expected = "Press the ` key.\nImportant Use `x`.\nafter\n"
+    _assert_streaming_output(text, expected)
+    marker_filter = PreserveMarkerFilter()
+    assert marker_filter.feed(text) == expected
+    assert marker_filter.flush() == ""
