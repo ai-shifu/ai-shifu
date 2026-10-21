@@ -1248,3 +1248,53 @@ def test_a_container_definition_holds_metadata_before_it_can_be_streamed() -> No
         'before\n\n> [docs]: /===url=== "===title=== <style>"\n\nafter'
     )
     assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize("tag", ["script", "style", "textarea"])
+@pytest.mark.parametrize(
+    ("placement", "block"),
+    [
+        ("inline", False),
+        ("inline-multiline", False),
+        ("paragraph-indent", False),
+        ("leading", True),
+        ("leading-multiline", True),
+        ("marked-leading", True),
+    ],
+)
+def test_only_leading_raw_html_blocks_allow_following_indented_code(
+    tag: str, placement: str, block: bool
+) -> None:
+    html = f"<{tag}>content</{tag}>\n"
+    if placement == "inline":
+        html = "Text " + html
+    elif placement == "inline-multiline":
+        html = f"Text <{tag}>\ncontent\n</{tag}>\n"
+    elif placement == "paragraph-indent":
+        html = "Paragraph\n    " + html
+    elif placement == "leading-multiline":
+        html = f"<{tag}>\ncontent\n</{tag}>\n"
+    elif placement == "marked-leading":
+        html = f"===<{tag}>content</{tag}>===\n"
+    source = html + "    ===lesson===\n===after===\n"
+    expected_html = html.replace("===<", "<").replace(">===", ">")
+    lesson = "    ===lesson===\n" if block else "    lesson\n"
+    _assert_streaming_output(source, expected_html + lesson + "after\n")
+
+
+@pytest.mark.parametrize("tag", ["script", "style", "textarea"])
+def test_inline_raw_html_after_code_does_not_keep_the_previous_code_context(
+    tag: str,
+) -> None:
+    code = "<div>visual</div>\n    const equal = a === b;\n"
+    inline = f"Text <{tag}>content</{tag}>\n"
+    text = code + inline + "    ===lesson===\n===after===\n"
+    _assert_streaming_output(text, code + inline + "    lesson\nafter\n")
+
+
+@pytest.mark.parametrize(
+    "html", ["<title>content</title>\n", "<title>\ncontent\n</title>\n"]
+)
+def test_title_markup_keeps_following_indented_html_text_as_prose(html: str) -> None:
+    text = html + "    ===lesson===\n===after===\n"
+    _assert_streaming_output(text, html + "    lesson\nafter\n")

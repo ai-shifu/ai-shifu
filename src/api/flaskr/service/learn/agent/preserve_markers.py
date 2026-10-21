@@ -78,6 +78,20 @@ _PROSE_SPECIAL = re.compile(r"[<`\\\[\]]")
 _BACKTICKS = re.compile(r"`+")
 
 
+def _raw_block_head(text: str) -> bool:
+    """Recognize the leading raw-text blocks already supported by the formatter."""
+    candidate = text.lstrip(" \t")
+    head = _HTML_TAG_HEAD.match(candidate)
+    return _CODE_INDENT.match(text) is None and (
+        _HTML_RAW_BLOCK_HEAD.match(candidate) is not None
+        or (
+            head is not None
+            and head.group(1).lower() in _RAW_TEXT_END
+            and block_html_open_re.match(candidate) is not None
+        )
+    )
+
+
 def _run_end(text: str, start: int) -> int:
     """Find the end of a repeated Markdown delimiter or escape character."""
     end = start + 1
@@ -439,6 +453,7 @@ class _MarkerCleaner:
         self._indented_code = False
         self._can_start_indented = True
         self._raw_tag: str | None = None
+        self._raw_block = False
         # A tag/comment or raw-text closing tag may be split between chunks.
         self._html_tail = ""
         self._inline_tail = ""
@@ -507,7 +522,7 @@ class _MarkerCleaner:
                         self._emit(out, head)
                     else:
                         self._line_had_html_context |= (
-                            self._raw_tag is not None
+                            self._raw_block
                             or self._html_block_tag is not None
                             or self._in_opaque_block()
                         )
@@ -657,6 +672,10 @@ class _MarkerCleaner:
             self._line_indent = 0
             self._can_start_indented = self._fence is None
             return line + "\n"
+        if not whole_line:
+            # Indented code lines are held whole. Released source already ended
+            # that block, even if an inline HTML tag is still buffered now.
+            self._indented_code = False
         in_literal = self._inside_literal()
         if whole_line and not in_literal:
             if self._indented_code and not line.strip(" \t"):
@@ -688,12 +707,18 @@ class _MarkerCleaner:
             self._can_start_indented = True
             return ""
         classification = _MARKERS.sub("", source)
+        block_head = block_html_open_re.match(classification)
+        leading_raw = _raw_block_head(classification)
         html_block = (
             html_context
-            or self._raw_tag is not None
+            or self._raw_block
             or self._html_block_tag is not None
             or self._in_opaque_block()
-            or block_html_open_re.match(classification)
+            or (
+                block_head is not None
+                and block_head.group(1).lower() not in _RAW_TEXT_END
+            )
+            or leading_raw
             or _HTML_ROOT_HEAD.match(classification.lstrip(" \t"))
             or _HTML_DOCTYPE_HEAD.match(classification.lstrip(" \t"))
             or any(
@@ -760,6 +785,7 @@ class _MarkerCleaner:
                 self._emit(out, raw_text[index : match.start()], prose=prose)
                 self._emit(out, raw_text[match.start() : end])
                 self._raw_tag = None
+                self._raw_block = False
                 index = end
                 continue
 
@@ -1007,6 +1033,12 @@ class _MarkerCleaner:
                     self._html_block_depth = 1
                     self._labels.clear()
             leading_metadata = match is None and self._at_line_start
+            if tag in _RAW_TEXT_END:
+                self._raw_block = (
+                    self._at_line_start
+                    and self._line_indent <= 3
+                    and _raw_block_head(fragment)
+                )
             self._emit(out, text[start:end])
             if leading_metadata:
                 # Leading HTML metadata may precede the visual's root on this line.
