@@ -552,3 +552,178 @@ def test_a_marker_fence_interrupts_an_unmatched_inline_opener(fence: str) -> Non
     marker_filter = PreserveMarkerFilter()
     assert marker_filter.feed(text) == expected
     assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize(
+    ("link", "expected"),
+    [
+        ('[===docs===](url "<script>")', '[docs](url "<script>")'),
+        ("![===image===](url '<style>')", "![image](url '<style>')"),
+        ("[docs](url (<script>))", "[docs](url (<script>))"),
+        ('[docs](docs(a(b)c) "<style>")', '[docs](docs(a(b)c) "<style>")'),
+        (
+            r'[docs](docs\(part\) "<script> \"quoted\"")',
+            r'[docs](docs\(part\) "<script> \"quoted\"")',
+        ),
+        (
+            r"[docs](<docs/\<script\>> '<style>')",
+            r"[docs](<docs/\<script\>> '<style>')",
+        ),
+        ("[docs](docs<script>)", "[docs](docs<script>)"),
+        ('[[===docs===]](url "<script>")', '[[docs]](url "<script>")'),
+        (r'[===docs\]===](url "<style>")', r'[docs\]](url "<style>")'),
+        ('[docs](url\n "<script>")', '[docs](url\n "<script>")'),
+        (
+            '[<script>a === b;</script>](url "<style>")',
+            '[<script>a === b;</script>](url "<style>")',
+        ),
+    ],
+    ids=[
+        "link-title",
+        "image-title",
+        "parenthesized-title",
+        "nested-destination",
+        "escaped-parentheses-and-quotes",
+        "escaped-angle-destination",
+        "bare-destination",
+        "nested-label",
+        "escaped-label-bracket",
+        "multiline-title",
+        "actual-html-in-label",
+    ],
+)
+def test_inline_link_metadata_does_not_open_html_raw_text(
+    link: str, expected: str
+) -> None:
+    _assert_streaming_output(link + " ===after===\n", expected + " after\n")
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        '[docs](url "',
+        "[docs](url ",
+        r'\[docs](url "',
+        '[docs\n\n](url "',
+    ],
+    ids=["unfinished-title", "invalid-title", "escaped-label", "broken-label"],
+)
+def test_invalid_or_unfinished_links_do_not_hide_real_html(prefix: str) -> None:
+    script = "<script>const equal = a === b;</script>"
+    text = prefix + script + " ===after===\n"
+    _assert_streaming_output(text, prefix + script + " after\n")
+
+
+def test_an_escaped_space_does_not_make_a_bare_link_destination_valid() -> None:
+    prefix = r'[docs](url\ space "===title=== '
+    script = "<script>const equal = a === b;</script>"
+    _assert_streaming_output(
+        prefix + script + '") ===after===\n',
+        prefix.replace("===title===", "title") + script + '") after\n',
+    )
+
+
+@pytest.mark.parametrize("inner", ["[inner](url)", r"\![inner](url)"])
+def test_a_nested_link_disables_the_outer_link_metadata(inner: str) -> None:
+    text = f'[outer {inner}](url "===title=== <script>a === b;</script>") ===after==='
+    expected = text.replace("===title===", "title").replace("===after===", "after")
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize(
+    ("link", "expected"),
+    [
+        (
+            '[![===alt===](image)](url "<script>")',
+            '[![alt](image)](url "<script>")',
+        ),
+        (
+            '![[===label===](url)](image "<style>")',
+            '![[label](url)](image "<style>")',
+        ),
+        (
+            '[outer ![image [===inner===](i)](p)](o "<script>")',
+            '[outer ![image [inner](i)](p)](o "<script>")',
+        ),
+    ],
+)
+def test_images_keep_valid_nested_link_labels(link: str, expected: str) -> None:
+    _assert_streaming_output(link + " ===after===", expected + " after")
+
+
+def test_an_invalid_image_label_propagates_its_inner_link_to_the_outer_label() -> None:
+    text = (
+        '[outer ![image [inner](i)]broken](o "===title=== <script>a === b;</script>")'
+    )
+    _assert_streaming_output(
+        text + " ===after===", text.replace("===title===", "title") + " after"
+    )
+
+
+@pytest.mark.parametrize(
+    ("definition", "expected"),
+    [
+        ("[===docs===]: <script>\n", "[docs]: <script>\n"),
+        ('[docs]: url "<script>"\n', '[docs]: url "<script>"\n'),
+        ("[docs]: <url> '<style>'\n", "[docs]: <url> '<style>'\n"),
+        ('   [docs]: url\n  "<script>"\n', '   [docs]: url\n  "<script>"\n'),
+        ("[docs]: url\n (<style>)\n", "[docs]: url\n (<style>)\n"),
+    ],
+    ids=[
+        "angle-destination",
+        "title",
+        "angle-and-title",
+        "next-line-title",
+        "paren-title",
+    ],
+)
+def test_reference_link_metadata_does_not_open_html_raw_text(
+    definition: str, expected: str
+) -> None:
+    _assert_streaming_output(definition + "\n===after===\n", expected + "\nafter\n")
+
+
+@pytest.mark.parametrize(
+    "following",
+    [
+        "<script>const equal = a === b;</script>\n",
+        "```js\nconst value = `literal`; a === b;\n```\n",
+    ],
+    ids=["html-block", "code-fence"],
+)
+def test_reference_definitions_do_not_consume_the_following_block(
+    following: str,
+) -> None:
+    definition = "[docs]: <script>\n"
+    text = definition + following + "===after===\n"
+    expected = definition + following + "after\n"
+    _assert_streaming_output(text, expected)
+    marker_filter = PreserveMarkerFilter()
+    assert marker_filter.feed(text) == expected
+    assert marker_filter.flush() == ""
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "[docs]: url ===junk=== ",
+        '[docs]: url\n"',
+        "[]: url ===junk=== ",
+        "[  ]: url ===junk=== ",
+    ],
+)
+def test_invalid_reference_titles_do_not_hide_real_html(prefix: str) -> None:
+    script = "<script>const equal = a === b;</script>"
+    text = prefix + script + " ===after===\n"
+    expected = prefix.replace("===junk===", "junk") + script + " after\n"
+    _assert_streaming_output(text, expected)
+
+
+def test_an_invalid_next_line_title_keeps_the_valid_reference_destination() -> None:
+    text = "[docs]: <script>\n (===title=== (bad))\n\n===after===\n"
+    _assert_streaming_output(text, "[docs]: <script>\n (title (bad))\n\nafter\n")
+
+
+def test_a_valid_next_line_reference_title_is_preserved_at_eof() -> None:
+    text = '[docs]: url\n "===title=== <script>"'
+    _assert_streaming_output(text, text)

@@ -1556,8 +1556,14 @@ def test_verbatim_markers_never_reach_the_learner(
         "===Before===",
         r"Use `<script>` and \<style> literally. ===Before===",
         "Press the ` key.\n\n===Before=== Use `x`.",
+        '[docs](url "<script>") ===Before===',
     ],
-    ids=["plain-prose", "literal-html-tags", "unmatched-backtick-paragraph"],
+    ids=[
+        "plain-prose",
+        "literal-html-tags",
+        "unmatched-backtick-paragraph",
+        "literal-html-in-link-title",
+    ],
 )
 def test_html_script_operators_survive_delivery_and_persistence(
     monkeypatch: pytest.MonkeyPatch,
