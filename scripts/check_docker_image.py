@@ -28,6 +28,43 @@ API_ENV = {
     "CELERY_RESULT_BACKEND": "cache+memory://",
 }
 WEB_ENV = {"PORT": "3000", "NEXT_PUBLIC_API_BASE_URL": "http://localhost:5800"}
+# DER fingerprints from https://emudhra.we-have-a-problem.com/roots.json.
+# Do not reject other, unaffected emSign roots by subject-name matching.
+UNTRUSTED_ROOTS = {
+    "86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b",
+    "d7a7a0fb5d7e2731d771e9484ebcdef71d5f0c3e0a2948782bc83ee0ea699ef4",
+    "7dd78d5f4f13459a83dff9abbba62edbaf6f2d102bf257fd712f4d9f2746ed8d",
+}
+# ISRG Root X1 ensures an empty/disabled trust store cannot satisfy the check.
+TRUSTED_CONTROL = "96bcec06264976f37460779acf28c5a7cfe8a3c0aae11a8ffcee05c0bddf08c6"
+API_TRUST_PROBE = """
+import hashlib
+import json
+import ssl
+import certifi
+import pip._vendor.certifi as pip_certifi
+
+stores = {
+    'system': ssl.create_default_context(),
+    'certifi': ssl.create_default_context(cafile=certifi.where()),
+    'pip': ssl.create_default_context(cafile=pip_certifi.where()),
+}
+print(json.dumps({name: [hashlib.sha256(cert).hexdigest()
+    for cert in context.get_ca_certs(binary_form=True)]
+    for name, context in stores.items()}))
+"""
+WEB_TRUST_PROBE = """
+const fs = require('node:fs');
+const tls = require('node:tls');
+const { X509Certificate } = require('node:crypto');
+const fingerprint = pem => new X509Certificate(pem).fingerprint256.replace(/:/g, '').toLowerCase();
+const system = fs.readFileSync('/etc/ssl/certs/ca-certificates.crt', 'utf8');
+console.log(JSON.stringify({
+  bundled: tls.rootCertificates.map(fingerprint),
+  default: tls.getCACertificates('default').map(fingerprint),
+  system: (system.match(/-----BEGIN CERTIFICATE-----[\\s\\S]*?-----END CERTIFICATE-----/g) || []).map(fingerprint),
+}));
+"""
 SHARP_PROBE = """
 (async () => {
   const sharp = require('sharp');
@@ -104,8 +141,16 @@ def wait_for_http(url: str, timeout: float) -> bytes:
 def check_dependencies(service: str, image: str) -> None:
     """Execute native modules and required service binaries in the final image."""
     if service == "web":
+        validate_trust_stores(
+            docker("run", "--rm", "--entrypoint", "node", image, "-e", WEB_TRUST_PROBE),
+            {"bundled", "default", "system"},
+        )
         docker("run", "--rm", "--entrypoint", "node", image, "-e", SHARP_PROBE)
         return
+    validate_trust_stores(
+        docker("run", "--rm", "--entrypoint", "python", image, "-c", API_TRUST_PROBE),
+        {"system", "certifi", "pip"},
+    )
     docker(
         "run",
         "--rm",
@@ -117,6 +162,28 @@ def check_dependencies(service: str, image: str) -> None:
     )
     docker("run", "--rm", "--entrypoint", "ffmpeg", image, "-version")
     docker("run", "--rm", "--entrypoint", "celery", image, "--version")
+
+
+def validate_trust_stores(report: str, expected: set[str]) -> None:
+    """Require safe, populated effective trust stores from the final runtime image."""
+    stores = json.loads(report)
+    if not isinstance(stores, dict) or set(stores) != expected:
+        message = "Final image trust report is missing a required trust store"
+        raise ValueError(message)
+    for name, values in stores.items():
+        if not isinstance(values, list) or any(
+            not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value)
+            for value in values
+        ):
+            message = f"Invalid certificate fingerprints in {name} trust store"
+            raise ValueError(message)
+        fingerprints = set(values)
+        if fingerprints & UNTRUSTED_ROOTS:
+            message = f"Final image {name} trust store still accepts a distrusted root"
+            raise ValueError(message)
+        if TRUSTED_CONTROL not in fingerprints:
+            message = f"Final image {name} trust store lacks the trusted control root"
+            raise ValueError(message)
 
 
 def loopback_origin(binding: str) -> str:

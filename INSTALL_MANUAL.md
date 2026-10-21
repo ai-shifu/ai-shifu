@@ -18,7 +18,7 @@ src/
 ### Required Tools and Services
 
 - **Python 3.11** for the backend, matching the Docker image
-- **Node.js 22.16.0** for the frontend
+- **Node.js 22.23.4** for the frontend
 - **MySQL 8.0** for database storage, matching the Compose stack
 - **Redis 7** for caching, Live session coordination, and background jobs
 - **FFmpeg** for audio processing when running the backend outside Docker
@@ -473,7 +473,7 @@ do not call the LLM.
    - If startup reports missing `LLM_MODEL_1_ID`, configure that binding; provider credentials alone are insufficient. Missing `LLM_MODEL_1_NAME` does not block startup; it displays the configured model ID
 
 4. **Frontend Build Failures**
-   - Ensure Node.js version is 22.16.0
+   - Ensure Node.js version is 22.23.4
    - Reinstall the locked dependencies from `src/web`: `npm ci`
    - Check for environment variable issues
 
