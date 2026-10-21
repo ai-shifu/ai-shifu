@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import re
 
+from markdown_flow.formatter.patterns import block_html_open_re
+
 # The same shapes `markdown_flow` recognises: a fence line of `!` and three or more `=`, and the
 # inline tokens `!===` and `===`.
 _FENCE_LINE = re.compile(r"^[ \t]*!={3,}[ \t]*$")
@@ -37,9 +39,62 @@ _MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]|^[ \t]*!?=*$")
 _PARTIAL_TAIL = re.compile(r"!?=*$")
 _HTML_TAG_HEAD = re.compile(r"</?([a-zA-Z][a-zA-Z0-9:-]*)(?=[\s/>])")
 _HTML_TAG_PREFIX = re.compile(r"</?[a-zA-Z][a-zA-Z0-9:-]*$")
+_HTML_DOCTYPE_HEAD = re.compile(r"<!DOCTYPE(?=[\s>])", re.IGNORECASE)
+_HTML_ROOT_HEAD = re.compile(r"<(?:html|body|svg)(?=[\s>/])", re.IGNORECASE)
 _RAW_TEXT_END = {
     tag: re.compile(rf"</{tag}(?=[\s/>])", re.IGNORECASE) for tag in ("script", "style")
 }
+_PROSE_SPECIAL = re.compile(r"[<`\\]")
+_BACKTICKS = re.compile(r"`+")
+
+
+def _run_end(text: str, start: int) -> int:
+    """Find the end of a repeated Markdown delimiter or escape character."""
+    end = start + 1
+    while end < len(text) and text[end] == text[start]:
+        end += 1
+    return end
+
+
+def _code_span_end(
+    text: str, start: int, scanned: int | None, *, final: bool
+) -> tuple[int | None, int | None]:
+    """Pair backticks; a None scan offset means an HTML block forced an unmatched opener."""
+    if scanned is None:
+        return None, None
+    opening_end = _run_end(text, start)
+    width = opening_end - start
+    # Inline code cannot consume a following HTML block. Revisit the previous
+    # chunk's last line too: its opening tag may only now have become complete.
+    newline = text.rfind("\n", start, start + scanned)
+    if newline < 0:
+        newline = text.find("\n", start)
+    boundary = len(text)
+    while newline >= 0:
+        line_start = newline + 1
+        newline = text.find("\n", line_start)
+        line = _MARKERS.sub("", text[line_start : newline if newline >= 0 else None])
+        candidate = line.lstrip(" \t")
+        if (
+            block_html_open_re.match(line)
+            or _HTML_ROOT_HEAD.match(candidate)
+            or _HTML_DOCTYPE_HEAD.match(candidate)
+            or candidate.startswith("<!--")
+        ):
+            boundary = line_start
+            break
+    for closing in _BACKTICKS.finditer(
+        text, max(opening_end, start + scanned), boundary
+    ):
+        # The next chunk may extend this run; do not close it prematurely.
+        if closing.end() == len(text) and not final:
+            return None, closing.start() - start
+        if closing.end() - closing.start() == width:
+            return closing.end(), 0
+    if boundary < len(text):
+        # Flush replays unmatched source through the line/fence parser too.
+        return None, None
+    return None, len(text) - start
 
 
 def _tag_end(text: str, start: int) -> int | None:
@@ -69,6 +124,21 @@ class PreserveMarkerFilter:
         self._raw_tag: str | None = None
         # A tag/comment or raw-text closing tag may be split between chunks.
         self._html_tail = ""
+        self._inline_tail = ""
+        self._inline_scanned: int | None = 0
+        self._backslashes = 0
+        self._at_line_start = True
+        self._html_block_tag: str | None = None
+        self._html_block_depth = 0
+
+    def _emit(self, out: list[str], source: str, *, prose: bool = False) -> None:
+        """Track the output line position, including HTML wrapped in removed markers."""
+        emitted = _MARKERS.sub("", source) if prose else source
+        out.append(emitted)
+        if "\n" in emitted:
+            self._at_line_start = not emitted.rsplit("\n", 1)[1].strip(" \t")
+        elif emitted.strip(" \t"):
+            self._at_line_start = False
 
     def feed(self, text: str) -> str:
         """Return `text` with markers removed, less any tail that might still become one."""
@@ -84,15 +154,33 @@ class PreserveMarkerFilter:
         self._line = held
         if head:
             self._released_some_of_line = True
-            out.append(head if self._fence else self._filter_html(head))
+            if self._fence:
+                self._emit(out, head)
+            else:
+                out.append(self._filter_html(head))
         return "".join(out)
 
     def flush(self) -> str:
         """Release what was held back, because no more text is coming."""
+        out = [self._flush_buffer()]
+        while self._inline_tail:
+            # An unmatched opener is ordinary Markdown text. Replay its remainder
+            # so real HTML, later code spans, and whole-line fences still work.
+            pending, self._inline_tail = self._inline_tail, ""
+            self._inline_scanned = 0
+            opening_end = _run_end(pending, 0)
+            self._emit(out, pending[:opening_end])
+            self._released_some_of_line = True
+            out.append(self.feed(pending[opening_end:]))
+            out.append(self._flush_buffer())
+        return "".join(out)
+
+    def _flush_buffer(self) -> str:
+        """Finish buffered source, allowing a code span to close at end of stream."""
         tail, self._line = self._line, ""
         self._released_some_of_line = False
         # A fragment that never became a marker is text, and is shown as it is.
-        out = tail if self._fence else self._filter_html(tail)
+        out = tail if self._fence else self._filter_html(tail, final=True)
         # An unfinished tag is still source text, not a MarkdownFlow marker.
         html_tail, self._html_tail = self._html_tail, ""
         return out + html_tail
@@ -102,24 +190,30 @@ class PreserveMarkerFilter:
         if self._fence is not None:
             if whole_line and self._closes_fence(line):
                 self._fence = None
+            self._at_line_start = True
             return line + "\n"
-        in_html = self._raw_tag is not None or bool(self._html_tail)
-        if whole_line and not in_html:
+        in_literal = (
+            self._raw_tag is not None
+            or self._html_block_tag is not None
+            or bool(self._html_tail or self._inline_tail)
+        )
+        if whole_line and not in_literal:
             opening = _CODE_FENCE_OPEN.match(line)
             if opening:
                 run = opening.group(1)
                 self._fence = (run[0], len(run))
                 return line + "\n"
-        if whole_line and not in_html and _FENCE_LINE.match(line):
+        if whole_line and not in_literal and _FENCE_LINE.match(line):
             # The fence line itself: not content. Its newline goes too, or every fenced block
             # would gain a blank line.
             return ""
         return self._filter_html(line + "\n")
 
-    def _filter_html(self, text: str) -> str:
-        """Strip prose markers while copying HTML source and raw text unchanged."""
-        text = self._html_tail + text
+    def _filter_html(self, text: str, *, final: bool = False) -> str:
+        """Strip prose markers while preserving actual HTML and Markdown code spans."""
+        text = self._inline_tail + self._html_tail + text
         self._html_tail = ""
+        self._inline_tail = ""
         out: list[str] = []
         index = 0
         while index < len(text):
@@ -130,30 +224,70 @@ class PreserveMarkerFilter:
                     last_lt = text.rfind("<", index)
                     closer = f"</{self._raw_tag}"
                     if last_lt >= index and closer.startswith(text[last_lt:].lower()):
-                        out.append(text[index:last_lt])
+                        self._emit(out, text[index:last_lt])
                         self._html_tail = text[last_lt:]
                     else:
-                        out.append(text[index:])
+                        self._emit(out, text[index:])
                     break
                 end = _tag_end(text, match.end())
                 if end is None:
-                    out.append(text[index : match.start()])
+                    self._emit(out, text[index : match.start()])
                     self._html_tail = text[match.start() :]
                     break
-                out.append(text[index:end])
+                self._emit(out, text[index:end])
                 self._raw_tag = None
                 index = end
                 continue
 
-            start = text.find("<", index)
-            if start < 0:
-                out.append(_MARKERS.sub("", text[index:]))
+            special = _PROSE_SPECIAL.search(text, index)
+            if special is None:
+                self._emit(out, text[index:], prose=True)
+                self._backslashes = 0
                 break
-            out.append(_MARKERS.sub("", text[index:start]))
+            start = special.start()
+            self._emit(out, text[index:start], prose=True)
+            if start > index:
+                self._backslashes = 0
+            char = text[start]
+            if self._html_block_tag is not None and char in ("\\", "`"):
+                # Markdown escapes/code spans do not apply inside an HTML visual.
+                end = _run_end(text, start)
+                self._emit(out, text[start:end])
+                index = end
+                continue
+            if char == "\\":
+                end = _run_end(text, start)
+                self._emit(out, text[start:end])
+                self._backslashes += end - start
+                index = end
+                continue
+            escaped = self._backslashes % 2 == 1
+            self._backslashes = 0
+            if escaped:
+                self._emit(out, char)
+                index = start + 1
+                continue
+            if char == "`":
+                end, self._inline_scanned = _code_span_end(
+                    text, start, self._inline_scanned, final=final
+                )
+                if end is None:
+                    self._inline_tail = text[start:]
+                    break
+                self._emit(out, text[start:end])
+                index = end
+                continue
             fragment = text[start:]
             if fragment.startswith("<!--"):
                 end = text.find("-->", start + 4)
                 end = end + 3 if end >= 0 else None
+                match = None
+                tag = None
+            elif "<!DOCTYPE".startswith(fragment.upper()) or _HTML_DOCTYPE_HEAD.match(
+                fragment
+            ):
+                end = _tag_end(text, start + 2)
+                match = None
                 tag = None
             else:
                 match = _HTML_TAG_HEAD.match(text, start)
@@ -165,7 +299,7 @@ class PreserveMarkerFilter:
                     ):
                         self._html_tail = fragment
                         break
-                    out.append("<")
+                    self._emit(out, "<")
                     index = start + 1
                     continue
                 end = _tag_end(text, match.end())
@@ -173,7 +307,30 @@ class PreserveMarkerFilter:
             if end is None:
                 self._html_tail = fragment
                 break
-            out.append(text[start:end])
+            if match is not None:
+                name = match.group(1).lower()
+                if self._html_block_tag == name:
+                    self._html_block_depth += -1 if tag is None else 1
+                    if self._html_block_depth == 0:
+                        self._html_block_tag = None
+                elif (
+                    self._html_block_tag is None
+                    and self._at_line_start
+                    and tag not in _RAW_TEXT_END
+                    and tag is not None
+                    and (
+                        block_html_open_re.match(fragment)
+                        or tag in ("html", "body", "svg")
+                    )
+                ):
+                    # Use the same block tags as the downstream StreamFormatter.
+                    self._html_block_tag = tag
+                    self._html_block_depth = 1
+            leading_metadata = match is None and self._at_line_start
+            self._emit(out, text[start:end])
+            if leading_metadata:
+                # Leading HTML metadata may precede the visual's root on this line.
+                self._at_line_start = True
             if tag in _RAW_TEXT_END:
                 # In HTML, <script/> still opens a non-void raw-text element.
                 self._raw_tag = tag

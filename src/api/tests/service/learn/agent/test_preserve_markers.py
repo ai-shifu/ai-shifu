@@ -258,3 +258,194 @@ def test_raw_text_closing_tag_requires_a_name_boundary(tag: str) -> None:
 def test_html_self_closing_syntax_still_opens_nonvoid_raw_text(tag: str) -> None:
     protected = f"<{tag}/>a === b;</{tag}>"
     _assert_streaming_output(protected + "===after===", protected + "after")
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "`<script> a === b`",
+        "``<style> a === b``",
+        "``<script> ` a === b``",
+        "`<style> `` a === b`",
+        "`<script>\na === b`",
+    ],
+    ids=[
+        "single-run",
+        "double-run",
+        "shorter-run-is-content",
+        "longer-run-is-content",
+        "multiline",
+    ],
+)
+def test_html_lookalikes_inside_inline_code_do_not_protect_following_prose(
+    code: str,
+) -> None:
+    text = f"===before=== Use {code} here. ===after==="
+    expected = f"before Use {code} here. after"
+    _assert_streaming_output(text, expected)
+
+
+def test_a_closing_backtick_run_split_between_chunks_must_match_the_opener() -> None:
+    chunks = ["Use `<script> first `", "` a === b`", " ===after==="]
+    expected = "Use `<script> first `` a === b` after"
+    assert _from_chunks(chunks) == expected
+    _assert_streaming_output("".join(chunks), expected)
+
+
+@pytest.mark.parametrize("tag", ["script", "style"])
+@pytest.mark.parametrize("backslash_count", [1, 2, 3, 4])
+def test_only_an_odd_backslash_run_escapes_an_html_opening(
+    tag: str, backslash_count: int
+) -> None:
+    prefix = "Use " + "\\" * backslash_count
+    if backslash_count % 2:
+        text = prefix + f"<{tag}> ===after==="
+        expected = prefix + f"<{tag}> after"
+    else:
+        protected = prefix + f"<{tag}>a === b;</{tag}>"
+        text = protected + " ===after==="
+        expected = protected + " after"
+    _assert_streaming_output(text, expected)
+
+
+def test_html_escape_detection_uses_source_characters_before_marker_removal() -> None:
+    text = "Use \\===<script>a === b;</script> ===after==="
+    expected = "Use \\<script>a === b;</script> after"
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize("backslash_count", [1, 3])
+def test_an_escaped_backtick_does_not_hide_a_real_script(
+    backslash_count: int,
+) -> None:
+    prefix = "Use " + "\\" * backslash_count + "`"
+    protected = "<script>const label = `value`; const equal = a === b;</script>"
+    _assert_streaming_output(
+        prefix + protected + " ===after===", prefix + protected + " after"
+    )
+
+
+def test_a_backslash_inside_inline_code_does_not_escape_the_closer() -> None:
+    code = "`<script> a === b \\`"
+    _assert_streaming_output("Use " + code + " ===after===", "Use " + code + " after")
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        (
+            "Use ` unmatched <script>a === b;</script> ===after===",
+            "Use ` unmatched <script>a === b;</script> after",
+        ),
+        (
+            "Use `` unmatched\n!===\n===kept===\n!===\n",
+            "Use `` unmatched\nkept\n",
+        ),
+        (
+            "Use ` unmatched\n~~~js\n<script>a === b;\n~~~\n===after===\n",
+            "Use ` unmatched\n~~~js\n<script>a === b;\n~~~\nafter\n",
+        ),
+        (
+            "Use ` unmatched ``<style> a === b`` ===after===",
+            "Use ` unmatched ``<style> a === b`` after",
+        ),
+    ],
+    ids=["real-script", "marker-fences", "code-fence", "later-paired-span"],
+)
+def test_an_unmatched_inline_opener_does_not_change_later_markup(
+    text: str, expected: str
+) -> None:
+    _assert_streaming_output(text, expected)
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<div>`<script>const label = `value`; const equal = a === b;</script></div>",
+        "<div>\\<script>const equal = a === b;</script></div>",
+        "<div>\\<style>p::after { content: '===literal==='; }</style></div>",
+    ],
+    ids=[
+        "backtick-text-before-script",
+        "backslash-before-script",
+        "backslash-before-style",
+    ],
+)
+def test_markdown_delimiters_in_an_html_container_do_not_hide_raw_text(
+    html: str,
+) -> None:
+    _assert_streaming_output(html + "\n===after===", html + "\nafter")
+
+
+def test_markers_around_an_html_container_do_not_hide_its_block_context() -> None:
+    html = "<div>`<script>const label = `value`; const equal = a === b;</script></div>"
+    _assert_streaming_output("===" + html + "===\n===after===", html + "\nafter")
+
+
+@pytest.mark.parametrize(
+    ("prefix", "container"),
+    [("<!DOCTYPE html>", "html"), ("<!-- visual -->", "div")],
+    ids=["doctype", "comment"],
+)
+def test_html_metadata_does_not_hide_the_following_container(
+    prefix: str, container: str
+) -> None:
+    html = (
+        f"{prefix}<{container}>`<script>"
+        f"const label = `value`; const equal = a === b;</script></{container}>"
+    )
+    _assert_streaming_output(html + "\n===after===", html + "\nafter")
+
+
+def test_nested_html_containers_keep_scripts_protected_until_the_outer_close() -> None:
+    html = (
+        "<div>\n<div>===inner===</div>\n"
+        "`<script>const markup = `<div>`; const equal = a === b;</script>\n"
+        "===outer===</div>\n"
+    )
+    expected = html.replace("===inner===", "inner").replace("===outer===", "outer")
+    _assert_streaming_output(html + "===after===", expected + "after")
+
+
+def test_markdown_literals_resume_after_an_html_container_closes() -> None:
+    html = "<div>===body===<script>const equal = a === b;</script></div>\n"
+    markdown = "Use `<script>` and \\<style> here. ===after===\n"
+    _assert_streaming_output(
+        html + markdown,
+        html.replace("===body===", "body") + markdown.replace("===after===", "after"),
+    )
+
+
+@pytest.mark.parametrize("tag", ["<br>", "<br />"])
+def test_a_void_html_tag_does_not_disable_markdown_literal_tags(tag: str) -> None:
+    markdown = "Use `<script>` and \\<style> here. ===after==="
+    _assert_streaming_output(
+        tag + "\n" + markdown, tag + "\n" + markdown.replace("===after===", "after")
+    )
+
+
+@pytest.mark.parametrize(
+    ("opening", "closing"),
+    [
+        ("<div>", "</div>"),
+        ("<!DOCTYPE html><html><body>", "</body></html>"),
+        ("<!-- visual --><div>", "</div>"),
+        ("===<div>", "</div>==="),
+    ],
+    ids=[
+        "container",
+        "doctype-root",
+        "comment-container",
+        "marker-wrapped-container",
+    ],
+)
+def test_a_new_html_block_interrupts_an_unmatched_inline_opener(
+    opening: str, closing: str
+) -> None:
+    script = "\\<script>const label = `value`; const equal = a === b;</script>"
+    html = opening + script + closing
+    expected_html = html.removeprefix("===").removesuffix("===")
+    _assert_streaming_output(
+        "Use ` unmatched\n" + html + "\n===after===\n",
+        "Use ` unmatched\n" + expected_html + "\nafter\n",
+    )

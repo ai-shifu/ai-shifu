@@ -1545,11 +1545,17 @@ def test_verbatim_markers_never_reach_the_learner(
 @pytest.mark.usefixtures("calls")
 @pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
 @pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    "prose",
+    ["===Before===", r"Use `<script>` and \<style> literally. ===Before==="],
+    ids=["plain-prose", "literal-html-tags"],
+)
 def test_html_script_operators_survive_delivery_and_persistence(
     monkeypatch: pytest.MonkeyPatch,
     calls: list[tuple[str, object]],
     listen: bool,
     chunk_size: int,
+    prose: str,
 ) -> None:
     """Interactive HTML must keep its JavaScript in live pages and saved history."""
     monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
@@ -1559,7 +1565,7 @@ def test_html_script_operators_survive_delivery_and_persistence(
         'document.getElementById("nextBtn").onclick = () => isPick;'
         "</script></div>"
     )
-    lesson = f"===Before===\n\n{visual}\n\n===After==="
+    lesson = f"{prose}\n\n{visual}\n\n===After==="
     engine = _Engine(
         [
             ContentDelta(text=lesson[index : index + chunk_size])
