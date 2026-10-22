@@ -152,9 +152,15 @@ then rerun that original event; do not switch its source to current main.
 Never publish as part of retry/recovery. Preparation
 previews and final product/MarkdownFlow notes are file-based; final notes use the
 highest reachable lower final tag at the frozen candidate, not later main tags.
+Commitizen runs with `--start-rev` in a temporary local clone checked out at the
+candidate, preserving breaking-change bodies and candidate-specific note
+configuration without changing the caller's checkout or local edits. Each
+rendered entry covers only its own change type, scope and complete subject;
+sharing a PR number does not hide another omitted change.
 Dependency lookups remain best-effort, with their existing registry-time window,
 three-page scan and twenty-line detail limits. CI runs the local release tests
-with mocked HTTP writes; it does not perform real release operations as tests.
+with mocked HTTP writes and real pinned Commitizen execution; it does not
+perform real release operations as tests.
 
 ## Pull request validation
 

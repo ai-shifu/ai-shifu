@@ -5,9 +5,9 @@
 Replace the draft-before-merge release path with a version-update PR, a manual
 human merge into main, an automatic exact-commit draft, and a separate manual
 human Publish action. Keep main/latest publication and production CICD/Drone
-unchanged. Implementation, verification and a feature-branch PR handoff are
-authorized; a real release, remote tag operation, merge, deployment or repository
-settings change is not.
+unchanged. Implementation, verification, review fixes, updates to PR #3155 and
+CI/review follow-up are authorized. A real release, remote tag operation, merge,
+auto-merge, deployment or repository settings change is not.
 
 ## Progress
 
@@ -20,9 +20,16 @@ settings change is not.
   and guarded/pinned published-release builds before image jobs.
 - [x] 2026-10-22 07:14 UTC: Wired static CI tests, aligned docs and passed the
   focused suite, all top-level script regressions, Ruff and actionlint.
-- [ ] 2026-10-22 07:14 UTC: Complete parent independent review and remote CI
-  after the separately authorized commit/PR handoff; no remote action is part
-  of this implementation task.
+- [x] 2026-10-22 11:38 UTC: Independently reviewed PR #3155, fixed Commitizen
+  source ranges, delayed draft credentials and Docker workflow trigger coverage.
+- [x] 2026-10-22 11:38 UTC: Added real pinned-Commitizen and workflow regressions,
+  fixed same-PR note omissions and exact-host HTTP fixtures; all 276 top-level
+  script tests and 179 subtests passed, as did actionlint and architecture fixtures.
+- [x] 2026-10-22 11:38 UTC: Passed the repository-wide lefthook gate with all
+  tracked files; no unrelated formatting or source changes were introduced.
+- [ ] 2026-10-22 11:38 UTC: External acceptance: a human reviews and manually merges the PR, then
+  separately verifies the actual release draft and publication. Those operations
+  remain outside this task; current CI/review evidence is maintained on PR #3155.
 
 ## Surprises & Discoveries
 
@@ -37,12 +44,20 @@ settings change is not.
 - Dependency notes support historical frontend lock paths, tag comparisons,
   registry publish-time fallback, author enrichment, sorting and truncation.
   That behavior must remain covered when extracted from the workflow.
+- Commitizen 4.16.2 interprets positional ranges as versions, not arbitrary
+  commit SHAs. Passing a SHA silently selected the subject-only fallback and
+  lost breaking-change bodies; the regression now executes the real CLI.
+- GitHub requires workflow-write authorization when delayed draft targets
+  differ from the default branch's workflows. The repository token cannot have
+  that permission; the draft-writing step needs the existing scoped PAT option.
+- Selector inputs must also appear in the Docker workflow's PR path filters.
+  Tests now read the real workflow and check every declared input is reachable.
 
 ## Decision Log
 
 - Use small Python CLI helpers for local Git/version validation and GitHub REST
   calls; exercise Git with disposable real repositories and mock remote GitHub
-  writes explicitly. No release operation is used as a test.
+writes explicitly. No release operation is used as a test.
 - Treat GitHub User/Bot metadata as rejection evidence for known automation,
   never as proof of a physical human. Require an exact merged-to-main release PR,
   reject recorded auto-merge and bot mergers, and document the remaining manual
@@ -53,6 +68,12 @@ settings change is not.
 - Leave build-latest.yml and all production configuration unchanged. Pass an
   optional frozen source commit to the reusable image workflow only for release
   builds; preserve existing callers and image/registry defaults.
+- Render Commitizen with `--start-rev` in a temporary local shared clone checked
+  out at the frozen source, preserving that source's configuration and commit
+  bodies without changing the caller's branch, refs or local edits. This is not
+  a managed worktree and copies no local environment files.
+- Expose the workflow-capable PAT only to draft writes. Keep read-only notes
+  lookups on the repository token and retain all source/provenance/tag guards.
 
 ## Outcomes & Retrospective
 
@@ -76,7 +97,13 @@ for absent Rust/PHP/TOML/root version-file surfaces and act-specific convenience
 were deliberately replaced by the actual product version-file allowlist, not
 expanded into a cross-language framework. No tracked product version was bumped.
 
-Remote CI and production acceptance are deliberately outside this task. Human
+The authorized review follow-up passes all 276 top-level script tests and 179
+subtests, including real Commitizen 4.16.2 tests for breaking-change bodies,
+frozen configuration, tagged retries and distinct subjects sharing a PR.
+Workflow tests cover delayed draft recovery and selector/trigger agreement;
+HTTP writes remain mocked. Current remote CI/review evidence is tracked on
+[PR #3155](https://github.com/ai-shifu/ai-shifu/pull/3155), independently of these
+local results. Production release acceptance remains outside this task. Human
 identity is a policy gate, not cryptographically attested by GitHub metadata;
 known automation is rejected but unknown automation behind a User account cannot
 be proven absent. A main push must end at the release PR's exact merge commit.
@@ -141,7 +168,9 @@ report partial state rather than attempting automatic repair or publication.
 
 Use Python 3.11 stdlib for the core guard CLI, JSON event files, Git full commit
 SHAs, and GitHub REST with explicit JSON requests over HTTPS. Keep remote
-read/write mocking isolated in tests. Use the existing PAT-or-GITHUB_TOKEN only
-for preparation PR creation (PAT allows the existing bot PR CI behavior); draft
-creation needs contents write and PR read. Publication continues via the existing
-release.published workflow and inherited registry secrets.
+read/write mocking isolated in tests. Use the existing PAT-or-GITHUB_TOKEN for
+preparation PR creation (PAT allows the existing bot PR CI behavior) and draft
+writes. Delayed drafts may need workflow-write authorization in addition to
+contents write and PR read; the canonical publication reference documents the
+PAT requirements and repository-token fallback limits. Publication continues via
+the existing release.published workflow and inherited registry secrets.
