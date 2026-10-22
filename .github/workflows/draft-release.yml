@@ -58,7 +58,7 @@ jobs:
         id: release
         if: steps.source.outputs.create_draft == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || github.token }}
         run: |
           python scripts/release_workflow.py draft --source "$GITHUB_SHA" \
             --event "$GITHUB_EVENT_PATH" --repository "$GITHUB_REPOSITORY" \

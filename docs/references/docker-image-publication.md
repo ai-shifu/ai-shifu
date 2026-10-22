@@ -121,6 +121,20 @@ source marker, source versions and pinned images must agree. It reads the exact
 tag and Release back after writes. Same-source reruns retain human note edits;
 public releases and conflicting targets fail closed without editing them.
 
+Only the draft-writing step selects the existing `PAT_TOKEN` secret before
+falling back to `GITHUB_TOKEN`; note lookups retain the repository token. The PAT
+must have repository access plus the classic `workflow` scope, or fine-grained
+Contents and Workflows write permissions plus Pull requests read permission for
+this repository. GitHub requires workflow-write authorization when a frozen
+target's workflow files differ from the current default branch, including a
+delayed draft or retry after main changes a workflow. `GITHUB_TOKEN` cannot be
+granted that authorization. The fallback therefore covers targets that do not
+require workflow-write permission; it does not replace a correctly scoped PAT
+for those delayed drafts. See GitHub's
+[release API permission requirements](https://docs.github.com/en/rest/releases/releases#create-a-release).
+Credential selection does not change the event, provenance, version or immutable
+tag guards.
+
 A human separately reviews and Publishes in GitHub. Before release-image builds,
 the published-event guard rechecks the source, tag, metadata, versions and PR
 provenance, then supplies an immutable source SHA to both reusable image jobs.
@@ -132,7 +146,10 @@ its tag or merging an old PR to catch up.
 For interrupted new drafts, rerun the original main-push workflow so its event
 commit stays frozen. An exact-source tag with no draft is recoverable; a tag or
 Release mismatch requires manual investigation. Ref and Release writes are not
-an atomic transaction. Never publish as part of retry/recovery. Preparation
+an atomic transaction. If a retry returns 403/404 after main changes workflow
+files, verify `PAT_TOKEN` has the workflow-write authorization described above,
+then rerun that original event; do not switch its source to current main.
+Never publish as part of retry/recovery. Preparation
 previews and final product/MarkdownFlow notes are file-based; final notes use the
 highest reachable lower final tag at the frozen candidate, not later main tags.
 Dependency lookups remain best-effort, with their existing registry-time window,
