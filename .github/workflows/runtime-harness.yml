@@ -9,6 +9,7 @@ on:
       - ".github/workflows/build-on-release.yml"
       - ".github/workflows/docker-build-check.yml"
       - ".github/workflows/prepare-release.yml"
+      - ".github/workflows/draft-release.yml"
       - ".github/actions/docker-image-metadata/**"
       - ".dockerignore"
       - "docker/**"

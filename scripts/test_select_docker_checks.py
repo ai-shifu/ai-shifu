@@ -20,7 +20,7 @@ from select_docker_checks import (
 )
 
 SCRIPT_PATH = Path(__file__).with_name("select_docker_checks.py")
-WORKFLOW_PATH = SCRIPT_PATH.parents[1] / ".github/workflows/docker-build-check.yml"
+WORKFLOW_DIRECTORY = SCRIPT_PATH.parents[1] / ".github/workflows"
 
 
 def git(repo: Path, *arguments: str) -> str:
@@ -137,15 +137,23 @@ def test_packaging_inputs_select_affected_services(
 
 
 @pytest.mark.parametrize("path", sorted(SHARED_FILES | API_FILES | WEB_FILES))
-def test_workflow_triggers_for_every_declared_packaging_input(path: str) -> None:
-    """A selector input is reachable only if the PR workflow starts for it."""
-    workflow = yaml.safe_load(WORKFLOW_PATH.read_text())
+@pytest.mark.parametrize(
+    "workflow_name", ["docker-build-check.yml", "runtime-harness.yml"]
+)
+def test_workflows_trigger_for_every_declared_packaging_input(
+    path: str, workflow_name: str
+) -> None:
+    """ARM64 packaging inputs also need the runtime harness's AMD64 build."""
+    workflow = yaml.safe_load((WORKFLOW_DIRECTORY / workflow_name).read_text())
     # PyYAML uses YAML 1.1 and parses the GitHub Actions `on` key as True.
     triggers = workflow.get("on", workflow.get(True))
     patterns = triggers["pull_request"]["paths"]
-    assert not any(pattern.startswith("!") for pattern in patterns)
-    assert any(fnmatchcase(path, pattern) for pattern in patterns), (
-        f"The Docker packaging workflow does not trigger for selector input {path}"
+    matches = [
+        pattern for pattern in patterns if fnmatchcase(path, pattern.removeprefix("!"))
+    ]
+    assert matches, f"{workflow_name} does not trigger for selector input {path}"
+    assert not matches[-1].startswith("!"), (
+        f"{workflow_name} excludes selector input {path}"
     )
 
 

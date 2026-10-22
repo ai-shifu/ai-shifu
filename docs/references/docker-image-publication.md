@@ -164,6 +164,12 @@ perform real release operations as tests.
 
 ## Pull request validation
 
+Every explicit packaging input declared by `scripts/select_docker_checks.py`
+must trigger both the ARM64 packaging workflow and the AMD64 runtime harness.
+Regression tests read both workflows' path filters, including exclusions, so
+release-workflow edits cannot silently lose one architecture's build and smoke
+coverage.
+
 The runtime harness builds `src/api/Dockerfile` and `src/web/Dockerfile` once with
 Docker Bake on the same AMD64 runner and loads both final production images into
 that runner's Docker engine. It runs the production-image smoke checks against
