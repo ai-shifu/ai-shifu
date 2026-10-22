@@ -7,6 +7,7 @@ import io
 import json
 import os
 import runpy
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -772,11 +773,23 @@ class ReleaseFixture(unittest.TestCase):
                 if "actions/checkout" in step.get("uses", "")
             )
             assert checked["with"]["ref"] == "${{ inputs.source-ref }}"
-        static = (ROOT / ".github/workflows/repo-harness.yml").read_text()
-        assert (
-            "python -m unittest discover -s scripts -p 'test_release_workflow.py'"
-            in static
+        static = yaml.safe_load(
+            (ROOT / ".github/workflows/repo-harness.yml").read_text()
         )
+        discovered = set()
+        for job in static["jobs"].values():
+            for static_step in job["steps"]:
+                for command in static_step.get("run", "").splitlines():
+                    if "unittest" not in command:
+                        continue
+                    arguments = shlex.split(command)
+                    if arguments[1:4] != ["-m", "unittest", "discover"]:
+                        continue
+                    directory = ROOT / arguments[arguments.index("-s") + 1]
+                    pattern = arguments[arguments.index("-p") + 1]
+                    discovered.update(path.name for path in directory.glob(pattern))
+        expected = {path.name for path in (ROOT / "scripts").glob("test_release_*.py")}
+        assert expected <= discovered
         output = self.root / "published-output"
         event = self.root / "published.json"
         event.write_text(
@@ -880,7 +893,9 @@ class ReleaseFixture(unittest.TestCase):
                 assert "Installation from Source" in notes
                 assert "Upgrading to numbered models" in notes
                 assert source in notes
-                assert f"v3.0.0..{source}" in cz_calls[0]
+                assert cz_calls == [
+                    ["cz", "changelog", "--dry-run", "--start-rev", "v3.0.0"]
+                ]
                 assert not (self.repo / "CHANGELOG.md").exists()
 
     def test_notes_do_not_duplicate_rendered_conventional_subjects_without_pr(
@@ -931,7 +946,7 @@ class ReleaseFixture(unittest.TestCase):
             ),
         ):
             rendered = notes.product_notes(source, "v3.0.0", "fixture/product")
-        assert cz_calls == [["cz", "changelog", "--dry-run", f"v3.0.0..{source}"]]
+        assert cz_calls == [["cz", "changelog", "--dry-run", "--start-rev", "v3.0.0"]]
         assert "### Other Changes" in rendered
         for subject in omitted:
             assert f"- {subject}" in rendered
@@ -962,7 +977,8 @@ class ReleaseFixture(unittest.TestCase):
                     "cz",
                     "changelog",
                     "--dry-run",
-                    f"v3.0.0..{source}",
+                    "--start-rev",
+                    "v3.0.0",
                 ]
                 return subprocess.CompletedProcess(
                     arguments,
