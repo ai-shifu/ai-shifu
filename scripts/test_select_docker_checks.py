@@ -6,12 +6,21 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 import pytest
-from select_docker_checks import changed_paths, select_services
+import yaml
+from select_docker_checks import (
+    API_FILES,
+    SHARED_FILES,
+    WEB_FILES,
+    changed_paths,
+    select_services,
+)
 
 SCRIPT_PATH = Path(__file__).with_name("select_docker_checks.py")
+WORKFLOW_PATH = SCRIPT_PATH.parents[1] / ".github/workflows/docker-build-check.yml"
 
 
 def git(repo: Path, *arguments: str) -> str:
@@ -125,6 +134,19 @@ def test_packaging_inputs_select_affected_services(
     path: str, expected: set[str]
 ) -> None:
     assert select_services([path]) == expected
+
+
+@pytest.mark.parametrize("path", sorted(SHARED_FILES | API_FILES | WEB_FILES))
+def test_workflow_triggers_for_every_declared_packaging_input(path: str) -> None:
+    """A selector input is reachable only if the PR workflow starts for it."""
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text())
+    # PyYAML uses YAML 1.1 and parses the GitHub Actions `on` key as True.
+    triggers = workflow.get("on", workflow.get(True))
+    patterns = triggers["pull_request"]["paths"]
+    assert not any(pattern.startswith("!") for pattern in patterns)
+    assert any(fnmatchcase(path, pattern) for pattern in patterns), (
+        f"The Docker packaging workflow does not trigger for selector input {path}"
+    )
 
 
 def test_application_code_and_nonproduction_inputs_need_no_extra_architecture() -> None:
