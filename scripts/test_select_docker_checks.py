@@ -6,11 +6,9 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from fnmatch import fnmatchcase
 from pathlib import Path
 
 import pytest
-import yaml
 from select_docker_checks import (
     API_FILES,
     SHARED_FILES,
@@ -18,9 +16,9 @@ from select_docker_checks import (
     changed_paths,
     select_services,
 )
+from test_runtime_packaging import triggers
 
 SCRIPT_PATH = Path(__file__).with_name("select_docker_checks.py")
-WORKFLOW_DIRECTORY = SCRIPT_PATH.parents[1] / ".github/workflows"
 
 
 def git(repo: Path, *arguments: str) -> str:
@@ -136,24 +134,28 @@ def test_packaging_inputs_select_affected_services(
     assert select_services([path]) == expected
 
 
-@pytest.mark.parametrize("path", sorted(SHARED_FILES | API_FILES | WEB_FILES))
+@pytest.mark.parametrize(
+    ("path", "runtime_expected"),
+    [(path, True) for path in sorted(SHARED_FILES | API_FILES | WEB_FILES)]
+    + [
+        ("src/web/next.config.js", True),
+        ("src/web/next.config.mjs", True),
+        ("src/web/next.config.ts", True),
+        (".github/actions/docker-image-metadata/action.yml", True),
+        # This is a test filename, not an effective Next configuration file.
+        ("src/web/next.config.test.js", False),
+    ],
+)
 @pytest.mark.parametrize(
     "workflow_name", ["docker-build-check.yml", "runtime-harness.yml"]
 )
-def test_workflows_trigger_for_every_declared_packaging_input(
-    path: str, workflow_name: str
+def test_packaging_inputs_respect_workflow_inclusions_and_test_exclusions(
+    path: str, runtime_expected: bool, workflow_name: str
 ) -> None:
-    """ARM64 packaging inputs also need the runtime harness's AMD64 build."""
-    workflow = yaml.safe_load((WORKFLOW_DIRECTORY / workflow_name).read_text())
-    # PyYAML uses YAML 1.1 and parses the GitHub Actions `on` key as True.
-    triggers = workflow.get("on", workflow.get(True))
-    patterns = triggers["pull_request"]["paths"]
-    matches = [
-        pattern for pattern in patterns if fnmatchcase(path, pattern.removeprefix("!"))
-    ]
-    assert matches, f"{workflow_name} does not trigger for selector input {path}"
-    assert not matches[-1].startswith("!"), (
-        f"{workflow_name} excludes selector input {path}"
+    """Effective image inputs need both architectures; runtime test exclusions stay."""
+    expected = runtime_expected if workflow_name == "runtime-harness.yml" else True
+    assert triggers(workflow_name, path) is expected, (
+        f"Unexpected {workflow_name} coverage for {path}"
     )
 
 

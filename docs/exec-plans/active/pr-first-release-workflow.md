@@ -30,6 +30,10 @@ auto-merge, deployment or repository settings change is not.
 - [x] 2026-10-22 11:53 UTC: Addressed the remote review's missing AMD64 trigger
   for draft-workflow edits. Both workflow filters now cover every explicit
   packaging input; all 304 top-level script tests and 179 subtests passed.
+- [x] 2026-10-22 12:12 UTC: Reused the existing GitHub path-filter test helper
+  for zero-directory glob and ordered-exclusion semantics. Added real Next
+  configuration and test-file exclusion cases without changing production
+  triggers; all 314 top-level script tests and 179 subtests passed.
 - [ ] 2026-10-22 11:38 UTC: External acceptance: a human reviews and manually merges the PR, then
   separately verifies the actual release draft and publication. Those operations
   remain outside this task; current CI/review evidence is maintained on PR #3155.
@@ -100,7 +104,7 @@ for absent Rust/PHP/TOML/root version-file surfaces and act-specific convenience
 were deliberately replaced by the actual product version-file allowlist, not
 expanded into a cross-language framework. No tracked product version was bumped.
 
-The authorized review follow-up passes all 304 top-level script tests and 179
+The authorized review follow-up passes all 314 top-level script tests and 179
 subtests, including real Commitizen 4.16.2 tests for breaking-change bodies,
 frozen configuration, tagged retries and distinct subjects sharing a PR.
 Workflow tests cover delayed draft recovery and selector/trigger agreement;
