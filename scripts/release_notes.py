@@ -166,25 +166,14 @@ def product_notes(source: str, previous: str, repository: str) -> str:
                 change_type = change_types.get(line)
             elif change_type and line.startswith("- "):
                 rendered_entries.add((change_type, line[2:]))
-        rendered_references = {
-            reference
-            for _, entry in rendered_entries
-            for reference in re.findall(r"\(#\d+\)", entry)
-        }
         missing = []
         for subject in subjects:
-            references = re.findall(r"\(#\d+\)", subject)
             match = re.match(r"^(\w+)(?:\(([^)]+)\))?!?:\s*(.*)", subject)
             rendered_subject = match[3] if match else subject
             if match and match[2]:
                 rendered_subject = f"**{match[2]}**: {rendered_subject}"
             entry = (match[1] if match else "", rendered_subject)
-            if (
-                references
-                and any(
-                    reference not in rendered_references for reference in references
-                )
-            ) or (not references and entry not in rendered_entries):
+            if entry not in rendered_entries:
                 missing.append(subject)
         if missing:
             content += "\n\n### Other Changes\n\n" + "\n".join(

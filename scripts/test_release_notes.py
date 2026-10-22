@@ -3,12 +3,16 @@
 
 from __future__ import annotations
 
+import io
 import json
+import os
 import subprocess
 import tempfile
 import unittest
+import urllib.request
 from contextlib import chdir
 from pathlib import Path
+from unittest import mock
 
 import release_notes as notes
 
@@ -101,6 +105,49 @@ class FrozenCommitizenNotes(unittest.TestCase):
                     self.change.read_text(encoding="utf-8") == "local unstaged edits\n"
                 )
                 assert not (self.repo / "CHANGELOG.md").exists()
+
+    def test_same_pr_reference_does_not_hide_filtered_commit_subjects(self) -> None:
+        """Real Commitizen entries cover only their own type, scope and subject."""
+        covered = {
+            "feat(auth): add login (#42)": "**auth**: add login (#42)",
+            "feat(api): add login (#42)": "**api**: add login (#42)",
+            "fix: retain sessions (#42)": "retain sessions (#42)",
+        }
+        omitted = (
+            "chore: refresh build tooling (#42)",
+            "chore(auth): add login (#42)",
+            "chore(api): add login (#42)",
+            "chore(other): add login (#42)",
+            "refresh build tooling (#42)",
+        )
+        for subject in (*covered, *omitted):
+            self.change.write_text(subject + "\n", encoding="utf-8")
+            source = self.commit(subject)
+        with (
+            chdir(self.repo),
+            mock.patch.dict(os.environ, {"GH_TOKEN": "fixture-credential"}),
+            mock.patch.object(
+                urllib.request,
+                "urlopen",
+                side_effect=lambda *_args, **_kwargs: io.BytesIO(
+                    b'{"user": {"login": "fixture-teacher"}}'
+                ),
+            ) as author_http,
+        ):
+            rendered = notes.product_notes(source, "v3.0.0", "fixture/product")
+        other_changes = rendered.partition("### Other Changes\n\n")[2].splitlines()
+        for subject in omitted:
+            with self.subTest(filtered_subject=subject):
+                assert f"- {subject} (@fixture-teacher)" in other_changes
+        for subject, entry in covered.items():
+            with self.subTest(rendered_subject=subject):
+                assert rendered.count(f"- {entry} (@fixture-teacher)") == 1
+                assert f"- {subject} (@fixture-teacher)" not in rendered.splitlines()
+        author_http.assert_called_once()
+        request = author_http.call_args.args[0]
+        assert (
+            request.full_url == "https://api.github.com/repos/fixture/product/pulls/42"
+        )
 
 
 if __name__ == "__main__":
