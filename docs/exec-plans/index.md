@@ -48,6 +48,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Operator Credit Deduction](./active/operator-credit-deduction.md)
 - [Operator-Initiated User Account Cancellation](./active/operator-user-account-cancellation.md)
 - [Make payment attempts safe across retries and coupon repricing](./active/payment-attempt-lifecycle.md)
+- [PR-first product release workflow](./active/pr-first-release-workflow.md)
 - [Preserve Independent Credit Validity](./active/preserve-independent-credit-validity.md)
 - [Gate Profile on every course WeChat authorization](./active/profile-onboarding-layout-oauth-gate.md)
 - [Progressive HTML alongside typed lesson text](./active/progressive-html-typewriter.md)

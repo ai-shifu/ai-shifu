@@ -1,0 +1,79 @@
+name: Prepare Merged Release Draft
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: draft-release-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Check out exact main event commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Refresh main ancestry without changing the frozen source
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
+      - name: Detect an increasing version on main
+        id: source
+        run: |
+          python scripts/release_workflow.py detect --source "$GITHUB_SHA" \
+            --event "$GITHUB_EVENT_PATH" --output "$GITHUB_OUTPUT"
+
+      - name: Install release note tooling
+        if: steps.source.outputs.create_draft == 'true'
+        run: python -m pip install commitizen==4.16.2
+
+      - name: Generate notes at the frozen candidate
+        if: steps.source.outputs.create_draft == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.source.outputs.version }}
+        run: |
+          python scripts/release_notes.py --source "$GITHUB_SHA" --version "$RELEASE_VERSION" \
+            --repository "$GITHUB_REPOSITORY" --output "$RUNNER_TEMP/release-notes.md"
+
+      - name: Verify merged PR, pin formal tag and create draft only
+        id: release
+        if: steps.source.outputs.create_draft == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python scripts/release_workflow.py draft --source "$GITHUB_SHA" \
+            --event "$GITHUB_EVENT_PATH" --repository "$GITHUB_REPOSITORY" \
+            --notes "$RUNNER_TEMP/release-notes.md" --output "$GITHUB_OUTPUT"
+
+      - name: Human publication handoff
+        if: steps.source.outputs.create_draft == 'true'
+        env:
+          RELEASE_TAG: ${{ steps.source.outputs.tag }}
+          RELEASE_URL: ${{ steps.release.outputs.url }}
+        run: |
+          {
+            printf '## Draft prepared: %s\n\n' "$RELEASE_TAG"
+            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'Draft: %s\n\n' "$RELEASE_URL"
+            printf '%s\n' 'A human must review the draft and manually Publish in GitHub. Automation never publishes.'
+            printf '%s\n' 'Publishing starts release-image builds, not a new production deployment path.'
+          } >> "$GITHUB_STEP_SUMMARY"

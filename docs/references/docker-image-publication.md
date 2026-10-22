@@ -2,7 +2,7 @@
 title: Docker image publication
 status: canonical
 owner_surface: repository
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-22
 ---
 
 # Docker image publication
@@ -90,6 +90,55 @@ rebuild historical releases. For a failed existing release workflow, rerun that
 original run so it retains its release event/tag; expired digest artifacts require
 a full rerun. Do not create another release merely to backfill latest.
 
+## PR-first release gates
+
+`Prepare Release PR` accepts a final `vX.Y.Z` increase on main and creates only
+`release/version-bump-<tag>`. Its version-file scope is the two npm manifests and
+lock roots, the vendored engine version, and first-party pinned Compose images.
+It does not create a formal tag, Release or deployment. AI/scripts must never
+merge or enable auto-merge; a human reviews CI and manually merges into main.
+
+`Prepare Merged Release Draft` runs on main pushes without changing latest or
+production CICD/Drone configuration. It freezes the event SHA and compares the
+primary Web version at `before` and `after`. No change or an initial absent
+baseline skips. Invalid/decreasing versions, forced pushes, inconsistent npm /
+engine / Compose versions, or missing exact merged-release-PR provenance fail.
+The source must itself introduce the version increase; a batched push ending in
+a later non-version commit is not silently substituted for the merge source.
+
+The provenance guard requires a merged same-repository release branch targeting
+main, an exact `merge_commit_sha`, no recorded `auto_merge`, and a non-bot merger.
+It explicitly excludes the known `ai-shifu-bot` automation account even though
+GitHub reports its type as `User`. **User metadata does not prove a physical
+human**, and GitHub may clear auto-merge metadata after completion. Manual review
+and repository branch/access policy remain necessary; these workflows do not
+change settings or claim to fully attest a human action.
+
+The draft helper pins the formal tag to that exact source (including peeled
+annotated tags), never force-updates a tag, and creates a draft with explicit
+`draft=true`, `prerelease=false`, and `make_latest=false`. Tag, target SHA, title,
+source marker, source versions and pinned images must agree. It reads the exact
+tag and Release back after writes. Same-source reruns retain human note edits;
+public releases and conflicting targets fail closed without editing them.
+
+A human separately reviews and Publishes in GitHub. Before release-image builds,
+the published-event guard rechecks the source, tag, metadata, versions and PR
+provenance, then supplies an immutable source SHA to both reusable image jobs.
+An invalid premature publication therefore cannot quietly publish mislabeled
+images through this new workflow. Historical workflow runs/tags are not rewritten
+or retroactively protected; investigate an existing mismatch rather than moving
+its tag or merging an old PR to catch up.
+
+For interrupted new drafts, rerun the original main-push workflow so its event
+commit stays frozen. An exact-source tag with no draft is recoverable; a tag or
+Release mismatch requires manual investigation. Ref and Release writes are not
+an atomic transaction. Never publish as part of retry/recovery. Preparation
+previews and final product/MarkdownFlow notes are file-based; final notes use the
+highest reachable lower final tag at the frozen candidate, not later main tags.
+Dependency lookups remain best-effort, with their existing registry-time window,
+three-page scan and twenty-line detail limits. CI runs the local release tests
+with mocked HTTP writes; it does not perform real release operations as tests.
+
 ## Pull request validation
 
 The runtime harness builds `src/api/Dockerfile` and `src/web/Dockerfile` once with
@@ -138,8 +187,8 @@ docker pull ghcr.io/ai-shifu/ai-shifu-web:latest
 
 The latest Compose bundle uses `aishifu/ai-shifu-api:latest` and
 `aishifu/ai-shifu-web:latest`. The pinned release bundle retains its historical
-Web image/tag until Prepare Release Draft advances it to a new release;
-no historical tag is copied or republished under the new name. Compose service
+Web image/tag until Prepare Release PR advances it in a manually merged version
+PR; no historical tag is copied or republished under the new name. Compose service
 and container identifiers stay stable so nginx routing is unaffected.
 
 To use GHCR, supply a local Compose override for the API, both Celery services
