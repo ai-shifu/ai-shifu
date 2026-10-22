@@ -82,6 +82,7 @@
 | `docs/exec-plans/active/operator-credit-deduction.md` | Operator Credit Deduction | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/pr-first-release-workflow.md` | PR-first product release workflow | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/preserve-independent-credit-validity.md` | Preserve Independent Credit Validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/profile-onboarding-layout-oauth-gate.md` | Gate Profile on every course WeChat authorization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/progressive-html-typewriter.md` | Progressive HTML alongside typed lesson text | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -280,7 +281,7 @@
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
 | `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
-| `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-08` | `true` |
+| `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
 | `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/gemini-live-follow-up.md` | Gemini Live follow-up implementation contract | `reference` | `reference` | `repo` | `-` | `true` |

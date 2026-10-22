@@ -9,7 +9,14 @@ import sys
 from pathlib import Path
 
 import pytest
-from select_docker_checks import changed_paths, select_services
+from select_docker_checks import (
+    API_FILES,
+    SHARED_FILES,
+    WEB_FILES,
+    changed_paths,
+    select_services,
+)
+from test_runtime_packaging import triggers
 
 SCRIPT_PATH = Path(__file__).with_name("select_docker_checks.py")
 
@@ -104,6 +111,10 @@ def selected_output(output: Path) -> tuple[str, list[str]]:
         (".github/workflows/docker-build-check.yml", {"api", "web"}),
         (".github/workflows/runtime-harness.yml", {"api", "web"}),
         (".github/workflows/prepare-release.yml", {"api", "web"}),
+        (".github/workflows/draft-release.yml", {"api", "web"}),
+        ("scripts/release_workflow.py", {"api", "web"}),
+        ("scripts/release_notes.py", {"api", "web"}),
+        ("scripts/test_release_workflow.py", {"api", "web"}),
         (".github/actions/docker-image-metadata/action.yml", {"api", "web"}),
         ("docker/docker-compose.latest.yml", {"api", "web"}),
         ("docker/docker-compose.runtime-harness.yml", {"api", "web"}),
@@ -121,6 +132,31 @@ def test_packaging_inputs_select_affected_services(
     path: str, expected: set[str]
 ) -> None:
     assert select_services([path]) == expected
+
+
+@pytest.mark.parametrize(
+    ("path", "runtime_expected"),
+    [(path, True) for path in sorted(SHARED_FILES | API_FILES | WEB_FILES)]
+    + [
+        ("src/web/next.config.js", True),
+        ("src/web/next.config.mjs", True),
+        ("src/web/next.config.ts", True),
+        (".github/actions/docker-image-metadata/action.yml", True),
+        # This is a test filename, not an effective Next configuration file.
+        ("src/web/next.config.test.js", False),
+    ],
+)
+@pytest.mark.parametrize(
+    "workflow_name", ["docker-build-check.yml", "runtime-harness.yml"]
+)
+def test_packaging_inputs_respect_workflow_inclusions_and_test_exclusions(
+    path: str, runtime_expected: bool, workflow_name: str
+) -> None:
+    """Effective image inputs need both architectures; runtime test exclusions stay."""
+    expected = runtime_expected if workflow_name == "runtime-harness.yml" else True
+    assert triggers(workflow_name, path) is expected, (
+        f"Unexpected {workflow_name} coverage for {path}"
+    )
 
 
 def test_application_code_and_nonproduction_inputs_need_no_extra_architecture() -> None:

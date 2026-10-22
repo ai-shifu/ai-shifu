@@ -9,6 +9,7 @@ on:
       - .github/workflows/docker-build-check.yml
       - .github/workflows/runtime-harness.yml
       - .github/workflows/prepare-release.yml
+      - .github/workflows/draft-release.yml
       - docker/docker-compose.latest.yml
       - docker/docker-compose.runtime-harness.yml
       - .github/actions/docker-image-metadata/**
@@ -20,6 +21,9 @@ on:
       - scripts/test_docker_image_metadata.py
       - scripts/select_docker_checks.py
       - scripts/test_select_docker_checks.py
+      - scripts/release_workflow.py
+      - scripts/release_notes.py
+      - scripts/test_release_workflow.py
       - scripts/test_runtime_packaging.py
       - .dockerignore
       - src/api/Dockerfile
