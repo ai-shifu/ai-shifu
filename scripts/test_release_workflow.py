@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 import urllib.error
+import urllib.parse
 import urllib.request
 from contextlib import chdir
 from pathlib import Path
@@ -1193,14 +1194,15 @@ class ReleaseFixture(unittest.TestCase):
             url = request.full_url
             if "/git/ref/tags/" in url:
                 raise urllib.error.HTTPError(url, 404, "Mocked absent tag", None, None)
-            if "pypi.org" in url:
+            hostname = urllib.parse.urlsplit(url).hostname
+            if hostname == "pypi.org":
                 data = {
                     "releases": {
                         "1.0.0": [{"upload_time_iso_8601": "2026-01-01T00:00:00Z"}],
                         "2.0.0": [{"upload_time_iso_8601": "2026-02-01T00:00:00Z"}],
                     }
                 }
-            elif "registry.npmjs.org" in url:
+            elif hostname == "registry.npmjs.org":
                 data = {
                     "time": {
                         "1.0.0": "2026-01-01T00:00:00Z",
