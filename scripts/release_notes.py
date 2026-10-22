@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -56,6 +57,44 @@ def annotate_product_authors(content: str, repository: str) -> str:
     return "\n".join(lines)
 
 
+def commitizen_notes(source: str, previous: str) -> str:
+    """Render at an isolated frozen checkout using Commitizen's revision option."""
+    # Commitizen's positional range accepts versions, not arbitrary Git SHAs.
+    # Its --start-rev ends at HEAD, so isolate both HEAD and config at the source.
+    repository = git("rev-parse", "--show-toplevel")
+    with tempfile.TemporaryDirectory(prefix="ai-shifu-release-notes-") as directory:
+        subprocess.run(
+            [
+                "git",
+                "clone",
+                "--shared",
+                "--no-checkout",
+                "--quiet",
+                "--",
+                repository,
+                directory,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        subprocess.run(
+            ["git", "checkout", "--detach", "--quiet", source, "--"],
+            cwd=directory,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        result = subprocess.run(
+            ["cz", "changelog", "--dry-run", "--start-rev", previous],
+            cwd=directory,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    return normalize_changelog(result.stdout) if result.returncode == 0 else ""
+
+
 def product_notes(source: str, previous: str, repository: str) -> str:
     """Use Commitizen first, retaining every Git subject/PR omitted by its filters."""
     if not previous:
@@ -89,14 +128,8 @@ def product_notes(source: str, previous: str, repository: str) -> str:
     revision_range = f"{previous}..{source}"
     subjects = git("log", "--pretty=format:%s", revision_range, "--").splitlines()
     try:
-        cz = subprocess.run(
-            ["cz", "changelog", "--dry-run", revision_range],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        content = normalize_changelog(cz.stdout) if cz.returncode == 0 else ""
-    except OSError:
+        content = commitizen_notes(source, previous)
+    except (OSError, subprocess.CalledProcessError):
         content = ""
     if not content:
         sections: dict[str, list[str]] = {}
