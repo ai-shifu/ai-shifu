@@ -286,7 +286,14 @@ def _script_questions(script_text: str) -> list[_Question]:
         end = end_exclusive - 1
         raw = text[start + 2 : end]
         body = _VARIABLE.sub("", raw)
-        newline = _find_unescaped(body, "\n")
+        newline = min(
+            (
+                at
+                for ending in ("\r", "\n")
+                if (at := _find_unescaped(body, ending)) >= 0
+            ),
+            default=-1,
+        )
         first_line = body[:newline] if newline >= 0 else body
         ellipsis = _find_unescaped(first_line, "...")
         if ellipsis >= 0:
@@ -318,9 +325,20 @@ def _script_questions(script_text: str) -> list[_Question]:
 
 def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
     """Read authored input hints; examples in comments do not define a learner question."""
+    context = analyze_marker_context(script_text, fence_indent=3)
+    syntax = list(script_text)
+    for marker in context.markers:
+        # Document scanning bounds examples before protection, so an unfinished
+        # literal marker cannot hide a real outer comment or fence terminator.
+        syntax[marker.start : marker.end] = [
+            char if char in "\r\n" else "x"
+            for char in script_text[marker.start : marker.end]
+        ]
     lines: list[str] = []
+    syntax_lines: list[str] = []
     opening: str | None = None
-    for line in script_text.splitlines():
+    offset = 0
+    for line in "".join(syntax).splitlines(keepends=True):
         fence = re.match(r"^[ ]{0,3}(`{3,}|~{3,})(.*)$", line)
         if opening is not None:
             if (
@@ -333,10 +351,21 @@ def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
         elif fence:
             opening = fence.group(1)
         elif line.expandtabs(4).startswith("    "):
-            lines.append("")  # Indented Markdown code cannot declare lesson controls.
+            ending = line[len(line.rstrip("\r\n")) :]
+            lines.append(ending)  # Retain the blank line after an indented example.
+            syntax_lines.append(ending)
         else:
-            lines.append(line)
-    text = re.sub(r"<!--.*?-->", "", "\n".join(lines), flags=re.DOTALL)
+            lines.append(script_text[offset : offset + len(line)])
+            syntax_lines.append(line)
+        offset += len(line)
+    source = "".join(lines)
+    parts: list[str] = []
+    offset = 0
+    for comment in re.finditer(r"<!--.*?-->", "".join(syntax_lines), re.DOTALL):
+        parts.append(source[offset : comment.start()])
+        offset = comment.end()
+    parts.append(source[offset:])
+    text = "".join(parts)
     return tuple(q for q in _script_questions(text) if q.placeholder)
 
 
