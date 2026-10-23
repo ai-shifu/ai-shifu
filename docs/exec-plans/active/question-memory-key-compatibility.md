@@ -33,8 +33,17 @@ with their edges trimmed, rather than programming-language identifiers.
   and prepared [Python library PR #80](https://github.com/ai-shifu/markdown-flow-agent-py/pull/80).
 - [x] 2026-10-23 13:23 UTC: Finish the coordinated specification, parser,
   component library, Python library and application changes.
-- [x] 2026-10-23 14:20 UTC: Complete application document-stage literal boundary
-  regressions across extraction, substitution, Markdown and streamed controls.
+- [x] 2026-10-23 14:20 UTC: Validate initial inline-code and HTML-tag literal
+  boundaries across extraction, substitution and streamed controls.
+- [x] 2026-10-23 14:28 UTC: Push the core application contract and official
+  Python dependency in commit `b39af30641b92629d70f801e263809b9a732b372`.
+- [x] 2026-10-23 15:01 UTC: Repair exact-key memory listing/deletion and blank
+  optional interaction fields; focused database and protocol regressions pass.
+- [x] 2026-10-23 15:49 UTC: Validate indented-code, HTML, math, link-resource,
+  heading, container and physical-line boundaries, with bounded incremental
+  streaming context; the complete engine/stream/runner gate passes 1,894 tests.
+- [ ] 2026-10-23 15:49 UTC: Finish the confirmed quote/list delimiter-boundary
+  alignment and reduce the document helper's delimiter/line index allocations.
 - [ ] 2026-10-23 12:28 UTC: Validate actual built packages and all affected
   runtime, editor, streaming, definition and persistence paths.
 - [ ] 2026-10-23 12:28 UTC: Update PRs and dependency pins with publication
@@ -74,6 +83,13 @@ with their edges trimmed, rather than programming-language identifiers.
   handling now preserves them as literal text, matching Markdown rendering;
   the specification records this deliberate alignment difference. Raw marker
   readers retain their context-free first-closing-pair contract.
+- Native Markdown literal regions must stay bounded before an unfinished
+  example can claim an outer marker tail. Cross-runtime checks exposed the
+  same gap in indented code, raw HTML closing lines, formulas and link titles.
+  Complete examples retain the host's existing collection/substitution scope.
+- Exact definition admission also requires exact memory settings queries:
+  listing and deletion now use the same binary key identity as runtime reads.
+  Empty optional tool arguments remain unnamed questions rather than retries.
 
 ## Decision Log
 
@@ -109,22 +125,25 @@ with their edges trimmed, rather than programming-language identifiers.
 ## Outcomes & Retrospective
 
 The coordinated implementation passes all 166 shared conformance cases.
-The application backend passed 13,090 tests with 112 intentional skips in an
+The core application backend passed 13,090 tests with 112 intentional skips in an
 isolated environment using the official PyPI `markdown-flow==0.4.0` package,
 including the complete offline engine and exact-key database regressions.
-The component library passed 1,639 unit tests and 64
-built-package tests against the final parser candidate. The parser passed 439
-Jest tests plus 40 real Markdown AST cases in each production and development
-mode. The Python library passed all 269 tests from source and its installed
-wheel. Bilingual documentation builds and repository-wide application hooks
-passed.
+Subsequent application compatibility fixes pass 1,894 engine, streaming and
+runner tests, plus 90 focused memory/protocol regressions. The component library
+passed 1,992 unit tests and 137 built-package tests against the current parser
+candidate. The parser passed 520 Jest tests plus 45 real Markdown AST cases in
+each production and development mode. The Python 0.4.1 candidate passed 391
+source tests. Final installed-wheel checks and a confirmed delimiter-boundary
+and index-allocation follow-up remain in progress. Bilingual documentation builds
+and repository-wide core application hooks passed.
 
 Python publication is verified at
 https://pypi.org/project/markdown-flow/0.4.0/. The actual wheel's 33 runtime files
 match the tested local build byte-for-byte, and its isolated installed suite
 also passes all 269 tests. JavaScript publication and final application
-integration are still in progress; paragraph/fence inline-code regressions are
-being verified before publishing the parser.
+integration are still in progress. Python 0.4.1 adds the verified document-stage
+compatibility fixes; streaming continuation and final registry-artifact
+application checks remain to be completed.
 The earlier `remark-flow@1.3.5` / `markdown-flow-ui@0.2.36-dev.1` pins only
 implement the original narrow repair and must be replaced with verified
 artifacts. The component library's formal-release prerequisite remains a
