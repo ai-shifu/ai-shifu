@@ -19,7 +19,6 @@ from flaskr.common.cache_provider import (
     InMemoryCacheProvider,
     redis_cache,
 )
-from flaskr.service.learn.agent.engine import substitute_variables
 from flaskr.service.learn.agent.gateway_model import map_messages
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.profile_research import api
@@ -44,10 +43,8 @@ from flaskr.service.profile_research.runtime import (
 from flaskr.util.prompt_loader import load_prompt_template
 from markdown_flow import (
     USER_ANSWER_CONTEXT_KEY,
-    BlockType,
     InteractionParser,
     LLMProvider,
-    MarkdownFlow,
 )
 from pydantic_ai.messages import ModelRequest, ToolReturnPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
@@ -74,71 +71,52 @@ class _FakeProvider(LLMProvider):
         yield from self.output_chunks
 
 
-def _fake_block_model(provider: _FakeProvider, session: object) -> FunctionModel:
-    """Drive the real agent with deterministic text and genuine interaction tools."""
-    block = MarkdownFlow(session.document).get_all_blocks()[session.block_index]
+def _fake_questionnaire_model(
+    provider: _FakeProvider, session: object
+) -> FunctionModel:
+    """Model the complete authored questionnaire using its accumulated tool history."""
+    import re
+
+    questions = re.findall(r"\?\[.*?\]", session.document, flags=re.DOTALL)
 
     async def scripted(messages: object, _info: object) -> object:
         provider.messages.append(map_messages(messages))
-        if any(
-            isinstance(message, ModelRequest)
-            and any(
-                isinstance(part, ToolReturnPart) and part.tool_name == "finish"
-                for part in message.parts
-            )
+        returns = [
+            part
             for message in messages
-        ):
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+            if isinstance(part, ToolReturnPart)
+        ]
+        if any(part.tool_name == "finish" for part in returns):
             yield " "
             return
-        if block.block_type == BlockType.INTERACTION:
-            if any(
-                isinstance(message, ModelRequest)
-                and any(
-                    isinstance(part, ToolReturnPart) and part.tool_name == "interact"
-                    for part in message.parts
-                )
-                for message in messages
-            ):
-                yield {
-                    0: DeltaToolCall(
-                        name="finish",
-                        json_args='{"summary":"Answer accepted"}',
-                        tool_call_id="finish-answer",
-                    )
-                }
-                return
-            parsed = InteractionParser().parse(
-                substitute_variables(block.content, session.variables)
-            )
-            buttons = parsed.get("buttons", [])
-            question = parsed.get("question", "")
-            kind = "multi" if parsed.get("is_multi_select") else "single"
-            if question:
-                kind = f"{kind}_or_text" if buttons else "text"
-            spec = {"type": kind, "prompt": question, "options": buttons}
-            if parsed.get("variable"):
-                spec["variable"] = parsed["variable"]
+        answered = sum(part.tool_name == "interact" for part in returns)
+        if answered >= len(questions):
             yield {
                 0: DeltaToolCall(
-                    name="interact",
-                    json_args=json.dumps(spec),
-                    tool_call_id="question",
+                    name="finish",
+                    json_args='{"summary":"Questionnaire complete"}',
+                    tool_call_id="finish",
                 )
             }
-        elif block.block_type == BlockType.PRESERVED_CONTENT:
-            yield block.content.removeprefix("!===").removesuffix("!===").strip()
-        else:
-            if not any(provider.output_chunks):
-                yield {
-                    0: DeltaToolCall(
-                        name="finish",
-                        json_args='{"summary":"No profile evidence"}',
-                        tool_call_id="finish-empty",
-                    )
-                }
-                return
-            for chunk in provider.output_chunks:
-                yield chunk
+            return
+        parsed = InteractionParser().parse(questions[answered])
+        buttons = parsed.get("buttons", [])
+        question = parsed.get("question", "")
+        kind = "multi" if parsed.get("is_multi_select") else "single"
+        if question:
+            kind = f"{kind}_or_text" if buttons else "text"
+        spec = {"type": kind, "prompt": question, "options": buttons}
+        if parsed.get("variable"):
+            spec["variable"] = parsed["variable"]
+        yield {
+            0: DeltaToolCall(
+                name="interact",
+                json_args=json.dumps(spec),
+                tool_call_id=f"question-{answered}",
+            )
+        }
 
     return FunctionModel(stream_function=scripted)
 
@@ -164,7 +142,7 @@ def _make_runtime(
         app,
         store=store,
         provider_factory=provider_factory,
-        model_factory=lambda app, session, span: _fake_block_model(
+        model_factory=lambda app, session, span: _fake_questionnaire_model(
             runtime._provider_factory(app, session, span), session
         ),
     )
@@ -238,8 +216,12 @@ def test_validation_uses_markdownflow_public_parser() -> None:
         "content_block_count": 1,
         "variables": ["arbitrary_identity"],
     }
-    with pytest.raises(ProfileResearchValidationError):
-        validate_profile_research_document("只有普通 Markdown")
+    assert (
+        validate_profile_research_document("Only native questionnaire instructions")[
+            "interaction_block_count"
+        ]
+        == 0
+    )
 
 
 def test_validation_rejects_interaction_variable_longer_than_runtime_input_key() -> (
@@ -344,127 +326,6 @@ def test_default_store_requires_shared_redis(monkeypatch: object) -> None:
         )
 
 
-def test_session_returns_profile_draft_only_in_terminal_metadata() -> None:
-    _app, runtime, providers = _make_runtime(["背景：", "产品经理"])
-    session = runtime.start_session(
-        user_bid="user-1",
-        document="?[%{{sys_user_nickname}}...平时希望怎么称呼你？]",
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=7,
-        output_language=None,
-    )
-    session_id = session["session_id"]
-
-    rendered = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session_id,
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-            expected_block_index=0,
-            request_id="render-1",
-        )
-    )
-    assert rendered[0]["event_type"] == "interaction"
-    assert _terminal(rendered)["content"]["next_block_index"] == 0
-    assert _terminal(rendered)["content"]["awaiting_input"] is True
-
-    answered = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session_id,
-            user_input={"sys_user_nickname": ["小雨"]},
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-            expected_block_index=0,
-            request_id="answer-1",
-        )
-    )
-    assert _terminal(answered)["content"]["next_block_index"] == 1
-    assert _terminal(answered)["content"]["nickname"] is None
-
-    completed = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session_id,
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-            expected_block_index=1,
-            request_id="summary-1",
-        )
-    )
-    assert [event["event_type"] for event in completed] == ["done"]
-    summary = _terminal(completed)["content"]
-    assert summary["done"] is True
-    assert summary["profile_draft"] == "背景：产品经理"
-    assert summary["nickname"] == "小雨"
-    assert summary["config_revision"] == 7
-    assert any(
-        "小雨" in str(messages)
-        for provider in providers
-        for messages in provider.messages
-    )
-
-
-def test_identical_retry_replays_without_running_markdownflow_again() -> None:
-    _app, runtime, providers = _make_runtime()
-    session = runtime.start_session(
-        user_bid="user-1",
-        document="?[%{{role}} 学生//student | 老师//teacher]",
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
-    )
-    session_id = session["session_id"]
-    original = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session_id,
-            user_input={"role": ["student"]},
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-            expected_block_index=0,
-            request_id="answer-1",
-        )
-    )
-    provider_count = len(providers)
-    stored_session = runtime.store.load(session_id)
-    session_key = runtime.store._key(session_id)
-    active_key = runtime.store._active_key(
-        stored_session.user_bid,
-        stored_session.purpose,
-    )
-    cache = runtime.store._cache
-    cache._store[session_key].expires_at = cache._now() + 1
-    cache._store[active_key].expires_at = cache._now() + 1
-
-    replay = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session_id,
-            user_input={"role": ["student"]},
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-            expected_block_index=0,
-            request_id="answer-1",
-        )
-    )
-
-    assert replay == original
-    assert runtime.store.load(session_id).block_index == 1
-    assert len(providers) == provider_count
-    assert cache.ttl(session_key) > PROFILE_RESEARCH_SESSION_TTL_SECONDS - 5
-    assert cache.ttl(active_key) > PROFILE_RESEARCH_SESSION_TTL_SECONDS - 5
-    with pytest.raises(ProfileResearchValidationError, match="expected_block_index"):
-        list(
-            runtime.stream_session(
-                user_bid="user-1",
-                session_id=session_id,
-                user_input={"role": ["student"]},
-                expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-                expected_block_index=0,
-                request_id="answer-2",
-            )
-        )
-
-
 def test_retry_cache_stores_stream_content_as_linear_deltas() -> None:
     chunks = ["甲" * 100, "乙" * 100, "丙" * 100]
     original = [
@@ -496,97 +357,6 @@ def test_retry_cache_stores_stream_content_as_linear_deltas() -> None:
     assert stored_content == chunks
     assert sum(len(content) for content in stored_content) == len("".join(chunks))
     assert _expand_replay_events(stored) == original
-
-
-def test_empty_initial_interaction_fails_without_advancing(monkeypatch: object) -> None:
-    _app, runtime, _providers = _make_runtime()
-    session = runtime.start_session(
-        user_bid="user-1",
-        document="?[继续]",
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
-    )
-
-    async def no_question(_messages: object, _info: object) -> object:
-        yield "No question was generated."
-
-    monkeypatch.setattr(
-        runtime,
-        "_model_factory",
-        lambda *_args: FunctionModel(stream_function=no_question),
-    )
-
-    with pytest.raises(ProfileResearchError, match="authored profile question"):
-        list(
-            runtime.stream_session(
-                user_bid="user-1",
-                session_id=session["session_id"],
-                user_input=None,
-                expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-            )
-        )
-
-    unchanged = runtime.store.load(session["session_id"])
-    assert unchanged.block_index == 0
-    assert unchanged.awaiting_input is False
-
-
-def test_invalid_interaction_answer_keeps_the_question_available() -> None:
-    _app, runtime, _providers = _make_runtime(["请选择已有选项"])
-    session = runtime.start_session(
-        user_bid="user-1",
-        document="?[%{{role}} 学生//student | 老师//teacher]",
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
-    )
-
-    events = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input={"role": ["unknown"]},
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-
-    assert [event["event_type"] for event in events[:-1]] == [
-        "interaction",
-    ]
-    summary = _terminal(events)["content"]
-    assert summary["advanced"] is False
-    assert summary["awaiting_input"] is True
-    assert summary["next_block_index"] == 0
-
-
-def test_invalid_answer_rerenders_the_interaction_through_markdownflow() -> None:
-    _app, runtime, _providers = _make_runtime(["请选择已有选项"])
-    session = runtime.start_session(
-        user_bid="user-1",
-        document=("?[%{{choice}} 作为 {{role}} 的学生//student | 老师//teacher]"),
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
-    )
-    stored = runtime.store.load(session["session_id"])
-    stored.variables["role"] = "产品经理"
-    runtime.store.save(stored)
-
-    events = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input={"choice": ["unknown"]},
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-
-    interaction = next(
-        event for event in events if event["event_type"] == "interaction"
-    )
-    assert "产品经理" in interaction["content"]
-    assert "{{role}}" not in interaction["content"]
 
 
 def test_owner_and_purpose_are_enforced_for_run_and_delete() -> None:
@@ -925,271 +695,6 @@ def test_run_lock_lease_has_worker_cleanup_headroom_without_using_session_ttl() 
     )
 
 
-def test_content_context_keeps_the_authored_prompt_without_parser_placeholders() -> (
-    None
-):
-    _app, runtime, providers = _make_runtime(["收到"])
-    session = runtime.start_session(
-        user_bid="user-1",
-        document=(
-            "请称呼我为 {{name}}，并参考：\n"
-            "```python\n"
-            "print('profile')\n"
-            "```\n\n---\n\n?[继续]"
-        ),
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language="zh-CN",
-    )
-    stored = runtime.store.load(session["session_id"])
-    stored.variables["name"] = "小雨"
-    runtime.store.save(stored)
-
-    list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-
-    context = runtime.store.load(session["session_id"]).context
-    sent_prompt = "\n".join(
-        str(message.get("content") or "") for message in providers[0].messages[0]
-    )
-    assert context[0]["role"] == "user"
-    assert "```python\nprint('profile')\n```" in context[0]["content"]
-    assert "__MDFLOW_CODE_BLOCK_" not in context[0]["content"]
-    assert "print('profile')" in sent_prompt
-    assert "__MDFLOW_CODE_BLOCK_" not in sent_prompt
-
-
-def test_preserved_content_context_uses_markdownflow_output_without_placeholders() -> (
-    None
-):
-    _app, runtime, providers = _make_runtime(["结合完成"])
-    session = runtime.start_session(
-        user_bid="user-1",
-        document=(
-            "!===\n"
-            "```python\n"
-            "print('profile')\n"
-            "```\n"
-            "!===\n\n---\n\n"
-            "结合上面的示例回应。\n\n---\n\n?[继续]"
-        ),
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
-    )
-
-    list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-    preserved_context = runtime.store.load(session["session_id"]).context[0]
-    list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-
-    assert preserved_context == {
-        "role": "assistant",
-        "content": "```python\nprint('profile')\n```",
-    }
-    sent_messages = providers[-1].messages[0]
-    evidence_opening = "<profile_research_prior_evidence>\n"
-    evidence_message = next(
-        message["content"]
-        for message in sent_messages
-        if evidence_opening in str(message.get("content", ""))
-    )
-    evidence = json.loads(
-        evidence_message.split(evidence_opening, 1)[1].split("\n</", 1)[0]
-    )
-    assert preserved_context in evidence["conversation"]
-    assert "__MDFLOW_CODE_BLOCK_" not in str(sent_messages)
-
-
-def test_preserved_content_streams_structured_element_types() -> None:
-    _app, runtime, _providers = _make_runtime()
-    session = runtime.start_session(
-        user_bid="user-1",
-        document=(
-            "!===\n"
-            "Intro text\n"
-            "<div>Visual card</div>\n"
-            "Closing text\n"
-            "!===\n\n---\n\n?[继续]"
-        ),
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
-    )
-
-    events = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-    content_events = [event for event in events if event["event_type"] == "content"]
-
-    assert [event["element_type"] for event in content_events] == [
-        "text",
-        "html",
-        "text",
-    ]
-    assert [event["content"] for event in content_events] == [
-        "Intro text\n",
-        "<div>Visual card</div>\n",
-        "Closing text",
-    ]
-    assert len({event["generated_block_bid"] for event in content_events}) == 3
-
-
-def test_preserved_heading_and_text_with_one_number_use_distinct_bids() -> None:
-    _app, runtime, _providers = _make_runtime()
-    session = runtime.start_session(
-        user_bid="user-1",
-        document="!===\n# Heading\nBody\n!===\n\n---\n\n?[继续]",
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
-    )
-
-    events = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-    content_events = [event for event in events if event["event_type"] == "content"]
-
-    assert [event["element_type"] for event in content_events] == ["title", "text"]
-    assert [event["content"] for event in content_events] == ["# Heading\n", "Body"]
-    assert len({event["generated_block_bid"] for event in content_events}) == 2
-
-
-def test_preserved_html_append_reuses_original_element_bid() -> None:
-    _app, runtime, _providers = _make_runtime()
-    session = runtime.start_session(
-        user_bid="user-1",
-        document=(
-            "!===\n"
-            '<div id="card">Visual card</div>\n'
-            "Between\n"
-            '<script>document.getElementById("card").remove()</script>\n'
-            "!===\n\n---\n\n?[继续]"
-        ),
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
-    )
-
-    events = list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-    content_events = [event for event in events if event["event_type"] == "content"]
-
-    assert [event["element_type"] for event in content_events] == [
-        "html",
-        "text",
-        "html",
-    ]
-    assert content_events[2]["content"] == (
-        '<div id="card">Visual card</div>\n'
-        '<script>document.getElementById("card").remove()</script>'
-    )
-    assert (
-        content_events[2]["generated_block_bid"]
-        == content_events[0]["generated_block_bid"]
-    )
-    assert (
-        content_events[1]["generated_block_bid"]
-        != content_events[0]["generated_block_bid"]
-    )
-
-
-def test_non_assignment_answer_reaches_the_next_markdownflow_content_block() -> None:
-    _app, runtime, providers = _make_runtime(["个性化回应"])
-    session = runtime.start_session(
-        user_bid="user-1",
-        document=("?[产品经理//pm | 教师//teacher]\n\n---\n\n根据用户刚才的选择回应。"),
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=1,
-        output_language=None,
-    )
-
-    list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input={"choice": ["pm"]},
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-    list(
-        runtime.stream_session(
-            user_bid="user-1",
-            session_id=session["session_id"],
-            user_input=None,
-            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-        )
-    )
-
-    assert any(
-        "pm" in str(message.get("content", "")) and message["role"] in {"user", "tool"}
-        for provider in providers
-        for messages in provider.messages
-        for message in messages
-    )
-
-
-def test_session_snapshots_summary_and_model_settings() -> None:
-    app, runtime, _providers = _make_runtime()
-    document = "欢迎\n\n---\n\n?[继续]"
-    view = runtime.start_session(
-        user_bid="user-1",
-        document=document,
-        purpose=PROFILE_ONBOARDING_PURPOSE,
-        config_revision=9,
-        output_language="zh-CN",
-    )
-    stored = runtime.store.load(view["session_id"])
-    app.config.update(LLM_MODEL_1_ID="changed-model", DEFAULT_LLM_TEMPERATURE=1.7)
-
-    assert stored.document == (f"{document}\n\n---\n\n{_profile_summary_prompt()}")
-    assert stored.model == "gpt-test"
-    assert stored.temperature == 0.3
-    assert stored.output_language == "zh-CN"
-    assert stored.config_revision == 9
-    assert "document_prompt" not in stored.to_cache_payload()
-
-    restored = type(stored).from_cache_payload(
-        {**stored.to_cache_payload(), "document_prompt": "legacy value"}
-    )
-    assert "document_prompt" not in restored.to_cache_payload()
-
-
 def test_profile_summary_prompt_requires_plain_text_without_placeholders() -> None:
     summary_prompt = _profile_summary_prompt()
     optimizer_prompt = load_prompt_template("learner_profile_optimizer").strip()
@@ -1456,16 +961,14 @@ def _import_answers(
         "user_bid": "user-1",
         "session_id": session["session_id"],
         "raw_text": "My assistant's answer",
-        "expected_block_index": 0,
+        "expected_turn_index": 0,
         "request_id": "delegate-1",
         **overrides,
     }
     return list(runtime.stream_assistant_answers(**kwargs))
 
 
-def test_assistant_import_uses_official_final_block_and_preserves_manual_answers() -> (
-    None
-):
+def test_assistant_import_uses_private_summary_and_preserves_manual_answers() -> None:
     app, runtime, view, providers = _assistant_runtime()
     original = runtime.store.load(view["session_id"])
     original.variables = {"sys_user_nickname": "Manual", "occupation": "Teacher"}
@@ -1479,13 +982,13 @@ def test_assistant_import_uses_official_final_block_and_preserves_manual_answers
     runtime.store.save(original)
     with app.app_context():
         events = _import_answers(runtime, view)
-    final = events[0]["content"]
-    assert len(events) == 1
+    final = _terminal(events)["content"]
+    assert [event["event_type"] for event in events] == ["phase", "done"]
     assert final["operation"] == "delegate"
     assert final["done"] is True
     assert final["nickname"] == "Manual"
     assert final["profile_draft"] == "I work as a teacher."
-    assert final["next_block_index"] == view["block_count"]
+    assert final["next_turn_index"] == 1
     stored = runtime.store.load(view["session_id"])
     assert stored.variables == original.variables
     assert stored.context[: len(original.context)] == original.context
@@ -1541,43 +1044,9 @@ def test_assistant_import_nickname_only_runs_summary_without_inventing_profile()
     )
     with app.app_context():
         events = _import_answers(runtime, view)
-    assert events[0]["content"]["nickname"] == "Rain"
-    assert events[0]["content"]["profile_draft"] == ""
-    assert len(providers) == 2
-
-
-def test_assistant_import_replay_survives_disconnect_without_repeating_llm() -> None:
-    app, runtime, view, providers = _assistant_runtime()
-    with app.app_context():
-        stream = runtime.stream_assistant_answers(
-            user_bid="user-1",
-            session_id=view["session_id"],
-            raw_text="Exact original",
-            expected_block_index=0,
-            request_id="same-request",
-        )
-        first_event = next(stream)
-        stream.close()
-        replay = _import_answers(
-            runtime, view, raw_text="Exact original", request_id="same-request"
-        )
-        with pytest.raises(ProfileResearchValidationError, match="reused"):
-            _import_answers(
-                runtime, view, raw_text="Changed body", request_id="same-request"
-            )
-        with pytest.raises(ProfileResearchValidationError, match="reused"):
-            list(
-                runtime.stream_session(
-                    user_bid="user-1",
-                    session_id=view["session_id"],
-                    user_input=None,
-                    expected_purpose=PROFILE_ONBOARDING_PURPOSE,
-                    expected_block_index=0,
-                    request_id="same-request",
-                )
-            )
-    assert replay == [first_event]
-    assert len(providers) == 2
+    assert _terminal(events)["content"]["nickname"] == "Rain"
+    assert _terminal(events)["content"]["profile_draft"] == ""
+    assert len(providers) == 1
 
 
 @pytest.mark.parametrize(
@@ -1597,7 +1066,7 @@ def test_assistant_import_invalid_results_do_not_advance(
         answers=answers, nickname=nickname, draft=draft
     )
     before = runtime.store.load(view["session_id"]).to_cache_payload()
-    with app.app_context(), pytest.raises(ProfileResearchValidationError):
+    with app.app_context(), pytest.raises(ProfileResearchError):
         _import_answers(runtime, view)
     assert runtime.store.load(view["session_id"]).to_cache_payload() == before
 
@@ -1609,7 +1078,9 @@ def test_assistant_import_provider_failure_does_not_advance(
     app, runtime, view, _providers = _assistant_runtime()
     before = runtime.store.load(view["session_id"]).to_cache_payload()
     method = (
-        "_extract_assistant_answers" if failure_stage == "parse" else "_execute_block"
+        "_extract_assistant_answers"
+        if failure_stage == "parse"
+        else "_generate_profile_draft"
     )
 
     def fail(*_args: object, **_kwargs: object) -> None:
@@ -1627,7 +1098,7 @@ def test_assistant_import_provider_failure_does_not_advance(
     [
         {"user_bid": "another-user"},
         {"session_id": "missing"},
-        {"expected_block_index": 1},
+        {"expected_turn_index": 1},
         {"raw_text": "x" * 10001},
         {"raw_text": " "},
     ],
@@ -1658,7 +1129,7 @@ def test_assistant_import_and_normal_run_share_owner_then_session_lock() -> None
         lock.release()
     assert not providers
     with app.app_context():
-        assert _import_answers(runtime, view)[0]["content"]["done"]
+        assert _terminal(_import_answers(runtime, view))["content"]["done"]
 
 
 def test_assistant_import_expired_session_fails_without_provider_call() -> None:
@@ -1682,7 +1153,7 @@ def test_assistant_parser_rejects_malformed_model_output(parsed: str) -> None:
     app, runtime, view, _providers = _assistant_runtime()
     runtime._provider_factory = lambda *_args: _FakeProvider([parsed])
     before = runtime.store.load(view["session_id"]).to_cache_payload()
-    with app.app_context(), pytest.raises(ProfileResearchValidationError):
+    with app.app_context(), pytest.raises(ProfileResearchError):
         _import_answers(runtime, view)
     assert runtime.store.load(view["session_id"]).to_cache_payload() == before
 
@@ -1697,8 +1168,8 @@ def test_assistant_extraction_keeps_instructions_in_untrusted_user_data() -> Non
     assert json.loads(extraction_messages[1]["content"])["external_answer"] == injection
     assert "untrusted data" in extraction_messages[0]["content"]
     assert "Do not use a fixed checklist" in extraction_messages[0]["content"]
-    assert result[0]["content"]["profile_draft"] == ""
-    assert injection not in str(providers[1].messages)
+    assert _terminal(result)["content"]["profile_draft"] == ""
+    assert len(providers) == 1
 
 
 def test_assistant_import_includes_manual_nonvariable_answer_when_external_has_gaps() -> (
@@ -1718,27 +1189,8 @@ def test_assistant_import_includes_manual_nonvariable_answer_when_external_has_g
     runtime.store.save(session)
     with app.app_context():
         result = _import_answers(runtime, view)
-    assert result[0]["content"]["profile_draft"] == "I learn in short sessions."
+    assert _terminal(result)["content"]["profile_draft"] == "I learn in short sessions."
     assert "I learn in short sessions." in str(providers[1].messages)
-
-
-def test_normal_run_request_id_cannot_be_reused_for_import() -> None:
-    app, runtime, view, providers = _assistant_runtime()
-    session = runtime.store.load(view["session_id"])
-    runtime._remember_request(
-        session,
-        request_id="same",
-        expected_block_index=0,
-        user_input={},
-        events=[{"type": "done", "content": {}}],
-    )
-    runtime.store.save(session)
-    with (
-        app.app_context(),
-        pytest.raises(ProfileResearchValidationError, match="reused"),
-    ):
-        _import_answers(runtime, view, request_id="same")
-    assert not providers
 
 
 def test_assistant_import_returns_committed_result_when_active_refresh_fails(
@@ -1757,7 +1209,7 @@ def test_assistant_import_returns_committed_result_when_active_refresh_fails(
         result = _import_answers(runtime, view)
         replay = _import_answers(runtime, view)
     assert result == replay
-    assert result[0]["content"]["done"]
+    assert _terminal(result)["content"]["done"]
     assert len(providers) == 2
 
 
@@ -1804,5 +1256,5 @@ def test_assistant_import_uncertain_write_requires_same_request_replay(
     monkeypatch.setattr(runtime.store, "load", load)
     with app.app_context():
         result = _import_answers(runtime, view)
-    assert result[0]["content"]["done"]
+    assert _terminal(result)["content"]["done"]
     assert len(providers) == 2

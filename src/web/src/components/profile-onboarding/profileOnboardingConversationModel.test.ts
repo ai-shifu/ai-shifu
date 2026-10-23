@@ -3,6 +3,9 @@ import {
   isProfileOnboardingTypewriterCandidate,
   profileOnboardingConversationReducer,
   resolveProfileOnboardingElement,
+  resolveProfileRunState,
+  resolveNextTurnIndex,
+  isProfileSummaryPhase,
   syncProfileOnboardingTypewriterCache,
   type ProfileOnboardingConversationItem,
   upsertConversationItem,
@@ -67,6 +70,32 @@ describe('profileOnboardingConversationReducer', () => {
     expect(fatal.status).toBe('fatal_error');
   });
 
+  it('accepts only the validated interaction even when another question is last', () => {
+    const state = {
+      ...initialProfileOnboardingConversationState,
+      status: 'streaming' as const,
+      items: [
+        { ...interaction, interactionId: 'question-a' },
+        {
+          ...interaction,
+          elementBid: 'question-2',
+          interactionId: 'question-b',
+        },
+      ],
+    };
+    const accepted = profileOnboardingConversationReducer(state, {
+      type: 'accept_submission',
+      interactionId: 'question-a',
+      userInput: 'First answer',
+    });
+    expect(accepted.items[0]).toMatchObject({
+      finished: true,
+      userInput: 'First answer',
+    });
+    expect(accepted.items[1]).toMatchObject({ finished: false });
+    expect(accepted.items[1].userInput).toBeUndefined();
+  });
+
   it('ignores terminal and interaction events that arrive in invalid states', () => {
     const streaming = profileOnboardingConversationReducer(
       initialProfileOnboardingConversationState,
@@ -94,6 +123,29 @@ describe('profileOnboardingConversationReducer', () => {
         { type: 'accept_submission', userInput: 'late' },
       ),
     ).toBe(initialProfileOnboardingConversationState);
+  });
+});
+
+describe('native session turn state', () => {
+  it('reads the authoritative native pending order and validated input result', () => {
+    const event = {
+      type: 'done',
+      content: JSON.stringify({
+        next_turn_index: 8,
+        awaiting_input: true,
+        input_accepted: false,
+        pending_interaction_ids: ['first', 'second'],
+      }),
+    };
+    expect(resolveNextTurnIndex(event)).toBe(8);
+    expect(resolveProfileRunState(event)).toEqual({
+      awaitingInput: true,
+      inputAccepted: false,
+      pendingInteractionIds: ['first', 'second'],
+    });
+    expect(
+      isProfileSummaryPhase({ type: 'phase', content: { phase: 'summary' } }),
+    ).toBe(true);
   });
 });
 
@@ -166,6 +218,21 @@ describe('resolveProfileOnboardingElement', () => {
 });
 
 describe('upsertConversationItem', () => {
+  it('keeps the same native pending question mounted when its turn slot changes', () => {
+    const original = { ...interaction, interactionId: 'native-question' };
+    const nextTurn = {
+      ...original,
+      elementBid: 'turn-2:interaction',
+    };
+    const items = upsertConversationItem([original], nextTurn);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      interactionId: 'native-question',
+      elementBid: interaction.elementBid,
+      finished: false,
+    });
+  });
+
   it('replaces an uncommitted question token at its stable display element', () => {
     const firstQuestion = {
       ...interaction,

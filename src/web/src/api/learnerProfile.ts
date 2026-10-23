@@ -45,9 +45,7 @@ export type CompleteProfileOnboardingPayload = {
 export type ProfileOnboardingSession = {
   assistant_prompt?: string;
   session_id: string;
-  block_index: number;
-  block_count: number;
-  profile_draft_block_index: number;
+  turn_index: number;
   done: boolean;
   expires_in: number;
 };
@@ -131,7 +129,7 @@ export const skipGuidedProfileOnboarding = (sessionId?: string) =>
 
 export const runProfileOnboardingSession = ({
   sessionId,
-  expectedBlockIndex,
+  expectedTurnIndex,
   expectedInteractionId,
   requestId,
   userInput,
@@ -140,7 +138,7 @@ export const runProfileOnboardingSession = ({
   onError,
 }: {
   sessionId: string;
-  expectedBlockIndex: number;
+  expectedTurnIndex: number;
   expectedInteractionId?: string;
   requestId: string;
   userInput?: Record<string, string[]>;
@@ -151,7 +149,7 @@ export const runProfileOnboardingSession = ({
   streamProfileOnboardingRuntime({
     path: `/api/user/profile-onboarding/session/${encodeURIComponent(sessionId)}/run`,
     payload: {
-      expected_block_index: expectedBlockIndex,
+      expected_turn_index: expectedTurnIndex,
       request_id: requestId,
       ...(expectedInteractionId !== undefined
         ? { expected_interaction_id: expectedInteractionId }
@@ -165,14 +163,14 @@ export const runProfileOnboardingSession = ({
 
 export const submitProfileOnboardingAssistantAnswers = ({
   sessionId,
-  expectedBlockIndex,
+  expectedTurnIndex,
   requestId,
   rawText,
   onMessage,
   onError,
 }: {
   sessionId: string;
-  expectedBlockIndex: number;
+  expectedTurnIndex: number;
   requestId: string;
   rawText: string;
   onMessage: (event: ProfileOnboardingRunEvent) => void;
@@ -181,7 +179,7 @@ export const submitProfileOnboardingAssistantAnswers = ({
   streamProfileOnboardingRuntime({
     path: `/api/user/profile-onboarding/session/${encodeURIComponent(sessionId)}/assistant-answers`,
     payload: {
-      expected_block_index: expectedBlockIndex,
+      expected_turn_index: expectedTurnIndex,
       request_id: requestId,
       raw_text: rawText,
     },

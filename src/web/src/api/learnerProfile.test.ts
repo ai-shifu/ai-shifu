@@ -285,7 +285,7 @@ describe('learner profile api', () => {
 
     runProfileOnboardingSession({
       sessionId: 'session/with-special-character',
-      expectedBlockIndex: 3,
+      expectedTurnIndex: 3,
       requestId: 'profile-onboarding-run-2',
       expectedInteractionId: 'question-tool-call-2',
       userInput: { profile_goal: ['学会 AI'] },
@@ -297,7 +297,7 @@ describe('learner profile api', () => {
     expect(streamProfileOnboardingRuntime).toHaveBeenCalledWith({
       path: '/api/user/profile-onboarding/session/session%2Fwith-special-character/run',
       payload: {
-        expected_block_index: 3,
+        expected_turn_index: 3,
         request_id: 'profile-onboarding-run-2',
         expected_interaction_id: 'question-tool-call-2',
         user_input: { profile_goal: ['学会 AI'] },
@@ -314,7 +314,7 @@ test('imports raw assistant answers through the existing SSE transport without c
   const onError = jest.fn();
   submitProfileOnboardingAssistantAnswers({
     sessionId: 'session/one',
-    expectedBlockIndex: 3,
+    expectedTurnIndex: 3,
     requestId: 'delegate-1',
     rawText: '  Original AI output  ',
     onMessage,
@@ -323,7 +323,7 @@ test('imports raw assistant answers through the existing SSE transport without c
   expect(streamProfileOnboardingRuntime).toHaveBeenCalledWith({
     path: '/api/user/profile-onboarding/session/session%2Fone/assistant-answers',
     payload: {
-      expected_block_index: 3,
+      expected_turn_index: 3,
       request_id: 'delegate-1',
       raw_text: '  Original AI output  ',
     },

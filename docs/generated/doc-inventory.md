@@ -87,6 +87,7 @@
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/pr-first-release-workflow.md` | PR-first product release workflow | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/preserve-independent-credit-validity.md` | Preserve Independent Credit Validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/profile-markdownflow-v2.md` | Profile questionnaire MarkdownFlow 2.0 runtime | `exec-plan-active` | `active` | `backend` | `2026-10-23` | `true` |
 | `docs/exec-plans/active/profile-onboarding-layout-oauth-gate.md` | Gate Profile on every course WeChat authorization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/progressive-html-typewriter.md` | Progressive HTML alongside typed lesson text | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/public-web-image-name.md` | Publish Web images without the Cook name | `exec-plan-active` | `active` | `repository` | `2026-10-08` | `true` |
@@ -197,7 +198,6 @@
 | `docs/exec-plans/completed/parallel-test-workers.md` | Run frontend and backend tests with two workers | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/password-login-rate-limit.md` | Password Login Account Rate Limit | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/permission-contact-validation.md` | Separate course permission contact validation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
-| `docs/exec-plans/completed/profile-markdownflow-v2.md` | Profile questionnaire MarkdownFlow 2.0 runtime | `exec-plan-completed` | `completed` | `backend` | `2026-10-23` | `false` |
 | `docs/exec-plans/completed/profile-onboarding-ai-import.md` | Let learners answer onboarding questions with their AI | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/profile-onboarding-assistant-controls.md` | Give operators and learners explicit control of AI-assisted onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/profile-onboarding-assistant-discoverability.md` | Make AI-assisted onboarding visible before the first question | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |

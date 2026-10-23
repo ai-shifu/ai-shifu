@@ -826,7 +826,7 @@ export const useLearnerProfileDialogController = ({
   >(
     ({
       sessionId,
-      expectedBlockIndex,
+      expectedTurnIndex,
       expectedInteractionId,
       requestId,
       userInput,
@@ -835,7 +835,7 @@ export const useLearnerProfileDialogController = ({
     }) =>
       runProfileOnboardingSession({
         sessionId,
-        expectedBlockIndex,
+        expectedTurnIndex,
         ...(expectedInteractionId !== undefined
           ? { expectedInteractionId }
           : {}),

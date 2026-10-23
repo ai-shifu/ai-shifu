@@ -1,20 +1,20 @@
-"""Preserve selected options and typed text through real profile-agent turns."""
+"""Keep selected choices and typed text across native questionnaire turns."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
 from tests.service.profile_research.test_v2_runtime import (
     StreamChunks,
-    _evidence,
     _finish,
     _finished,
     _interact,
     _run,
     _runtime,
     _start,
+    _SummaryProvider,
     _terminal,
     _tool_returns,
 )
@@ -26,34 +26,30 @@ if TYPE_CHECKING:
 
 @pytest.mark.parametrize("kind", ["single_or_text", "multi_or_text"])
 @pytest.mark.parametrize("with_selection", [True, False])
-def test_mixed_control_keeps_typed_text_in_tool_result_memory_and_summary(
+def test_mixed_control_keeps_typed_text_in_model_memory_and_private_facts(
     kind: str, with_selection: bool
 ) -> None:
-    typed = "I mentor adults after their working day."
-    selected = ["teacher"] if kind == "single_or_text" else ["teacher", "engineer"]
-    submitted = ["Teacher"] if kind == "single_or_text" else ["Teacher", "Engineer"]
-    if not with_selection:
-        selected = []
-        submitted = []
-    expected_memory = ", ".join(selected) + f"; {typed}" if selected else typed
-    returned_answers: list[str] = []
-    summary_evidence: list[dict[str, Any]] = []
+    typed = "I mentor adults after work."
+    selected = (
+        (["teacher"] if kind == "single_or_text" else ["teacher", "engineer"])
+        if with_selection
+        else []
+    )
+    summary = _SummaryProvider("Mentors adults after work.")
+    returns: list[str] = []
 
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
         if _finished(messages):
             yield " "
-        elif factories[-1] == 1:
-            summary_evidence.append(_evidence(messages))
-            yield "Mentors adults after their working day."
         elif answers := _tool_returns(messages):
-            returned_answers.append(str(answers[0].content))
+            returns.append(str(answers[0].content))
             yield _finish()
         else:
             yield {
                 0: _interact(
                     variable="background",
                     kind=kind,
-                    prompt="Other background",
+                    prompt="Your background?",
                     options=[
                         {"display": "Teacher", "value": "teacher"},
                         {"display": "Engineer", "value": "engineer"},
@@ -61,44 +57,28 @@ def test_mixed_control_keeps_typed_text_in_tool_result_memory_and_summary(
                 )
             }
 
-    _app, runtime, factories = _runtime(script)
-    separator = " | " if kind == "single_or_text" else " || "
+    _app, runtime, _factories = _runtime(script)
+    runtime._provider_factory = lambda *_args: summary
     view = _start(
-        runtime,
-        "?[%{{background}} Teacher//teacher"
-        + separator
-        + "Engineer//engineer"
-        + separator
-        + "...Other background]",
+        runtime, "Collect %{{background}}, allowing choices and free text, then finish."
     )
     _run(runtime, view)
-    answered = _run(
+    final = _run(
         runtime,
         view,
-        values={"background": [*submitted, typed]},
-        request_id="mixed-answer",
+        values={"background": [*selected, typed]},
+        request_id="answer",
         expected_interaction_id="question",
     )
-
-    assert _terminal(answered)["next_block_index"] == 1
-    assert len(returned_answers) == 1
-    assert typed in returned_answers[0]
-    if selected:
-        assert (
-            f"Learner chose: {', '.join(selected)}; and wrote: {typed}"
-            in (returned_answers[0])
-        )
-    else:
-        assert returned_answers[0] == f"Learner wrote: {typed}"
-    stored = runtime.store.load(view["session_id"])
-    assert stored.variables["background"] == expected_memory
-    assert stored.accepted_answers == [*selected, typed]
-
-    summary = _run(runtime, view, index=1, request_id="summary")
-
-    assert _terminal(summary)["done"] is True
+    assert typed in returns[0]
     assert (
-        _terminal(summary)["profile_draft"] == "Mentors adults after their working day."
+        "and wrote:" in returns[0]
+        if selected
+        else returns[0] == f"Learner wrote: {typed}"
     )
-    assert summary_evidence[0]["accepted_answers"]["background"] == expected_memory
-    assert summary_evidence[0]["accepted_interaction_answers"] == [*selected, typed]
+    expected = ", ".join(selected) + f"; {typed}" if selected else typed
+    assert runtime.store.load(view["session_id"]).variables["background"] == expected
+    assert _terminal(final)["done"] is True
+    facts = summary.messages[0][-1]["content"]
+    assert typed in facts
+    assert all(value in facts for value in selected)

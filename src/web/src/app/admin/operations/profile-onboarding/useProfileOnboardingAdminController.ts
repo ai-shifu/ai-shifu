@@ -616,7 +616,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
   const runPreviewSession = React.useCallback<ProfileOnboardingRunSession>(
     ({
       sessionId,
-      expectedBlockIndex,
+      expectedTurnIndex,
       expectedInteractionId,
       requestId,
       userInput,
@@ -626,7 +626,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
       streamProfileOnboardingRuntime({
         path: `/api/shifu/admin/operations/profile-onboarding/preview/${encodeURIComponent(sessionId)}/run`,
         payload: {
-          expected_block_index: expectedBlockIndex,
+          expected_turn_index: expectedTurnIndex,
           request_id: requestId,
           ...(expectedInteractionId !== undefined
             ? { expected_interaction_id: expectedInteractionId }

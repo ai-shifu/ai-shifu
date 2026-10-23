@@ -15,7 +15,7 @@ class ProfileResearchRunRequest:
     """Validated input for one learner or operator runtime step."""
 
     user_input: dict[str, list[str]] | None
-    expected_block_index: int | None
+    expected_turn_index: int | None
     request_id: str | None
     expected_interaction_id: str | None = None
 
@@ -59,28 +59,28 @@ def profile_research_run_identity(
     payload: dict, *, parameter_name: str
 ) -> tuple[int | None, str | None]:
     """Validate the paired cursor and idempotency identity for one run."""
-    has_expected_block_index = "expected_block_index" in payload
+    has_expected_turn_index = "expected_turn_index" in payload
     has_request_id = "request_id" in payload
-    if has_expected_block_index != has_request_id:
+    if has_expected_turn_index != has_request_id:
         raise_param_error(parameter_name)
-    if not has_expected_block_index:
+    if not has_expected_turn_index:
         return None, None
 
-    expected_block_index = payload["expected_block_index"]
+    expected_turn_index = payload["expected_turn_index"]
     request_id = payload["request_id"]
     if (
-        isinstance(expected_block_index, bool)
-        or not isinstance(expected_block_index, int)
-        or expected_block_index < 0
+        isinstance(expected_turn_index, bool)
+        or not isinstance(expected_turn_index, int)
+        or expected_turn_index < 0
     ):
-        raise_param_error("expected_block_index")
+        raise_param_error("expected_turn_index")
     if (
         not isinstance(request_id, str)
         or not request_id.strip()
         or len(request_id.strip()) > 128
     ):
         raise_param_error("request_id")
-    return expected_block_index, request_id.strip()
+    return expected_turn_index, request_id.strip()
 
 
 def parse_profile_research_run_request(
@@ -89,7 +89,7 @@ def parse_profile_research_run_request(
     """Validate one complete run envelope with caller-specific error naming."""
     if set(payload) - {
         "user_input",
-        "expected_block_index",
+        "expected_turn_index",
         "request_id",
         "expected_interaction_id",
     }:
@@ -105,13 +105,13 @@ def parse_profile_research_run_request(
         payload,
         parameter_name=parameter_name,
     )
-    expected_block_index, request_id = profile_research_run_identity(
+    expected_turn_index, request_id = profile_research_run_identity(
         payload,
         parameter_name=parameter_name,
     )
     return ProfileResearchRunRequest(
         user_input=user_input,
-        expected_block_index=expected_block_index,
+        expected_turn_index=expected_turn_index,
         request_id=request_id,
         expected_interaction_id=expected_interaction_id,
     )
@@ -122,7 +122,7 @@ class ProfileResearchAssistantAnswersRequest:
     """Required idempotency identity and unmodified external answer text."""
 
     raw_text: str
-    expected_block_index: int
+    expected_turn_index: int
     request_id: str
 
 
@@ -130,16 +130,16 @@ def parse_profile_research_assistant_answers_request(
     payload: dict, *, parameter_name: str
 ) -> ProfileResearchAssistantAnswersRequest:
     """Validate the external-answer envelope before starting its SSE stream."""
-    if set(payload) != {"raw_text", "expected_block_index", "request_id"}:
+    if set(payload) != {"raw_text", "expected_turn_index", "request_id"}:
         raise_param_error(parameter_name)
     raw_text = payload["raw_text"]
     if not isinstance(raw_text, str) or not raw_text.strip() or len(raw_text) > 10_000:
         raise_param_error("raw_text")
-    expected_block_index, request_id = profile_research_run_identity(
+    expected_turn_index, request_id = profile_research_run_identity(
         payload, parameter_name=parameter_name
     )
     return ProfileResearchAssistantAnswersRequest(
         raw_text=raw_text,
-        expected_block_index=expected_block_index,
+        expected_turn_index=expected_turn_index,
         request_id=request_id,
     )

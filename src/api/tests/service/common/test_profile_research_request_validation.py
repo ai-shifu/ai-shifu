@@ -64,7 +64,7 @@ def test_user_input_validation_rejects_invalid_transport_shapes(
 def test_run_identity_normalizes_the_paired_cursor_and_request_id() -> None:
     assert profile_research_run_identity(
         {
-            "expected_block_index": 2,
+            "expected_turn_index": 2,
             "request_id": "  request-2  ",
         },
         parameter_name="profile_onboarding_session",
@@ -74,7 +74,7 @@ def test_run_identity_normalizes_the_paired_cursor_and_request_id() -> None:
     ) == (None, None)
     assert profile_research_run_identity(
         {
-            "expected_block_index": 0,
+            "expected_turn_index": 0,
             "request_id": "r" * 128,
         },
         parameter_name="profile_onboarding_session",
@@ -84,10 +84,10 @@ def test_run_identity_normalizes_the_paired_cursor_and_request_id() -> None:
 @pytest.mark.parametrize(
     "payload",
     [
-        {"expected_block_index": True, "request_id": "request"},
-        {"expected_block_index": -1, "request_id": "request"},
-        {"expected_block_index": 0, "request_id": " "},
-        {"expected_block_index": 0, "request_id": "r" * 129},
+        {"expected_turn_index": True, "request_id": "request"},
+        {"expected_turn_index": -1, "request_id": "request"},
+        {"expected_turn_index": 0, "request_id": " "},
+        {"expected_turn_index": 0, "request_id": "r" * 129},
     ],
 )
 def test_run_identity_rejects_invalid_cursor_or_request_id(payload: object) -> None:
@@ -101,7 +101,7 @@ def test_run_identity_rejects_invalid_cursor_or_request_id(payload: object) -> N
 @pytest.mark.parametrize(
     "payload",
     [
-        {"expected_block_index": 0},
+        {"expected_turn_index": 0},
         {"request_id": "request-without-index"},
     ],
 )
@@ -133,7 +133,7 @@ def test_run_request_parser_returns_one_typed_validated_envelope() -> None:
     result = parse_profile_research_run_request(
         {
             "user_input": {"style": ["brief"]},
-            "expected_block_index": 3,
+            "expected_turn_index": 3,
             "request_id": " request-3 ",
             "expected_interaction_id": "native-question-3",
         },
@@ -141,7 +141,7 @@ def test_run_request_parser_returns_one_typed_validated_envelope() -> None:
     )
 
     assert result.user_input == {"style": ["brief"]}
-    assert result.expected_block_index == 3
+    assert result.expected_turn_index == 3
     assert result.request_id == "request-3"
     assert result.expected_interaction_id == "native-question-3"
 

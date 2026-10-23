@@ -161,6 +161,7 @@ export default function ProfileOnboardingConversation({
     assistantProcessing,
     retryAvailable,
     submissionLimitError,
+    activeInteractionId,
     send,
     retry,
   } = useProfileOnboardingSession({
@@ -211,18 +212,33 @@ export default function ProfileOnboardingConversation({
     !showAssistant && (disabled || runInFlight || status !== 'awaiting_input');
   const contentList = React.useMemo(
     () =>
-      items.map(item => ({
-        elementBid: item.elementBid,
-        content: item.content,
-        isFinished: item.finished,
-        finished: item.finished,
-        interaction: item.interaction,
-        interactionId: item.interactionId,
-        readonly: questionReadonly || item.finished || !item.interaction,
-        userInput: item.userInput,
-        elementType: item.elementType,
-      })),
-    [items, questionReadonly],
+      items
+        .filter(
+          item =>
+            !item.interaction ||
+            item.finished ||
+            !activeInteractionId ||
+            (item.interactionId || item.elementBid) === activeInteractionId,
+        )
+        .map(item => ({
+          elementBid: item.elementBid,
+          content: item.content,
+          isFinished: item.finished,
+          finished: item.finished,
+          interaction: item.interaction,
+          interactionId: item.interactionId,
+          readonly:
+            questionReadonly ||
+            item.finished ||
+            !item.interaction ||
+            Boolean(
+              activeInteractionId &&
+              (item.interactionId || item.elementBid) !== activeInteractionId,
+            ),
+          userInput: item.userInput,
+          elementType: item.elementType,
+        })),
+    [activeInteractionId, items, questionReadonly],
   );
 
   React.useEffect(() => {

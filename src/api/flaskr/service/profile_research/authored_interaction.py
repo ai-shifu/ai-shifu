@@ -26,7 +26,7 @@ def check_authored_interaction(
     Display labels, prompts and text hints may be localized. An unassigned
     single button may use the engine's canonical confirm value, unless the
     author explicitly supplied a machine value with ``Display//value``.
-    Dynamic questions from content blocks do not use this static check.
+    Hosts may match this contract against any authored question in a full script.
     """
     rendered_source = substitute_variables(source, variables)
     parser = InteractionParser()
