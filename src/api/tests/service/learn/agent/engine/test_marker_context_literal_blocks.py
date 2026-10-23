@@ -246,3 +246,62 @@ def test_late_document_contexts_keep_external_names_and_exact_raw_offsets(
     )
     for marker in analyze_marker_context(source).markers:
         assert marker.raw_name == source[marker.start + 2 : marker.end - 2]
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    ("delimiter", "container"),
+    [
+        ("`", "> "),
+        ("`", "- "),
+        ("$", "> "),
+        ("$", "1. "),
+        ("`", "---\n"),
+        ("$", "---\n"),
+        ("`", "<div>\n"),
+        ("$", "<div>\n"),
+    ],
+)
+def test_new_container_paragraph_does_not_close_an_earlier_inline_literal(
+    newline: str, delimiter: str, container: str
+) -> None:
+    container = container.replace("\n", newline)
+    source = (
+        "Text "
+        + delimiter
+        + "{{ unfinished"
+        + newline
+        + container
+        + delimiter
+        + " end"
+        + newline * 2
+        + "?[%{{ real }} A|B]"
+    )
+    assert collected_names(source) == frozenset()
+    assert _script_questions(source) == []
+
+
+@pytest.mark.parametrize("prefix", ["2. ", "x > "])
+def test_noninterrupting_line_keeps_the_complete_inline_literal(prefix: str) -> None:
+    source = "Text `{{ unfinished\n" + prefix + "` end\n\n?[%{{ real }} A|B]"
+    assert collected_names(source) == frozenset({"real"})
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "> `{{` then ",
+        "- `{{` then ",
+        "> `{{\n> x` then\n\n",
+        "> `{{\nplain` then\n\n",
+        "- `{{\n  x` then\n\n",
+        "> ${{\n> x$ then\n\n",
+        "> ${{\nplain$ then\n\n",
+    ],
+)
+def test_same_container_and_lazy_lines_keep_complete_inline_literals(
+    prefix: str,
+) -> None:
+    source = prefix + "?[%{{ real }} A|B]"
+    assert collected_names(source) == frozenset({"real"})
+    assert _script_questions(source)[-1].variable == "real"

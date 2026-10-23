@@ -111,8 +111,8 @@ def physical_lines(text: str) -> list[PhysicalLine]:
     return lines
 
 
-def fence_opening(line: str) -> tuple[str, int, tuple[int, ...]] | None:
-    """Use zero for a quote step and a column count for a list step."""
+def container_opening(line: str) -> tuple[int, tuple[int, ...]]:
+    """Read only explicit quote/list prefixes, leaving ordinary indentation."""
     at = 0
     steps: list[int] = []
     while at < len(line):
@@ -126,24 +126,32 @@ def fence_opening(line: str) -> tuple[str, int, tuple[int, ...]] | None:
                 at += 1
             continue
         marker = COMPILED_CONTAINER_LIST_REGEX.match(line, at)
-        if marker is not None:
-            at = marker.end()
-            padding_start = at
-            while at < len(line) and line[at] in " \t":
-                at += 1
-            if at - padding_start > 4:
-                at = padding_start + 1
-            columns = 0
-            for character in line[before_space:at]:
-                columns += 4 - columns % 4 if character == "\t" else 1
-            steps.append(columns)
-            continue
-        fence = COMPILED_DOCUMENT_FENCE_REGEX.match(line, at)
-        if fence is None:
-            return None
-        run = fence.group(1) or fence.group(3)
-        return run[0], len(run), tuple(steps)
-    return None
+        if marker is None:
+            return before_space, tuple(steps)
+        at = marker.end()
+        padding_start = at
+        while at < len(line) and line[at] in " \t":
+            at += 1
+        if at - padding_start > 4:
+            at = padding_start + 1
+        columns = 0
+        for character in line[before_space:at]:
+            columns += 4 - columns % 4 if character == "\t" else 1
+        steps.append(columns)
+    return at, tuple(steps)
+
+
+def fence_opening(line: str) -> tuple[str, int, tuple[int, ...]] | None:
+    """Use zero for a quote step and a column count for a list step."""
+    at, steps = container_opening(line)
+    before = at
+    while at - before < 3 and at < len(line) and line[at] == " ":
+        at += 1
+    fence = COMPILED_DOCUMENT_FENCE_REGEX.match(line, at)
+    if fence is None:
+        return None
+    run = fence.group(1) or fence.group(3)
+    return run[0], len(run), steps
 
 
 def container_content_start(
@@ -193,6 +201,7 @@ class DocumentBlocks:
         self.html_pattern = html
         self.lines = physical_lines(text)
         self.closed_fence_lines: set[int] = set()
+        self.container_paragraphs = self._container_paragraphs()
         self.starts = [line.start for line in self.lines]
         self.by_start = {line.start: index for index, line in enumerate(self.lines)}
 
@@ -356,3 +365,61 @@ class DocumentBlocks:
             else:
                 at += 1
         return len(self.text), False
+
+    def _container_paragraphs(self) -> set[int]:
+        """Keep same-container and lazy continuation lines in one paragraph."""
+        boundaries: set[int] = set()
+        active: tuple[int, ...] = ()
+        paragraph = False
+        for index, line in enumerate(self.lines):
+            value = self.text[line.start : line.content_end]
+            if not value.strip(" \t"):
+                active, paragraph = (), False
+                continue
+            content = container_content_start(value, active) if active else 0
+            remaining = value[content:] if content is not None else value
+            base = active if content is not None else ()
+            after, steps = container_opening(remaining)
+            if steps and (not paragraph or self._explicit_interrupt(remaining)):
+                boundaries.add(index)
+                active = base + steps
+                remaining = remaining[after:]
+            if not remaining.strip(" \t"):
+                boundaries.add(index)
+                paragraph = False
+            else:
+                paragraph = True
+            if (
+                fence_opening(remaining) is not None
+                or COMPILED_ATX_START_REGEX.match(remaining) is not None
+                or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(remaining) is not None
+            ):
+                paragraph = False
+        return boundaries
+
+    @staticmethod
+    def _explicit_interrupt(value: str) -> bool:
+        at = 0
+        while at < min(3, len(value)) and value[at] == " ":
+            at += 1
+        if at < len(value) and value[at] == ">":
+            return True
+        marker = COMPILED_CONTAINER_LIST_REGEX.match(value, at)
+        if marker is None or (
+            value[at].isdigit() and marker.group() not in ("1.", "1)")
+        ):
+            return False
+        return bool(value[marker.end() :].strip(" \t"))
+
+    def paragraph_interrupts(self, index: int) -> bool:
+        """Report a new quote/list paragraph without breaking its own inline spans."""
+        return index in self.container_paragraphs
+
+    def inline_block_interrupts(self, index: int) -> bool:
+        """Report confirmed thematic and ordinary-HTML paragraph interruptions."""
+        line = self.lines[index]
+        value = self.text[line.start : line.content_end]
+        tag = COMPILED_DOCUMENT_TAG_REGEX.match(value)
+        return COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value) is not None or (
+            tag is not None and tag.group(1).lower() in HTML_BLOCK_TAGS
+        )

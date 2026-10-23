@@ -202,3 +202,68 @@ def test_retained_context_and_parser_work_do_not_grow_with_narration_content(
 @pytest.mark.parametrize("text", ["if a<b,", "i<n 时", "<x a=b=c", '<x a="x"oops'])
 def test_impossible_html_prefixes_are_discarded(text: str) -> None:
     assert "<" not in stream_marker_context.compact_marker_context(text)
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    ("delimiter", "container"),
+    [
+        ("`", "> "),
+        ("`", "- "),
+        ("$", "> "),
+        ("$", "1. "),
+        ("`", "---\n"),
+        ("$", "---\n"),
+        ("`", "<div>\n"),
+        ("$", "<div>\n"),
+    ],
+)
+def test_new_container_paragraph_does_not_close_an_earlier_stream_literal(
+    newline: str, delimiter: str, container: str
+) -> None:
+    container = container.replace("\n", newline)
+    source = (
+        "Text "
+        + delimiter
+        + "{{ unfinished"
+        + newline
+        + container
+        + delimiter
+        + " end"
+        + newline * 2
+        + QUESTION
+    )
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == source, stream
+        assert syntax.spans == [], stream
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "> `{{` then ",
+        "- `{{` then ",
+        "> `{{\n> x` then\n\n",
+        "> `{{\nplain` then\n\n",
+        "- `{{\n  x` then\n\n",
+        "> ${{\n> x$ then\n\n",
+        "> ${{\nplain$ then\n\n",
+        "Text `{{ unfinished\n2. ` end\n\n",
+        "Text `{{ unfinished\nx > ` end\n\n",
+    ],
+)
+def test_complete_same_container_stream_literals_keep_the_external_question(
+    prefix: str,
+) -> None:
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream

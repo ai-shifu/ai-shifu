@@ -388,17 +388,20 @@ def analyze_marker_context(
     }
     blocks = DocumentBlocks(text, _INLINE_HTML)
     breaks: list[tuple[int, int]] = []
-    for line in blocks.lines:
+    for index, line in enumerate(blocks.lines):
         value = text[line.start : line.content_end]
         opening = _raw_html_opening(text, line.start, last_html_ends, blocks)
         if (
             not value.strip(" \t")
             or fence_opening(value) is not None
             or opening is not None
+            or blocks.inline_block_interrupts(index)
         ):
             breaks.append(
                 (line.start, opening[1] if opening is not None else line.content_end)
             )
+        if blocks.paragraph_interrupts(index):
+            breaks.append((line.start, line.start))
         if _ATX_START.match(value) is not None:
             breaks.extend(
                 ((line.start, line.start), (line.content_end, line.content_end))
