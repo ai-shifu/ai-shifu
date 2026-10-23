@@ -55,7 +55,8 @@ async def test_text_only_hint_is_restored_among_multiple_authored_questions(
     events = [e async for e in engine.run_turn(session)]
     spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
     assert spec.placeholder == hints[0]
-    assert render_interaction(spec) == "?[" + prefix + "..." + hints[0] + "]"
+    rendered_prefix = "%{{ " + variable + " }} " if variable else ""
+    assert render_interaction(spec) == "?[" + rendered_prefix + "..." + hints[0] + "]"
     assert InteractionParser().parse(render_interaction(spec))["question"] == hints[0]
     session = Session.loads(session.dumps())
     events = [

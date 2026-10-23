@@ -24,11 +24,21 @@ describe('authored memory key compatibility', () => {
     '😀?',
     '\ufeffkey\ufeff',
     '\ufeff',
+    'user name',
+    'user  name',
+    'Which [path] | level//hint...?',
+    'a{b}c',
+    'a}',
+    '}',
+    'outer{{inner',
+    '"name"',
+    'path\\',
+    '<b>name</b>',
   ])('preserves %s from parsing through named answer submission', key => {
-    const source = `?[%{{${key}}} 男 | 女 | 秘密]`;
+    const source = `?[%{{ ${key} }} 男 | 女 | 秘密]`;
     const interaction = parser.parseToRemarkFormat(source);
 
-    expect(extractVariableNames(`${source}\n{{${key}}}`)).toEqual([key]);
+    expect(extractVariableNames(`${source}\n{{ ${key} }}`)).toEqual([key]);
     expect(interaction).toEqual({
       variableName: key,
       buttonTexts: ['男', '女', '秘密'],
@@ -54,5 +64,16 @@ describe('authored memory key compatibility', () => {
       buttonValues: ['web', 'api'],
       isMultiSelect: true,
     });
+  });
+
+  it.each([
+    'Show `{{` then ?[%{{ q }} A|B]',
+    'Show `{{`\n?[%{{ q }} A|B]',
+    'Text <span title="{{">\n?[%{{ q }} A|B]',
+    'Text <span title="before\n{{">\n?[%{{ q }} A|B]',
+    '\\{{ example ?[%{{ q }} A|B]',
+    'Show \\{{ not a variable }} then ?[%{{ q }} A|B]',
+  ])('extracts preview keys after a literal marker example: %s', source => {
+    expect(extractVariableNames(source)).toEqual(['q']);
   });
 });

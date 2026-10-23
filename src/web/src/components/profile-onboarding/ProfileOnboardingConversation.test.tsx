@@ -398,6 +398,9 @@ describe('ProfileOnboardingConversation', () => {
     ['\u0085gender?\u0085', 'gender?'],
     ['\ufeffgender?\ufeff', '\ufeffgender?\ufeff'],
     ['\ufeff', '\ufeff'],
+    ['  user  name  ', 'user  name'],
+    [' Which [path] | level//hint...? ', 'Which [path] | level//hint...?'],
+    [' a} ', 'a}'],
     [undefined, 'input'],
   ])(
     'submits the exact normalized variable key %s',

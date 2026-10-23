@@ -4,6 +4,7 @@
     "avatar": "Avatar",
     "birth": "Date of birth",
     "keyExist": "Key already exists",
+    "keyInvalid": "Variable names must be nonempty and cannot contain control characters or }}.",
     "keyRequire": "Key is required",
     "keyRequired": "Key is required",
     "language": "Language",

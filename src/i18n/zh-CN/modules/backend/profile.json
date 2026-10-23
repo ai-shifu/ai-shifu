@@ -4,6 +4,7 @@
     "avatar": "头像",
     "birth": "生日",
     "keyExist": "键已存在",
+    "keyInvalid": "变量名不能为空，不能包含控制字符或 }}。",
     "keyRequire": "键必填",
     "keyRequired": "键必填",
     "language": "语言",

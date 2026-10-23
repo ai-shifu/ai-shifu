@@ -18,6 +18,9 @@ describe('preview submission helpers', () => {
     ['\u0085key\u0085', 'key'],
     ['\ufeffkey\ufeff', '\ufeffkey\ufeff'],
     ['\ufeff', '\ufeff'],
+    ['  user  name  ', 'user  name'],
+    [' Which [path] | level//hint...? ', 'Which [path] | level//hint...?'],
+    [' a} ', 'a}'],
   ])('normalizes %s with the teaching engine key rules', (source, key) => {
     expect(buildPreviewInteractionUserInput(source, ['女'])).toEqual({
       [key]: ['女'],

@@ -101,6 +101,8 @@ const DEFAULT_EDITOR_TRIGGER_SOURCE = 'editor_entry';
 const CREATED_COURSE_ONBOARDING_DELAY_MS = 900;
 const PROFILE_RECOVERY_INITIAL_DELAY_MS = 1000;
 const PROFILE_RECOVERY_MAX_DELAY_MS = 10000;
+// Analytics classification only; variable-name validation belongs to the shared grammar.
+const LEGACY_VARIABLE_IDENTIFIER_FOR_ANALYTICS = /^[\p{L}\p{N}_]+$/u;
 
 export const resolveEditorOnboardingTriggerSource = (
   source: string | null | undefined,
@@ -1019,6 +1021,9 @@ const ScriptEditor = ({
     trackEvent('creator_lesson_preview_click', {
       shifu_bid: targetShifu,
       outline_bid: targetOutline,
+      has_text_variable_keys: extractVariableNames(targetMdflow).some(
+        name => !LEGACY_VARIABLE_IDENTIFIER_FOR_ANALYTICS.test(name),
+      ),
     });
     setIsPreviewPanelOpen(true);
     setIsPreviewPreparing(true);

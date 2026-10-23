@@ -9,11 +9,12 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
+from .marker_context import analyze_marker_context
+
 # Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
 V1_SYNTAX_RE = re.compile(
     r"(^---[ \t]*$)"  # block separator
     r"|(?<!\\)\?\[[^\]\n]*\](?!\()"  # ?[...] interaction (not an escaped one, not a link)
-    r"|%?\{\{[^{}\n]+\}\}"  # {{var}} / %{{var}}
     r"|^!?===.*$",  # ===preserved=== / !=== fences
     re.MULTILINE,
 )
@@ -33,11 +34,9 @@ def _closes_fence(line: str, opening: str) -> bool:
     return len(stripped) >= len(opening) and stripped == opening[0] * len(stripped)
 
 
-_VAR_RE = re.compile(r"(?<!%)\{\{\s*([^{}\s]+)\s*\}\}")
 # `%{{name}}` marks a variable this script collects during the lesson, in a question or an
 # instruction to remember something.
 _LITERAL_SPAN_RE = re.compile(r"(!===.*?!===|(?<!!)===(?!=).*?===)")
-_COLLECTED_RE = re.compile(r"%\{\{\s*([^{}\s]+)\s*\}\}")
 _PRESERVED_LINE_RE = re.compile(r"^[ \t]*===(.+?)===[ \t]*$")
 
 
@@ -83,13 +82,42 @@ class ScriptBundle:
 
 def detect_v1_syntax(text: str) -> bool:
     """Report whether the text uses any MarkdownFlow 1.0 notation outside fenced code blocks."""
-    return bool(V1_SYNTAX_RE.search(_strip_fences(text)))
+    source = _strip_fences(text)
+    return bool(V1_SYNTAX_RE.search(source)) or any(
+        marker.name is not None for marker in analyze_marker_context(source).markers
+    )
+
+
+def _project_variable_markers(
+    text: str, values: Mapping[str, Any] | None = None
+) -> tuple[str, dict[str, tuple[str, str | None, bool]], re.Pattern[str]]:
+    """Hide opaque marker names while the surrounding Markdown is inspected."""
+    marker_prefix = "\x00mdf-variable:"
+    while marker_prefix in text or any(
+        marker_prefix in str(value) for value in (values or {}).values()
+    ):
+        marker_prefix += ":"
+    markers = {}
+    masked: list[str] = []
+    at = 0
+    for marker in analyze_marker_context(text, fence_indent=0).markers:
+        token = f"{marker_prefix}{len(markers)}\x00"
+        markers[token] = (
+            text[marker.start : marker.end],
+            marker.name,
+            bool(marker.start and text[marker.start - 1] == "%"),
+        )
+        masked.extend((text[at : marker.start], token))
+        at = marker.end
+    masked.append(text[at:])
+    return "".join(masked), markers, re.compile(re.escape(marker_prefix) + r"\d+\x00")
 
 
 def _strip_fences(text: str) -> str:
+    projected, markers, tokens = _project_variable_markers(text)
     out: list[str] = []
     in_fence: str | None = None
-    for line in text.splitlines():
+    for line in projected.splitlines():
         m = _FENCE_RE.match(line)
         if m:
             if in_fence is None:
@@ -99,7 +127,7 @@ def _strip_fences(text: str) -> str:
             continue
         if in_fence is None:
             out.append(line)
-    return "\n".join(out)
+    return tokens.sub(lambda match: markers[match.group(0)][0], "\n".join(out))
 
 
 def collected_names(text: str) -> frozenset[str]:
@@ -110,15 +138,23 @@ def collected_names(text: str) -> frozenset[str]:
     would drop a real memory value that nothing in the lesson is going to ask for again --
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
-    return frozenset(_COLLECTED_RE.findall(_strip_fences(text)))
+    source = _strip_fences(text)
+    return frozenset(
+        marker.name
+        for marker in analyze_marker_context(source).markers
+        if marker.name is not None and marker.start and source[marker.start - 1] == "%"
+    )
 
 
 def substitution_names(bundle: ScriptBundle) -> frozenset[str]:
     """Name values rendered into host script/constraints, excluding collected answers."""
     return frozenset(
-        name
+        marker.name
         for text in (bundle.script, bundle.constraints or "")
-        for name in _VAR_RE.findall(_strip_fences(text))
+        for source in (_strip_fences(text),)
+        for marker in analyze_marker_context(source).markers
+        if marker.name is not None
+        and not (marker.start and source[marker.start - 1] == "%")
     ) - collected_names(bundle.script)
 
 
@@ -128,7 +164,12 @@ def final_preserved_line(text: str) -> str | None:
     Fenced examples and repeated author blocks are not a single terminal line. This is a
     narrow display anchor, never evidence that every preceding instruction was completed.
     """
-    lines = text.rstrip().splitlines()
+    projected, markers, tokens = _project_variable_markers(text)
+
+    def restore(match: re.Match[str]) -> str:
+        return markers[match.group(0)][0]
+
+    lines = projected.rstrip().splitlines()
     if not lines or not (match := _PRESERVED_LINE_RE.fullmatch(lines[-1])):
         return None
     in_fence: str | None = None
@@ -140,8 +181,8 @@ def final_preserved_line(text: str) -> str | None:
             elif _closes_fence(line, in_fence):
                 in_fence = None
         elif in_fence is None and (part := _PRESERVED_LINE_RE.fullmatch(line)):
-            preserved.append("".join(part.group(1).split()))
-    content = match.group(1)
+            preserved.append("".join(tokens.sub(restore, part.group(1)).split()))
+    content = tokens.sub(restore, match.group(1))
     if in_fence is not None or preserved.count("".join(content.split())) != 1:
         return None
     return content
@@ -172,17 +213,23 @@ def substitute_variables(
     never had this problem: it rendered each block when it reached it, after the interaction had
     already written the variable.
     """
+    # Hide whole markers before Markdown line/literal handling. Their names are opaque;
+    # neither a nested opener nor padding that splitlines treats as a line break is syntax.
+    projected, markers, tokens = _project_variable_markers(text, values)
+
+    def restore(m: re.Match[str]) -> str:
+        return markers[m.group(0)][0]
 
     def repl(m: re.Match[str], *, literal: bool = False) -> str:
         """Resolve a read without turning missing literal notation into metadata."""
-        name = m.group(1)
-        if name in collected:
-            return m.group(0)
+        raw, name, assignment = markers[m.group(0)]
+        if name is None or assignment or name in collected:
+            return raw
         if name not in values or values[name] in (None, ""):
             return (
                 f'<unavailable_learner_value name="{escape(name, quote=True)}" />'
                 if unavailable and not literal
-                else m.group(0)
+                else raw
             )
         v = values[name]
         return ", ".join(map(str, v)) if isinstance(v, (list, tuple)) else str(v)
@@ -190,33 +237,33 @@ def substitute_variables(
     out: list[str] = []
     in_fence: str | None = None
     in_verbatim = False
-    for line in text.splitlines(keepends=True):
+    for line in projected.splitlines(keepends=True):
         m = _FENCE_RE.match(line)
         if m:
             if in_fence is None:
                 in_fence = m.group(1)
             elif _closes_fence(line, in_fence):
                 in_fence = None
-            out.append(line)
+            out.append(tokens.sub(restore, line))
             continue
         if in_fence:
-            out.append(line)
+            out.append(tokens.sub(restore, line))
         elif unavailable and line.strip() == "!===":
             in_verbatim = not in_verbatim
             out.append(line)
         elif unavailable and in_verbatim:
-            out.append(_VAR_RE.sub(partial(repl, literal=True), line))
+            out.append(tokens.sub(partial(repl, literal=True), line))
         elif unavailable:
             # Preserve missing notation inside authored literal spans, while known
             # personalization still follows the pre-existing substitution contract.
             out.append(
                 "".join(
-                    _VAR_RE.sub(partial(repl, literal=bool(index % 2)), part)
+                    tokens.sub(partial(repl, literal=bool(index % 2)), part)
                     for index, part in enumerate(_LITERAL_SPAN_RE.split(line))
                 )
             )
         else:
-            out.append(_VAR_RE.sub(repl, line))
+            out.append(tokens.sub(repl, line))
     return "".join(out)
 
 
@@ -240,9 +287,10 @@ def render_memory_section(
             message = "memory context limit must fit an empty JSON object"
             raise ValueError(message)
         references = frozenset(
-            name
+            marker.name
             for text in (bundle.script, bundle.constraints or "")
-            for name in _VAR_RE.findall(_strip_fences(text))
+            for marker in analyze_marker_context(_strip_fences(text)).markers
+            if marker.name is not None
         )
         preferred = references | priority
         selected = {}

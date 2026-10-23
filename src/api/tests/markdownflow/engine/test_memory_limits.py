@@ -88,6 +88,34 @@ async def test_note_at_exact_length_limits_is_preserved_verbatim(scope: str) -> 
 
 
 @pytest.mark.parametrize("scope", ["session", "user"])
+async def test_new_note_name_trims_padding_without_renaming_existing_history(
+    scope: str,
+) -> None:
+    raw = "\u0085 What  is your [goal]? \u001f"
+    key = "What  is your [goal]?"
+    session, events, _returns = await _remember(
+        scope, raw, "new", {" old key ": "history"}
+    )
+    target = session.user_memory if scope == "user" else session.memory
+    assert target == {" old key ": "history", key: "new"}
+    assert [
+        (event.key, event.value) for event in events if isinstance(event, MemoryUpdated)
+    ] == [(key, "new")]
+
+
+@pytest.mark.parametrize("key", ["a\x00b", "a\nb", "a\u2028b", "a\u2029b", "a}}b"])
+async def test_new_note_name_rejects_internal_controls_and_unrepresentable_closing_pair(
+    key: str,
+) -> None:
+    session, events, returns = await _remember(
+        "user", key, "new", {"old\nkey": "history"}
+    )
+    assert session.user_memory == {"old\nkey": "history"}
+    assert not any(isinstance(event, MemoryUpdated) for event in events)
+    assert returns[0].startswith("Not remembered:")
+
+
+@pytest.mark.parametrize("scope", ["session", "user"])
 @pytest.mark.parametrize("count", [100, 101])
 async def test_full_or_legacy_oversized_memory_rejects_only_new_keys(
     scope: str, count: int

@@ -2,7 +2,7 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-23
 canonical: true
 ---
 
@@ -23,34 +23,41 @@ row. No automatic account-wide memory is introduced.
 
 ## Authored memory key names
 
-The [public MarkdownFlow specification](https://markdownflow.ai/docs/specification/variables/)
-currently documents a narrower letters/numbers/underscore rule. The behavior
-below describes the existing AI-Shifu 2.0 implementation and its frontend
-compatibility, not an amendment to that public specification.
+MarkdownFlow variable names are opaque text keys. Read from `{{` to the first
+literal `}}`, trim the body's leading and trailing Python whitespace, and
+require a nonempty result without C0/C1 controls or U+2028/U+2029. Preserve
+internal spaces, repeated spaces, punctuation, Unicode, quotes and backslashes
+exactly. There is no expression evaluation, quote decoding, backslash decoding
+or recursive recognition of markers inside a key. A literal `}}` remains a
+reserved sequence and cannot be part of a name.
 
-Use the existing 2.0 name rule in teaching prompts and frontend editors: a name
-is nonempty and contains no whitespace or braces (`[^{}\s]+` in Python).
-Question marks, other ordinary punctuation and Unicode characters are valid.
-For example, `?[%{{你的性别是？}} 男 | 女 | 秘密]` stores the selected answer
-under the exact key `你的性别是？`; `{{你的性别是？}}` references that value.
-The key is case-sensitive, and punctuation is not normalized. Changing a
-question or its punctuation creates a different key; it does not rename an
-existing answer. A question key is a course variable unless it exactly matches
-a registered system key, so this example does not update the system `sex` field.
+For example, `?[%{{ 你的性别是？ }} 男 | 女 | 秘密]` stores the selected
+answer under `你的性别是？`. `{{ 你的性别是？ }}` references that same key.
+`user  name` keeps its two internal spaces. Generate markers with padding on
+both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
+content, not trim whitespace. The exact trim set and shared conformance cases
+are owned by the [coordinated MarkdownFlow specification change](https://github.com/ai-shifu/markdown-flow/pull/11).
+
+Names are case-sensitive and are not normalized. Changing a question or its
+punctuation creates a different key; it does not rename an existing answer.
+A question key is a course variable unless it exactly matches a registered
+system key, so this example does not update the system `sex` field.
 
 Both frontend editors use the shared `remark-flow` name helper rather than
-independent character whitelists. That helper follows Python whitespace
-semantics as well as the visible punctuation rule. Assignment and reference
-markers share name recognition; option separators are parsed after the
-assignment marker. An interaction's variable name is not its displayed
+independent character whitelists. The Python library and vendored engine run
+the same conformance corpus. Assignment and reference markers share name
+recognition; option separators are parsed after the complete assignment marker.
+A `]`, `|`, `//` or `...` inside that marker is key content, not an interaction
+operator. An interaction's variable name is not its displayed
 question: write the learner-facing question separately when exact wording is
 required.
 
-Existing interaction delimiters still apply: a closing `]` ends the
-control. This repair does not add escaping or new delimiter syntax inside key
-names. The older Python backend remains deliberately more permissive about
-some whitespace, braces and multiline inputs for compatibility; those inputs
-are not new frontend authoring syntax. Machine-only format placeholders in
+The wider rule intentionally recognizes some markers that older parsers
+treated as plain text, including names with internal spaces. Existing ordinary
+identifiers and literal quote/backslash keys retain their identity. Invalid
+markers remain literal text and do not expose nested variables. Definition
+create/save and browser submissions trim using the same rule, while existing
+stored memory is not migrated. Machine-only format placeholders in
 `learn/utils_v2.py` have a separate restricted contract and are not teaching
 prompt memory keys.
 

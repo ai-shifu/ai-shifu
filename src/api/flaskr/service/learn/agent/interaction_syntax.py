@@ -37,6 +37,9 @@ from __future__ import annotations
 
 import re
 
+from .engine.marker_context import analyze_marker_context, marker_syntax_source
+from .engine.variable_names import find_interaction_end, read_variable_marker
+
 _OPEN = "?["
 _FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})", re.MULTILINE)
 # A block closes only on a line of its own fence character, at least as long, with nothing after
@@ -64,6 +67,11 @@ class InteractionSyntaxFilter:
         # What has already gone out on the line being built, so an indent that left in an
         # earlier chunk still counts as the start of its line.
         self._line_so_far = ""
+        # Retain only unmatched delimiter runs across emitted line breaks. Their
+        # intervening text cannot affect a later closer and need not be rescanned.
+        self._inline_prefix = ""
+        self._escape_prefix = ""
+        self._html_prefix = ""
         self.spans: list[str] = []
 
     def feed(self, text: str) -> str:
@@ -74,7 +82,7 @@ class InteractionSyntaxFilter:
         self._held += text
         while self._held:
             if self._inside:
-                end = self._held.find(_CLOSE)
+                end = find_interaction_end(self._held, 2)
                 if end < 0:
                     return "".join(out)
                 if len(self._held) == end + 1:
@@ -119,6 +127,9 @@ class InteractionSyntaxFilter:
                 line_end = fence[1]
                 self._toggle_fence(self._held[fence[0] : line_end])
                 self._emit(out, self._held[:line_end])
+                self._inline_prefix = ""
+                self._escape_prefix = ""
+                self._html_prefix = ""
                 self._held = self._held[line_end:]
                 continue
             if start >= 0 and self._in_indented_code(self._held, start):
@@ -138,19 +149,31 @@ class InteractionSyntaxFilter:
                 self._held = self._held[cut:]
                 return "".join(out)
             if start < 0:
+                unclosed = self._unclosed_marker_start(self._held)
+                if unclosed >= 0:
+                    self._emit(out, self._held[:unclosed])
+                    self._held = self._held[unclosed:]
+                    return "".join(out)
+                if self._held.endswith("`"):
+                    # Do not commit the width of a backtick run until its next
+                    # character arrives; a network cut may split that run.
+                    cut = len(self._held.rstrip("`"))
+                    self._emit(out, self._held[:cut])
+                    self._held = self._held[cut:]
+                    return "".join(out)
                 # A trailing `?` waits for the next chunk, which may turn it into an opener.
                 # Without this the same output is handled differently depending on where the
                 # network split it, which is the one thing a filter like this must not do. It
                 # costs nothing a learner can see: consecutive pieces of a turn's text are
                 # written as one element, so a passage released in two parts still arrives whole.
-                if self._held.endswith("?"):
+                if self._held.endswith(("?", "{")):
                     self._emit(out, self._held[:-1])
                     self._held = self._held[-1:]
                 else:
                     self._emit(out, self._held)
                     self._held = ""
                 return "".join(out)
-            close = self._held.find(_CLOSE, start)
+            close = find_interaction_end(self._held, start + 2)
             if close >= 0 and self._held[close + 1 : close + 2] == "(":
                 # `?[text](link)` is a link, not a question: the grammar's own pattern ends in a
                 # negative lookahead for the bracket, and a lesson may well write one.
@@ -172,6 +195,34 @@ class InteractionSyntaxFilter:
         """Send text on, remembering its last character for the next escape check."""
         if not text:
             return
+        if self._fence is None:
+            source = (
+                self._inline_prefix + (self._html_prefix or self._escape_prefix) + text
+            )
+            context = analyze_marker_context(source, final=False)
+            unfinished = [
+                run
+                for at, run in context.unmatched_backticks
+                if context.pending_html_start is None or at < context.pending_html_start
+            ]
+            self._inline_prefix = " ".join(unfinished) + " " if unfinished else ""
+            if unfinished and (line_tail := re.search(r"\r?\n[ \t]*$", source)):
+                # The next chunk may complete a blank line, ending this paragraph.
+                self._inline_prefix += line_tail.group()
+            self._html_prefix = (
+                source[context.pending_html_start :]
+                if context.pending_html_start is not None
+                else ""
+            )
+            trailing = len(text) - len(text.rstrip("\\"))
+            parity = trailing + (
+                len(self._escape_prefix) if trailing == len(text) else 0
+            )
+            self._escape_prefix = "\\" if parity % 2 else ""
+        else:
+            self._inline_prefix = ""
+            self._escape_prefix = ""
+            self._html_prefix = ""
         out.append(text)
         self._previous = text[-1]
         cut = text.rfind("\n")
@@ -184,13 +235,23 @@ class InteractionSyntaxFilter:
         follows it, so it is a question and not a link. An opener that never closed was never a
         span at all -- it is text, and it goes out as text.
         """
-        if self._inside and self._held.endswith(_CLOSE):
+        if self._inside and find_interaction_end(self._held, 2) == len(self._held) - 1:
             self.spans.append(self._held)
             self._held = ""
         tail, self._held = self._held, ""
         self._inside = False
         self._fence = None
+        self._inline_prefix = ""
+        self._escape_prefix = ""
+        self._html_prefix = ""
         return tail
+
+    def _marker_scan_text(self, text: str) -> str:
+        """Hide code/escaped marker openers without changing opaque name contents."""
+        prefix = self._inline_prefix + (self._html_prefix or self._escape_prefix)
+        source = prefix + text
+        context = analyze_marker_context(source, final=False)
+        return marker_syntax_source(source, context)[len(prefix) :]
 
     def _next_fence_line(self, text: str) -> tuple[int, int | None] | None:
         """Where the next fence line starts in `text`, and where it ends.
@@ -199,7 +260,25 @@ class InteractionSyntaxFilter:
         wait for it rather than let it out as ordinary text. Fences are line-based, so this
         looks at every line start in what is held, not only at the first.
         """
-        for match in _FENCE_OPEN.finditer(text):
+        scan_text = text
+        if self._fence is None:
+            # A raw marker is one opaque token, even when its name is invalid or
+            # its closing pair has not arrived. Padding may contain newlines, so
+            # searching the original text would mistake its contents for fences.
+            # Keep offsets intact for the original line/stream state below.
+            parts: list[str] = []
+            at = 0
+            marker_scan = self._marker_scan_text(text)
+            while (start := marker_scan.find("{{", at)) >= 0:
+                marker = read_variable_marker(text, start)
+                end = marker.end if marker is not None else len(text)
+                parts.extend((text[at:start], "\x00" * (end - start)))
+                at = end
+                if marker is None:
+                    break
+            parts.append(text[at:])
+            scan_text = "".join(parts)
+        for match in _FENCE_OPEN.finditer(scan_text):
             if not self._at_line_start(text, match.start()):
                 continue
             line_end = text.find("\n", match.start())
@@ -211,7 +290,7 @@ class InteractionSyntaxFilter:
                 # Inside a block, a line that is not a valid closer is part of the code.
                 continue
             return (match.start(), line_end + 1)
-        for partial in _MAY_BE_FENCE.finditer(text):
+        for partial in _MAY_BE_FENCE.finditer(scan_text):
             if (
                 self._at_line_start(text, partial.start())
                 and "\n" not in text[partial.start() :]
@@ -265,19 +344,35 @@ class InteractionSyntaxFilter:
         ):
             self._fence = None
 
-    @staticmethod
-    def _find_open(text: str, previous: str) -> int:
+    def _find_open(self, text: str, previous: str) -> int:
         """Index of the next unescaped `?[`, or -1.
 
         `previous` is the character before `text`, which decides the case where an opener sits at
         the very start of what is left to scan.
         """
+        marker_scan = self._marker_scan_text(text)
         at = 0
-        while True:
-            at = text.find(_OPEN, at)
-            if at < 0:
-                return -1
-            before = text[at - 1] if at else previous
-            if before != "\\":
-                return at
-            at += len(_OPEN)
+        while at < len(text):
+            if marker_scan.startswith("{{", at):
+                marker = read_variable_marker(text, at)
+                if marker is None:
+                    return -1
+                at = marker.end
+            elif text.startswith(_OPEN, at):
+                before = text[at - 1] if at else previous
+                if before != "\\":
+                    return at
+                at += len(_OPEN)
+            else:
+                at += 1
+        return -1
+
+    def _unclosed_marker_start(self, text: str) -> int:
+        marker_scan = self._marker_scan_text(text)
+        at = 0
+        while (start := marker_scan.find("{{", at)) >= 0:
+            marker = read_variable_marker(text, start)
+            if marker is None:
+                return start
+            at = marker.end
+        return -1

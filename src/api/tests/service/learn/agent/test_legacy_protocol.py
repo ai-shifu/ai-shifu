@@ -51,7 +51,7 @@ def test_a_single_choice_renders_with_one_bar() -> None:
             variable="choice",
         )
     )
-    assert rendered == "?[%{{choice}} A | B]"
+    assert rendered == "?[%{{ choice }} A | B]"
 
 
 def test_a_multiple_choice_renders_with_two_bars() -> None:
@@ -64,7 +64,7 @@ def test_a_multiple_choice_renders_with_two_bars() -> None:
             variable="choices",
         )
     )
-    assert rendered == "?[%{{choices}} A || B]"
+    assert rendered == "?[%{{ choices }} A || B]"
 
 
 def test_a_choice_without_a_variable_stores_nothing() -> None:
@@ -83,7 +83,7 @@ def test_a_stored_value_is_kept_separate_from_the_text_the_learner_reads() -> No
             variable="answer",
         )
     )
-    assert rendered == "?[%{{answer}} Yes, please//yes]"
+    assert rendered == "?[%{{ answer }} Yes, please//yes]"
 
 
 def test_a_value_is_written_even_when_it_equals_the_display() -> None:
@@ -100,7 +100,7 @@ def test_a_value_is_written_even_when_it_equals_the_display() -> None:
             variable="answer",
         )
     )
-    assert rendered == "?[%{{answer}} Yes//Yes]"
+    assert rendered == "?[%{{ answer }} Yes//Yes]"
 
 
 def test_an_empty_stored_value_is_not_mistaken_for_an_absent_one() -> None:
@@ -113,7 +113,7 @@ def test_an_empty_stored_value_is_not_mistaken_for_an_absent_one() -> None:
             variable="answer",
         )
     )
-    assert rendered == "?[%{{answer}} Skip//]"
+    assert rendered == "?[%{{ answer }} Skip//]"
 
 
 def test_free_text_renders_as_a_trailing_placeholder() -> None:
@@ -125,7 +125,7 @@ def test_free_text_renders_as_a_trailing_placeholder() -> None:
             placeholder="Your answer",
         )
     )
-    assert rendered == "?[%{{story}} ...Your answer]"
+    assert rendered == "?[%{{ story }} ...Your answer]"
 
 
 def test_a_choice_that_also_accepts_text_offers_both() -> None:
@@ -138,7 +138,7 @@ def test_a_choice_that_also_accepts_text_offers_both() -> None:
             placeholder="Something else",
         )
     )
-    assert rendered == "?[%{{answer}} A | ...Something else]"
+    assert rendered == "?[%{{ answer }} A | ...Something else]"
 
 
 def test_multiple_choice_with_text_keeps_the_double_bar() -> None:
@@ -151,7 +151,7 @@ def test_multiple_choice_with_text_keeps_the_double_bar() -> None:
             placeholder="Other",
         )
     )
-    assert rendered == "?[%{{answer}} A || B || ...Other]"
+    assert rendered == "?[%{{ answer }} A || B || ...Other]"
 
 
 def test_a_confirm_renders_one_button_and_stores_nothing() -> None:
@@ -198,7 +198,7 @@ def test_an_interaction_arrives_as_its_question_then_its_controls() -> None:
     assert question.type == GeneratedType.CONTENT
     assert question.content == "Which one?"
     assert controls.type == GeneratedType.INTERACTION
-    assert controls.content == "?[%{{pick}} A]"
+    assert controls.content == "?[%{{ pick }} A]"
 
 
 def test_a_question_reaches_the_learner_as_the_model_wrote_it() -> None:
@@ -578,7 +578,7 @@ def test_an_option_the_model_padded_with_spaces_is_still_asked() -> None:
             variable="v",
         )
     )
-    assert rendered == "?[%{{v}} A | B]"
+    assert rendered == "?[%{{ v }} A | B]"
 
 
 def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -> None:
@@ -760,7 +760,7 @@ def test_a_short_confirm_is_checked_as_the_button_it_becomes() -> None:
             type="single",
             prompt="q",
             options=[Option(display="first"), Option(display="second")],
-            variable="a]b",
+            variable="a\x00b",
         ),
         InteractionSpec(
             type="single",
@@ -769,7 +769,11 @@ def test_a_short_confirm_is_checked_as_the_button_it_becomes() -> None:
             variable="x}}y",
         ),
     ],
-    ids=["variable-syntax-in-an-option", "bracket-in-variable", "braces-in-variable"],
+    ids=[
+        "variable-syntax-in-an-option",
+        "control-in-variable",
+        "closing-pair-in-variable",
+    ],
 )
 def test_a_question_the_controls_cannot_carry_says_why(spec: InteractionSpec) -> None:
     reason = legacy_protocol.unrenderable_reason(spec)

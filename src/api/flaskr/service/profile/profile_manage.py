@@ -12,6 +12,7 @@ from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from markdown_flow import MarkdownFlow
+from markdown_flow.variable_names import normalize_variable_name
 from sqlalchemy import func, inspect, text
 
 from .dtos import (
@@ -150,6 +151,7 @@ def update_profile_item_hidden_state(
     if not profile_keys:
         return get_profile_item_definition_list(app, parent_id=parent_id)
 
+    selected_keys = set(profile_keys)
     with app_context_scope(app), unit_of_work():
         target_items = (
             Variable.query.filter(
@@ -161,6 +163,9 @@ def update_profile_item_hidden_state(
             .all()
         )
         for item in target_items:
+            # SQL membership may include distinct keys under a case-folding collation.
+            if item.key not in selected_keys:
+                continue
             item.is_hidden = 1 if hidden else 0
             item.updated_at = now_utc()
             item.updated_user_bid = user_id or ""
@@ -221,13 +226,23 @@ def add_profile_item_quick(
             raise_error("server.profile.prarentRequired")
         if not key:
             raise_error("server.profile.keyRequire")
+        key = _normalize_definition_key(key)
         return add_profile_item_quick_internal(app, parent_id, key, user_id)
+
+
+def _normalize_definition_key(key: str) -> str:
+    """Apply the script's exact name contract before persisting a definition."""
+    normalized = normalize_variable_name(key) if isinstance(key, str) else None
+    if normalized is None:
+        raise_error("server.profile.keyInvalid")
+    return normalized
 
 
 def add_profile_item_quick_internal(
     app: Flask, parent_id: str, key: str, user_id: str
 ) -> ProfileItemDefinition:
     """Add profile item quick internal."""
+    key = _normalize_definition_key(key)
     bind = db.session.get_bind()
     inspector = inspect(bind)
     tables = set(inspector.get_table_names())
@@ -236,17 +251,16 @@ def add_profile_item_quick_internal(
         legacy_scope = (
             CONST_PROFILE_SCOPE_SYSTEM if not parent_id else CONST_PROFILE_SCOPE_USER
         )
-        legacy_item = (
+        legacy_candidates = (
             db.session.execute(
                 text(
                     """
-                SELECT profile_id
+                SELECT profile_id, profile_key
                 FROM profile_item
                 WHERE parent_id = :parent_id
                   AND profile_key = :profile_key
                   AND status = 1
                 ORDER BY id ASC
-                LIMIT 1
                 """
                 ),
                 {
@@ -255,7 +269,10 @@ def add_profile_item_quick_internal(
                 },
             )
             .mappings()
-            .first()
+            .all()
+        )
+        legacy_item = next(
+            (item for item in legacy_candidates if item["profile_key"] == key), None
         )
         if legacy_item:
             return ProfileItemDefinition(
@@ -354,14 +371,18 @@ def add_profile_item_quick_internal(
             is_hidden=False,
         )
 
-    existing = (
-        Variable.query.filter(
-            Variable.key == key,
-            Variable.shifu_bid.in_([parent_id, ""]),
-            Variable.deleted == 0,
-        )
-        .order_by(Variable.id.asc())
-        .first()
+    # SQL narrows candidates; Python equality preserves identity under case-folding collations.
+    existing = next(
+        (
+            row
+            for row in Variable.query.filter(
+                Variable.key == key,
+                Variable.shifu_bid.in_([parent_id, ""]),
+                Variable.deleted == 0,
+            ).order_by(Variable.id.asc())
+            if row.key == key
+        ),
+        None,
     )
     if existing:
         return convert_variable_definition_to_profile_item_definition(existing)
@@ -468,6 +489,7 @@ def save_profile_item(
             raise_error("server.profile.systemProfileNotAllowUpdate")
         if not key:
             raise_error("server.profile.keyRequired")
+        key = _normalize_definition_key(key)
 
         system_conflict_query = Variable.query.filter(
             Variable.shifu_bid == "",
@@ -478,7 +500,8 @@ def save_profile_item(
             system_conflict_query = system_conflict_query.filter(
                 Variable.variable_bid != profile_id
             )
-        if system_conflict_query.first():
+        # The database collation must not merge distinct text keys such as Name and name.
+        if any(row.key == key for row in system_conflict_query):
             raise_error("server.profile.systemProfileKeyExist")
 
         if profile_id:
@@ -490,12 +513,13 @@ def save_profile_item(
             if not definition:
                 raise_error("server.profile.notFound")
 
-            exist_item = Variable.query.filter(
+            candidates = Variable.query.filter(
                 Variable.shifu_bid == normalized_parent_id,
                 Variable.deleted == 0,
                 Variable.key == key,
                 Variable.variable_bid != profile_id,
-            ).first()
+            )
+            exist_item = next((row for row in candidates if row.key == key), None)
             if exist_item:
                 raise_error("server.profile.keyExist")
 
@@ -503,11 +527,12 @@ def save_profile_item(
             definition.updated_at = now_utc()
             definition.updated_user_bid = user_id or ""
         else:
-            exist_item = Variable.query.filter(
+            candidates = Variable.query.filter(
                 Variable.shifu_bid == normalized_parent_id,
                 Variable.deleted == 0,
                 Variable.key == key,
-            ).first()
+            )
+            exist_item = next((row for row in candidates if row.key == key), None)
             if exist_item:
                 raise_error("server.profile.keyExist")
 

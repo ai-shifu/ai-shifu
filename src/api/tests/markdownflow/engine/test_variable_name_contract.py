@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 from flaskr.service.learn.agent.engine import (
@@ -15,7 +16,16 @@ from flaskr.service.learn.agent.engine import (
 )
 from flaskr.service.learn.agent.engine.events import InteractionRequest
 from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
+from flaskr.service.learn.agent.engine.marker_context import analyze_marker_context
+from flaskr.service.learn.agent.engine.script import final_preserved_line
 from flaskr.service.learn.agent.engine.tools import _script_questions
+from flaskr.service.learn.agent.engine.variable_names import (
+    find_variable_markers,
+    format_variable_assignment,
+    format_variable_reference,
+    normalize_variable_name,
+    read_variable_marker,
+)
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import render_interaction
 from markdown_flow import InteractionParser, MarkdownFlow
@@ -38,12 +48,23 @@ QUESTION_KEYS = (
     "\ufeffgender?",
     "gender?\ufeff",
     "\ufeff",
+    "What is your gender?",
+    "user  name",
+    "Which [path] | level//hint...?",
+    "a{b",
+    "a}b",
+    "a}",
+    "}",
+    "outer{{inner",
+    'a"quoted\\path',
 )
 CHOICES = ("男", "女", "秘密")
 
 
-def _question(key: str, padding: str = "") -> str:
+def _question(key: str, padding: str = " ") -> str:
     """Use the author's original choice syntax without normalizing its key."""
+    if not padding and key.endswith("}"):
+        padding = " "
     return f"?[%{{{{{padding}{key}{padding}}}}} {' | '.join(CHOICES)}]"
 
 
@@ -62,9 +83,9 @@ def test_existing_question_keys_agree_across_parser_boundaries(
     assert MarkdownFlow(authored).extract_variables() == [key]
     assert collected_names(authored) == frozenset({key})
 
-    reference = f"{{{{{key}}}}}"
+    reference = format_variable_reference(key)
     assert replace_variables_in_text(reference, {key: "女"}, add_quotes=False) == "女"
-    assert substitute_variables(f"{{{{{padding}{key}{padding}}}}}", {key: "女"}) == "女"
+    assert substitute_variables(reference, {key: "女"}) == "女"
     assert substitute_variables(authored, {key: "女"}) == authored
 
     questions = _script_questions(authored)
@@ -111,7 +132,7 @@ async def test_named_question_answer_survives_session_and_wire_round_trips(
                         {
                             "type": "single",
                             "prompt": "Choose one",
-                            "variable": key,
+                            "variable": f"\u0085{key}\u001f",
                             "options": [{"display": choice} for choice in CHOICES],
                         }
                     ),
@@ -152,16 +173,13 @@ async def test_named_question_answer_survives_session_and_wire_round_trips(
     assert second[-1].reason == "finished"
     restored = Session.loads(session.dumps())
     assert restored.memory == {key: "女"}
-    assert substitute_variables(f"{{{{{key}}}}}", restored.memory) == "女"
+    assert substitute_variables(format_variable_reference(key), restored.memory) == "女"
 
 
 @pytest.mark.parametrize(
     "key",
     [
-        "What is your gender?",
         "a\tb",
-        "a{b",
-        "a}b",
         "a\nb",
         "a\u0085b",
         "a\u001cb",
@@ -170,21 +188,56 @@ async def test_named_question_answer_survives_session_and_wire_round_trips(
         "a\u001fb",
     ],
 )
-def test_engine_does_not_declare_keys_with_internal_whitespace_or_braces(
+def test_engine_does_not_declare_keys_with_internal_controls(
     key: str,
 ) -> None:
-    """Keep the existing authoring contract; this change does not broaden its grammar."""
+    """Controls inside a normalized key cannot become a stored learner fact."""
     assert collected_names(_question(key)) == frozenset()
     reference = f"{{{{{key}}}}}"
     assert substitute_variables(reference, {key: "女"}) == reference
 
 
-@pytest.mark.parametrize("key", ["What is your gender?", "a{b", "a\nb"])
-def test_legacy_parser_remains_tolerant_of_historical_names(key: str) -> None:
-    """Legacy tolerance is intentionally broader than the engine's authoring contract."""
-    authored = _question(key)
-    assert InteractionParser().parse(authored)["variable"] == key
-    assert MarkdownFlow(authored).extract_variables() == [key]
+CONTRACT = json.loads(
+    (Path(__file__).parent / "fixtures/variable-name-contract.json").read_text()
+)
+
+
+@pytest.mark.parametrize("case", CONTRACT["normalization"])
+def test_shared_normalization_corpus(case: dict) -> None:
+    assert normalize_variable_name(case["raw"]) == case["name"]
+    formatted = format_variable_reference(case["raw"])
+    assert (formatted is None) == (case["name"] is None)
+    if formatted is not None:
+        marker = read_variable_marker(formatted)
+        assert marker is not None
+        assert marker.name == case["name"]
+        assert substitute_variables(formatted, {case["name"]: "answer"}) == "answer"
+
+
+@pytest.mark.parametrize("case", CONTRACT["extraction"])
+def test_shared_non_recursive_marker_corpus(case: dict) -> None:
+    assert (
+        list(
+            dict.fromkeys(
+                marker.name
+                for marker in find_variable_markers(case["source"])
+                if marker.name is not None
+            )
+        )
+        == case["names"]
+    )
+    assert MarkdownFlow(case["source"]).extract_variables() == sorted(case["names"])
+
+
+@pytest.mark.parametrize("case", CONTRACT["interactions"])
+def test_shared_interaction_corpus(case: dict) -> None:
+    parsed = InteractionParser().parse(case["source"])
+    assert parsed["variable"] == case["name"]
+    questions = _script_questions(case["source"])
+    assert len(questions) == 1
+    assert questions[0].variable == case["name"]
+    assert collected_names(case["source"]) == frozenset({case["name"]})
+    assert format_variable_assignment(case["name"]) in case["source"]
 
 
 @pytest.mark.parametrize("padding", ["\u0085", "\u001c", "\u001d", "\u001e", "\u001f"])
@@ -195,3 +248,249 @@ def test_assignment_extraction_trims_python_only_whitespace(padding: str) -> Non
     assert collected_names(authored) == frozenset({key})
     assert InteractionParser().parse(authored)["variable"] == key
     assert MarkdownFlow(authored).extract_variables() == [key]
+
+
+def test_marker_names_are_opaque_to_markdown_and_invalid_outer_markers_are_not_reparsed() -> (
+    None
+):
+    source = "%{{\n```\n}}"
+    assert collected_names(source) == frozenset({"```"})
+    assert substitute_variables("{{\n```\n}}", {"```": "value"}) == "value"
+    assert (
+        substitute_variables(
+            "{{ a===b===c }}", {"a===b===c": "value"}, unavailable=True
+        )
+        == "value"
+    )
+    assert (
+        substitute_variables(
+            "{{bad\n{{inner}} {{valid}}", {"inner": "wrong", "valid": "right"}
+        )
+        == "{{bad\n{{inner}} right"
+    )
+
+
+@pytest.mark.parametrize("case", CONTRACT["boundary_cases"])
+def test_shared_atomic_interaction_boundary_corpus(case: dict) -> None:
+    source = case["source"]
+    questions = _script_questions(source)
+    assert len(questions) == case["interaction_count"]
+    if questions:
+        assert questions[0].variable == case["name"]
+        assert not questions[0].text
+    for cut in range(len(source) + 1):
+        syntax = InteractionSyntaxFilter()
+        shown = syntax.feed(source[:cut]) + syntax.feed(source[cut:]) + syntax.flush()
+        assert len(syntax.spans) == case["interaction_count"]
+        assert shown == ("" if case["interaction_count"] else source)
+
+
+def test_multiline_marker_padding_keeps_one_trimmed_key_across_host_boundaries() -> (
+    None
+):
+    reference = "{{\n name \n}}"
+    assignment = "%" + reference
+    source = "?[" + assignment + " 男 | 女 | 秘密]"
+    assert collected_names(assignment) == frozenset({"name"})
+    assert substitute_variables(reference, {"name": "女"}) == "女"
+    assert substitute_variables(assignment, {"name": "女"}) == assignment
+    assert MarkdownFlow(source).extract_variables() == ["name"]
+    assert len(MarkdownFlow(source).get_all_blocks()) == 1
+    assert InteractionParser().parse(source)["variable"] == "name"
+    assert _script_questions(source)[0].variable == "name"
+    spec = InteractionSpec(
+        type="single",
+        prompt="Choose one",
+        variable="name",
+        options=[Option(display=value) for value in CHOICES],
+    )
+    assert InteractionParser().parse(render_interaction(spec))["variable"] == "name"
+    for cut in range(len(source) + 1):
+        syntax = InteractionSyntaxFilter()
+        assert (
+            syntax.feed(source[:cut]) + syntax.feed(source[cut:]) + syntax.flush() == ""
+        )
+        assert syntax.spans == [source]
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "{{\n```key\n}} ",
+        "%{{\n~~~key\n}} ",
+        "{{bad\x00\n```key\n}} ",
+        "{{\n```key\n",  # An unclosed marker claims the remaining tail.
+    ],
+)
+def test_streaming_fences_inside_opaque_markers_have_no_markdown_meaning(
+    prefix: str,
+) -> None:
+    question = "?[甲 | 乙]"
+    source = prefix + question
+    expected = [] if "}}" not in prefix else [question]
+    shown = source if not expected else prefix
+    chunks = [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]
+    for stream in chunks:
+        syntax = InteractionSyntaxFilter()
+        assert "".join(syntax.feed(part) for part in stream) + syntax.flush() == shown
+        assert syntax.spans == expected
+
+
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_markers_in_existing_code_fences_do_not_hide_the_real_closing_fence(
+    fence: str,
+) -> None:
+    example = fence + "\n{{ never closed\n?[example]\n" + fence + "\n"
+    question = "?[甲 | 乙]"
+    source = example + question
+    chunks = [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]
+    for stream in chunks:
+        syntax = InteractionSyntaxFilter()
+        assert "".join(syntax.feed(part) for part in stream) + syntax.flush() == example
+        assert syntax.spans == [question]
+
+
+@pytest.mark.parametrize("key", ["```key", "~~~key", "===The end==="])
+def test_opaque_marker_contents_do_not_hide_or_duplicate_the_final_preserved_line(
+    key: str,
+) -> None:
+    source = "{{\n" + key + "\n}}\n===The end==="
+    assert final_preserved_line(source) == "The end"
+
+
+def test_final_preserved_line_restores_marker_contents_and_keeps_uniqueness() -> None:
+    line = "===Result: {{\n a===b===c\n}}==="
+    assert final_preserved_line(line) == "Result: {{\n a===b===c\n}}"
+    assert final_preserved_line(line + "\n" + line) is None
+
+
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_final_preserved_line_ignores_code_and_unclosed_marker_tails(
+    fence: str,
+) -> None:
+    source = fence + "\n{{ never closed\n===The end===\n" + fence
+    assert final_preserved_line(source) is None
+    assert final_preserved_line(source + "\n===The end===") == "The end"
+    assert final_preserved_line("{{ never closed\n===The end===") is None
+
+
+@pytest.mark.parametrize(
+    ("prefix", "captures_question"),
+    [
+        ("`{{`\n", True),
+        ("Prefix `{{`\n", True),
+        ("``literal ` {{``\n", True),
+        ("`prefix\n{{`\n", True),
+        ("\\{{\n", True),
+        ("\\\\\\{{\n", True),
+        ("{{\n", False),
+        ("\\\\{{\n", False),
+        ("`unmatched {{\n", False),
+        ("\\`{{\n", False),
+        ("{{ key\\{{?[inner] }}\n", True),
+    ],
+)
+def test_code_and_escaped_marker_examples_do_not_claim_external_structures(
+    prefix: str, captures_question: bool
+) -> None:
+    example = prefix + "```js\ncode\n```\n"
+    question = "?[甲 | 乙]"
+    source = example + question
+    questions = _script_questions(source)
+    assert len(questions) == int(captures_question)
+    if questions:
+        assert [choice.strip() for choice in questions[0].choices] == ["甲", "乙"]
+    chunks = [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]
+    for stream in chunks:
+        syntax = InteractionSyntaxFilter()
+        assert "".join(syntax.feed(part) for part in stream) + syntax.flush() == (
+            example if captures_question else source
+        )
+        assert syntax.spans == ([question] if captures_question else [])
+
+
+@pytest.mark.parametrize(
+    "boundary",
+    [
+        "\n\n",
+        "\n \t\n",
+        "\r\n\r\n",
+        "\n```text\nexample\n```\n",
+        "\n~~~\nexample\n~~~\n",
+    ],
+)
+@pytest.mark.parametrize("ticks", ["`", "``"])
+def test_unmatched_inline_code_cannot_pair_across_a_paragraph_or_fence(
+    boundary: str, ticks: str
+) -> None:
+    """A later tick cannot turn an active outer marker into a code example."""
+    source = f"Show {ticks}{{{{{boundary}{ticks} then ?[%{{{{ q }}}} A|B]"
+    assert collected_names(source) == frozenset()
+    assert substitute_variables(source, {"q": "wrong"}) == source
+    assert _script_questions(source) == []
+    chunks = [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]
+    for stream in chunks:
+        syntax = InteractionSyntaxFilter()
+        assert "".join(syntax.feed(part) for part in stream) + syntax.flush() == source
+        assert syntax.spans == []
+
+
+@pytest.mark.parametrize("case", CONTRACT["document_context_cases"])
+def test_document_literal_boundaries_preserve_collection_and_external_interactions(
+    case: dict,
+) -> None:
+    source = case["source"]
+    assert (
+        sorted(
+            marker.name
+            for marker in analyze_marker_context(source).markers
+            if marker.name is not None
+        )
+        == case["names"]
+    )
+    assert collected_names(source) == frozenset(case["collected"])
+    questions = _script_questions(source)
+    assert len(questions) == case["interaction_count"]
+    assert questions[0].variable == case["name"]
+    assert [choice.strip() for choice in questions[0].choices] == case["buttons"]
+
+    question_start = source.rfind("?[")
+    question = source[question_start:]
+    chunks = [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]
+    for stream in chunks:
+        syntax = InteractionSyntaxFilter()
+        assert (
+            "".join(syntax.feed(part) for part in stream) + syntax.flush()
+            == source[:question_start]
+        )
+        assert syntax.spans == [question]
+
+    references = " ".join(format_variable_reference(name) for name in case["names"])
+    values = {name: f"value-{index}" for index, name in enumerate(case["names"])}
+    assert substitute_variables(source + "\n" + references, values).endswith(
+        "\n" + " ".join(values.values())
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("Show `{{ q }}` then {{ q }}", "Show `value` then value"),
+        ('<span title="{{ q }}"> {{ q }}', '<span title="value"> value'),
+        ("Show \\{{ q }} then {{ q }}", "Show \\{{ q }} then value"),
+    ],
+)
+def test_literal_references_keep_old_substitution_and_escaped_openers_stay_literal(
+    source: str, expected: str
+) -> None:
+    assert substitute_variables(source, {"q": "value"}) == expected
