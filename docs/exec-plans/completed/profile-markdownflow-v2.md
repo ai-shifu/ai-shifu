@@ -25,8 +25,10 @@ answer imports, private final drafts, and the existing frontend SSE contract.
   old cached sessions, error recovery, and hidden summaries.
 - [x] 2026-10-23 CST: Bind learner and operator submissions to their deferred
   question ID and keep separate stable content/question/feedback identities.
-- [x] 2026-10-23 CST: Passed 440 profile/config/route tests, 1,168 engine and
+- [x] 2026-10-23 CST: Passed 492 profile/config/route tests, 1,168 engine and
   shared-host tests, 170 frontend tests, and the complete pre-commit gate.
+- [x] 2026-10-23 CST: Fixed mixed choice-plus-text input and guarded static
+  question types, bindings and ordered stored values in separate review commits.
 - [x] 2026-10-23 CST: Prepared a focused pull request with validation evidence
   and the cache-schema rollout/recovery contract.
 
@@ -59,6 +61,13 @@ answer imports, private final drafts, and the existing frontend SSE contract.
 - Treat prior transcript and imported evidence as untrusted data, outside the
   authored script, so learner input cannot declare authored interactions.
 - Retain nonbillable debug metering and shared provider routing/tracing.
+- Keep static question bindings, input kinds and ordered stored choices identical
+  to the frozen document while permitting localized display text. Preserve both
+  selected choices and typed text in mixed controls.
+- The first-release migration reads existing schema-1 sessions, which have no
+  typed pending tools. Recovery from manually altered or future-incompatible
+  schema-2 tool specs is outside this migration's accepted cache contract;
+  a future host-validator change must define its typed-session migration.
 
 ## Outcomes & Retrospective
 
@@ -67,7 +76,7 @@ engine. Frozen authored blocks remain the UI progress boundary; deferred calls
 and accepted evidence survive Redis, exact retry and assistant import. The
 legacy parser remains only for authoring validation and source restoration.
 
-Validation passed: 440 profile/config/route tests; 1,168 engine, bridge, gateway
+Validation passed: 492 profile/config/route tests; 1,168 engine, bridge, gateway
 and protocol tests; 170 frontend tests; the full repository pre-commit gate,
 repository harness, architecture ratchet and unit-of-work ratchet. TypeScript
 also passed across the complete frontend using the pinned markdown-flow-ui
