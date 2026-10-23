@@ -24,6 +24,9 @@ from flaskr.service.learn.agent.api import (
     unrenderable_reason,
 )
 from flaskr.service.profile.api import SYS_USER_NICKNAME
+from flaskr.service.profile_research.authored_interaction import (
+    check_authored_interaction,
+)
 from flaskr.service.profile_research.session import (
     ProfileResearchError,
     _normalize_session_variables,
@@ -144,6 +147,7 @@ def _engine_turn(
     session: _ProfileResearchSession,
     allows_interaction: bool,
     show_content: bool,
+    authored_interaction: str | None,
 ) -> Generator[
     EngineBlockChunk, None, tuple[list[InteractionRequest], list[ErrorEvent]]
 ]:
@@ -154,6 +158,12 @@ def _engine_turn(
             return (
                 "This authored step has no interaction. Output its result and finish."
             )
+        if authored_interaction is not None:
+            problem = check_authored_interaction(
+                spec, authored_interaction, session.variables
+            )
+            if problem:
+                return problem
         return unrenderable_reason(spec)
 
     async def events() -> AsyncIterator[Event]:
@@ -271,6 +281,7 @@ def run_profile_block(
             session=session,
             allows_interaction=True,
             show_content=False,
+            authored_interaction=current_block.content if is_interaction else None,
         )
         if errors or not working.pending:
             msg = "MarkdownFlow 2.0 did not ask the authored profile question"
@@ -293,6 +304,7 @@ def run_profile_block(
         session=session,
         allows_interaction=not is_summary,
         show_content=True,
+        authored_interaction=current_block.content if is_interaction else None,
     )
     rejected_answer = bool(
         answered_id
