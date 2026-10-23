@@ -413,6 +413,7 @@ class Engine:
         teaching_summarizer: TeachingSummarizer | None = None,
         exercise_statistics: bool = False,
         feedback_contract: bool = False,
+        buffer_model_responses: bool = False,
     ) -> None:
         """Bind a model and the host's capabilities; sessions are supplied per turn.
 
@@ -459,6 +460,10 @@ class Engine:
         still chooses the grade/stage. Unspecified counts retain ordinary feedback.
         Off preserves portable hosts' previous optional contract.
 
+        `buffer_model_responses` withholds each model response's text until its
+        tools succeed or defer and discards the text if that response is retried.
+        Successful tool steps keep their content. Off preserves immediate streaming.
+
         `teaching_history_compaction` offers exact paginated reads of older long
         teaching replaced by excerpts in requests. It preserves two recent turns,
         all learner input and original stored evidence. `teaching_summarizer` optionally
@@ -466,6 +471,7 @@ class Engine:
         projection makes no extra model call.
         """
         self.feedback_contract = feedback_contract
+        self.buffer_model_responses = buffer_model_responses
         self.feedback_instructions = (
             load_prompt("feedback_contract") if feedback_contract else ""
         )
@@ -612,6 +618,13 @@ class Engine:
             ctx.deps.interaction_markup_pending
             or contains_interaction_markup(output, ctx.deps.literal_interaction_markup)
         ):
+            if self.buffer_model_responses:
+                response = next(
+                    (m for m in reversed(ctx.messages) if isinstance(m, ModelResponse)),
+                    None,
+                )
+                if response is not None:
+                    ctx.deps.hide_feedback_response(response)
             ctx.deps.interaction_markup_pending = True
             raise ModelRetry(INTERACTION_MARKUP_RETRY)
         return output
@@ -619,6 +632,8 @@ class Engine:
     async def _feedback_retry_history(
         self, ctx: RunContext[Deps], messages: list[ModelMessage]
     ) -> list[ModelMessage]:
+        if self.buffer_model_responses and not ctx.deps.feedback_contract:
+            return direction_history(messages, {}, ctx.deps.hidden_feedback_responses)
         if not ctx.deps.feedback_contract:
             return messages
         return feedback_retry_history(
@@ -1110,7 +1125,7 @@ class Engine:
         # prose waits for its tool response to succeed, including deferred controls.
         # Successful report pages release independently, without a planning request.
         # A rejected tool response contributes neither visible prose nor a new branch.
-        buffer_direction = bool(deps.direction_sections)
+        buffer_direction = bool(deps.direction_sections) or self.buffer_model_responses
         direction_chunks: list[str] = []
         feedback_response: ModelResponse | None = None
         feedback_completed: set[str] = set()
@@ -1208,11 +1223,15 @@ class Engine:
                     if (
                         isinstance(ev, PartStartEvent)
                         and ev.index == 0
-                        and deps.direction_sections
+                        and (deps.direction_sections or self.buffer_model_responses)
                     ):
                         # A validator can retry ordinary text without calling a tool.
                         # Preserve those original chunks before the next response.
-                        if deps.feedback_contract and deps.feedback_review is None:
+                        if self.buffer_model_responses:
+                            direction_chunks.clear()
+                            feedback_response = None
+                            feedback_completed.clear()
+                        elif deps.feedback_contract and deps.feedback_review is None:
                             direction_chunks.clear()
                         else:
                             for e in _release_direction_chunks():
@@ -1235,7 +1254,15 @@ class Engine:
                     # what it writes after that is a farewell, an announcement that the lesson
                     # is over, or the closing line again -- each of which a learner has read.
                     # Text held back so far was the previous turn again, and is dropped with it.
-                    if deps.finished is not None and speak_after_finish is None:
+                    if (
+                        deps.finished is not None
+                        and speak_after_finish is None
+                        and not (
+                            self.buffer_model_responses
+                            and buffer_direction
+                            and _visible_length("".join(direction_chunks))
+                        )
+                    ):
                         speak_after_finish = delivered == 0 and not carried_on
                         if after_pause and held:
                             # Held since the pause and still this turn's own words: a repeat,
@@ -1292,7 +1319,9 @@ class Engine:
                                 direction_chunks.clear()
                                 if problem:
                                     deps.hide_feedback_response(response)
-                            elif deps.feedback_contract and response is not None:
+                            elif (
+                                deps.feedback_contract or self.buffer_model_responses
+                            ) and response is not None:
                                 # Validation is not tool success: later interaction guards
                                 # and argument checks can still request a retry.
                                 if response is not feedback_response:
@@ -1426,6 +1455,12 @@ class Engine:
                         session.messages = language_request_history(
                             session.messages, None
                         )
+                        if self.buffer_model_responses:
+                            session.messages = direction_history(
+                                session.messages,
+                                deps.direction_rendered,
+                                deps.hidden_feedback_responses,
+                            )
                         history_saved = True
                         direction_pending: set[str] = set()
                         if isinstance(result.output, DeferredToolRequests):

@@ -32,6 +32,9 @@ input or changing stored progress and evidence.
 Answers to named questions use only the submitted field matching that variable;
 a missing matching field keeps the question available. Questions without a
 variable continue to combine values from the submitted fields.
+Responses rejected by tool validation contribute no text to the transcript or
+final profile draft. Successful tool steps retain their content. Profile output
+is published only after the engine turn and authored-question checks succeed.
 Prior questions, instructions and model responses are context rather than
 learner facts. Named values and accepted raw answers supply evidence for the
 final profile, including answers to questions without a named variable.

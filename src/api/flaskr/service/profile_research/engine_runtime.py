@@ -192,6 +192,7 @@ def _engine_turn(
             interaction_check=interaction_check,
             pauses_from_notation=True,
             memory_admission=True,
+            buffer_model_responses=True,
         )
         async for event in engine.run_turn(working, turn):
             yield event
@@ -199,15 +200,13 @@ def _engine_turn(
     stream = iter_turn(events)
     interactions: list[InteractionRequest] = []
     errors: list[ErrorEvent] = []
+    content_chunks: list[str] = []
     pager = LessonPager(clean_markers=True)
     completed = False
     try:
         for event in stream:
             if isinstance(event, ContentDelta) and show_content and event.text:
-                for content, element_type, number in pager.add(event.text):
-                    yield EngineBlockChunk(
-                        content=content, type=element_type, number=number
-                    )
+                content_chunks.append(event.text)
             elif isinstance(event, InteractionRequest):
                 interactions.append(event)
             elif isinstance(event, ErrorEvent):
@@ -226,7 +225,12 @@ def _engine_turn(
                 "MarkdownFlow 2.0 must ask each authored profile question exactly once"
             )
             raise ProfileResearchError(msg)
-    if show_content and completed:
+    if show_content and completed and not errors:
+        for chunk in content_chunks:
+            for content, element_type, number in pager.add(chunk):
+                yield EngineBlockChunk(
+                    content=content, type=element_type, number=number
+                )
         for content, element_type, number in pager.flush():
             yield EngineBlockChunk(content=content, type=element_type, number=number)
     return interactions, errors
