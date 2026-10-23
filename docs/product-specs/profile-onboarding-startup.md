@@ -37,7 +37,9 @@ The private learner profile is a separate transformation of native accepted
 interaction answers, including unnamed answers, plus validated supplemental
 assistant evidence. Instructions, questions, model-generated memory notes,
 confirm clicks and the separately collected nickname are not personal profile
-evidence. Both manual completion and assistant import use the same private
+evidence. Option display/value mappings are supplied as question context so
+stored machine values retain their meaning; unselected options are not facts.
+Both manual completion and assistant import use the same private
 transformation function, existing profile prompts and nonbillable provider.
 The private summary is never appended to the public questionnaire script and
 never enters a `content` event. A `phase` event with `{phase: "summary"}` lets

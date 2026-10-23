@@ -8,16 +8,20 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+from flask import Flask
+from flaskr.common.cache_provider import InMemoryCacheProvider
 from flaskr.service.profile.api import SYS_USER_NICKNAME
 from flaskr.service.profile_research.engine_runtime import (
     ProfileTurnResult,
     profile_answer_evidence,
     run_profile_turn,
 )
+from flaskr.service.profile_research.runtime import ProfileResearchRuntime
 from flaskr.service.profile_research.session import (
     PROFILE_ONBOARDING_PURPOSE,
     ProfileResearchError,
     _ProfileResearchSession,
+    _ProfileResearchSessionStore,
 )
 from pydantic_ai.messages import (
     ModelMessage,
@@ -152,6 +156,13 @@ def test_complete_source_and_history_survive_sequential_questions_and_finish() -
             "prompt": "Your role?",
             "variable": "role",
             "answer": "Learner chose: teacher",
+            "question_context": {
+                "is_learner_fact": False,
+                "options": [
+                    {"display": "Teacher", "value": "teacher"},
+                    {"display": "Engineer", "value": "engineer"},
+                ],
+            },
         },
         {
             "prompt": "Who do you teach?",
@@ -264,7 +275,7 @@ def test_named_binding_rejects_wrong_key_and_ignores_extraneous_values() -> None
     assert accepted.input_accepted
     assert accepted.finished
     assert session.variables == {"role": "teacher"}
-    assert "Engineer" not in json.dumps(profile_answer_evidence(session))
+    assert "Engineer" not in profile_answer_evidence(session)[0]["answer"]
 
 
 @pytest.mark.parametrize("kind", ["single_or_text", "multi_or_text"])
@@ -561,3 +572,90 @@ def test_natural_questionnaire_confirm_waits_for_an_actual_learner_response() ->
     assert last.input_accepted
     assert last.finished
     assert profile_answer_evidence(session) == []
+
+
+def test_private_summary_receives_selected_machine_value_and_question_option_meanings() -> (
+    None
+):
+    summary_messages: list[list[dict[str, str]]] = []
+
+    class SummaryProvider:
+        def complete(self, messages: list[dict[str, str]], **_kwargs: object) -> str:
+            summary_messages.append(messages)
+            return "从事工程工作。"
+
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
+        if _returns(messages, "finish"):
+            yield "谢谢。"
+        elif _returns(messages):
+            assert _returns(messages)[0].content == "Learner chose: role_1"
+            yield "问卷完成。"
+            yield _finish()
+        else:
+            yield {
+                0: _question(
+                    "role",
+                    "role",
+                    kind="single",
+                    prompt="你的身份？",
+                    options=[
+                        {"display": "工程师", "value": "role_1"},
+                        {"display": "教师", "value": "role_2"},
+                    ],
+                )
+            }
+
+    app = Flask("profile-option-meanings")
+    app.config.update(LLM_MODEL_1_ID="gpt-test", DEFAULT_LLM_TEMPERATURE=0.3)
+    model = FunctionModel(stream_function=script)
+    runtime = ProfileResearchRuntime(
+        app,
+        store=_ProfileResearchSessionStore(app, cache=InMemoryCacheProvider()),
+        model_factory=lambda *_args: model,
+        provider_factory=lambda *_args: SummaryProvider(),
+    )
+    view = runtime.start_session(
+        user_bid="learner",
+        purpose=PROFILE_ONBOARDING_PURPOSE,
+        document="?[%{{role}}工程师//role_1|教师//role_2]",
+        config_revision=1,
+        output_language="zh-CN",
+    )
+    first = list(
+        runtime.stream_session(
+            user_bid="learner",
+            session_id=view["session_id"],
+            user_input=None,
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+            expected_turn_index=0,
+            request_id="render",
+        )
+    )
+    assert any("工程师//role_1" in str(event["content"]) for event in first)
+    final = list(
+        runtime.stream_session(
+            user_bid="learner",
+            session_id=view["session_id"],
+            user_input={"role": ["工程师"]},
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+            expected_turn_index=1,
+            expected_interaction_id="role",
+            request_id="answer",
+        )
+    )
+    assert final[-1]["content"]["profile_draft"] == "从事工程工作。"
+    evidence = json.loads(summary_messages[0][-1]["content"])["accepted_answers"]
+    assert evidence == [
+        {
+            "prompt": "你的身份？",
+            "variable": "role",
+            "answer": "Learner chose: role_1",
+            "question_context": {
+                "is_learner_fact": False,
+                "options": [
+                    {"display": "工程师", "value": "role_1"},
+                    {"display": "教师", "value": "role_2"},
+                ],
+            },
+        }
+    ]

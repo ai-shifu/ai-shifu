@@ -367,6 +367,26 @@ def profile_answer_evidence(
             "prompt": args["prompt"],
             "variable": args.get("variable"),
             "answer": answers[call_id],
+            **(
+                {
+                    "question_context": {
+                        "is_learner_fact": False,
+                        "options": [
+                            {
+                                "display": option["display"],
+                                "value": option.get("value")
+                                if option.get("value") is not None
+                                else option["display"],
+                            }
+                            for option in args.get("options", [])
+                            if isinstance(option, dict)
+                            and isinstance(option.get("display"), str)
+                        ],
+                    }
+                }
+                if args.get("options")
+                else {}
+            ),
         }
         for call_id, args in calls.items()
         if call_id in answers

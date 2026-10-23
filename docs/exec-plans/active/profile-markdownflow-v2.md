@@ -28,7 +28,9 @@ The canonical contract is in
   frontend accepted-answer state and private summary phase across all callers.
 - [x] 2026-10-24 CST: Passed 1,175 shared engine/host tests, complete frontend
   TypeScript checking against the pinned UI package, and repository boundaries.
-- [ ] 2026-10-24 CST: Complete the final focused regression and pre-commit gates.
+- [x] 2026-10-24 CST: Passed focused backend/frontend regressions and the
+  complete pre-commit gate; isolated review fixes preserve natural confirmation
+  pauses and choice labels in private evidence.
 - [ ] 2026-10-24 CST: Update PR #3161, process live review and confirm exact-head CI.
 
 ## Surprises & Discoveries
