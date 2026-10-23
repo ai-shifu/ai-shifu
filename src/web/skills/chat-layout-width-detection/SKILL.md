@@ -1,6 +1,6 @@
 ---
 name: chat-layout-width-detection
-description: 当修复 ai-shifu 聊天页在移动端与桌面端布局判定不一致的问题时使用本技能。基于真实可见视口宽度而不是仅 `#root.clientWidth` 计算 `frameLayout`，在 `resize` 与 `visualViewport.resize` 时同步，并在断点纠正后关闭过期的移动端抽屉状态。
+description: Use when ai-shifu chat layouts disagree between mobile and desktop. Measure the visible viewport rather than only the root element's clientWidth, update frameLayout on resize and visualViewport.resize, and clear stale mobile drawers after breakpoint changes.
 ---
 
 # 聊天布局宽度判定

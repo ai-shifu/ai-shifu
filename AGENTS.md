@@ -111,10 +111,11 @@ to.
   than `""` or a pre-formatted string. Display-time timezone conversion is a
   pure frontend concern: the browser renders UTC via helpers such as
   `formatAdminUtcDateTime`, so the API must not localize by request timezone.
-- In Chinese user-facing text and Chinese docs, do not use `创作者` as a
-  generic product term. Use `老师` for the general course-building or teacher
-  account role; use `课程负责人` or, inside an existing course context,
-  `负责人` when referring to a specific course owner.
+- Keep English README files, documentation prose, and examples free of Chinese
+  text. Keep dedicated Chinese translations, terminology references, and
+  multilingual test fixtures in their own language.
+- For Chinese user-facing text and Chinese docs, follow the required teacher
+  and course-owner terms in `docs/references/i18n-zh-CN.md`.
 - Keep English and French translations aligned with that distinction: use
   `teacher` / `enseignant` for the generic role, while a specific course
   owner may still be translated as `creator` / `créateur`.
