@@ -5,7 +5,14 @@ from __future__ import annotations
 import re
 from string import punctuation
 
-from .document_blocks import container_content_start, fence_opening, physical_lines
+from .document_blocks import (
+    container_content_start,
+    container_opening,
+    container_opening_info,
+    fence_opening,
+    indentation,
+    physical_lines,
+)
 from .marker_context import analyze_marker_context
 from .stream_html_context import pending_html_prefix
 
@@ -19,8 +26,15 @@ def _gap(text: str) -> str:
     lines = re.split(r"\r\n|[\r\n]", text)
 
     def line(value: str) -> str:
+        content, steps = container_opening(value)
+        if steps:
+            return value[:content] + line(value[content:])
         if not value.strip(" \t\r"):
             return "    " if "\t" in value or len(value) >= 4 else value
+        # Extra padding can precede a heading inside an active list. Keeping its
+        # spelling also remains indented code when there is no list container.
+        if match := re.match(r"^([ \t]+)(#{1,6})(?:[ \t]|$)", value):
+            return match.group(1) + match.group(2) + " x "
         if value.startswith("    ") or re.match(r"^ {0,3}\t", value):
             return "    x"
         if (
@@ -154,9 +168,7 @@ def _resource_prefix(text: str, tokens: str) -> str | None:
     return "(" + destination + " " + opening + kept + quote + ("\n" if newline else " ")
 
 
-def _raw_prefix(text: str, tag: str, closed: bool) -> str:
-    if closed:
-        return f"<{tag}></{tag}>x"
+def _raw_prefix(text: str, tag: str, closed: bool, steps: tuple[int, ...]) -> str:
     tail = text[text.rfind("<") :].lower() if "<" in text else ""
     closing = "</" + tag
     if closing.startswith(tail):
@@ -165,7 +177,20 @@ def _raw_prefix(text: str, tag: str, closed: bool) -> str:
         suffix = closing + " "
     else:
         suffix = ""
-    return f"<{tag}>x" + suffix
+    opening = _container_opening(steps, text) + f"<{tag}>x"
+    lines = physical_lines(text)
+    if len(lines) == 1:
+        return opening + (f"</{tag}>x" if closed else suffix)
+    value = text[lines[-1].start :]
+    content = container_content_start(value, steps)
+    if content is None:
+        return opening + "\n" + value
+    return (
+        opening
+        + "\n"
+        + value[:content]
+        + (f"</{tag}>x" if closed else suffix or ("x" if value[content:] else ""))
+    )
 
 
 def _block_tail(text: str) -> str:
@@ -179,10 +204,7 @@ def _block_tail(text: str) -> str:
 
 def _container_prefix(text: str, state: tuple[str, int, tuple[int, ...]]) -> str:
     marker, width, steps = state
-    opening = (
-        "".join("> " if step == 0 else "-" + " " * (step - 1) for step in steps)
-        + marker * width
-    )
+    opening = _container_opening(steps, text) + marker * width
     continuation = "".join("> " if step == 0 else " " * step for step in steps)
     lines = physical_lines(text)
     if len(lines) == 1:
@@ -201,27 +223,174 @@ def _container_prefix(text: str, state: tuple[str, int, tuple[int, ...]]) -> str
     return opening + "\n" + continuation + "x\n" + tail
 
 
-def compact_marker_context(source: str) -> str:
+def _container_opening(steps: tuple[int, ...], text: str = "") -> str:
+    if text:
+        first = physical_lines(text)[0]
+        value = text[: first.content_end]
+        content, actual = container_opening(value)
+        if actual == steps:
+            return value[:content]
+    pieces = []
+    for step in steps:
+        if step == 0:
+            pieces.append("> ")
+        elif step <= 5:
+            pieces.append("-" + " " * (step - 1))
+        else:
+            # Ordered markers supply the width that a bullet cannot express:
+            # padding after any Markdown list marker is limited to four columns.
+            leading = max(0, step - 14)
+            width = min(10, step - leading - 1)
+            pieces.append(
+                " " * leading
+                + "1"
+                + "0" * (width - 2)
+                + "."
+                + " " * (step - leading - width)
+            )
+    return "".join(pieces)
+
+
+def _indented_prefix(text: str, steps: tuple[int, ...]) -> str:
+    opening = _container_opening(steps, text) + "    x"
+    lines = physical_lines(text)
+    if len(lines) == 1:
+        return opening
+    value = text[lines[-1].start :]
+    content = container_content_start(value, steps)
+    if content is None:
+        return opening + "\n" + value
+    body = value[content:]
+    return (
+        opening
+        + "\n"
+        + value[:content]
+        + (body[:4] if not body.strip(" \t") else "    x")
+    )
+
+
+def _contained_block_tail(text: str, steps: tuple[int, ...]) -> str:
+    """Keep a partial continuation prefix while discarding HTML body prose."""
+    if not steps:
+        return _block_tail(text)
+    lines = physical_lines(text)
+    if len(lines) == 1:
+        return "x"
+    value = text[lines[-1].start :]
+    content = container_content_start(value, steps)
+    if content is None:
+        return "\n" + value
+    body = value[content:]
+    return "\n" + value[:content] + (body[:4] if not body.strip(" \t") else "x")
+
+
+def _reference_prefix(
+    source: str, body: int, steps: tuple[int, ...], tokens: str
+) -> str | None:
+    """Project only reference padding for its existing resource-state reader."""
+    text = source[body:]
+    projected: list[str] = []
+    partial = ""
+    for index, line in enumerate(physical_lines(text)):
+        value = text[line.start : line.content_end]
+        if index and steps:
+            content = container_content_start(value, steps)
+            if content is not None:
+                value = value[content:]
+            elif (
+                line.end == len(text)
+                and container_content_start(value, steps, partial=True) is not None
+            ):
+                partial = value
+                break
+        projected.append(value + text[line.content_end : line.end])
+    resource = _resource_prefix("(" + "".join(projected), tokens)
+    if resource is None:
+        return None
+    continuation = "".join("> " if step == 0 else " " * step for step in steps)
+    value = _container_opening(steps) + "[x]: " + resource[1:]
+    if partial:
+        return value + partial
+    return re.sub(r"\n(?=.)", lambda _: "\n" + continuation, value)
+
+
+def _special_container_html_prefix(source: str, start: int) -> str | None:
+    """Keep a container's partial next-line prefix outside an unfinished HTML token."""
+    text = source[start:]
+    lines = physical_lines(text)
+    if len(lines) == 1:
+        return None
+    line_start = max(source.rfind("\n", 0, start), source.rfind("\r", 0, start)) + 1
+    before = source[line_start:start]
+    content, steps, virtual = container_opening_info(before)
+    _, columns = indentation(before, content, virtual)
+    if not steps or columns >= 4 or before[content:].strip(" \t"):
+        return None
+    if text.startswith("<!--"):
+        opening, closing = "<!--x", "-->"
+    elif text.startswith("<?"):
+        opening, closing = "<?x", "?>"
+    elif text.startswith("<![CDATA["):
+        opening, closing = "<![CDATA[x", "]]>"
+    elif re.match(r"<![A-Z]", text):
+        opening, closing = "<!Ax", ">"
+    else:
+        return None
+    value = text[lines[-1].start :]
+    content = container_content_start(value, steps, partial=True)
+    if content is None:
+        return None
+    suffix = next(
+        (
+            closing[:width]
+            for width in range(len(closing) - 1, 0, -1)
+            if text.endswith(closing[:width])
+        ),
+        "",
+    )
+    body = "x" + suffix if value[content:] else ""
+    return before + opening + "\n" + value[:content] + body
+
+
+def compact_marker_context(
+    source: str,
+    *,
+    label_counts: dict[int, int] | None = None,
+    counts_out: dict[int, int] | None = None,
+) -> str:
     """Preserve source-ordered unfinished syntax using bounded content witnesses."""
-    context = analyze_marker_context(source, final=False)
+    context = analyze_marker_context(source, final=False, label_counts=label_counts)
     records: list[tuple[int, int, str]] = [
         (at, at + len(run), run)
         for at, run in (*context.unmatched_backticks, *context.unmatched_math)
     ]
-    for at, (image, active) in zip(
-        context.pending_label_starts, context.pending_labels, strict=True
+    label_records: dict[int, int] = {}
+    label_values: dict[int, str] = {}
+    for at, (image, active), count in zip(
+        context.pending_label_starts,
+        context.pending_labels,
+        context.pending_label_counts,
+        strict=True,
     ):
+        label_records[at] = count
+        label_values[at] = (
+            ("!" if image else "") + "[" + ("[x](u)" if not active else "")
+        )
         records.append(
             (
                 at,
                 at + 1,
-                ("!" if image else "") + "[" + ("[x](u)" if not active else ""),
+                label_values[at],
             )
         )
     if context.pending_resource_opener:
         start = context.pending_resource_label_start
         start = len(source) - 1 if start is None else start
-        label = "x".join(value for at, _, value in records if at >= start) or "x"
+        label = "x".join(value for at, _, value in records if at > start) or "x"
+        records = [
+            (at, at if at == start and at in label_records else end, value)
+            for at, end, value in records
+        ]
         records.append(
             (
                 start,
@@ -241,16 +410,35 @@ def compact_marker_context(source: str) -> str:
     ):
         start = context.pending_reference_start
         body = context.pending_reference_body_start
-        resource = _resource_prefix("(" + source[body:], tokens(body))
+        resource = _reference_prefix(
+            source, body, context.pending_reference_steps, tokens(body)
+        )
         if resource is not None:
-            primary = (start, len(source), "[x]: " + resource[1:])
+            primary = (start, len(source), resource)
     if (
         primary is None
         and context.pending_block_start is not None
         and context.pending_html_closing_line
     ):
         # A complete HTML block token owns the rest of its closing physical line.
-        primary = (context.pending_block_start, len(source), "<!--x-->x")
+        start = context.pending_block_start
+        primary = (
+            start,
+            len(source),
+            _container_opening(context.pending_block_steps, source[start:])
+            + "<!--x-->x",
+        )
+    if (
+        primary is None
+        and context.pending_block_start is not None
+        and context.pending_indented_block
+    ):
+        start = context.pending_block_start
+        primary = (
+            start,
+            len(source),
+            _indented_prefix(source[start:], context.pending_block_steps),
+        )
     if (
         primary is None
         and context.pending_block_start is not None
@@ -268,7 +456,13 @@ def compact_marker_context(source: str) -> str:
         and context.pending_html_block
     ):
         start = context.pending_block_start
-        primary = (start, len(source), "<div>x" + _block_tail(source[start:]))
+        primary = (
+            start,
+            len(source),
+            _container_opening(context.pending_block_steps, source[start:])
+            + "<div>x"
+            + _contained_block_tail(source[start:], context.pending_block_steps),
+        )
     elif primary is None and (
         context.pending_raw_html_tag is not None
         and context.pending_html_start is not None
@@ -281,9 +475,17 @@ def compact_marker_context(source: str) -> str:
                 source[start:],
                 context.pending_raw_html_tag,
                 context.pending_raw_html_closed,
+                context.pending_block_steps,
             ),
         )
     elif primary is None and context.pending_html_start is not None:
+        contained = _special_container_html_prefix(source, context.pending_html_start)
+        if contained is not None:
+            start = context.pending_html_start
+            line_start = (
+                max(source.rfind("\n", 0, start), source.rfind("\r", 0, start)) + 1
+            )
+            primary = (line_start, len(source), contained)
         # A false earlier candidate must not restart inside an already-owned marker/code span.
         candidates = list(source)
         for start, end in [
@@ -294,14 +496,26 @@ def compact_marker_context(source: str) -> str:
                 if candidates[at] == "<":
                     candidates[at] = "\x00"
         html_source = "".join(candidates)
-        html = pending_html_prefix(html_source, context.pending_html_start)
+        html = (
+            pending_html_prefix(html_source, context.pending_html_start)
+            if primary is None
+            else None
+        )
         if html is not None:
             start, _ = html
             # The CDATA opener itself supplies its two brackets on every replay.
             body_start = start + 9 if source.startswith("<![CDATA[", start) else start
             html = pending_html_prefix(html_source, start, tokens=tokens(body_start))
             if html is not None:
-                primary = (start, len(source), html[1])
+                contained = _special_container_html_prefix(source, start)
+                if contained is not None:
+                    line_start = (
+                        max(source.rfind("\n", 0, start), source.rfind("\r", 0, start))
+                        + 1
+                    )
+                    primary = (line_start, len(source), contained)
+                else:
+                    primary = (start, len(source), html[1])
     if context.pending_resource_start is not None and (
         primary is None or context.pending_resource_start < primary[0]
     ):
@@ -311,7 +525,12 @@ def compact_marker_context(source: str) -> str:
             label_start = context.pending_resource_label_start
             label_start = start - 1 if label_start is None else label_start
             label = (
-                "x".join(value for at, _, value in records if label_start <= at < start)
+                "x".join(
+                    value
+                    for at, _, value in records
+                    if label_start <= at < start
+                    and not (at == label_start and at in label_records)
+                )
                 or "x"
             )
             primary = (
@@ -324,9 +543,29 @@ def compact_marker_context(source: str) -> str:
                 + resource,
             )
     if primary is not None:
-        records = [record for record in records if record[0] < primary[0]]
+        records = [
+            (at, at if at == primary[0] else end, value)
+            for at, end, value in records
+            if at < primary[0] or (at == primary[0] and at in label_records)
+        ]
         records.append(primary)
     records.sort()
+    # Repeated unresolved labels need a counter, not one replayed character per
+    # nesting level. No source text or future closing bracket is discarded.
+    merged: list[tuple[int, int, str]] = []
+    for start, end, witness in records:
+        if (
+            start in label_records
+            and merged
+            and merged[-1][2] == witness
+            and merged[-1][0] in label_records
+        ):
+            before, _, value = merged[-1]
+            label_records[before] += label_records[start]
+            merged[-1] = (before, end, value)
+        else:
+            merged.append((start, end, witness))
+    records = merged
     # Completed literal syntax must not become a fresh opener when old prose is discarded.
     gap_characters = list(source)
     for start, end in context.literals:
@@ -341,11 +580,18 @@ def compact_marker_context(source: str) -> str:
                 gap_characters[start:end] = "#" + " " * (end - start - 1)
     gap_source = "".join(gap_characters)
     pieces: list[str] = []
+    length = 0
+    if counts_out is not None:
+        counts_out.clear()
     at = 0
     for start, end, witness in records:
         if start < at:
             continue
-        pieces.extend((_gap(gap_source[at:start]), witness))
+        gap = _gap(gap_source[at:start])
+        pieces.extend((gap, witness))
+        if counts_out is not None and witness == label_values.get(start):
+            counts_out[length + len(gap) + witness.index("[")] = label_records[start]
+        length += len(gap) + len(witness)
         at = end
     pieces.append(_gap(gap_source[at:]))
     return "".join(pieces)

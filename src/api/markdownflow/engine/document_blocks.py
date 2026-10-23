@@ -111,72 +111,146 @@ def physical_lines(text: str) -> list[PhysicalLine]:
     return lines
 
 
-def container_opening(line: str) -> tuple[int, tuple[int, ...]]:
-    """Read only explicit quote/list prefixes, leaving ordinary indentation."""
+def column_at(line: str, offset: int, *, column: int = 0) -> int:
+    """Count Markdown tab stops in the ASCII container prefix."""
+    for character in line[:offset]:
+        column += 4 - column % 4 if character == "\t" else 1
+    return column
+
+
+def indentation(
+    line: str, start: int, virtual: int = 0, *, column: int | None = None
+) -> tuple[int, int]:
+    """Return the first content offset and remaining indentation columns."""
+    column = column_at(line, start) if column is None else column
+    first = column
+    at = start
+    while at < len(line) and line[at] in " \t":
+        column += 4 - column % 4 if line[at] == "\t" else 1
+        at += 1
+    return at, virtual + column - first
+
+
+def container_opening_info(
+    line: str, *, column: int = 0, virtual: int = 0
+) -> tuple[int, tuple[int, ...], int]:
+    """Read explicit containers without consuming their following code indentation."""
     at = 0
     steps: list[int] = []
     while at < len(line):
-        before_space = at
-        while at - before_space < 3 and at < len(line) and line[at] == " ":
+        before, before_column, before_virtual = at, column, virtual
+        spaces = virtual
+        virtual = 0
+        while at < len(line) and line[at] in " \t":
+            width = 4 - column % 4 if line[at] == "\t" else 1
+            if spaces + width > 3:
+                return before, tuple(steps), before_virtual
             at += 1
-        if at < len(line) and line[at] == ">":
+            column += width
+            spaces += width
+        if at < len(line) and line[at] == ">" and spaces <= 3:
             steps.append(0)
             at += 1
+            column += 1
             if at < len(line) and line[at] in " \t":
+                width = 4 - column % 4 if line[at] == "\t" else 1
+                column += width
+                virtual = width - 1
                 at += 1
             continue
         marker = COMPILED_CONTAINER_LIST_REGEX.match(line, at)
-        if marker is None:
-            return before_space, tuple(steps)
+        if marker is None or spaces > 3:
+            return before, tuple(steps), before_virtual
+        column += marker.end() - at
         at = marker.end()
-        padding_start = at
+        padding_start, padding_column = at, column
         while at < len(line) and line[at] in " \t":
+            column += 4 - column % 4 if line[at] == "\t" else 1
             at += 1
-        if at - padding_start > 4:
+        if column - padding_column > 4:
+            width = 4 - padding_column % 4 if line[padding_start] == "\t" else 1
             at = padding_start + 1
-        columns = 0
-        for character in line[before_space:at]:
-            columns += 4 - columns % 4 if character == "\t" else 1
-        steps.append(columns)
-    return at, tuple(steps)
+            column = padding_column + width
+            virtual = width - 1
+            required = padding_column - before_column + before_virtual + 1
+        else:
+            required = column - before_column + before_virtual
+        steps.append(required)
+    return at, tuple(steps), virtual
 
 
-def fence_opening(line: str) -> tuple[str, int, tuple[int, ...]] | None:
-    """Use zero for a quote step and a column count for a list step."""
-    at, steps = container_opening(line)
-    before = at
-    while at - before < 3 and at < len(line) and line[at] == " ":
-        at += 1
-    fence = COMPILED_DOCUMENT_FENCE_REGEX.match(line, at)
-    if fence is None:
-        return None
-    run = fence.group(1) or fence.group(3)
-    return run[0], len(run), steps
+def container_opening(line: str) -> tuple[int, tuple[int, ...]]:
+    """Return the original content offset and explicit container requirements."""
+    at, steps, _ = container_opening_info(line)
+    return at, steps
+
+
+def container_content_info(
+    line: str, steps: tuple[int, ...], *, partial: bool = False
+) -> tuple[int, int] | None:
+    """Retain tab overshoot after matching the opening containers."""
+    at = column = virtual = 0
+    for step in steps:
+        if step == 0:
+            spaces, virtual = virtual, 0
+            while at < len(line) and line[at] in " \t":
+                width = 4 - column % 4 if line[at] == "\t" else 1
+                if spaces + width > 3:
+                    return (
+                        (len(line), 0)
+                        if partial and not line[at:].strip(" \t")
+                        else None
+                    )
+                at += 1
+                column += width
+                spaces += width
+            if at >= len(line) or line[at] != ">" or spaces > 3:
+                return (at, 0) if partial and at == len(line) else None
+            at += 1
+            column += 1
+            if at < len(line) and line[at] in " \t":
+                width = 4 - column % 4 if line[at] == "\t" else 1
+                at += 1
+                column += width
+                virtual = width - 1
+        else:
+            consumed, virtual = virtual, 0
+            while consumed < step:
+                if at >= len(line):
+                    return (at, 0) if partial else None
+                if line[at] not in " \t":
+                    return None
+                width = 4 - column % 4 if line[at] == "\t" else 1
+                consumed += width
+                column += width
+                at += 1
+            virtual = consumed - step
+    return at, virtual
 
 
 def container_content_start(
     line: str, steps: tuple[int, ...], *, partial: bool = False
 ) -> int | None:
-    """Match the opening quote/list containers on a continuation line."""
-    at = 0
-    for step in steps:
-        if step == 0:
-            before = at
-            while at - before < 3 and at < len(line) and line[at] == " ":
-                at += 1
-            if at >= len(line) or line[at] != ">":
-                return at if partial and at == len(line) else None
-            at += 1
-            if at < len(line) and line[at] in " \t":
-                at += 1
-        else:
-            columns = 0
-            while columns < step:
-                if at >= len(line) or line[at] not in " \t":
-                    return at if partial and at == len(line) else None
-                columns += 4 - columns % 4 if line[at] == "\t" else 1
-                at += 1
-    return at
+    """Locate a continuation while preserving source offsets."""
+    content = container_content_info(line, steps, partial=partial)
+    return content[0] if content is not None else None
+
+
+def fence_opening(
+    line: str, *, column: int = 0, virtual: int = 0
+) -> tuple[str, int, tuple[int, ...]] | None:
+    """Recognize a fence after native container and indentation columns."""
+    at, steps, virtual = container_opening_info(line, column=column, virtual=virtual)
+    at, width = indentation(
+        line, at, virtual, column=column_at(line, at, column=column)
+    )
+    if width > 3:
+        return None
+    fence = COMPILED_DOCUMENT_FENCE_REGEX.match(line, at)
+    if fence is None:
+        return None
+    run = fence.group(1) or fence.group(3)
+    return run[0], len(run), steps
 
 
 @dataclass(frozen=True)
@@ -199,9 +273,14 @@ class DocumentBlocks:
         """Index once using the caller's existing native HTML grammar."""
         self.text = text
         self.html_pattern = html
+        self._html_token_ends: dict[tuple[int, bool], int | None] = {}
         self._html_last_ends: dict[str, int] | None = None
         self.lines = physical_lines(text)
         self.closed_fence_lines: set[int] = set()
+        self.closed_html_lines: set[int] = set()
+        self.content_starts = [line.start for line in self.lines]
+        self.container_steps: list[tuple[int, ...]] = [() for _ in self.lines]
+        self.virtual_padding = [0 for _ in self.lines]
         self.container_paragraphs = self._container_paragraphs()
         self.starts = [line.start for line in self.lines]
         self.by_start = {line.start: index for index, line in enumerate(self.lines)}
@@ -212,8 +291,92 @@ class DocumentBlocks:
 
     def blank(self, index: int) -> bool:
         """Test Markdown blank padding rather than all Unicode whitespace."""
+        return not self.projected_line(index).strip(" \t")
+
+    def projected_line(self, index: int) -> str:
+        """Read native block context after its container prefix at original offsets."""
         line = self.lines[index]
-        return not self.text[line.start : line.content_end].strip(" \t")
+        value = self.text[line.start : line.content_end]
+        at, width = indentation(
+            value, self.content_starts[index] - line.start, self.virtual_padding[index]
+        )
+        return " " * min(width, 4) + value[at:]
+
+    def block_content_start(self, index: int) -> int | None:
+        """Locate native block syntax after at most three indentation columns."""
+        line = self.lines[index]
+        at, width = indentation(
+            self.text[line.start : line.content_end],
+            self.content_starts[index] - line.start,
+            self.virtual_padding[index],
+        )
+        return line.start + at if width < 4 else None
+
+    def html_token_end(
+        self, index: int, start: int, *, final: bool = True
+    ) -> int | None:
+        """Read a native HTML token without changing original variable text."""
+        key = (start, final)
+        if key in self._html_token_ends:
+            return self._html_token_ends[key]
+        limit = self.container_end(index, final=final)
+        token = self.html_pattern.match(self.text, start, limit)
+        steps = self.container_steps[index]
+        project = token is None and bool(steps)
+        if token is not None and steps:
+            line = self.line_at(token.end() - 1)
+            content = container_content_start(
+                self.text[line.start : line.content_end],
+                steps,
+                partial=not final and line.end == line.content_end == len(self.text),
+            )
+            project = content is not None and token.end() - 1 < line.start + content
+        end = token.end() if token is not None else None
+        if project:
+            base = self.lines[index].start
+            pieces: list[str] = []
+            for following in range(index, len(self.lines)):
+                line = self.lines[following]
+                if line.start >= limit:
+                    break
+                value = self.text[line.start : line.end]
+                content = (
+                    self.content_starts[following] - line.start
+                    if following == index
+                    else container_content_start(
+                        value,
+                        steps,
+                        partial=not final
+                        and line.end == line.content_end == len(self.text),
+                    )
+                )
+                pieces.append(
+                    " " * content + value[content:] if content is not None else value
+                )
+            native = "".join(pieces)
+            token = self.html_pattern.match(native, start - base)
+            end = base + token.end() if token is not None else None
+        self._html_token_ends[key] = end
+        return end
+
+    def container_end(self, index: int, *, final: bool = True) -> int:
+        """Bound a concrete native block before a confirmed container dedent."""
+        steps = self.container_steps[index]
+        if not steps:
+            return len(self.text)
+        for line in self.lines[index + 1 :]:
+            value = self.text[line.start : line.content_end]
+            if container_content_start(value, steps) is None and value.strip(" \t"):
+                if container_content_start(value, steps, partial=True) == len(value):
+                    continue
+                if (
+                    not final
+                    and line.end == line.content_end == len(self.text)
+                    and container_content_start(value, steps, partial=True) is not None
+                ):
+                    continue
+                return line.start
+        return len(self.text)
 
     def fence(self, start: int, *, final: bool = True) -> BlockSpan | None:
         """Read plain or quote/list-contained fenced code."""
@@ -221,10 +384,16 @@ class DocumentBlocks:
         if index is None:
             return None
         first = self.lines[index]
-        opening = fence_opening(self.text[start : first.content_end])
+        content = self.content_starts[index]
+        opening = fence_opening(
+            self.text[content : first.content_end],
+            column=column_at(self.text[start : first.content_end], content - start),
+            virtual=self.virtual_padding[index],
+        )
         if opening is None:
             return None
-        marker, size, steps = opening
+        marker, size, nested = opening
+        steps = self.container_steps[index] + nested
         previous = first
         for line in self.lines[index + 1 :]:
             value = self.text[line.start : line.content_end]
@@ -238,7 +407,9 @@ class DocumentBlocks:
                     return BlockSpan(
                         len(self.text), first.end, len(self.text), marker, size, steps
                     )
-                if not value.strip(" \t"):
+                if not value.strip(" \t") or container_content_start(
+                    value, steps, partial=True
+                ) == len(value):
                     continue
                 return BlockSpan(
                     previous.content_end,
@@ -248,9 +419,11 @@ class DocumentBlocks:
                     size,
                     steps,
                 )
-            candidate = value[content:].lstrip(" ")
-            if len(value[content:]) - len(candidate) <= 3:
-                run = candidate.rstrip(" \t")
+            info = container_content_info(value, steps)
+            virtual = info[1] if info is not None else 0
+            body_at, width = indentation(value, content, virtual)
+            if width <= 3:
+                run = value[body_at:].rstrip(" \t")
                 if len(run) >= size and run == marker * len(run):
                     self.closed_fence_lines.add(line.start)
                     return BlockSpan(
@@ -265,12 +438,16 @@ class DocumentBlocks:
             previous = line
         return BlockSpan(len(self.text), first.end, len(self.text), marker, size, steps)
 
-    def terminated_html(self, start: int) -> BlockSpan | None:
+    def terminated_html(self, start: int, *, final: bool = True) -> BlockSpan | None:
         """Keep complete native HTML blocks 2-5 through their closing physical line."""
-        if start not in self.by_start:
+        index = self.by_start.get(start)
+        if index is None:
             return None
-        at = start
-        while at < min(start + 3, len(self.text)) and self.text[at] == " ":
+        at = self.block_content_start(index)
+        if at is None:
+            return None
+        padding_end = at + 3
+        while at < min(padding_end, len(self.text)) and self.text[at] == " ":
             at += 1
         special = self.text.startswith(("<!--", "<?", "<![CDATA["), at)
         declaration = (
@@ -293,31 +470,41 @@ class DocumentBlocks:
             self._html_last_ends = {
                 ending: self.text.rfind(ending) for ending in (">", "-->", "?>", "]]>")
             }
-        if self._html_last_ends[closing] < at:
+        limit = self.container_end(index, final=final)
+        token_end = (
+            self.html_token_end(index, at, final=final)
+            if self._html_last_ends[closing] >= at
+            else None
+        )
+        if token_end is None:
+            # A confirmed parent-container dedent ends native HTML even without a terminator.
+            # Plain EOF retains the historical incomplete-token fallback.
+            if self.container_steps[index] and limit < len(self.text):
+                return BlockSpan(limit, at, limit, closed=True)
             return None
-        token = self.html_pattern.match(self.text, at)
-        if token is None:
-            return None
-        end = self.line_at(token.end()).content_end
-        return BlockSpan(end, token.end(), end, closed=True)
+        end = self.line_at(token_end).content_end
+        return BlockSpan(end, token_end, end, closed=True)
 
-    def ordinary_html(self, start: int) -> BlockSpan | None:
+    def ordinary_html(self, start: int, *, final: bool = True) -> BlockSpan | None:
         """Bound native type-six/seven HTML blocks at the first blank line."""
         index = self.by_start.get(start)
         if index is None:
             return None
         first = self.lines[index]
+        content_start = self.block_content_start(index)
+        if content_start is None:
+            return None
         opening = COMPILED_DOCUMENT_TAG_REGEX.match(
-            self.text[start : first.content_end]
+            self.text[content_start : first.content_end]
         )
         if opening is None:
             return None
-        tag_start = self.text.find("<", start, first.content_end)
+        tag_start = self.text.find("<", content_start, first.content_end)
         block_tag = opening.group(1).lower() in HTML_BLOCK_TAGS
         if not block_tag and index and not self.blank(index - 1):
             return None
-        token = self.html_pattern.match(self.text, tag_start)
-        token_end = token.end() if token is not None else start
+        token = self.html_token_end(index, tag_start, final=final)
+        token_end = token if token is not None else start
         if not block_tag and (
             token is None
             or token_end > first.content_end
@@ -328,12 +515,25 @@ class DocumentBlocks:
         scan = max(index + 1, self.by_start.get(previous.start, index))
         for at in range(scan, len(self.lines)):
             line = self.lines[at]
-            if line.start >= token_end and self.blank(at):
+            steps = self.container_steps[index]
+            value = self.text[line.start : line.content_end]
+            partial = (
+                not final
+                and line.end == line.content_end == len(self.text)
+                and container_content_start(value, steps, partial=True) is not None
+            )
+            outside = (
+                bool(steps)
+                and bool(value.strip(" \t"))
+                and not partial
+                and container_content_start(value, steps) is None
+            )
+            if line.start >= token_end and (self.blank(at) or outside):
                 return BlockSpan(
                     previous.content_end,
                     token_end,
                     previous.content_end,
-                    closed=line.end > line.content_end,
+                    closed=bool(outside) or line.end > line.content_end,
                 )
             previous = line
         return BlockSpan(len(self.text), token_end, len(self.text))
@@ -343,15 +543,16 @@ class DocumentBlocks:
         if index == 0 or self.blank(index - 1):
             return True
         previous = self.lines[index - 1]
-        value = self.text[previous.start : previous.content_end]
+        value = self.projected_line(index - 1)
         return bool(
             previous.start in self.closed_fence_lines
-            or COMPILED_ATX_START_REGEX.match(value)
-            or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value)
+            or previous.start in self.closed_html_lines
+            or COMPILED_ATX_START_REGEX.match(value) is not None
+            or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value) is not None
             or (
                 index > 1
                 and not self.blank(index - 2)
-                and COMPILED_SETEXT_REGEX.fullmatch(value)
+                and COMPILED_SETEXT_REGEX.fullmatch(value) is not None
             )
             or (value.startswith("__MDFLOW_CODE_BLOCK_") and value.endswith("__"))
         )
@@ -362,8 +563,17 @@ class DocumentBlocks:
         if index is None:
             return None
         line = self.lines[index]
+        if (
+            self.container_steps[index]
+            and not self.indented_may_start(index)
+            and not self.paragraph_interrupts(index)
+        ):
+            return None
+        content_start = self.block_content_start(index)
+        if content_start is None:
+            return None
         match = COMPILED_REFERENCE_PREFIX_REGEX.match(
-            self.text[start : line.content_end]
+            self.text[content_start : line.content_end]
         )
         if (
             match is None
@@ -371,7 +581,42 @@ class DocumentBlocks:
             or not match.group(1).strip(" \t")
         ):
             return None
-        return start + match.end()
+        return content_start + match.end()
+
+    def reference_space(self, start: int, origin: int) -> int | None:
+        """Skip reference padding through matching container continuation prefixes."""
+        steps = self.container_steps[self.by_start[self.line_at(origin).start]]
+        at = start
+        while at < len(self.text):
+            index = self.by_start.get(at)
+            if index is not None and at > origin:
+                line = self.lines[index]
+                content = container_content_start(
+                    self.text[at : line.content_end], steps
+                )
+                if self.blank(index):
+                    return None
+                if content is None:
+                    value = self.projected_line(index)
+                    if (
+                        self.paragraph_interrupts(index)
+                        or self.inline_block_interrupts(index)
+                        or fence_opening(value) is not None
+                        or COMPILED_ATX_START_REGEX.match(value) is not None
+                    ):
+                        return None
+                    content = 0  # A definition permits a lazy paragraph continuation.
+                at += content
+            if at >= len(self.text) or self.text[at] not in " \t\r\n":
+                break
+            at += 1
+        return at
+
+    def reference_has_blank(self, start: int, end: int) -> bool:
+        """Test only whole intervening physical lines after container projection."""
+        first = self.by_start[self.line_at(start).start]
+        last = self.by_start[self.line_at(end).start]
+        return any(self.blank(index) for index in range(first + 1, last))
 
     def interaction_limit(
         self, start: int, marker_end: Callable[[int], int | None], *, final: bool = True
@@ -382,10 +627,18 @@ class DocumentBlocks:
             index = self.by_start.get(at)
             if (
                 index is not None
-                and self.blank(index)
+                and at > start
                 and (final or self.lines[index].end > self.lines[index].content_end)
             ):
-                return at, False
+                value = self.projected_line(index)
+                if (
+                    self.blank(index)
+                    or fence_opening(value) is not None
+                    or COMPILED_ATX_START_REGEX.match(value) is not None
+                    or self.inline_block_interrupts(index)
+                    or self.paragraph_interrupts(index)
+                ):
+                    return at, False
             if self.text.startswith("{{", at):
                 end = marker_end(at)
                 if end is None:
@@ -411,16 +664,37 @@ class DocumentBlocks:
         for index, line in enumerate(self.lines):
             value = self.text[line.start : line.content_end]
             if not value.strip(" \t"):
-                active, paragraph = (), False
+                paragraph = False
                 continue
-            content = container_content_start(value, active) if active else 0
-            remaining = value[content:] if content is not None else value
-            base = active if content is not None else ()
-            after, steps = container_opening(remaining)
-            if steps and (not paragraph or self._explicit_interrupt(remaining)):
+            info = container_content_info(value, active) if active else (0, 0)
+            if info is None and active:
+                blank_info = container_content_info(value, active, partial=True)
+                if blank_info is not None and blank_info[0] == len(value):
+                    self.content_starts[index] = line.content_end
+                    self.container_steps[index] = active
+                    self.virtual_padding[index] = blank_info[1]
+                    paragraph = False
+                    continue
+            if info is None and not paragraph:
+                active = ()
+            content, virtual = info if info is not None else (0, 0)
+            remaining = value[content:]
+            base = active if info is not None else ()
+            after, steps, opening_virtual = container_opening_info(
+                remaining, column=column_at(value, content), virtual=virtual
+            )
+            entered = bool(steps) and (
+                not paragraph or self._explicit_interrupt(remaining)
+            )
+            if entered:
                 boundaries.add(index)
                 active = base + steps
                 remaining = remaining[after:]
+            self.content_starts[index] = (
+                line.start + content + (after if entered else 0)
+            )
+            self.virtual_padding[index] = opening_virtual if entered else virtual
+            self.container_steps[index] = active if info is not None or entered else ()
             if not remaining.strip(" \t"):
                 boundaries.add(index)
                 paragraph = False
@@ -454,8 +728,7 @@ class DocumentBlocks:
 
     def inline_block_interrupts(self, index: int) -> bool:
         """Report confirmed thematic and ordinary-HTML paragraph interruptions."""
-        line = self.lines[index]
-        value = self.text[line.start : line.content_end]
+        value = self.projected_line(index)
         tag = COMPILED_DOCUMENT_TAG_REGEX.match(value)
         return (
             COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value) is not None

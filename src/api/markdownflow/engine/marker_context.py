@@ -8,7 +8,13 @@ from string import punctuation
 
 from markdown_it.common.html_re import HTML_TAG_RE
 
-from .document_blocks import DocumentBlocks, fence_opening
+from .document_blocks import (
+    DocumentBlocks,
+    container_content_info,
+    container_content_start,
+    fence_opening,
+    indentation,
+)
 from .variable_names import normalize_variable_name, read_variable_marker
 
 _BACKTICK_RUN = re.compile(r"`+")
@@ -30,7 +36,7 @@ _LINE_END = re.compile(r"\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]")
 _LINE_END_CHARS = "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029"
 _INDENTED_CODE = re.compile(r"(?: {4}| {0,3}\t)")
 _RAW_HTML_START = re.compile(
-    r"^[ ]{0,3}<(script|style|pre|textarea)(?=[ \t\r\n\f>])",
+    r"[ ]{0,3}<(script|style|pre|textarea)(?=[ \t\r\n\f>])",
     re.IGNORECASE | re.MULTILINE,
 )
 _RAW_HTML_END = {
@@ -68,16 +74,20 @@ class MarkerContext:
     pending_resource_start: int | None = None
     pending_labels: list[tuple[bool, bool]] = field(default_factory=list)
     pending_label_starts: list[int] = field(default_factory=list)
+    pending_label_counts: list[int] = field(default_factory=list)
     pending_resource_image: bool = False
     pending_resource_label_start: int | None = None
     pending_resource_opener: bool = False
     pending_block_start: int | None = None
     pending_html_block: bool = False
+    pending_indented_block: bool = False
+    pending_block_steps: tuple[int, ...] = ()
     pending_html_closing_line: bool = False
     pending_container_fence: tuple[str, int, tuple[int, ...]] | None = None
     pending_container_closed: bool = False
     pending_reference_start: int | None = None
     pending_reference_body_start: int | None = None
+    pending_reference_steps: tuple[int, ...] = ()
     indent_restart_after: list[int] = field(default_factory=list)
 
 
@@ -118,47 +128,92 @@ def _html_can_close(text: str, at: int, last_ends: dict[str, int]) -> bool:
 
 def _indented_code_end(text: str, start: int, blocks: DocumentBlocks) -> int | None:
     index = blocks.by_start.get(start)
-    if index is None or not blocks.indented_may_start(index):
+    if index is None or not (
+        blocks.indented_may_start(index)
+        or (blocks.container_steps[index] and blocks.paragraph_interrupts(index))
+    ):
         return None
-    if _INDENTED_CODE.match(text, start) is None:
+    first = blocks.lines[index]
+    first_value = text[first.start : first.content_end]
+    if (
+        indentation(
+            first_value,
+            blocks.content_starts[index] - first.start,
+            blocks.virtual_padding[index],
+        )[1]
+        < 4
+    ):
         return None
     last_content_end = start
-    for line in blocks.lines[index:]:
-        if text[line.start : line.content_end].strip(" \t"):
-            if _INDENTED_CODE.match(text, line.start) is None:
+    steps = blocks.container_steps[index]
+    for following in range(index, len(blocks.lines)):
+        line = blocks.lines[following]
+        value = text[line.start : line.content_end]
+        info = (
+            (
+                blocks.content_starts[following] - line.start,
+                blocks.virtual_padding[following],
+            )
+            if following == index
+            else container_content_info(value, steps)
+        )
+        if info is None:
+            if not value.strip(" \t") or container_content_start(
+                value, steps, partial=True
+            ) == len(value):
+                continue
+            break
+        content, virtual = info
+        body = value[content:]
+        if body.strip(" \t"):
+            if indentation(value, content, virtual)[1] < 4:
                 break
             last_content_end = line.content_end
     return last_content_end if last_content_end > start else None
 
 
 def _raw_html_opening(
-    text: str, start: int, last_ends: dict[str, int], blocks: DocumentBlocks
+    text: str,
+    start: int,
+    _last_ends: dict[str, int],
+    blocks: DocumentBlocks,
+    *,
+    final: bool = True,
 ) -> tuple[str, int] | None:
     if start not in blocks.by_start:
         return None
-    opening = _RAW_HTML_START.match(text, start)
+    content = blocks.block_content_start(blocks.by_start[start])
+    if content is None:
+        return None
+    opening = _RAW_HTML_START.match(text, content)
     if opening is None:
         return None
     tag_start = text.find("<", start, opening.end())
-    if not _html_can_close(text, tag_start, last_ends):
-        return None
-    token = _INLINE_HTML.match(text, tag_start)
-    if token is None:
-        return None
-    return opening.group(1).lower(), token.end()
+    token_end = blocks.html_token_end(blocks.by_start[start], tag_start, final=final)
+    return opening.group(
+        1
+    ).lower(), token_end if token_end is not None else opening.end()
 
 
 def _raw_html_bounds(
-    text: str, start: int, last_ends: dict[str, int], blocks: DocumentBlocks
+    text: str,
+    start: int,
+    last_ends: dict[str, int],
+    blocks: DocumentBlocks,
+    *,
+    final: bool = True,
 ) -> tuple[int, int, bool] | None:
     """Recognize only native raw-text blocks, preserving generic HTML rules."""
-    opening = _raw_html_opening(text, start, last_ends, blocks)
+    opening = _raw_html_opening(text, start, last_ends, blocks, final=final)
     if opening is None:
         return None
     name, opening_end = opening
-    closing = _RAW_HTML_END[name].search(text, opening_end)
+    limit = blocks.container_end(blocks.by_start[start], final=final)
+    closing = _RAW_HTML_END[name].search(text, opening_end, limit)
+    if closing is not None:
+        blocks.closed_html_lines.add(blocks.line_at(closing.end()).start)
     if closing is None:
-        return opening_end, len(text), False
+        return opening_end, limit, False
     return opening_end, blocks.line_at(closing.end()).content_end, True
 
 
@@ -268,10 +323,8 @@ def _legacy_plain_fence(
 
 def _reference_end(text: str, start: int, blocks: DocumentBlocks) -> int | None:
     """Read a complete definition resource without claiming an unfinished title."""
-    at = start
-    while at < len(text) and text[at] in " \t\r\n":
-        at += 1
-    if at >= len(text) or _BLANK_LINE.search(text, start, at) is not None:
+    at = blocks.reference_space(start, start)
+    if at is None or at >= len(text):
         return None
     destination_start = at
     if text[at] == "<":
@@ -317,13 +370,8 @@ def _reference_end(text: str, start: int, blocks: DocumentBlocks) -> int | None:
         if not text[destination_end : destination_line.content_end].strip(" \t")
         else None
     )
-    while at < len(text) and text[at] in " \t\r\n":
-        at += 1
-    if (
-        _BLANK_LINE.search(text, destination_end, at) is not None
-        or at >= len(text)
-        or text[at] not in "\"'("
-    ):
+    at = blocks.reference_space(at, start)
+    if at is None or at >= len(text) or text[at] not in "\"'(":
         return fallback
     title_next_line = at > destination_line.content_end
     if at == destination_end:
@@ -336,7 +384,7 @@ def _reference_end(text: str, start: int, blocks: DocumentBlocks) -> int | None:
             at += 2
         elif text[at] == closing:
             line_end = blocks.line_at(at).content_end
-            if _BLANK_LINE.search(text, title_start, at) is not None or text[
+            if blocks.reference_has_blank(title_start, at) or text[
                 at + 1 : line_end
             ].strip(" \t"):
                 return fallback if title_next_line else None
@@ -373,7 +421,11 @@ def _inline_closers(
 
 
 def analyze_marker_context(
-    text: str, *, final: bool = True, fence_indent: int | None = None
+    text: str,
+    *,
+    final: bool = True,
+    fence_indent: int | None = None,
+    label_counts: dict[int, int] | None = None,
 ) -> MarkerContext:
     """Recognize outer literals before markers; a real marker's body stays opaque.
 
@@ -390,7 +442,7 @@ def analyze_marker_context(
     blocks = DocumentBlocks(text, _INLINE_HTML)
     breaks: list[tuple[int, int]] = []
     for index, line in enumerate(blocks.lines):
-        value = text[line.start : line.content_end]
+        value = blocks.projected_line(index)
         opening = _raw_html_opening(text, line.start, last_html_ends, blocks)
         if (
             not value.strip(" \t")
@@ -417,7 +469,7 @@ def analyze_marker_context(
         else None
     )
     at = 0
-    labels: list[tuple[bool, bool, int]] = []
+    labels: list[tuple[bool, bool, int, int]] = []
     active_links: set[int] = set()
     resource_start = -1
     resource_image = False
@@ -448,9 +500,12 @@ def analyze_marker_context(
         reference_start = blocks.reference_prefix(at)
         if reference_start is not None:
             reference_end = _reference_end(text, reference_start, blocks)
-            if not final and _BLANK_LINE.search(text, reference_start) is None:
+            if not final and not blocks.reference_has_blank(reference_start, len(text)):
                 context.pending_reference_start = at
                 context.pending_reference_body_start = reference_start
+                context.pending_reference_steps = blocks.container_steps[
+                    blocks.by_start[blocks.line_at(at).start]
+                ]
             if reference_end is not None:
                 context.literals.append((at, reference_end))
                 context.markers.extend(_literal_markers(text, at, reference_start))
@@ -495,23 +550,47 @@ def analyze_marker_context(
         if indented_end is not None:
             context.literals.append((at, indented_end))
             context.markers.extend(_literal_markers(text, at, indented_end))
+            steps = blocks.container_steps[blocks.by_start[at]]
+            trailing = blocks.lines[
+                blocks.by_start[blocks.line_at(indented_end).start] + 1 :
+            ]
+            pending = not final
+            for line in trailing:
+                value = text[line.start : line.content_end]
+                info = container_content_info(value, steps, partial=True)
+                if value.strip(" \t") and (
+                    info is None or value[info[0] :].strip(" \t")
+                ):
+                    pending = False
+                    break
+            if pending:
+                context.pending_block_start = at
+                context.pending_indented_block = True
+                context.pending_block_steps = blocks.container_steps[
+                    blocks.by_start[at]
+                ]
             at = indented_end
             continue
-        raw_html = _raw_html_bounds(text, at, last_html_ends, blocks)
+        raw_html = _raw_html_bounds(text, at, last_html_ends, blocks, final=final)
         if raw_html is not None:
             opening_end, end, complete = raw_html
             context.literals.append((at, end))
             context.markers.extend(_literal_markers(text, at, opening_end))
             context.markers.extend(_literal_markers(text, opening_end, end))
-            if not final and (not complete or end == len(text)):
+            if not final and end == len(text):
                 context.pending_html_start = at
                 context.pending_raw_html_closed = complete
-                opening = _RAW_HTML_START.match(text, at)
+                context.pending_block_steps = blocks.container_steps[
+                    blocks.by_start[at]
+                ]
+                opening = _raw_html_opening(
+                    text, at, last_html_ends, blocks, final=final
+                )
                 if opening is not None:
-                    context.pending_raw_html_tag = opening.group(1).lower()
+                    context.pending_raw_html_tag = opening[0]
             at = end
             continue
-        special_html = blocks.terminated_html(at)
+        special_html = blocks.terminated_html(at, final=final)
         if special_html is not None:
             context.literals.append((at, special_html.end))
             context.markers.extend(_literal_markers(text, at, special_html.opening_end))
@@ -521,9 +600,12 @@ def analyze_marker_context(
             if not final and special_html.end == len(text):
                 context.pending_block_start = at
                 context.pending_html_closing_line = True
+                context.pending_block_steps = blocks.container_steps[
+                    blocks.by_start[at]
+                ]
             at = special_html.end
             continue
-        ordinary = blocks.ordinary_html(at)
+        ordinary = blocks.ordinary_html(at, final=final)
         if ordinary is not None:
             context.literals.append((at, ordinary.end))
             context.markers.extend(_literal_markers(text, at, ordinary.opening_end))
@@ -533,6 +615,9 @@ def analyze_marker_context(
             if not final and (ordinary.end == len(text) or not ordinary.closed):
                 context.pending_block_start = at
                 context.pending_html_block = True
+                context.pending_block_steps = blocks.container_steps[
+                    blocks.by_start[blocks.line_at(at).start]
+                ]
             at = ordinary.end
             continue
         if text[at] == "$" and not _escaped(text, at) and at in math_closing:
@@ -546,8 +631,8 @@ def analyze_marker_context(
             if resource_end is not None:
                 if not resource_image:
                     for index in active_links:
-                        image, _, start = labels[index]
-                        labels[index] = (image, False, start)
+                        image, _, start, count = labels[index]
+                        labels[index] = (image, False, start, count)
                     active_links.clear()
                 context.literals.append((at, resource_end))
                 context.markers.extend(_literal_markers(text, at, resource_end))
@@ -569,13 +654,18 @@ def analyze_marker_context(
                     at > 0 and text[at - 1] == "!" and not _escaped(text, at - 1),
                     True,
                     at,
+                    max(1, label_counts.get(at, 1)) if label_counts is not None else 1,
                 )
             )
             if not labels[-1][0]:
                 active_links.add(len(labels) - 1)
         elif text[at] == "]" and not _escaped(text, at) and labels:
-            active_links.discard(len(labels) - 1)
-            resource_image, active, resource_label_start = labels.pop()
+            resource_image, active, resource_label_start, count = labels[-1]
+            if count == 1:
+                active_links.discard(len(labels) - 1)
+                labels.pop()
+            else:
+                labels[-1] = (resource_image, active, resource_label_start, count - 1)
             resource_start = at + 1 if active else -1
         if text.startswith("?[", at) and not _escaped(text, at):
             limit, closed = blocks.interaction_limit(
@@ -619,17 +709,22 @@ def analyze_marker_context(
             context.unmatched_backticks.append((at, run.group()))
             at = run.end()
         elif text[at] == "<" and not _escaped(text, at):
-            if _html_can_close(text, at, last_html_ends) and (
-                html := _INLINE_HTML.match(text, at)
-            ):
-                context.literals.append((at, html.end()))
-                context.markers.extend(_literal_markers(text, at, html.end()))
-                at = html.end()
+            index = blocks.by_start[blocks.line_at(at).start]
+            html_end = (
+                blocks.html_token_end(index, at, final=final)
+                if _html_can_close(text, at, last_html_ends)
+                else None
+            )
+            if html_end is not None:
+                context.literals.append((at, html_end))
+                context.markers.extend(_literal_markers(text, at, html_end))
+                at = html_end
             else:
                 if context.pending_html_start is None and (
                     at + 1 == len(text) or _HTML_PREFIX.match(text, at)
                 ):
                     context.pending_html_start = at
+                    context.pending_block_steps = blocks.container_steps[index]
                 at += 1
         else:
             at += 1
@@ -638,8 +733,9 @@ def analyze_marker_context(
         for index, line in enumerate(blocks.lines)
         if blocks.indented_may_start(index + 1)
     ]
-    context.pending_labels = [(image, active) for image, active, _ in labels]
-    context.pending_label_starts = [start for _, _, start in labels]
+    context.pending_labels = [(image, active) for image, active, _, _ in labels]
+    context.pending_label_starts = [start for _, _, start, _ in labels]
+    context.pending_label_counts = [count for _, _, _, count in labels]
     context.pending_resource_image = resource_image
     context.pending_resource_label_start = (
         resource_label_start if resource_label_start >= 0 else None

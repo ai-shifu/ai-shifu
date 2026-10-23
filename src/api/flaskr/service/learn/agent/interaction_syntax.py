@@ -75,6 +75,7 @@ class InteractionSyntaxFilter:
         # Keep unfinished syntax as small continuation witnesses. Emitted prose
         # and attribute/title values never need to be retained or rescanned.
         self._context_prefix = ""
+        self._context_label_counts: dict[int, int] = {}
         self.spans: list[str] = []
 
     def feed(self, text: str) -> str:
@@ -148,6 +149,7 @@ class InteractionSyntaxFilter:
                 self._toggle_fence(self._held[fence[0] : line_end])
                 self._emit(out, self._held[:line_end])
                 self._context_prefix = ""
+                self._context_label_counts.clear()
                 self._held = self._held[line_end:]
                 continue
             if start >= 0 and self._in_indented_code(self._held, start):
@@ -217,9 +219,16 @@ class InteractionSyntaxFilter:
         if not text:
             return
         if self._fence is None:
-            self._context_prefix = compact_marker_context(self._context_prefix + text)
+            counts: dict[int, int] = {}
+            self._context_prefix = compact_marker_context(
+                self._context_prefix + text,
+                label_counts=self._context_label_counts,
+                counts_out=counts,
+            )
+            self._context_label_counts = counts
         else:
             self._context_prefix = ""
+            self._context_label_counts.clear()
         out.append(text)
         self._previous = text[-1]
         cut = max(text.rfind("\n"), text.rfind("\r"))
@@ -240,13 +249,16 @@ class InteractionSyntaxFilter:
         self._inside = False
         self._fence = None
         self._context_prefix = ""
+        self._context_label_counts.clear()
         return tail
 
     def _marker_scan_text(self, text: str, *, container_fences: bool = False) -> str:
         """Hide code/escaped marker openers without changing opaque name contents."""
         prefix = self._context_prefix
         source = prefix + text
-        context = analyze_marker_context(source, final=False)
+        context = analyze_marker_context(
+            source, final=False, label_counts=self._context_label_counts
+        )
         scanned = marker_syntax_source(source, context)
         if container_fences:
             characters = list(scanned)
@@ -267,7 +279,9 @@ class InteractionSyntaxFilter:
         scan_text = text
         if self._fence is None:
             source = self._context_prefix + text
-            context = analyze_marker_context(source, final=False)
+            context = analyze_marker_context(
+                source, final=False, label_counts=self._context_label_counts
+            )
             if context.pending_reference_body_start is not None:
                 opening = source.find("{{", context.pending_reference_body_start)
                 while opening >= 0:

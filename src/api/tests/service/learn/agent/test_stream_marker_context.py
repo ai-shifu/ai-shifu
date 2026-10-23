@@ -9,6 +9,50 @@ from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilte
 QUESTION = "?[%{{ real }} A|B]"
 
 
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    ("prefix", "real"),
+    [
+        *[
+            (f"> Text {run}{{{{ unfinished\n> # Heading {run} end\n\n", False)
+            for run in ("`", "$")
+        ],
+        *[
+            (f"2. Text {run}{{{{ unfinished\n    # Heading {run} end\n\n", False)
+            for run in ("`", "$")
+        ],
+        *[
+            (f"Text {run}{{{{ unfinished\n2. # Heading\n{run} end\n\n", True)
+            for run in ("`", "$")
+        ],
+        ("> <div>\n> {{ unfinished\n> </div>\n\n", True),
+        ("- <div>\n  {{ unfinished\n  </div>\n\n", True),
+        ("<script>\n</script>\n    {{ unfinished\n\n", True),
+        ("?[ unfinished\n~~~\n{{ x\n~~~\n", True),
+        ('> [foo]: /url "{{ unfinished"\n\n', True),
+        ('> [foo]: /url\n>   "{{ unfinished"\n\n', True),
+        ('> [foo]:\n> /url "{{ unfinished"\n\n', True),
+        ('> [foo]: /url\n"{{ unfinished"\n\n', True),
+        ('> [foo]:\n/url "{{ unfinished"\n\n', True),
+        ('- [foo]: /url\n  "{{ unfinished"\n\n', True),
+        ('> Intro\n> [foo]: /url "{{ unfinished"\n\n', False),
+        ("{{ unfinished\n> <div>\n> {{ other\n> </div>\n\n", False),
+    ],
+)
+def test_container_document_context_survives_every_stream_cut(
+    newline: str, prefix: str, real: bool
+) -> None:
+    prefix = prefix.replace("\n", newline)
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert syntax.spans == ([QUESTION] if real else []), stream
+        assert shown == (prefix if real else source), stream
+
+
 @pytest.mark.parametrize(
     "prefix",
     [
@@ -173,6 +217,8 @@ def test_stray_interaction_stops_at_a_confirmed_blank_outside_markers(
         "- ```\n  " + "x" * 3000 + "\n  ```\n\n",
         "> - ```\n>   " + "x" * 3000 + "\n>   ```\n\n",
         '[foo]: /url "' + "x" * 3000 + '"\n\n',
+        "[" * 1000,
+        "[ordinary " * 300,
     ],
 )
 def test_retained_context_and_parser_work_do_not_grow_with_narration_content(
@@ -197,6 +243,144 @@ def test_retained_context_and_parser_work_do_not_grow_with_narration_content(
     assert "".join(pieces) + syntax.flush() == text
     assert syntax.spans == []
     assert inspected <= 400 * len(text)
+
+
+@pytest.mark.parametrize("inner", [False, True])
+def test_counted_labels_keep_real_long_link_titles_and_outer_invalidation(
+    inner: bool,
+) -> None:
+    depth = 24
+    prefix = "[" * depth + "label"
+    if inner:
+        prefix += '](url "{{")' + "]" * (depth - 1)
+    else:
+        prefix += "]" * depth + '(url "{{")'
+    prefix += "\n\n"
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
+
+
+def test_batch_inactive_label_runs_keep_bounded_state_and_real_closing_semantics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inspected = 0
+    original = stream_marker_context.analyze_marker_context
+
+    def counted(source: str, **kwargs: object) -> MarkerContext:
+        nonlocal inspected
+        inspected += len(source)
+        return original(source, **kwargs)
+
+    monkeypatch.setattr(stream_marker_context, "analyze_marker_context", counted)
+    monkeypatch.setattr(interaction_syntax, "analyze_marker_context", counted)
+    syntax = InteractionSyntaxFilter()
+    seed = "[" * 1000 + "[x](u)"
+    pieces = [syntax.feed(seed)]
+    for character in "ordinary text " * 100 + "]" * 1000 + '(url "{{")\n\n' + QUESTION:
+        pieces.append(syntax.feed(character))
+        assert len(syntax._context_prefix) <= 128
+        assert len(syntax._context_label_counts) <= 1
+    pieces.append(syntax.flush())
+    source = seed + "ordinary text " * 100 + "]" * 1000 + '(url "{{")\n\n' + QUESTION
+    assert "".join(pieces) == source
+    assert syntax.spans == []  # A completed inner link disables the outer resource.
+    assert inspected <= 400 * len(source)
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    ("opening", "continuation"),
+    [
+        ("> ", "> "),
+        ("- ", "  "),
+        ("> - ", ">   "),
+        ("12345. ", " " * 7),
+        ("123456789. ", " " * 11),
+    ],
+)
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [
+        ("<script>", "</script>"),
+        ("<style>", "</style>"),
+        ("<pre>", "</pre>"),
+        ("<textarea>", "</textarea>"),
+        ("<!--", "-->"),
+        ("<?x", "?>"),
+        ("<![CDATA[", "]]>"),
+        ("<!DOCTYPE", ">"),
+        ("<div>", "</div>"),
+        ("~~~", "~~~"),
+    ],
+)
+def test_container_literal_witnesses_keep_actual_marker_width_and_columns(
+    newline: str, opening: str, continuation: str, start: str, end: str
+) -> None:
+    prefix = newline.join(
+        [opening + start, continuation + "{{ unfinished", continuation + end, "", ""]
+    )
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        ">     {{ unfinished\n\n",
+        "-     {{ unfinished\n\n",
+        "> -     {{ unfinished\n\n",
+        "12345.     {{ unfinished\n\n",
+        "123456789.     {{ unfinished\n\n",
+        "- Intro\n\n\t  {{ unfinished\n\n",
+        "> - Intro\n>\n> \t    {{ unfinished\n\n",
+    ],
+)
+def test_container_indented_code_witnesses_keep_the_external_question(
+    newline: str, prefix: str
+) -> None:
+    prefix = prefix.replace("\n", newline)
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("token", ["<!--", "<?x", "<![CDATA[", "<!DOCTYPE"])
+@pytest.mark.parametrize(
+    ("opening", "continuation"), [("> ", "> "), ("- ", "  "), ("> - ", ">   ")]
+)
+def test_unclosed_container_html_stops_at_a_confirmed_dedent(
+    newline: str, token: str, opening: str, continuation: str
+) -> None:
+    prefix = newline.join(
+        [opening + token, continuation + "{{ unfinished", "Outside", "", ""]
+    )
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
 
 
 @pytest.mark.parametrize("text", ["if a<b,", "i<n 时", "<x a=b=c", '<x a="x"oops'])
