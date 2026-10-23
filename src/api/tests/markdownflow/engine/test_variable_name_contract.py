@@ -3,6 +3,7 @@
 import json
 from collections.abc import AsyncIterator
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from flaskr.service.learn.agent.engine import (
@@ -12,6 +13,7 @@ from flaskr.service.learn.agent.engine import (
     MemoryUpdated,
     Session,
     collected_names,
+    marker_context,
     substitute_variables,
 )
 from flaskr.service.learn.agent.engine.events import InteractionRequest
@@ -494,3 +496,37 @@ def test_literal_references_keep_old_substitution_and_escaped_openers_stay_liter
     source: str, expected: str
 ) -> None:
     assert substitute_variables(source, {"q": "value"}) == expected
+
+
+@pytest.mark.parametrize(
+    ("opening", "suffix"),
+    [
+        ("<!--", " > {{ q }}"),
+        ("<?", " > {{ q }}"),
+        ("<![CDATA[", " > {{ q }}"),
+        ("<!A", " {{ q }}"),
+    ],
+)
+def test_unclosed_html_candidates_do_not_repeatedly_scan_the_document_tail(
+    opening: str, suffix: str
+) -> None:
+    source = opening * 4096 + suffix
+    with patch.object(
+        marker_context, "_INLINE_HTML", wraps=marker_context._INLINE_HTML
+    ) as native_html:
+        context = analyze_marker_context(source)
+    assert [marker.name for marker in context.markers] == ["q"]
+    # Bound failed native work rather than asserting machine-dependent timings.
+    assert native_html.match.call_count <= 1
+
+
+@pytest.mark.parametrize(
+    "html",
+    ["<!-->", "<!--->", "<!-- {{ q }} -->", "<? {{ q }} ?>", "<![CDATA[{{ q }}]]>"],
+)
+def test_html_tail_preflight_preserves_complete_native_literals(html: str) -> None:
+    source = html + " {{ outside }}"
+    context = analyze_marker_context(source)
+    assert context.literals == [(0, len(html))]
+    expected = ["q", "outside"] if "{{ q }}" in html else ["outside"]
+    assert [marker.name for marker in context.markers] == expected

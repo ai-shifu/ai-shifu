@@ -37,7 +37,11 @@ from __future__ import annotations
 
 import re
 
+from markdown_it.common.html_re import HTML_TAG_RE
+
+from .engine.document_blocks import DocumentBlocks
 from .engine.marker_context import analyze_marker_context, marker_syntax_source
+from .engine.stream_marker_context import compact_marker_context
 from .engine.variable_names import find_interaction_end, read_variable_marker
 
 _OPEN = "?["
@@ -47,6 +51,7 @@ _FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})", re.MULTILINE)
 _FENCE_CLOSE = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})[ \t]*$")
 # A line still arriving that may yet become one.
 _MAY_BE_FENCE = re.compile(r"^[ ]{0,3}[`~]", re.MULTILINE)
+_LINE_BREAK = re.compile(r"\r\n|\r(?=.)|\n")
 _CLOSE = "]"
 
 
@@ -64,14 +69,12 @@ class InteractionSyntaxFilter:
         # The last character already sent out. An opener is escaped by the character before it,
         # and that character may have left in an earlier chunk, so it has to be remembered.
         self._previous = ""
-        # What has already gone out on the line being built, so an indent that left in an
-        # earlier chunk still counts as the start of its line.
+        # Classify the emitted line prefix, so an indent from an earlier chunk
+        # still counts without retaining the narration on that line.
         self._line_so_far = ""
-        # Retain only unmatched delimiter runs across emitted line breaks. Their
-        # intervening text cannot affect a later closer and need not be rescanned.
-        self._inline_prefix = ""
-        self._escape_prefix = ""
-        self._html_prefix = ""
+        # Keep unfinished syntax as small continuation witnesses. Emitted prose
+        # and attribute/title values never need to be retained or rescanned.
+        self._context_prefix = ""
         self.spans: list[str] = []
 
     def feed(self, text: str) -> str:
@@ -82,6 +85,23 @@ class InteractionSyntaxFilter:
         self._held += text
         while self._held:
             if self._inside:
+
+                def marker_end(at: int) -> int | None:
+                    marker = read_variable_marker(self._held, at)
+                    return marker.end if marker is not None else None
+
+                limit, closed = DocumentBlocks(
+                    self._held, HTML_TAG_RE
+                ).interaction_limit(2, marker_end, final=False)
+                if (
+                    not closed
+                    and limit < len(self._held)
+                    and _LINE_BREAK.search(self._held, limit) is not None
+                ):
+                    self._emit(out, self._held[:limit])
+                    self._held = self._held[limit:]
+                    self._inside = False
+                    continue
                 end = find_interaction_end(self._held, 2)
                 if end < 0:
                     return "".join(out)
@@ -127,24 +147,25 @@ class InteractionSyntaxFilter:
                 line_end = fence[1]
                 self._toggle_fence(self._held[fence[0] : line_end])
                 self._emit(out, self._held[:line_end])
-                self._inline_prefix = ""
-                self._escape_prefix = ""
-                self._html_prefix = ""
+                self._context_prefix = ""
                 self._held = self._held[line_end:]
                 continue
             if start >= 0 and self._in_indented_code(self._held, start):
                 # Four spaces of indent is a code block of its own in Markdown, and the browser
                 # renders its contents as code rather than as controls. Left as text.
-                line_end = self._held.find("\n", start)
-                if line_end < 0:
+                line_break = _LINE_BREAK.search(self._held, start)
+                if line_break is None:
                     return "".join(out)
-                self._emit(out, self._held[: line_end + 1])
-                self._held = self._held[line_end + 1 :]
+                self._emit(out, self._held[: line_break.end()])
+                self._held = self._held[line_break.end() :]
                 continue
             if start < 0 and self._fence is not None:
                 # Inside a code block with no fence in sight: all text, but a line that may yet
                 # close the block waits for its end.
-                cut = self._held.rfind("\n") + 1
+                cut = max(
+                    (match.end() for match in _LINE_BREAK.finditer(self._held)),
+                    default=0,
+                )
                 self._emit(out, self._held[:cut])
                 self._held = self._held[cut:]
                 return "".join(out)
@@ -154,10 +175,10 @@ class InteractionSyntaxFilter:
                     self._emit(out, self._held[:unclosed])
                     self._held = self._held[unclosed:]
                     return "".join(out)
-                if self._held.endswith("`"):
-                    # Do not commit the width of a backtick run until its next
+                if self._held.endswith(("`", "$", "~")):
+                    # Do not commit the width of a delimiter run until its next
                     # character arrives; a network cut may split that run.
-                    cut = len(self._held.rstrip("`"))
+                    cut = len(self._held.rstrip(self._held[-1]))
                     self._emit(out, self._held[:cut])
                     self._held = self._held[cut:]
                     return "".join(out)
@@ -166,7 +187,7 @@ class InteractionSyntaxFilter:
                 # network split it, which is the one thing a filter like this must not do. It
                 # costs nothing a learner can see: consecutive pieces of a turn's text are
                 # written as one element, so a passage released in two parts still arrives whole.
-                if self._held.endswith(("?", "{")):
+                if self._held.endswith(("?", "{", "\r")):
                     self._emit(out, self._held[:-1])
                     self._held = self._held[-1:]
                 else:
@@ -196,37 +217,14 @@ class InteractionSyntaxFilter:
         if not text:
             return
         if self._fence is None:
-            source = (
-                self._inline_prefix + (self._html_prefix or self._escape_prefix) + text
-            )
-            context = analyze_marker_context(source, final=False)
-            unfinished = [
-                run
-                for at, run in context.unmatched_backticks
-                if context.pending_html_start is None or at < context.pending_html_start
-            ]
-            self._inline_prefix = " ".join(unfinished) + " " if unfinished else ""
-            if unfinished and (line_tail := re.search(r"\r?\n[ \t]*$", source)):
-                # The next chunk may complete a blank line, ending this paragraph.
-                self._inline_prefix += line_tail.group()
-            self._html_prefix = (
-                source[context.pending_html_start :]
-                if context.pending_html_start is not None
-                else ""
-            )
-            trailing = len(text) - len(text.rstrip("\\"))
-            parity = trailing + (
-                len(self._escape_prefix) if trailing == len(text) else 0
-            )
-            self._escape_prefix = "\\" if parity % 2 else ""
+            self._context_prefix = compact_marker_context(self._context_prefix + text)
         else:
-            self._inline_prefix = ""
-            self._escape_prefix = ""
-            self._html_prefix = ""
+            self._context_prefix = ""
         out.append(text)
         self._previous = text[-1]
-        cut = text.rfind("\n")
-        self._line_so_far = text[cut + 1 :] if cut >= 0 else self._line_so_far + text
+        cut = max(text.rfind("\n"), text.rfind("\r"))
+        line = text[cut + 1 :] if cut >= 0 else self._line_so_far + text
+        self._line_so_far = line[:4] if not line.strip(" \t\r") else "x"
 
     def flush(self) -> str:
         """Release what is still held, because no more text is coming.
@@ -241,17 +239,23 @@ class InteractionSyntaxFilter:
         tail, self._held = self._held, ""
         self._inside = False
         self._fence = None
-        self._inline_prefix = ""
-        self._escape_prefix = ""
-        self._html_prefix = ""
+        self._context_prefix = ""
         return tail
 
-    def _marker_scan_text(self, text: str) -> str:
+    def _marker_scan_text(self, text: str, *, container_fences: bool = False) -> str:
         """Hide code/escaped marker openers without changing opaque name contents."""
-        prefix = self._inline_prefix + (self._html_prefix or self._escape_prefix)
+        prefix = self._context_prefix
         source = prefix + text
         context = analyze_marker_context(source, final=False)
-        return marker_syntax_source(source, context)[len(prefix) :]
+        scanned = marker_syntax_source(source, context)
+        if container_fences:
+            characters = list(scanned)
+            for start, end in context.container_fences:
+                for at in range(start, end):
+                    if characters[at] in "`~":
+                        characters[at] = "\x00"
+            scanned = "".join(characters)
+        return scanned[len(prefix) :]
 
     def _next_fence_line(self, text: str) -> tuple[int, int | None] | None:
         """Where the next fence line starts in `text`, and where it ends.
@@ -262,38 +266,59 @@ class InteractionSyntaxFilter:
         """
         scan_text = text
         if self._fence is None:
+            source = self._context_prefix + text
+            context = analyze_marker_context(source, final=False)
+            if context.pending_reference_body_start is not None:
+                opening = source.find("{{", context.pending_reference_body_start)
+                while opening >= 0:
+                    marker = read_variable_marker(source, opening)
+                    if marker is None:
+                        if _LINE_BREAK.search(source, opening) is None:
+                            # A title's closing quote is provisional until its line ends.
+                            return (max(0, opening - len(self._context_prefix)), None)
+                        break
+                    opening = source.find("{{", marker.end)
+            if (
+                context.pending_block_start is not None
+                and context.pending_container_fence is not None
+                and _LINE_BREAK.search(source, context.pending_block_start) is None
+            ):
+                # A later info-string backtick can still invalidate this opening.
+                return (0, None)
             # A raw marker is one opaque token, even when its name is invalid or
             # its closing pair has not arrived. Padding may contain newlines, so
             # searching the original text would mistake its contents for fences.
             # Keep offsets intact for the original line/stream state below.
             parts: list[str] = []
             at = 0
-            marker_scan = self._marker_scan_text(text)
+            marker_scan = self._marker_scan_text(text, container_fences=True)
             while (start := marker_scan.find("{{", at)) >= 0:
                 marker = read_variable_marker(text, start)
                 end = marker.end if marker is not None else len(text)
-                parts.extend((text[at:start], "\x00" * (end - start)))
+                parts.extend((marker_scan[at:start], "\x00" * (end - start)))
                 at = end
                 if marker is None:
                     break
-            parts.append(text[at:])
+            parts.append(marker_scan[at:])
             scan_text = "".join(parts)
-        for match in _FENCE_OPEN.finditer(scan_text):
+        # Keep offsets while making all physical endings visible to multiline anchors.
+        line_source = scan_text.replace("\r\n", "\x00\n").replace("\r", "\n")
+        for match in _FENCE_OPEN.finditer(line_source):
             if not self._at_line_start(text, match.start()):
                 continue
-            line_end = text.find("\n", match.start())
-            if line_end < 0:
+            line_break = _LINE_BREAK.search(text, match.start())
+            if line_break is None:
                 return (match.start(), None)
             if self._fence is not None and not self._closes_here(
-                text[match.start() : line_end]
+                text[match.start() : line_break.start()]
             ):
                 # Inside a block, a line that is not a valid closer is part of the code.
                 continue
-            return (match.start(), line_end + 1)
-        for partial in _MAY_BE_FENCE.finditer(scan_text):
+            return (match.start(), line_break.end())
+        for partial in _MAY_BE_FENCE.finditer(line_source):
             if (
                 self._at_line_start(text, partial.start())
-                and "\n" not in text[partial.start() :]
+                and _LINE_BREAK.search(text, partial.start()) is None
             ):
                 return (partial.start(), None)
         return None
@@ -301,7 +326,7 @@ class InteractionSyntaxFilter:
     def _in_indented_code(self, text: str, at: int) -> bool:
         """Whether the line `at` sits on is indented far enough to be a code block."""
         before = text[:at]
-        cut = before.rfind("\n")
+        cut = max(before.rfind("\n"), before.rfind("\r"))
         line = before[cut + 1 :] if cut >= 0 else self._line_so_far + before
         indent = len(line) - len(line.lstrip(" "))
         return line[:indent] == line and indent >= 4
@@ -316,7 +341,7 @@ class InteractionSyntaxFilter:
         """
         if at > 0:
             before = text[:at]
-            line = before[before.rfind("\n") + 1 :]
+            line = before[max(before.rfind("\n"), before.rfind("\r")) + 1 :]
         else:
             line = self._line_so_far
         # A fence may be indented by up to three spaces, so what stands before it on its line
@@ -327,7 +352,7 @@ class InteractionSyntaxFilter:
     @staticmethod
     def _closes_here(line: str) -> bool:
         """Whether this line is a valid closing fence, rather than code that starts like one."""
-        return _FENCE_CLOSE.match(line) is not None
+        return _FENCE_CLOSE.match(line.rstrip("\r\n")) is not None
 
     def _toggle_fence(self, line: str) -> None:
         """Open a code block on this fence line, or close the one it ends."""
@@ -338,7 +363,7 @@ class InteractionSyntaxFilter:
         if self._fence is None:
             self._fence = (run[0], len(run))
         elif (
-            _FENCE_CLOSE.match(line) is not None
+            _FENCE_CLOSE.match(line.rstrip("\r\n")) is not None
             and run[0] == self._fence[0]
             and len(run) >= self._fence[1]
         ):
