@@ -76,6 +76,16 @@ with their edges trimmed, rather than programming-language identifiers.
 - [x] 2026-10-23 18:42 UTC: Verify the actual Python dev3 wheel with the
       native-link fallback fix: all 1,066 installed-package tests and the Chinese
       answer round trip pass; pin the verified artifact in the application.
+- [x] 2026-10-23 18:53 UTC: Pass all 14,394 application backend tests
+      with 112 intentional skips using the actual Python dev3 wheel.
+- [x] 2026-10-23 18:57 UTC: Protect complete variable markers before all
+      three legacy preserved-output consumers interpret output operators.
+      The actual Python dev4 wheel passes 1,131 installed-package tests and
+      eight preserved-output process calls using the correct variables keyword.
+- [x] 2026-10-23 19:01 UTC: Preserve a real held character when confirming
+      inline closure at a stream boundary. All 3,019 engine/stream/runner tests
+      pass with the actual Python dev4 wheel, including 73 new arbitrary-cut,
+      character-by-character, HTML block-state and bounded-work regressions.
 - [ ] Replace application Python/component development pins with verified
       formal releases and complete merge readiness. This requires explicit
       publication authorization and the component library's confirmed main SHA.
@@ -119,6 +129,13 @@ with their edges trimmed, rather than programming-language identifiers.
 - Exact definition admission also requires exact memory settings queries:
   listing and deletion now use the same binary key identity as runtime reads.
   Empty optional tool arguments remain unnamed questions rather than retries.
+- Preserved-only legacy output has its own admission and extraction path.
+  Both must protect variable markers before output directives are interpreted;
+  extraction and the ordinary content-message path alone do not prove the
+  public process call preserves a key containing directive-like punctuation.
+- A real held character can confirm an inline closing run at a stream cut.
+  Replay it only for a matching unfinished inline run, preserving physical-line
+  block state and limiting replay masks to already emitted source offsets.
 
 ## Decision Log
 
@@ -165,11 +182,12 @@ with their edges trimmed, rather than programming-language identifiers.
 ## Outcomes & Retrospective
 
 All five repositories pass the same 166-case semantic conformance corpus.
-Current application sources pass 2,946 engine, streaming and runner tests,
+Current application sources pass 3,019 engine, streaming and runner tests,
 including arbitrary chunk cuts, bounded continuation state, 48 container-cache
-regressions and 36 native-link fallback regressions. The complete application
-backend checkpoint passed 14,358 tests with 112 intentional skips using Python
-dev2, before the final link-fallback correction. Exact-key database and optional unnamed-question coverage is
+regressions, 36 native-link fallback regressions and 73 held-lookahead
+regressions. The complete application
+backend checkpoint passed 14,394 tests with 112 intentional skips using Python
+dev3, before the final inline-lookahead correction. Exact-key database and optional unnamed-question coverage is
 included. The full backend suite remains the application integration gate.
 Required toolchain checks, architecture boundaries and all-file hooks pass.
 
@@ -182,9 +200,10 @@ tests. Both npm and pinned-pnpm lockfiles select the same parser version;
 subsequent component changes are test assertions and lockfile alignment, with
 the published production runtime unchanged.
 
-The actual `markdown-flow==0.4.2.dev3` PyPI wheel passes 1,066 isolated installed
+The actual `markdown-flow==0.4.2.dev4` PyPI wheel passes 1,131 isolated installed
 package tests, the Chinese question answer round trip and byte-exact runtime
-module/prompt verification. Its cache reduces the confirmed flat-quote scan
+module/prompt verification. Eight preserved-output process calls also preserve
+directive-like key punctuation. Its cache reduces the confirmed flat-quote scan
 work at 100/200/400 lines from 5,150/20,300/80,600 calls to 200/400/800 calls,
 with the same literal and variable boundaries. The application lockfile records
 real registry URLs and SHA-512 integrity for both npm artifacts; a clean
@@ -193,9 +212,9 @@ installation passes 3,337 frontend tests, type checking and lint.
 Published development artifacts are traceable to the official workflows:
 [parser run](https://github.com/ai-shifu/remark-flow/actions/runs/39997419199),
 [component run](https://github.com/ai-shifu/markdown-flow-ui/actions/runs/39999398841),
-and [Python run](https://github.com/ai-shifu/markdown-flow-agent-py/actions/runs/40005188363).
+and [Python run](https://github.com/ai-shifu/markdown-flow-agent-py/actions/runs/40007255303).
 The Python wheel SHA-256 is
-`44e33c023de5374bdb272b186bca2dc0cb21d772795390b9047a4adef0d3d5a7`.
+`65165f1a140a684916e3cb9be80214dd21861bc8437bf64852acbed480ac60a3`.
 The application pins these actual development artifacts only on its feature
 branch; the original narrow-repair pins have been replaced.
 

@@ -228,6 +228,7 @@ class InteractionSyntaxFilter:
                 self._context_prefix + text,
                 label_counts=self._context_label_counts,
                 counts_out=counts,
+                lookahead=self._held[len(text) : len(text) + 1],
             )
             self._context_label_counts = counts
         else:

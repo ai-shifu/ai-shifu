@@ -382,9 +382,25 @@ def compact_marker_context(
     *,
     label_counts: dict[int, int] | None = None,
     counts_out: dict[int, int] | None = None,
+    lookahead: str = "",
 ) -> str:
     """Preserve source-ordered unfinished syntax using bounded content witnesses."""
     context = analyze_marker_context(source, final=False, label_counts=label_counts)
+    # A held question/marker opener or CR can confirm an inline closer's width.
+    # Replay that real next character only for an unresolved matching inline run;
+    # block continuations must retain their existing physical-line EOF state.
+    # These single suffixes cannot introduce a new context token to replay twice.
+    following = lookahead[:1]
+    if source.endswith(("`", "$")) and following in ("?", "{", "\r"):
+        opening = len(source.rstrip(source[-1]))
+        width = len(source) - opening
+        unmatched = (
+            context.unmatched_backticks if source[-1] == "`" else context.unmatched_math
+        )
+        if any(at < opening and len(run) == width for at, run in unmatched):
+            context = analyze_marker_context(
+                source + following, final=False, label_counts=label_counts
+            )
     literal_starts = [start for start, _ in context.literals]
 
     def inside_literal(at: int) -> bool:
@@ -668,7 +684,7 @@ def compact_marker_context(
     # Completed literal syntax must not become a fresh opener when old prose is discarded.
     gap_characters = list(source)
     for start, end in context.literals:
-        for offset in range(start, end):
+        for offset in range(start, min(end, len(source))):
             if gap_characters[offset] not in " \t\r\n":
                 gap_characters[offset] = "x"
     # Confirmed block endings permit indented code on the next physical line.

@@ -15,6 +15,101 @@ AUTOLINK_CASES = json.loads(
 )
 
 
+@pytest.mark.parametrize("run", ["`", "``", "```", "$", "$$", "$$$"])
+@pytest.mark.parametrize(
+    ("tail", "has_question"),
+    [
+        (QUESTION, True),
+        (QUESTION + " between " + QUESTION, True),
+        ("{{ outside }} then " + QUESTION, True),
+        ("\r" + QUESTION, True),
+        ("\r\n" + QUESTION, True),
+        ("\r\r" + QUESTION, True),
+        ("?x " + QUESTION, True),
+        ("{{unfinished " + QUESTION, False),
+    ],
+)
+def test_inline_closing_run_keeps_its_real_held_opener_lookahead(
+    run: str, tail: str, has_question: bool
+) -> None:
+    prefix = "Text " + run + "{{" + run
+    source = prefix + tail
+    expected = (
+        (prefix + tail.replace(QUESTION, ""), [QUESTION] * tail.count(QUESTION))
+        if has_question
+        else (source, [])
+    )
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert (shown, syntax.spans) == expected, stream
+
+
+@pytest.mark.parametrize("run", ["`", "``", "```", "$", "$$", "$$$"])
+@pytest.mark.parametrize("marker_first", [False, True])
+def test_held_opener_lookahead_does_not_release_an_owned_raw_marker(
+    run: str, marker_first: bool
+) -> None:
+    prefix = (
+        "Text {{ unfinished " + run + "value" + run
+        if marker_first
+        else "Text " + run + "{{" + run + run[0]
+    )
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == source, stream
+        assert syntax.spans == [], stream
+
+
+def test_held_inline_closure_keeps_bounded_context_and_parser_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inspected = 0
+    original = stream_marker_context.analyze_marker_context
+
+    def counted(source: str, **kwargs: object) -> MarkerContext:
+        nonlocal inspected
+        inspected += len(source)
+        return original(source, **kwargs)
+
+    monkeypatch.setattr(stream_marker_context, "analyze_marker_context", counted)
+    prefix = "Text `{{`?x ${{$?x " * 200
+    syntax = InteractionSyntaxFilter()
+    pieces = []
+    for character in prefix + QUESTION:
+        pieces.append(syntax.feed(character))
+        assert len(syntax._context_prefix) <= 128
+        assert len(syntax._held) <= 128
+    pieces.append(syntax.flush())
+    assert "".join(pieces) == prefix
+    assert syntax.spans == [QUESTION]
+    assert inspected <= 400 * (len(prefix) + len(QUESTION))
+
+
+@pytest.mark.parametrize("opening", ["<script>", "<div>\n"])
+@pytest.mark.parametrize("run", ["`", "$"])
+@pytest.mark.parametrize("held", ["?", "{", "\r"])
+def test_held_inline_lookahead_keeps_existing_html_block_state(
+    opening: str, run: str, held: str
+) -> None:
+    closing = "</script>" if opening == "<script>" else "</div>"
+    prefix = opening + run + held + "{{ unfinished\n" + closing + "\n\n"
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
+
+
 @pytest.mark.parametrize("case", AUTOLINK_CASES, ids=lambda case: case["id"])
 def test_shared_angle_link_corpus_keeps_stream_boundary_agreement(
     case: dict[str, object],
