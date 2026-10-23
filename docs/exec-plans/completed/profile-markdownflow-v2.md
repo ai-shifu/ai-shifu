@@ -1,6 +1,6 @@
 ---
 title: Profile questionnaire MarkdownFlow 2.0 runtime
-status: active
+status: completed
 owner_surface: backend
 last_reviewed: 2026-10-23
 ---
@@ -31,7 +31,11 @@ The canonical contract is in
 - [x] 2026-10-24 CST: Passed focused backend/frontend regressions and the
   complete pre-commit gate; isolated review fixes preserve natural confirmation
   pauses and choice labels in private evidence.
-- [ ] 2026-10-24 CST: Update PR #3161, process live review and confirm exact-head CI.
+- [x] 2026-10-24 06:46 CST: Updated PR #3161 and verified code head
+  5f4ce8830: all eleven check runs and CodeRabbit passed. Cursor Security Agent
+  returned neutral because its free-trial quota prevented execution. Live review
+  had no new unhandled feedback; the previously explained draft-length
+  distinction remains open as an existing product contract.
 
 ## Surprises & Discoveries
 
@@ -72,9 +76,16 @@ The canonical contract is in
 
 ## Outcomes & Retrospective
 
-Implementation is complete and final validation/review/CI convergence is in
-progress. No merge or deployment is authorized. The first migration retained
-too much old orchestration; this revision makes native state authoritative.
+Completed and verified: 438 Profile/configuration/request/route regressions,
+1,175 shared engine/host tests and 198 frontend tests passed. Full TypeScript,
+lint, repository gates, backend CI and production-image/browser runtime smoke
+checks passed. The code-head checks and CodeRabbit review passed; Cursor did
+not execute because its trial quota was exhausted. No new actionable review
+remains. The existing manual/import draft-length difference is explained and
+left open rather than marked fixed. This final documentation-only archival is
+subject to the same final-head PR checks before delivery. No merge or deployment
+is authorized. The initial migration retained too much old orchestration; the
+complete-script revision makes native state authoritative.
 
 ## Context and Orientation
 
