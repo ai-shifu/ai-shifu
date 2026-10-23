@@ -18,38 +18,58 @@ with their edges trimmed, rather than programming-language identifiers.
 ## Progress
 
 - [x] 2026-10-23 11:31 UTC: Reproduced the original question-mark mismatch and
-  mapped editor, rendering, submission and backend memory paths.
+      mapped editor, rendering, submission and backend memory paths.
 - [x] 2026-10-23 12:16 UTC: Prepared the narrower engine-compatible repair in
-  [application PR #3160](https://github.com/ai-shifu/ai-shifu/pull/3160),
-  [parser PR #41](https://github.com/ai-shifu/remark-flow/pull/41) and
-  [component PR #258](https://github.com/ai-shifu/markdown-flow-ui/pull/258).
+      [application PR #3160](https://github.com/ai-shifu/ai-shifu/pull/3160),
+      [parser PR #41](https://github.com/ai-shifu/remark-flow/pull/41) and
+      [component PR #258](https://github.com/ai-shifu/markdown-flow-ui/pull/258).
 - [x] 2026-10-23 12:18 UTC: The user explicitly expanded scope to redefine the
-  standard with broad text names, retaining trim of both edges.
+      standard with broad text names, retaining trim of both edges.
 - [x] 2026-10-23 12:25 UTC: Defined a shared corpus with 123 normalization,
-  15 extraction, six interaction, 11 boundary and 11 document-context cases,
-  including every trim character.
+      15 extraction, six interaction, 11 boundary and 11 document-context cases,
+      including every trim character.
 - [x] 2026-10-23 13:07 UTC: Published the reviewable bilingual specification
-  change in [specification PR #11](https://github.com/ai-shifu/markdown-flow/pull/11)
-  and prepared [Python library PR #80](https://github.com/ai-shifu/markdown-flow-agent-py/pull/80).
+      change in [specification PR #11](https://github.com/ai-shifu/markdown-flow/pull/11)
+      and prepared [Python library PR #80](https://github.com/ai-shifu/markdown-flow-agent-py/pull/80).
 - [x] 2026-10-23 13:23 UTC: Finish the coordinated specification, parser,
-  component library, Python library and application changes.
+      component library, Python library and application changes.
 - [x] 2026-10-23 14:20 UTC: Validate initial inline-code and HTML-tag literal
-  boundaries across extraction, substitution and streamed controls.
+      boundaries across extraction, substitution and streamed controls.
 - [x] 2026-10-23 14:28 UTC: Push the core application contract and official
-  Python dependency in commit `b39af30641b92629d70f801e263809b9a732b372`.
+      Python dependency in commit `b39af30641b92629d70f801e263809b9a732b372`.
 - [x] 2026-10-23 15:01 UTC: Repair exact-key memory listing/deletion and blank
-  optional interaction fields; focused database and protocol regressions pass.
+      optional interaction fields; focused database and protocol regressions pass.
 - [x] 2026-10-23 15:49 UTC: Validate indented-code, HTML, math, link-resource,
-  heading, container and physical-line boundaries, with bounded incremental
-  streaming context; the complete engine/stream/runner gate passes 1,894 tests.
-- [ ] 2026-10-23 15:49 UTC: Finish the confirmed quote/list delimiter-boundary
-  alignment and reduce the document helper's delimiter/line index allocations.
-- [ ] 2026-10-23 12:28 UTC: Validate actual built packages and all affected
-  runtime, editor, streaming, definition and persistence paths.
-- [ ] 2026-10-23 12:28 UTC: Update PRs and dependency pins with publication
-  prerequisites, and complete current-head CI/review verification.
-- [ ] 2026-10-23 12:28 UTC: Replace the application development component pin
-  with its verified formal release before merging.
+      heading, container and physical-line boundaries, with bounded incremental
+      streaming context; the complete engine/stream/runner gate passes 1,894 tests.
+- [x] 2026-10-23 16:14 UTC: Finish the confirmed quote/list delimiter-boundary
+      alignment and reduce the document helper's delimiter/line index allocations.
+- [x] 2026-10-23 16:19 UTC: Verify the published Python 0.4.1 artifact and
+      complete all 13,408 application backend tests, with 112 intentional skips.
+- [x] 2026-10-23 17:57 UTC: Complete native container, physical-line and
+      angle-autolink boundaries; all 2,862 engine, streaming and runner tests pass.
+- [x] 2026-10-23 17:55 UTC: Verify the actual `remark-flow@1.4.0-dev.1`
+      registry artifact, API/types and 53 AST cases in both production and
+      development mode. Current parser-head CI and review checks are complete.
+- [x] 2026-10-23 18:10 UTC: Validate actual `markdown-flow-ui@0.3.0-dev.1`
+      and `markdown-flow==0.4.2.dev1` registry artifacts. The component passes
+      424 installed-package tests, and the SDK passes 982 installed-wheel tests
+      plus the original Chinese question answer round trip.
+- [x] 2026-10-23 18:10 UTC: Install the exact npm artifacts from the generated
+      application lockfile; all 3,337 frontend tests, type checking and lint pass.
+- [x] 2026-10-23 18:16 UTC: Pass the full application backend checkpoint:
+      14,310 tests with 112 intentional skips using the actual Python dev1 wheel.
+- [x] 2026-10-23 18:23 UTC: Cache verified native container bounds without
+      changing source scope. All 2,910 engine/stream/runner tests pass, including
+      48 new work-count, query-order, partial-line and physical-newline cases.
+- [x] 2026-10-23 18:25 UTC: Verify the actual `markdown-flow==0.4.2.dev2`
+      wheel with the cache fix: all 1,030 installed-package tests, Chinese answer
+      round trip and runtime module/prompt comparisons pass. Pin it in the app.
+- [x] 2026-10-23 18:25 UTC: Update ready PRs and feature-branch dependency
+      pins with publication evidence and formal-release prerequisites.
+- [ ] Replace application Python/component development pins with verified
+      formal releases and complete merge readiness. This requires explicit
+      publication authorization and the component library's confirmed main SHA.
 
 ## Surprises & Discoveries
 
@@ -118,36 +138,64 @@ with their edges trimmed, rather than programming-language identifiers.
   helpers remain standard-library-only; document-stage context handling reuses
   the application's existing pinned Markdown grammar. Shared conformance data
   locks equivalent behavior across languages and consumers.
+- Use one document walk to identify inline delimiters rejected at native block
+  boundaries, then seed the native parser before it consumes container prefixes.
+  A per-processor parser accessor preserves plugin order, parser reassignment
+  and copied processors; a synchronous seed stack is restored on exceptions.
+  Normalize a document-leading BOM only for native offsets, retaining it in raw
+  helper offsets and in variable names. Keep line and delimiter indexes compact.
+- Publish development builds for feature-branch integration. Automatic
+  approval review rejected formal parser publication because an irreversible
+  release was not explicitly authorized; no formal-publication retry or
+  alternative route is used. Actual development artifacts are verified before
+  pinning them. Release-version gates remain intact for eventual merge.
 - Never merge into `main`. The component library's release policy requires a
   maintainer merge and explicit confirmation of its exact main commit before
   formal publication. Development builds remain branch-only dependencies.
 
 ## Outcomes & Retrospective
 
-The coordinated implementation passes all 166 shared conformance cases.
-The core application backend passed 13,090 tests with 112 intentional skips in an
-isolated environment using the official PyPI `markdown-flow==0.4.0` package,
-including the complete offline engine and exact-key database regressions.
-Subsequent application compatibility fixes pass 1,894 engine, streaming and
-runner tests, plus 90 focused memory/protocol regressions. The component library
-passed 1,992 unit tests and 137 built-package tests against the current parser
-candidate. The parser passed 520 Jest tests plus 45 real Markdown AST cases in
-each production and development mode. The Python 0.4.1 candidate passed 391
-source tests. Final installed-wheel checks and a confirmed delimiter-boundary
-and index-allocation follow-up remain in progress. Bilingual documentation builds
-and repository-wide core application hooks passed.
+All five repositories pass the same 166-case semantic conformance corpus.
+Current application sources pass 2,910 engine, streaming and runner tests,
+including arbitrary chunk cuts, bounded continuation state and 48 container-cache
+regressions. The complete application backend checkpoint passed 14,310 tests
+with 112 intentional skips using Python dev1, before the final cache-only
+optimization. Exact-key database and optional unnamed-question coverage is
+included. The full backend suite remains the application integration gate.
+Required toolchain checks, architecture boundaries and all-file hooks pass.
 
-Python publication is verified at
-https://pypi.org/project/markdown-flow/0.4.0/. The actual wheel's 33 runtime files
-match the tested local build byte-for-byte, and its isolated installed suite
-also passes all 269 tests. JavaScript publication and final application
-integration are still in progress. Python 0.4.1 adds the verified document-stage
-compatibility fixes; streaming continuation and final registry-artifact
-application checks remain to be completed.
-The earlier `remark-flow@1.3.5` / `markdown-flow-ui@0.2.36-dev.1` pins only
-implement the original narrow repair and must be replaced with verified
-artifacts. The component library's formal-release prerequisite remains a
-maintainer merge and human confirmation; no release gate is bypassed.
+The actual `remark-flow@1.4.0-dev.1` registry artifact matches the tested runtime
+payload, with a version-only package metadata difference. Its API, public types
+and 53 production plus 53 development AST cases pass. Component source passes
+3,433 unit, 424 built-package and 160 browser tests using that exact parser.
+The actual `markdown-flow-ui@0.3.0-dev.1` npm artifact passes all 424 package
+tests. Both npm and pinned-pnpm lockfiles select the same parser version;
+subsequent component changes are test assertions and lockfile alignment, with
+the published production runtime unchanged.
+
+The actual `markdown-flow==0.4.2.dev2` PyPI wheel passes 1,030 isolated installed
+package tests, the Chinese question answer round trip and byte-exact runtime
+module/prompt verification. Its cache reduces the confirmed flat-quote scan
+work at 100/200/400 lines from 5,150/20,300/80,600 calls to 200/400/800 calls,
+with the same literal and variable boundaries. The application lockfile records
+real registry URLs and SHA-512 integrity for both npm artifacts; a clean
+installation passes 3,337 frontend tests, type checking and lint.
+
+Published development artifacts are traceable to the official workflows:
+[parser run](https://github.com/ai-shifu/remark-flow/actions/runs/39997419199),
+[component run](https://github.com/ai-shifu/markdown-flow-ui/actions/runs/39999398841),
+and [Python run](https://github.com/ai-shifu/markdown-flow-agent-py/actions/runs/40002911606).
+The Python wheel SHA-256 is
+`6136544dd3da200deb8744dbbf0eab503e2b34e170e103a92720fd8fb8dd58be`.
+The application pins these actual development artifacts only on its feature
+branch; the original narrow-repair pins have been replaced.
+
+Formal publication remains an explicit prerequisite. Automatic approval review
+rejected irreversible parser release publication without explicit authorization;
+the component library additionally requires a maintainer merge and human
+confirmation of its exact main commit. No main-branch merge or release-gate
+bypass is performed. Release-pin CI must stay failing until verified formal
+Python and component releases replace the development pins.
 
 ## Context and Orientation
 

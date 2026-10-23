@@ -394,6 +394,7 @@ class DocumentBlocks:
         self.text = text
         self.html_pattern = html
         self._html_token_ends: dict[tuple[int, bool], int | None] = {}
+        self._container_ends: dict[tuple[int, bool], int] = {}
         self._html_last_ends: dict[str, int] | None = None
         self.lines = physical_lines(text)
         self.closed_fence_lines: set[int] = set()
@@ -484,19 +485,36 @@ class DocumentBlocks:
         steps = self.container_steps[index]
         if not steps:
             return len(self.text)
-        for line in self.lines[index + 1 :]:
+        key = (index, final)
+        if key in self._container_ends:
+            return self._container_ends[key]
+        covered = [index]
+        end = len(self.text)
+        for following in range(index + 1, len(self.lines)):
+            line = self.lines[following]
             value = self.text[line.start : line.content_end]
             if container_content_start(value, steps) is None and value.strip(" \t"):
-                if container_content_start(value, steps, partial=True) == len(value):
-                    continue
-                if (
-                    not final
-                    and line.end == line.content_end == len(self.text)
-                    and container_content_start(value, steps, partial=True) is not None
+                partial = container_content_start(value, steps, partial=True)
+                if not (
+                    partial == len(value)
+                    or (
+                        not final
+                        and line.end == line.content_end == len(self.text)
+                        and partial is not None
+                    )
                 ):
-                    continue
-                return line.start
-        return len(self.text)
+                    end = line.start
+                    break
+            if self.container_steps[following] == steps:
+                following_key = (following, final)
+                if following_key in self._container_ends:
+                    # The cached query excludes its own line, which was checked above.
+                    end = self._container_ends[following_key]
+                    break
+                covered.append(following)
+        for following in covered:
+            self._container_ends[(following, final)] = end
+        return end
 
     def fence(self, start: int, *, final: bool = True) -> BlockSpan | None:
         """Read plain or quote/list-contained fenced code."""
