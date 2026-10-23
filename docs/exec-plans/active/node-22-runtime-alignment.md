@@ -27,8 +27,11 @@ through independent pull requests; merging and deployment remain human actions.
   production build, repository harness, developer-tool check and all-file hooks.
 - [x] 2026-10-23 UTC: Validate sibling libraries and both playground builds;
   reproduce legacy playground type/lint failures on its unchanged main baseline.
-- [ ] 2026-10-23 UTC: Read back the independent pull requests and their remote
-  validation results; no merge or deployment is part of this work.
+- [x] 2026-10-23 UTC: Create and read back seven ready pull requests. All
+  sibling repository checks have finished successfully or followed their
+  existing skipped/neutral policies; AI-Shifu's image/runtime CI is running.
+- [ ] Human acceptance: review the independent pull requests and their final
+  image/runtime checks. Merging and deployment remain outside this task.
 
 ## Surprises & Discoveries
 
@@ -56,6 +59,16 @@ also pass. The legacy playground retains three pre-existing TypeScript errors
 and an ESLint stack overflow, reproduced with its original Node 20 types on
 unchanged main. Docker is unavailable locally, so no container build is claimed.
 The independent pull requests record each repository's complete evidence.
+
+| Repository | Pull request | Verification |
+| --- | --- | --- |
+| AI-Shifu | [#3158](https://github.com/ai-shifu/ai-shifu/pull/3158) | 3,260 tests, typecheck, production build, all-file hooks; remote image/runtime CI pending |
+| MarkdownFlow UI | [#257](https://github.com/ai-shifu/markdown-flow-ui/pull/257) | 1,289 unit, 5 package and 159 browser tests, builds and remote CI |
+| MarkdownFlow Agent UI | [#7](https://github.com/ai-shifu/markdown-flow-agent-ui/pull/7) | 32 tests, typecheck, library/Storybook builds and remote CI |
+| MarkdownFlow Agent Python | [#79](https://github.com/ai-shifu/markdown-flow-agent-py/pull/79) | Repository hooks, package build/install and remote CI |
+| Remark Flow | [#40](https://github.com/ai-shifu/remark-flow/pull/40) | 161 unit and 19 rendering tests, build and remote CI |
+| MarkdownFlow Playground | [#32](https://github.com/ai-shifu/markdown-flow-playground/pull/32) | Production build; existing type/lint failures reproduced on main |
+| MarkdownFlow Agent Playground | [#12](https://github.com/ai-shifu/markdown-flow-agent-playground/pull/12) | Frozen install, TypeScript/Vite build and remote lint; manual jobs skipped |
 
 ## Context and Orientation
 
