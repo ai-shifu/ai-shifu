@@ -25,7 +25,7 @@ answer imports, private final drafts, and the existing frontend SSE contract.
   old cached sessions, error recovery, and hidden summaries.
 - [x] 2026-10-23 CST: Bind learner and operator submissions to their deferred
   question ID and keep separate stable content/question/feedback identities.
-- [x] 2026-10-23 CST: Passed 500 profile/config/route tests, 1,168 engine and
+- [x] 2026-10-23 CST: Passed 509 profile/config/route tests, 1,168 engine and
   shared-host tests, 171 frontend tests, and the complete pre-commit gate.
 - [x] 2026-10-23 CST: Fixed mixed choice-plus-text input and guarded static
   question types, bindings and ordered stored values in separate review commits.
@@ -38,6 +38,8 @@ answer imports, private final drafts, and the existing frontend SSE contract.
   question and completed the block after its answer without asking again.
 - [x] 2026-10-23 CST: Kept question display identities stable across interrupted
   renders and cache-write failures while replacing the native question token.
+- [x] 2026-10-23 CST: Reject incompatible saved questions before engine dispatch
+  so discarded tool calls cannot turn ignored input into accepted profile evidence.
 
 ## Surprises & Discoveries
 
@@ -82,9 +84,11 @@ answer imports, private final drafts, and the existing frontend SSE contract.
   to the frozen document while permitting localized display text. Preserve both
   selected choices and typed text in mixed controls.
 - The first-release migration reads existing schema-1 sessions, which have no
-  typed pending tools. Recovery from manually altered or future-incompatible
-  schema-2 tool specs is outside this migration's accepted cache contract;
-  a future host-validator change must define its typed-session migration.
+  typed pending tools. Saved native questions must still match the current
+  authored block, retain exactly one pending interaction and remain renderable.
+  Reject an incompatible question before redispatch or answer handling without
+  changing the cache or accepting its input. Automatic migration of incompatible
+  native question specs remains outside this runtime's recovery contract.
 
 ## Outcomes & Retrospective
 
@@ -93,7 +97,7 @@ engine. Frozen authored blocks remain the UI progress boundary; deferred calls
 and accepted evidence survive Redis, exact retry and assistant import. The
 legacy parser remains only for authoring validation and source restoration.
 
-Validation passed: 500 profile/config/route
+Validation passed: 509 profile/config/route
 tests; 1,168 engine, bridge, gateway and protocol tests; 171 frontend tests;
 the full repository pre-commit gate, repository harness, architecture ratchet
 and unit-of-work ratchet. TypeScript also passed across the complete frontend

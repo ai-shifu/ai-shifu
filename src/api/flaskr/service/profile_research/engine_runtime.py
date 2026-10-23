@@ -281,6 +281,19 @@ def run_profile_block(
     if is_summary and working.pending:
         msg = "MarkdownFlow 2.0 cannot resume a question in the profile summary"
         raise ProfileResearchError(msg)
+    if working.pending:
+        if not is_interaction or len(working.pending) != 1:
+            msg = "MarkdownFlow 2.0 cannot resume the saved profile question"
+            raise ProfileResearchError(msg)
+        spec = working.pending[0].spec
+        if check_authored_interaction(
+            spec, current_block.content, session.variables
+        ) or unrenderable_reason(spec):
+            # The engine can discard a refused cached tool without consuming its
+            # submitted answer. Refuse it before running so that answer cannot
+            # become accepted profile evidence or advance the authored cursor.
+            msg = "MarkdownFlow 2.0 cannot resume the saved profile question"
+            raise ProfileResearchError(msg)
     if working.pending and not user_input:
         pending = working.pending[0]
         request = InteractionRequest(id=pending.tool_call_id, spec=pending.spec)

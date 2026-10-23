@@ -25,6 +25,10 @@ produce its narrative; the static interaction block supplies its controls.
 After accepting the answer, the block completes without asking another
 question. Invalid answers keep the current question available. Deferred tool
 state, accepted answers and typed conversation history survive Redis round trips.
+Before redispatching a saved question or accepting its answer, the runtime
+checks that it is the single renderable interaction for the current authored
+block. An incompatible saved question fails the request without accepting its
+input or changing stored progress and evidence.
 Prior questions, instructions and model responses are context rather than
 learner facts. Named values and accepted raw answers supply evidence for the
 final profile, including answers to questions without a named variable.
