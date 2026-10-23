@@ -102,6 +102,20 @@ from tests.common.fixtures.fake_llm import (
 from tests.common.fixtures.fake_redis import FakeRedis
 
 
+@pytest.fixture(autouse=True)
+def isolated_request_context() -> Iterator[None]:
+    """Give each test a request boundary, including request-aware logging state."""
+    from flaskr.common.request_context import thread_local
+
+    before = vars(thread_local).copy()
+    vars(thread_local).clear()
+    try:
+        yield
+    finally:
+        vars(thread_local).clear()
+        vars(thread_local).update(before)
+
+
 @pytest.fixture(scope="session")
 def app() -> Iterator[Flask | None]:
     if os.getenv("SKIP_APP_FIXTURE"):

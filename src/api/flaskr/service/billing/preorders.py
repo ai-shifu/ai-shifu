@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from flaskr.service.order.payment_providers.api import historical_payment_definition
 from flaskr.util.datetime import now_utc, to_utc_iso
 
 from .consts import (
@@ -110,6 +111,7 @@ def build_preorder_order_metadata(
     target_product: BillingProduct,
     effective_at: datetime,
     cycle_end_at: datetime,
+    payment_provider: str,
     checkout_started: bool = True,
 ) -> dict[str, object]:
     """Build preorder order metadata."""
@@ -129,7 +131,10 @@ def build_preorder_order_metadata(
             "renewal_cycle_end_at": to_utc_iso(cycle_end_at),
             "subscription_bid": subscription.subscription_bid,
             "product_bid": target_product.product_bid,
-            "provider_reference_type": "charge",
+            "provider_reference_type": historical_payment_definition(
+                payment_provider
+            ).operation_reference_type("query"),
+            "provider_reference_kind": "payment",
         }
     ).to_metadata_json()
 

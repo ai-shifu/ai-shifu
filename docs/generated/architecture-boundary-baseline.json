@@ -538,14 +538,6 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
-      "key": "backend.cross_service_import|flaskr/service/order/funs.py|flaskr.service.billing.webhooks",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/order/funs.py",
-      "target": "flaskr.service.billing.webhooks",
-      "message": "flaskr/service/order/funs.py imports cross-service module flaskr.service.billing.webhooks outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
       "key": "backend.cross_service_import|flaskr/service/order/funs.py|flaskr.service.learn.learn_dtos",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/order/funs.py",

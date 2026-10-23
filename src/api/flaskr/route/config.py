@@ -24,21 +24,10 @@ from flaskr.service.billing.runtime_config import (
     build_runtime_billing_context,
 )
 from flaskr.service.config.funcs import get_config
+from flaskr.service.order.payment_providers.api import registered_payment_providers
+from flaskr.util.boolean import parse_bool as _to_bool
 
 from .common import bypass_token_validation, make_common_response
-
-
-def _to_bool(value: object, default: object = False) -> bool:
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return default
-    value_str = str(value).strip().lower()
-    if value_str in {"true", "1", "yes", "y", "on"}:
-        return True
-    if value_str in {"false", "0", "no", "n", "off"}:
-        return False
-    return default
 
 
 def _to_list(value: object, default: object = None) -> list[str]:
@@ -197,7 +186,7 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         custom_payment_channels = (
             [
                 provider
-                for provider in ("pingxx", "stripe", "alipay", "wechatpay")
+                for provider in registered_payment_providers()
                 if provider in public_integrations
             ]
             if custom_payment_enabled

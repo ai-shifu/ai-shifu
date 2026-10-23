@@ -6,6 +6,9 @@ import { useTranslation } from 'react-i18next';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
+import ErrorDisplay from '@/components/ErrorDisplay';
+import { useBillingPaymentProviders } from '@/hooks/useBillingPaymentProviders';
+import { useTracking } from '@/hooks/useTracking';
 import { useEnvStore } from '@/store';
 import { AdminBillingProviderPricesPanel } from './AdminBillingProviderPricesPanel';
 import useOperatorGuard from '../useOperatorGuard';
@@ -15,28 +18,47 @@ export default function AdminOperationProviderPricesPage() {
   const router = useRouter();
   const { isReady } = useOperatorGuard();
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
-  const stripeEnabled = useEnvStore(state => state.stripeEnabled === 'true');
-  const paymentChannels = useEnvStore(state => state.paymentChannels);
   const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
-  const hasStripeChannel = React.useMemo(
-    () =>
-      (Array.isArray(paymentChannels) ? paymentChannels : []).some(
-        channel =>
-          String(channel || '')
-            .trim()
-            .toLowerCase() === 'stripe',
-      ),
-    [paymentChannels],
+  const { data, error, isLoading, mutate } = useBillingPaymentProviders(
+    isReady && billingEnabled,
   );
-  const canManageProviderPrices =
-    billingEnabled && stripeEnabled && hasStripeChannel;
+  const providers = data?.items.filter(item => item.catalog) || [];
+  const [selectedProvider, setSelectedProvider] = React.useState('');
+  const provider = providers.some(item => item.provider === selectedProvider)
+    ? selectedProvider
+    : providers[0]?.provider;
+  const { trackEvent } = useTracking();
+  const canManageProviderPrices = billingEnabled && Boolean(provider);
 
   React.useEffect(() => {
-    if (!runtimeConfigLoaded || canManageProviderPrices) {
+    if (
+      !isReady ||
+      !runtimeConfigLoaded ||
+      isLoading ||
+      error ||
+      canManageProviderPrices
+    ) {
       return;
     }
     router.replace('/admin/operations');
-  }, [canManageProviderPrices, router, runtimeConfigLoaded]);
+  }, [
+    canManageProviderPrices,
+    error,
+    isLoading,
+    isReady,
+    router,
+    runtimeConfigLoaded,
+  ]);
+
+  if (error) {
+    return (
+      <ErrorDisplay
+        errorCode={500}
+        errorMessage={error instanceof Error ? error.message : undefined}
+        onRetry={() => void mutate()}
+      />
+    );
+  }
 
   if (!isReady || !runtimeConfigLoaded || !canManageProviderPrices) {
     return <Loading />;
@@ -51,7 +73,44 @@ export default function AdminOperationProviderPricesPage() {
         title={t('module.billing.admin.providerPrices.menuTitle')}
         description={t('module.billing.admin.providerPrices.pageDescription')}
       />
-      <AdminBillingProviderPricesPanel />
+      {providers.length > 1 && (
+        <label className='mb-4 flex items-center gap-3'>
+          {t('module.billing.checkout.providerLabel')}
+          <select
+            className='rounded-md border border-input bg-background p-2'
+            value={provider}
+            onChange={event => {
+              if (
+                event.target.value === provider ||
+                !providers.some(item => item.provider === event.target.value)
+              )
+                return;
+              setSelectedProvider(event.target.value);
+              try {
+                void trackEvent('admin_payment_provider_selected', {
+                  surface: 'prices',
+                }).catch(() => {});
+              } catch {}
+            }}
+          >
+            {providers.map(item => (
+              <option
+                key={item.provider}
+                value={item.provider}
+              >
+                {t(item.label_key)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <AdminBillingProviderPricesPanel
+        key={provider}
+        provider={provider}
+        providerLabel={t(
+          providers.find(item => item.provider === provider)!.label_key,
+        )}
+      />
     </>
   );
 }

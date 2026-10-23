@@ -6,6 +6,10 @@ from typing import TYPE_CHECKING
 
 from flaskr.service.common.models import raise_error
 from flaskr.service.config import get_config
+from flaskr.service.order.payment_providers import (
+    payment_definition,
+    registered_payment_providers,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -25,33 +29,8 @@ def resolve_payment_channel(
     requested_channel_lower = requested_channel.lower()
     default_channel = (default_pingxx_channel or "").strip()
 
-    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe") or "")
-    enabled_providers = {
-        item.strip().lower() for item in enabled_raw.split(",") if item.strip()
-    } or {"pingxx", "stripe"}
-    supported_providers = {"pingxx", "stripe", "alipay", "wechatpay"}
-    enabled_providers = enabled_providers.intersection(supported_providers)
-    scoped_providers = {
-        item.strip().lower()
-        for item in (additional_enabled_providers or [])
-        if str(item or "").strip()
-    }.intersection(supported_providers)
-
-    if enabled_raw.strip().lower() == "pingxx,stripe":
-        if "pingxx" in enabled_providers:
-            pingxx_key = str(get_config("PINGXX_SECRET_KEY", "") or "")
-            pingxx_app = str(get_config("PINGXX_APP_ID", "") or "")
-            pingxx_key_path = str(get_config("PINGXX_PRIVATE_KEY_PATH", "") or "")
-            if not (pingxx_key and pingxx_app and pingxx_key_path):
-                enabled_providers.discard("pingxx")
-        if "stripe" in enabled_providers:
-            stripe_key = str(get_config("STRIPE_SECRET_KEY", "") or "")
-            if not stripe_key:
-                enabled_providers.discard("stripe")
-        if not enabled_providers:
-            enabled_providers = {"pingxx", "stripe"}
-
-    enabled_providers.update(scoped_providers)
+    supported_providers = set(registered_payment_providers())
+    enabled_providers = enabled_payment_providers(additional_enabled_providers)
 
     provider_from_channel = ""
     if ":" in requested_channel_lower:
@@ -94,56 +73,21 @@ def resolve_payment_channel(
             elif "pingxx" in enabled_providers:
                 target_provider = "pingxx"
             else:
-                raise_error("server.pay.payChannelNotSupport")
+                target_provider = min(enabled_providers)
 
     if target_provider not in supported_providers:
         raise_error("server.pay.payChannelNotSupport")
     if target_provider not in enabled_providers:
         raise_error("server.pay.payChannelNotSupport")
 
-    if target_provider == "stripe":
-        normalized_channel = requested_channel.lower()
-        provider_channel = "checkout_session"
-        if ":" in normalized_channel:
-            _, provider_channel = normalized_channel.split(":", 1)
-        elif normalized_channel and normalized_channel != "stripe":
-            provider_channel = normalized_channel
-
-        provider_channel = provider_channel or "checkout_session"
-        if provider_channel in {"checkout", "checkout_session"}:
-            provider_channel = "checkout_session"
-        elif provider_channel in {"intent", "payment_intent"}:
-            provider_channel = "payment_intent"
-        else:
-            provider_channel = "checkout_session"
-        return "stripe", provider_channel
-
-    if target_provider == "alipay":
-        provider_channel = _strip_provider_prefix(requested_channel_lower)
-        if provider_channel in {"", "alipay"}:
-            provider_channel = (
-                default_channel if default_channel == "alipay_qr" else "alipay_qr"
-            )
-        if provider_channel != "alipay_qr":
-            raise_error("server.pay.payChannelNotSupport")
-        return "alipay", provider_channel
-
-    if target_provider == "wechatpay":
-        provider_channel = _strip_provider_prefix(requested_channel_lower)
-        if provider_channel in {"", "wechatpay"}:
-            provider_channel = (
-                default_channel
-                if default_channel in {"wx_pub_qr", "wx_pub"}
-                else "wx_pub_qr"
-            )
-        if provider_channel not in {"wx_pub_qr", "wx_pub"}:
-            raise_error("server.pay.payChannelNotSupport")
-        return "wechatpay", provider_channel
-
-    provider_channel = requested_channel or default_channel
-    if not provider_channel:
+    definition = payment_definition(target_provider)
+    hint = requested_channel
+    if hint.lower() == target_provider and not definition.accepts_custom_channels:
+        hint = ""
+    provider_channel = definition.normalize_channel(hint, default_channel)
+    if provider_channel is None:
         raise_error("server.pay.payChannelNotSupport")
-    return "pingxx", provider_channel
+    return target_provider, provider_channel
 
 
 def resolve_market_payment_provider(
@@ -167,6 +111,11 @@ def _provider_for_channel(channel: str, enabled_providers: set[str]) -> str:
         return "wechatpay" if "wechatpay" in enabled_providers else "pingxx"
     if channel == "wx_wap":
         return "pingxx"
+    for provider in registered_payment_providers():
+        if provider in enabled_providers and any(
+            route.channel == channel for route in payment_definition(provider).routes
+        ):
+            return provider
     return "pingxx"
 
 
@@ -175,3 +124,38 @@ def _strip_provider_prefix(channel: str) -> str:
         return channel
     _, provider_channel = channel.split(":", 1)
     return provider_channel.strip().lower()
+
+
+def enabled_payment_providers(
+    additional_enabled_providers: Iterable[str] | None = None,
+) -> set[str]:
+    """Share existing configured eligibility with read-only payment options."""
+    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe") or "")
+    enabled_providers = {
+        item.strip().lower() for item in enabled_raw.split(",") if item.strip()
+    } or {"pingxx", "stripe"}
+    supported_providers = set(registered_payment_providers())
+    enabled_providers = enabled_providers.intersection(supported_providers)
+    scoped_providers = {
+        item.strip().lower()
+        for item in (additional_enabled_providers or [])
+        if str(item or "").strip()
+    }.intersection(supported_providers)
+
+    if enabled_raw.strip().lower() == "pingxx,stripe":
+        if "pingxx" in enabled_providers:
+            pingxx_key = str(get_config("PINGXX_SECRET_KEY", "") or "")
+            pingxx_app = str(get_config("PINGXX_APP_ID", "") or "")
+            pingxx_key_path = str(get_config("PINGXX_PRIVATE_KEY_PATH", "") or "")
+            if not (pingxx_key and pingxx_app and pingxx_key_path):
+                enabled_providers.discard("pingxx")
+        if "stripe" in enabled_providers:
+            stripe_key = str(get_config("STRIPE_SECRET_KEY", "") or "")
+            if not stripe_key:
+                enabled_providers.discard("stripe")
+        if not enabled_providers:
+            enabled_providers = {"pingxx", "stripe"}
+
+    enabled_providers.update(scoped_providers)
+
+    return enabled_providers

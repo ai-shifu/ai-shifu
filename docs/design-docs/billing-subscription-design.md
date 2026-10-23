@@ -316,6 +316,8 @@ v1 冻结 subscription lifecycle 规则：
 - `downgrade` 的领域规则固定为“下周期生效，不立即降级”：当前周期只记录 `next_product_bid`，并在 `current_period_end_at` 创建 `downgrade_effective` 事件；只有下一笔 `subscription_renewal` paid apply 成功后，才把 `next_product_bid` 真正切到 `product_bid`
 - `cancel` 规则固定为“周期末取消”：API cancel 只把 `cancel_at_period_end=1` 且 `status=cancel_scheduled`，当前已发放积分和当前周期有效期继续保留到 `current_period_end_at`；不会立即关停当前周期
 - `pingxx`、直连 `alipay/wechatpay` 与 `manual` grant 等不支持 provider 自动账期的链路使用平台自管套餐有效期：月套餐按 `30 * interval_count` 天且含购买当日，到第 N 天 `23:59:59` 结束；年套餐按自然年到次年同月同日 `23:59:59`，`2 月 29 日` 购买时到次年 `3 月 1 日 23:59:59`；日套餐同样按含当日的到期日 `23:59:59` 结束。Stripe 继续以 provider 返回的周期为准，避免本地有效期和 provider 账期漂移。
+- 托管订阅初购/升级在确认付款时，把标准化合同周期冻结为订单 metadata 中的 `provider_period_start_at` / `provider_period_end_at`（UTC ISO-8601，尾缀 `Z`）。权益和积分桶使用该已确认周期，不能因支付创建时间与合同开始时间不同而重新计算本地月周期。付款时间保留为独立事实；旧订单重放不能回退已推进的合同周期。同一周期收到较新的有效合同变更时，使用当前合同确认的结束时间，包括合法缩短账期；历史付款快照不得覆盖该更新。此快照不改写续费订单已有的周期身份，缺失合同事实时仍走原有兼容路径。
+- 托管订阅已确认的合同状态与付款状态分开处理：欠费、暂停、取消或其他不可用状态不能因历史付款单的积分激活重放而变回有效。通知与查单存在标准化合同事实时，以该事实更新订阅；已有合同周期快照时，较晚到达的付款事实不得替代当前合同状态。
 - `resume` 只允许从 `cancel_scheduled` 或 provider 标记的 `paused` 状态恢复；恢复时必须清空 `cancel_at_period_end`，把订阅回到 `active`，并重新启用后续 `renewal`
 - provider 把订阅推进到 `past_due` 后，v1 一律进入宽限期模式：`grace_period_end_at` 默认等于当前 `current_period_end_at`，原 `renewal/cancel_effective/downgrade_effective` 事件让位给 `retry`，直到续费成功或订阅被取消/过期
 - `paused` 属于 provider 驱动状态，当前批次不提供主动 pause API；若 provider 事件把订阅置为 `paused`，creator 只能通过已有 `resume` 接口恢复
@@ -1181,6 +1183,29 @@ interface BillingPaymentProviderAdapter {
 - `sync_reference` 只做主动对账与状态补偿，不生成独立 webhook 记录
 - 当前实现约束：`service/billing` 与旧 `/order` 仅复用 shared `payment_providers` adapter 暴露的 checkout/subscription/webhook/sync/refund 接口，不直接耦合 provider SDK；业务状态不复用旧 `order_orders`，provider raw snapshot 通过 `order_pingxx_orders` / `order_stripe_orders` / `order_native_payment_orders` 按 provider 与 `biz_domain` 隔离
 
+Order reads do not depend on successful checkout-option enrichment. If the
+lookup is unavailable, omit the optional `payment_options` field so clients
+retain their existing compatibility path; an explicit empty list remains the
+authoritative list of currently advertised checkout options.
+
+The shared payment contract separates payment facts from subscription facts and
+browser actions. A contract-only query does not prove that a pending hosted
+checkout has settled or closed; reopening reuses its saved action while the
+same order remains pending and unexpired. The expired-order endpoint keeps its
+existing rejection. A replacement purchase must reconcile and confirm closure
+of the original payment reference before creating another attempt, using that
+reference's declared type rather than canceling its subscription contract. Payment
+updates rejected by the order state machine cannot activate a subscription.
+Explicitly accepted contract facts remain authoritative even when they arrive
+after payment-only settlement; replay repairs the original credit grant without
+resetting the latest contract status, cancellation arrangement or period.
+
+Frontend selections retain the provider and option identity even when gateways
+share route names. JSAPI synchronization uses the provider returned with the
+payment action. Default selection and preferred WeChat scenes cannot silently
+substitute another gateway. These contracts preserve existing admission and
+billing rules; they do not enable a routing cutover or authorize automatic debit.
+
 ### 7.5 前端实现方案
 
 当前前端的已知事实：
@@ -1244,23 +1269,23 @@ Feature-owned payload 固定为 `{}`。共享 `useTracking` 仍会自动添加�
 
 #### 7.5.3 海外订阅自动续订管理埋点
 
-- Business question：海外老师是否能够成功自助取消或恢复 Stripe 自动续订，以及失败是否集中在某一种操作。
+- Business question：海外订阅管理界面的老师是否能够成功自助取消或恢复渠道托管订阅，以及失败是否集中在某一种操作或接入方。
 - Metric definition：按滚动 7 天和 30 天分别统计取消、恢复操作的尝试数、成功数和失败数；成功率为同一 action 的成功 result 数除以 attempt 数。由于浏览器关闭等原因，attempt 与 result 可能无法严格一一对应。
 - Event names：`creator_subscription_renewal_attempt`、`creator_subscription_renewal_result`。
-- Actor and surface：仅账务渠道为纯 Stripe、持有可管理有效订阅并进入“积分详情”的已登录老师；国内站、guest、无订阅、manual 订阅和失效订阅排除。
+- Actor and surface：仅已开启海外订阅管理界面、持有可管理有效订阅并进入“积分详情”的已登录老师；新契约按 `provider_managed` 模式与 cancel/resume 能力判断，旧契约保留 Stripe 兼容判断。国内站、guest、无订阅、manual 订阅和失效订阅排除。
 - Trigger：老师在二次确认框确认取消或恢复时发送 attempt；平台接口确认成功或失败时发送唯一 terminal result。打开或关闭确认框不发送。
 - Count unit：一次被接受的取消或恢复请求。
 - Deduplication：提交期间禁用重复操作；每次确认最多一个 attempt 和一个 terminal result，不跨独立请求去重。
 - Correlation：使用 `subscription_bid` 关联同一订阅的 attempt/result；不得用于识别用户，老师身份继续由共享 tracking context 提供。
 - Consumers：产品和账务团队的海外订阅自助管理成功率与失败趋势。
-- Compatibility：新增 v1 事件，不改变 checkout 事件语义。
+- Compatibility：保留既有事件名、触发时机和 Stripe 行的含义；新增符合能力契约的托管订阅人群，非内置接入方记录为 `other`。延续历史 Stripe 趋势的 consumer 必须筛选 `payment_provider=stripe`，新增人群单独分析；不改变 checkout 事件语义。
 - Verification：组件测试覆盖海外显隐、国内排除、取消/恢复请求、精确事件名和 allowlist payload、失败结果，以及埋点异常不影响订阅操作。
 
 | Field | Type | Allowed values | Cardinality | Privacy class | Why required |
 | --- | --- | --- | --- | --- | --- |
 | `action` | string | `cancel`, `resume` | low | non-personal | 区分取消与恢复 |
 | `source_surface` | string | `credit_details` | low | non-personal | 固定入口归因 |
-| `payment_provider` | string | `stripe` | low | non-personal | 明确仅海外 Stripe 流程 |
+| `payment_provider` | string | `stripe`, `pingxx`, `alipay`, `wechatpay`, `manual`, `other` | low | non-personal | 使用共享 bounded provider enum，按实际订阅归因；未知接入方归为 `other` |
 | `subscription_bid` | string | 稳定业务 ID | high | pseudonymous | 关联同次订阅的尝试与结果 |
 | `outcome` | string | `success`, `failed`；仅 result | low | non-personal | 计算终态成功率 |
 
@@ -1418,6 +1443,13 @@ v1.1 继续沿用 `/admin/billing`，在同一路由上增加扩展 tab：
 - `POST /order/stripe/webhook` / `POST /callback/pingxx-callback`：继续作为 provider 回调入口；负责验签、归一化、按订单状态机推进 `bill_orders`、推进 `bill_subscriptions`，把最近摘要覆盖写入关联 `bill_orders.metadata`，并更新关联 provider raw snapshot
 - `GET /admin/billing/orders`：后台运营侧查询 creator billing 订单
 - `POST /admin/billing/ledger/adjust`：后台人工调整积分，必须写入 `credit_ledger_entries`
+
+优惠渠道同步契约：
+
+- 管理端活动列表、详情和 `provider-discounts`、`publish`、`publish/retry` 的结果共用同一同步口径。
+- `provider_discount_summary`（操作结果中的 `summary`）保留全量历史计数及 `open_provider_coupon_count`，继续用于清理提示和规则编辑保护。
+- 新增 `current_sync`：只计算当前要求同步的渠道、当前活动商品、当前账户及测试/正式环境、当前有效价格映射下的优惠记录；`complete` 要求每个渠道与商品组合都有有效的 active 优惠引用。`required_pair_count`、`active_pair_count` 和 `missing_provider_count` 描述当前覆盖范围；账户解析失败不能视为完成。
+- 页面状态、启用条件和发布/重试结果优先使用 `current_sync`。历史失败记录保留展示及清理能力，但不阻止已经满足当前同步要求的活动启用；缺少新字段的旧响应保留原有兼容处理。服务端启用及 checkout 继续保留自身的当前价格与优惠校验。
 
 ### 8.2 v1.1 扩展 API
 

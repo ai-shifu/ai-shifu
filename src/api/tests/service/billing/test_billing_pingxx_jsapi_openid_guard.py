@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from flaskr.service.billing import checkout as billing_checkout
+from flaskr.service.billing import provider_compat as billing_checkout
 from flaskr.service.common.models import AppError
 
 WECHAT_OPEN_ID_REQUIRED_CODE = 5002

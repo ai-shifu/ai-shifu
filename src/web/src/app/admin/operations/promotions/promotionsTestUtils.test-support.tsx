@@ -2,6 +2,39 @@ import React from 'react';
 import api from '@/api';
 
 export const mockToast = jest.fn();
+export const mockPaymentTracking = jest.fn();
+let mockPaymentProviders:
+  | {
+      items: Array<{
+        provider: string;
+        label_key: string;
+        catalog: boolean;
+        discounts: boolean;
+      }>;
+      discount_sync_required: boolean;
+    }
+  | undefined;
+export const setMockPaymentProviders = (value: typeof mockPaymentProviders) => {
+  mockPaymentProviders = value;
+};
+jest.mock('@/hooks/useBillingPaymentProviders', () => ({
+  useBillingPaymentProviders: () => ({
+    data: mockPaymentProviders ?? {
+      items: mockEnvState.paymentChannels.map(provider => ({
+        provider,
+        label_key: provider,
+        catalog: provider === 'stripe',
+        discounts: provider === 'stripe',
+      })),
+      discount_sync_required:
+        mockEnvState.paymentChannels.length === 1 &&
+        mockEnvState.paymentChannels[0] === 'stripe',
+    },
+  }),
+}));
+jest.mock('@/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockPaymentTracking }),
+}));
 export const MOCK_DIALOG_CLOSE_LABEL = 'mock-dialog-close';
 const mockEnvState = {
   currencySymbol: '¥',
@@ -409,6 +442,8 @@ export const mockRetirePackageCampaignProviderDiscounts =
 
 beforeEach(() => {
   setMockPaymentChannels(['stripe']);
+  setMockPaymentProviders(undefined);
+  mockPaymentTracking.mockReset().mockResolvedValue(undefined);
   mockToast.mockReset();
   mockGetCoupons.mockReset();
   mockGetCampaigns.mockReset();

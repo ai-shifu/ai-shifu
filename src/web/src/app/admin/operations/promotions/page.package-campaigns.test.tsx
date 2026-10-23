@@ -104,6 +104,7 @@ describe('AdminOperationPromotionsPage package campaigns', () => {
     await waitFor(() =>
       expect(mockPublishPackageCampaignProviderDiscounts).toHaveBeenCalledWith({
         campaign_bid: 'campaign-1',
+        provider: 'stripe',
       }),
     );
     expect(mockToast).toHaveBeenCalledWith({

@@ -25,7 +25,6 @@ from .models import (
     BillingProviderCatalogSnapshot,
 )
 from .primitives import normalize_json_object
-from .provider_price_mappings import PROVIDER_STRIPE
 
 if TYPE_CHECKING:
     from .provider_catalog import ProviderPriceSnapshot
@@ -133,7 +132,7 @@ def _active_mappings_for_product(
 ) -> list[BillingProductProviderPrice]:
     return BillingProductProviderPrice.query.filter(
         BillingProductProviderPrice.deleted == 0,
-        BillingProductProviderPrice.provider == PROVIDER_STRIPE,
+        BillingProductProviderPrice.provider == row.provider,
         BillingProductProviderPrice.provider_account_id == row.provider_account_id,
         BillingProductProviderPrice.livemode == int(row.livemode or 0),
         BillingProductProviderPrice.provider_product_id == row.object_id,
@@ -146,7 +145,7 @@ def _active_mappings_for_price(
 ) -> list[BillingProductProviderPrice]:
     return BillingProductProviderPrice.query.filter(
         BillingProductProviderPrice.deleted == 0,
-        BillingProductProviderPrice.provider == PROVIDER_STRIPE,
+        BillingProductProviderPrice.provider == row.provider,
         BillingProductProviderPrice.provider_account_id == row.provider_account_id,
         BillingProductProviderPrice.livemode == int(row.livemode or 0),
         BillingProductProviderPrice.provider_price_id == row.object_id,
@@ -160,7 +159,7 @@ def _detect_cross_scope_issue(
 ) -> tuple[int, str, str] | None:
     query = BillingProductProviderPrice.query.filter(
         BillingProductProviderPrice.deleted == 0,
-        BillingProductProviderPrice.provider == PROVIDER_STRIPE,
+        BillingProductProviderPrice.provider == row.provider,
         BillingProductProviderPrice.status == BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
     )
     if object_type == _OBJECT_TYPE_PRICE:

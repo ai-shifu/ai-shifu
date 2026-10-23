@@ -12,11 +12,16 @@ import payZhifubo0 from '@/assets/newchat/pay-zhifubao-0-2x.png';
 import payZhifubo1 from '@/assets/newchat/pay-zhifubao-1-2x.png';
 import payWechat0 from '@/assets/newchat/pay-wechat-0-2x.png';
 import payWechat1 from '@/assets/newchat/pay-wechat-1-2x.png';
+import type { PaymentOption } from '@/types/payment';
+import {
+  resolvePaymentOption,
+  paymentSelectionKey,
+} from '@/lib/paymentContracts';
 
 interface PayChannelSwitchItemProps {
   channel: string;
-  icon: StaticImageData;
-  iconSelected: StaticImageData;
+  icon?: StaticImageData;
+  iconSelected?: StaticImageData;
   text: string;
   selected: boolean;
   onClick?: (payload: { channel: string }) => void;
@@ -37,13 +42,16 @@ export const PayChannelSwitchItem = memo(
     return (
       <div
         className={cn(styles.channelSwitchItem, selected && styles.selected)}
+        data-clickable='true'
         onClick={handleClick}
       >
-        <Image
-          className={styles.channelIcon}
-          src={selected ? iconSelected : icon}
-          alt={text}
-        />
+        {icon && iconSelected ? (
+          <Image
+            className={styles.channelIcon}
+            src={selected ? iconSelected : icon}
+            alt={text}
+          />
+        ) : null}
         <div className={styles.channelText}>{text}</div>
       </div>
     );
@@ -55,14 +63,48 @@ interface PayChannelSwitchProps {
   channel?: string;
   onChange?: (payload: { channel: string }) => void;
   availableChannels?: string[];
+  options?: PaymentOption[];
 }
 
 export const PayChannelSwitch = ({
   channel = PAY_CHANNEL_WECHAT,
   onChange,
   availableChannels,
+  options,
 }: PayChannelSwitchProps) => {
   const { t } = useTranslation();
+  if (options) {
+    const selectedOption = resolvePaymentOption(options, channel);
+    return (
+      <div className={styles.channelSwitch}>
+        {options
+          .filter(option => option.action === 'qr')
+          .map(option => {
+            const wechat = option.method === 'wechat';
+            const alipay = option.method === 'alipay';
+            return (
+              <PayChannelSwitchItem
+                key={option.id}
+                channel={paymentSelectionKey(option, options)}
+                icon={wechat ? payWechat0 : alipay ? payZhifubo0 : undefined}
+                iconSelected={
+                  wechat ? payWechat1 : alipay ? payZhifubo1 : undefined
+                }
+                text={t(
+                  wechat
+                    ? 'module.pay.payChannelWechat'
+                    : alipay
+                      ? 'module.pay.payChannelAlipay'
+                      : option.label_key,
+                )}
+                selected={selectedOption?.id === option.id}
+                onClick={onChange}
+              />
+            );
+          })}
+      </div>
+    );
+  }
   const enabledChannels =
     availableChannels == null ? null : new Set(availableChannels);
   return (

@@ -5,11 +5,14 @@ import api from '@/api';
 import { AdminBillingProviderPricesPanel } from './AdminBillingProviderPricesPanel';
 
 const mockToast = jest.fn();
+const mockTranslate = jest.fn(
+  (key: string, options?: Record<string, unknown>) =>
+    options?.productName ? `${key}:${options.productName}` : key,
+);
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string, options?: Record<string, unknown>) =>
-      options?.productName ? `${key}:${options.productName}` : key,
+    t: mockTranslate,
     i18n: { language: 'en-US' },
   }),
 }));
@@ -176,15 +179,56 @@ const mockRetireAdminBillingProviderPrice =
 const mockRestoreAdminBillingProviderPrice =
   api.restoreAdminBillingProviderPrice as jest.Mock;
 
-const renderPanel = () =>
+const renderPanel = (provider?: string) =>
   render(
     <SWRConfig value={{ provider: () => new Map() }}>
-      <AdminBillingProviderPricesPanel />
+      <AdminBillingProviderPricesPanel provider={provider} />
     </SWRConfig>,
   );
 
 describe('AdminBillingProviderPricesPanel', () => {
+  test('uses the selected provider label in mapping instructions and ID fields', async () => {
+    render(
+      <SWRConfig value={{ provider: () => new Map() }}>
+        <AdminBillingProviderPricesPanel
+          provider='fixture-catalog'
+          providerLabel='Catalog Pay'
+        />
+      </SWRConfig>,
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.billing.admin.providerPrices.actions.create',
+      }),
+    );
+    for (const key of [
+      'dialog.description',
+      'fields.productId',
+      'fields.priceId',
+    ]) {
+      expect(mockTranslate).toHaveBeenCalledWith(
+        `module.billing.admin.providerPrices.${key}`,
+        { provider: 'Catalog Pay' },
+      );
+    }
+  });
+
+  test('scopes generic catalog reads to the selected provider', async () => {
+    render(
+      <SWRConfig value={{ provider: () => new Map() }}>
+        <AdminBillingProviderPricesPanel provider='fixture-catalog' />
+      </SWRConfig>,
+    );
+    await waitFor(() =>
+      expect(mockGetAdminBillingProviderPrices).toHaveBeenCalledWith(
+        { provider: 'fixture-catalog' },
+        { skipErrorToast: true },
+      ),
+    );
+  });
+
   beforeEach(() => {
+    mockTranslate.mockClear();
     mockToast.mockReset();
     mockGetAdminBillingProviderPrices.mockReset();
     mockCreateAdminBillingProviderPrice.mockReset();
@@ -238,57 +282,67 @@ describe('AdminBillingProviderPricesPanel', () => {
     });
   });
 
-  test('validates the saved draft automatically', async () => {
-    renderPanel();
-
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: 'module.billing.admin.providerPrices.actions.create',
-      }),
-    );
-    fireEvent.click(
-      screen.getAllByText(/creator-global-scale-monthly/).at(-1)!,
-    );
-    fireEvent.change(
-      screen.getByLabelText(
-        'module.billing.admin.providerPrices.fields.productId',
-      ),
-      { target: { value: 'prod_V6Dk7DvFyxIfOI' } },
-    );
-    fireEvent.change(
-      screen.getByLabelText(
-        'module.billing.admin.providerPrices.fields.priceId',
-      ),
-      { target: { value: 'price_1U61JKJC2CFSg110ua1P6afH' } },
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.billing.admin.providerPrices.actions.saveDraft',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockCreateAdminBillingProviderPrice).toHaveBeenCalledWith(
-        {
-          product_bid: 'bill-product-global-scale-monthly',
-          provider_product_id: 'prod_V6Dk7DvFyxIfOI',
-          provider_price_id: 'price_1U61JKJC2CFSg110ua1P6afH',
-        },
-        { skipErrorToast: true },
-      );
-      expect(mockValidateAdminBillingProviderPrice).toHaveBeenCalledWith(
-        {
-          provider_price_bid: 'provider-price-1',
-        },
-        { skipErrorToast: true },
-      );
-      expect(mockToast).toHaveBeenCalledWith({
-        title: 'module.billing.admin.providerPrices.toast.validateSuccess',
-        description: undefined,
-        variant: undefined,
+  test.each([undefined, 'fixture-catalog'])(
+    'validates the saved draft in its selected provider: %s',
+    async provider => {
+      const data = await mockGetAdminBillingProviderPrices();
+      mockGetAdminBillingProviderPrices.mockClear();
+      mockGetAdminBillingProviderPrices.mockResolvedValue({
+        ...data,
+        ...(provider ? { provider } : {}),
       });
-    });
-  });
+      renderPanel(provider);
+
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'module.billing.admin.providerPrices.actions.create',
+        }),
+      );
+      fireEvent.click(
+        screen.getAllByText(/creator-global-scale-monthly/).at(-1)!,
+      );
+      fireEvent.change(
+        screen.getByLabelText(
+          'module.billing.admin.providerPrices.fields.productId',
+        ),
+        { target: { value: 'prod_V6Dk7DvFyxIfOI' } },
+      );
+      fireEvent.change(
+        screen.getByLabelText(
+          'module.billing.admin.providerPrices.fields.priceId',
+        ),
+        { target: { value: 'price_1U61JKJC2CFSg110ua1P6afH' } },
+      );
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.billing.admin.providerPrices.actions.saveDraft',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockCreateAdminBillingProviderPrice).toHaveBeenCalledWith(
+          {
+            product_bid: 'bill-product-global-scale-monthly',
+            ...(provider ? { provider } : {}),
+            provider_product_id: 'prod_V6Dk7DvFyxIfOI',
+            provider_price_id: 'price_1U61JKJC2CFSg110ua1P6afH',
+          },
+          { skipErrorToast: true },
+        );
+        expect(mockValidateAdminBillingProviderPrice).toHaveBeenCalledWith(
+          {
+            provider_price_bid: 'provider-price-1',
+          },
+          { skipErrorToast: true },
+        );
+        expect(mockToast).toHaveBeenCalledWith({
+          title: 'module.billing.admin.providerPrices.toast.validateSuccess',
+          description: undefined,
+          variant: undefined,
+        });
+      });
+    },
+  );
 
   test('keeps a draft price visible when the product already has an active price', async () => {
     mockGetAdminBillingProviderPrices.mockResolvedValue({

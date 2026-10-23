@@ -1946,7 +1946,8 @@ class TestAdminBillingRoutes:
     ) -> None:
         called = {"count": 0}
 
-        def _reconcile(_app: Flask) -> dict[str, object]:
+        def _reconcile(_app: Flask, *, provider: str) -> dict[str, object]:
+            assert provider == "stripe"
             called["count"] += 1
             return {"processed": 2}
 
