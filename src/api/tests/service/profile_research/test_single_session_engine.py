@@ -527,3 +527,37 @@ def test_fatal_model_retries_leave_the_full_native_session_unmodified() -> None:
     with pytest.raises(ProfileResearchError, match="failed to execute"):
         run_profile_turn(session, {}, FunctionModel(stream_function=script))
     assert session.to_cache_payload() == original
+
+
+def test_natural_questionnaire_confirm_waits_for_an_actual_learner_response() -> None:
+    session = _session(
+        "Welcome the learner and pause until they confirm readiness, then finish."
+    )
+    calls = 0
+
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
+        nonlocal calls
+        calls += 1
+        if _returns(messages, "finish"):
+            yield "Thanks."
+        elif _returns(messages):
+            assert _returns(messages)[0].content.startswith("Learner pressed continue.")
+            yield "Ready."
+            yield _finish()
+        else:
+            yield "Welcome. Confirm when you are ready."
+            yield {0: _question("ready", None, kind="confirm", prompt="Continue")}
+
+    model = FunctionModel(stream_function=script)
+    first = run_profile_turn(session, {}, model)
+    assert first.reason == "interaction"
+    assert not first.finished
+    assert first.chunks[-1].interaction_id == "ready"
+    assert calls == 1
+    rerendered = run_profile_turn(session, {}, model)
+    assert rerendered.chunks[-1].interaction_id == "ready"
+    assert calls == 1
+    last = run_profile_turn(session, {"arbitrary": ["continue"]}, model)
+    assert last.input_accepted
+    assert last.finished
+    assert profile_answer_evidence(session) == []

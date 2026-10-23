@@ -242,7 +242,7 @@ def run_profile_turn(
             output_language=session.output_language or None,
             model_settings={"temperature": session.temperature},
             interaction_check=interaction_check,
-            pauses_from_notation=True,
+            pauses_from_notation=bool(questions),
             memory_admission=True,
             buffer_model_responses=True,
         )
