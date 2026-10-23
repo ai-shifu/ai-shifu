@@ -617,6 +617,7 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
     ({
       sessionId,
       expectedBlockIndex,
+      expectedInteractionId,
       requestId,
       userInput,
       onMessage,
@@ -627,6 +628,9 @@ export const useProfileOnboardingAdminController = (isReady: boolean) => {
         payload: {
           expected_block_index: expectedBlockIndex,
           request_id: requestId,
+          ...(expectedInteractionId !== undefined
+            ? { expected_interaction_id: expectedInteractionId }
+            : {}),
           ...(userInput ? { user_input: userInput } : {}),
         },
         language: i18n.resolvedLanguage ?? i18n.language,

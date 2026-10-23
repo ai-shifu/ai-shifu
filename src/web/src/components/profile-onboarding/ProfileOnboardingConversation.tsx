@@ -217,6 +217,7 @@ export default function ProfileOnboardingConversation({
         isFinished: item.finished,
         finished: item.finished,
         interaction: item.interaction,
+        interactionId: item.interactionId,
         readonly: questionReadonly || item.finished || !item.interaction,
         userInput: item.userInput,
         elementType: item.elementType,
@@ -311,6 +312,21 @@ export default function ProfileOnboardingConversation({
     },
     [handleTypeFinished],
   );
+  const sendCallbacksRef = React.useRef(
+    new Map<string, (content: Parameters<typeof send>[0]) => void>(),
+  );
+  const getSendCallback = React.useCallback(
+    (elementBid: string, interactionId?: string) => {
+      const key = JSON.stringify([elementBid, interactionId]);
+      const existingCallback = sendCallbacksRef.current.get(key);
+      if (existingCallback) return existingCallback;
+      const callback = (content: Parameters<typeof send>[0]) =>
+        send(content, interactionId);
+      sendCallbacksRef.current.set(key, callback);
+      return callback;
+    },
+    [send],
+  );
 
   return (
     <div
@@ -340,7 +356,11 @@ export default function ProfileOnboardingConversation({
                   content={item.content}
                   userInput={item.userInput}
                   readonly={item.readonly}
-                  onSend={item.isFinished ? undefined : send}
+                  onSend={
+                    item.isFinished
+                      ? undefined
+                      : getSendCallback(item.elementBid, item.interactionId)
+                  }
                   enableTypewriter={
                     isDocumentVisible &&
                     shouldEnableProfileOnboardingTypewriter(

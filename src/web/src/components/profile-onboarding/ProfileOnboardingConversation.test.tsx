@@ -1319,6 +1319,82 @@ describe('ProfileOnboardingConversation', () => {
     expect(onDraftReady).not.toHaveBeenCalled();
   });
 
+  test('binds successive questions at one cursor to their own identities and retries the same answer', async () => {
+    const emitQuestion = (
+      onMessage: Parameters<ProfileOnboardingRunSession>[0]['onMessage'],
+      id: string,
+    ) => {
+      onMessage({
+        type: 'interaction',
+        generated_block_bid: `display-${id}`,
+        interaction_id: id,
+        content: `?[...${id}]`,
+      });
+      onMessage({
+        type: 'done',
+        is_terminal: true,
+        content: { done: false, next_block_index: 0 },
+      });
+    };
+    const runSession = jest
+      .fn()
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() => emitQuestion(onMessage, 'native-question-1'));
+        return { close: jest.fn() };
+      })
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() => emitQuestion(onMessage, 'native-question-2'));
+        return { close: jest.fn() };
+      })
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() =>
+          onMessage({
+            type: 'error',
+            content: 'transient_markdownflow_session_busy',
+          }),
+        );
+        return { close: jest.fn() };
+      })
+      .mockImplementation(() => ({ close: jest.fn() }));
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'native-session' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+    await screen.findByText('?[...native-question-2]');
+    expect(runSession.mock.calls[1][0]).toMatchObject({
+      expectedBlockIndex: 0,
+      expectedInteractionId: 'native-question-1',
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    );
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(4));
+    expect(runSession.mock.calls[2][0]).toMatchObject({
+      expectedBlockIndex: 0,
+      expectedInteractionId: 'native-question-2',
+      userInput: { profile_goal: ['学会 AI'] },
+    });
+    expect(runSession.mock.calls[3][0]).toMatchObject({
+      expectedInteractionId: 'native-question-2',
+      requestId: runSession.mock.calls[2][0].requestId,
+      userInput: runSession.mock.calls[2][0].userInput,
+    });
+  });
+
   test('retries a retryable SSE failure in the same session with the same user input', async () => {
     const createSession = jest
       .fn()

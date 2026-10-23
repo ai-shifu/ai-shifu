@@ -27,6 +27,7 @@ type StreamHandle = { close?: () => void };
 
 type ProfileOnboardingRunRequest = {
   expectedBlockIndex: number;
+  expectedInteractionId?: string;
   requestId: string;
   userInput?: Record<string, string[]>;
   rawText?: string;
@@ -123,7 +124,10 @@ export const useProfileOnboardingSession = ({
   const runtimeFailedRef = React.useRef(false);
   const mountedRef = React.useRef(true);
   const runNextRef = React.useRef<
-    (userInput?: Record<string, string[]>) => void
+    (
+      userInput?: Record<string, string[]>,
+      expectedInteractionId?: string,
+    ) => void
   >(() => {});
   const flushAssistantRequestRef = React.useRef<() => void>(() => {});
   const createSessionRef = React.useRef(createSession);
@@ -395,6 +399,9 @@ export const useProfileOnboardingSession = ({
             : runSessionRef.current({
                 ...callbacks,
                 userInput: request.userInput,
+                ...(request.expectedInteractionId !== undefined
+                  ? { expectedInteractionId: request.expectedInteractionId }
+                  : {}),
               });
         if (
           streamCompletedRef.current ||
@@ -437,11 +444,14 @@ export const useProfileOnboardingSession = ({
   flushAssistantRequestRef.current = flushAssistantRequest;
 
   const runNext = React.useCallback(
-    (userInput?: Record<string, string[]>) => {
+    (userInput?: Record<string, string[]>, expectedInteractionId?: string) => {
       runRequest({
         expectedBlockIndex: blockIndexRef.current,
         requestId: `profile-onboarding-run-${++requestSequenceRef.current}`,
         userInput,
+        ...(expectedInteractionId !== undefined
+          ? { expectedInteractionId }
+          : {}),
       });
     },
     [runRequest],
@@ -542,28 +552,31 @@ export const useProfileOnboardingSession = ({
     };
   }, [invalidatePendingAttempts, setRunInFlight, startSession, stopStream]);
 
-  const send = React.useCallback((content: OnSendContentParams) => {
-    if (
-      disabledRef.current ||
-      !streamCompletedRef.current ||
-      runInFlightRef.current ||
-      pendingAssistantRequestRef.current ||
-      statusRef.current !== 'awaiting_input'
-    ) {
-      return;
-    }
-    const { values, userInput } = resolveProfileOnboardingSubmission(content);
-    if (!values.length) {
-      return;
-    }
-    const variableName = content.variableName?.trim() || 'input';
-    if (!isProfileOnboardingSubmissionWithinLimits(variableName, values)) {
-      dispatch({ type: 'reject_submission' });
-      return;
-    }
-    dispatch({ type: 'accept_submission', userInput });
-    runNextRef.current({ [variableName]: values });
-  }, []);
+  const send = React.useCallback(
+    (content: OnSendContentParams, expectedInteractionId?: string) => {
+      if (
+        disabledRef.current ||
+        !streamCompletedRef.current ||
+        runInFlightRef.current ||
+        pendingAssistantRequestRef.current ||
+        statusRef.current !== 'awaiting_input'
+      ) {
+        return;
+      }
+      const { values, userInput } = resolveProfileOnboardingSubmission(content);
+      if (!values.length) {
+        return;
+      }
+      const variableName = content.variableName?.trim() || 'input';
+      if (!isProfileOnboardingSubmissionWithinLimits(variableName, values)) {
+        dispatch({ type: 'reject_submission' });
+        return;
+      }
+      dispatch({ type: 'accept_submission', userInput });
+      runNextRef.current({ [variableName]: values }, expectedInteractionId);
+    },
+    [],
+  );
 
   const retry = React.useCallback(() => {
     const lastRunRequest = lastRunRequestRef.current;

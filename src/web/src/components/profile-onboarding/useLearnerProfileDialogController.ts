@@ -827,6 +827,7 @@ export const useLearnerProfileDialogController = ({
     ({
       sessionId,
       expectedBlockIndex,
+      expectedInteractionId,
       requestId,
       userInput,
       onMessage,
@@ -835,6 +836,9 @@ export const useLearnerProfileDialogController = ({
       runProfileOnboardingSession({
         sessionId,
         expectedBlockIndex,
+        ...(expectedInteractionId !== undefined
+          ? { expectedInteractionId }
+          : {}),
         requestId,
         userInput,
         language: i18n.resolvedLanguage ?? i18n.language,

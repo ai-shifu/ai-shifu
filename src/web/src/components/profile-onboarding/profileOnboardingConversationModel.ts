@@ -15,6 +15,7 @@ export type ProfileOnboardingSessionInfo = {
 export type ProfileOnboardingRunSession = (params: {
   sessionId: string;
   expectedBlockIndex: number;
+  expectedInteractionId?: string;
   requestId: string;
   userInput?: Record<string, string[]>;
   onMessage: (event: ProfileOnboardingStreamEvent) => void;
@@ -35,6 +36,7 @@ export type ProfileOnboardingConversationItem = {
   elementBid: string;
   elementType: string;
   interaction: boolean;
+  interactionId?: string;
   userInput?: string;
   finished: boolean;
 };
@@ -422,6 +424,9 @@ export const resolveProfileOnboardingElement = (
         event.generated_block_bid ||
         nextFallbackElementBid(),
       interaction: elementType === 'interaction',
+      ...(typeof event.interaction_id === 'string'
+        ? { interactionId: event.interaction_id }
+        : {}),
       elementType,
       userInput:
         typeof payload.user_input === 'string' ? payload.user_input : undefined,
@@ -444,6 +449,9 @@ export const resolveProfileOnboardingElement = (
       content: event.content,
       elementBid: event.generated_block_bid || nextFallbackElementBid(),
       interaction,
+      ...(typeof event.interaction_id === 'string'
+        ? { interactionId: event.interaction_id }
+        : {}),
       elementType,
       finished: !interaction,
     };

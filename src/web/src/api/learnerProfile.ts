@@ -132,6 +132,7 @@ export const skipGuidedProfileOnboarding = (sessionId?: string) =>
 export const runProfileOnboardingSession = ({
   sessionId,
   expectedBlockIndex,
+  expectedInteractionId,
   requestId,
   userInput,
   language,
@@ -140,6 +141,7 @@ export const runProfileOnboardingSession = ({
 }: {
   sessionId: string;
   expectedBlockIndex: number;
+  expectedInteractionId?: string;
   requestId: string;
   userInput?: Record<string, string[]>;
   language?: string;
@@ -151,6 +153,9 @@ export const runProfileOnboardingSession = ({
     payload: {
       expected_block_index: expectedBlockIndex,
       request_id: requestId,
+      ...(expectedInteractionId !== undefined
+        ? { expected_interaction_id: expectedInteractionId }
+        : {}),
       ...(userInput ? { user_input: userInput } : {}),
     },
     language,

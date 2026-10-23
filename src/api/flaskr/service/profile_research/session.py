@@ -26,7 +26,8 @@ PROFILE_RESEARCH_SESSION_TTL_SECONDS = 30 * 60
 # Leave one minute of headroom without making a hard-killed run keep its session
 # busy for the rest of the conversation lifetime.
 PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS = 6 * 60
-SESSION_SCHEMA_VERSION = 1
+SESSION_SCHEMA_VERSION = 2
+_READABLE_SESSION_SCHEMA_VERSIONS = frozenset({1, SESSION_SCHEMA_VERSION})
 MAX_DOCUMENT_CODEPOINTS = 100_000
 MAX_BLOCK_COUNT = 100
 MAX_INPUT_KEY_CODEPOINTS = 256
@@ -202,8 +203,16 @@ class _ProfileResearchSession:
     last_raw_text: str = ""
     last_request_id: str = ""
     last_expected_block_index: int | None = None
+    last_expected_interaction_id: str | None = None
     last_user_input: dict[str, list[str]] = field(default_factory=dict)
     last_events: list[dict[str, Any]] = field(default_factory=list)
+    # The active authored block owns its deferred tool calls and typed history.
+    # Schema 1 sessions reconstruct this state lazily on their next request.
+    engine_session: dict[str, Any] | None = None
+    engine_block_index: int | None = None
+    # Accepted personal evidence survives replacing the active block's engine
+    # state, including importing assistant answers midway through several calls.
+    accepted_answers: list[str] = field(default_factory=list)
 
     def to_cache_payload(self) -> dict[str, Any]:
         return {
@@ -229,14 +238,20 @@ class _ProfileResearchSession:
             "last_raw_text": self.last_raw_text,
             "last_request_id": self.last_request_id,
             "last_expected_block_index": self.last_expected_block_index,
+            "last_expected_interaction_id": self.last_expected_interaction_id,
             "last_user_input": self.last_user_input,
             "last_events": self.last_events,
+            "engine_session": self.engine_session,
+            "engine_block_index": self.engine_block_index,
+            "accepted_answers": self.accepted_answers,
         }
 
     @classmethod
     def from_cache_payload(cls, payload: Mapping[str, Any]) -> _ProfileResearchSession:
         try:
-            if int(payload.get("schema_version") or 0) != SESSION_SCHEMA_VERSION:
+            if int(payload.get("schema_version") or 0) not in (
+                _READABLE_SESSION_SCHEMA_VERSIONS
+            ):
                 msg = "session schema mismatch"
                 raise ProfileResearchSessionNotFound(msg)
             raw_events = payload.get("last_events")
@@ -250,6 +265,26 @@ class _ProfileResearchSession:
                 msg = "invalid replay events"
                 raise ProfileResearchSessionNotFound(msg)
             last_expected_block_index = payload.get("last_expected_block_index")
+            last_expected_interaction_id = payload.get("last_expected_interaction_id")
+            if last_expected_interaction_id is not None and not isinstance(
+                last_expected_interaction_id, str
+            ):
+                msg = "invalid expected profile interaction"
+                raise ProfileResearchSessionNotFound(msg)
+            engine_session = payload.get("engine_session")
+            engine_block_index = payload.get("engine_block_index")
+            if engine_session is not None and not isinstance(engine_session, dict):
+                msg = "invalid engine session"
+                raise ProfileResearchSessionNotFound(msg)
+            if (engine_session is None) != (engine_block_index is None):
+                msg = "incomplete engine session"
+                raise ProfileResearchSessionNotFound(msg)
+            accepted_answers = payload.get("accepted_answers", [])
+            if not isinstance(accepted_answers, list) or any(
+                not isinstance(answer, str) for answer in accepted_answers
+            ):
+                msg = "invalid accepted profile answers"
+                raise ProfileResearchSessionNotFound(msg)
             return cls(
                 session_id=str(payload["session_id"]),
                 user_bid=str(payload["user_bid"]),
@@ -276,10 +311,16 @@ class _ProfileResearchSession:
                     if last_expected_block_index is not None
                     else None
                 ),
+                last_expected_interaction_id=last_expected_interaction_id,
                 last_user_input=_normalize_profile_research_user_input(
                     payload.get("last_user_input")
                 ),
                 last_events=events,
+                engine_session=engine_session,
+                engine_block_index=(
+                    int(engine_block_index) if engine_block_index is not None else None
+                ),
+                accepted_answers=list(accepted_answers),
             )
         except ProfileResearchError as exc:
             if isinstance(exc, ProfileResearchSessionNotFound):

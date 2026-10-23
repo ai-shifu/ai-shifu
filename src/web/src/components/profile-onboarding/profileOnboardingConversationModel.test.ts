@@ -124,6 +124,27 @@ describe('syncProfileOnboardingTypewriterCache', () => {
 });
 
 describe('resolveProfileOnboardingElement', () => {
+  it('retains a native question identity independently of its display element', () => {
+    const element = resolveProfileOnboardingElement({
+      type: 'interaction',
+      generated_block_bid: 'display-question-1',
+      interaction_id: 'native-question-1',
+      content: '?[...Your answer]',
+    });
+
+    expect(element).toMatchObject({
+      elementBid: 'display-question-1',
+      interactionId: 'native-question-1',
+      interaction: true,
+    });
+    expect(
+      resolveProfileOnboardingElement({
+        type: 'interaction',
+        content: '?[...Legacy question]',
+      }),
+    ).not.toHaveProperty('interactionId');
+  });
+
   it('preserves HTML element types from legacy content events', () => {
     const element = resolveProfileOnboardingElement({
       type: 'content',

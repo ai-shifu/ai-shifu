@@ -165,6 +165,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Run frontend and backend tests with two workers](./completed/parallel-test-workers.md)
 - [Password Login Account Rate Limit](./completed/password-login-rate-limit.md)
 - [Separate course permission contact validation](./completed/permission-contact-validation.md)
+- [Profile questionnaire MarkdownFlow 2.0 runtime](./completed/profile-markdownflow-v2.md)
 - [Let learners answer onboarding questions with their AI](./completed/profile-onboarding-ai-import.md)
 - [Give operators and learners explicit control of AI-assisted onboarding](./completed/profile-onboarding-assistant-controls.md)
 - [Make AI-assisted onboarding visible before the first question](./completed/profile-onboarding-assistant-discoverability.md)

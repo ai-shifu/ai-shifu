@@ -19,6 +19,8 @@ from flaskr.common.cache_provider import (
     InMemoryCacheProvider,
     redis_cache,
 )
+from flaskr.service.learn.agent.engine import substitute_variables
+from flaskr.service.learn.agent.gateway_model import map_messages
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.profile_research import api
 from flaskr.service.profile_research import runtime as profile_research_runtime
@@ -40,7 +42,15 @@ from flaskr.service.profile_research.runtime import (
     validate_profile_research_document,
 )
 from flaskr.util.prompt_loader import load_prompt_template
-from markdown_flow import USER_ANSWER_CONTEXT_KEY, LLMProvider
+from markdown_flow import (
+    USER_ANSWER_CONTEXT_KEY,
+    BlockType,
+    InteractionParser,
+    LLMProvider,
+    MarkdownFlow,
+)
+from pydantic_ai.messages import ModelRequest, ToolReturnPart
+from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from sqlalchemy.exc import ResourceClosedError
 
 
@@ -64,6 +74,75 @@ class _FakeProvider(LLMProvider):
         yield from self.output_chunks
 
 
+def _fake_block_model(provider: _FakeProvider, session: object) -> FunctionModel:
+    """Drive the real agent with deterministic text and genuine interaction tools."""
+    block = MarkdownFlow(session.document).get_all_blocks()[session.block_index]
+
+    async def scripted(messages: object, _info: object) -> object:
+        provider.messages.append(map_messages(messages))
+        if any(
+            isinstance(message, ModelRequest)
+            and any(
+                isinstance(part, ToolReturnPart) and part.tool_name == "finish"
+                for part in message.parts
+            )
+            for message in messages
+        ):
+            yield " "
+            return
+        if block.block_type == BlockType.INTERACTION:
+            if any(
+                isinstance(message, ModelRequest)
+                and any(
+                    isinstance(part, ToolReturnPart) and part.tool_name == "interact"
+                    for part in message.parts
+                )
+                for message in messages
+            ):
+                yield {
+                    0: DeltaToolCall(
+                        name="finish",
+                        json_args='{"summary":"Answer accepted"}',
+                        tool_call_id="finish-answer",
+                    )
+                }
+                return
+            parsed = InteractionParser().parse(
+                substitute_variables(block.content, session.variables)
+            )
+            buttons = parsed.get("buttons", [])
+            question = parsed.get("question", "")
+            kind = "multi" if parsed.get("is_multi_select") else "single"
+            if question:
+                kind = f"{kind}_or_text" if buttons else "text"
+            spec = {"type": kind, "prompt": question, "options": buttons}
+            if parsed.get("variable"):
+                spec["variable"] = parsed["variable"]
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(spec),
+                    tool_call_id="question",
+                )
+            }
+        elif block.block_type == BlockType.PRESERVED_CONTENT:
+            yield block.content.removeprefix("!===").removesuffix("!===").strip()
+        else:
+            if not any(provider.output_chunks):
+                yield {
+                    0: DeltaToolCall(
+                        name="finish",
+                        json_args='{"summary":"No profile evidence"}',
+                        tool_call_id="finish-empty",
+                    )
+                }
+                return
+            for chunk in provider.output_chunks:
+                yield chunk
+
+    return FunctionModel(stream_function=scripted)
+
+
 def _make_runtime(
     output_chunks: list[str] | None = None,
 ) -> tuple[Flask, ProfileResearchRuntime, list[_FakeProvider]]:
@@ -85,6 +164,9 @@ def _make_runtime(
         app,
         store=store,
         provider_factory=provider_factory,
+        model_factory=lambda app, session, span: _fake_block_model(
+            runtime._provider_factory(app, session, span), session
+        ),
     )
     return app, runtime, providers
 
@@ -129,7 +211,7 @@ def _active_test_session_id(
     return runtime.store.active_session_id(user_bid="user-1", purpose=purpose)
 
 
-def test_service_has_no_learn_dependency() -> None:
+def test_service_uses_only_the_shared_learn_agent_facade() -> None:
     service_dir = Path(inspect.getsourcefile(ProfileResearchRuntime) or "").parent
     imports: list[str] = []
     for source_path in service_dir.glob("*.py"):
@@ -140,7 +222,9 @@ def test_service_has_no_learn_dependency() -> None:
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imports.append(node.module)
 
-    assert not any(name.startswith("flaskr.service.learn") for name in imports)
+    assert {name for name in imports if name.startswith("flaskr.service.learn")} <= {
+        "flaskr.service.learn.agent.api"
+    }
 
 
 def test_validation_uses_markdownflow_public_parser() -> None:
@@ -423,23 +507,17 @@ def test_empty_initial_interaction_fails_without_advancing(monkeypatch: object) 
         config_revision=1,
         output_language=None,
     )
-    stored = runtime.store.load(session["session_id"])
-    parsed_flow = runtime._build_flow(stored, _FakeProvider([]))
 
-    class _EmptyInteractionFlow:
-        def get_all_blocks(self) -> object:
-            return parsed_flow.get_all_blocks()
-
-        def process(self, **_kwargs: object) -> object:
-            return []
+    async def no_question(_messages: object, _info: object) -> object:
+        yield "No question was generated."
 
     monkeypatch.setattr(
         runtime,
-        "_build_flow",
-        lambda _session, _provider: _EmptyInteractionFlow(),
+        "_model_factory",
+        lambda *_args: FunctionModel(stream_function=no_question),
     )
 
-    with pytest.raises(ProfileResearchError, match="empty interaction"):
+    with pytest.raises(ProfileResearchError, match="authored profile question"):
         list(
             runtime.stream_session(
                 user_bid="user-1",
@@ -474,7 +552,6 @@ def test_invalid_interaction_answer_keeps_the_question_available() -> None:
     )
 
     assert [event["event_type"] for event in events[:-1]] == [
-        "content",
         "interaction",
     ]
     summary = _terminal(events)["content"]
@@ -848,7 +925,9 @@ def test_run_lock_lease_has_worker_cleanup_headroom_without_using_session_ttl() 
     )
 
 
-def test_content_context_keeps_the_exact_prompt_built_by_markdownflow() -> None:
+def test_content_context_keeps_the_authored_prompt_without_parser_placeholders() -> (
+    None
+):
     _app, runtime, providers = _make_runtime(["收到"])
     session = runtime.start_session(
         user_bid="user-1",
@@ -876,10 +955,14 @@ def test_content_context_keeps_the_exact_prompt_built_by_markdownflow() -> None:
     )
 
     context = runtime.store.load(session["session_id"]).context
-    sent_prompt = providers[0].messages[0][-1]["content"]
-    assert context[0] == {"role": "user", "content": sent_prompt}
+    sent_prompt = "\n".join(
+        str(message.get("content") or "") for message in providers[0].messages[0]
+    )
+    assert context[0]["role"] == "user"
     assert "```python\nprint('profile')\n```" in context[0]["content"]
     assert "__MDFLOW_CODE_BLOCK_" not in context[0]["content"]
+    assert "print('profile')" in sent_prompt
+    assert "__MDFLOW_CODE_BLOCK_" not in sent_prompt
 
 
 def test_preserved_content_context_uses_markdownflow_output_without_placeholders() -> (
@@ -924,7 +1007,16 @@ def test_preserved_content_context_uses_markdownflow_output_without_placeholders
         "content": "```python\nprint('profile')\n```",
     }
     sent_messages = providers[-1].messages[0]
-    assert preserved_context in sent_messages
+    evidence_opening = "<profile_research_prior_evidence>\n"
+    evidence_message = next(
+        message["content"]
+        for message in sent_messages
+        if evidence_opening in str(message.get("content", ""))
+    )
+    evidence = json.loads(
+        evidence_message.split(evidence_opening, 1)[1].split("\n</", 1)[0]
+    )
+    assert preserved_context in evidence["conversation"]
     assert "__MDFLOW_CODE_BLOCK_" not in str(sent_messages)
 
 
@@ -1065,7 +1157,7 @@ def test_non_assignment_answer_reaches_the_next_markdownflow_content_block() -> 
     )
 
     assert any(
-        message == {"role": "user", "content": "pm"}
+        "pm" in str(message.get("content", "")) and message["role"] in {"user", "tool"}
         for provider in providers
         for messages in provider.messages
         for message in messages
@@ -1111,8 +1203,8 @@ def test_profile_summary_prompt_requires_plain_text_without_placeholders() -> No
     assert "{{" not in summary_prompt
 
 
-def test_markdownflow_receives_a_language_name_instead_of_a_locale_code() -> None:
-    _app, runtime, _providers = _make_runtime()
+def test_agent_receives_the_session_output_language() -> None:
+    _app, runtime, providers = _make_runtime()
     view = runtime.start_session(
         user_bid="user-1",
         document="?[继续]",
@@ -1120,11 +1212,17 @@ def test_markdownflow_receives_a_language_name_instead_of_a_locale_code() -> Non
         config_revision=1,
         output_language="zh-CN",
     )
-    session = runtime.store.load(view["session_id"])
+    list(
+        runtime.stream_session(
+            user_bid="user-1",
+            session_id=view["session_id"],
+            user_input=None,
+            expected_purpose=PROFILE_ONBOARDING_PURPOSE,
+        )
+    )
 
-    flow = runtime._build_flow(session, _FakeProvider([]))
-
-    assert flow.get_output_language() == "简体中文"
+    assert "zh-CN" in str(providers[0].messages)
+    assert "output language" in str(providers[0].messages)
 
 
 def test_llm_provider_uses_shared_non_billable_route_without_redaction(

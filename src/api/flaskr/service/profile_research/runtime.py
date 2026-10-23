@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import contextlib
 import json
-from collections.abc import Callable, Generator, Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask, Response, stream_with_context
 from flaskr.api.langfuse import (
@@ -17,7 +16,6 @@ from flaskr.api.langfuse import (
     get_request_trace_id,
 )
 from flaskr.api.llm.model_selection import get_default_llm_model
-from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.dao import (
     invalidate_session,
     is_protocol_interrupt_error,
@@ -32,6 +30,7 @@ from flaskr.service.profile_research.document import (
     _append_profile_summary,
     validate_profile_research_document,
 )
+from flaskr.service.profile_research.engine_runtime import run_profile_block
 from flaskr.service.profile_research.events import (
     _compact_replay_events,
     _expand_replay_events,
@@ -39,7 +38,10 @@ from flaskr.service.profile_research.events import (
 from flaskr.service.profile_research.events import (
     _profile_research_event as _event,
 )
-from flaskr.service.profile_research.provider import _ProfileResearchLLMProvider
+from flaskr.service.profile_research.provider import (
+    _ProfileResearchLLMProvider,
+    create_profile_research_model,
+)
 from flaskr.service.profile_research.session import (
     ALLOWED_PROFILE_RESEARCH_PURPOSES as _ALLOWED_PURPOSES,
 )
@@ -73,10 +75,14 @@ from markdown_flow import (
     USER_ANSWER_CONTEXT_KEY,
     BlockType,
     LLMProvider,
-    LLMResult,
     MarkdownFlow,
-    ProcessMode,
 )
+from markdown_flow.parser import CodeBlockPreprocessor
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Iterable, Mapping
+
+    from pydantic_ai.models import Model
 
 __all__ = [
     "PROFILE_ONBOARDING_PREVIEW_PURPOSE",
@@ -127,14 +133,7 @@ class _BlockExecution:
     outcome: _StepOutcome
     rerendered_interaction: str
     streamed_events: list[dict[str, Any]]
-
-
-def _iter_results(
-    result: LLMResult | Iterable[LLMResult],
-) -> Iterable[LLMResult]:
-    if isinstance(result, LLMResult):
-        return (result,)
-    return result
+    awaiting_input: bool
 
 
 def _collected_nickname(session: _ProfileResearchSession) -> str | None:
@@ -160,11 +159,15 @@ class ProfileResearchRuntime:
         provider_factory: Callable[
             [Flask, _ProfileResearchSession, object], LLMProvider
         ] = _ProfileResearchLLMProvider,
+        model_factory: Callable[
+            [Flask, _ProfileResearchSession, object], Model
+        ] = create_profile_research_model,
     ) -> None:
         """Initialize the runtime with shared storage and provider adapters."""
         self.app = app
         self.store = store or _ProfileResearchSessionStore(app)
         self._provider_factory = provider_factory
+        self._model_factory = model_factory
 
     def start_session(
         self,
@@ -349,23 +352,6 @@ class ProfileResearchRuntime:
                 self.store.delete(session.session_id)
                 self.store.clear_active(session)
 
-    def _build_flow(
-        self,
-        session: _ProfileResearchSession,
-        provider: LLMProvider,
-    ) -> MarkdownFlow:
-        flow = MarkdownFlow(
-            document=session.document,
-            llm_provider=provider,
-        )
-        flow.set_model(session.model)
-        flow.set_temperature(session.temperature)
-        if session.output_language:
-            flow.set_output_language(
-                resolve_markdownflow_output_language(session.output_language)
-            )
-        return flow
-
     def _summary(
         self,
         session: _ProfileResearchSession,
@@ -397,11 +383,13 @@ class ProfileResearchRuntime:
         events: list[dict[str, Any]],
         operation: str = "run",
         raw_text: str = "",
+        expected_interaction_id: str | None = None,
     ) -> None:
         session.last_operation = operation
         session.last_raw_text = raw_text if request_id else ""
         session.last_request_id = request_id or ""
         session.last_expected_block_index = expected_block_index
+        session.last_expected_interaction_id = expected_interaction_id
         session.last_user_input = user_input if request_id else {}
         session.last_events = _compact_replay_events(events) if request_id else []
 
@@ -414,6 +402,7 @@ class ProfileResearchRuntime:
         user_input: dict[str, list[str]],
         operation: str = "run",
         raw_text: str = "",
+        expected_interaction_id: str | None = None,
     ) -> list[dict[str, Any]] | None:
         if request_id is None and expected_block_index is None:
             return None
@@ -429,6 +418,7 @@ class ProfileResearchRuntime:
                 operation == session.last_operation
                 and raw_text == session.last_raw_text
                 and expected_block_index == session.last_expected_block_index
+                and expected_interaction_id == session.last_expected_interaction_id
                 and user_input == session.last_user_input
                 and session.last_events
             ):
@@ -445,21 +435,26 @@ class ProfileResearchRuntime:
         session: _ProfileResearchSession,
         *,
         current_block: object,
-        user_input: dict[str, list[str]],
         outcome: _StepOutcome,
     ) -> None:
         if current_block.block_type == BlockType.INTERACTION:
-            answer_values = outcome.answer_values or [
-                value for values in user_input.values() for value in values
-            ]
+            answer_values = outcome.answer_values
             interaction_context = {
                 "role": "assistant",
                 "content": str(current_block.content or ""),
             }
-            if not outcome.variable_updates:
+            if answer_values:
                 interaction_context[USER_ANSWER_CONTEXT_KEY] = ", ".join(answer_values)
             session.context.append(interaction_context)
             return
+        if outcome.answer_values:
+            session.context.append(
+                {
+                    "role": "user",
+                    "content": ", ".join(outcome.answer_values),
+                    USER_ANSWER_CONTEXT_KEY: ", ".join(outcome.answer_values),
+                }
+            )
         if current_block.block_type == BlockType.PRESERVED_CONTENT:
             if outcome.content.strip():
                 session.context.append(
@@ -483,6 +478,7 @@ class ProfileResearchRuntime:
         user_input: Mapping[str, Any] | None,
         expected_block_index: int | None,
         request_id: str | None,
+        expected_interaction_id: str | None = None,
     ) -> _RunAdmission:
         session = self._load_authorized_session(
             user_bid=user_bid,
@@ -507,6 +503,7 @@ class ProfileResearchRuntime:
             request_id=request_id,
             expected_block_index=expected_block_index,
             user_input=normalized_user_input,
+            expected_interaction_id=expected_interaction_id,
         )
         if replay is not None:
             return _RunAdmission(
@@ -515,6 +512,26 @@ class ProfileResearchRuntime:
                 immediate_events=replay,
                 refresh_session=True,
             )
+        current_engine = (
+            session.engine_session or {}
+            if session.engine_block_index == session.block_index
+            else {}
+        )
+        pending = current_engine.get("pending") or []
+        if expected_interaction_id is not None:
+            actual_id = pending[0].get("tool_call_id") if pending else None
+            if not normalized_user_input or expected_interaction_id != actual_id:
+                msg = "expected_interaction_id does not match the pending question"
+                raise ProfileResearchValidationError(msg)
+        elif (
+            normalized_user_input
+            and pending
+            and current_engine.get("profile_research_answered_count", 0)
+        ):
+            # Older clients can answer their original question, but cannot
+            # safely identify a later deferred question at the same block cursor.
+            msg = "expected_interaction_id is required for the next question"
+            raise ProfileResearchValidationError(msg)
         if session.done:
             return _RunAdmission(
                 session=session,
@@ -556,7 +573,6 @@ class ProfileResearchRuntime:
             },
             root_span_payload={"name": "profile_research_step"},
         )
-        provider = self._provider_factory(self.app, session, root_span)
         events: list[dict[str, Any]] = []
         outcome = _StepOutcome()
         element_content_by_segment: dict[tuple[int, int], str] = {}
@@ -566,7 +582,9 @@ class ProfileResearchRuntime:
         active_element_segment = 0
         rerendered_interaction = ""
         try:
-            flow = self._build_flow(session, provider)
+            model = self._model_factory(self.app, session, root_span)
+            # Parse only to preserve the published document/cursor contract.
+            flow = MarkdownFlow(session.document)
             blocks = flow.get_all_blocks()
             if len(blocks) != session.block_count:
                 msg = "session document changed"
@@ -576,144 +594,150 @@ class ProfileResearchRuntime:
                 raise ProfileResearchSessionNotFound(msg)
             processed_block_index = session.block_index
             current_block = blocks[processed_block_index]
+            # The document parser shields fences before splitting authored steps.
+            # Restore source with its public preprocessor before the agent sees it.
+            preprocessor = CodeBlockPreprocessor()
+            preprocessor.extract_code_blocks(session.document)
+            current_block.content = preprocessor.restore_code_blocks_only(
+                preprocessor.remove_html_comment_placeholders(current_block.content)
+            )
             is_profile_draft_block = (
                 processed_block_index == session.profile_draft_block_index
             )
             has_user_input = bool(user_input)
-            if current_block.block_type != BlockType.INTERACTION and has_user_input:
+            pending = bool((session.engine_session or {}).get("pending"))
+            if (
+                current_block.block_type != BlockType.INTERACTION
+                and not pending
+                and has_user_input
+            ):
                 msg = "user_input is not expected for this block"
                 raise ProfileResearchValidationError(msg)
-            rendering_interaction = (
-                current_block.block_type == BlockType.INTERACTION and not has_user_input
-            )
-            result = flow.process(
-                block_index=processed_block_index,
-                mode=(
-                    ProcessMode.COMPLETE
-                    if rendering_interaction
-                    else ProcessMode.STREAM
-                ),
-                context=session.context or None,
-                variables=session.variables,
-                user_input=user_input or None,
+            result = run_profile_block(
+                session=session,
+                current_block=current_block,
+                user_input=user_input,
+                model=model,
             )
             generated_block_bid = (
                 f"profile-research:{session.session_id}:{processed_block_index}"
             )
+            previous_engine = (
+                session.engine_session or {}
+                if session.engine_block_index == processed_block_index
+                else {}
+            )
+            answered_count = previous_engine.get("profile_research_answered_count", 0)
             event_bid = (
-                f"{generated_block_bid}:feedback"
-                if current_block.block_type == BlockType.INTERACTION and has_user_input
+                f"{generated_block_bid}:feedback:{answered_count}"
+                if has_user_input
                 else generated_block_bid
             )
-            for llm_result in _iter_results(result):
-                variables = getattr(llm_result, "variables", None)
-                if variables is not None:
-                    outcome.input_accepted = True
-                    outcome.variable_updates.update(_normalize_variables(variables))
-                metadata = getattr(llm_result, "metadata", None)
-                if isinstance(metadata, Mapping):
-                    raw_answer = metadata.get("answer")
-                    if isinstance(raw_answer, list):
-                        outcome.answer_values = [str(value) for value in raw_answer]
-                prompt = str(getattr(llm_result, "prompt", "") or "")
-                if prompt and not outcome.prompt:
-                    outcome.prompt = prompt
-                content = str(getattr(llm_result, "content", "") or "")
-                if not content:
-                    continue
-                outcome.content += content
-                if is_profile_draft_block:
-                    # The generated profile is a structured terminal result,
-                    # not part of the learner-visible MarkdownFlow transcript.
-                    continue
-                raw_element_type = getattr(llm_result, "type", "")
-                element_type = str(
-                    getattr(raw_element_type, "value", raw_element_type) or ""
-                )
-                if rendering_interaction:
-                    element_type = "interaction"
-                elif not element_type:
-                    element_type = "text"
-                raw_element_number = getattr(llm_result, "number", 0)
-                element_number = (
-                    raw_element_number
-                    if isinstance(raw_element_number, int)
-                    and not isinstance(raw_element_number, bool)
-                    and raw_element_number >= 0
-                    else 0
-                )
-                element_identity = (element_number, element_type)
-                if element_identity != active_element_identity:
-                    active_element_identity = element_identity
-                    previous_html_segment = html_segment_by_number.get(element_number)
-                    if element_type == "html" and previous_html_segment is not None:
-                        active_element_segment = previous_html_segment
-                    else:
-                        active_element_segment = element_segment_count_by_number.get(
-                            element_number, 0
+            try:
+                for chunk in result:
+                    variables = getattr(chunk, "variables", None)
+                    if variables is not None:
+                        outcome.input_accepted = True
+                        outcome.variable_updates.update(_normalize_variables(variables))
+                    if chunk.answer_values:
+                        outcome.answer_values = chunk.answer_values
+                    prompt = str(getattr(chunk, "prompt", "") or "")
+                    if prompt and not outcome.prompt:
+                        outcome.prompt = prompt
+                    rendering_interaction = chunk.interaction is not None
+                    if rendering_interaction and has_user_input:
+                        rerendered_interaction = chunk.interaction or ""
+                        continue
+                    content = (
+                        chunk.interaction if rendering_interaction else chunk.content
+                    )
+                    if not content:
+                        continue
+                    outcome.content += content
+                    if is_profile_draft_block:
+                        # The generated profile is a structured terminal result,
+                        # not part of the learner-visible MarkdownFlow transcript.
+                        continue
+                    raw_element_type = getattr(chunk, "type", "")
+                    element_type = str(
+                        getattr(raw_element_type, "value", raw_element_type) or ""
+                    )
+                    if rendering_interaction:
+                        element_type = "interaction"
+                    elif not element_type:
+                        element_type = "text"
+                    raw_element_number = getattr(chunk, "number", 0)
+                    element_number = (
+                        raw_element_number
+                        if isinstance(raw_element_number, int)
+                        and not isinstance(raw_element_number, bool)
+                        and raw_element_number >= 0
+                        else 0
+                    )
+                    element_identity = (element_number, element_type)
+                    if element_identity != active_element_identity:
+                        active_element_identity = element_identity
+                        previous_html_segment = html_segment_by_number.get(
+                            element_number
                         )
-                        element_segment_count_by_number[element_number] = (
-                            active_element_segment + 1
-                        )
-                        if element_type == "html":
-                            html_segment_by_number[element_number] = (
-                                active_element_segment
+                        if element_type == "html" and previous_html_segment is not None:
+                            active_element_segment = previous_html_segment
+                        else:
+                            active_element_segment = (
+                                element_segment_count_by_number.get(element_number, 0)
                             )
-                segment_key = (element_number, active_element_segment)
-                element_content = (
-                    element_content_by_segment.get(segment_key, "") + content
-                )
-                element_content_by_segment[segment_key] = element_content
-                element_bid = event_bid
-                if not rendering_interaction:
-                    if active_element_segment > 0:
-                        element_bid = (
-                            f"{event_bid}:{element_number}:{active_element_segment}"
-                        )
-                    elif element_number > 0:
-                        element_bid = f"{event_bid}:{element_number}"
-                next_event = _event(
-                    "interaction" if rendering_interaction else "content",
-                    element_content,
-                    element_type=element_type,
-                    generated_block_bid=element_bid,
-                    run_session_bid=session.session_id,
-                    is_terminal=False,
-                )
-                events.append(next_event)
-                yield next_event
-            if rendering_interaction and not outcome.content.strip():
+                            element_segment_count_by_number[element_number] = (
+                                active_element_segment + 1
+                            )
+                            if element_type == "html":
+                                html_segment_by_number[element_number] = (
+                                    active_element_segment
+                                )
+                    segment_key = (element_number, active_element_segment)
+                    element_content = (
+                        element_content_by_segment.get(segment_key, "") + content
+                    )
+                    element_content_by_segment[segment_key] = element_content
+                    element_bid = (
+                        f"{generated_block_bid}:interaction:{chunk.interaction_id}"
+                        if rendering_interaction
+                        else event_bid
+                    )
+                    if not rendering_interaction:
+                        if active_element_segment > 0:
+                            element_bid = (
+                                f"{event_bid}:{element_number}:{active_element_segment}"
+                            )
+                        elif element_number > 0:
+                            element_bid = f"{event_bid}:{element_number}"
+                    next_event = _event(
+                        "interaction" if rendering_interaction else "content",
+                        element_content,
+                        element_type=element_type,
+                        generated_block_bid=element_bid,
+                        run_session_bid=session.session_id,
+                        is_terminal=False,
+                        interaction_id=(
+                            chunk.interaction_id if rendering_interaction else None
+                        ),
+                    )
+                    events.append(next_event)
+                    yield next_event
+            finally:
+                result.close()
+            if (
+                has_user_input
+                and (session.engine_session or {}).get("pending")
+                and not rerendered_interaction
+            ):
                 msg = "MarkdownFlow returned an empty interaction"
                 raise ProfileResearchError(msg)
-            if (
-                current_block.block_type == BlockType.INTERACTION
-                and has_user_input
-                and not outcome.input_accepted
-            ):
-                rerendered = flow.process(
-                    block_index=processed_block_index,
-                    mode=ProcessMode.COMPLETE,
-                    context=session.context or None,
-                    variables=session.variables,
-                    user_input=None,
-                )
-                rerendered_interaction = "".join(
-                    str(getattr(item, "content", "") or "")
-                    for item in _iter_results(rerendered)
-                )
-                if not rerendered_interaction:
-                    msg = "MarkdownFlow returned an empty interaction"
-                    raise ProfileResearchError(msg)
         finally:
             finalize_langfuse_trace(
                 trace=trace,
                 root_span=root_span,
-                trace_payload={
-                    "output": "".join(getattr(provider, "output_chunks", []))
-                },
-                root_span_payload={
-                    "output": "".join(getattr(provider, "output_chunks", []))
-                },
+                trace_payload={"output": outcome.content},
+                root_span_payload={"output": outcome.content},
             )
 
         return _BlockExecution(
@@ -723,6 +747,7 @@ class ProfileResearchRuntime:
             outcome=outcome,
             rerendered_interaction=rerendered_interaction,
             streamed_events=events,
+            awaiting_input=bool((session.engine_session or {}).get("pending")),
         )
 
     def _finalize_run(
@@ -733,13 +758,12 @@ class ProfileResearchRuntime:
         user_input: dict[str, list[str]],
         expected_block_index: int | None,
         request_id: str | None,
+        expected_interaction_id: str | None = None,
     ) -> list[dict[str, Any]]:
         current_block = execution.current_block
         outcome = execution.outcome
         processed_block_index = execution.processed_block_index
-        advanced = current_block.block_type != BlockType.INTERACTION
-        if current_block.block_type == BlockType.INTERACTION:
-            advanced = execution.has_user_input and outcome.input_accepted
+        advanced = not execution.awaiting_input
         if (
             processed_block_index == session.profile_draft_block_index
             and not outcome.content.strip()
@@ -753,16 +777,14 @@ class ProfileResearchRuntime:
             self._update_context(
                 session,
                 current_block=current_block,
-                user_input=user_input,
                 outcome=outcome,
             )
             if processed_block_index == session.profile_draft_block_index:
                 session.profile_draft = outcome.content.strip()
             session.block_index += 1
-        elif (
-            current_block.block_type == BlockType.INTERACTION
-            and execution.has_user_input
-        ):
+        elif execution.has_user_input:
+            pending = (session.engine_session or {}).get("pending") or []
+            interaction_id = pending[0]["tool_call_id"] if pending else ""
             trailing_events.append(
                 _event(
                     "interaction",
@@ -770,15 +792,15 @@ class ProfileResearchRuntime:
                     element_type="interaction",
                     generated_block_bid=(
                         f"profile-research:{session.session_id}:{processed_block_index}"
+                        f":interaction:{interaction_id}"
                     ),
                     run_session_bid=session.session_id,
                     is_terminal=False,
+                    interaction_id=interaction_id,
                 )
             )
 
-        session.awaiting_input = (
-            current_block.block_type == BlockType.INTERACTION and not advanced
-        )
+        session.awaiting_input = execution.awaiting_input
         session.done = session.block_index >= session.block_count
         terminal_event = _event(
             "done",
@@ -797,6 +819,7 @@ class ProfileResearchRuntime:
             expected_block_index=expected_block_index,
             user_input=user_input,
             events=all_events,
+            expected_interaction_id=expected_interaction_id,
         )
         self.store.save(session)
         return [*trailing_events, terminal_event]
@@ -810,8 +833,18 @@ class ProfileResearchRuntime:
         expected_purpose: str | None,
         expected_block_index: int | None = None,
         request_id: str | None = None,
+        expected_interaction_id: str | None = None,
     ) -> Generator[dict[str, Any], None, None]:
         """Run one idempotent cursor step and stream public events."""
+        if expected_interaction_id is not None:
+            if (
+                not isinstance(expected_interaction_id, str)
+                or not expected_interaction_id.strip()
+                or len(expected_interaction_id.strip()) > 256
+            ):
+                msg = "expected_interaction_id is invalid"
+                raise ProfileResearchValidationError(msg)
+            expected_interaction_id = expected_interaction_id.strip()
         normalized_session_id = str(session_id or "").strip()
         normalized_user_bid = str(user_bid or "").strip()
         normalized_purpose = self._resolve_existing_session_purpose(
@@ -841,6 +874,7 @@ class ProfileResearchRuntime:
                 user_input=user_input,
                 expected_block_index=expected_block_index,
                 request_id=request_id,
+                expected_interaction_id=expected_interaction_id,
             )
             if admission.immediate_events is not None:
                 if admission.refresh_session:
@@ -858,6 +892,7 @@ class ProfileResearchRuntime:
                 user_input=admission.user_input,
                 expected_block_index=expected_block_index,
                 request_id=request_id,
+                expected_interaction_id=expected_interaction_id,
             )
         finally:
             with contextlib.suppress(Exception):
@@ -953,10 +988,16 @@ class ProfileResearchRuntime:
             ):
                 msg = "assistant nickname is too long"
                 raise ProfileResearchValidationError(msg)
-            has_manual_answers = any(
-                key != _NICKNAME_VARIABLE_KEY and bool(value)
-                for key, value in staged.variables.items()
-            ) or any(message.get(USER_ANSWER_CONTEXT_KEY) for message in staged.context)
+            has_manual_answers = (
+                bool(staged.accepted_answers)
+                or any(
+                    key != _NICKNAME_VARIABLE_KEY and bool(value)
+                    for key, value in staged.variables.items()
+                )
+                or any(
+                    message.get(USER_ANSWER_CONTEXT_KEY) for message in staged.context
+                )
+            )
             if (
                 not answers
                 and not has_manual_answers
@@ -969,11 +1010,11 @@ class ProfileResearchRuntime:
                     {
                         "role": "user",
                         "content": answers,
+                        USER_ANSWER_CONTEXT_KEY: answers,
                     }
                 )
             staged.block_index = staged.profile_draft_block_index
-            # This is the same official MarkdownFlow execution used by the
-            # ordinary question flow, with no fabricated per-question runs.
+            # The final block uses the same 2.0 engine as manual collection.
             execution = yield from self._execute_block(session=staged, user_input={})
             has_profile_evidence = bool(answers or has_manual_answers)
             draft = execution.outcome.content.strip() if has_profile_evidence else ""
@@ -1066,6 +1107,7 @@ def stream_profile_research_session(
     expected_purpose: str | None = None,
     expected_block_index: int | None = None,
     request_id: str | None = None,
+    expected_interaction_id: str | None = None,
 ) -> Generator[dict[str, Any], None, None]:
     """Stream one profile-research session cursor step."""
     yield from ProfileResearchRuntime(app).stream_session(
@@ -1075,6 +1117,7 @@ def stream_profile_research_session(
         expected_purpose=expected_purpose,
         expected_block_index=expected_block_index,
         request_id=request_id,
+        expected_interaction_id=expected_interaction_id,
     )
 
 

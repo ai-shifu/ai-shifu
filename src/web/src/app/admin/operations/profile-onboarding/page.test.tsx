@@ -95,6 +95,7 @@ jest.mock(
       runSession: (params: {
         sessionId: string;
         expectedBlockIndex: number;
+        expectedInteractionId?: string;
         requestId: string;
         userInput?: Record<string, string[]>;
         onMessage: () => void;
@@ -110,6 +111,7 @@ jest.mock(
             sessionId: session.session_id,
             expectedBlockIndex: 2,
             requestId: 'preview-run-1',
+            expectedInteractionId: 'preview-question-1',
             userInput: { research_topic: ['AI 教学'] },
             onMessage: () => undefined,
             onError: () => undefined,
@@ -1512,6 +1514,7 @@ describe('ProfileOnboardingAdminPage', () => {
         payload: {
           expected_block_index: 2,
           request_id: 'preview-run-1',
+          expected_interaction_id: 'preview-question-1',
           user_input: { research_topic: ['AI 教学'] },
         },
       }),

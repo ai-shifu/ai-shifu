@@ -2,11 +2,49 @@
 title: Profile onboarding startup
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 canonical: true
 ---
 
 # Profile onboarding startup
+
+## Questionnaire execution
+
+Profile onboarding and operator questionnaire previews use the shared
+MarkdownFlow 2.0 agent engine through the public `learn.agent.api` boundary.
+The course-only `FLOW_ENGINE_V2_ENABLED` flag does not select the profile
+runtime: both profile entrypoints always use 2.0.
+
+Published MarkdownFlow questionnaires keep their existing authored block
+boundaries and validation rules. The parser supplies authoring metadata and
+progress; it does not execute model calls. Each authored block has its own
+agent session. Deferred tool calls, accepted answers and typed conversation
+history survive Redis round trips. A block advances after all pending
+interactions have been answered; invalid answers keep the question available.
+Prior questions, instructions and model responses are context rather than
+learner facts. Named values and accepted raw answers supply evidence for the
+final profile, including answers to questions without a named variable.
+
+The same engine executes the frozen final profile step for manual collection
+and imported assistant answers. Its text is returned only in the terminal
+`profile_draft` field. Existing SSE event names, cumulative element content,
+request replay, thirty-minute expiration, ownership locks, nonbillable usage
+and Profile analytics contracts are preserved. Existing version-1 cache records
+remain readable; the first resumed answer reconstructs its deferred question
+without asking the learner to resubmit it.
+
+Interaction events also carry `interaction_id`. Learner and operator clients
+bind that identifier to the displayed question and submit it as
+`expected_interaction_id`; exact retries retain the same question identifier
+and request ID. This protects successive deferred questions within one block
+from stale submissions in another tab. Older clients can answer their original
+question without the new field; later questions at the same block cursor
+require it. Content, questions and successive answer feedback have separate
+stable element IDs so one item cannot overwrite another in the transcript.
+
+Roll out the runtime as one worker revision. Older workers cannot read the
+new engine-state cache schema. A rollback must expire active profile sessions
+or wait for their thirty-minute lifetime to end before restoring older workers.
 
 ## Course entry
 

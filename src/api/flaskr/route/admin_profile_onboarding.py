@@ -197,6 +197,7 @@ def register_operator_profile_onboarding_routes(
                     user_input=run_request.user_input,
                     expected_block_index=run_request.expected_block_index,
                     request_id=run_request.request_id,
+                    expected_interaction_id=run_request.expected_interaction_id,
                 )
             ),
             log_context="operator profile onboarding preview",

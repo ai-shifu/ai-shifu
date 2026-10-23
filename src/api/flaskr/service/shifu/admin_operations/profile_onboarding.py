@@ -87,6 +87,7 @@ def stream_operator_profile_onboarding_preview_session(
     user_input: dict[str, list[str]] | None,
     expected_block_index: int | None = None,
     request_id: str | None = None,
+    expected_interaction_id: str | None = None,
 ) -> Generator[dict[str, Any], None, None]:
     """Run one cursor step while enforcing owner and preview-purpose scope."""
     from flaskr.service.profile_research.api import (
@@ -102,4 +103,5 @@ def stream_operator_profile_onboarding_preview_session(
         expected_purpose=PROFILE_ONBOARDING_PREVIEW_PURPOSE,
         expected_block_index=expected_block_index,
         request_id=request_id,
+        expected_interaction_id=expected_interaction_id,
     )

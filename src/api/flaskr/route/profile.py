@@ -229,6 +229,7 @@ def register_profile_routes(
                 expected_purpose=PROFILE_ONBOARDING_PURPOSE,
                 expected_block_index=run_request.expected_block_index,
                 request_id=run_request.request_id,
+                expected_interaction_id=run_request.expected_interaction_id,
             ),
             log_context="learner profile onboarding",
         )

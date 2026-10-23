@@ -18,12 +18,15 @@ def _profile_research_event(
     generated_block_bid: str | None = None,
     run_session_bid: str | None = None,
     is_terminal: bool | None = None,
+    interaction_id: str | None = None,
 ) -> dict[str, Any]:
     event: dict[str, Any] = {
         "type": event_type,
         "event_type": event_type,
         "content": content,
     }
+    if interaction_id is not None:
+        event["interaction_id"] = interaction_id
     if generated_block_bid is not None:
         event["generated_block_bid"] = generated_block_bid
     if element_type is not None:

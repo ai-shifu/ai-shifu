@@ -17,6 +17,7 @@ class ProfileResearchRunRequest:
     user_input: dict[str, list[str]] | None
     expected_block_index: int | None
     request_id: str | None
+    expected_interaction_id: str | None = None
 
 
 def normalize_profile_research_session_id(value: object) -> str:
@@ -86,8 +87,20 @@ def parse_profile_research_run_request(
     payload: dict, *, parameter_name: str
 ) -> ProfileResearchRunRequest:
     """Validate one complete run envelope with caller-specific error naming."""
-    if set(payload) - {"user_input", "expected_block_index", "request_id"}:
+    if set(payload) - {
+        "user_input",
+        "expected_block_index",
+        "request_id",
+        "expected_interaction_id",
+    }:
         raise_param_error(parameter_name)
+    expected_interaction_id = payload.get("expected_interaction_id")
+    if "expected_interaction_id" in payload and (
+        not isinstance(expected_interaction_id, str)
+        or not expected_interaction_id.strip()
+        or len(expected_interaction_id) > 256
+    ):
+        raise_param_error("expected_interaction_id")
     user_input = profile_research_user_input(
         payload,
         parameter_name=parameter_name,
@@ -100,6 +113,7 @@ def parse_profile_research_run_request(
         user_input=user_input,
         expected_block_index=expected_block_index,
         request_id=request_id,
+        expected_interaction_id=expected_interaction_id,
     )
 
 

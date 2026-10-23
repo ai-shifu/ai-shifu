@@ -135,6 +135,7 @@ def test_run_request_parser_returns_one_typed_validated_envelope() -> None:
             "user_input": {"style": ["brief"]},
             "expected_block_index": 3,
             "request_id": " request-3 ",
+            "expected_interaction_id": "native-question-3",
         },
         parameter_name="profile_onboarding_session",
     )
@@ -142,6 +143,35 @@ def test_run_request_parser_returns_one_typed_validated_envelope() -> None:
     assert result.user_input == {"style": ["brief"]}
     assert result.expected_block_index == 3
     assert result.request_id == "request-3"
+    assert result.expected_interaction_id == "native-question-3"
+
+
+def test_run_request_parser_keeps_the_interaction_identity_optional() -> None:
+    result = parse_profile_research_run_request(
+        {}, parameter_name="profile_onboarding_session"
+    )
+
+    assert result.expected_interaction_id is None
+
+
+@pytest.mark.parametrize("interaction_id", [None, False, 1, "", " ", "x" * 257])
+def test_run_request_parser_rejects_invalid_interaction_id(
+    interaction_id: object,
+) -> None:
+    with pytest.raises(AppError):
+        parse_profile_research_run_request(
+            {"expected_interaction_id": interaction_id},
+            parameter_name="profile_onboarding_session",
+        )
+
+
+def test_run_request_parser_preserves_the_exact_interaction_id() -> None:
+    result = parse_profile_research_run_request(
+        {"expected_interaction_id": "x" * 256},
+        parameter_name="profile_onboarding_session",
+    )
+
+    assert result.expected_interaction_id == "x" * 256
 
 
 def test_run_request_parser_rejects_unknown_fields_with_the_envelope_name() -> None:

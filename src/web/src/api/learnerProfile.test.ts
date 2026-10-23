@@ -287,6 +287,7 @@ describe('learner profile api', () => {
       sessionId: 'session/with-special-character',
       expectedBlockIndex: 3,
       requestId: 'profile-onboarding-run-2',
+      expectedInteractionId: 'question-tool-call-2',
       userInput: { profile_goal: ['学会 AI'] },
       language: 'zh-CN',
       onMessage,
@@ -298,6 +299,7 @@ describe('learner profile api', () => {
       payload: {
         expected_block_index: 3,
         request_id: 'profile-onboarding-run-2',
+        expected_interaction_id: 'question-tool-call-2',
         user_input: { profile_goal: ['学会 AI'] },
       },
       language: 'zh-CN',
