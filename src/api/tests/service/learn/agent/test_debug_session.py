@@ -5,13 +5,13 @@ from __future__ import annotations
 import pytest
 from flaskr.service.common.models import AppError
 from flaskr.service.learn.agent import debug_session
-from flaskr.service.learn.agent.engine.script import ScriptBundle
-from flaskr.service.learn.agent.engine.session import Session
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     PlaygroundPreviewRequest,
     RunMarkdownFlowDTO,
 )
+from markdownflow.engine.script import ScriptBundle
+from markdownflow.engine.session import Session
 
 
 class _Cache:

@@ -13,8 +13,7 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn import runscript_v2 as runtime
-from flaskr.service.learn.agent import bridge, lesson_entry, routing
-from flaskr.service.learn.agent.engine import ScriptBundle, Session
+from flaskr.service.learn.agent import lesson_entry, routing
 from flaskr.service.learn.agent.models import LearnAgentSession
 from flaskr.service.learn.agent.preview_history import (
     begin_preview_run,
@@ -47,6 +46,8 @@ from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftSt
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.user.repository import create_user_entity
 from flaskr.util.datetime import now_utc, to_utc_iso
+from markdownflow import bridge
+from markdownflow.engine import ScriptBundle, Session
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 

@@ -6,8 +6,8 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
-from flaskr.service.learn.agent import gateway_model as gateway
-from flaskr.service.learn.agent.engine import ContinueTurn, Engine, Session
+from flaskr.api.llm import markdownflow_model as gateway
+from markdownflow.engine import ContinueTurn, Engine, Session
 from pydantic_ai.models import ModelRequestParameters
 
 if TYPE_CHECKING:

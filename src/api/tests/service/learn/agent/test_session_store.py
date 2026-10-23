@@ -6,12 +6,12 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import session_store
-from flaskr.service.learn.agent.engine import ScriptBundle, Session
 from flaskr.service.learn.agent.models import (
     AGENT_SESSION_SCHEMA_VERSION,
     LearnAgentSession,
     active_key_for,
 )
+from markdownflow.engine import ScriptBundle, Session
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 USER = "learner-1"

@@ -11,7 +11,7 @@ from unittest.mock import Mock
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.agent import bridge, lesson_entry
+from flaskr.service.learn.agent import lesson_entry
 from flaskr.service.learn.follow_up_context import load_follow_up_history
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.learn.learn_funcs import reset_learn_record
@@ -19,6 +19,7 @@ from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
 from flaskr.service.user.repository import create_user_entity
+from markdownflow import bridge
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 if TYPE_CHECKING:

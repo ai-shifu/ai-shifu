@@ -35,6 +35,7 @@
 | `docs/design-docs/index.md` | Design Docs | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-08-17` | `true` |
 | `docs/design-docs/learner-follow-up-input-shortcuts.md` | Learner follow-up input shortcuts | `design-doc` | `implemented` | `learner-web` | `2026-09-04` | `true` |
+| `docs/design-docs/markdownflow-engine-library.md` | MarkdownFlow engine library | `design-doc` | `implemented` | `backend` | `2026-10-23` | `true` |
 | `docs/design-docs/native-cn-payments.md` | Native China Payments | `design-doc` | `needs-review` | `backend` | `-` | `true` |
 | `docs/design-docs/official-client-model-gateway.md` | Official Client Model Gateway | `design-doc` | `implemented` | `backend` | `2026-09-27` | `true` |
 | `docs/design-docs/operator-course-user-request-optimization.md` | Operator Course/User Request Optimization | `design-doc` | `needs-review` | `frontend` | `-` | `true` |
@@ -63,6 +64,7 @@
 | `docs/exec-plans/active/ghcr-image-publication.md` | Publish repository Docker images to GHCR | `exec-plan-active` | `active` | `repository` | `2026-10-08` | `true` |
 | `docs/exec-plans/active/local-storage-response-safety.md` | Local storage response safety | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-authored-inputs.md` | Keep Authored Input Hints Out of Choice Buttons | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
+| `docs/exec-plans/active/markdownflow-foundation-library.md` | Shared MarkdownFlow foundation library | `exec-plan-active` | `active` | `backend` | `2026-10-23` | `true` |
 | `docs/exec-plans/active/markdownflow-total-input-budget.md` | MarkdownFlow total input budget | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/mdf2-agent-lesson-rewind.md` | MarkdownFlow 2.0: rewind a lesson to an earlier turn | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-broader-classroom-acceptance.md` | MDF 2.0 Broader Classroom Acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -316,21 +318,6 @@
 | `src/api/flaskr/service/dashboard/AGENTS.md` | Backend Service: dashboard | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/feedback/AGENTS.md` | Backend Service: feedback | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/learn/AGENTS.md` | Backend Service: learn | `instruction` | `current` | `backend` | `-` | `true` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/answer_review.md` | Review this returned interaction | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/exercise_statistics.md` | Required exercise-report protocol | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/feedback_contract.md` | Declare the feedback branch before displaying this returned text answer | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/html_display.md` | Screens (HTML visuals) | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/html_display_generic.md` | Screens (HTML visuals) for a plain renderer | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/listen_mode.md` | Listen mode (visual + narration) | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/memory_admission.md` | Memory_Admission | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/memory_policy.md` | Memory policy | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/memory_recall.md` | Read memory on demand | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/memory_unrestricted.md` | Memory policy | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/recall_history_compaction.md` | Recall_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/system.md` | Core rules | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/teaching_history_compaction.md` | Teaching_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/teaching_summary.md` | Teaching_Summary | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/flaskr/service/learn/agent/engine/prompts/v1_syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/llm/AGENTS.md` | Backend Service: llm | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/metering/AGENTS.md` | Backend Service: metering | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/order/AGENTS.md` | Backend Service: order | `instruction` | `current` | `backend` | `-` | `true` |
@@ -341,6 +328,22 @@
 | `src/api/flaskr/service/shifu/AGENTS.md` | Backend Service: shifu | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/tts/AGENTS.md` | Backend Service: tts | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/flaskr/service/user/AGENTS.md` | Backend Service: user | `instruction` | `current` | `backend` | `-` | `true` |
+| `src/api/markdownflow/AGENTS.md` | MarkdownFlow Engine Library | `instruction` | `current` | `backend` | `-` | `true` |
+| `src/api/markdownflow/engine/prompts/answer_review.md` | Review this returned interaction | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/exercise_statistics.md` | Required exercise-report protocol | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/feedback_contract.md` | Declare the feedback branch before displaying this returned text answer | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/html_display.md` | Screens (HTML visuals) | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/html_display_generic.md` | Screens (HTML visuals) for a plain renderer | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/listen_mode.md` | Listen mode (visual + narration) | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/memory_admission.md` | Memory_Admission | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/memory_policy.md` | Memory policy | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/memory_recall.md` | Read memory on demand | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/memory_unrestricted.md` | Memory policy | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/recall_history_compaction.md` | Recall_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/system.md` | Core rules | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/teaching_history_compaction.md` | Teaching_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/teaching_summary.md` | Teaching_Summary | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/v1_syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask.md` | 回答规则 | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask_knowledge.md` | 知识库资料 | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask_knowledge_rule.md` | Ask_Knowledge_Rule | `reference` | `reference` | `backend` | `-` | `false` |

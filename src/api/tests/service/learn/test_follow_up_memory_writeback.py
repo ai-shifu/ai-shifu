@@ -263,7 +263,7 @@ def test_follow_up_reads_current_memory_instead_of_old_answer(
         parts = [p for p in last.parts if isinstance(p, ToolReturnPart)]
         if parts:
             results.append(json.loads(parts[0].content))
-            from flaskr.service.learn.agent.gateway_model import map_messages
+            from flaskr.api.llm.markdownflow_model import map_messages
 
             mapped = map_messages(messages)
             assert mapped[-2]["role"] == "tool"
@@ -1028,7 +1028,7 @@ def test_quote_tool_uses_only_original_learner_history_without_write_permission(
     has_original: bool,
     permission_source: str,
 ) -> None:
-    from flaskr.service.learn.agent.gateway_model import map_messages
+    from flaskr.api.llm.markdownflow_model import map_messages
 
     original = "Please remember the library analogy, then compare cache and RAM."
     suggestion = "Please remember: library loans before cache versus RAM."
@@ -1214,8 +1214,8 @@ def test_busy_worker_answers_follow_ups_without_memory_tools(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A full turn pool degrades to a plain answer instead of an unknown error."""
+    from flaskr.api.markdownflow import TurnCapacityError
     from flaskr.service.learn import follow_up_memory_writer
-    from flaskr.service.learn.agent.bridge import TurnCapacityError
 
     def full(*_args: object, **_kwargs: object) -> None:
         raise TurnCapacityError

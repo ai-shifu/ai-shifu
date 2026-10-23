@@ -6,11 +6,11 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
+from flaskr.api.llm import markdownflow_model as gateway_module
 from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.learn.agent import gateway_model as gateway_module
 from flaskr.service.learn.agent import lesson_entry as entry
 from flaskr.service.learn.agent.run_agent import TurnOutcome
 from flaskr.service.learn.exceptions import PaidError

@@ -79,7 +79,7 @@ From the repository root, activate the `ai-shifu` conda environment, then run:
 
 ```sh
 cd src/api
-python -m pytest tests/service/learn/agent/engine/ tests/service/learn/agent/test_legacy_protocol.py -q
+python -m pytest tests/markdownflow/engine/ tests/service/learn/agent/test_legacy_protocol.py -q
 python -m pytest tests/service/learn/ tests/service/profile/ -q
 cd ../..
 python scripts/build_repo_knowledge_index.py

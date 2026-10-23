@@ -18,7 +18,10 @@ if TYPE_CHECKING:
 
 import pytest
 from flaskr.service.learn.agent import run_agent
-from flaskr.service.learn.agent.engine.events import (
+from flaskr.service.learn.agent.session_store import StoredSessionUnusable
+from flaskr.service.learn.learn_dtos import GeneratedType, LearnStatus
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from markdownflow.engine.events import (
     ContentDelta,
     ErrorEvent,
     InteractionRequest,
@@ -27,15 +30,12 @@ from flaskr.service.learn.agent.engine.events import (
     ToolResult,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.interaction import (
+from markdownflow.engine.interaction import (
     InteractionSpec,
     Option,
     answer_is_usable,
     normalize_answer,
 )
-from flaskr.service.learn.agent.session_store import StoredSessionUnusable
-from flaskr.service.learn.learn_dtos import GeneratedType, LearnStatus
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
 
 USER = "user-bid"
 SHIFU = "shifu-bid"
@@ -49,7 +49,7 @@ class _Session:
 
     def __init__(self, *, started: bool = False, pending: list | None = None) -> None:
         """Build a session, carrying the script bundle a real one holds."""
-        from flaskr.service.learn.agent.engine.script import ScriptBundle
+        from markdownflow.engine.script import ScriptBundle
 
         self.started = started
         self.pending = pending or []
@@ -196,6 +196,37 @@ def _run(
             iter_turn=_drive,
             on_turn_opened=on_turn_opened,
         )
+    )
+
+
+@pytest.mark.usefixtures("calls")
+def test_default_course_runner_uses_the_shared_application_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.api import markdownflow as application
+
+    driven: list[object] = []
+
+    def drive(make_events: object, **kwargs: object) -> object:
+        driven.append(make_events)
+        return _drive(make_events, **kwargs)
+
+    monkeypatch.setattr(application, "iter_turn", drive)
+    engine = _Engine([ContentDelta(text="Shared runtime."), TurnDone(reason="end")])
+    events = list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+        )
+    )
+    assert len(driven) == 1
+    assert engine.turns
+    assert "Shared runtime." in "".join(
+        str(event.content) for event in events if event.type == GeneratedType.CONTENT
     )
 
 
@@ -2963,7 +2994,7 @@ def test_a_brief_an_author_deleted_stops_reaching_a_resumed_lesson(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Re-reading has to carry a removal too, or a cleared field would live on in the session."""
-    from flaskr.service.learn.agent.engine.script import ScriptBundle
+    from markdownflow.engine.script import ScriptBundle
 
     stored = _Session(started=True)
     stored.script = ScriptBundle(script=SCRIPT, constraints="an old brief")
@@ -2989,8 +3020,8 @@ def test_a_brief_an_author_deleted_stops_reaching_a_resumed_lesson(
 
 def _waiting_session() -> object:
     """Build a real session that has just asked "Which way?"."""
-    from flaskr.service.learn.agent.engine.script import ScriptBundle
-    from flaskr.service.learn.agent.engine.session import PendingInteraction, Session
+    from markdownflow.engine.script import ScriptBundle
+    from markdownflow.engine.session import PendingInteraction, Session
     from pydantic_ai.messages import (
         ModelRequest,
         ModelResponse,
@@ -3065,8 +3096,8 @@ def _rewind_run(
 def test_answering_again_restores_the_question_and_sends_the_new_answer(
     calls: list, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from flaskr.service.learn.agent.engine.engine import InteractionResponseTurn
     from flaskr.service.learn.agent.rewind import RewindPlan
+    from markdownflow.engine.engine import InteractionResponseTurn
 
     plan = RewindPlan(
         checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
@@ -3104,8 +3135,8 @@ def test_going_back_does_not_reopen_a_completed_lesson(
 def test_regenerating_runs_the_turn_again_with_the_input_it_had(
     calls: list, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from flaskr.service.learn.agent.engine.engine import InteractionResponseTurn
     from flaskr.service.learn.agent.rewind import RewindPlan
+    from markdownflow.engine.engine import InteractionResponseTurn
 
     plan = RewindPlan(
         checkpoint="waiting", replay_values=["Left"], retired_block_bids=["B2"]
@@ -3223,8 +3254,8 @@ def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
 ) -> None:
     """Persist a real interrupted engine run before reloading it through the host."""
     from flaskr.service.learn.agent import session_store
-    from flaskr.service.learn.agent.engine import Engine
     from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+    from markdownflow.engine import Engine
     from pydantic_ai.messages import TextPart
     from pydantic_ai.models.function import AgentInfo, FunctionModel
 
@@ -3347,7 +3378,7 @@ def test_invalid_interaction_markup_stays_unfinished_and_recovers_after_reload(
     import json
 
     from flaskr.service.learn.agent import session_store
-    from flaskr.service.learn.agent.engine import Engine
+    from markdownflow.engine import Engine
     from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
     recover = False
@@ -3491,8 +3522,9 @@ def test_validated_direction_is_durable_before_first_visible_feedback(
     """Use the real bridge/store so a disconnect restores the correction, not its old input."""
     import json
 
-    from flaskr.service.learn.agent import bridge, session_store
-    from flaskr.service.learn.agent.engine import Engine
+    from flaskr.service.learn.agent import session_store
+    from markdownflow import bridge
+    from markdownflow.engine import Engine
     from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
     rule = "First give one checking direction, one aspect per round."

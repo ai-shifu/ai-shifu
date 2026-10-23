@@ -8,20 +8,20 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from flaskr.api.llm.markdownflow_model import map_messages
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import clear_language, set_language
 from flaskr.service.learn.agent import run_agent, session_store
-from flaskr.service.learn.agent.engine import Engine
-from flaskr.service.learn.agent.engine.output_language import (
-    output_language_instructions,
-)
-from flaskr.service.learn.agent.engine.script import ScriptBundle
-from flaskr.service.learn.agent.gateway_model import map_messages
 from flaskr.service.learn.agent.output_language import configure_output_language
 from flaskr.service.learn.learn_funcs import reset_learn_record
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.user.repository import create_user_entity
+from markdownflow.engine import Engine
+from markdownflow.engine.output_language import (
+    output_language_instructions,
+)
+from markdownflow.engine.script import ScriptBundle
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 
@@ -260,22 +260,22 @@ def test_editor_language_cannot_add_instructions(
 @pytest.mark.usefixtures("app")
 def test_disabled_course_keeps_host_defaults_in_interface_language() -> None:
     """Course content and application-owned fallback controls have distinct languages."""
-    from flaskr.i18n import translate_for_language
-    from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
-    from flaskr.service.learn.agent.legacy_protocol import (
-        _in_the_learner_s_language,
+    from flaskr.api.markdownflow import (
         render_interaction,
         render_narrated_interaction,
+        render_question,
     )
+    from flaskr.i18n import translate_for_language
+    from markdownflow.engine.interaction import InteractionSpec, Option
 
     engine = SimpleNamespace(output_language=None)
     set_language("fr-FR")
     try:
         configure_output_language(engine, {"sys_user_language": "en-US"}, enabled=False)
-        confirm = _in_the_learner_s_language(InteractionSpec(type="confirm", prompt=""))
-        assert confirm.options[0].display == translate_for_language(
-            "server.learn.continueButton", "fr-FR"
-        )
+        prompt, confirm = render_question(InteractionSpec(type="confirm", prompt=""))
+        label = translate_for_language("server.learn.continueButton", "fr-FR")
+        assert prompt == ""
+        assert confirm == f"?[{label}//continue]"
         hint = translate_for_language("server.learn.freeTextPlaceholder", "fr-FR")
         assert hint in render_interaction(
             InteractionSpec(type="text", prompt="Authored question")
@@ -286,7 +286,8 @@ def test_disabled_course_keeps_host_defaults_in_interface_language() -> None:
             prompt="",
             options=[Option(display="Authored label", value="continue")],
         )
-        assert _in_the_learner_s_language(authored) is authored
+        assert render_question(authored) == ("", "?[Authored label//continue]")
+        assert authored.options[0].display == "Authored label"
     finally:
         clear_language()
     assert engine.output_language == ""

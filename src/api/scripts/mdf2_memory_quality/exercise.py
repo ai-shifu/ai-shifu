@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Any
 
-    from flaskr.service.learn.agent.engine import Session
+    from markdownflow.engine import Session
     from pydantic_ai.models import Model
 
 GENERATION_SETTINGS = {"temperature": 0, "max_tokens": 2048}
@@ -42,8 +42,8 @@ def expected_report(case: dict[str, Any]) -> dict[str, Any]:
 
 def exercise_session(case: dict[str, Any]) -> Session:
     """Build original paired question/answer/feedback evidence without expected totals."""
-    from flaskr.service.learn.agent.engine import ScriptBundle, Session
-    from flaskr.service.learn.agent.engine.script import render_first_prompt
+    from markdownflow.engine import ScriptBundle, Session
+    from markdownflow.engine.script import render_first_prompt
     from pydantic_ai.messages import (
         ModelRequest,
         ModelResponse,
@@ -217,7 +217,7 @@ def score_calculation(
     diagnostics: dict[str, str] | None = None,
 ) -> dict[str, bool]:
     """Require complete evidence reads and a correct calculation before report text."""
-    from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
+    from markdownflow.engine import ContentDelta, ToolCall, ToolResult
 
     calls = {}
     offset = 0
@@ -321,7 +321,7 @@ async def evaluate_exercise(
     case: dict[str, Any], model: Model, summary_model: Model | None = None
 ) -> dict[str, Any]:
     """Score final model output against immutable original attempt evidence."""
-    from flaskr.service.learn.agent.engine import (
+    from markdownflow.engine import (
         ContentDelta,
         ContinueTurn,
         Engine,
@@ -341,15 +341,15 @@ async def evaluate_exercise(
     sources: dict[str, str] = {}
     summarizer = None
     if case.get("compacted_history"):
-        from flaskr.service.learn.agent.engine import Session
-        from flaskr.service.learn.agent.engine.teaching_history import (
+        from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
+        from markdownflow.engine import Session
+        from markdownflow.engine.teaching_history import (
             project_teaching_history,
         )
-        from flaskr.service.learn.agent.engine.teaching_summary import (
+        from markdownflow.engine.teaching_summary import (
             TeachingSummarizer,
             summarize_teaching_history,
         )
-        from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
 
         from scripts.evaluate_mdf2_memory import (
             observe_summary_usage,

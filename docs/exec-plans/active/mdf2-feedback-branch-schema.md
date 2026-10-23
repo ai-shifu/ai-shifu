@@ -250,9 +250,9 @@ No production write or automatic merge is authorized by this work.
 
 ## Context and Orientation
 
-`src/api/flaskr/service/learn/agent/engine/tools.py` owns Deps, feedback validation
+`src/api/markdownflow/engine/tools.py` owns Deps, feedback validation
 and request-local tool preparation. `engine.py` registers the SDK tools.
-`tests/service/learn/agent/engine/test_feedback_tool_schema.py` validates actual
+`tests/markdownflow/engine/test_feedback_tool_schema.py` validates actual
 SDK-offered JSON schemas and executes native tools. The canonical contract is in
 `docs/references/markdownflow-memory-quality.md`; broader acceptance remains in
 `mdf2-broader-classroom-acceptance.md`.

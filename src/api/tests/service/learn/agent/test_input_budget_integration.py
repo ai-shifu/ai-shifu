@@ -6,15 +6,15 @@ from uuid import uuid4
 
 import pytest
 from flask import Flask
+from flaskr.api.llm import markdownflow_model as gw
+from flaskr.api.llm.markdownflow_budget import INPUT_BUDGET_BYTES
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.agent import gateway_model as gw
 from flaskr.service.learn.agent import run_agent, session_store
-from flaskr.service.learn.agent.engine import Engine
-from flaskr.service.learn.agent.input_budget import INPUT_BUDGET_BYTES
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.repository import create_user_entity
+from markdownflow.engine import Engine
 
 from tests.service.learn.agent.test_gateway_model import FakeChunk, FakeSpan
 from tests.service.learn.agent.test_memory_integration import _drive

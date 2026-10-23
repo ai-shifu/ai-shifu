@@ -12,11 +12,11 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
-from flaskr.service.learn.agent.engine import Engine, Session
-from flaskr.service.learn.agent.engine.script import ScriptBundle, render_first_prompt
 from flaskr.service.profile.api import delete_course_memory, list_course_memory
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
+from markdownflow.engine import Engine, Session
+from markdownflow.engine.script import ScriptBundle, render_first_prompt
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,

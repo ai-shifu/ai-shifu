@@ -7,11 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from flaskr.api.llm import LLMStreamResponse
-from flaskr.service.learn.agent.bridge import TurnCapacityError, iter_turn
-from flaskr.service.learn.agent.engine.recall import recall as engine_recall
-from flaskr.service.learn.agent.engine.script import collected_names
-from flaskr.service.learn.agent.engine.tools import Deps, prepare_memory_tool
-from flaskr.service.learn.agent.engine.tools import remember as engine_remember
+from flaskr.api.markdownflow import TurnCapacityError, iter_turn
 from flaskr.service.learn.agent.lesson_record import claim_for_writing
 from flaskr.service.learn.follow_up_quotations import LearnerQuotationSource
 from flaskr.service.learn.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
@@ -24,6 +20,10 @@ from flaskr.service.profile.api import (
     global_profile_value_versions,
 )
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
+from markdownflow.engine.recall import recall as engine_recall
+from markdownflow.engine.script import collected_names
+from markdownflow.engine.tools import Deps, prepare_memory_tool
+from markdownflow.engine.tools import remember as engine_remember
 from pydantic_ai import (
     Agent,
     AgentRunResultEvent,

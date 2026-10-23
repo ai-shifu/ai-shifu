@@ -25,7 +25,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/release_workflow.py"
-ENGINE = "src/api/flaskr/service/learn/agent/engine/__init__.py"
+ENGINE = "src/api/markdownflow/engine/__init__.py"
 PACKAGES = ("src/web",)
 
 

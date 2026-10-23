@@ -7,21 +7,21 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import pytest
-from flaskr.service.learn.agent import gateway_model as gw
+from flaskr.api.llm import markdownflow_model as gw
+from flaskr.api.llm.markdownflow_budget import INPUT_BUDGET_BYTES
 from flaskr.service.learn.agent import run_agent, session_store
-from flaskr.service.learn.agent.engine import (
+from flaskr.service.learn.agent.rewind import checkpoint_of, restore
+from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.profile.models import VariableValue
+from markdownflow.engine import (
     Engine,
     ErrorEvent,
     MessageTurn,
     Session,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.script import ScriptBundle, render_first_prompt
-from flaskr.service.learn.agent.engine.teaching_history import project_teaching_history
-from flaskr.service.learn.agent.input_budget import INPUT_BUDGET_BYTES
-from flaskr.service.learn.agent.rewind import checkpoint_of, restore
-from flaskr.service.learn.learn_dtos import GeneratedType
-from flaskr.service.profile.models import VariableValue
+from markdownflow.engine.script import ScriptBundle, render_first_prompt
+from markdownflow.engine.teaching_history import project_teaching_history
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,

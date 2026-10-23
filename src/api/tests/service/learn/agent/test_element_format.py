@@ -9,12 +9,6 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent
-from flaskr.service.learn.agent.engine.events import (
-    ContentDelta,
-    InteractionRequest,
-    TurnDone,
-)
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
 from flaskr.service.learn.const import ROLE_TEACHER
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
@@ -34,6 +28,12 @@ from flaskr.service.learn.models import (
 )
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 from markdown_flow.formatter.stream import StreamFormatter
+from markdownflow.engine.events import (
+    ContentDelta,
+    InteractionRequest,
+    TurnDone,
+)
+from markdownflow.engine.interaction import InteractionSpec, Option
 
 from tests.service.learn.agent import test_run_agent as host_fixture
 

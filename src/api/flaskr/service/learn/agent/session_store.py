@@ -23,9 +23,9 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from flaskr.api.markdownflow import Session
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, require_transaction_owner, unit_of_work
-from flaskr.service.learn.agent.engine import Session
 from flaskr.service.learn.agent.models import (
     AGENT_SESSION_SCHEMA_VERSION,
     LearnAgentSession,
