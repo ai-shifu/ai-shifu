@@ -1,5 +1,8 @@
 """Keep native container boundaries separate from authored variable text."""
 
+import json
+from pathlib import Path
+
 import pytest
 from flaskr.service.learn.agent.engine import collected_names, substitute_variables
 from flaskr.service.learn.agent.engine.marker_context import analyze_marker_context
@@ -271,3 +274,86 @@ def test_unterminated_container_html_ends_at_confirmed_parent_dedent(
             ]
         )
     )
+
+
+AUTOLINK_EXAMPLES = [
+    "<foo:{{unfinished\x00>",
+    "<foo:{{unfinished\ufffd>",
+    "<foo:{{unfinished>",
+    "<https://example.com/{{unfinished>",
+    "<aa:{{unfinished>",
+    "<" + "a" * 32 + ":{{unfinished>",
+    "<foo:中文/{{unfinished>",
+    "<{{unfinished@example.com>",
+    "<{{unfinished@b>",
+    "<{{unfinished@" + "a" * 63 + ".com>",
+]
+INVALID_AUTOLINK_EXAMPLES = [
+    "<a:{{unfinished>",
+    "<" + "a" * 33 + ":{{unfinished>",
+    "<1foo:{{unfinished>",
+    "<foo:{{unfinished space>",
+    "<foo:{{unfinished\x7f>",
+    "<foo:{{unfinished\x01>",
+    "<foo:{{unfinished\n>",
+    "<foo:{{unfinished",
+    "<{{unfinished@-example.com>",
+    "<{{unfinished@example-.com>",
+    "<{{unfinished@" + "a" * 64 + ".com>",
+    "<{{unfinished@@example.com>",
+    "<{{unfinished@example..com>",
+]
+COMPLETE_AUTOLINK_KEYS = [
+    ("<foo:%{{a|b[🙂]}}>", "a|b[🙂]"),
+    (r"<foo:{{path\key}}>", r"path\key"),
+    ("<{{question?}}@example.com>", "question?"),
+    ("<foo:{{x<y}}>", "x<y"),
+]
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("example", AUTOLINK_EXAMPLES)
+def test_complete_angle_autolinks_bound_unfinished_variable_examples(
+    newline: str, example: str
+) -> None:
+    _assert_real(example + newline * 2)
+
+
+@pytest.mark.parametrize("example", INVALID_AUTOLINK_EXAMPLES)
+def test_invalid_angle_links_do_not_claim_literal_scope(example: str) -> None:
+    source = example + "\n\n" + QUESTION
+    assert _names(source) == frozenset()
+    assert _script_questions(source) == []
+
+
+@pytest.mark.parametrize(("example", "key"), COMPLETE_AUTOLINK_KEYS)
+def test_angle_link_declarations_keep_exact_keys(example: str, key: str) -> None:
+    source = example + "\n\n" + QUESTION
+    assert _names(source) == frozenset({key, "real"})
+    assert collected_names(source) == (
+        frozenset({key, "real"}) if "%{{" in example else frozenset({"real"})
+    )
+    assert substitute_variables(source, {key: "VALUE"}) == (
+        source if "%{{" in example else source.replace("{{" + key + "}}", "VALUE")
+    )
+    for marker in analyze_marker_context(source).markers:
+        assert marker.raw_name == source[marker.start + 2 : marker.end - 2]
+
+
+def test_true_marker_names_own_angle_link_syntax() -> None:
+    source = "{{ key<foo:?[Go]> }}\n\n" + QUESTION
+    assert _names(source) == frozenset({"key<foo:?[Go]>", "real"})
+    assert [question.variable for question in _script_questions(source)] == ["real"]
+
+
+AUTOLINK_CORPUS = json.loads(
+    (Path(__file__).parent / "fixtures" / "autolink-cases.json").read_text()
+)
+
+
+@pytest.mark.parametrize("case", AUTOLINK_CORPUS, ids=lambda case: case["id"])
+def test_shared_native_angle_autolink_corpus(case: dict[str, object]) -> None:
+    source = str(case["source"])
+    assert sorted(_names(source)) == case["names"]
+    assert sorted(collected_names(source)) == case["variables"]
+    assert bool(_script_questions(source)) == ("real" in case["names"])

@@ -41,7 +41,10 @@ from markdown_it.common.html_re import HTML_TAG_RE
 
 from .engine.document_blocks import DocumentBlocks
 from .engine.marker_context import analyze_marker_context, marker_syntax_source
-from .engine.stream_marker_context import compact_marker_context
+from .engine.stream_marker_context import (
+    compact_marker_context,
+    pending_autolink_is_primary,
+)
 from .engine.variable_names import find_interaction_end, read_variable_marker
 
 _OPEN = "?["
@@ -76,6 +79,7 @@ class InteractionSyntaxFilter:
         # and attribute/title values never need to be retained or rescanned.
         self._context_prefix = ""
         self._context_label_counts: dict[int, int] = {}
+        self._opaque_prefix_until = 0
         self.spans: list[str] = []
 
     def feed(self, text: str) -> str:
@@ -259,7 +263,33 @@ class InteractionSyntaxFilter:
         context = analyze_marker_context(
             source, final=False, label_counts=self._context_label_counts
         )
+        provisional = context.pending_autolink_start
+        if provisional is not None and not pending_autolink_is_primary(
+            source, provisional
+        ):
+            provisional = None
+        owned = [
+            marker
+            for marker in context.markers
+            if marker.start < len(prefix) < marker.end
+            and not any(start <= marker.start < end for start, end in context.literals)
+            and (provisional is None or marker.start < provisional)
+        ]
+        self._opaque_prefix_until = max(
+            (marker.end - len(prefix) for marker in owned), default=0
+        )
         scanned = marker_syntax_source(source, context)
+        if owned:
+            end = len(prefix) + self._opaque_prefix_until
+            scanned = (
+                scanned[: len(prefix)]
+                + "\x00" * self._opaque_prefix_until
+                + scanned[end:]
+            )
+        if provisional is not None:
+            # A viable angle link may still become ordinary text in a later
+            # chunk. Its witness retains any raw opener for that fallback.
+            scanned = scanned[:provisional] + scanned[provisional:].replace("{", "\x00")
         if container_fences:
             characters = list(scanned)
             for start, end in context.container_fences:
@@ -282,6 +312,19 @@ class InteractionSyntaxFilter:
             context = analyze_marker_context(
                 source, final=False, label_counts=self._context_label_counts
             )
+            if any(
+                not marker.complete
+                and marker.start < len(self._context_prefix)
+                and not any(
+                    start <= marker.start < end for start, end in context.literals
+                )
+                and (
+                    context.pending_autolink_start is None
+                    or marker.start < context.pending_autolink_start
+                )
+                for marker in context.markers
+            ):
+                return None
             if context.pending_reference_body_start is not None:
                 opening = source.find("{{", context.pending_reference_body_start)
                 while opening >= 0:
@@ -390,7 +433,7 @@ class InteractionSyntaxFilter:
         the very start of what is left to scan.
         """
         marker_scan = self._marker_scan_text(text)
-        at = 0
+        at = min(len(text), self._opaque_prefix_until)
         while at < len(text):
             if marker_scan.startswith("{{", at):
                 marker = read_variable_marker(text, at)

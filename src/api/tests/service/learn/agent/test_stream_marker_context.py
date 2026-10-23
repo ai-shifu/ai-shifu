@@ -1,5 +1,8 @@
 """Keep document marker boundaries stable across arbitrary narration chunks."""
 
+import json
+from pathlib import Path
+
 import pytest
 from flaskr.service.learn.agent import interaction_syntax
 from flaskr.service.learn.agent.engine import stream_marker_context
@@ -7,6 +10,121 @@ from flaskr.service.learn.agent.engine.marker_context import MarkerContext
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 
 QUESTION = "?[%{{ real }} A|B]"
+AUTOLINK_CASES = json.loads(
+    (Path(__file__).parent / "engine" / "fixtures" / "autolink-cases.json").read_text()
+)
+
+
+@pytest.mark.parametrize("case", AUTOLINK_CASES, ids=lambda case: case["id"])
+def test_shared_angle_link_corpus_keeps_stream_boundary_agreement(
+    case: dict[str, object],
+) -> None:
+    source = str(case["source"])
+    expected = None
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        actual = (shown, syntax.spans)
+        if expected is None:
+            expected = actual
+        assert actual == expected, stream
+        assert syntax.spans.count(QUESTION) == (1 if case["variables"] else 0), stream
+
+
+@pytest.mark.parametrize(
+    ("prefix", "real"),
+    [
+        ("<https://{{unfinished>\n\n", True),
+        ("<ab:{{unfinished>\n\n", True),
+        ("<" + "a" * 32 + ":{{unfinished>\n\n", True),
+        ("<a:{{unfinished>\n\n", False),
+        ("<" + "a" * 33 + ":{{unfinished>\n\n", False),
+        ("<https://{{unfinished value>\n\n", False),
+        ("<https://{{unfinished\nvalue>\n\n", False),
+        ("<https://{{unfinished\x7f>\n\n", False),
+        ("<{{unfinished@example.com>\n\n", True),
+        ("<{{unfinished@" + "a" * 63 + ".com>\n\n", True),
+        ("<{{unfinished@" + "a" * 64 + ".com>\n\n", False),
+        ("<{{unfinished@example-.com>\n\n", False),
+        ("Text <!{{unfinished@example.com>\n\n", True),
+        ("Text <?{{unfinished@example.com>\n\n", True),
+        ("Text </{{unfinished@example.com>\n\n", True),
+        ("<https://\\{{unfinished value>\n\n", True),
+        ("{{unfinished <https://example.com>\n\n", False),
+        ("<scripture>\n{{unfinished\n</scripture>\n\n", True),
+        ("<script attr>\n{{unfinished\n</script>\n\n", True),
+    ],
+)
+def test_angle_link_boundaries_and_invalid_fallback_survive_every_stream_cut(
+    prefix: str, real: bool
+) -> None:
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == (prefix if real else source), stream
+        assert syntax.spans == ([QUESTION] if real else []), stream
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "<https://{{" + "x" * 3000 + ">\n\n",
+        "<{{" + "x" * 3000 + "@example.com>\n\n",
+        "<{{x@" + "example." * 400 + "com>\n\n",
+        "<https://" + "[" * 1000 + "x" + "]" * 1000 + ">\n\n",
+    ],
+)
+def test_angle_link_continuations_keep_bounded_state_and_parser_work(
+    prefix: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inspected = 0
+    original = stream_marker_context.analyze_marker_context
+
+    def counted(source: str, **kwargs: object) -> MarkerContext:
+        nonlocal inspected
+        inspected += len(source)
+        return original(source, **kwargs)
+
+    monkeypatch.setattr(stream_marker_context, "analyze_marker_context", counted)
+    monkeypatch.setattr(interaction_syntax, "analyze_marker_context", counted)
+    syntax = InteractionSyntaxFilter()
+    pieces = []
+    for character in prefix + QUESTION:
+        pieces.append(syntax.feed(character))
+        assert len(syntax._context_prefix) <= 128
+        assert len(syntax._held) <= 128
+    pieces.append(syntax.flush())
+    assert "".join(pieces) == prefix
+    assert syntax.spans == [QUESTION]
+    assert inspected <= 400 * (len(prefix) + len(QUESTION))
+
+
+def test_invalid_angle_link_releases_an_earlier_raw_marker_only_at_its_closer() -> None:
+    source = "<https://{{unfinished value>\n\n" + QUESTION + " then " + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == source[: -len(QUESTION)], stream
+        assert syntax.spans == [QUESTION], stream
+
+
+def test_angle_link_fallback_keeps_counted_label_and_resource_state() -> None:
+    prefix = "<https://" + "[" * 24 + "x" + "]" * 24 + '(u "{{")\n\n'
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])

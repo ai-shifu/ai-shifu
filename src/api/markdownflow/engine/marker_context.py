@@ -14,6 +14,7 @@ from .document_blocks import (
     container_content_start,
     fence_opening,
     indentation,
+    read_angle_autolink,
 )
 from .variable_names import normalize_variable_name, read_variable_marker
 
@@ -69,6 +70,7 @@ class MarkerContext:
     unmatched_backticks: list[tuple[int, str]] = field(default_factory=list)
     unmatched_math: list[tuple[int, str]] = field(default_factory=list)
     pending_html_start: int | None = None
+    pending_autolink_start: int | None = None
     pending_raw_html_tag: str | None = None
     pending_raw_html_closed: bool = False
     pending_resource_start: int | None = None
@@ -709,6 +711,18 @@ def analyze_marker_context(
             context.unmatched_backticks.append((at, run.group()))
             at = run.end()
         elif text[at] == "<" and not _escaped(text, at):
+            autolink_end = read_angle_autolink(text, at)
+            if autolink_end is not None:
+                context.literals.append((at, autolink_end))
+                context.markers.extend(_literal_markers(text, at, autolink_end))
+                at = autolink_end
+                continue
+            if (
+                not final
+                and context.pending_autolink_start is None
+                and read_angle_autolink(text, at, partial=True) is not None
+            ):
+                context.pending_autolink_start = at
             index = blocks.by_start[blocks.line_at(at).start]
             html_end = (
                 blocks.html_token_end(index, at, final=final)

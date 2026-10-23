@@ -91,6 +91,126 @@ HTML_BLOCK_TAGS = frozenset(
 )
 
 
+_EMAIL_LOCAL = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.!#$%&'*+/=?^_`{|}~-"
+)
+_ASCII_ALNUM = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+)
+
+
+def read_angle_autolink(text: str, start: int, *, partial: bool = False) -> int | None:
+    """Read a native URI/email angle link, or a viable EOF prefix for streams."""
+    if start >= len(text) or text[start] != "<":
+        return None
+    uri = email = True
+    scheme_size = 0
+    uri_body = False
+    email_domain = False
+    local_size = label_size = 0
+    label_alnum = False
+    at = start + 1
+    while at < len(text):
+        character = text[at]
+        if character == ">":
+            return (
+                at + 1
+                if (uri and uri_body)
+                or (email and email_domain and label_size and label_alnum)
+                else None
+            )
+        if uri:
+            if uri_body:
+                # Native Markdown normalization admits NUL as a replacement character;
+                # source offsets and raw variable text remain untouched.
+                uri = (
+                    character != "<"
+                    and (ord(character) > 32 or character == "\x00")
+                    and character != "\x7f"
+                )
+            elif character == ":":
+                uri = 2 <= scheme_size <= 32
+                uri_body = uri
+            elif character.isascii() and (
+                character.isalpha()
+                or (scheme_size > 0 and (character.isdigit() or character in "+.-"))
+            ):
+                scheme_size += 1
+                uri = scheme_size <= 32
+            else:
+                uri = False
+        if email:
+            if not email_domain:
+                if character in _EMAIL_LOCAL:
+                    local_size += 1
+                elif character == "@" and local_size:
+                    email_domain = True
+                else:
+                    email = False
+            elif character in _ASCII_ALNUM:
+                label_size += 1
+                label_alnum = True
+                email = label_size <= 63
+            elif character == "-" and label_size:
+                label_size += 1
+                label_alnum = False
+                email = label_size <= 63
+            elif character == "." and label_size and label_alnum:
+                label_size = 0
+                label_alnum = False
+            else:
+                email = False
+        if not uri and not email:
+            return None
+        at += 1
+    viable_email = email and not (email_domain and label_size == 63 and not label_alnum)
+    return len(text) if partial and (uri or viable_email) else None
+
+
+def compact_angle_autolink_prefix(
+    text: str, start: int, *, tokens: str = ""
+) -> str | None:
+    """Keep a bounded witness of a viable unfinished URI/email angle link."""
+    if read_angle_autolink(text, start, partial=True) != len(text) or text.endswith(
+        ">"
+    ):
+        return None
+    body_start = start + 1
+    colon = text.find(":", body_start, min(len(text), body_start + 33))
+    if colon >= 0:
+        # A viable colon cannot occur in an email address, so this is a URI body.
+        return text[start : colon + 1] + "x" + tokens
+    address = text.find("@", body_start)
+    if address >= 0:
+        label_start = text.rfind(".", address + 1) + 1
+        label_start = max(label_start, address + 1)
+        size = len(text) - label_start
+        label = "x" * size
+        if size and text.endswith("-"):
+            label = label[:-1] + "-"
+        return "<x" + tokens + "@" + ("x." if label_start > address + 1 else "") + label
+    size = len(text) - body_start
+    if not size:
+        return "<" + tokens
+    first = text[body_start]
+    scheme_name = (
+        first.isascii()
+        and first.isalpha()
+        and all(
+            character.isascii() and (character.isalnum() or character in "+.-")
+            for character in text[body_start:]
+        )
+    )
+    if scheme_name:
+        # Keep actual short names, including partial raw-HTML names. A long name
+        # must stay longer than 32 characters so it cannot acquire a URI scheme.
+        name = text[body_start:] if size <= 32 else "z" * 33
+        return "<" + name + tokens
+    # A period is plain Markdown text and email atext, but cannot become either
+    # an HTML opener or a URI scheme. Existing literal delimiter state is supplied by tokens.
+    return "<." + tokens
+
+
 @dataclass(frozen=True)
 class PhysicalLine:
     """One CRLF, LF or CR line in the original source."""

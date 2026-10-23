@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import re
+from bisect import bisect_right
 from string import punctuation
 
 from .document_blocks import (
+    compact_angle_autolink_prefix,
     container_content_start,
     container_opening,
     container_opening_info,
@@ -352,6 +354,29 @@ def _special_container_html_prefix(source: str, start: int) -> str | None:
     return before + opening + "\n" + value[:content] + body
 
 
+def _autolink_prefix(text: str, tokens: str) -> str:
+    """Keep the bounded lexical state of an already validated angle-link prefix."""
+    if text.endswith("{") and not tokens.endswith("{"):
+        before = text[:-1]
+        escaped = (len(before) - len(before.rstrip("\\"))) % 2
+        tokens += ("\\" if escaped else "") + "{"
+    if (len(text) - len(text.rstrip("\\"))) % 2:
+        tokens += "\\"
+    if text.endswith("!"):
+        before = text[:-1]
+        escaped = (len(before) - len(before.rstrip("\\"))) % 2
+        tokens += ("\\" if escaped else "") + "!"
+    return compact_angle_autolink_prefix(text, 0, tokens=tokens) or text
+
+
+def pending_autolink_is_primary(source: str, start: int) -> bool:
+    """Keep viable HTML constructs in their established continuation state."""
+    return not (
+        source.startswith(("<!", "<?", "</"), start)
+        and pending_html_prefix(source, start) is not None
+    )
+
+
 def compact_marker_context(
     source: str,
     *,
@@ -360,10 +385,21 @@ def compact_marker_context(
 ) -> str:
     """Preserve source-ordered unfinished syntax using bounded content witnesses."""
     context = analyze_marker_context(source, final=False, label_counts=label_counts)
+    literal_starts = [start for start, _ in context.literals]
+
+    def inside_literal(at: int) -> bool:
+        index = bisect_right(literal_starts, at) - 1
+        return index >= 0 and at < context.literals[index][1]
+
     records: list[tuple[int, int, str]] = [
         (at, at + len(run), run)
         for at, run in (*context.unmatched_backticks, *context.unmatched_math)
     ]
+    records.extend(
+        (marker.start, len(source), "{{" + ("}" if source.endswith("}") else ""))
+        for marker in context.markers
+        if not marker.complete and not inside_literal(marker.start)
+    )
     label_records: dict[int, int] = {}
     label_values: dict[int, str] = {}
     for at, (image, active), count in zip(
@@ -403,7 +439,27 @@ def compact_marker_context(
     def tokens(start: int) -> str:
         return "x".join(value for at, _, value in records if at >= start)
 
+    def merge_labels(
+        values: list[tuple[int, int, str]],
+    ) -> list[tuple[int, int, str]]:
+        merged: list[tuple[int, int, str]] = []
+        for start, end, witness in values:
+            if (
+                start in label_records
+                and merged
+                and merged[-1][2] == witness
+                and merged[-1][0] in label_records
+            ):
+                before, _, value = merged[-1]
+                label_records[before] += label_records[start]
+                merged[-1] = (before, end, value)
+            else:
+                merged.append((start, end, witness))
+        return merged
+
     primary: tuple[int, int, str] | None = None
+    autolink_counts: dict[int, int] = {}
+    autolink_witness: str | None = None
     if (
         context.pending_reference_start is not None
         and context.pending_reference_body_start is not None
@@ -478,6 +534,62 @@ def compact_marker_context(
                 context.pending_block_steps,
             ),
         )
+    elif primary is None and context.pending_autolink_start is not None:
+        start = context.pending_autolink_start
+        token_records = [record for record in records if record[0] >= start]
+        if context.pending_resource_start is not None:
+            resource_start = context.pending_resource_start
+            resource = _resource_prefix(source[resource_start:], tokens(resource_start))
+            label_start = context.pending_resource_label_start
+            if (
+                resource is not None
+                and label_start is not None
+                and label_start >= start
+            ):
+                token_records = [
+                    (at, at if at == label_start else end, value)
+                    for at, end, value in token_records
+                    if at < label_start or (at == label_start and at in label_records)
+                ]
+                token_records.append(
+                    (
+                        label_start,
+                        len(source),
+                        ("!" if context.pending_resource_image else "")
+                        + "[x]"
+                        + resource,
+                    )
+                )
+                token_records.sort()
+        token_records = merge_labels(token_records)
+        token_parts: list[str] = []
+        token_counts: dict[int, int] = {}
+        length = 0
+        for at, _, value in token_records:
+            if token_parts:
+                length += 1
+            if value == label_values.get(at):
+                token_counts[length + value.index("[")] = label_records[at]
+            token_parts.append(value)
+            length += len(value)
+        pending_tokens = "x".join(token_parts)
+        if pending_autolink_is_primary(source, start):
+            witness = _autolink_prefix(source[start:], pending_tokens)
+        else:
+            html = pending_html_prefix(source, start, tokens=pending_tokens)
+            witness = (
+                html[1]
+                if html is not None
+                else _autolink_prefix(source[start:], pending_tokens)
+            )
+        if token_counts:
+            offset = witness.rfind(pending_tokens)
+            if offset >= 0:
+                autolink_counts = {
+                    offset + at: count for at, count in token_counts.items()
+                }
+                autolink_witness = witness
+        primary = (start, len(source), witness)
     elif primary is None and context.pending_html_start is not None:
         contained = _special_container_html_prefix(source, context.pending_html_start)
         if contained is not None:
@@ -552,20 +664,7 @@ def compact_marker_context(
     records.sort()
     # Repeated unresolved labels need a counter, not one replayed character per
     # nesting level. No source text or future closing bracket is discarded.
-    merged: list[tuple[int, int, str]] = []
-    for start, end, witness in records:
-        if (
-            start in label_records
-            and merged
-            and merged[-1][2] == witness
-            and merged[-1][0] in label_records
-        ):
-            before, _, value = merged[-1]
-            label_records[before] += label_records[start]
-            merged[-1] = (before, end, value)
-        else:
-            merged.append((start, end, witness))
-    records = merged
+    records = merge_labels(records)
     # Completed literal syntax must not become a fresh opener when old prose is discarded.
     gap_characters = list(source)
     for start, end in context.literals:
@@ -591,6 +690,11 @@ def compact_marker_context(
         pieces.extend((gap, witness))
         if counts_out is not None and witness == label_values.get(start):
             counts_out[length + len(gap) + witness.index("[")] = label_records[start]
+        if counts_out is not None and witness == autolink_witness:
+            counts_out.update(
+                (length + len(gap) + offset, count)
+                for offset, count in autolink_counts.items()
+            )
         length += len(gap) + len(witness)
         at = end
     pieces.append(_gap(gap_source[at:]))
