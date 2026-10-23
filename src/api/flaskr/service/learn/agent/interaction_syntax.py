@@ -86,12 +86,26 @@ class InteractionSyntaxFilter:
         # keeping only bounded lexical state for each new arrival.
         self._pending_literal: str | None = None
         self._pending_literal_chunks: list[str] = []
+        self._raw_marker_active = False
+        self._raw_marker_tail = ""
         self.spans: list[str] = []
 
     def feed(self, text: str) -> str:
         """Return `text` with any complete span removed, holding back an unfinished one."""
         if not text:
             return ""
+        if self._raw_marker_active:
+            out: list[str] = []
+            closing = (self._raw_marker_tail + text).find("}}")
+            cut = len(text) if closing < 0 else closing + 2 - len(self._raw_marker_tail)
+            self._emit(out, text[:cut])
+            if closing < 0:
+                self._raw_marker_tail = "}" if text.endswith("}") else ""
+                return "".join(out)
+            self._raw_marker_active = False
+            self._raw_marker_tail = ""
+            self._held += text[cut:]
+            return "".join(out) + self._drain()
         if self._pending_literal is not None:
             self._pending_literal_chunks.append(text)
             pending = pending_literal_context(self._pending_literal + text)
@@ -198,6 +212,15 @@ class InteractionSyntaxFilter:
             if start < 0:
                 unclosed = self._unclosed_marker_start(self._held, final=final)
                 if unclosed >= 0:
+                    if final or self._raw_marker_owns_tail(self._held, unclosed):
+                        # Settled raw ownership cannot be changed by later name
+                        # characters. Emit them and retain only its closing-pair
+                        # boundary, rather than rescanning or copying the name.
+                        self._raw_marker_active = True
+                        self._raw_marker_tail = "}" if self._held.endswith("}") else ""
+                        self._emit(out, self._held)
+                        self._held = ""
+                        return "".join(out)
                     self._emit(out, self._held[:unclosed])
                     self._held = self._held[unclosed:]
                     return "".join(out)
@@ -286,6 +309,8 @@ class InteractionSyntaxFilter:
         self._fence = None
         self._context_prefix = ""
         self._context_label_counts.clear()
+        self._raw_marker_active = False
+        self._raw_marker_tail = ""
         return released + tail
 
     def _marker_scan_text(
@@ -545,3 +570,25 @@ class InteractionSyntaxFilter:
                 return start
             at = marker.end
         return -1
+
+    def _raw_marker_owns_tail(self, text: str, start: int) -> bool:
+        """Whether no earlier unfinished literal can still claim this marker."""
+        source = self._context_prefix + text
+        opening = len(self._context_prefix) + start
+        context = analyze_marker_context(
+            source, final=False, label_counts=self._context_label_counts
+        )
+        if any(
+            at < opening
+            for at, _ in (*context.unmatched_backticks, *context.unmatched_math)
+        ):
+            return False
+        pending_blocks = [context.pending_block_start]
+        if context.pending_block_steps or context.pending_raw_html_tag is not None:
+            # A container marker such as '>' is source padding, rather than an
+            # HTML terminator. Keep the document parser's projected block state.
+            pending_blocks.append(context.pending_html_start)
+        if any(at is not None and at < opening for at in pending_blocks):
+            return False
+        pending = pending_literal_context(source)
+        return pending is None or pending[0] >= opening

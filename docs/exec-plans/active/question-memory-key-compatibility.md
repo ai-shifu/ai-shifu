@@ -96,7 +96,7 @@ with their edges trimmed, rather than programming-language identifiers.
       the final HTML category correction and the actual Python dev4 wheel.
 - [x] 2026-10-23 22:22 UTC: Keep English README labels, documentation and
       examples free of Chinese text and punctuation across all five repositories.
-      All 83 English documents and compatibility entries pass the final scan;
+      All 84 English documents and compatibility entries pass the expanded scan;
       dedicated Chinese translations, terminology and multilingual fixtures remain.
 - [x] 2026-10-23 22:33 UTC: Preserve original opaque keys during authored input-hint
       preprocessing in `e68aac9f84450b66d8a3a2a0b73ce638a28f7a04`. All 3,247
@@ -106,11 +106,30 @@ with their edges trimmed, rather than programming-language identifiers.
       native literal settles or reaches EOF, preserving nested HTML and resource
       witnesses. All 3,291 engine/stream/runner tests pass, including 44 new cases;
       third-party validation passes 9,713 streams and long-payload state/work bounds.
-- [x] 2026-10-23 22:53 UTC: Start the final full-backend gate in the isolated
-      Python dev4 environment with temporary SQLite and mocked model providers.
-- [ ] Complete the final full-backend gate and synchronize the final head's CI
-      and review feedback. Remote backend CI is still installing system dependencies;
-      that preparation state does not establish a test result.
+- [x] 2026-10-23 23:01 UTC: Complete the full-backend checkpoint on `583da075`:
+      14,739 tests pass with 112 intentional skips. All 1,338 tracked API source,
+      fixture and configuration hashes remain unchanged throughout the isolated
+      run with temporary SQLite and mocked model providers. Remote runtime and
+      backend tests also pass on that head; its development-pin gate stays red.
+- [x] 2026-10-23 23:19 UTC: Preserve provisional reference-definition ownership
+      in `dae598bf58f1524801590fd7ea9d16992387feb1`. All 3,337 engine, stream,
+      reference and runner tests pass, including 46 new reference regressions.
+      Independent review passes 4,377 streams across 167 generated sources,
+      nine long-prefix checks and 20 escaped or overlapping opener cases.
+- [x] 2026-10-23 23:25 UTC: Stream irrevocably owned unfinished raw markers
+      without retaining their body. All 34 focused tests pass, covering split
+      closing pairs, native delimiter runs, opaque body text, restoration of
+      later fences and inline code, reuse and bounded parser work and storage.
+      Independent measurements across 100 to 16,384 body characters keep held
+      source at one character and the raw witness at two; inspected work is linear.
+      The 765-test stream, reference and performance gate passes after retaining
+      earlier pending native block and container HTML ownership; this restores
+      all 12 container dedent cases exposed by the initial broader run.
+- [ ] Repair the independently reproduced reference/fence chunk boundary:
+      a later unfinished marker must not override an earlier native code fence.
+      Then rerun the final full-backend gate and synchronize current-head CI
+      and review feedback. The full run started at 23:21 was interrupted after
+      this new regression was confirmed and is not final acceptance.
 - [ ] Replace application Python/component development pins with verified
       formal releases and complete merge readiness. This requires explicit
       publication authorization and the component library's confirmed main SHA.
@@ -173,6 +192,16 @@ with their edges trimmed, rather than programming-language identifiers.
   Defer an ambiguous interaction until native ownership settles. Its necessary
   raw payload may be buffered in chunks; continuation witnesses remain bounded
   and each newly arrived character must incur only incremental parser work.
+- Native reference definitions accepted at EOF can still fail when their line
+  continues. Preserve the raw opener and escape parity in the existing bounded
+  reference witness, and defer questions until that native ownership settles.
+- A genuinely unfinished raw marker previously retained and rescanned its whole
+  body on every stream arrival. Once ownership is irreversible, its raw text can
+  be emitted while retaining only the closing-pair continuation state.
+- A source prefix can end inside a later marker while an earlier reference has
+  already ended before a native code fence. That later incomplete marker must
+  not make the fence provisional. Independent whole/chunk comparison reproduces
+  a regression against the unchanged main-branch filter.
 
 ## Decision Log
 
@@ -203,6 +232,13 @@ with their edges trimmed, rather than programming-language identifiers.
   all relevant literal ownership settles, and use final native lexing at EOF.
   An unfinished angle/resource may become an opaque raw marker at EOF rather
   than exposing a question inside its key.
+- Include viable reference definitions in the same pending-literal contract.
+  Reuse native reference and resource admission; preserve first-opener ownership
+  and escaped-opener parity without introducing a separate Markdown grammar.
+- Once raw-marker ownership cannot be displaced by an earlier unfinished native
+  literal or inline delimiter, emit its body incrementally and remember only a
+  possible final single closing brace. Ambiguous literal candidates retain the
+  existing deferred classification, and flush clears the incremental raw state.
 - Keep the vendored engine independent of the old Python library. Raw name
   helpers remain standard-library-only; document-stage context handling reuses
   the application's existing pinned Markdown grammar. Shared conformance data
@@ -225,14 +261,15 @@ with their edges trimmed, rather than programming-language identifiers.
 ## Outcomes & Retrospective
 
 All five repositories pass the same 166-case semantic conformance corpus.
-The final pending-literal correction passes 3,291 engine, streaming and runner tests,
+The reference correction passes 3,337 engine, streaming, reference and runner tests,
 including arbitrary chunk cuts, bounded continuation state, 48 container-cache
 regressions, 36 native-link fallback regressions and 73 held-lookahead
-regressions, plus 168 HTML-category, 60 input-hint and 44 pending-literal cases.
-The complete application
-backend checkpoint passed 14,635 tests with 112 intentional skips using Python
-dev4 after the HTML correction, before the later input-hint and pending-literal repairs. Exact-key database and optional unnamed-question coverage is
-included. The full backend suite remains the application integration gate.
+regressions, plus 168 HTML-category, 60 input-hint, 44 pending-literal and 46
+reference cases. The complete application backend checkpoint on `583da075`
+passed 14,739 tests with 112 intentional skips using Python dev4 after the
+input-hint and initial pending-literal repairs. Exact-key database and optional
+unnamed-question coverage is included. Later reference and performance changes
+require their own final full-backend gate.
 Required toolchain checks, architecture boundaries and all-file hooks pass.
 The latest full-backend and remote-CI acceptance are tracked in the remaining
 progress item; earlier checkpoints do not establish that final gate.
