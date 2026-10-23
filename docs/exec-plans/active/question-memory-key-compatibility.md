@@ -131,11 +131,19 @@ with their edges trimmed, rather than programming-language identifiers.
       retain ordinary state after a real closing pair. All 767 stream, reference
       and performance tests pass, including 36 focused raw-marker cases;
       independent review matches the previous filter across 30 reuse checks.
-- [ ] Repair the independently reproduced reference/fence chunk boundary:
-      a later unfinished marker must not override an earlier native code fence.
-      Then rerun the final full-backend gate and synchronize current-head CI
-      and review feedback. The full run started at 23:21 was interrupted after
-      this new regression was confirmed and is not final acceptance.
+- [x] 2026-10-23 23:34 UTC: Preserve source order between an earlier native
+      fence and a later pending reference marker. All 3,376 engine, streaming,
+      reference, performance, fence and runner tests pass, including three new
+      physical-newline cases. Final independent review passes 6,145 streams over
+      225 sources, 128 fence and 700 container HTML streams, 30 reuse checks,
+      and 4,144 long-payload cut checks, with no remaining substantive finding.
+- [x] 2026-10-23 23:32 UTC: Start the final full-backend run on the frozen
+      reference, performance, EOF and fence corrections. Capture hashes for all
+      1,390 API files, including all 1,341 source, configuration and fixture files
+      and the new tests. The earlier 23:21 run was interrupted when the fence
+      regression was confirmed and does not establish final acceptance.
+- [ ] Complete the final full-backend gate, verify unchanged source hashes, and
+      synchronize the final head's CI and review feedback in application PR #3160.
 - [ ] Replace application Python/component development pins with verified
       formal releases and complete merge readiness. This requires explicit
       publication authorization and the component library's confirmed main SHA.
@@ -247,6 +255,9 @@ with their edges trimmed, rather than programming-language identifiers.
   existing deferred classification, and flush clears the incremental raw state.
   An unfinished raw marker restores the previous filter's pre-marker escape and
   indentation state at EOF, preserving behavior when the filter is reused.
+- Compare pending reference waits and native code fences by source offset.
+  A later unfinished marker cannot retroactively suppress an earlier fence;
+  an earlier unresolved marker still blocks a later fence until ownership settles.
 - Keep the vendored engine independent of the old Python library. Raw name
   helpers remain standard-library-only; document-stage context handling reuses
   the application's existing pinned Markdown grammar. Shared conformance data
@@ -269,15 +280,18 @@ with their edges trimmed, rather than programming-language identifiers.
 ## Outcomes & Retrospective
 
 All five repositories pass the same 166-case semantic conformance corpus.
-The reference correction passes 3,337 engine, streaming, reference and runner tests,
+The final corrections pass 3,376 engine, streaming, reference, performance, fence
+and runner tests,
 including arbitrary chunk cuts, bounded continuation state, 48 container-cache
 regressions, 36 native-link fallback regressions and 73 held-lookahead
-regressions, plus 168 HTML-category, 60 input-hint, 44 pending-literal and 46
-reference cases. The complete application backend checkpoint on `583da075`
+regressions, plus 168 HTML-category, 60 input-hint, 44 pending-literal, 46
+reference, 36 raw-marker and three fence-order cases. The complete application
+backend checkpoint on `583da075`
 passed 14,739 tests with 112 intentional skips using Python dev4 after the
 input-hint and initial pending-literal repairs. Exact-key database and optional
-unnamed-question coverage is included. Later reference and performance changes
-require their own final full-backend gate.
+unnamed-question coverage is included. The final frozen-source full-backend run
+is in progress; its readback belongs in the linked PR together with current-head
+CI and review status, rather than being inferred from an earlier checkpoint.
 Required toolchain checks, architecture boundaries and all-file hooks pass.
 The latest full-backend and remote-CI acceptance are tracked in the remaining
 progress item; earlier checkpoints do not establish that final gate.

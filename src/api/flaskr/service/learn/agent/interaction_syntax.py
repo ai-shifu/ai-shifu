@@ -417,6 +417,7 @@ class InteractionSyntaxFilter:
         looks at every line start in what is held, not only at the first.
         """
         scan_text = text
+        reference_wait: int | None = None
         if self._fence is None:
             source = self._context_prefix + text
             context = analyze_marker_context(
@@ -442,7 +443,8 @@ class InteractionSyntaxFilter:
                     if marker is None:
                         if _LINE_BREAK.search(source, opening) is None:
                             # A title's closing quote is provisional until its line ends.
-                            return (max(0, opening - len(self._context_prefix)), None)
+                            # An earlier native fence still takes precedence.
+                            reference_wait = max(0, opening - len(self._context_prefix))
                         break
                     opening = source.find("{{", marker.end)
             if (
@@ -475,6 +477,8 @@ class InteractionSyntaxFilter:
         for match in _FENCE_OPEN.finditer(line_source):
             if not self._at_line_start(text, match.start()):
                 continue
+            if reference_wait is not None and reference_wait <= match.start():
+                return (reference_wait, None)
             line_break = _LINE_BREAK.search(text, match.start())
             if line_break is None:
                 return (match.start(), None)
@@ -489,8 +493,10 @@ class InteractionSyntaxFilter:
                 self._at_line_start(text, partial.start())
                 and _LINE_BREAK.search(text, partial.start()) is None
             ):
+                if reference_wait is not None and reference_wait <= partial.start():
+                    return (reference_wait, None)
                 return (partial.start(), None)
-        return None
+        return (reference_wait, None) if reference_wait is not None else None
 
     def _in_indented_code(self, text: str, at: int) -> bool:
         """Whether the line `at` sits on is indented far enough to be a code block."""
