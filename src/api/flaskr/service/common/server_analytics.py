@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
+from flask import has_request_context, request
+from flaskr.service.common.analytics_policy import is_analytics_user_excluded
 from flaskr.service.config.funcs import get_config
 
 if TYPE_CHECKING:
@@ -88,9 +90,14 @@ def track_external_client_event(
     *,
     event_name: str,
     attribution: SkillIdentityInput | None,
+    user_bid: str | None = None,
 ) -> None:
     """Queue one allowlisted event without exposing business or credential data."""
     if event_name not in _ALLOWED_EVENTS or attribution is None:
+        return
+    if user_bid is None and has_request_context():
+        user_bid = getattr(getattr(request, "user", None), "user_id", None)
+    if is_analytics_user_excluded(user_bid):
         return
     _queue_event(
         event_name,
@@ -127,6 +134,7 @@ def track_cli_request_pageview(
 
     if (
         not user_id
+        or is_analytics_user_excluded(user_bid=user_id)
         or not _is_cli_version(skill_version)
         or not _is_caller_agent_metadata(caller_agent, caller_agent_name)
         or operation not in SKILL_API_OPERATIONS.values()

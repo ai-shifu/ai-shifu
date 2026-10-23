@@ -195,6 +195,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [TTS Provider Capabilities](./completed/tts-provider-capabilities.md)
 - [Remediate Cook Web Umami contracts](./completed/umami-contract-remediation.md)
 - [Correct the Umami remediation scope](./completed/umami-scope-correction.md)
+- [Configurable Umami user exclusions](./completed/umami-user-exclusions.md)
 - [Unified Learner Profile Dialog](./completed/unified-learner-profile-dialog.md)
 - [Unify Frontend Source Directories](./completed/unify-frontend-directories.md)
 - [Unused Translation Cleanup](./completed/unused-translation-cleanup.md)

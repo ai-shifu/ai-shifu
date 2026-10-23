@@ -5,7 +5,8 @@ from threading import BoundedSemaphore
 from types import SimpleNamespace
 
 import pytest
-from flaskr.service.common import server_analytics
+from flask import request
+from flaskr.service.common import analytics_policy, server_analytics
 from flaskr.service.common.skill_attribution import SkillIdentityInput
 
 
@@ -43,6 +44,7 @@ def test_backend_event_contains_only_allowlisted_dimensions(
         app,
         event_name="external_course_creation_completed",
         attribution=_identity(),
+        user_bid="allowed-user",
     )
 
     assert len(submitted) == 1
@@ -79,6 +81,84 @@ def test_backend_event_contains_only_allowlisted_dimensions(
         assert prohibited_key not in payload
         assert prohibited_key not in payload["data"]
     assert "url" not in payload["data"]
+
+
+@pytest.mark.parametrize("sender", ["legacy", "cli"])
+def test_excluded_accounts_are_not_queued(
+    app: object, monkeypatch: pytest.MonkeyPatch, sender: str
+) -> None:
+    monkeypatch.setattr(
+        analytics_policy, "get_config", lambda *_args: ["excluded-user"]
+    )
+    monkeypatch.setattr(
+        server_analytics._EXECUTOR,
+        "submit",
+        lambda *_args: pytest.fail("excluded user data must not be queued"),
+    )
+    monkeypatch.setattr(
+        server_analytics,
+        "get_config",
+        lambda *_args: pytest.fail("excluded user must not reach delivery config"),
+    )
+
+    if sender == "legacy":
+        server_analytics.track_external_client_event(
+            app,
+            event_name="external_device_token_collected",
+            attribution=_identity(),
+            user_bid="excluded-user",
+        )
+    else:
+        server_analytics.track_cli_request_pageview(
+            app,
+            user_id="excluded-user",
+            skill_version="2.7.1",
+            caller_agent="codex",
+            caller_agent_name="Codex",
+            operation="course_list",
+            outcome="success",
+            duration_ms=0,
+            route_template="/api/shifu/shifus",
+            method="GET",
+            timestamp=1792195200,
+        )
+
+
+def test_legacy_sender_uses_only_authenticated_request_user_for_exclusion(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checked_user_bids: list[object] = []
+
+    def excluded(user_bid: object) -> bool:
+        checked_user_bids.append(user_bid)
+        return True
+
+    monkeypatch.setattr(server_analytics, "is_analytics_user_excluded", excluded)
+    monkeypatch.setattr(
+        server_analytics._EXECUTOR,
+        "submit",
+        lambda *_args: pytest.fail("excluded user data must not be queued"),
+    )
+
+    with app.test_request_context(
+        query_string={"user_id": "query-user"},
+        json={"user_id": "body-user"},
+        headers={"X-User-Id": "header-user"},
+    ):
+        request.user = SimpleNamespace(user_id="authenticated-user")
+        server_analytics.track_external_client_event(
+            app,
+            event_name="external_device_authorization_denied",
+            attribution=_identity(),
+        )
+    with app.test_request_context(json={"user_id": "body-user"}):
+        server_analytics.track_external_client_event(
+            app,
+            event_name="external_device_authorization_requested",
+            attribution=_identity(),
+        )
+
+    assert checked_user_bids == ["authenticated-user", None]
 
 
 def test_missing_config_or_attribution_is_a_noop(

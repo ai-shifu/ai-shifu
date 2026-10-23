@@ -226,6 +226,7 @@
 | `docs/exec-plans/completed/tts-provider-capabilities.md` | TTS Provider Capabilities | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/umami-contract-remediation.md` | Remediate Cook Web Umami contracts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/umami-scope-correction.md` | Correct the Umami remediation scope | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/umami-user-exclusions.md` | Configurable Umami user exclusions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/unified-learner-profile-dialog.md` | Unified Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/unify-frontend-directories.md` | Unify Frontend Source Directories | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/unused-translation-cleanup.md` | Unused Translation Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -274,7 +275,7 @@
 | `docs/product-specs/outline-learning-permission-default.md` | Backend-owned outline learning permission default | `product-spec` | `implemented` | `shared` | `2026-10-11` | `true` |
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/profile-onboarding-startup.md` | Profile onboarding startup | `product-spec` | `implemented` | `frontend` | `2026-10-13` | `true` |
-| `docs/product-specs/skill-usage-analytics.md` | Skill Usage Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-10-17` | `true` |
+| `docs/product-specs/skill-usage-analytics.md` | Skill Usage Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-10-23` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-10` | `true` |

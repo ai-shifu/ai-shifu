@@ -23,6 +23,13 @@ def test_external_course_context_reports_start_and_success(
     app: object, monkeypatch: object, identity: SkillIdentityInput
 ) -> None:
     events: list[tuple[str, object]] = []
+
+    def record_event(
+        _app: object, *, event_name: str, attribution: object, user_bid: str
+    ) -> None:
+        assert user_bid == "user-1"
+        events.append((event_name, attribution))
+
     monkeypatch.setattr(
         route,
         "get_session_skill_attribution_by_reference",
@@ -31,9 +38,7 @@ def test_external_course_context_reports_start_and_success(
     monkeypatch.setattr(
         route,
         "track_external_client_event",
-        lambda _app, *, event_name, attribution: events.append(
-            (event_name, attribution)
-        ),
+        record_event,
     )
 
     with app.test_request_context(headers={"Token": "cli-token"}):
@@ -62,8 +67,10 @@ def test_external_course_context_reports_failure_and_preserves_error(
         *,
         event_name: str,
         attribution: object,
+        user_bid: str,
     ) -> None:
         assert attribution == identity
+        assert user_bid == "user-1"
         events.append(event_name)
 
     monkeypatch.setattr(
@@ -100,6 +107,12 @@ def test_external_course_context_uses_authenticated_cookie_token(
     observed_references: list[str] = []
     events: list[tuple[str, object]] = []
 
+    def record_event(
+        _app: object, *, event_name: str, attribution: object, user_bid: str
+    ) -> None:
+        assert user_bid == "cookie-user"
+        events.append((event_name, attribution))
+
     expected_reference = session_attribution.session_skill_attribution_reference(
         app,
         token="cookie-token",
@@ -117,9 +130,7 @@ def test_external_course_context_uses_authenticated_cookie_token(
     monkeypatch.setattr(
         route,
         "track_external_client_event",
-        lambda _app, *, event_name, attribution: events.append(
-            (event_name, attribution)
-        ),
+        record_event,
     )
 
     with app.test_request_context(
