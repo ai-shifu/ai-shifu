@@ -120,6 +120,19 @@ def _response_turn(
     values = [value for answers in user_input.values() for value in answers]
     if pending.spec.type == "text":
         return InteractionResponseTurn(id=pending.tool_call_id, text=", ".join(values))
+    if pending.spec.type in {"single_or_text", "multi_or_text"}:
+        option_values = {
+            value
+            for option in pending.spec.options
+            for value in (option.display, option.stored)
+        }
+        selected = [value for value in values if value in option_values]
+        free_text = [value for value in values if value not in option_values]
+        return InteractionResponseTurn(
+            id=pending.tool_call_id,
+            values=selected,
+            text=", ".join(free_text) if free_text else None,
+        )
     return InteractionResponseTurn(id=pending.tool_call_id, values=values)
 
 
