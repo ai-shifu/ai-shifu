@@ -124,7 +124,11 @@ def _interaction_text(request: InteractionRequest) -> str:
 def _response_turn(
     pending: PendingInteraction, user_input: dict[str, list[str]]
 ) -> InteractionResponseTurn:
-    values = [value for answers in user_input.values() for value in answers]
+    values = (
+        user_input.get(pending.spec.variable, [])
+        if pending.spec.variable
+        else [value for answers in user_input.values() for value in answers]
+    )
     if pending.spec.type == "text":
         return InteractionResponseTurn(id=pending.tool_call_id, text=", ".join(values))
     if pending.spec.type in {"single_or_text", "multi_or_text"}:

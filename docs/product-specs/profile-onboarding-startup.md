@@ -29,6 +29,9 @@ Before redispatching a saved question or accepting its answer, the runtime
 checks that it is the single renderable interaction for the current authored
 block. An incompatible saved question fails the request without accepting its
 input or changing stored progress and evidence.
+Answers to named questions use only the submitted field matching that variable;
+a missing matching field keeps the question available. Questions without a
+variable continue to combine values from the submitted fields.
 Prior questions, instructions and model responses are context rather than
 learner facts. Named values and accepted raw answers supply evidence for the
 final profile, including answers to questions without a named variable.

@@ -25,7 +25,7 @@ answer imports, private final drafts, and the existing frontend SSE contract.
   old cached sessions, error recovery, and hidden summaries.
 - [x] 2026-10-23 CST: Bind learner and operator submissions to their deferred
   question ID and keep separate stable content/question/feedback identities.
-- [x] 2026-10-23 CST: Passed 509 profile/config/route tests, 1,168 engine and
+- [x] 2026-10-23 CST: Passed 517 profile/config/route tests, 1,168 engine and
   shared-host tests, 171 frontend tests, and the complete pre-commit gate.
 - [x] 2026-10-23 CST: Fixed mixed choice-plus-text input and guarded static
   question types, bindings and ordered stored values in separate review commits.
@@ -40,6 +40,8 @@ answer imports, private final drafts, and the existing frontend SSE contract.
   renders and cache-write failures while replacing the native question token.
 - [x] 2026-10-23 CST: Reject incompatible saved questions before engine dispatch
   so discarded tool calls cannot turn ignored input into accepted profile evidence.
+- [x] 2026-10-23 CST: Preserve named answer-field bindings; ignore unrelated fields
+  and keep questions pending when the matching answer field is missing.
 
 ## Surprises & Discoveries
 
@@ -97,7 +99,7 @@ engine. Frozen authored blocks remain the UI progress boundary; deferred calls
 and accepted evidence survive Redis, exact retry and assistant import. The
 legacy parser remains only for authoring validation and source restoration.
 
-Validation passed: 509 profile/config/route
+Validation passed: 517 profile/config/route
 tests; 1,168 engine, bridge, gateway and protocol tests; 171 frontend tests;
 the full repository pre-commit gate, repository harness, architecture ratchet
 and unit-of-work ratchet. TypeScript also passed across the complete frontend
