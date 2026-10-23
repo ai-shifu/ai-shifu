@@ -1,0 +1,58 @@
+import { createInteractionParser, extractVariableNames } from 'remark-flow';
+import { buildPreviewInteractionUserInput } from '@/components/lesson-preview/preview-submission';
+import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
+
+// Exercise the packaged parser and helpers while avoiding Jest's unrelated ESM plugin loader.
+jest.mock('remark-flow', () => ({
+  ...jest.requireActual('remark-flow/dist/interaction-parser'),
+  ...jest.requireActual('remark-flow/dist/variable-name'),
+}));
+
+describe('authored memory key compatibility', () => {
+  const parser = createInteractionParser();
+
+  it.each([
+    '你的性别是？',
+    'gender?',
+    '性别:？',
+    '名字（可选）',
+    'learner_name',
+    '性别',
+    'a|b',
+    'a...b',
+    'a//b',
+    '😀?',
+    '\ufeffkey\ufeff',
+    '\ufeff',
+  ])('preserves %s from parsing through named answer submission', key => {
+    const source = `?[%{{${key}}} 男 | 女 | 秘密]`;
+    const interaction = parser.parseToRemarkFormat(source);
+
+    expect(extractVariableNames(`${source}\n{{${key}}}`)).toEqual([key]);
+    expect(interaction).toEqual({
+      variableName: key,
+      buttonTexts: ['男', '女', '秘密'],
+      buttonValues: ['男', '女', '秘密'],
+      isMultiSelect: false,
+    });
+    const { values } = resolveInteractionSubmission({
+      variableName: interaction.variableName,
+      buttonText: interaction.buttonValues![1],
+    });
+
+    expect(
+      buildPreviewInteractionUserInput(interaction.variableName!, values),
+    ).toEqual({ [key]: ['女'] });
+  });
+
+  it('keeps existing display values and multiple selection semantics', () => {
+    expect(
+      parser.parseToRemarkFormat('?[%{{skills}} 前端//web || 后端//api]'),
+    ).toEqual({
+      variableName: 'skills',
+      buttonTexts: ['前端', '后端'],
+      buttonValues: ['web', 'api'],
+      isMultiSelect: true,
+    });
+  });
+});

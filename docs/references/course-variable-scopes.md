@@ -21,6 +21,39 @@ food or both courses have the same owner. Course B asks its own question when
 needed. A missing course variable never falls back to a global custom-variable
 row. No automatic account-wide memory is introduced.
 
+## Authored memory key names
+
+The [public MarkdownFlow specification](https://markdownflow.ai/docs/specification/variables/)
+currently documents a narrower letters/numbers/underscore rule. The behavior
+below describes the existing AI-Shifu 2.0 implementation and its frontend
+compatibility, not an amendment to that public specification.
+
+Use the existing 2.0 name rule in teaching prompts and frontend editors: a name
+is nonempty and contains no whitespace or braces (`[^{}\s]+` in Python).
+Question marks, other ordinary punctuation and Unicode characters are valid.
+For example, `?[%{{你的性别是？}} 男 | 女 | 秘密]` stores the selected answer
+under the exact key `你的性别是？`; `{{你的性别是？}}` references that value.
+The key is case-sensitive, and punctuation is not normalized. Changing a
+question or its punctuation creates a different key; it does not rename an
+existing answer. A question key is a course variable unless it exactly matches
+a registered system key, so this example does not update the system `sex` field.
+
+Both frontend editors use the shared `remark-flow` name helper rather than
+independent character whitelists. That helper follows Python whitespace
+semantics as well as the visible punctuation rule. Assignment and reference
+markers share name recognition; option separators are parsed after the
+assignment marker. An interaction's variable name is not its displayed
+question: write the learner-facing question separately when exact wording is
+required.
+
+Existing interaction delimiters still apply: a closing `]` ends the
+control. This repair does not add escaping or new delimiter syntax inside key
+names. The older Python backend remains deliberately more permissive about
+some whitespace, braces and multiline inputs for compatibility; those inputs
+are not new frontend authoring syntax. Machine-only format placeholders in
+`learn/utils_v2.py` have a separate restricted contract and are not teaching
+prompt memory keys.
+
 Author scripts, teaching briefs, follow-up prompts, learner requests and model
 output cannot grant cross-course access. Both runtimes and follow-up context use
 the same scoped profile reader. The current-course supplement can read permitted

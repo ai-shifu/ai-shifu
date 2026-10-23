@@ -7,7 +7,22 @@ import {
 } from '@/components/lesson-preview/preview-submission';
 import { ChatContentItemType } from '@/types/chatUi';
 
+jest.mock('remark-flow', () =>
+  jest.requireActual('remark-flow/dist/variable-name'),
+);
+
 describe('preview submission helpers', () => {
+  it.each([
+    ['你的性别是？', '你的性别是？'],
+    ['gender?', 'gender?'],
+    ['\u0085key\u0085', 'key'],
+    ['\ufeffkey\ufeff', '\ufeffkey\ufeff'],
+    ['\ufeff', '\ufeff'],
+  ])('normalizes %s with the teaching engine key rules', (source, key) => {
+    expect(buildPreviewInteractionUserInput(source, ['女'])).toEqual({
+      [key]: ['女'],
+    });
+  });
   it('falls back to current block_index when generated_block_bid is not numeric', () => {
     expect(resolvePreviewRequestBlockIndex('preview-feedback', 5)).toBe(5);
   });

@@ -35,6 +35,7 @@ jest.mock('sse.js', () => ({
 }));
 
 jest.mock('remark-flow', () => ({
+  ...jest.requireActual('remark-flow/dist/variable-name'),
   createInteractionParser: () => ({
     parseToRemarkFormat: mockParseToRemarkFormat,
   }),

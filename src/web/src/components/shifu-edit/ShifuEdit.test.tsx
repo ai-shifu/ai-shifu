@@ -19,6 +19,11 @@ const mockUsePreviewChat = jest.fn();
 const mockRefreshUserInfo = jest.fn();
 let mockUserToken = 'token';
 
+// Load the real shared name helpers without the unrelated ESM remark plugins.
+jest.mock('remark-flow', () =>
+  jest.requireActual('remark-flow/dist/variable-name'),
+);
+
 jest.mock('next/dynamic', () => () => {
   const MockMarkdownFlowEditor = (props: Record<string, unknown>) => {
     mockMarkdownFlowEditor(props);
@@ -533,6 +538,43 @@ describe('ShifuEdit draft conflict checks', () => {
       creditInsufficientAudience: 'teacher-collaborator',
     });
   });
+
+  test.each(['你的性别是？', 'gender?', 'learner_name', '性别'])(
+    'recognizes and unhides the authored memory key %s in preview',
+    async key => {
+      setLessonNode();
+      mockShifuState.mdflow = `?[%{{${key}}} 男 | 女 | 秘密]`;
+      mockShifuState.variables = [key];
+      mockShifuState.hiddenVariables = [key];
+      baseActions.previewParse.mockResolvedValue({
+        variables: { [key]: '' },
+        blocksCount: 1,
+        systemVariableKeys: [],
+        allVariableKeys: [key],
+        unusedKeys: [],
+      });
+
+      render(<ScriptEditor id='shifu-1' />);
+      fireEvent.click(
+        screen.getByText('module.shifu.previewArea.action').closest('button')!,
+      );
+
+      await waitFor(() => {
+        expect(baseActions.unhideVariablesByKeys).toHaveBeenCalledWith(
+          'shifu-1',
+          [key],
+        );
+      });
+      expect(baseActions.saveMdflow).toHaveBeenCalledWith({
+        shifu_bid: 'shifu-1',
+        outline_bid: 'lesson-1',
+        data: mockShifuState.mdflow,
+      });
+      expect(baseActions.refreshProfileDefinitions).toHaveBeenCalledWith(
+        'shifu-1',
+      );
+    },
+  );
 
   test('keeps lesson preview disabled while the user profile is unresolved', () => {
     setLessonNode();

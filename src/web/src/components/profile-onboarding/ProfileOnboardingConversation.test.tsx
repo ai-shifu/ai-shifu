@@ -57,6 +57,10 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('remark-flow', () =>
+  jest.requireActual('remark-flow/dist/variable-name'),
+);
+
 jest.mock('markdown-flow-ui/renderer', () => ({
   ContentRender: ({
     content,
@@ -386,6 +390,63 @@ describe('ProfileOnboardingConversation', () => {
       screen.queryByText('module.profileOnboarding.guided.inputLimitError'),
     ).not.toBeInTheDocument();
   });
+
+  test.each<[string | undefined, string]>([
+    ['profile_goal', 'profile_goal'],
+    ['你的性别是？', '你的性别是？'],
+    ['gender?', 'gender?'],
+    ['\u0085gender?\u0085', 'gender?'],
+    ['\ufeffgender?\ufeff', '\ufeffgender?\ufeff'],
+    ['\ufeff', '\ufeff'],
+    [undefined, 'input'],
+  ])(
+    'submits the exact normalized variable key %s',
+    async (variableName, expectedKey) => {
+      mockRendererSubmission = { variableName, inputText: '女' };
+      const runSession = jest.fn(({ onMessage }) => {
+        if (runSession.mock.calls.length === 1) {
+          queueMicrotask(() => {
+            onMessage({
+              type: 'element',
+              content: {
+                element_bid: 'interaction-question-key',
+                element_type: 'interaction',
+                content: `?[%{{${expectedKey}}}...Your answer]`,
+              },
+            });
+            onMessage({
+              type: 'done',
+              is_terminal: true,
+              content: { done: false, next_block_index: 1 },
+            });
+          });
+        }
+        return { close: jest.fn() };
+      });
+
+      render(
+        <ProfileOnboardingConversation
+          createSession={async () => ({ session_id: 'session-question-key' })}
+          runSession={runSession}
+          onDraftReady={jest.fn()}
+          onError={jest.fn()}
+        />,
+      );
+      const answerButton = await screen.findByRole('button', {
+        name: ANSWER_GUIDED_QUESTION_LABEL,
+      });
+      await waitFor(() => expect(answerButton).toBeEnabled());
+      fireEvent.click(answerButton);
+
+      await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+      expect(runSession.mock.calls[1][0]).toEqual(
+        expect.objectContaining({
+          expectedBlockIndex: 1,
+          userInput: { [expectedKey]: ['女'] },
+        }),
+      );
+    },
+  );
 
   test('preserves official button values while keeping their display normalized', async () => {
     mockRendererSubmission = {

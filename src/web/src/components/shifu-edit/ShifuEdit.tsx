@@ -10,6 +10,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
+import { extractVariableNames } from 'remark-flow';
 import { Rnd } from 'react-rnd';
 import { useTranslation } from 'react-i18next';
 import {
@@ -101,8 +102,6 @@ const CREATED_COURSE_ONBOARDING_DELAY_MS = 900;
 const PROFILE_RECOVERY_INITIAL_DELAY_MS = 1000;
 const PROFILE_RECOVERY_MAX_DELAY_MS = 10000;
 
-const VARIABLE_NAME_REGEXP = /\{\{([\p{L}\p{N}_]+)\}\}/gu;
-
 export const resolveEditorOnboardingTriggerSource = (
   source: string | null | undefined,
 ) => {
@@ -111,25 +110,6 @@ export const resolveEditorOnboardingTriggerSource = (
     ? explicitSource
     : DEFAULT_EDITOR_TRIGGER_SOURCE;
 };
-// Collect variable names that truly exist in current markdown content
-const extractVariableNames = (text?: string | null) => {
-  if (!text) {
-    return [];
-  }
-  const collected = new Set<string>();
-  let match: RegExpExecArray | null;
-  while ((match = VARIABLE_NAME_REGEXP.exec(text)) !== null) {
-    if (match[1]) {
-      collected.add(match[1]);
-    }
-    if (VARIABLE_NAME_REGEXP.lastIndex === match.index) {
-      VARIABLE_NAME_REGEXP.lastIndex += 1;
-    }
-  }
-  VARIABLE_NAME_REGEXP.lastIndex = 0;
-  return Array.from(collected);
-};
-
 type ScriptEditorProps = {
   id: string;
   initialLessonId?: string;
