@@ -44,6 +44,7 @@ from .engine.marker_context import analyze_marker_context, marker_syntax_source
 from .engine.stream_marker_context import (
     compact_marker_context,
     pending_autolink_is_primary,
+    pending_literal_context,
 )
 from .engine.variable_names import find_interaction_end, read_variable_marker
 
@@ -80,14 +81,33 @@ class InteractionSyntaxFilter:
         self._context_prefix = ""
         self._context_label_counts: dict[int, int] = {}
         self._opaque_prefix_until = 0
+        # A question inside a raw marker cannot be classified until a viable
+        # enclosing literal closes or fails. Buffer its possible output in chunks,
+        # keeping only bounded lexical state for each new arrival.
+        self._pending_literal: str | None = None
+        self._pending_literal_chunks: list[str] = []
         self.spans: list[str] = []
 
     def feed(self, text: str) -> str:
         """Return `text` with any complete span removed, holding back an unfinished one."""
         if not text:
             return ""
-        out: list[str] = []
+        if self._pending_literal is not None:
+            self._pending_literal_chunks.append(text)
+            pending = pending_literal_context(self._pending_literal + text)
+            witness = pending[1] if pending is not None else None
+            if witness is not None:
+                self._pending_literal = witness
+                return ""
+            self._pending_literal = None
+            text = "".join(self._pending_literal_chunks)
+            self._pending_literal_chunks.clear()
         self._held += text
+        return self._drain()
+
+    def _drain(self, *, final: bool = False) -> str:
+        """Classify held source, replaying an unresolved literal candidate at EOF."""
+        out: list[str] = []
         while self._held:
             if self._inside:
 
@@ -123,11 +143,11 @@ class InteractionSyntaxFilter:
                 self._held = self._held[end + 1 :]
                 self._inside = False
                 continue
-            fence = self._next_fence_line(self._held)
-            start = (
-                -1
+            fence = self._next_fence_line(self._held, final=final)
+            start, pending_literal = (
+                (-1, None)
                 if self._fence is not None
-                else self._find_open(self._held, self._previous)
+                else self._find_open(self._held, self._previous, final=final)
             )
             if (
                 fence is not None
@@ -176,7 +196,7 @@ class InteractionSyntaxFilter:
                 self._held = self._held[cut:]
                 return "".join(out)
             if start < 0:
-                unclosed = self._unclosed_marker_start(self._held)
+                unclosed = self._unclosed_marker_start(self._held, final=final)
                 if unclosed >= 0:
                     self._emit(out, self._held[:unclosed])
                     self._held = self._held[unclosed:]
@@ -199,6 +219,11 @@ class InteractionSyntaxFilter:
                 else:
                     self._emit(out, self._held)
                     self._held = ""
+                return "".join(out)
+            if pending_literal is not None:
+                self._emit(out, self._held[:start])
+                self._held = self._held[start:]
+                self._pending_literal = pending_literal
                 return "".join(out)
             close = find_interaction_end(self._held, start + 2)
             if close >= 0 and self._held[close + 1 : close + 2] == "(":
@@ -247,6 +272,12 @@ class InteractionSyntaxFilter:
         follows it, so it is a question and not a link. An opener that never closed was never a
         span at all -- it is text, and it goes out as text.
         """
+        released = ""
+        if self._pending_literal is not None:
+            self._held += "".join(self._pending_literal_chunks)
+            self._pending_literal_chunks.clear()
+            self._pending_literal = None
+            released = self._drain(final=True)
         if self._inside and find_interaction_end(self._held, 2) == len(self._held) - 1:
             self.spans.append(self._held)
             self._held = ""
@@ -255,26 +286,39 @@ class InteractionSyntaxFilter:
         self._fence = None
         self._context_prefix = ""
         self._context_label_counts.clear()
-        return tail
+        return released + tail
 
-    def _marker_scan_text(self, text: str, *, container_fences: bool = False) -> str:
+    def _marker_scan_text(
+        self,
+        text: str,
+        *,
+        container_fences: bool = False,
+        final: bool = False,
+        provisional_markers: list[tuple[int, int, str]] | None = None,
+    ) -> str:
         """Hide code/escaped marker openers without changing opaque name contents."""
         prefix = self._context_prefix
         source = prefix + text
         context = analyze_marker_context(
-            source, final=False, label_counts=self._context_label_counts
+            source, final=final, label_counts=self._context_label_counts
         )
         provisional = context.pending_autolink_start
         if provisional is not None and not pending_autolink_is_primary(
             source, provisional
         ):
             provisional = None
+        pending = (
+            pending_literal_context(source)
+            if not final and provisional_markers is not None
+            else None
+        )
         owned = [
             marker
             for marker in context.markers
             if marker.start < len(prefix) < marker.end
             and not any(start <= marker.start < end for start, end in context.literals)
             and (provisional is None or marker.start < provisional)
+            and (pending is None or marker.start < pending[0])
         ]
         self._opaque_prefix_until = max(
             (marker.end - len(prefix) for marker in owned), default=0
@@ -291,6 +335,23 @@ class InteractionSyntaxFilter:
             # A viable angle link may still become ordinary text in a later
             # chunk. Its witness retains any raw opener for that fallback.
             scanned = scanned[:provisional] + scanned[provisional:].replace("{", "\x00")
+        if pending is not None and provisional_markers is not None:
+            start, witness = pending
+            provisional_markers.extend(
+                (marker.start - len(prefix), marker.end - len(prefix), witness)
+                for marker in context.markers
+                if marker.start >= start
+                and not any(
+                    opening <= marker.start < end for opening, end in context.literals
+                )
+            )
+            # Find the potentially real question without committing the marker's
+            # ownership before its enclosing native literal has been decided.
+            characters = list(scanned)
+            for opening, _, _ in provisional_markers:
+                at = max(0, len(prefix) + opening)
+                characters[at : at + 2] = "\x00" * 2
+            scanned = "".join(characters)
         if container_fences:
             characters = list(scanned)
             for start, end in context.container_fences:
@@ -300,7 +361,9 @@ class InteractionSyntaxFilter:
             scanned = "".join(characters)
         return scanned[len(prefix) :]
 
-    def _next_fence_line(self, text: str) -> tuple[int, int | None] | None:
+    def _next_fence_line(
+        self, text: str, *, final: bool = False
+    ) -> tuple[int, int | None] | None:
         """Where the next fence line starts in `text`, and where it ends.
 
         The end is None when the line has not finished arriving, which is the caller's cue to
@@ -311,7 +374,7 @@ class InteractionSyntaxFilter:
         if self._fence is None:
             source = self._context_prefix + text
             context = analyze_marker_context(
-                source, final=False, label_counts=self._context_label_counts
+                source, final=final, label_counts=self._context_label_counts
             )
             if any(
                 not marker.complete
@@ -349,7 +412,9 @@ class InteractionSyntaxFilter:
             # Keep offsets intact for the original line/stream state below.
             parts: list[str] = []
             at = 0
-            marker_scan = self._marker_scan_text(text, container_fences=True)
+            marker_scan = self._marker_scan_text(
+                text, container_fences=True, final=final
+            )
             while (start := marker_scan.find("{{", at)) >= 0:
                 marker = read_variable_marker(text, start)
                 end = marker.end if marker is not None else len(text)
@@ -427,31 +492,44 @@ class InteractionSyntaxFilter:
         ):
             self._fence = None
 
-    def _find_open(self, text: str, previous: str) -> int:
-        """Index of the next unescaped `?[`, or -1.
+    def _find_open(
+        self, text: str, previous: str, *, final: bool = False
+    ) -> tuple[int, str | None]:
+        """Locate the next `?[` and any literal state delaying its classification.
 
         `previous` is the character before `text`, which decides the case where an opener sits at
         the very start of what is left to scan.
         """
-        marker_scan = self._marker_scan_text(text)
+        provisional_markers: list[tuple[int, int, str]] = []
+        marker_scan = self._marker_scan_text(
+            text, final=final, provisional_markers=provisional_markers
+        )
         at = min(len(text), self._opaque_prefix_until)
         while at < len(text):
             if marker_scan.startswith("{{", at):
                 marker = read_variable_marker(text, at)
                 if marker is None:
-                    return -1
+                    return -1, None
                 at = marker.end
             elif text.startswith(_OPEN, at):
                 before = text[at - 1] if at else previous
                 if before != "\\":
-                    return at
+                    witness = next(
+                        (
+                            value
+                            for start, end, value in provisional_markers
+                            if start <= at < end
+                        ),
+                        None,
+                    )
+                    return at, witness
                 at += len(_OPEN)
             else:
                 at += 1
-        return -1
+        return -1, None
 
-    def _unclosed_marker_start(self, text: str) -> int:
-        marker_scan = self._marker_scan_text(text)
+    def _unclosed_marker_start(self, text: str, *, final: bool = False) -> int:
+        marker_scan = self._marker_scan_text(text, final=final)
         at = 0
         while (start := marker_scan.find("{{", at)) >= 0:
             marker = read_variable_marker(text, start)

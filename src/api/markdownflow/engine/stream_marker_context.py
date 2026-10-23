@@ -377,6 +377,36 @@ def pending_autolink_is_primary(source: str, start: int) -> bool:
     )
 
 
+def pending_literal_context(source: str) -> tuple[int, str] | None:
+    """Keep viable outer literal grammar until a raw marker can be classified."""
+    context = analyze_marker_context(source, final=False)
+    starts: list[int] = []
+    if context.pending_autolink_start is not None:
+        start = context.pending_autolink_start
+        if compact_angle_autolink_prefix(source, start) is not None:
+            starts.append(start)
+    if context.pending_resource_start is not None:
+        start = context.pending_resource_start
+        if _resource_prefix(source[start:], "") is not None:
+            starts.append(start)
+    if context.pending_html_start is not None:
+        # A false token cannot restart inside a marker that already owns its text.
+        candidates = list(source)
+        for start, end in [
+            *context.literals,
+            *((marker.start, marker.end) for marker in context.markers),
+        ]:
+            for at in range(start, min(end, len(source))):
+                if candidates[at] == "<":
+                    candidates[at] = "\x00"
+        html = pending_html_prefix("".join(candidates), context.pending_html_start)
+        if html is not None:
+            starts.append(html[0])
+    if not starts:
+        return None
+    return min(starts), compact_marker_context(source)
+
+
 def compact_marker_context(
     source: str,
     *,
@@ -476,6 +506,7 @@ def compact_marker_context(
     primary: tuple[int, int, str] | None = None
     autolink_counts: dict[int, int] = {}
     autolink_witness: str | None = None
+    nested_autolink_witness: str | None = None
     if (
         context.pending_reference_start is not None
         and context.pending_reference_body_start is not None
@@ -608,6 +639,7 @@ def compact_marker_context(
                 if html is not None
                 else _autolink_prefix(source[start:], pending_tokens)
             )
+        nested_autolink_witness = witness
         if token_counts:
             offset = witness.rfind(pending_tokens)
             if offset >= 0:
@@ -616,6 +648,40 @@ def compact_marker_context(
                 }
                 autolink_witness = witness
         primary = (start, len(source), witness)
+        if (
+            context.pending_html_start is not None
+            and context.pending_html_start < start
+        ):
+            # A pending token can contain a URI prefix. Preserve both native
+            # lexers: closing the outer token makes its markers literal, while
+            # an outer failure must still replay the inner URI's own boundary.
+            html = pending_html_prefix(source, context.pending_html_start)
+            if html is not None and html[0] < start:
+                html_start = html[0]
+                outer_tokens = "x".join(
+                    [value for at, _, value in records if html_start <= at < start]
+                    + [witness]
+                )
+                outer = pending_html_prefix(source, html_start, tokens=outer_tokens)
+                if outer is not None:
+                    # The inner lexer owns the append position. The HTML
+                    # helper's filler must not split '{{' or extend a URI scheme.
+                    outer_witness = outer[1]
+                    insertion = outer_witness.rfind(outer_tokens + "x")
+                    if insertion >= 0:
+                        padding = insertion + len(outer_tokens)
+                        outer_witness = (
+                            outer_witness[:padding] + outer_witness[padding + 1 :]
+                        )
+                    primary = (html_start, len(source), outer_witness)
+                    if autolink_counts and autolink_witness is not None:
+                        offset = outer_witness.rfind(autolink_witness)
+                        if offset >= 0:
+                            autolink_counts = {
+                                offset + at: count
+                                for at, count in autolink_counts.items()
+                            }
+                            autolink_witness = outer_witness
     elif primary is None and context.pending_html_start is not None:
         contained = _special_container_html_prefix(source, context.pending_html_start)
         if contained is not None:
@@ -658,8 +724,27 @@ def compact_marker_context(
         primary is None or context.pending_resource_start < primary[0]
     ):
         start = context.pending_resource_start
-        resource = _resource_prefix(source[start:], tokens(start))
+        resource_tokens = tokens(start)
+        shared_angle = False
+        if (
+            nested_autolink_witness is not None
+            and context.pending_autolink_start is not None
+        ):
+            angle = context.pending_autolink_start
+            destination = start + 1
+            while destination < len(source) and source[destination] in " \t\r\n":
+                destination += 1
+            if destination == angle:
+                shared_angle = True
+                # The resource's angle opener is also the URI's opener. Keep
+                # the scheme once, rather than replaying an invalid nested '<'.
+                resource_tokens = nested_autolink_witness[1:]
+        resource = _resource_prefix(source[start:], resource_tokens)
         if resource is not None:
+            if nested_autolink_witness == "<" and shared_angle:
+                # An empty angle body must stay empty until its first real
+                # character arrives; padding would alter the 32-character limit.
+                resource = "(<"
             label_start = context.pending_resource_label_start
             label_start = start - 1 if label_start is None else label_start
             label = (
@@ -680,6 +765,13 @@ def compact_marker_context(
                 + "]"
                 + resource,
             )
+            if autolink_counts and autolink_witness is not None:
+                offset = primary[2].rfind(autolink_witness)
+                if offset >= 0:
+                    autolink_counts = {
+                        offset + at: count for at, count in autolink_counts.items()
+                    }
+                    autolink_witness = primary[2]
     if primary is not None:
         records = [
             (at, at if at == primary[0] else end, value)

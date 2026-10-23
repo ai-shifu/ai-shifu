@@ -94,6 +94,23 @@ with their edges trimmed, rather than programming-language identifiers.
       A generated 1,386-source sweep makes 6,378 comparisons without a mismatch.
 - [x] 2026-10-23 19:18 UTC: Pass all 3,187 engine/stream/runner tests with
       the final HTML category correction and the actual Python dev4 wheel.
+- [x] 2026-10-23 22:22 UTC: Keep English README labels, documentation and
+      examples free of Chinese text and punctuation across all five repositories.
+      All 83 English documents and compatibility entries pass the final scan;
+      dedicated Chinese translations, terminology and multilingual fixtures remain.
+- [x] 2026-10-23 22:33 UTC: Preserve original opaque keys during authored input-hint
+      preprocessing in `e68aac9f84450b66d8a3a2a0b73ce638a28f7a04`. All 3,247
+      engine/stream/runner tests and 128 focused hint tests pass, including exact-key
+      input restoration, typed answers, unfinished markers and CR/LF/CRLF behavior.
+- [x] 2026-10-23 22:55 UTC: Defer ambiguous streaming questions until their
+      native literal settles or reaches EOF, preserving nested HTML and resource
+      witnesses. All 3,291 engine/stream/runner tests pass, including 44 new cases;
+      third-party validation passes 9,713 streams and long-payload state/work bounds.
+- [x] 2026-10-23 22:53 UTC: Start the final full-backend gate in the isolated
+      Python dev4 environment with temporary SQLite and mocked model providers.
+- [ ] Complete the final full-backend gate and synchronize the final head's CI
+      and review feedback. Remote backend CI is still installing system dependencies;
+      that preparation state does not establish a test result.
 - [ ] Replace application Python/component development pins with verified
       formal releases and complete merge readiness. This requires explicit
       publication authorization and the component library's confirmed main SHA.
@@ -149,6 +166,14 @@ with their edges trimmed, rather than programming-language identifiers.
   into an irrevocable block. The finite HTML lexer also retains native block
   tag prefixes, so partial closing tags and extended names keep their category.
 
+- Authored hint preprocessing previously deleted comment-like key content and
+  interpreted code-like padding. Compute exclusion ranges using protected native
+  markers and apply them to the original source, preserving exact key identity.
+- A provisional literal can later fail and turn its marker into an opaque raw key.
+  Defer an ambiguous interaction until native ownership settles. Its necessary
+  raw payload may be buffered in chunks; continuation witnesses remain bounded
+  and each newly arrived character must incur only incremental parser work.
+
 ## Decision Log
 
 - Read each marker from `{{` to the first literal `}}`, without recursively
@@ -172,6 +197,12 @@ with their edges trimmed, rather than programming-language identifiers.
   grammar. Keep the existing eligibility, trigger and best-effort behavior;
   never collect authored keys, questions, source text or values. The canonical
   analytics contract defines the denominator and historical missing values.
+- Retain a pending question's necessary raw payload as chunks, but keep only a
+  bounded native continuation witness for incremental arrivals. Preserve outer
+  HTML/resource state around an inner URI witness. Replay held source once when
+  all relevant literal ownership settles, and use final native lexing at EOF.
+  An unfinished angle/resource may become an opaque raw marker at EOF rather
+  than exposing a question inside its key.
 - Keep the vendored engine independent of the old Python library. Raw name
   helpers remain standard-library-only; document-stage context handling reuses
   the application's existing pinned Markdown grammar. Shared conformance data
@@ -194,14 +225,17 @@ with their edges trimmed, rather than programming-language identifiers.
 ## Outcomes & Retrospective
 
 All five repositories pass the same 166-case semantic conformance corpus.
-Current application sources pass 3,187 engine, streaming and runner tests,
+The final pending-literal correction passes 3,291 engine, streaming and runner tests,
 including arbitrary chunk cuts, bounded continuation state, 48 container-cache
 regressions, 36 native-link fallback regressions and 73 held-lookahead
-regressions, plus 168 HTML-category cases. The complete application
-backend checkpoint passed 14,467 tests with 112 intentional skips using Python
-dev4, before the final HTML classification correction. Exact-key database and optional unnamed-question coverage is
+regressions, plus 168 HTML-category, 60 input-hint and 44 pending-literal cases.
+The complete application
+backend checkpoint passed 14,635 tests with 112 intentional skips using Python
+dev4 after the HTML correction, before the later input-hint and pending-literal repairs. Exact-key database and optional unnamed-question coverage is
 included. The full backend suite remains the application integration gate.
 Required toolchain checks, architecture boundaries and all-file hooks pass.
+The latest full-backend and remote-CI acceptance are tracked in the remaining
+progress item; earlier checkpoints do not establish that final gate.
 
 The actual `remark-flow@1.4.0-dev.1` registry artifact matches the tested runtime
 payload, with a version-only package metadata difference. Its API, public types

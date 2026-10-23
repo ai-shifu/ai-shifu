@@ -324,6 +324,187 @@ def test_angle_link_fallback_keeps_counted_label_and_resource_state() -> None:
         assert syntax.spans == [QUESTION], stream
 
 
+@pytest.mark.parametrize(
+    ("opening", "ending", "inner_is_question"),
+    [
+        ("<https://{{", "answer}}>", True),
+        ("<aa:{{", "answer}}>", True),
+        ("<" + "a" * 32 + ":{{", "answer}}>", True),
+        ("<a:{{", "answer}}>", False),
+        ("<" + "a" * 33 + ":{{", "answer}}>", False),
+        ("<https://%{{", "answer}}>", True),
+        ("<https://{{", " answer}}>", False),
+        ("<https://{{", "\tanswer}}>", False),
+        ("<https://{{", "\r\nanswer}}>", False),
+        ("<https://{{", "\x7fanswer}}>", False),
+        ("<https://{{", "\x00answer}}>", True),
+        ("<https://{{", "\u00a0answer}}>", True),
+        ("<https://{{", "&#32;answer}}>", True),
+        ("<https://{{", "answer}}", False),
+        (r"\<https://{{", "answer}}>", False),
+        (r"<https://\{{", " answer}}>", True),
+        (r"<https://\\{{", " answer}}>", False),
+    ],
+)
+def test_provisional_angle_link_defers_questions_owned_by_a_possible_raw_marker(
+    opening: str, ending: str, inner_is_question: bool
+) -> None:
+    inner = "?[A|B]"
+    source = opening + inner + ending + QUESTION
+    expected = (
+        opening + ending if inner_is_question else opening + inner + ending,
+        ([inner] if inner_is_question else []) + [QUESTION],
+    )
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert (shown, syntax.spans) == expected, stream
+
+
+@pytest.mark.parametrize("ending", ["", "x", "x}", "x}}", "x}}?[C|D]"])
+def test_provisional_angle_link_eof_replays_native_raw_marker_ownership(
+    ending: str,
+) -> None:
+    prefix = "<https://{{?[A|B]"
+    source = prefix + ending
+    outside = "?[C|D]" if ending.endswith("?[C|D]") else ""
+    expected = (
+        source.removesuffix(outside) if outside else source,
+        [outside] if outside else [],
+    )
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert (shown, syntax.spans) == expected, stream
+        assert syntax._pending_literal is None
+        assert syntax._pending_literal_chunks == []
+        assert syntax.feed(QUESTION) + syntax.flush() == ""
+        assert syntax.spans == expected[1] + [QUESTION]
+
+
+@pytest.mark.parametrize(
+    ("opening", "ending", "inner_is_question"),
+    [
+        ("<https://{{", "}}>", True),
+        ("<https://{{", " answer}}>", False),
+        ("<https://{{", "}}", False),
+        ("<!-- <https://{{", " answer}}> -->", True),
+        ("[label](<https://{{", " answer}}>)", True),
+    ],
+)
+def test_deferred_angle_candidate_buffers_output_without_rescanning_its_growing_tail(
+    opening: str,
+    ending: str,
+    inner_is_question: bool,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inspected = 0
+    original = stream_marker_context.analyze_marker_context
+
+    def counted(source: str, **kwargs: object) -> MarkerContext:
+        nonlocal inspected
+        inspected += len(source)
+        return original(source, **kwargs)
+
+    monkeypatch.setattr(stream_marker_context, "analyze_marker_context", counted)
+    monkeypatch.setattr(interaction_syntax, "analyze_marker_context", counted)
+    inner = "?[A|B]"
+    source = opening + inner + "x" * 3000 + ending + QUESTION
+    syntax = InteractionSyntaxFilter()
+    pieces = []
+    for character in source:
+        pieces.append(syntax.feed(character))
+        assert len(syntax._context_prefix) <= 128
+        assert len(syntax._held) <= 128
+        assert len(syntax._pending_literal or "") <= 128
+    pieces.append(syntax.flush())
+    expected = source[: -len(QUESTION)]
+    if inner_is_question:
+        expected = expected.replace(inner, "", 1)
+    assert "".join(pieces) == expected
+    assert syntax.spans == ([inner] if inner_is_question else []) + [QUESTION]
+    assert syntax._pending_literal is None
+    assert syntax._pending_literal_chunks == []
+    assert inspected <= 400 * len(source)
+
+
+@pytest.mark.parametrize(
+    ("opening", "ending", "inner_is_question"),
+    [
+        ("<!-- <https://{{", " answer}}> -->", True),
+        ("<!-- <https://{{", " answer}}>", False),
+        ("<!-- <https://{{", "answer}}>", True),
+        ("[label](<https://{{", " answer}}>)", True),
+        ("[label](<https://{{", " answer}}>", False),
+        ("[label](<https://{{", "answer}}>", True),
+        ("[label](<https://{{", "answer}}>\n\n", True),
+        ("<!-- <" + "a" * 32 + ":{{", "answer}}>", True),
+        ("<!-- <" + "a" * 33 + ":{{", "answer}}>", False),
+        ("[label](<" + "a" * 32 + ":{{", "answer}}>", True),
+        ("[label](<" + "a" * 33 + ":{{", "answer}}>", False),
+        ('<span title="<https://{{', ' answer}}>">', True),
+        ('<span title="<https://{{', " answer}}>", False),
+    ],
+)
+def test_angle_candidate_keeps_its_enclosing_native_literal_until_it_is_settled(
+    opening: str, ending: str, inner_is_question: bool
+) -> None:
+    inner = "?[A|B]"
+    source = opening + inner + ending + "\n\n" + QUESTION
+    expected = (
+        opening + ("" if inner_is_question else inner) + ending + "\n\n",
+        ([inner] if inner_is_question else []) + [QUESTION],
+    )
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert (shown, syntax.spans) == expected, stream
+
+
+@pytest.mark.parametrize("first_is_question", [False, True])
+def test_resolved_angle_candidate_does_not_leak_into_the_next_pending_literal(
+    first_is_question: bool,
+) -> None:
+    first, second = "?[A|B]", "?[C|D]"
+    first_tail = ("" if first_is_question else " ") + "answer}}>"
+    second_tail = (" " if first_is_question else "") + "answer}}>"
+    source = (
+        "<https://{{" + first + first_tail + " then <https://{{" + second + second_tail
+    )
+    expected = (
+        source.replace(first if first_is_question else second, "", 1),
+        [first if first_is_question else second],
+    )
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert (shown, syntax.spans) == expected, stream
+        assert syntax._pending_literal is None
+        assert syntax._pending_literal_chunks == []
+
+
+@pytest.mark.parametrize("padding", ["", " "])
+def test_deferred_angle_candidate_still_keeps_native_link_fallback(
+    padding: str,
+) -> None:
+    source = "<https://{{?[A|B](u)" + padding + "answer}}>"
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == source, stream
+        assert syntax.spans == [], stream
+
+
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
 @pytest.mark.parametrize(
     ("prefix", "real"),
