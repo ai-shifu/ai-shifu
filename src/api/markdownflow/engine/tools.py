@@ -845,6 +845,9 @@ async def interact(
             review = feedback
     validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
+    if variable is not None and not variable.strip():
+        # An empty optional argument means the answer has no memory key.
+        variable = None
     if variable is not None:
         normalized_variable = normalize_variable_name(variable)
         if normalized_variable is None:

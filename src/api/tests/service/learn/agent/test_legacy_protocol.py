@@ -74,6 +74,18 @@ def test_a_choice_without_a_variable_stores_nothing() -> None:
     assert rendered == "?[A]"
 
 
+@pytest.mark.parametrize("variable", ["", " \t\n", "\u0085\u001f\u3000"])
+def test_a_stored_blank_optional_variable_renders_without_a_marker(
+    variable: str,
+) -> None:
+    saved = _spec(
+        type="single", prompt="Pick", options=[Option(display="A")], variable=variable
+    )
+    restored = InteractionSpec.model_validate_json(saved.model_dump_json())
+    assert legacy_protocol.render_interaction(restored) == "?[A]"
+    assert restored.variable == variable
+
+
 def test_a_stored_value_is_kept_separate_from_the_text_the_learner_reads() -> None:
     rendered = legacy_protocol.render_interaction(
         _spec(
