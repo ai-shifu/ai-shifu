@@ -21,6 +21,9 @@ is [Umami user exclusions](../../references/frontend-product-analytics.md#umami-
 - [x] 2026-10-23 UTC: Use the vendor-neutral `ANALYTICS_EXCLUDED_USER_IDS`
   setting consistently; regenerate the env example and pass 193 focused
   backend tests plus an independent naming audit.
+- [x] 2026-10-23 UTC: Reproduce the same-path excluded-to-guest pageview gap
+  reported in two review threads, then verify the loader-owned resume signal
+  with 28 focused frontend tests and independent static review.
 
 ## Surprises & Discoveries
 
@@ -43,6 +46,9 @@ is [Umami user exclusions](../../references/frontend-product-analytics.md#umami-
   environment configuration layer; policy read failure suppresses telemetry.
 - Unidentified guest history cannot be attributed to a future account, and
   already delivered data is outside this setting's scope.
+- Keep pageview emission in `UmamiLoader`. A transport resume counter and
+  subscription wake its existing effect only when exclusion ends, including
+  guest transitions whose auth-store `userInfo` is null.
 
 ## Outcomes & Retrospective
 

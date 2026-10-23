@@ -256,7 +256,14 @@ login, current-user, and temporary-user responses use the same user-info DTO.
 Once the account is known, the browser drops its pending queue and sends no
 identify, business events, or SPA pageviews for that account. Switching to an
 eligible account, including a newly issued guest identity, resumes tracking
-without replaying the excluded account's calls. Backend CLI identify/pageview
+without replaying the excluded account's calls. When eligibility resumes,
+`UmamiLoader` records the current normalized route once even if the pathname
+and initialization state have not changed. This uses the existing pageview
+deduplication and identify-before-drain rules, with no excluded-account
+referrer carried into the eligible session. Ordinary eligible identity
+refreshes do not create another pageview.
+
+Backend CLI identify/pageview
 pairs and legacy external-client events with a known account use the same
 policy before entering the delivery queue. Policy lookup failures suppress
 telemetry while allowing the underlying product operation to continue.

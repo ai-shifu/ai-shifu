@@ -82,7 +82,26 @@ const identifyState = {
   analyticsEnabled: true,
   identifying: false,
   generation: 0,
+  resumeGeneration: 0,
   queuedCalls: [] as QueuedUmamiCall[],
+};
+
+const trackingResumeListeners = new Set<() => void>();
+
+/**
+ * Lets the SPA pageview owner refresh the current route after exclusion ends,
+ * including guest transitions that do not retain user info in the auth store.
+ */
+export const getTrackingResumeGeneration = (): number =>
+  identifyState.resumeGeneration;
+
+export const subscribeToTrackingResume = (
+  listener: () => void,
+): (() => void) => {
+  trackingResumeListeners.add(listener);
+  return () => {
+    trackingResumeListeners.delete(listener);
+  };
 };
 
 /**
@@ -529,6 +548,8 @@ export const identifyUmamiUser = (userInfo?: UmamiUserInfo | null) => {
   }
 
   const isReplacementIdentity = identifyState.prevSnapshot !== '';
+  const isResumingTracking =
+    !identifyState.analyticsEnabled && analyticsEnabled;
 
   if (!analyticsEnabled || !identifyState.analyticsEnabled) {
     // Exclusion applies to bootstrap calls too. Neither pending calls nor
@@ -562,6 +583,16 @@ export const identifyUmamiUser = (userInfo?: UmamiUserInfo | null) => {
     generation: identifyState.generation,
     userId,
   };
+  if (isResumingTracking) {
+    identifyState.resumeGeneration += 1;
+    trackingResumeListeners.forEach(listener => {
+      try {
+        listener();
+      } catch {
+        // Analytics observers must not interrupt authentication.
+      }
+    });
+  }
   flushUmamiIdentify();
 };
 

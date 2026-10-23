@@ -110,6 +110,36 @@ describe('tracking transport', () => {
     expect(getTrackingIdentityGeneration()).toBe(operatorGeneration + 1);
   });
 
+  it('signals only exclusion-to-eligible transitions and isolates listener failures', () => {
+    const {
+      getTrackingResumeGeneration,
+      identifyUmamiUser,
+      subscribeToTrackingResume,
+    } = loadTrackingModule();
+    const listener = jest.fn(() => {
+      throw new Error('observer failed');
+    });
+    const unsubscribe = subscribeToTrackingResume(listener);
+
+    identifyUmamiUser({ user_id: 'user-a' });
+    identifyUmamiUser({ user_id: 'user-b', analytics_enabled: true });
+    identifyUmamiUser({ user_id: 'user-b', analytics_enabled: false });
+    expect(getTrackingResumeGeneration()).toBe(0);
+    expect(listener).not.toHaveBeenCalled();
+
+    expect(() =>
+      identifyUmamiUser({ user_id: 'user-b', analytics_enabled: true }),
+    ).not.toThrow();
+    expect(getTrackingResumeGeneration()).toBe(1);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    identifyUmamiUser({ user_id: 'user-b', analytics_enabled: false });
+    identifyUmamiUser({ user_id: 'guest-session' });
+    expect(getTrackingResumeGeneration()).toBe(2);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
   it('discards bootstrap and excluded calls before an allowed guest resumes tracking', async () => {
     const { flushUmamiIdentify, identifyUmamiUser, tracking, trackPageview } =
       loadTrackingModule();
