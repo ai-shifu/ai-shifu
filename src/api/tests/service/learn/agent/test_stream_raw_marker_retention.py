@@ -128,3 +128,21 @@ def test_closed_raw_name_restores_native_code_and_fence_boundaries(
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in chunks) + syntax.flush()
         assert (shown, syntax.spans) == (prefix, [QUESTION]), chunks
+
+
+def test_unfinished_raw_name_flush_keeps_the_original_escape_boundary() -> None:
+    for prefix in ("", "Prose "):
+        source = prefix + "{{unfinished\\"
+        syntax = InteractionSyntaxFilter()
+        assert syntax.feed(source) + syntax.flush() == source
+        assert syntax.feed(QUESTION) + syntax.flush() == ""
+        assert syntax.spans == [QUESTION]
+
+
+def test_unfinished_raw_name_flush_keeps_the_original_indent_boundary() -> None:
+    for prefix in ("", "Prose "):
+        source = prefix + "{{unfinished\n    "
+        syntax = InteractionSyntaxFilter()
+        assert syntax.feed(source) + syntax.flush() == source
+        assert syntax.feed(QUESTION) + syntax.flush() == ""
+        assert syntax.spans == [QUESTION]

@@ -125,6 +125,12 @@ with their edges trimmed, rather than programming-language identifiers.
       The 765-test stream, reference and performance gate passes after retaining
       earlier pending native block and container HTML ownership; this restores
       all 12 container dedent cases exposed by the initial broader run.
+- [x] 2026-10-23 23:30 UTC: Preserve EOF reuse behavior after emitting an
+      unfinished raw marker. Snapshot escape and line-boundary state after
+      preceding prose, restore it only for an unfinished marker at flush, and
+      retain ordinary state after a real closing pair. All 767 stream, reference
+      and performance tests pass, including 36 focused raw-marker cases;
+      independent review matches the previous filter across 30 reuse checks.
 - [ ] Repair the independently reproduced reference/fence chunk boundary:
       a later unfinished marker must not override an earlier native code fence.
       Then rerun the final full-backend gate and synchronize current-head CI
@@ -239,6 +245,8 @@ with their edges trimmed, rather than programming-language identifiers.
   literal or inline delimiter, emit its body incrementally and remember only a
   possible final single closing brace. Ambiguous literal candidates retain the
   existing deferred classification, and flush clears the incremental raw state.
+  An unfinished raw marker restores the previous filter's pre-marker escape and
+  indentation state at EOF, preserving behavior when the filter is reused.
 - Keep the vendored engine independent of the old Python library. Raw name
   helpers remain standard-library-only; document-stage context handling reuses
   the application's existing pinned Markdown grammar. Shared conformance data

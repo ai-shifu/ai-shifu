@@ -88,6 +88,7 @@ class InteractionSyntaxFilter:
         self._pending_literal_chunks: list[str] = []
         self._raw_marker_active = False
         self._raw_marker_tail = ""
+        self._raw_marker_boundary: tuple[str, str] | None = None
         self.spans: list[str] = []
 
     def feed(self, text: str) -> str:
@@ -104,6 +105,7 @@ class InteractionSyntaxFilter:
                 return "".join(out)
             self._raw_marker_active = False
             self._raw_marker_tail = ""
+            self._raw_marker_boundary = None
             self._held += text[cut:]
             return "".join(out) + self._drain()
         if self._pending_literal is not None:
@@ -216,6 +218,12 @@ class InteractionSyntaxFilter:
                         # Settled raw ownership cannot be changed by later name
                         # characters. Emit them and retain only its closing-pair
                         # boundary, rather than rescanning or copying the name.
+                        self._emit(out, self._held[:unclosed])
+                        self._held = self._held[unclosed:]
+                        self._raw_marker_boundary = (
+                            self._previous,
+                            self._line_so_far,
+                        )
                         self._raw_marker_active = True
                         self._raw_marker_tail = "}" if self._held.endswith("}") else ""
                         self._emit(out, self._held)
@@ -309,8 +317,13 @@ class InteractionSyntaxFilter:
         self._fence = None
         self._context_prefix = ""
         self._context_label_counts.clear()
+        if self._raw_marker_active and self._raw_marker_boundary is not None:
+            # Before incremental emission, an unfinished raw name left these
+            # boundary witnesses at the prose preceding its opener on flush.
+            self._previous, self._line_so_far = self._raw_marker_boundary
         self._raw_marker_active = False
         self._raw_marker_tail = ""
+        self._raw_marker_boundary = None
         return released + tail
 
     def _marker_scan_text(
