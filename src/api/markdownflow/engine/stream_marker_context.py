@@ -247,6 +247,13 @@ def compact_marker_context(source: str) -> str:
     if (
         primary is None
         and context.pending_block_start is not None
+        and context.pending_html_closing_line
+    ):
+        # A complete HTML block token owns the rest of its closing physical line.
+        primary = (context.pending_block_start, len(source), "<!--x-->x")
+    if (
+        primary is None
+        and context.pending_block_start is not None
         and context.pending_container_fence is not None
     ):
         start = context.pending_block_start

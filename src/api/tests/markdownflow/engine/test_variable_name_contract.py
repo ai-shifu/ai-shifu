@@ -525,8 +525,8 @@ def test_unclosed_html_candidates_do_not_repeatedly_scan_the_document_tail(
     ["<!-->", "<!--->", "<!-- {{ q }} -->", "<? {{ q }} ?>", "<![CDATA[{{ q }}]]>"],
 )
 def test_html_tail_preflight_preserves_complete_native_literals(html: str) -> None:
-    source = html + " {{ outside }}"
+    source = "Text " + html + " {{ outside }}"
     context = analyze_marker_context(source)
-    assert context.literals == [(0, len(html))]
+    assert context.literals == [(5, 5 + len(html))]
     expected = ["q", "outside"] if "{{ q }}" in html else ["outside"]
     assert [marker.name for marker in context.markers] == expected

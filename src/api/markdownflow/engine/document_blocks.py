@@ -199,6 +199,7 @@ class DocumentBlocks:
         """Index once using the caller's existing native HTML grammar."""
         self.text = text
         self.html_pattern = html
+        self._html_last_ends: dict[str, int] | None = None
         self.lines = physical_lines(text)
         self.closed_fence_lines: set[int] = set()
         self.container_paragraphs = self._container_paragraphs()
@@ -263,6 +264,42 @@ class DocumentBlocks:
                     )
             previous = line
         return BlockSpan(len(self.text), first.end, len(self.text), marker, size, steps)
+
+    def terminated_html(self, start: int) -> BlockSpan | None:
+        """Keep complete native HTML blocks 2-5 through their closing physical line."""
+        if start not in self.by_start:
+            return None
+        at = start
+        while at < min(start + 3, len(self.text)) and self.text[at] == " ":
+            at += 1
+        special = self.text.startswith(("<!--", "<?", "<![CDATA["), at)
+        declaration = (
+            self.text.startswith("<!", at)
+            and at + 2 < len(self.text)
+            and self.text[at + 2].isascii()
+            and self.text[at + 2].isalpha()
+        )
+        if not special and not declaration:
+            return None
+        if self.text.startswith("<!--", at):
+            closing = ">" if self.text.startswith(("<!-->", "<!--->"), at) else "-->"
+        elif self.text.startswith("<?", at):
+            closing = "?>"
+        elif self.text.startswith("<![CDATA[", at):
+            closing = "]]>"
+        else:
+            closing = ">"
+        if self._html_last_ends is None:
+            self._html_last_ends = {
+                ending: self.text.rfind(ending) for ending in (">", "-->", "?>", "]]>")
+            }
+        if self._html_last_ends[closing] < at:
+            return None
+        token = self.html_pattern.match(self.text, at)
+        if token is None:
+            return None
+        end = self.line_at(token.end()).content_end
+        return BlockSpan(end, token.end(), end, closed=True)
 
     def ordinary_html(self, start: int) -> BlockSpan | None:
         """Bound native type-six/seven HTML blocks at the first blank line."""

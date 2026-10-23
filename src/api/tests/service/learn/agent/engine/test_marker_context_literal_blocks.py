@@ -362,3 +362,55 @@ def test_non_setext_lines_keep_the_complete_inline_span(
         + " end\n\n?[%{{ real }} A|B]"
     )
     assert collected_names(source) == frozenset({"real"})
+
+
+HTML_CLOSING_LINE_CASES = [
+    ("<!--", "-->"),
+    ("<?x", "?>"),
+    ("<![CDATA[", "]]>"),
+    ("<!DOCTYPE", ">"),
+]
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(("opening", "closing"), HTML_CLOSING_LINE_CASES)
+def test_complete_html_blocks_bound_unclosed_examples_on_the_closing_line(
+    newline: str, opening: str, closing: str
+) -> None:
+    prefix = newline.join([opening, "{{ unfinished", closing + " {{ still literal", ""])
+    source = prefix + "?[%{{ real }} A|B]"
+    assert collected_names(source) == frozenset({"real"})
+    assert _script_questions(source)[-1].variable == "real"
+    assert (
+        substitute_variables(prefix + "{{ real }}", {"real": "VALUE"})
+        == prefix + "VALUE"
+    )
+
+
+@pytest.mark.parametrize(("opening", "closing"), HTML_CLOSING_LINE_CASES)
+def test_html_token_and_closing_line_keep_separate_complete_variable_examples(
+    opening: str, closing: str
+) -> None:
+    source = opening + "\n{{ unfinished\n" + closing + " {{ tail }}\n?[%{{ real }} A|B]"
+    assert [marker.name for marker in analyze_marker_context(source).markers] == [
+        "tail",
+        "real",
+    ]
+    assert substitute_variables(source, {"tail": "VALUE"}) == source.replace(
+        "{{ tail }}", "VALUE"
+    )
+
+
+@pytest.mark.parametrize(("opening", "closing"), HTML_CLOSING_LINE_CASES)
+def test_inline_html_and_unclosed_tokens_keep_their_existing_boundaries(
+    opening: str, closing: str
+) -> None:
+    inline = (
+        "Text " + opening + "\n" + closing + " {{ still literal\n?[%{{ real }} A|B]"
+    )
+    assert collected_names(inline) == frozenset()
+    unclosed = opening + "\n{{ example }}\n?[%{{ real }} A|B]"
+    assert [marker.name for marker in analyze_marker_context(unclosed).markers] == [
+        "example",
+        "real",
+    ]

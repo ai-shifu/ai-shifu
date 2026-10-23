@@ -309,3 +309,43 @@ def test_setext_and_ordinary_lines_keep_already_closed_stream_literals(
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
         assert shown == prefix, stream
         assert syntax.spans == [QUESTION], stream
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    ("opening", "closing"),
+    [("<!--", "-->"), ("<?x", "?>"), ("<![CDATA[", "]]>"), ("<!DOCTYPE", ">")],
+)
+def test_complete_html_blocks_keep_closing_line_examples_local_across_stream_cuts(
+    newline: str, opening: str, closing: str
+) -> None:
+    prefix = newline.join([opening, "{{ unfinished", closing + " {{ still literal", ""])
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
+
+
+@pytest.mark.parametrize(
+    ("opening", "closing"),
+    [("<!--", "-->"), ("<?x", "?>"), ("<![CDATA[", "]]>"), ("<!DOCTYPE", ">")],
+)
+def test_html_closing_line_witness_does_not_retain_body_text(
+    opening: str, closing: str
+) -> None:
+    prefix = (
+        opening + "\n" + "x" * 1000 + "\n" + closing + " {{ still literal" + "x" * 1000
+    )
+    syntax = InteractionSyntaxFilter()
+    shown = []
+    for character in prefix:
+        shown.append(syntax.feed(character))
+        assert len(syntax._context_prefix) < 128
+    shown.append(syntax.feed("\n" + QUESTION))
+    shown.append(syntax.flush())
+    assert "".join(shown) == prefix + "\n"
+    assert syntax.spans == [QUESTION]

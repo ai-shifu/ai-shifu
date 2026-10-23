@@ -73,6 +73,7 @@ class MarkerContext:
     pending_resource_opener: bool = False
     pending_block_start: int | None = None
     pending_html_block: bool = False
+    pending_html_closing_line: bool = False
     pending_container_fence: tuple[str, int, tuple[int, ...]] | None = None
     pending_container_closed: bool = False
     pending_reference_start: int | None = None
@@ -509,6 +510,18 @@ def analyze_marker_context(
                 if opening is not None:
                     context.pending_raw_html_tag = opening.group(1).lower()
             at = end
+            continue
+        special_html = blocks.terminated_html(at)
+        if special_html is not None:
+            context.literals.append((at, special_html.end))
+            context.markers.extend(_literal_markers(text, at, special_html.opening_end))
+            context.markers.extend(
+                _literal_markers(text, special_html.opening_end, special_html.end)
+            )
+            if not final and special_html.end == len(text):
+                context.pending_block_start = at
+                context.pending_html_closing_line = True
+            at = special_html.end
             continue
         ordinary = blocks.ordinary_html(at)
         if ordinary is not None:
