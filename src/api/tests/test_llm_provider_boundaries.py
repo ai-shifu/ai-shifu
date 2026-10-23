@@ -219,40 +219,17 @@ def test_configured_output_limits_survive_missing_or_failing_litellm_registratio
     monkeypatch.setattr(llm.litellm, "register_model", register)
     assert llm._load_and_register_model_max_output_tokens() == {"model-a": 2048}
     if register is not None:
-        register.assert_called_once_with(
-            {
-                "model-a": {"max_output_tokens": 2048},
-                "gpt-6-sol": {
-                    "litellm_provider": "openai",
-                    "supports_none_reasoning_effort": True,
-                },
-                "gpt-6-luna": {
-                    "litellm_provider": "openai",
-                    "supports_none_reasoning_effort": True,
-                },
-            }
-        )
+        register.assert_called_once_with({"model-a": {"max_output_tokens": 2048}})
 
 
-def test_empty_output_limit_config_still_registers_model_capability(
+def test_empty_output_limit_config_keeps_native_model_metadata(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(llm, "get_config", lambda *_: "")
     register = Mock()
     monkeypatch.setattr(llm.litellm, "register_model", register)
     assert llm._load_and_register_model_max_output_tokens() == {}
-    register.assert_called_once_with(
-        {
-            "gpt-6-sol": {
-                "litellm_provider": "openai",
-                "supports_none_reasoning_effort": True,
-            },
-            "gpt-6-luna": {
-                "litellm_provider": "openai",
-                "supports_none_reasoning_effort": True,
-            },
-        }
-    )
+    register.assert_not_called()
 
 
 @pytest.fixture

@@ -59,14 +59,14 @@ logfire-api==5.1.0
 Mako==1.4.2
 markdown-it-py==4.0.0
 MarkupSafe==2.1.5
-litellm==1.102.0
+litellm[mcp]==1.106.2
 openpyxl==3.1.5
 opentelemetry-api==1.36.0
 opentelemetry-exporter-otlp-proto-http==1.36.0
 opentelemetry-sdk==1.36.0
 orjson==3.11.6
 oss2==2.18.6
-packaging==23.2
+packaging==24.0
 pillow==12.3.0
 pingpp==2.7.2
 prometheus-client==0.22.1
@@ -86,7 +86,7 @@ pytest==9.0.3
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 pytz==2024.1
-PyYAML==6.0.1
+PyYAML==6.0.3
 redis==5.0.7
 referencing==0.35.1
 regex==2025.11.3
