@@ -18,6 +18,9 @@ is [Umami user exclusions](../../references/frontend-product-analytics.md#umami-
   independent static review found no actionable gaps.
 - [x] 2026-10-23 UTC: Pass all repository pre-commit checks, including the
   documentation harness after staging generated indexes; prepare PR delivery.
+- [x] 2026-10-23 UTC: Use the vendor-neutral `ANALYTICS_EXCLUDED_USER_IDS`
+  setting consistently; regenerate the env example and pass 193 focused
+  backend tests plus an independent naming audit.
 
 ## Surprises & Discoveries
 
@@ -32,6 +35,8 @@ is [Umami user exclusions](../../references/frontend-product-analytics.md#umami-
 ## Decision Log
 
 - Use a comma-separated backend list of exact business `user_id` values.
+- Name the setting `ANALYTICS_EXCLUDED_USER_IDS` to follow the existing
+  analytics configuration family without a vendor name.
 - Return only `analytics_enabled` on the shared user-info DTO, retaining
   compatibility with clients or servers that lack the field.
 - Keep this policy independent of database/cache availability by reading the
@@ -65,7 +70,7 @@ work. Cover exclusion, normal traffic, identity changes, and failures.
 
 ## Concrete Steps
 
-1. Register `ANALYTICS_UMAMI_EXCLUDED_USER_IDS` and regenerate env examples.
+1. Register `ANALYTICS_EXCLUDED_USER_IDS` and regenerate env examples.
 2. Implement shared policy and pass trusted account IDs to legacy senders.
 3. Add per-user eligibility to the backend DTO and frontend interface.
 4. Gate browser identify, queueing, draining, events, and pageviews.

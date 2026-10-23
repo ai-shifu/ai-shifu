@@ -371,8 +371,8 @@ ENV_VARS: dict[str, EnvVar] = {
         description="Umami analytics site identifier",
         group="frontend",
     ),
-    "ANALYTICS_UMAMI_EXCLUDED_USER_IDS": EnvVar(
-        name="ANALYTICS_UMAMI_EXCLUDED_USER_IDS",
+    "ANALYTICS_EXCLUDED_USER_IDS": EnvVar(
+        name="ANALYTICS_EXCLUDED_USER_IDS",
         default=[],
         type=list,
         description=(

@@ -26,7 +26,7 @@ def test_umami_exclusion_matches_exact_nonempty_account_ids(
     excluded: bool,
 ) -> None:
     def get_config(key: str, default: object) -> object:
-        assert key == "ANALYTICS_UMAMI_EXCLUDED_USER_IDS"
+        assert key == "ANALYTICS_EXCLUDED_USER_IDS"
         assert default == []
         return configured
 

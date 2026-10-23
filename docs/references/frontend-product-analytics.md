@@ -232,11 +232,11 @@ documented contract and privacy review.
 
 ## Umami User Exclusions
 
-Set the backend environment variable `ANALYTICS_UMAMI_EXCLUDED_USER_IDS` to
+Set the backend environment variable `ANALYTICS_EXCLUDED_USER_IDS` to
 comma-separated account `user_id` values, for example:
 
 ```dotenv
-ANALYTICS_UMAMI_EXCLUDED_USER_IDS=user-1,user-2
+ANALYTICS_EXCLUDED_USER_IDS=user-1,user-2
 ```
 
 This prevents internal or test accounts from contributing to Umami adoption,

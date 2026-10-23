@@ -20,7 +20,7 @@ from tests.common.fixtures.mock_validators import (
 
 
 def test_umami_excluded_users_config_parses_comma_separated_ids() -> None:
-    env_var = ENV_VARS["ANALYTICS_UMAMI_EXCLUDED_USER_IDS"]
+    env_var = ENV_VARS["ANALYTICS_EXCLUDED_USER_IDS"]
 
     assert env_var.default == []
     assert env_var.convert_type(None) == []

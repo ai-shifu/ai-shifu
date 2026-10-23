@@ -178,7 +178,7 @@ def test_user_info_returns_only_current_users_analytics_eligibility(
 
     assert payload["analytics_enabled"] is enabled
     assert token_payload["userInfo"]["analytics_enabled"] is enabled
-    assert "ANALYTICS_UMAMI_EXCLUDED_USER_IDS" not in payload
+    assert "ANALYTICS_EXCLUDED_USER_IDS" not in payload
     assert "user-2" not in json.dumps(payload)
 
 

@@ -6,7 +6,7 @@ from flaskr.common.config import get_config
 def is_umami_user_excluded(user_id: object) -> bool:
     """Match exact account IDs without exposing the configured list to clients."""
     try:
-        configured = get_config("ANALYTICS_UMAMI_EXCLUDED_USER_IDS", [])
+        configured = get_config("ANALYTICS_EXCLUDED_USER_IDS", [])
         if isinstance(configured, str):
             configured = configured.split(",")
         excluded_ids = {
