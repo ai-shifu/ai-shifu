@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flaskr.api.llm import chat_llm
-from flaskr.service.learn.agent.api import GatewayModel
+from flaskr.api.markdownflow import GatewayModel
 from flaskr.service.metering.api import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from markdown_flow import LLMProvider

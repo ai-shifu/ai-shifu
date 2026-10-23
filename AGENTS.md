@@ -259,12 +259,12 @@ Pin release versions of both before merging.
 ## The MarkdownFlow 2.0 engine library
 
 `src/api/markdownflow/` holds the application-independent MarkdownFlow 2.0
-engine library. The course runtime uses the shared application binding in
+engine library. Course and Profile runtimes use the shared application binding in
 `src/api/flaskr/api/markdownflow.py`; gateway integration lives under
 `src/api/flaskr/api/llm/`. See the [library design](docs/design-docs/markdownflow-engine-library.md)
 and the package's `AGENTS.md` for the dependency boundary. The foundation
-extracts the existing course runtime; Profile remains on MarkdownFlow 1.0
-until its separate migration consumes this library.
+extracts the existing course runtime in PR #3163; the dependent Profile migration
+in PR #3161 uses the same library and application binding.
 Unlike the two component libraries above, it is **not** a pinned dependency: the
 code was copied in and is edited here, in place. `ai-shifu/markdown-flow-agent`
 still exists to serve the playground and the open-source release, but it is not

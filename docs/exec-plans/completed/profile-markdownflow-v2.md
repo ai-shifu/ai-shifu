@@ -16,6 +16,10 @@ locks, request replay, frontend rendering and private profile transformation.
 The canonical contract is in
 [`profile-onboarding-startup.md`](../../product-specs/profile-onboarding-startup.md).
 
+PR #3161 depends on the foundation extracted directly from `main` in PR #3163.
+The shared implementation lives in src/api/markdownflow; both course and Profile
+hosts use flaskr.api.markdownflow for native types, gateway and localized controls.
+
 ## Progress
 
 - [x] 2026-10-23 CST: Migrated execution from the 1.0 provider to shared 2.0
@@ -37,6 +41,13 @@ The canonical contract is in
   had no new unhandled feedback; the previously explained draft-length
   distinction remains open as an existing product contract.
 
+- [x] 2026-10-24 CST: Replay all fourteen migration commits on standalone
+  foundation d650a16f and replace the removed course-local API with
+  flaskr.api.markdownflow. The rebased branch passed 4,995 backend/library/
+  evaluation/release tests, with 93 skips and 82 subtests passed. The complete
+  repository pre-commit gate passed again; remote delivery and exact-head PR
+  checks remain tracked on the PR.
+
 ## Surprises & Discoveries
 
 - The original implementation created one Session per authored block. This
@@ -56,7 +67,8 @@ The canonical contract is in
 
 - Reuse Engine, ScriptBundle, Session, StartTurn, ContinueTurn,
   InteractionResponseTurn, the synchronous bridge, gateway, interaction renderer
-  and pager through the public learn.agent.api boundary.
+  and pager through flaskr.api.markdownflow, backed by the independent
+  markdownflow library introduced by prerequisite PR #3163.
 - Preserve authored 1.0 controls with a source-contract check over all controls,
   without indexing them, restricting their execution order, counting pending
   calls or splitting script execution. Natural-language 2.0 scripts are allowed.
@@ -72,20 +84,27 @@ The canonical contract is in
 - Schema 3 expires incompatible schema 1/2 per-block sessions. Deploy matching
   API and web revisions together; the existing missing-session path allows restart.
 - Preserve existing analytics meaning, ownership, expiration and nonbillable
-  provider routing. No new package, database migration or user action is needed.
+  provider routing. No dependency-pin change, database migration or new user
+  action is needed.
 
 ## Outcomes & Retrospective
 
-Completed and verified: 438 Profile/configuration/request/route regressions,
-1,175 shared engine/host tests and 198 frontend tests passed. Full TypeScript,
+Before dependency reordering, 438 Profile/configuration/request/route
+regressions, 1,175 shared engine/host tests and 198 frontend tests passed. Full TypeScript,
 lint, repository gates, backend CI and production-image/browser runtime smoke
 checks passed. The code-head checks and CodeRabbit review passed; Cursor did
 not execute because its trial quota was exhausted. No new actionable review
 remains. The existing manual/import draft-length difference is explained and
-left open rather than marked fixed. This final documentation-only archival is
-subject to the same final-head PR checks before delivery. No merge or deployment
-is authorized. The initial migration retained too much old orchestration; the
-complete-script revision makes native state authoritative.
+left open rather than marked fixed. Those results describe the previous branch
+heads recorded above. After the fourteen commits were replayed on foundation
+PR #3163, backend verification passed 1,460 library/evaluation tests, 3,059
+learning/shared-LLM tests, 438 Profile/configuration/route tests and 38 release
+tests: 4,995 passed, 93 skipped and 82 subtests passed. The new branch's final
+repository gates and exact-head remote checks still need confirmation. PR #3161
+tracks that delivery work; this completed implementation plan does not claim
+those new checks have passed.
+No merge or deployment is authorized. The initial migration retained too much
+old orchestration; the complete-script revision makes native state authoritative.
 
 ## Context and Orientation
 
@@ -127,7 +146,8 @@ state rather than authored block counts. Expired old schemas permit restart.
 
 ## Idempotence and Recovery
 
-Work remains on the feature branch for PR #3161. No database schema changes.
+Work remains on the feature branch for PR #3161, based on the independently
+verified foundation from PR #3163. No database schema changes.
 Keep ownership locks through persistence and readback of uncertain assistant
 writes. Deploy API workers and web together. Old schema 1/2 sessions cannot be
 converted reliably from a single saved block and are rejected as missing.

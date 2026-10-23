@@ -6,7 +6,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from flaskr.service.learn.agent.api import (
+from flaskr.api.markdownflow import (
     ContentDelta,
     ContinueTurn,
     Engine,
@@ -42,7 +42,7 @@ from pydantic_ai.messages import (
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping
 
-    from flaskr.service.learn.agent.api import (
+    from flaskr.api.markdownflow import (
         Event,
         InteractionSpec,
         PendingInteraction,

@@ -35,12 +35,6 @@ __all__ = [
 ]
 
 
-def render_question(spec: InteractionSpec) -> tuple[str, str]:
-    """Render a question with the same host normalization used by validation."""
-    prompt, normalized = _as_sent(spec)
-    return prompt, render_interaction(normalized)
-
-
 def translate(
     event: Event,
     *,

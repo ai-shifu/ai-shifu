@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from flaskr.service.learn.agent.api import (
+from flaskr.api.markdownflow import (
     render_question,
     substitute_variables,
     unrenderable_reason,
@@ -15,7 +15,7 @@ from markdown_flow.escaping import find_unescaped
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from flaskr.service.learn.agent.api import InteractionSpec
+    from flaskr.api.markdownflow import InteractionSpec
 
 
 def check_authored_interaction(

@@ -14,12 +14,12 @@ import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.api.langfuse import MockClient
+from flaskr.api.llm.markdownflow_model import map_messages
 from flaskr.common.cache_provider import (
     CacheUnavailableError,
     InMemoryCacheProvider,
     redis_cache,
 )
-from flaskr.service.learn.agent.gateway_model import map_messages
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
 from flaskr.service.profile_research import api
 from flaskr.service.profile_research import runtime as profile_research_runtime
@@ -189,7 +189,7 @@ def _active_test_session_id(
     return runtime.store.active_session_id(user_bid="user-1", purpose=purpose)
 
 
-def test_service_uses_only_the_shared_learn_agent_facade() -> None:
+def test_service_uses_the_shared_application_markdownflow_binding() -> None:
     service_dir = Path(inspect.getsourcefile(ProfileResearchRuntime) or "").parent
     imports: list[str] = []
     for source_path in service_dir.glob("*.py"):
@@ -200,9 +200,8 @@ def test_service_uses_only_the_shared_learn_agent_facade() -> None:
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imports.append(node.module)
 
-    assert {name for name in imports if name.startswith("flaskr.service.learn")} <= {
-        "flaskr.service.learn.agent.api"
-    }
+    assert not any(name.startswith("flaskr.service.learn") for name in imports)
+    assert "flaskr.api.markdownflow" in imports
 
 
 def test_validation_uses_markdownflow_public_parser() -> None:
