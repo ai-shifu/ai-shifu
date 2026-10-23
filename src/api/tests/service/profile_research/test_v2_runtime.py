@@ -318,28 +318,36 @@ def test_summary_sees_unassigned_answers_and_only_returns_the_private_draft() ->
     assert len(summary_messages) == 1
 
 
-def test_multiple_pending_tools_keep_the_block_cursor_until_every_answer() -> None:
+def test_static_question_token_and_retry_identity_cannot_be_reused_for_another_call() -> (
+    None
+):
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
-        answers = _tool_returns(messages)
-        if answers:
-            assert len(answers) == 2
+        if _finished(messages):
+            yield " "
+        elif _tool_returns(messages):
             yield _finish()
         else:
-            yield {
-                0: _interact(call_id="goal", variable="goal", prompt="Your goal?"),
-                1: _interact(call_id="pace", variable="pace", prompt="Your pace?"),
-            }
+            yield {0: _interact(call_id="goal", variable="goal", prompt="Your goal?")}
 
     _app, runtime, factories = _runtime(script)
-    view = _start(
-        runtime,
-        "Collect %{{goal}} and %{{pace}} in two separate questions.\n\n---\n\n?[Continue]",
-    )
+    view = _start(runtime, "?[%{{goal}}...Your goal?]")
     rendered = _run(runtime, view)
     goal_question = next(
         event for event in rendered if event["event_type"] == "interaction"
     )
     assert goal_question["interaction_id"] == "goal"
+    before_answer = runtime.store.load(view["session_id"]).to_cache_payload()
+    factory_count = len(factories)
+    with pytest.raises(ProfileResearchValidationError, match="interaction"):
+        _run(
+            runtime,
+            view,
+            values={"goal": ["practical tasks"]},
+            request_id="stale-tab",
+            expected_interaction_id="another-question",
+        )
+    assert runtime.store.load(view["session_id"]).to_cache_payload() == before_answer
+    assert len(factories) == factory_count
     first = _run(
         runtime,
         view,
@@ -347,35 +355,19 @@ def test_multiple_pending_tools_keep_the_block_cursor_until_every_answer() -> No
         request_id="goal",
         expected_interaction_id="goal",
     )
-    assert _terminal(first)["next_block_index"] == 0
-    assert _terminal(first)["awaiting_input"] is True
-    pace_question = next(
-        event for event in first if event["event_type"] == "interaction"
-    )
-    assert "Your pace?" in pace_question["content"]
-    assert pace_question["interaction_id"] == "pace"
-    assert pace_question["generated_block_bid"] != goal_question["generated_block_bid"]
+    assert _terminal(first)["next_block_index"] == 1
+    assert _terminal(first)["awaiting_input"] is False
     stored = runtime.store.load(view["session_id"])
     assert stored.variables["goal"] == "practical tasks"
     unchanged = stored.to_cache_payload()
     factory_count = len(factories)
-    for token in (None, "goal"):
-        with pytest.raises(ProfileResearchValidationError, match="interaction"):
-            _run(
-                runtime,
-                view,
-                values={"goal": ["practical tasks"]},
-                request_id="stale-tab",
-                expected_interaction_id=token,
-            )
-        assert runtime.store.load(view["session_id"]).to_cache_payload() == unchanged
     with pytest.raises(ProfileResearchValidationError, match="reused"):
         _run(
             runtime,
             view,
             values={"goal": ["practical tasks"]},
             request_id="goal",
-            expected_interaction_id="pace",
+            expected_interaction_id="another-question",
         )
     assert runtime.store.load(view["session_id"]).to_cache_payload() == unchanged
     assert len(factories) == factory_count
@@ -389,19 +381,25 @@ def test_multiple_pending_tools_keep_the_block_cursor_until_every_answer() -> No
         )
         == first
     )
-    second = _run(
+    assert len(factories) == factory_count
+
+
+def test_multiple_dynamic_questions_in_content_do_not_publish_partial_state() -> None:
+    async def script(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        yield {
+            0: _interact(call_id="goal", variable="goal", prompt="Your goal?"),
+            1: _interact(call_id="pace", variable="pace", prompt="Your pace?"),
+        }
+
+    _app, runtime, _factories = _runtime(script)
+    view = _start(
         runtime,
-        view,
-        values={"pace": ["slow"]},
-        request_id="pace",
-        expected_interaction_id="pace",
+        "Introduce the goal and pace questions.\n\n---\n\n?[Continue]",
     )
-    assert _terminal(second)["next_block_index"] == 1
-    assert _terminal(second)["awaiting_input"] is False
-    assert runtime.store.load(view["session_id"]).variables == {
-        "goal": "practical tasks",
-        "pace": "slow",
-    }
+    original = runtime.store.load(view["session_id"]).to_cache_payload()
+    with pytest.raises(ProfileResearchError, match="failed to execute"):
+        _run(runtime, view)
+    assert runtime.store.load(view["session_id"]).to_cache_payload() == original
 
 
 def test_provider_failure_after_answer_does_not_persist_partial_agent_state() -> None:
@@ -523,7 +521,7 @@ def test_authored_prompts_remain_distinct_from_learner_facts_in_summary(
     )
 
 
-def test_unassigned_answer_to_a_dynamic_content_question_reaches_summary() -> None:
+def test_unassigned_answer_to_an_authored_question_reaches_summary() -> None:
     summary_evidence: list[dict[str, Any]] = []
 
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
@@ -547,9 +545,7 @@ def test_unassigned_answer_to_a_dynamic_content_question_reaches_summary() -> No
             }
 
     _app, runtime, factories = _runtime(script)
-    view = _start(
-        runtime, "Ask about the preferred session length.\n\n---\n\n?[Continue]"
-    )
+    view = _start(runtime, "?[...How long should a session be?]\n\n---\n\n?[Continue]")
     _run(runtime, view)
     _run(runtime, view, values={"input": ["Ten minutes"]}, request_id="answer")
     _run(runtime, view, index=1, request_id="render-continue")
@@ -677,27 +673,36 @@ def test_unassigned_answer_after_a_named_question_survives_into_summary() -> Non
     } in summary_evidence[0]["conversation"]
 
 
-def test_assistant_import_keeps_an_unassigned_answer_from_an_unfinished_block() -> None:
+def test_assistant_import_keeps_an_unassigned_answer_while_the_next_question_is_pending() -> (
+    None
+):
     summary_evidence: list[dict[str, Any]] = []
 
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
-        if factories[-1] == 2:
+        if _finished(messages):
+            yield " "
+        elif factories[-1] == 2:
             summary_evidence.append(_evidence(messages))
             yield "Prefers examples from the classroom."
-        else:
+        elif _tool_returns(messages):
+            yield _finish()
+        elif factories[-1] == 0:
             yield {
                 0: _interact(
                     call_id="background", variable=None, prompt="Your background?"
-                ),
-                1: _interact(
+                )
+            }
+        else:
+            yield {
+                0: _interact(
                     call_id="challenge", variable=None, prompt="Your challenge?"
-                ),
+                )
             }
 
     app, runtime, factories = _runtime(script)
     view = runtime.start_session(
         user_bid="v2-learner",
-        document="Ask two questions about the learner.\n\n---\n\n?[Continue]",
+        document="?[...Your background?]\n\n---\n\n?[...Your challenge?]",
         purpose=PROFILE_ONBOARDING_PURPOSE,
         config_revision=12,
         output_language="en-US",
@@ -710,8 +715,9 @@ def test_assistant_import_keeps_an_unassigned_answer_from_an_unfinished_block() 
         values={"input": ["I teach in a classroom"]},
         request_id="background",
     )
-    assert _terminal(answered)["next_block_index"] == 0
-    assert _terminal(answered)["awaiting_input"] is True
+    assert _terminal(answered)["next_block_index"] == 1
+    pending = _run(runtime, view, index=1, request_id="render-challenge")
+    assert _terminal(pending)["awaiting_input"] is True
     runtime._provider_factory = lambda *_args: SimpleNamespace(
         complete=lambda **_kwargs: '{"answers":"","nickname":""}'
     )
@@ -721,7 +727,7 @@ def test_assistant_import_keeps_an_unassigned_answer_from_an_unfinished_block() 
                 user_bid="v2-learner",
                 session_id=view["session_id"],
                 raw_text="No supplemental personal details",
-                expected_block_index=0,
+                expected_block_index=1,
                 request_id="delegate",
             )
         )
@@ -733,25 +739,30 @@ def test_assistant_import_keeps_an_unassigned_answer_from_an_unfinished_block() 
     ]
 
 
-def test_sequential_pending_questions_keep_distinct_content_and_feedback_bids() -> None:
+def test_sequential_authored_questions_keep_distinct_content_and_feedback_bids() -> (
+    None
+):
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
         answers = _tool_returns(messages)
         if _finished(messages):
             yield " "
-        elif not answers:
+        elif not answers and factories[-1] == 0:
             yield "Let's understand how you learn.\n"
             yield {0: _interact(call_id="goal", variable="goal", prompt="Your goal?")}
-        elif len(answers) == 1:
-            yield "Your goal is clear.\n"
+        elif not answers:
+            yield "Let's understand your learning pace.\n"
             yield {0: _interact(call_id="pace", variable="pace", prompt="Your pace?")}
+        elif factories[-1] == 0:
+            yield "Your goal is clear.\n"
+            yield _finish()
         else:
             yield "Your pace is clear.\n"
             yield _finish()
 
-    _app, runtime, _factories = _runtime(script)
+    _app, runtime, factories = _runtime(script)
     view = _start(
         runtime,
-        "Collect %{{goal}} and %{{pace}} in separate questions.\n\n---\n\n?[Continue]",
+        "?[%{{goal}}...Your goal?]\n\n---\n\n?[%{{pace}}...Your pace?]",
     )
     rendered = _run(runtime, view)
     intro = next(event for event in rendered if event["event_type"] == "content")
@@ -767,7 +778,11 @@ def test_sequential_pending_questions_keep_distinct_content_and_feedback_bids() 
         expected_interaction_id="goal",
     )
     goal_feedback = next(event for event in first if event["event_type"] == "content")
-    pace = next(event for event in first if event["event_type"] == "interaction")
+    assert _terminal(first)["next_block_index"] == 1
+    next_question = _run(runtime, view, index=1, request_id="render-pace")
+    pace = next(
+        event for event in next_question if event["event_type"] == "interaction"
+    )
     assert pace["interaction_id"] == "pace"
     assert pace["generated_block_bid"] != goal["generated_block_bid"]
     assert goal_feedback["generated_block_bid"] != pace["generated_block_bid"]
@@ -776,12 +791,13 @@ def test_sequential_pending_questions_keep_distinct_content_and_feedback_bids() 
         runtime,
         view,
         values={"pace": ["Slow"]},
+        index=1,
         request_id="pace",
         expected_interaction_id="pace",
     )
     pace_feedback = next(event for event in second if event["event_type"] == "content")
     assert pace_feedback["generated_block_bid"] != goal_feedback["generated_block_bid"]
-    assert _terminal(second)["next_block_index"] == 1
+    assert _terminal(second)["next_block_index"] == 2
 
 
 @pytest.mark.usefixtures("app")

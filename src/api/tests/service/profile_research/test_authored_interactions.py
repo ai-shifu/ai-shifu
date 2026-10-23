@@ -1,4 +1,4 @@
-"""Keep static authored controls authoritative while allowing dynamic profile questions."""
+"""Keep static authored controls authoritative and content blocks free of interactions."""
 
 from __future__ import annotations
 
@@ -165,13 +165,16 @@ def test_localized_displays_preserve_authored_machine_values() -> None:
     assert runtime.store.load(view["session_id"]).variables == {"role": "teacher"}
 
 
-def test_dynamic_content_question_can_offer_options_not_authored_as_controls() -> None:
+def test_content_block_rejects_dynamic_controls_and_advances_after_plain_content() -> (
+    None
+):
+    model_calls = 0
+    retries: list[RetryPromptPart] = []
+
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
-        if _finished(messages):
-            yield " "
-        elif _tool_returns(messages):
-            yield _finish()
-        else:
+        nonlocal model_calls
+        model_calls += 1
+        if model_calls == 1:
             yield {
                 0: _interact(
                     variable=None,
@@ -183,20 +186,27 @@ def test_dynamic_content_question_can_offer_options_not_authored_as_controls() -
                     ],
                 )
             }
+        else:
+            retries.extend(
+                part
+                for message in messages
+                if isinstance(message, ModelRequest)
+                for part in message.parts
+                if isinstance(part, RetryPromptPart)
+            )
+            yield "Consider which working style suits your learning."
 
     _app, runtime, _factories = _runtime(script)
     view = _start(
         runtime, "Ask about the learner's working style.\n\n---\n\n?[Continue]"
     )
     rendered = _run(runtime, view)
-    control = next(event for event in rendered if event["event_type"] == "interaction")
-    assert "Quiet study//quiet" in control["content"]
-    answered = _run(
-        runtime,
-        view,
-        values={"input": ["quiet"]},
-        request_id="answer",
-        expected_interaction_id="question",
-    )
-    assert _terminal(answered)["next_block_index"] == 1
-    assert runtime.store.load(view["session_id"]).accepted_answers == ["quiet"]
+    assert model_calls == 2
+    assert retries
+    assert not any(event["event_type"] == "interaction" for event in rendered)
+    assert _terminal(rendered)["next_block_index"] == 1
+    assert _terminal(rendered)["awaiting_input"] is False
+    stored = runtime.store.load(view["session_id"])
+    assert stored.variables == {}
+    assert stored.accepted_answers == []
+    assert stored.engine_session["pending"] == []
