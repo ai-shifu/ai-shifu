@@ -25,9 +25,9 @@ def test_external_course_context_reports_start_and_success(
     events: list[tuple[str, object]] = []
 
     def record_event(
-        _app: object, *, event_name: str, attribution: object, user_id: str
+        _app: object, *, event_name: str, attribution: object, user_bid: str
     ) -> None:
-        assert user_id == "user-1"
+        assert user_bid == "user-1"
         events.append((event_name, attribution))
 
     monkeypatch.setattr(
@@ -67,10 +67,10 @@ def test_external_course_context_reports_failure_and_preserves_error(
         *,
         event_name: str,
         attribution: object,
-        user_id: str,
+        user_bid: str,
     ) -> None:
         assert attribution == identity
-        assert user_id == "user-1"
+        assert user_bid == "user-1"
         events.append(event_name)
 
     monkeypatch.setattr(
@@ -108,9 +108,9 @@ def test_external_course_context_uses_authenticated_cookie_token(
     events: list[tuple[str, object]] = []
 
     def record_event(
-        _app: object, *, event_name: str, attribution: object, user_id: str
+        _app: object, *, event_name: str, attribution: object, user_bid: str
     ) -> None:
-        assert user_id == "cookie-user"
+        assert user_bid == "cookie-user"
         events.append((event_name, attribution))
 
     expected_reference = session_attribution.session_skill_attribution_reference(

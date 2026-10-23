@@ -219,8 +219,9 @@ documented contract and privacy review.
   identity discards its queued calls; they must never be replayed under the new
   account. If the loaded tracker has no `identify` capability, keep the bounded
   queue instead of delivering un-attributed calls.
-- Apply the shared [Umami user exclusion policy](#umami-user-exclusions) before
-  identifying an account, queuing or sending its events, or emitting pageviews.
+- Apply the shared [analytics user exclusion policy](#analytics-user-exclusions)
+  before identifying an account, queuing or sending its events, or emitting
+  pageviews.
 - Preserve transport-level name, key, value, field-count, JSON-size, URL, and
   referrer sanitation. Feature code must still satisfy the stricter contract
   before sanitation.
@@ -230,7 +231,7 @@ documented contract and privacy review.
 - Do not emit during render. Use the true user handler or a guarded effect for
   a documented visibility/state transition.
 
-## Umami User Exclusions
+## Analytics User Exclusions
 
 Set the backend environment variable `ANALYTICS_EXCLUDED_USER_IDS` to
 comma-separated account `user_id` values, for example:
@@ -239,11 +240,20 @@ comma-separated account `user_id` values, for example:
 ANALYTICS_EXCLUDED_USER_IDS=user-1,user-2
 ```
 
-This prevents internal or test accounts from contributing to Umami adoption,
-funnel, and retention metrics. IDs match exactly and are case-sensitive;
-surrounding whitespace and empty entries are ignored. An unset or empty value
-preserves existing eligibility. Use account business IDs, not database row
-numbers, email addresses, phone numbers, or nicknames. Restart the backend after
+The shared exclusion policy is independent of the analytics provider. Its
+current consumers are browser and backend Umami tracking; future tracking
+integrations can reuse `is_analytics_user_excluded(user_bid)` from
+`src/api/flaskr/service/common/analytics_policy.py`.
+
+This prevents internal or test accounts from contributing to adoption,
+funnel, and retention metrics in those integrations. IDs match exactly and
+are case-sensitive; surrounding whitespace and empty entries are ignored.
+An unset or empty value
+preserves existing eligibility. Use account business identifiers (`user_bid`),
+which existing API responses expose as `user_id`, rather than database row
+numbers, email addresses, phone numbers, or nicknames. New internal policy
+parameters and variables use `user_bid`; existing public `user_id` fields and
+interfaces keep their compatibility contract. Restart the backend after
 changing the environment and reload open browser sessions so their user-info
 responses pick up the new policy.
 
@@ -263,9 +273,9 @@ deduplication and identify-before-drain rules, with no excluded-account
 referrer carried into the eligible session. Ordinary eligible identity
 refreshes do not create another pageview.
 
-Backend CLI identify/pageview
-pairs and legacy external-client events with a known account use the same
-policy before entering the delivery queue. Policy lookup failures suppress
+Backend CLI identify/pageview pairs and legacy external-client events with a
+known account use the same policy before entering the delivery queue.
+Policy lookup failures suppress
 telemetry while allowing the underlying product operation to continue.
 
 Anonymous activity before an account can be identified cannot be matched to

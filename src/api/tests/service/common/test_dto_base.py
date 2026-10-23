@@ -156,13 +156,18 @@ def test_user_token_keeps_camel_case_wire_and_swagger_field() -> None:
 
 
 @pytest.mark.parametrize(
-    ("excluded_ids", "enabled"),
+    ("excluded_user_bids", "enabled"),
     [([], True), (["user-1", "user-2"], False), (["user-10"], True)],
 )
 def test_user_info_returns_only_current_users_analytics_eligibility(
-    monkeypatch: pytest.MonkeyPatch, excluded_ids: list[str], *, enabled: bool
+    monkeypatch: pytest.MonkeyPatch,
+    excluded_user_bids: list[str],
+    *,
+    enabled: bool,
 ) -> None:
-    monkeypatch.setattr(analytics_policy, "get_config", lambda *_args: excluded_ids)
+    monkeypatch.setattr(
+        analytics_policy, "get_config", lambda *_args: excluded_user_bids
+    )
     user = UserInfo(
         user_id="user-1",
         username="learner",
@@ -178,6 +183,10 @@ def test_user_info_returns_only_current_users_analytics_eligibility(
 
     assert payload["analytics_enabled"] is enabled
     assert token_payload["userInfo"]["analytics_enabled"] is enabled
+    assert payload["user_id"] == "user-1"
+    assert token_payload["userInfo"]["user_id"] == "user-1"
+    assert "user_bid" not in payload
+    assert "user_bid" not in token_payload["userInfo"]
     assert "ANALYTICS_EXCLUDED_USER_IDS" not in payload
     assert "user-2" not in json.dumps(payload)
 

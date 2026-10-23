@@ -376,8 +376,9 @@ ENV_VARS: dict[str, EnvVar] = {
         default=[],
         type=list,
         description=(
-            "Comma-separated user_id values excluded from all Umami reporting "
-            "once identified, including browser and backend CLI analytics. "
+            "Comma-separated user business identifiers (user_bid, exposed as "
+            "user_id in APIs) excluded by the shared analytics tracking policy "
+            "once identified. "
             "Empty means no users are excluded."
         ),
         group="analytics",

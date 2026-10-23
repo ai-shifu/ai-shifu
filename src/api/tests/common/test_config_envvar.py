@@ -19,7 +19,7 @@ from tests.common.fixtures.mock_validators import (
 )
 
 
-def test_umami_excluded_users_config_parses_comma_separated_ids() -> None:
+def test_analytics_excluded_users_config_parses_comma_separated_ids() -> None:
     env_var = ENV_VARS["ANALYTICS_EXCLUDED_USER_IDS"]
 
     assert env_var.default == []

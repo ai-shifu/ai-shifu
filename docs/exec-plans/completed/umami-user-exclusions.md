@@ -4,7 +4,7 @@
 
 Allow operators to exclude selected account IDs from browser and backend
 Umami reporting using one backend environment variable. The durable contract
-is [Umami user exclusions](../../references/frontend-product-analytics.md#umami-user-exclusions).
+is [analytics user exclusions](../../references/frontend-product-analytics.md#analytics-user-exclusions).
 
 ## Progress
 
@@ -24,6 +24,10 @@ is [Umami user exclusions](../../references/frontend-product-analytics.md#umami-
 - [x] 2026-10-23 UTC: Reproduce the same-path excluded-to-guest pageview gap
   reported in two review threads, then verify the loader-owned resume signal
   with 28 focused frontend tests and independent static review.
+- [x] 2026-10-23 UTC: Generalize the shared exclusion policy and use
+  `user_bid` for new internal business-ID parameters; preserve public
+  `user_id` contracts and pass 292 focused backend tests plus an independent
+  compatibility review.
 
 ## Surprises & Discoveries
 
@@ -49,6 +53,9 @@ is [Umami user exclusions](../../references/frontend-product-analytics.md#umami-
 - Keep pageview emission in `UmamiLoader`. A transport resume counter and
   subscription wake its existing effect only when exclusion ends, including
   guest transitions whose auth-store `userInfo` is null.
+- Keep the shared policy provider-neutral as
+  `is_analytics_user_excluded(user_bid)`. Use business-ID naming in new
+  internal parameters while preserving existing public `user_id` contracts.
 
 ## Outcomes & Retrospective
 

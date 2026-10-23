@@ -44,7 +44,7 @@ def test_backend_event_contains_only_allowlisted_dimensions(
         app,
         event_name="external_course_creation_completed",
         attribution=_identity(),
-        user_id="allowed-user",
+        user_bid="allowed-user",
     )
 
     assert len(submitted) == 1
@@ -106,7 +106,7 @@ def test_excluded_accounts_are_not_queued(
             app,
             event_name="external_device_token_collected",
             attribution=_identity(),
-            user_id="excluded-user",
+            user_bid="excluded-user",
         )
     else:
         server_analytics.track_cli_request_pageview(
@@ -127,13 +127,13 @@ def test_excluded_accounts_are_not_queued(
 def test_legacy_sender_uses_only_authenticated_request_user_for_exclusion(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    checked_ids: list[object] = []
+    checked_user_bids: list[object] = []
 
-    def excluded(user_id: object) -> bool:
-        checked_ids.append(user_id)
+    def excluded(user_bid: object) -> bool:
+        checked_user_bids.append(user_bid)
         return True
 
-    monkeypatch.setattr(server_analytics, "is_umami_user_excluded", excluded)
+    monkeypatch.setattr(server_analytics, "is_analytics_user_excluded", excluded)
     monkeypatch.setattr(
         server_analytics._EXECUTOR,
         "submit",
@@ -158,7 +158,7 @@ def test_legacy_sender_uses_only_authenticated_request_user_for_exclusion(
             attribution=_identity(),
         )
 
-    assert checked_ids == ["authenticated-user", None]
+    assert checked_user_bids == ["authenticated-user", None]
 
 
 def test_missing_config_or_attribution_is_a_noop(

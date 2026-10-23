@@ -393,7 +393,7 @@ def _record_decision(
             app,
             event_name=event_name,
             attribution=_skill_identity_from_session(payload),
-            user_id=user_id or None,
+            user_bid=user_id or None,
         )
     return {"status": status}
 
@@ -479,7 +479,7 @@ def poll_device_authorization(app: Flask, *, device_code: str) -> dict[str, Any]
                 app,
                 event_name="external_device_token_collected",
                 attribution=attribution,
-                user_id=user_id,
+                user_bid=user_id,
             )
             # One-shot: the request is consumed so a leaked device code cannot
             # be replayed to mint a second token.

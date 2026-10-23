@@ -3,7 +3,7 @@
 import math
 
 from flaskr.common.swagger import register_schema_to_swagger
-from flaskr.service.common.analytics_policy import is_umami_user_excluded
+from flaskr.service.common.analytics_policy import is_analytics_user_excluded
 from pydantic import BaseModel, Field
 
 USER_STATE_UNREGISTERED = 0
@@ -64,7 +64,7 @@ class UserInfo:
         self.user_avatar = user_avatar
         self.is_creator = is_creator
         self.is_operator = is_operator
-        self.analytics_enabled = not is_umami_user_excluded(user_id)
+        self.analytics_enabled = not is_analytics_user_excluded(user_bid=user_id)
 
     def __json__(self) -> dict:
         """Return the user information as JSON-compatible data."""

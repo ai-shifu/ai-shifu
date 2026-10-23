@@ -19,7 +19,7 @@ builds, complete CLI commands, or model usage.
 
 ## Request contract
 
-The backend applies the shared [Umami user exclusion policy](../references/frontend-product-analytics.md#umami-user-exclusions)
+The backend applies the shared [analytics user exclusion policy](../references/frontend-product-analytics.md#analytics-user-exclusions)
 to known accounts before queueing CLI identify/pageview pairs or legacy
 external-client events. `ANALYTICS_EXCLUDED_USER_IDS` changes the measured
 population without changing event names, dimensions, or business outcomes.
