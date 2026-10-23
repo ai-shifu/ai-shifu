@@ -307,8 +307,9 @@ class InteractionSyntaxFilter:
             source, provisional
         ):
             provisional = None
+        reference_markers: list[tuple[int, int]] = []
         pending = (
-            pending_literal_context(source)
+            pending_literal_context(source, reference_markers=reference_markers)
             if not final and provisional_markers is not None
             else None
         )
@@ -344,6 +345,13 @@ class InteractionSyntaxFilter:
                 and not any(
                     opening <= marker.start < end for opening, end in context.literals
                 )
+            )
+            # A reference definition accepted at EOF can still fail when its
+            # physical line continues. Its raw markers retain that ambiguity
+            # even when the native prefix currently classifies them as literal.
+            provisional_markers.extend(
+                (opening - len(prefix), end - len(prefix), witness)
+                for opening, end in reference_markers
             )
             # Find the potentially real question without committing the marker's
             # ownership before its enclosing native literal has been decided.
