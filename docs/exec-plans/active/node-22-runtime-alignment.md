@@ -50,6 +50,9 @@ remote default branch determines the actual changes.
 - Leave historical execution records and disabled workflow backups unchanged.
 - Preserve library consumer engine ranges; a development runtime update does
   not narrow the library's supported consumer versions.
+- Generate npm lock updates with an explicit official registry, rather than
+  inheriting a developer's local mirror configuration. Verify that the official
+  Node type tarball matches the locked integrity without changing its version.
 
 ## Outcomes & Retrospective
 
@@ -89,7 +92,7 @@ checks under Node 22.23.4. Keep each repository's change focused on this upgrade
 
 Use the official Node 22.23.4 archive after checking its SHA-256 against the
 official release sums. Generate lockfiles with `npm install --package-lock-only
---ignore-scripts`. Validate AI-Shifu with frontend checks, the repository
+--ignore-scripts --registry=https://registry.npmjs.org/`. Validate AI-Shifu with frontend checks, the repository
 harness, the developer-tool doctor and all-file lefthook gates. Validate library
 builds and tests using their existing scripts and current repository rules.
 
