@@ -528,12 +528,22 @@ def compact_marker_context(
         and context.pending_html_block
     ):
         start = context.pending_block_start
+        if context.pending_html_name:
+            # A native block-tag name at EOF may still gain another name
+            # character. Its exact token is bounded by the native tag set.
+            opening_source = source[start:]
+            opening = opening_source[opening_source.index("<") :]
+        elif context.pending_html_provisional:
+            # Same-line body text can still invalidate a type-seven opener.
+            opening = "<span>"
+        else:
+            opening = "<div>x" + _contained_block_tail(
+                source[start:], context.pending_block_steps
+            )
         primary = (
             start,
             len(source),
-            _container_opening(context.pending_block_steps, source[start:])
-            + "<div>x"
-            + _contained_block_tail(source[start:], context.pending_block_steps),
+            _container_opening(context.pending_block_steps, source[start:]) + opening,
         )
     elif primary is None and (
         context.pending_raw_html_tag is not None

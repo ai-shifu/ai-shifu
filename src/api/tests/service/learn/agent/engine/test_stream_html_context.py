@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from flaskr.service.learn.agent.engine import stream_html_context
+from flaskr.service.learn.agent.engine.document_blocks import HTML_BLOCK_TAGS
 from flaskr.service.learn.agent.engine.stream_html_context import pending_html_prefix
 from markdown_it.common.html_re import HTML_TAG_RE
 
@@ -81,6 +82,18 @@ def test_raw_tag_name_prefixes_preserve_future_raw_block_identity() -> None:
             assert result is not None
             assert result[1] + tag[cut:] + ">" == "<" + tag + ">"
     assert pending_html_prefix("<script/", 0) == (0, "<script/")
+
+
+@pytest.mark.parametrize("tag", sorted(HTML_BLOCK_TAGS))
+@pytest.mark.parametrize("opening", ["<", "</"])
+def test_native_block_tag_prefixes_preserve_their_classification(
+    tag: str, opening: str
+) -> None:
+    for cut in range(1, len(tag) + 1):
+        result = pending_html_prefix(opening + tag[:cut], 0)
+        assert result is not None
+        assert result[1] + tag[cut:] + ">" == opening + tag + ">"
+        assert len(result[1]) <= 16
 
 
 @pytest.mark.parametrize(

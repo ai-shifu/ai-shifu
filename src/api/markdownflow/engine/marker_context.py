@@ -82,6 +82,8 @@ class MarkerContext:
     pending_resource_opener: bool = False
     pending_block_start: int | None = None
     pending_html_block: bool = False
+    pending_html_provisional: bool = False
+    pending_html_name: bool = False
     pending_indented_block: bool = False
     pending_block_steps: tuple[int, ...] = ()
     pending_html_closing_line: bool = False
@@ -617,6 +619,8 @@ def analyze_marker_context(
             if not final and (ordinary.end == len(text) or not ordinary.closed):
                 context.pending_block_start = at
                 context.pending_html_block = True
+                context.pending_html_provisional = ordinary.html_provisional
+                context.pending_html_name = ordinary.html_name_pending
                 context.pending_block_steps = blocks.container_steps[
                     blocks.by_start[blocks.line_at(at).start]
                 ]

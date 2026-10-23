@@ -110,6 +110,108 @@ def test_held_inline_lookahead_keeps_existing_html_block_state(
         assert syntax.spans == [QUESTION], stream
 
 
+@pytest.mark.parametrize("tag", ["<span>", "</span>", "<span/>", '<custom data-x=">">'])
+@pytest.mark.parametrize("container", ["", "> ", "- "])
+@pytest.mark.parametrize("padding", ["", " \t "])
+def test_provisional_type_seven_html_can_revert_to_inline_on_the_same_line(
+    tag: str, container: str, padding: str
+) -> None:
+    prefix = container + tag + padding + "{{"
+    source = prefix + QUESTION + " between " + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix + QUESTION + " between ", stream
+        assert syntax.spans == [QUESTION], stream
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("tag", ["<span>", "</span>", '<custom data-x="v">'])
+def test_type_seven_html_is_settled_by_its_actual_physical_line_ending(
+    tag: str, newline: str
+) -> None:
+    prefix = tag + " \t" + newline + "{{ unfinished" + newline * 2
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+def test_type_seven_html_cannot_interrupt_an_existing_paragraph(newline: str) -> None:
+    prefix = "Paragraph" + newline + "<span>" + newline + "{{ unfinished" + newline * 2
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == source, stream
+        assert syntax.spans == [], stream
+
+
+@pytest.mark.parametrize("tag", ["<div>", "</div>", "<section>"])
+def test_type_six_html_remains_a_block_with_same_line_body_text(tag: str) -> None:
+    prefix = tag + "{{"
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
+
+
+@pytest.mark.parametrize(
+    "tag", ["<diverse>", "</diverse>", "<scripture>", "</scripture>"]
+)
+def test_partial_native_tag_names_do_not_commit_a_different_html_category(
+    tag: str,
+) -> None:
+    prefix = tag + "{{"
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == source, stream
+        assert syntax.spans == [], stream
+
+
+def test_provisional_html_keeps_long_attributes_and_padding_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inspected = 0
+    original = stream_marker_context.analyze_marker_context
+
+    def counted(source: str, **kwargs: object) -> MarkerContext:
+        nonlocal inspected
+        inspected += len(source)
+        return original(source, **kwargs)
+
+    monkeypatch.setattr(stream_marker_context, "analyze_marker_context", counted)
+    prefix = '<custom data-x="' + "x" * 3000 + '">' + " " * 3000 + "{{"
+    source = prefix + QUESTION + " between " + QUESTION
+    syntax = InteractionSyntaxFilter()
+    pieces = []
+    for character in source:
+        pieces.append(syntax.feed(character))
+        assert len(syntax._context_prefix) <= 128
+        assert len(syntax._held) <= 128
+    pieces.append(syntax.flush())
+    assert "".join(pieces) == prefix + QUESTION + " between "
+    assert syntax.spans == [QUESTION]
+    assert inspected <= 400 * len(source)
+
+
 @pytest.mark.parametrize("case", AUTOLINK_CASES, ids=lambda case: case["id"])
 def test_shared_angle_link_corpus_keeps_stream_boundary_agreement(
     case: dict[str, object],

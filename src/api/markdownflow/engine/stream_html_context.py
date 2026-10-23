@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .document_blocks import HTML_BLOCK_TAGS
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
 _RAW_TAGS = ("script", "style", "pre", "textarea")
+_TAG_PREFIXES = frozenset(
+    tag[:width]
+    for tag in (*_RAW_TAGS, *HTML_BLOCK_TAGS)
+    for width in range(1, len(tag) + 1)
+)
 _State = tuple[str, str]
 _States = frozenset[_State]
 
@@ -18,7 +25,7 @@ def _letter(character: str) -> bool:
 
 def _name(name: str, character: str) -> str:
     candidate = name + character.lower()
-    return candidate if any(tag.startswith(candidate) for tag in _RAW_TAGS) else "x"
+    return candidate if candidate in _TAG_PREFIXES else "x"
 
 
 def _attribute_start(character: str) -> bool:

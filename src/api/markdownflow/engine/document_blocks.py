@@ -384,6 +384,8 @@ class BlockSpan:
     size: int = 0
     steps: tuple[int, ...] = ()
     closed: bool = False
+    html_provisional: bool = False
+    html_name_pending: bool = False
 
 
 class DocumentBlocks:
@@ -674,7 +676,19 @@ class DocumentBlocks:
                     closed=bool(outside) or line.end > line.content_end,
                 )
             previous = line
-        return BlockSpan(len(self.text), token_end, len(self.text))
+        return BlockSpan(
+            len(self.text),
+            token_end,
+            len(self.text),
+            html_provisional=(
+                not final and not block_tag and first.end == first.content_end
+            ),
+            html_name_pending=(
+                not final
+                and block_tag
+                and content_start + opening.end() == len(self.text)
+            ),
+        )
 
     def indented_may_start(self, index: int) -> bool:
         """Allow code after a blank or a confirmed non-paragraph block."""

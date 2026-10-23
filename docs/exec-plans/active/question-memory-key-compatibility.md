@@ -86,6 +86,14 @@ with their edges trimmed, rather than programming-language identifiers.
       inline closure at a stream boundary. All 3,019 engine/stream/runner tests
       pass with the actual Python dev4 wheel, including 73 new arbitrary-cut,
       character-by-character, HTML block-state and bounded-work regressions.
+- [x] 2026-10-23 19:09 UTC: Pass all 14,467 application backend tests
+      with 112 intentional skips using the actual Python dev4 wheel.
+- [x] 2026-10-23 19:17 UTC: Preserve native HTML categories while their
+      physical line or tag name is incomplete. All 1,007 focused tests pass,
+      including 168 new native-tag, arbitrary-cut and bounded-state cases.
+      A generated 1,386-source sweep makes 6,378 comparisons without a mismatch.
+- [x] 2026-10-23 19:18 UTC: Pass all 3,187 engine/stream/runner tests with
+      the final HTML category correction and the actual Python dev4 wheel.
 - [ ] Replace application Python/component development pins with verified
       formal releases and complete merge readiness. This requires explicit
       publication authorization and the component library's confirmed main SHA.
@@ -136,6 +144,10 @@ with their edges trimmed, rather than programming-language identifiers.
 - A real held character can confirm an inline closing run at a stream cut.
   Replay it only for a matching unfinished inline run, preserving physical-line
   block state and limiting replay masks to already emitted source offsets.
+- An EOF-admitted generic HTML block is provisional until its physical line
+  ends. Preserve that native admission state instead of turning its witness
+  into an irrevocable block. The finite HTML lexer also retains native block
+  tag prefixes, so partial closing tags and extended names keep their category.
 
 ## Decision Log
 
@@ -182,12 +194,12 @@ with their edges trimmed, rather than programming-language identifiers.
 ## Outcomes & Retrospective
 
 All five repositories pass the same 166-case semantic conformance corpus.
-Current application sources pass 3,019 engine, streaming and runner tests,
+Current application sources pass 3,187 engine, streaming and runner tests,
 including arbitrary chunk cuts, bounded continuation state, 48 container-cache
 regressions, 36 native-link fallback regressions and 73 held-lookahead
-regressions. The complete application
-backend checkpoint passed 14,394 tests with 112 intentional skips using Python
-dev3, before the final inline-lookahead correction. Exact-key database and optional unnamed-question coverage is
+regressions, plus 168 HTML-category cases. The complete application
+backend checkpoint passed 14,467 tests with 112 intentional skips using Python
+dev4, before the final HTML classification correction. Exact-key database and optional unnamed-question coverage is
 included. The full backend suite remains the application integration gate.
 Required toolchain checks, architecture boundaries and all-file hooks pass.
 
