@@ -166,6 +166,30 @@ describe('resolveProfileOnboardingElement', () => {
 });
 
 describe('upsertConversationItem', () => {
+  it('replaces an uncommitted question token at its stable display element', () => {
+    const firstQuestion = {
+      ...interaction,
+      interactionId: 'uncommitted-question',
+    };
+    const replacement = {
+      ...interaction,
+      interactionId: 'persisted-question',
+    };
+
+    const items = upsertConversationItem([firstQuestion], replacement);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      elementBid: interaction.elementBid,
+      interactionId: 'persisted-question',
+      interaction: true,
+      finished: false,
+    });
+    expect(
+      items.filter(item => item.interaction && !item.finished),
+    ).toHaveLength(1);
+  });
+
   it('moves a rejected interaction behind its new validation feedback', () => {
     const answeredInteraction = {
       ...interaction,

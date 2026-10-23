@@ -699,7 +699,7 @@ class ProfileResearchRuntime:
                     )
                     element_content_by_segment[segment_key] = element_content
                     element_bid = (
-                        f"{generated_block_bid}:interaction:{chunk.interaction_id}"
+                        f"{generated_block_bid}:interaction"
                         if rendering_interaction
                         else event_bid
                     )
@@ -792,7 +792,7 @@ class ProfileResearchRuntime:
                     element_type="interaction",
                     generated_block_bid=(
                         f"profile-research:{session.session_id}:{processed_block_index}"
-                        f":interaction:{interaction_id}"
+                        ":interaction"
                     ),
                     run_session_bid=session.session_id,
                     is_terminal=False,

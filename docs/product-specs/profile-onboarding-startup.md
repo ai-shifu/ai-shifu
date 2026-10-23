@@ -44,7 +44,9 @@ and request ID. Stale submissions must match the current authored question;
 reusing a request ID with another question identifier is rejected. Older clients
 can answer their original question without the new field. Content, authored
 questions and answer feedback have separate stable element IDs so one item
-cannot overwrite another in the transcript.
+cannot overwrite another in the transcript. A question's display ID belongs
+to its authored block; retrying an interrupted render replaces those controls
+with the new native question token rather than leaving an obsolete input active.
 
 Roll out the runtime as one worker revision. Older workers cannot read the
 new engine-state cache schema. A rollback must expire active profile sessions

@@ -25,8 +25,8 @@ answer imports, private final drafts, and the existing frontend SSE contract.
   old cached sessions, error recovery, and hidden summaries.
 - [x] 2026-10-23 CST: Bind learner and operator submissions to their deferred
   question ID and keep separate stable content/question/feedback identities.
-- [x] 2026-10-23 CST: Passed 498 profile/config/route tests, 1,168 engine and
-  shared-host tests, 170 frontend tests, and the complete pre-commit gate.
+- [x] 2026-10-23 CST: Passed 500 profile/config/route tests, 1,168 engine and
+  shared-host tests, 171 frontend tests, and the complete pre-commit gate.
 - [x] 2026-10-23 CST: Fixed mixed choice-plus-text input and guarded static
   question types, bindings and ordered stored values in separate review commits.
 - [x] 2026-10-23 CST: Prepared a focused pull request with validation evidence
@@ -36,6 +36,8 @@ answer imports, private final drafts, and the existing frontend SSE contract.
   advances to its static question block and presents the formal question once.
 - [x] 2026-10-23 CST: Restricted each static interaction block to one pending
   question and completed the block after its answer without asking again.
+- [x] 2026-10-23 CST: Kept question display identities stable across interrupted
+  renders and cache-write failures while replacing the native question token.
 
 ## Surprises & Discoveries
 
@@ -68,6 +70,9 @@ answer imports, private final drafts, and the existing frontend SSE contract.
 - Keep content blocks to text and visuals. Only static
   `BlockType.INTERACTION` blocks expose formal controls, with one question per
   block; accepting its answer completes that block without another question.
+- Derive the question display identity from its authored block, independently
+  of the native tool ID. A retry replaces uncommitted controls, while the
+  separate interaction token rejects an answer for the abandoned tool call.
 - Store only the current block's engine session in the existing owner-scoped
   Redis record. Keep the existing TTL, locks, frozen documents and replay data.
 - Treat prior transcript and imported evidence as untrusted data, outside the
@@ -88,8 +93,8 @@ engine. Frozen authored blocks remain the UI progress boundary; deferred calls
 and accepted evidence survive Redis, exact retry and assistant import. The
 legacy parser remains only for authoring validation and source restoration.
 
-Validation passed: 498 profile/config/route
-tests; 1,168 engine, bridge, gateway and protocol tests; 170 frontend tests;
+Validation passed: 500 profile/config/route
+tests; 1,168 engine, bridge, gateway and protocol tests; 171 frontend tests;
 the full repository pre-commit gate, repository harness, architecture ratchet
 and unit-of-work ratchet. TypeScript also passed across the complete frontend
 using the pinned markdown-flow-ui 0.2.35 from a temporary package mapping.
