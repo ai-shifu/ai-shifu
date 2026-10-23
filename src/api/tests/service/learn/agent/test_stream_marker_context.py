@@ -267,3 +267,45 @@ def test_complete_same_container_stream_literals_keep_the_external_question(
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
         assert shown == prefix, stream
         assert syntax.spans == [QUESTION], stream
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("delimiter", ["`", "$"])
+@pytest.mark.parametrize("underline", ["=", "===", "-", "--"])
+def test_setext_heading_stops_stream_inline_delimiter_pairing(
+    newline: str, delimiter: str, underline: str
+) -> None:
+    source = newline.join(
+        [
+            "Text " + delimiter + "{{ unfinished",
+            underline,
+            delimiter + " end",
+            "",
+            QUESTION,
+        ]
+    )
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == source, stream
+        assert syntax.spans == [], stream
+
+
+@pytest.mark.parametrize("delimiter", ["`", "$"])
+@pytest.mark.parametrize(
+    "line", ["=", "===", "-", "--", "== ordinary text", "=-", "    ==="]
+)
+def test_setext_and_ordinary_lines_keep_already_closed_stream_literals(
+    delimiter: str, line: str
+) -> None:
+    prefix = "Text " + delimiter + "{{ example }}" + delimiter + "\n" + line + "\n\n"
+    source = prefix + QUESTION
+    for stream in [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream

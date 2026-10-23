@@ -420,6 +420,8 @@ class DocumentBlocks:
         line = self.lines[index]
         value = self.text[line.start : line.content_end]
         tag = COMPILED_DOCUMENT_TAG_REGEX.match(value)
-        return COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value) is not None or (
-            tag is not None and tag.group(1).lower() in HTML_BLOCK_TAGS
+        return (
+            COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value) is not None
+            or COMPILED_SETEXT_REGEX.fullmatch(value) is not None
+            or (tag is not None and tag.group(1).lower() in HTML_BLOCK_TAGS)
         )

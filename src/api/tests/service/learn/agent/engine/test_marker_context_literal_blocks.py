@@ -305,3 +305,60 @@ def test_same_container_and_lazy_lines_keep_complete_inline_literals(
     source = prefix + "?[%{{ real }} A|B]"
     assert collected_names(source) == frozenset({"real"})
     assert _script_questions(source)[-1].variable == "real"
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("delimiter", ["`", "$"])
+@pytest.mark.parametrize("underline", ["=", "===", "-", "--"])
+def test_setext_heading_stops_inline_delimiter_pairing(
+    newline: str, delimiter: str, underline: str
+) -> None:
+    source = newline.join(
+        [
+            "Text " + delimiter + "{{ unfinished",
+            underline,
+            delimiter + " end",
+            "",
+            "?[%{{ real }} A|B]",
+        ]
+    )
+    assert collected_names(source) == frozenset()
+    assert _script_questions(source) == []
+    assert substitute_variables(source, {"real": "VALUE"}) == source
+
+
+@pytest.mark.parametrize("delimiter", ["`", "$"])
+@pytest.mark.parametrize("underline", ["=", "===", "-", "--"])
+def test_complete_inline_examples_in_setext_headings_keep_their_names(
+    delimiter: str, underline: str
+) -> None:
+    prefix = (
+        "Text " + delimiter + "{{ example }}" + delimiter + "\n" + underline + "\n\n"
+    )
+    source = prefix + "?[%{{ real }} A|B]"
+    assert collected_names(source) == frozenset({"real"})
+    assert [marker.name for marker in analyze_marker_context(source).markers] == [
+        "example",
+        "real",
+    ]
+    assert _script_questions(source)[-1].variable == "real"
+    assert substitute_variables(source, {"example": "VALUE"}) == source.replace(
+        "{{ example }}", "VALUE"
+    )
+
+
+@pytest.mark.parametrize("delimiter", ["`", "$"])
+@pytest.mark.parametrize("line", ["== ordinary text", "=-", "    ==="])
+def test_non_setext_lines_keep_the_complete_inline_span(
+    delimiter: str, line: str
+) -> None:
+    source = (
+        "Text "
+        + delimiter
+        + "{{ unfinished\n"
+        + line
+        + "\n"
+        + delimiter
+        + " end\n\n?[%{{ real }} A|B]"
+    )
+    assert collected_names(source) == frozenset({"real"})
