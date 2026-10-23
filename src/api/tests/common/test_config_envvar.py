@@ -19,6 +19,15 @@ from tests.common.fixtures.mock_validators import (
 )
 
 
+def test_umami_excluded_users_config_parses_comma_separated_ids() -> None:
+    env_var = ENV_VARS["ANALYTICS_UMAMI_EXCLUDED_USER_IDS"]
+
+    assert env_var.default == []
+    assert env_var.convert_type(None) == []
+    assert env_var.convert_type("") == []
+    assert env_var.convert_type(" user-1, ,user-2, ") == ["user-1", "user-2"]
+
+
 @pytest.mark.parametrize(
     "value", ["nan", "inf", "-0.01", "0.501", "100000000.00", "1e100"]
 )

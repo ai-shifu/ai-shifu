@@ -371,6 +371,17 @@ ENV_VARS: dict[str, EnvVar] = {
         description="Umami analytics site identifier",
         group="frontend",
     ),
+    "ANALYTICS_UMAMI_EXCLUDED_USER_IDS": EnvVar(
+        name="ANALYTICS_UMAMI_EXCLUDED_USER_IDS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated user_id values excluded from all Umami reporting "
+            "once identified, including browser and backend CLI analytics. "
+            "Empty means no users are excluded."
+        ),
+        group="analytics",
+    ),
     "ANALYTICS_DATABASE_URI": EnvVar(
         name="ANALYTICS_DATABASE_URI",
         default="",

@@ -35,6 +35,7 @@ export const EVENT_NAMES = {
 
 type UmamiUserInfo = {
   user_id?: string;
+  analytics_enabled?: boolean;
   [key: string]: unknown;
 };
 
@@ -78,6 +79,7 @@ const identifyState = {
   pendingRequest: undefined as IdentifyRequest | undefined,
   prevSnapshot: '',
   ready: false,
+  analyticsEnabled: true,
   identifying: false,
   generation: 0,
   queuedCalls: [] as QueuedUmamiCall[],
@@ -100,8 +102,8 @@ const truncateText = (value: string, maxLength: number) => {
   return value.slice(0, maxLength);
 };
 
-const buildUserSnapshot = (userId: string) =>
-  JSON.stringify({ user_id: userId });
+const buildUserSnapshot = (userId: string, analyticsEnabled: boolean) =>
+  JSON.stringify({ user_id: userId, analytics_enabled: analyticsEnabled });
 
 const SAFE_ROUTE_SEGMENTS = new Set([
   'admin',
@@ -381,7 +383,11 @@ function trackUmamiEvent(
 }
 
 const drainQueuedEvents = (umami: any) => {
-  if (identifyState.queuedCalls.length === 0) {
+  if (
+    !identifyState.analyticsEnabled ||
+    !identifyState.ready ||
+    identifyState.queuedCalls.length === 0
+  ) {
     return;
   }
 
@@ -452,7 +458,7 @@ const applyIdentify = async (request: IdentifyRequest) => {
 };
 
 export const flushUmamiIdentify = () => {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || !identifyState.analyticsEnabled) {
     return;
   }
 
@@ -474,7 +480,7 @@ export const flushUmamiIdentify = () => {
     .then(success => {
       const isNewestRequest =
         identifyState.pendingRequest?.generation === request.generation;
-      if (!success || !isNewestRequest) {
+      if (!success || !isNewestRequest || !identifyState.analyticsEnabled) {
         return;
       }
 
@@ -515,14 +521,23 @@ export const identifyUmamiUser = (userInfo?: UmamiUserInfo | null) => {
     return;
   }
 
-  const snapshot = buildUserSnapshot(userId);
+  // Older API responses omit this field and retain the existing behavior.
+  const analyticsEnabled = userInfo.analytics_enabled !== false;
+  const snapshot = buildUserSnapshot(userId, analyticsEnabled);
   if (snapshot === identifyState.prevSnapshot) {
     return;
   }
 
   const isReplacementIdentity = identifyState.prevSnapshot !== '';
 
-  if (isReplacementIdentity) {
+  if (!analyticsEnabled || !identifyState.analyticsEnabled) {
+    // Exclusion applies to bootstrap calls too. Neither pending calls nor
+    // navigation context from an excluded identity may reach a later account.
+    identifyState.queuedCalls = [];
+    pageviewState.lastSourcePath = '';
+    pageviewState.lastTrackedRoute = '';
+    pageviewState.lastReferrer = '';
+  } else if (isReplacementIdentity) {
     // Business events accepted while another identity was pending must never
     // be replayed under the replacement identity. Preserve only a pending
     // current pageview, and remove the previous identity's navigation context
@@ -537,7 +552,12 @@ export const identifyUmamiUser = (userInfo?: UmamiUserInfo | null) => {
   }
   identifyState.prevSnapshot = snapshot;
   identifyState.ready = false;
+  identifyState.analyticsEnabled = analyticsEnabled;
   identifyState.generation += 1;
+  identifyState.pendingRequest = undefined;
+  if (!analyticsEnabled) {
+    return;
+  }
   identifyState.pendingRequest = {
     generation: identifyState.generation,
     userId,
@@ -566,6 +586,9 @@ export const tracking = async (
   eventData: UmamiEventData = {},
 ) => {
   try {
+    if (!identifyState.analyticsEnabled) {
+      return;
+    }
     ensureIdentifyReady();
     const umami = (window as any).umami;
     const urlSnapshot = pageviewState.lastTrackedRoute || getCurrentUrl();
@@ -600,6 +623,9 @@ export const tracking = async (
 
 export const trackPageview = (url?: string) => {
   try {
+    if (!identifyState.analyticsEnabled) {
+      return;
+    }
     ensureIdentifyReady();
     const umami = (window as any).umami;
     const sourcePath = normalizeSourcePath(url);

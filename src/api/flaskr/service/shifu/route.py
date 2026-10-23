@@ -173,10 +173,12 @@ def _external_client_course_event(app: Flask, operation: str) -> Generator[None]
             getattr(g, "authenticated_session_attribution", "") or ""
         ).strip(),
     )
+    user_id = getattr(getattr(request, "user", None), "user_id", None)
     track_external_client_event(
         app,
         event_name=f"external_course_{operation}_started",
         attribution=attribution,
+        user_id=user_id,
     )
     try:
         yield
@@ -185,12 +187,14 @@ def _external_client_course_event(app: Flask, operation: str) -> Generator[None]
             app,
             event_name=f"external_course_{operation}_failed",
             attribution=attribution,
+            user_id=user_id,
         )
         raise
     track_external_client_event(
         app,
         event_name=f"external_course_{operation}_completed",
         attribution=attribution,
+        user_id=user_id,
     )
 
 

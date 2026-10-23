@@ -2,7 +2,7 @@
 title: Skill Usage Analytics
 status: implemented
 owner_surface: frontend-backend
-last_reviewed: 2026-10-17
+last_reviewed: 2026-10-23
 canonical: true
 ---
 
@@ -18,6 +18,11 @@ This does not measure Skill discovery, installation, prompt reading, local
 builds, complete CLI commands, or model usage.
 
 ## Request contract
+
+The backend applies the shared [Umami user exclusion policy](../references/frontend-product-analytics.md#umami-user-exclusions)
+to known accounts before queueing CLI identify/pageview pairs or legacy
+external-client events. `ANALYTICS_UMAMI_EXCLUDED_USER_IDS` changes the measured
+population without changing event names, dimensions, or business outcomes.
 
 The Skill CLI adds these headers to authenticated business requests:
 

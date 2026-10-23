@@ -110,6 +110,125 @@ describe('tracking transport', () => {
     expect(getTrackingIdentityGeneration()).toBe(operatorGeneration + 1);
   });
 
+  it('discards bootstrap and excluded calls before an allowed guest resumes tracking', async () => {
+    const { flushUmamiIdentify, identifyUmamiUser, tracking, trackPageview } =
+      loadTrackingModule();
+    await tracking('queued_during_bootstrap', { surface: 'admin' });
+    trackPageview('/admin/orders');
+    identifyUmamiUser({ user_id: 'excluded-user', analytics_enabled: false });
+
+    const delivered: DeliveredPayload[] = [];
+    const { identify, track } = installUmami({
+      onPayload: payload => delivered.push(payload),
+    });
+    flushUmamiIdentify();
+    trackPageview('/admin/operations/users/private-user');
+    await expect(
+      tracking('excluded_event', { outcome: 'success' }),
+    ).resolves.toBeUndefined();
+    await settlePromises();
+    expect(identify).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalled();
+
+    identifyUmamiUser({ user_id: 'guest-session', analytics_enabled: true });
+    trackPageview('/admin/orders');
+    await tracking('allowed_guest_event', { surface: 'admin' });
+    await settlePromises();
+
+    expect(identify).toHaveBeenCalledTimes(1);
+    expect(identify).toHaveBeenCalledWith('guest-session');
+    expect(delivered).toEqual([
+      expect.objectContaining({ url: '/admin/orders', referrer: undefined }),
+      expect.objectContaining({
+        name: 'allowed_guest_event',
+        data: { surface: 'admin' },
+        referrer: undefined,
+      }),
+    ]);
+    expect(delivered[0].name).toBeUndefined();
+    expect(JSON.stringify(delivered)).not.toContain('analytics_enabled');
+  });
+
+  it('invalidates a pending identify when the same user becomes excluded', async () => {
+    const pendingIdentify = createDeferred();
+    const delivered: DeliveredPayload[] = [];
+    const identify = jest
+      .fn()
+      .mockReturnValueOnce(pendingIdentify.promise)
+      .mockResolvedValue(undefined);
+    const { track } = installUmami({
+      identify,
+      onPayload: payload => delivered.push(payload),
+    });
+    const {
+      flushUmamiIdentify,
+      getTrackingIdentityGeneration,
+      identifyUmamiUser,
+      tracking,
+      trackPageview,
+    } = loadTrackingModule();
+
+    identifyUmamiUser({ user_id: 'same-user' });
+    const allowedGeneration = getTrackingIdentityGeneration();
+    trackPageview('/admin/orders');
+    await tracking('queued_before_exclusion');
+    identifyUmamiUser({ user_id: 'same-user', analytics_enabled: false });
+    expect(getTrackingIdentityGeneration()).toBe(allowedGeneration + 1);
+    identifyUmamiUser({ user_id: 'same-user', analytics_enabled: false });
+    expect(getTrackingIdentityGeneration()).toBe(allowedGeneration + 1);
+
+    pendingIdentify.resolve();
+    await settlePromises();
+    flushUmamiIdentify();
+    trackPageview('/admin/billing');
+    await tracking('event_after_exclusion');
+    expect(identify).toHaveBeenCalledTimes(1);
+    expect(track).not.toHaveBeenCalled();
+
+    identifyUmamiUser({ user_id: 'same-user', analytics_enabled: true });
+    expect(getTrackingIdentityGeneration()).toBe(allowedGeneration + 2);
+    trackPageview('/admin/orders');
+    await tracking('event_after_reenable');
+    await settlePromises();
+
+    expect(identify).toHaveBeenCalledTimes(2);
+    expect(delivered).toEqual([
+      expect.objectContaining({ url: '/admin/orders', referrer: undefined }),
+      expect.objectContaining({
+        name: 'event_after_reenable',
+        referrer: undefined,
+      }),
+    ]);
+  });
+
+  it('immediately stops a ready identity and clears its navigation context on exclusion', async () => {
+    const delivered: DeliveredPayload[] = [];
+    const { identify, track } = installUmami({
+      onPayload: payload => delivered.push(payload),
+    });
+    const { identifyUmamiUser, tracking, trackPageview } = loadTrackingModule();
+    identifyUmamiUser({ user_id: 'allowed-user' });
+    await settlePromises();
+    trackPageview('/admin/orders');
+    expect(track).toHaveBeenCalledTimes(1);
+
+    identifyUmamiUser({ user_id: 'excluded-user', analytics_enabled: false });
+    await tracking('excluded_action');
+    trackPageview('/admin/billing');
+    expect(identify).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledTimes(1);
+
+    // Missing eligibility remains compatible with an older backend response.
+    identifyUmamiUser({ user_id: 'another-allowed-user' });
+    await settlePromises();
+    trackPageview('/admin/orders');
+    expect(track).toHaveBeenCalledTimes(2);
+    expect(delivered[1]).toMatchObject({
+      url: '/admin/orders',
+      referrer: undefined,
+    });
+  });
+
   it('identifies only by pseudonymous ID, delivers flat scalars, and does not synthesize pageviews', async () => {
     const delivered: DeliveredPayload[] = [];
     const { identify, track } = installUmami({
