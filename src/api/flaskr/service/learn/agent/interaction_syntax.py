@@ -115,8 +115,8 @@ class InteractionSyntaxFilter:
                     # link, and it has not arrived yet.
                     return "".join(out)
                 if self._held[end + 1] == "(":
-                    self._emit(out, self._held[: end + 1])
-                    self._held = self._held[end + 1 :]
+                    self._emit(out, self._held[: end + 2])
+                    self._held = self._held[end + 2 :]
                     self._inside = False
                     continue
                 self.spans.append(self._held[: end + 1])
@@ -204,8 +204,8 @@ class InteractionSyntaxFilter:
             if close >= 0 and self._held[close + 1 : close + 2] == "(":
                 # `?[text](link)` is a link, not a question: the grammar's own pattern ends in a
                 # negative lookahead for the bracket, and a lesson may well write one.
-                self._emit(out, self._held[: close + 1])
-                self._held = self._held[close + 1 :]
+                self._emit(out, self._held[: close + 2])
+                self._held = self._held[close + 2 :]
                 continue
             if (
                 close < 0

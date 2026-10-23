@@ -67,6 +67,15 @@ with their edges trimmed, rather than programming-language identifiers.
       round trip and runtime module/prompt comparisons pass. Pin it in the app.
 - [x] 2026-10-23 18:25 UTC: Update ready PRs and feature-branch dependency
       pins with publication evidence and formal-release prerequisites.
+- [x] 2026-10-23 18:33 UTC: Pass all 14,358 application backend tests
+      with 112 intentional skips using the actual Python dev2 wheel.
+- [x] 2026-10-23 18:40 UTC: Restore native link state for disqualified
+      question candidates and stream the confirmed resource opener together.
+      All 2,946 engine/stream/runner tests pass, including 36 new link-resource
+      regressions across all chunk cuts and three physical newline forms.
+- [x] 2026-10-23 18:42 UTC: Verify the actual Python dev3 wheel with the
+      native-link fallback fix: all 1,066 installed-package tests and the Chinese
+      answer round trip pass; pin the verified artifact in the application.
 - [ ] Replace application Python/component development pins with verified
       formal releases and complete merge readiness. This requires explicit
       publication authorization and the component library's confirmed main SHA.
@@ -156,11 +165,11 @@ with their edges trimmed, rather than programming-language identifiers.
 ## Outcomes & Retrospective
 
 All five repositories pass the same 166-case semantic conformance corpus.
-Current application sources pass 2,910 engine, streaming and runner tests,
-including arbitrary chunk cuts, bounded continuation state and 48 container-cache
-regressions. The complete application backend checkpoint passed 14,310 tests
-with 112 intentional skips using Python dev1, before the final cache-only
-optimization. Exact-key database and optional unnamed-question coverage is
+Current application sources pass 2,946 engine, streaming and runner tests,
+including arbitrary chunk cuts, bounded continuation state, 48 container-cache
+regressions and 36 native-link fallback regressions. The complete application
+backend checkpoint passed 14,358 tests with 112 intentional skips using Python
+dev2, before the final link-fallback correction. Exact-key database and optional unnamed-question coverage is
 included. The full backend suite remains the application integration gate.
 Required toolchain checks, architecture boundaries and all-file hooks pass.
 
@@ -173,7 +182,7 @@ tests. Both npm and pinned-pnpm lockfiles select the same parser version;
 subsequent component changes are test assertions and lockfile alignment, with
 the published production runtime unchanged.
 
-The actual `markdown-flow==0.4.2.dev2` PyPI wheel passes 1,030 isolated installed
+The actual `markdown-flow==0.4.2.dev3` PyPI wheel passes 1,066 isolated installed
 package tests, the Chinese question answer round trip and byte-exact runtime
 module/prompt verification. Its cache reduces the confirmed flat-quote scan
 work at 100/200/400 lines from 5,150/20,300/80,600 calls to 200/400/800 calls,
@@ -184,9 +193,9 @@ installation passes 3,337 frontend tests, type checking and lint.
 Published development artifacts are traceable to the official workflows:
 [parser run](https://github.com/ai-shifu/remark-flow/actions/runs/39997419199),
 [component run](https://github.com/ai-shifu/markdown-flow-ui/actions/runs/39999398841),
-and [Python run](https://github.com/ai-shifu/markdown-flow-agent-py/actions/runs/40002911606).
+and [Python run](https://github.com/ai-shifu/markdown-flow-agent-py/actions/runs/40005188363).
 The Python wheel SHA-256 is
-`6136544dd3da200deb8744dbbf0eab503e2b34e170e103a92720fd8fb8dd58be`.
+`44e33c023de5374bdb272b186bca2dc0cb21d772795390b9047a4adef0d3d5a7`.
 The application pins these actual development artifacts only on its feature
 branch; the original narrow-repair pins have been replaced.
 

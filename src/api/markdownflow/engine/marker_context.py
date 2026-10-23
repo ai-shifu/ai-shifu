@@ -681,7 +681,8 @@ def analyze_marker_context(
             )
             if not closed and limit < len(text):
                 context.inactive_document_controls.append(at)
-            interaction_until = limit if closed else limit - 1
+            if not (closed and text[limit + 1 : limit + 2] == "("):
+                interaction_until = limit if closed else limit - 1
         if text.startswith("{{", at):
             if _escaped(text, at):
                 context.escaped_openers.append(at)
