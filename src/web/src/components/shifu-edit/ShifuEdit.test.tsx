@@ -1198,7 +1198,7 @@ describe('ShifuEdit draft conflict checks', () => {
     'unresolved_profile',
     'missing_course',
     'missing_lesson',
-  ])('does not track preview when the %s guard rejects the click', guard => {
+  ])('does not track preview when the %s guard prevents preview', guard => {
     setLessonNode();
     if (guard === 'chapter') mockShifuState.currentNode.depth = 0;
     if (guard === 'unresolved_profile') mockUserStoreState.userInfo = null;
@@ -1206,11 +1206,15 @@ describe('ShifuEdit draft conflict checks', () => {
     if (guard === 'missing_lesson') mockShifuState.currentNode.bid = '';
     const { rerender } = render(<ScriptEditor id='shifu-1' />);
     rerender(<ScriptEditor id='shifu-1' />);
-    const previewButton = screen
-      .getByText('module.shifu.previewArea.action')
-      .closest('button')!;
-    if (guard !== 'missing_lesson') expect(previewButton).toBeDisabled();
-    fireEvent.click(previewButton);
+    const previewAction = screen.queryByText('module.shifu.previewArea.action');
+    if (guard === 'chapter') {
+      expect(previewAction).not.toBeInTheDocument();
+    } else {
+      expect(previewAction).toBeInTheDocument();
+      const previewButton = previewAction!.closest('button')!;
+      if (guard !== 'missing_lesson') expect(previewButton).toBeDisabled();
+      fireEvent.click(previewButton);
+    }
     expect(mockTrackEvent).not.toHaveBeenCalled();
     expect(baseActions.saveMdflow).not.toHaveBeenCalled();
     expect(baseActions.previewParse).not.toHaveBeenCalled();
