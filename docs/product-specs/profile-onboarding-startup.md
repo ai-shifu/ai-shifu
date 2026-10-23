@@ -18,9 +18,13 @@ runtime: both profile entrypoints always use 2.0.
 Published MarkdownFlow questionnaires keep their existing authored block
 boundaries and validation rules. The parser supplies authoring metadata and
 progress; it does not execute model calls. Each authored block has its own
-agent session. Deferred tool calls, accepted answers and typed conversation
-history survive Redis round trips. A block advances after all pending
-interactions have been answered; invalid answers keep the question available.
+agent session. Content blocks output text and visuals. Only static
+`BlockType.INTERACTION` blocks expose formal controls, with exactly one question
+per block. Instructions to introduce or ask a question in preceding content
+produce its narrative; the static interaction block supplies its controls.
+After accepting the answer, the block completes without asking another
+question. Invalid answers keep the current question available. Deferred tool
+state, accepted answers and typed conversation history survive Redis round trips.
 Prior questions, instructions and model responses are context rather than
 learner facts. Named values and accepted raw answers supply evidence for the
 final profile, including answers to questions without a named variable.
@@ -36,11 +40,11 @@ without asking the learner to resubmit it.
 Interaction events also carry `interaction_id`. Learner and operator clients
 bind that identifier to the displayed question and submit it as
 `expected_interaction_id`; exact retries retain the same question identifier
-and request ID. This protects successive deferred questions within one block
-from stale submissions in another tab. Older clients can answer their original
-question without the new field; later questions at the same block cursor
-require it. Content, questions and successive answer feedback have separate
-stable element IDs so one item cannot overwrite another in the transcript.
+and request ID. Stale submissions must match the current authored question;
+reusing a request ID with another question identifier is rejected. Older clients
+can answer their original question without the new field. Content, authored
+questions and answer feedback have separate stable element IDs so one item
+cannot overwrite another in the transcript.
 
 Roll out the runtime as one worker revision. Older workers cannot read the
 new engine-state cache schema. A rollback must expire active profile sessions

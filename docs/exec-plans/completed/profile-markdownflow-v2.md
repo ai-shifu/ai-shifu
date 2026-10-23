@@ -25,12 +25,17 @@ answer imports, private final drafts, and the existing frontend SSE contract.
   old cached sessions, error recovery, and hidden summaries.
 - [x] 2026-10-23 CST: Bind learner and operator submissions to their deferred
   question ID and keep separate stable content/question/feedback identities.
-- [x] 2026-10-23 CST: Passed 492 profile/config/route tests, 1,168 engine and
+- [x] 2026-10-23 CST: Passed 498 profile/config/route tests, 1,168 engine and
   shared-host tests, 170 frontend tests, and the complete pre-commit gate.
 - [x] 2026-10-23 CST: Fixed mixed choice-plus-text input and guarded static
   question types, bindings and ordered stored values in separate review commits.
 - [x] 2026-10-23 CST: Prepared a focused pull request with validation evidence
   and the cache-schema rollout/recovery contract.
+- [x] 2026-10-23 CST: Restored the content-only execution boundary. The actual
+  English default questionnaire now retries a premature content-step control,
+  advances to its static question block and presents the formal question once.
+- [x] 2026-10-23 CST: Restricted each static interaction block to one pending
+  question and completed the block after its answer without asking again.
 
 ## Surprises & Discoveries
 
@@ -40,10 +45,14 @@ answer imports, private final drafts, and the existing frontend SSE contract.
 - Existing cached sessions have no typed tool history. Resume their current
   authored block without discarding a submitted answer.
 - Whole-block variables are not sufficient evidence: unlabelled accepted
-  answers need independent persistence, including while another question is
-  pending and the learner imports external answers.
-- Agent turns can emit both content and deferred controls. Separate element
-  IDs prevent questions from replacing introductory text or earlier feedback.
+  answers need independent persistence, including after one authored question
+  completes and the learner imports external answers while the next is pending.
+- Static interaction turns can emit question text before their deferred control.
+  Separate element IDs prevent controls from replacing that text or earlier
+  answer feedback.
+- The default questionnaire asks the content model to introduce each question
+  before its static controls. Allowing content-step tools asked that question
+  twice; the migration must preserve the authored interaction boundaries.
 - The existing test forbidding all learning-service dependencies must become
   a check that profile uses only the stable public agent API. Course execution,
   billing persistence and database lesson sessions remain outside this feature.
@@ -53,9 +62,12 @@ answer imports, private final drafts, and the existing frontend SSE contract.
 - Reuse the vendored engine, shared gateway, synchronous bridge, interaction
   renderer and content formatter through `learn.agent.api`.
 - Preserve current API/event names and request deduplication. Add optional
-  `interaction_id` output / `expected_interaction_id` input to bind successive
-  deferred questions to their original UI; bind exact replay to this token.
+  `interaction_id` output / `expected_interaction_id` input to bind each
+  authored question to its displayed UI; bind exact replay to this token.
   This introduces no new user action or analytics payload change.
+- Keep content blocks to text and visuals. Only static
+  `BlockType.INTERACTION` blocks expose formal controls, with one question per
+  block; accepting its answer completes that block without another question.
 - Store only the current block's engine session in the existing owner-scoped
   Redis record. Keep the existing TTL, locks, frozen documents and replay data.
 - Treat prior transcript and imported evidence as untrusted data, outside the
@@ -76,17 +88,19 @@ engine. Frozen authored blocks remain the UI progress boundary; deferred calls
 and accepted evidence survive Redis, exact retry and assistant import. The
 legacy parser remains only for authoring validation and source restoration.
 
-Validation passed: 492 profile/config/route tests; 1,168 engine, bridge, gateway
-and protocol tests; 170 frontend tests; the full repository pre-commit gate,
-repository harness, architecture ratchet and unit-of-work ratchet. TypeScript
-also passed across the complete frontend using the pinned markdown-flow-ui
-0.2.35 from a temporary package mapping. The shared local node_modules has an
+Validation passed: 498 profile/config/route
+tests; 1,168 engine, bridge, gateway and protocol tests; 170 frontend tests;
+the full repository pre-commit gate, repository harness, architecture ratchet
+and unit-of-work ratchet. TypeScript also passed across the complete frontend
+using the pinned markdown-flow-ui 0.2.35 from a temporary package mapping.
+The shared local node_modules has an
 older 0.2.26 installation, so it was left untouched rather than changing a
 shared environment or the dependency pin.
 
-The implementation and offline acceptance are complete. Deployment and merge
-remain outside this task; operators must follow the schema rollout contract
-in the canonical profile onboarding specification.
+The content-only boundary and one-question-per-static-block fixes are covered
+by deterministic regressions. Deployment and merge remain outside this task;
+operators must follow the schema
+rollout contract in the canonical profile onboarding specification.
 
 ## Context and Orientation
 
@@ -99,9 +113,10 @@ preserves pending tool IDs, accepted answers, memory and model messages.
 ## Plan of Work
 
 Expose an explicit public engine boundary. Add a profile-specific adapter that
-runs one authored block, translates typed interactions to current controls,
-and serializes the pending state. Replace the old execution call while leaving
-admission, ownership, replay, final draft privacy and staged imports intact.
+runs one authored block, translates a static question's typed interaction to
+current controls, and serializes its pending state. Replace the old execution
+call while leaving admission, ownership, replay, final draft privacy and staged
+imports intact.
 Update tests and canonical profile documentation together.
 
 ## Concrete Steps
@@ -115,6 +130,10 @@ Update tests and canonical profile documentation together.
 ## Validation and Acceptance
 
 Real tool calls must pause, survive Redis round trips and accept answers.
+Content instructions that introduce questions must advance without formal
+controls; only the following static interaction block can expose its question.
+Each static block must expose exactly one question and complete after accepting
+the answer, without adding another pending interaction.
 Rejected answers must retain the question. Replaying an identical request must
 not call the model. Tool/provider failures must leave the durable cursor
 unchanged. No summary text may appear in learner-visible content events.

@@ -156,11 +156,19 @@ def _engine_turn(
     EngineBlockChunk, None, tuple[list[InteractionRequest], list[ErrorEvent]]
 ]:
     """Own and close the synchronous bridge before publishing any durable state."""
+    answering_id = turn.id if isinstance(turn, InteractionResponseTurn) else None
 
     def interaction_check(spec: InteractionSpec) -> str | None:
         if not allows_interaction:
             return (
                 "This authored step has no interaction. Output its result and finish."
+            )
+        if answering_id is not None and not any(
+            pending.tool_call_id == answering_id for pending in working.pending
+        ):
+            return (
+                "The learner has answered this authored question. Do not call interact "
+                "again. Finish the current step without another question or pause."
             )
         if authored_interaction is not None:
             problem = check_authored_interaction(
@@ -207,6 +215,13 @@ def _engine_turn(
     if not completed and not errors:
         msg = "MarkdownFlow 2.0 did not complete the profile step"
         raise ProfileResearchError(msg)
+    if authored_interaction is not None and not errors:
+        expected_pending_count = 0 if answering_id is not None else 1
+        if len(working.pending) != expected_pending_count:
+            msg = (
+                "MarkdownFlow 2.0 must ask each authored profile question exactly once"
+            )
+            raise ProfileResearchError(msg)
     if show_content and completed:
         for content, element_type, number in pager.flush():
             yield EngineBlockChunk(content=content, type=element_type, number=number)
