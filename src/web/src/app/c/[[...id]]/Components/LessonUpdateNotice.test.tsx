@@ -8,6 +8,8 @@ import {
 } from '@testing-library/react';
 import LessonUpdateNotice from './LessonUpdateNotice';
 
+let mockResetPhase = 'ready';
+const mockSetFailure = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockResetChapter = jest.fn();
 const mockUpdateLessonId = jest.fn();
@@ -41,6 +43,13 @@ jest.mock('@/store/useSystemStore', () => ({
 }));
 jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
+}));
+jest.mock('@/hooks/useLessonResetStatus', () => ({
+  LESSON_RESET_LIMIT_REACHED_CODE: 4021,
+  useLessonResetStatus: () => ({
+    phase: mockResetPhase,
+    setFailure: mockSetFailure,
+  }),
 }));
 jest.mock('@/hooks/useToast', () => ({
   fail: (...args: unknown[]) => mockFail(...args),
@@ -281,4 +290,54 @@ describe('recommended lesson retake analytics', () => {
       expect(mockTrackEvent).toHaveBeenCalledTimes(2);
     },
   );
+});
+
+describe('exhausted reset allowance', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockResetPhase = 'exhausted';
+    mockCourseState.resettingLessonId = '';
+  });
+
+  afterEach(() => {
+    mockResetPhase = 'ready';
+  });
+
+  it('offers review of existing content instead of an unusable reset link', () => {
+    render(
+      <LessonUpdateNotice
+        chapterId='chapter-1'
+        lessonId='lesson-1'
+      />,
+    );
+    expect(
+      screen.getByText('module.chat.lessonUpdateReviewAvailable'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('module.chat.lessonUpdateRetakeAccessibleLabel'),
+    ).not.toBeInTheDocument();
+    expect(mockResetChapter).not.toHaveBeenCalled();
+  });
+
+  it('keeps content and explains when the reset itself is refused with 4021', async () => {
+    mockResetPhase = 'ready';
+    mockResetChapter.mockRejectedValue({ code: 4021, message: 'limit' });
+    render(
+      <LessonUpdateNotice
+        chapterId='chapter-1'
+        lessonId='lesson-1'
+      />,
+    );
+    openConfirm();
+    fireEvent.click(screen.getByText('common.core.ok'));
+    await waitFor(() =>
+      expect(mockSetFailure).toHaveBeenCalledWith({
+        code: 4021,
+        message: 'limit',
+      }),
+    );
+    expect(mockFail).not.toHaveBeenCalled();
+    expect(mockUpdateLessonId).not.toHaveBeenCalled();
+    expect(mockResetTools).not.toHaveBeenCalled();
+  });
 });
