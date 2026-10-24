@@ -245,6 +245,76 @@ def test_private_summary_has_only_accepted_personal_answers_and_never_streams_te
     ] == view.get("document", "Ask about learning needs, then finish.")
 
 
+def test_private_summary_keeps_an_unnamed_placeholder_question_as_context() -> None:
+    question = "How many years have you taught?"
+    summary = _SummaryProvider("Has ten years of teaching experience.")
+
+    async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        if _finished(messages):
+            yield " "
+        elif answers := _tool_returns(messages):
+            assert answers[-1].content == "Learner wrote: 10"
+            yield _finish()
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    tool_call_id="teaching-years",
+                    json_args=json.dumps(
+                        {"type": "text", "prompt": "", "placeholder": question}
+                    ),
+                )
+            }
+
+    _app, runtime, _factories = _runtime(script)
+    runtime._provider_factory = lambda *_args: summary
+    view = _start(runtime, "Ask about teaching experience, then finish.")
+    first = _run(runtime, view)
+    assert any(
+        event["event_type"] == "interaction" and question in event["content"]
+        for event in first
+    )
+    final = _run(
+        runtime,
+        view,
+        values={"input": ["10"]},
+        request_id="teaching-years-answer",
+        expected_interaction_id="teaching-years",
+    )
+    assert _terminal(final)["input_accepted"] is True
+    assert _terminal(final)["profile_draft"] == summary.output
+    assert _evidence(summary.messages[0]) == {
+        "accepted_answers": [
+            {
+                "prompt": "",
+                "variable": None,
+                "answer": "Learner wrote: 10",
+                "question_context": {
+                    "is_learner_fact": False,
+                    "placeholder": question,
+                },
+            }
+        ],
+        "supplemental_answers": [],
+    }
+    instructions = "\n".join(
+        message["content"]
+        for message in summary.messages[0]
+        if message["role"] == "system"
+    )
+    assert "input placeholders" in instructions
+    assert "not learner information" in instructions
+    assert runtime.store.load(view["session_id"]).variables == {}
+    assert final[0]["content"] == {"phase": "summary"}
+    assert not any(
+        event["event_type"] == "content" and str(event["content"]).strip()
+        for event in final
+    )
+    assert summary.output not in str(
+        [event for event in final if not event.get("is_terminal")]
+    )
+
+
 @pytest.mark.parametrize("schema", [1, 2])
 def test_old_questionnaire_cache_expires_and_a_new_session_can_replace_it(
     schema: int,

@@ -41,6 +41,9 @@ assistant evidence. Instructions, questions, model-generated memory notes,
 confirm clicks and the separately collected nickname are not personal profile
 evidence. Option display/value mappings are supplied as question context so
 stored machine values retain their meaning; unselected options are not facts.
+Input placeholders are also preserved as question context, including unnamed
+text questions whose prompt is empty. This context explains the accepted
+answer and is never itself learner information.
 Both manual completion and assistant import use the same private
 transformation function, existing profile prompts and nonbillable provider.
 The private summary is never appended to the public questionnaire script and

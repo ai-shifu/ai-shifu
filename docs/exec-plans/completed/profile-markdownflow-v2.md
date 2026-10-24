@@ -47,6 +47,10 @@ hosts use flaskr.api.markdownflow for native types, gateway and localized contro
   evaluation/release tests, with 93 skips and 82 subtests passed. The complete
   repository pre-commit gate passed again; remote delivery and exact-head PR
   checks remain tracked on the PR.
+- [x] 2026-10-24 CST: Address the rebased review's placeholder-evidence issue.
+  Preserve input hints as non-factual question context for private summaries,
+  including unnamed text questions with empty prompts. A real FunctionModel
+  regression and all 439 Profile/configuration/route tests passed.
 
 ## Surprises & Discoveries
 

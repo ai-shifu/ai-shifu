@@ -367,27 +367,30 @@ def profile_answer_evidence(
             "prompt": args["prompt"],
             "variable": args.get("variable"),
             "answer": answers[call_id],
-            **(
-                {
-                    "question_context": {
-                        "is_learner_fact": False,
-                        "options": [
-                            {
-                                "display": option["display"],
-                                "value": option.get("value")
-                                if option.get("value") is not None
-                                else option["display"],
-                            }
-                            for option in args.get("options", [])
-                            if isinstance(option, dict)
-                            and isinstance(option.get("display"), str)
-                        ],
-                    }
-                }
-                if args.get("options")
-                else {}
-            ),
+            **_question_context(args),
         }
         for call_id, args in calls.items()
         if call_id in answers
     ]
+
+
+def _question_context(args: dict[str, Any]) -> dict[str, Any]:
+    """Keep question hints and option meanings separate from learner facts."""
+    context: dict[str, Any] = {}
+    placeholder = args.get("placeholder")
+    if isinstance(placeholder, str) and placeholder.strip():
+        context["placeholder"] = placeholder
+    if args.get("options"):
+        context["options"] = [
+            {
+                "display": option["display"],
+                "value": option.get("value")
+                if option.get("value") is not None
+                else option["display"],
+            }
+            for option in args["options"]
+            if isinstance(option, dict) and isinstance(option.get("display"), str)
+        ]
+    return (
+        {"question_context": {"is_learner_fact": False, **context}} if context else {}
+    )
