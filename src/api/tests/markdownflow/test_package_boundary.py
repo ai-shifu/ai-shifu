@@ -117,6 +117,12 @@ async def test_legacy_package_session_resumes_its_remaining_pending_answer() -> 
     state = json.loads(payload)
     session = Session.loads(payload)
     assert session.memory_generations == {}
+    # Pydantic AI 2.53 serializes these new defaults while reading the unchanged
+    # legacy fixture. Keep every historical field in the exact comparison below.
+    for message in state["messages"]:
+        if message["kind"] == "response":
+            message["workspace_ref"] = None
+            message["usage"]["audio_seconds"] = 0.0
     assert session.to_dict() == {**state, "memory_generations": {}}
     assert session.answers == {"legacy-role": "Learner wrote: Data analyst"}
     assert [item.tool_call_id for item in session.pending] == ["legacy-goal"]
