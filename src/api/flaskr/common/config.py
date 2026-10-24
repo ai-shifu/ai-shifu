@@ -1949,6 +1949,19 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         group="shifu",
         required=False,
     ),
+    "LESSON_RESET_LIMIT": EnvVar(
+        name="LESSON_RESET_LIMIT",
+        default=0,
+        type=int,
+        validator=lambda value: int(value) >= 0,
+        description=(
+            "Maximum effective resets a learner may perform on one lesson of a "
+            "course. 0 disables the limit. Course owners and active collaborators "
+            "are exempt; preview resets are never counted. Usage is persisted in "
+            "learn_lesson_reset_records."
+        ),
+        group="shifu",
+    ),
     # TTS Configuration
     "MINIMAX_API_KEY": EnvVar(
         name="MINIMAX_API_KEY",

@@ -1,4 +1,11 @@
-import { memo, useCallback, useRef, useState, type MouseEvent } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -22,10 +29,17 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import {
+  LESSON_RESET_LIMIT_REACHED_CODE,
+  useLessonResetStatus,
+} from '@/hooks/useLessonResetStatus';
+import { fail } from '@/hooks/useToast';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
 import {
   buildResetChapterAnalytics,
+  buildResetChapterBlockedAnalytics,
   buildResetChapterConfirmAnalytics,
+  RESET_CHAPTER_BLOCKED_EVENT,
   RESET_CHAPTER_CONFIRM_EVENT,
   RESET_CHAPTER_EVENT,
   shouldTrackResetChapter,
@@ -55,6 +69,43 @@ export const ResetChapterButton = ({
 
   const [showConfirm, setShowConfirm] = useState(false);
   const resetButtonClickAtRef = useRef(0);
+  const { phase, setFailure } = useLessonResetStatus(lessonId, showConfirm);
+  const exhausted = phase === 'exhausted';
+  const blockedTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (!showConfirm) {
+      blockedTrackedRef.current = false;
+      return;
+    }
+    if (
+      !exhausted ||
+      blockedTrackedRef.current ||
+      !shouldTrackResetChapter(previewMode)
+    ) {
+      return;
+    }
+    blockedTrackedRef.current = true;
+    try {
+      void Promise.resolve(
+        trackEvent(
+          RESET_CHAPTER_BLOCKED_EVENT,
+          buildResetChapterBlockedAnalytics(
+            { shifuBid, chapterId, lessonId },
+            'catalog',
+          ),
+        ),
+      ).catch(() => {});
+    } catch {}
+  }, [
+    chapterId,
+    exhausted,
+    lessonId,
+    previewMode,
+    shifuBid,
+    showConfirm,
+    trackEvent,
+  ]);
 
   const { resetChapter, resettingLessonId, updateLessonId } = useCourseStore(
     useShallow(state => ({
@@ -100,34 +151,53 @@ export const ResetChapterButton = ({
   );
 
   const handleConfirm = useSingleFlight(async () => {
-    if (!lessonId) {
+    if (exhausted) {
+      setShowConfirm(false);
+      return;
+    }
+    if (!lessonId || phase !== 'ready') {
       return;
     }
 
-    stopActiveLessonStream(lessonId);
-    await resetChapter(lessonId);
-    updateLessonId(lessonId);
+    try {
+      stopActiveLessonStream(lessonId);
+      await resetChapter(lessonId);
+      updateLessonId(lessonId);
 
-    shifu.resetTools.resetChapter({
-      chapter_id: chapterId,
-      lesson_id: lessonId,
-      chapter_name: chapterName,
-    });
+      shifu.resetTools.resetChapter({
+        chapter_id: chapterId,
+        lesson_id: lessonId,
+        chapter_name: chapterName,
+      });
 
-    if (shouldTrackResetChapter(previewMode)) {
-      trackEvent(
-        RESET_CHAPTER_CONFIRM_EVENT,
-        buildResetChapterConfirmAnalytics({
-          shifuBid,
-          chapterId,
-          lessonId,
-        }),
-      );
+      if (shouldTrackResetChapter(previewMode)) {
+        trackEvent(
+          RESET_CHAPTER_CONFIRM_EVENT,
+          buildResetChapterConfirmAnalytics({
+            shifuBid,
+            chapterId,
+            lessonId,
+          }),
+        );
+      }
+
+      onConfirm?.();
+
+      setShowConfirm(false);
+    } catch (error) {
+      // The backend is the authority on the limit: it answers 4021 when another
+      // tab spent the last reset, and the dialog then explains instead of toasting.
+      setFailure(error);
+      if (
+        (error as { code?: number } | null)?.code !==
+        LESSON_RESET_LIMIT_REACHED_CODE
+      ) {
+        fail(
+          (error as Error).message ||
+            t('module.backend.common.operationFailed'),
+        );
+      }
     }
-
-    onConfirm?.();
-
-    setShowConfirm(false);
   });
 
   const handleOpenChange = useCallback(
@@ -169,9 +239,19 @@ export const ResetChapterButton = ({
           }}
         >
           <DialogHeader>
-            <DialogTitle>{t('module.lesson.reset.confirmTitle')}</DialogTitle>
+            <DialogTitle>
+              {t(
+                exhausted
+                  ? 'module.lesson.reset.title'
+                  : 'module.lesson.reset.confirmTitle',
+              )}
+            </DialogTitle>
             <DialogDescription>
-              {t('module.lesson.reset.confirmContent')}
+              {t(
+                exhausted
+                  ? 'server.learn.resetLimitReached'
+                  : 'module.lesson.reset.confirmContent',
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -179,7 +259,11 @@ export const ResetChapterButton = ({
               onClick={() => {
                 void handleConfirm();
               }}
-              disabled={isResettingCurrentLesson}
+              disabled={
+                isResettingCurrentLesson ||
+                phase === 'checking' ||
+                phase === 'idle'
+              }
             >
               {isResettingCurrentLesson ? (
                 <Loader2 className='h-4 w-4 animate-spin' />

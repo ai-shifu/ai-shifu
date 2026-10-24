@@ -3,6 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { CourseCatalogList } from './CourseCatalogList';
 import type { LessonTreeCatalog } from '../../hooks/useLessonTree';
 
+// The lesson API client pulls in the user store, whose transitive SSE import is
+// ESM-only under jest; this suite never calls it.
+jest.mock('@/api/lesson', () => ({
+  getScriptInfo: jest.fn(),
+}));
+
 jest.mock('@/api/studyV2', () => ({
   LEARNING_PERMISSION: {
     NORMAL: 'normal',

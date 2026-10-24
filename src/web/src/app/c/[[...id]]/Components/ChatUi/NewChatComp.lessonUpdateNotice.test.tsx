@@ -5,6 +5,11 @@ import { AppContext } from '../AppContext';
 import { NewChatComponents } from './NewChatComp';
 import LessonUpdateNotice from '../LessonUpdateNotice';
 
+jest.mock('@/hooks/useLessonResetStatus', () => ({
+  LESSON_RESET_LIMIT_REACHED_CODE: 4021,
+  useLessonResetStatus: () => ({ phase: 'ready', setFailure: jest.fn() }),
+}));
+
 const mockUseChatLogicHook = jest.fn();
 let mockCourseAvatar = '';
 let mockIsCurrentUserCourseOwner = false;
