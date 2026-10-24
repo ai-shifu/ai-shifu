@@ -11,6 +11,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import learn_funcs
+from flaskr.service.learn.agent import routing
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.lesson_reset_limit import get_lesson_reset_status
 from flaskr.service.learn.models import LearnLessonResetRecord, LearnProgressRecord
@@ -19,7 +20,12 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_RESET,
 )
-from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedOutlineItem
+from flaskr.service.shifu.models import (
+    AiCourseAuth,
+    DraftOutlineItem,
+    DraftShifu,
+    PublishedOutlineItem,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -55,6 +61,7 @@ def course(app: Flask, monkeypatch: pytest.MonkeyPatch) -> Iterator[SimpleNamesp
             LearnAgentSession,
             LearnProgressRecord,
             PublishedOutlineItem,
+            DraftOutlineItem,
             DraftShifu,
         ):
             model.query.filter_by(shifu_bid=course.bid).delete()
@@ -188,9 +195,10 @@ def test_effective_resets_are_recorded_until_the_limit(
 
     start(app, course)
     assert reset(app, course) is True
-    assert status(app, course) is False
+    assert status(app, course) is True  # nothing chargeable is live yet
 
     kept = start(app, course)
+    assert status(app, course) is False
     with pytest.raises(AppError) as blocked:
         reset(app, course)
     assert blocked.value.code == 4021
@@ -218,6 +226,7 @@ def test_lessons_and_learners_are_independent(
     for _ in range(2):
         start(app, course)
         reset(app, course)
+    start(app, course)
     assert status(app, course) is False
 
     start(app, course, lesson=course.other_lesson)
@@ -302,9 +311,9 @@ def test_preview_reset_is_not_counted_and_status_is_open(
     for _ in range(2):
         start(app, course)
         reset(app, course)
+    start(app, course)
     assert status(app, course) is False
     assert status(app, course, preview_mode=True) is True
-    start(app, course)
     assert reset(app, course, preview_mode=True) is True
     rows = reset_rows(app, course)
     assert [row.counted for row in rows] == [1, 1, 0]
@@ -328,7 +337,6 @@ def test_opened_but_ungenerated_lesson_resets_for_free(
     for _ in range(2):
         start(app, course)
         reset(app, course)
-    assert status(app, course) is False
 
     placeholder = start(app, course, status=LEARN_STATUS_NOT_STARTED)
     assert reset(app, course) is True
@@ -342,3 +350,80 @@ def test_opened_but_ungenerated_lesson_resets_for_free(
     with pytest.raises(AppError) as blocked:
         reset(app, course)
     assert blocked.value.code == 4021
+
+
+def test_unlimited_and_exempt_resets_keep_retry_receipts(
+    app: Flask, course: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lost response must not let a retry clear new learning, whoever resets."""
+    monkeypatch.setitem(app.config, "LESSON_RESET_LIMIT", 0)
+    start(app, course)
+    assert reset(app, course, request_id="lost-response") is True
+    resumed = start(app, course)
+    assert reset(app, course, request_id="lost-response") is True
+    assert live_records(app, course) == resumed
+    assert len(reset_rows(app, course)) == 1
+
+    monkeypatch.setitem(app.config, "LESSON_RESET_LIMIT", 2)
+    start(app, course, learner=course.owner)
+    assert reset(app, course, learner=course.owner, request_id="owner-trace") is True
+    resumed = start(app, course, learner=course.owner)
+    assert reset(app, course, learner=course.owner, request_id="owner-trace") is True
+    with app.app_context():
+        live = LearnProgressRecord.query.filter(
+            LearnProgressRecord.user_bid == course.owner,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+        ).all()
+        assert [row.progress_record_bid for row in live] == resumed
+
+
+def test_same_trace_id_on_another_lesson_is_not_a_retry(
+    app: Flask, course: SimpleNamespace
+) -> None:
+    start(app, course)
+    assert reset(app, course, request_id="shared-trace") is True
+    start(app, course, lesson=course.other_lesson)
+    assert reset(app, course, lesson=course.other_lesson, request_id="shared-trace")
+    rows = reset_rows(app, course)
+    assert [row.outline_item_bid for row in rows] == [
+        course.lesson,
+        course.other_lesson,
+    ]
+    assert rows[1].request_id is None
+
+
+def test_agent_preview_reset_is_recorded_as_uncounted(
+    app: Flask, course: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 2.0 draft-preview branch returns early but still leaves an audit row."""
+    monkeypatch.setattr(routing, "uses_agent_engine", lambda _bid: True)
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            DraftOutlineItem(
+                shifu_bid=course.bid, outline_item_bid=course.lesson, deleted=0
+            )
+        )
+    preview = start_session(app, course, preview_mode=True)
+    assert reset(app, course, preview_mode=True) is True
+    rows = reset_rows(app, course)
+    assert [(row.counted, row.preview_mode) for row in rows] == [(0, 1)]
+    with app.app_context():
+        assert (
+            LearnAgentSession.query.filter_by(agent_session_bid=preview).one().deleted
+        )
+    # Nothing live any more: the next preview reset is empty and leaves no row.
+    assert reset(app, course, preview_mode=True) is True
+    assert len(reset_rows(app, course)) == 1
+
+
+def test_status_stays_open_when_nothing_chargeable_remains(
+    app: Flask, course: SimpleNamespace
+) -> None:
+    for _ in range(2):
+        start(app, course)
+        reset(app, course)
+    assert status(app, course) is True
+    start(app, course, status=LEARN_STATUS_NOT_STARTED)
+    assert status(app, course) is True
+    start(app, course)
+    assert status(app, course) is False

@@ -801,13 +801,23 @@ def reset_learn_record(
             and not preview_mode
             and not is_lesson_reset_exempt(app, user_bid, shifu_bid)
         )
-        request_id = normalize_reset_request_id(reset_request_id)
         if limited:
             require_reset_lesson(shifu_bid, outline_bid)
-            # A retry of a reset that already landed must not clear the learning the
-            # learner has started since, nor spend a second use.
-            if find_reset_receipt(user_bid, request_id) is not None:
+        # A retry of a reset that already landed must not clear the learning the
+        # learner has started since, nor spend a second use. This holds for exempt
+        # and unlimited resets too, so every effective reset keeps its receipt.
+        request_id = normalize_reset_request_id(reset_request_id)
+        receipt = find_reset_receipt(user_bid, request_id)
+        if receipt is not None:
+            if (
+                receipt.shifu_bid == shifu_bid
+                and receipt.outline_item_bid == outline_bid
+                and bool(receipt.preview_mode) == preview_mode
+            ):
                 return True
+            # Same trace id reused for another lesson: not a retry, and the receipt
+            # column is unique per user, so this reset is recorded without one.
+            request_id = None
 
         if preview_mode and uses_agent_engine(shifu_bid):
             from flaskr.service.learn.agent.preview_history import (
@@ -821,12 +831,33 @@ def reset_learn_record(
             if uses_preview_session_history(
                 app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
             ):
+                preview_session = (
+                    LearnAgentSession.query.filter(
+                        LearnAgentSession.user_bid == user_bid,
+                        LearnAgentSession.shifu_bid == shifu_bid,
+                        LearnAgentSession.outline_item_bid == outline_bid,
+                        LearnAgentSession.deleted == 0,
+                        LearnAgentSession.active_key
+                        == active_key_for(user_bid, outline_bid, preview_mode=True),
+                    )
+                    .with_for_update()
+                    .first()
+                )
                 stage_agent_session_discard(
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
                     outline_item_bid=outline_bid,
                     preview_mode=True,
                 )
+                if preview_session is not None:
+                    record_lesson_reset(
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=True,
+                        counted=False,
+                        request_id=request_id,
+                    )
                 return True
         progress_records = (
             LearnProgressRecord.query.filter(
@@ -894,7 +925,7 @@ def reset_learn_record(
                 ),
                 preview_mode=preview_mode,
                 counted=charged,
-                request_id=request_id if limited else None,
+                request_id=request_id,
             )
         return True
 

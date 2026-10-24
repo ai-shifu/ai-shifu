@@ -797,10 +797,6 @@ def test_reset_status_reads_recorded_usage_over_http(
         force=True
     )
     assert first["data"] is True
-    after = test_client.get(
-        f"{url}/reset-status", headers={"Token": "test-token"}
-    ).get_json(force=True)
-    assert after["data"] == {"can_reset": False}
     with app.app_context(), unit_of_work():
         db.session.add(
             LearnProgressRecord(
@@ -812,6 +808,10 @@ def test_reset_status_reads_recorded_usage_over_http(
                 deleted=0,
             )
         )
+    after = test_client.get(
+        f"{url}/reset-status", headers={"Token": "test-token"}
+    ).get_json(force=True)
+    assert after["data"] == {"can_reset": False}
     blocked = test_client.delete(url, headers={"Token": "test-token"}).get_json(
         force=True
     )

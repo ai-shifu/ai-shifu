@@ -28,8 +28,8 @@ export const useLessonResetStatus = (
     state => state.resettingLessonId === lessonId,
   );
   const scope = JSON.stringify([courseId, lessonId, identity, preview]);
-  const currentScope = useRef(scope);
-  currentScope.current = scope;
+  // Bumped in effect cleanup whenever the scope or surface changes, so a response
+  // for an abandoned request is ignored without mutating anything during render.
   const requestVersion = useRef(0);
   const [status, setStatus] = useState<{
     scope: string;
@@ -48,8 +48,7 @@ export const useLessonResetStatus = (
     } catch {
       next = 'ready';
     }
-    if (currentScope.current !== scope || version !== requestVersion.current)
-      return 'idle';
+    if (version !== requestVersion.current) return 'idle';
     setStatus({ scope, phase: next });
     return next;
   }, [courseId, initialized, lessonId, scope, identity]);

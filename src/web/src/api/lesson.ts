@@ -22,13 +22,15 @@ export const getLessonResetStatus = async (
 
 export const getLessonTree = async (courseId: string, previewMode: boolean) => {
   return request.get(
-    `/api/learn/shifu/${courseId}/outline?preview_mode=${previewMode}`,
+    // `/api/study/get_lesson_tree?course_id=${courseId}&preview_mode=${previewMode}`,
+    `/api/learn/shifu/${courseId}/outline-item-tree?preview_mode=${previewMode}`,
   );
 };
 
 export const getScriptInfo = async (courseId: string, scriptId: string) => {
+  const preview_mode = useSystemStore.getState().previewMode;
   return request.get(
-    `/api/learn/shifu/${courseId}/outline/${scriptId}/preview_info`,
+    `/api/learn/shifu/${courseId}/generated-contents/${scriptId}?preview_mode=${preview_mode}`,
   );
 };
 

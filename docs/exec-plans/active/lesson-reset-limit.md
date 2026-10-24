@@ -166,5 +166,48 @@ service code plus one additive table.
 - HTTP: `GET /api/learn/shifu/<shifu_bid>/records/<outline_bid>/reset-status?preview_mode=`
   returns `{ "can_reset": boolean }`; `DELETE .../records/<outline_bid>` now
   reads `X-Request-ID` and may answer code 4021.
-- Analytics: `lesson_reset_blocked` with `source` (`catalog` or
-  `lesson_update`) and `reason` (`limit_reached`).
+- Analytics: `lesson_reset_blocked`, contract below (rules in
+  [Frontend product analytics](../../references/frontend-product-analytics.md)).
+
+### lesson_reset_blocked
+
+- Business question: how often does the reset cap actually stop learners, and
+  on which surface, so the production limit can be raised or lowered with
+  evidence instead of support tickets.
+- Metric definition: distinct learners per day who saw the exhausted reset
+  dialog on at least one lesson (numerator), over distinct learners per day who
+  opened any reset dialog (`reset_chapter` clicks, denominator). Raw events are
+  also charted per surface, because one learner can be blocked on several
+  lessons.
+- Event name(s): `lesson_reset_blocked`.
+- Actor and surface: ordinary learner in published learning; `source` is the
+  fixed enum `catalog` (lesson catalog reset dialog) or `lesson_update`
+  (updated-lesson notice dialog).
+- Trigger: the reset dialog is open and the availability phase becomes
+  `exhausted`, either from the status read or from a reset refused with code
+  4021. Emitted from an effect, never during render.
+- Population: members and guests taking a published course. Excluded: preview
+  mode (`shouldTrackResetChapter` is false), and course owners or collaborators
+  (they are never exhausted, so the state cannot occur).
+- Count unit: one event per dialog opening that lands in the exhausted state.
+- Deduplication: a `useRef` flag per mounted dialog, reset when the dialog
+  closes, so re-renders while it stays open emit once. Reopening the dialog is
+  a new blocked attempt and emits again. No cross-session storage.
+- Correlation: `shifu_bid`, `chapter_id`, `lesson_id` join to the course
+  catalog and to `reset_chapter` / `reset_chapter_confirm` from the same
+  surface; the tracking layer attaches its usual pseudonymous visitor id.
+- Consumers: the product owner of the reset cap; Umami event view filtered by
+  `reason` and `source`.
+- Compatibility: additive new event; `reason` is fixed to `limit_reached` so a
+  future second reason can be added without renaming.
+- Verification: `ResetChapterButton.test.tsx` and `LessonUpdateNotice.test.tsx`
+  assert the payload, single emission per opening, no emission in preview, and
+  that tracking failures never block dismissing the dialog.
+
+| Field        | Type   | Allowed values                | Cardinality | Privacy class | Why required                  |
+| ------------ | ------ | ----------------------------- | ----------- | ------------- | ----------------------------- |
+| `shifu_bid`  | string | course business id            | high        | non-personal  | join to course, per-course rate |
+| `chapter_id` | string | outline business id or `""`   | high        | non-personal  | locate the blocked chapter     |
+| `lesson_id`  | string | outline business id or `""`   | high        | non-personal  | distinct blocked lessons       |
+| `source`     | string | `catalog`, `lesson_update`    | low         | non-personal  | compare the two surfaces       |
+| `reason`     | string | `limit_reached`               | low         | non-personal  | future-proof the event family  |
