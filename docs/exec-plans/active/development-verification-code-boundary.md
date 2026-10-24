@@ -29,9 +29,17 @@ validation and the explicitly selected local development and test workflow.
   evidence for that head only; local container smoke remains unrun (no daemon).
 - [x] 2026-10-24 UTC: Confirmed review discussion `r4367049467` and aligned the
   English/Chinese README quick-start, configuration, and login instructions.
-- [ ] Follow the documentation revision's exact-head CI at
+- [x] 2026-10-24 UTC: Documentation head `a6d5501` passed all seven Actions
+  workflows, including 15,081 backend passes (15 skips) and 3 runtime smoke tests.
+- [x] 2026-10-24 UTC: Following explicit integration approval, merged main
+  `8fe412d6` into this feature branch without conflicts or history rewriting;
+  its frontend parser fix and this branch's auth/documentation fix are preserved.
+- [x] 2026-10-24 UTC: Verified main's five frontend files byte-for-byte and
+  preserved all auth/docs files; passed 50 focused auth tests, 8 parser tests,
+  frontend types/formatting, and repository harness on the integrated tree.
+- [ ] Follow the integrated revision's exact-head CI at
   <https://github.com/ai-shifu/ai-shifu/pull/3175/checks>; earlier-head passes do
-  not count for a newer revision.
+  not count for a newer revision. PR merge and deployment remain out of scope.
 
 ## Surprises & Discoveries
 
@@ -60,10 +68,11 @@ gating would either retain a misconfiguration risk or break the harness.
 The patch closes the shared bypass while preserving ordinary issued-code flows
 and explicit isolated development/test usage. All runnable checks listed above
 passed; the added executable runtime lines are covered. Runtime browser smoke
-subsequently passed in CI for `b091ca8`. The documentation follow-up requires
-its own exact-head CI, tracked by PR #3175 checks. Local container smoke was
-not run. Do not treat this plan as evidence that a running deployment has been
-patched.
+subsequently passed in CI for `b091ca8` and the documentation head `a6d5501`.
+Main then advanced with the independent frontend parser fix `8fe412d6`; its
+authorized integration requires fresh exact-head CI, tracked by PR #3175 checks.
+Local container smoke was not run. Do not treat this plan as evidence that a
+running deployment has been patched.
 
 The remaining minimum acceptance is the existing runtime-harness stack and
 `cd src/web && npm run test:e2e -- --project=runtime-harness-smoke`, which also
