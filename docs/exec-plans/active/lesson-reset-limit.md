@@ -65,6 +65,9 @@ so a flush or eviction would silently hand every learner a fresh allowance.
   deployment behaves exactly as before. Production sets `10`.
 - Empty resets (no live progress rows and no live published session) are not
   recorded and not counted; they return success as before.
+- Opening a 1.0 lesson inserts `NOT_STARTED` placeholder rows before anything
+  is generated. Resetting only placeholders is recorded with `counted=0` and is
+  never refused, because it costs nothing.
 - A retry carrying the same `X-Request-ID` as a recorded reset returns success
   without touching anything, so a lost response cannot clear learning the
   learner has since started or spend a second use. The receipt is hashed and

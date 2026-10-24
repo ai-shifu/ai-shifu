@@ -14,7 +14,11 @@ from flaskr.service.learn import learn_funcs
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.lesson_reset_limit import get_lesson_reset_status
 from flaskr.service.learn.models import LearnLessonResetRecord, LearnProgressRecord
-from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_RESET
+from flaskr.service.order.consts import (
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_NOT_STARTED,
+    LEARN_STATUS_RESET,
+)
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedOutlineItem
 
 if TYPE_CHECKING:
@@ -64,6 +68,7 @@ def start(
     learner: str | None = None,
     lesson: str | None = None,
     siblings: int = 1,
+    status: int = LEARN_STATUS_IN_PROGRESS,
 ) -> list[str]:
     """Represent first learning or learning again after a reset."""
     identities = [uuid.uuid4().hex for _ in range(siblings)]
@@ -75,7 +80,7 @@ def start(
                     shifu_bid=course.bid,
                     outline_item_bid=lesson or course.lesson,
                     user_bid=learner or course.learner,
-                    status=LEARN_STATUS_IN_PROGRESS,
+                    status=status,
                     deleted=0,
                 )
             )
@@ -314,3 +319,26 @@ def test_lesson_outside_the_course_is_rejected(
     assert rejected.value.code == 4004
     with pytest.raises(AppError):
         get_lesson_reset_status(app, course.bid, uuid.uuid4().hex, course.learner)
+
+
+def test_opened_but_ungenerated_lesson_resets_for_free(
+    app: Flask, course: SimpleNamespace
+) -> None:
+    """Opening a 1.0 lesson only inserts placeholders; resetting them costs nothing."""
+    for _ in range(2):
+        start(app, course)
+        reset(app, course)
+    assert status(app, course) is False
+
+    placeholder = start(app, course, status=LEARN_STATUS_NOT_STARTED)
+    assert reset(app, course) is True
+    assert live_records(app, course) == []
+    rows = reset_rows(app, course)
+    assert [row.counted for row in rows] == [1, 1, 0]
+    assert rows[-1].progress_record_bid == placeholder[0]
+
+    start(app, course, status=LEARN_STATUS_NOT_STARTED)
+    start(app, course)
+    with pytest.raises(AppError) as blocked:
+        reset(app, course)
+    assert blocked.value.code == 4021

@@ -859,14 +859,16 @@ def reset_learn_record(
             .first()
         )
         effective = bool(progress_records) or live_session is not None
+        # Opening a 1.0 lesson inserts NOT_STARTED placeholders before anything is generated.
+        # Retiring only placeholders costs nothing, so it is recorded but never charged.
+        has_learning = live_session is not None or any(
+            record.status != LEARN_STATUS_NOT_STARTED for record in progress_records
+        )
+        charged = limited and has_learning
         # Two concurrent resets serialize on the row locks above; the second one then finds
         # nothing live, counts as empty and spends nothing, so no extra lock is needed to keep
         # the count exact.
-        if (
-            limited
-            and effective
-            and count_lesson_resets(user_bid, shifu_bid, outline_bid) >= limit
-        ):
+        if charged and count_lesson_resets(user_bid, shifu_bid, outline_bid) >= limit:
             raise_error("server.learn.resetLimitReached")
         for progress_record in progress_records:
             progress_record.status = LEARN_STATUS_RESET
@@ -891,7 +893,7 @@ def reset_learn_record(
                     progress_records[0].progress_record_bid if progress_records else ""
                 ),
                 preview_mode=preview_mode,
-                counted=limited,
+                counted=charged,
                 request_id=request_id if limited else None,
             )
         return True
