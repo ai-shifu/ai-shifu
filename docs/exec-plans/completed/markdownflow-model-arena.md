@@ -1,5 +1,9 @@
 # Local MarkdownFlow slide comparison ExecPlan
 
+> Retired, 2026-10-24: The local comparison tool and its operating guide were
+> removed. This completed plan records the original implementation and acceptance;
+> its commands and runtime paths are historical.
+
 > Lifecycle review, 2026-09-26: Completed original scope. Recorded browser acceptance and focused backend/frontend checks complete the model-comparison scope. Merge evidence: [#2784](https://github.com/ai-shifu/ai-shifu/pull/2784) (`489391de5`)
 
 ## Purpose / Big Picture
