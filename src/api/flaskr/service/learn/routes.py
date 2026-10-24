@@ -40,6 +40,7 @@ from flaskr.service.learn.lesson_feedback import (
     list_lesson_feedbacks,
     submit_lesson_feedback,
 )
+from flaskr.service.learn.lesson_reset_limit import get_lesson_reset_status
 from flaskr.service.learn.listen_elements import get_listen_element_record
 from flaskr.service.learn.preview_language import resolve_preview_language
 from flaskr.service.learn.preview_permissions import (
@@ -797,7 +798,66 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             require_shifu_preview_permission(app, user_bid, shifu_bid)
         return make_common_response(
             reset_learn_record(
-                app, shifu_bid, outline_bid, user_bid, preview_mode=preview_mode
+                app,
+                shifu_bid,
+                outline_bid,
+                user_bid,
+                preview_mode=preview_mode,
+                reset_request_id=request.headers.get("X-Request-ID"),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>/reset-status",
+        methods=["GET"],
+    )
+    @with_shifu_context()
+    def lesson_reset_status_api(shifu_bid: str, outline_bid: str) -> str:
+        """Return whether the learner may still reset the outline.
+
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+            - name: preview_mode
+              type: boolean
+              required: false
+        responses:
+            200:
+                description: reset availability of the outline
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    properties:
+                                        can_reset:
+                                            type: boolean
+        """
+        user_bid = request.user.user_id
+        preview_mode = request.args.get("preview_mode", "false").lower() == "true"
+        if preview_mode:
+            require_shifu_preview_permission(app, user_bid, shifu_bid)
+        return make_common_response(
+            get_lesson_reset_status(
+                app,
+                shifu_bid,
+                outline_bid,
+                user_bid,
+                preview_mode=preview_mode,
             )
         )
 

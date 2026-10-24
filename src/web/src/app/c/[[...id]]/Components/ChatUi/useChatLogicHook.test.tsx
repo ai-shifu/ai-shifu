@@ -14,6 +14,12 @@ import {
 import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
 import { useLessonRunContentStore } from '@/store/useLessonRunContentStore';
 
+// The lesson API client pulls in the user store, whose transitive SSE import is
+// ESM-only under jest; this suite never calls it.
+jest.mock('@/api/lesson', () => ({
+  getScriptInfo: jest.fn(),
+}));
+
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,

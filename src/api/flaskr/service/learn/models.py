@@ -89,6 +89,110 @@ class LearnProgressRecord(db.Model):
     )
 
 
+class LearnLessonResetRecord(db.Model):
+    """One effective lesson reset by one learner.
+
+    A row is written only when a reset actually retired learning state (progress
+    records or a live agent session); empty resets leave nothing behind. The learner's
+    quota is ``COUNT(*)`` of counted, undeleted rows for the same user, course and
+    lesson, so the limit survives restarts and is auditable from SQL. Exempt staff and
+    preview resets are still recorded with ``counted=0`` for support questions.
+
+    Extension points: per-course or per-user allowances belong in a separate policy
+    table that this table does not need to know about; refunding a use means setting
+    ``deleted=1`` on one row; usage statistics group by ``shifu_bid`` or ``user_bid``.
+    """
+
+    __tablename__ = "learn_lesson_reset_records"
+    __table_args__: ClassVar[tuple] = (
+        Index(
+            "idx_learn_lesson_reset_records_scope",
+            "user_bid",
+            "shifu_bid",
+            "outline_item_bid",
+        ),
+        # MySQL treats NULLs as distinct in a unique index, so resets without a client
+        # request id never collide, while a retried request id maps to exactly one row.
+        Index(
+            "uq_learn_lesson_reset_records_request",
+            "user_bid",
+            "request_id",
+            unique=True,
+        ),
+        {"comment": "Learn lesson reset records"},
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    reset_record_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Reset record business identifier",
+        index=True,
+    )
+    user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="User business identifier",
+    )
+    shifu_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+        index=True,
+    )
+    outline_item_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Outline item business identifier",
+    )
+    progress_record_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Newest progress record retired by this reset, empty when only a session was retired",
+    )
+    preview_mode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Scope: 0=published learning, 1=draft preview",
+    )
+    counted = Column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+        comment="Quota: 1=counts against the learner limit, 0=exempt or preview",
+    )
+    request_id = Column(
+        String(64),
+        nullable=True,
+        comment="Hashed client request id for idempotent retries",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted (refunded)",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Creation time",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Update time",
+        onupdate=now_utc,
+    )
+
+
 class LearnGeneratedBlock(db.Model):
     """Learn generated block."""
 
