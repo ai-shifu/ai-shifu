@@ -177,6 +177,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Keep WeChat OpenID preparation ahead of Profile onboarding](./completed/profile-onboarding-wechat-rebinding.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
 - [Compact completed memory recall history](./completed/recall-history-compaction.md)
+- [Remove the MarkdownFlow arena](./completed/remove-markdownflow-arena.md)
 - [Remove In-Product MiniMax Voice Cloning](./completed/remove-minimax-in-product-voice-cloning.md)
 - [Rename The Cook Web Directory](./completed/rename-cook-web-directory.md)
 - [Repository Knowledge Cleanup](./completed/repository-knowledge-cleanup.md)

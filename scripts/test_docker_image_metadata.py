@@ -220,8 +220,6 @@ def test_release_bump_migrates_web_without_retagging_other_images(
     for name in (
         "src/web/package.json",
         "src/web/package-lock.json",
-        "scripts/markdownflow-arena/package.json",
-        "scripts/markdownflow-arena/package-lock.json",
         "src/api/flaskr/service/learn/agent/engine/__init__.py",
     ):
         target = tmp_path / name

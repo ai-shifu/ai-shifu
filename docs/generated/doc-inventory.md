@@ -208,6 +208,7 @@
 | `docs/exec-plans/completed/profile-onboarding-wechat-rebinding.md` | Keep WeChat OpenID preparation ahead of Profile onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/pydantic-required-compatibility.md` | Remove deprecated Pydantic `Field(required=...)` metadata | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/recall-history-compaction.md` | Compact completed memory recall history | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
+| `docs/exec-plans/completed/remove-markdownflow-arena.md` | Remove the MarkdownFlow arena | `exec-plan-completed` | `completed` | `repo` | `2026-10-24` | `false` |
 | `docs/exec-plans/completed/remove-minimax-in-product-voice-cloning.md` | Remove In-Product MiniMax Voice Cloning | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/repository-knowledge-cleanup.md` | Repository Knowledge Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -299,7 +300,6 @@
 | `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-10-07` | `true` |
 | `docs/references/markdownflow-memory-quality.md` | MarkdownFlow Memory Quality Evaluation | `reference` | `active` | `learner` | `2026-10-12` | `true` |
 | `docs/references/markdownflow-memory-recall.md` | MarkdownFlow Memory Recall | `reference` | `implemented` | `learner` | `2026-10-13` | `true` |
-| `docs/references/markdownflow-model-arena.md` | Local MarkdownFlow slide comparisons | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/markdownflow-runtime-selection.md` | MarkdownFlow Runtime Selection | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
 | `docs/references/markdownflow-teaching-history.md` | MarkdownFlow teaching history projection | `reference` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration | `reference` | `reference` | `repo` | `2026-09-27` | `true` |
@@ -307,8 +307,6 @@
 | `docs/references/shared-course-answers.md` | Retired shared course answers | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
 | `docs/references/skill-usage-reporting.md` | Skill Usage Reporting | `reference` | `implemented` | `backend` | `2026-10-17` | `true` |
 | `scripts/AGENTS.md` | Repository Scripts Rules | `instruction` | `current` | `repo` | `-` | `true` |
-| `scripts/markdownflow-arena/README.md` | MarkdownFlow slide comparison | `reference` | `reference` | `repo` | `-` | `false` |
-| `scripts/markdownflow-arena/renderer/README.md` | MarkdownFlow arena renderer | `reference` | `reference` | `repo` | `-` | `false` |
 | `src/api/AGENTS.md` | Backend AI Collaboration Rules | `instruction` | `current` | `backend` | `-` | `true` |
 | `src/api/SKILL.md` | api Skills | `skill-router` | `current` | `backend` | `-` | `false` |
 | `src/api/flaskr/service/billing/AGENTS.md` | Backend Service: billing | `instruction` | `current` | `backend` | `-` | `true` |
