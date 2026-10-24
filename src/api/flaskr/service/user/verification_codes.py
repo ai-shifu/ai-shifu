@@ -16,7 +16,11 @@ from typing import TYPE_CHECKING, Literal
 from flaskr.common.cache_provider import CacheLock, CacheProvider
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.cache_provider import redis_cache as distributed_lock_cache
-from flaskr.common.config import get_redis_derived_prefix, get_redis_key_prefix
+from flaskr.common.config import (
+    EnvironmentConfigError,
+    get_redis_derived_prefix,
+    get_redis_key_prefix,
+)
 from flaskr.dao import db, get_redis_client
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
@@ -34,6 +38,32 @@ MAX_VERIFICATION_ATTEMPTS = 5
 VERIFICATION_CODE_CONSUMED_MARKER = MAX_VERIFICATION_ATTEMPTS + 1
 VERIFICATION_LOCK_TIMEOUT_SECONDS = 120
 VERIFICATION_LOCK_RENEW_INTERVAL_SECONDS = 30.0
+_DEVELOPMENT_VERIFICATION_EXTENSION = "development_verification_codes"
+_DEVELOPMENT_ENVIRONMENTS = frozenset({"development", "testing"})
+
+
+def enable_development_verification_codes(app: Flask) -> None:
+    """Explicitly opt a development/test bootstrap into insecure verification.
+
+    Environment variables alone must never enable this capability. Production
+    entrypoints do not call this function, including when ENV is misconfigured.
+    """
+    if app.config.get("ENV") not in _DEVELOPMENT_ENVIRONMENTS:
+        message = "Development verification codes require ENV=development or testing"
+        raise EnvironmentConfigError(message)
+    app.extensions[_DEVELOPMENT_VERIFICATION_EXTENSION] = True
+    app.logger.warning("Development verification code bypass explicitly enabled")
+
+
+def get_development_verification_code(app: Flask) -> str | None:
+    """Return the test code only for an explicitly enabled nonproduction app."""
+    if (
+        app.extensions.get(_DEVELOPMENT_VERIFICATION_EXTENSION) is not True
+        or app.config.get("ENV") not in _DEVELOPMENT_ENVIRONMENTS
+    ):
+        return None
+    code = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+    return code if isinstance(code, str) and code.strip() else None
 
 
 def _renew_verification_lock(
@@ -300,10 +330,10 @@ def consume_verification_code(
     if not code:
         raise_param_error("code")
 
-    fix_code: str | None = app.config.get("UNIVERSAL_VERIFICATION_CODE")
+    fix_code = get_development_verification_code(app)
     if fix_code and code == fix_code:
-        # Universal code is accepted in dev/test environments and should not
-        # affect cache/db state.
+        # Only the explicit development/test bootstrap can enable this shortcut.
+        # Preserve its historical behavior of leaving challenge state untouched.
         return
 
     resolved_kind: CodeKind = kind or ("email" if "@" in identifier else "sms")

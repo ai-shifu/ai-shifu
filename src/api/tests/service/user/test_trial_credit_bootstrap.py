@@ -75,6 +75,12 @@ def user_trial_client(monkeypatch: object, tmp_path: object) -> object:
     db_uri = f"sqlite:///{db_path}"
     monkeypatch.setenv("BILL_ENABLED", "true")
     app = Flask(__name__)
+    from flaskr.service.user.verification_codes import (
+        enable_development_verification_codes,
+    )
+
+    app.config["ENV"] = "testing"
+    enable_development_verification_codes(app)
     app.testing = True
     app.config.update(
         SQLALCHEMY_DATABASE_URI=db_uri,
@@ -87,6 +93,7 @@ def user_trial_client(monkeypatch: object, tmp_path: object) -> object:
         SECRET_KEY="test-secret-key",
         TOKEN_EXPIRE_TIME=60 * 60,
         UNIVERSAL_VERIFICATION_CODE="9999",
+        ENV="testing",
         REDIS_KEY_PREFIX="test:",
         REDIS_KEY_PREFIX_USER="test:user:",
         REDIS_KEY_PREFIX_PHONE_CODE="test:phone:",
