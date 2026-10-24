@@ -16,9 +16,13 @@ from pydantic_ai.messages import ModelMessage, ModelRequest, ToolReturnPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
 
 REQUEST = "Please remember that my practice code is 7319."
+MESSAGES = [
+    {"role": "system", "content": "Course context."},
+    {"role": "user", "content": REQUEST},
+]
 
 
 def note_model(
@@ -1121,21 +1125,41 @@ def test_quote_tool_uses_only_original_learner_history_without_write_permission(
     checker.assert_not_awaited()
 
 
-def _plain_answer() -> list[LLMStreamResponse]:
+def _plain_answer(
+    received: list[list[dict[str, str]]],
+) -> Callable[[list[dict[str, str]]], list[LLMStreamResponse]]:
     """Stand in for the plain chat answer used without memory tools."""
-    return [
-        LLMStreamResponse(
-            "plain",
-            is_end=False,
-            is_truncated=False,
-            result="Plain answer.",
-            finish_reason=None,
-            usage=None,
-        )
-    ]
+
+    def answer(messages: list[dict[str, str]]) -> list[LLMStreamResponse]:
+        received.append(messages)
+        return [
+            LLMStreamResponse(
+                "plain",
+                is_end=False,
+                is_truncated=False,
+                result="Plain answer.",
+                finish_reason=None,
+                usage=None,
+            )
+        ]
+
+    return answer
 
 
-def _reading_run(patch: FollowUpMemoryPatch, *, lead_in: bool) -> FollowUpMemoryRun:
+def _notice(messages: list[dict[str, str]]) -> str:
+    """Return the fallback's added system notice, after the original system messages."""
+    assert messages[0] == {"role": "system", "content": "Course context."}
+    assert messages[1]["role"] == "system"
+    assert messages[2:] == [{"role": "user", "content": REQUEST}]
+    return messages[1]["content"]
+
+
+def _reading_run(
+    patch: FollowUpMemoryPatch,
+    *,
+    lead_in: bool,
+    received: list[list[dict[str, str]]],
+) -> FollowUpMemoryRun:
     """Read one key per model request until the run's tool budget is exhausted."""
     keys = [f"pref_{i}" for i in range(12)]
     calls = {"n": 0}
@@ -1167,7 +1191,7 @@ def _reading_run(patch: FollowUpMemoryPatch, *, lead_in: bool) -> FollowUpMemory
         reserved_keys=frozenset(),
         request_check=AsyncMock(return_value=True),
         preview=False,
-        fallback=_plain_answer,
+        fallback=_plain_answer(received),
     )
 
 
@@ -1175,16 +1199,15 @@ def _reading_run(patch: FollowUpMemoryPatch, *, lead_in: bool) -> FollowUpMemory
 def test_exhausted_tool_budget_finishes_without_memory_tools(lead_in: bool) -> None:
     """Too many reads end with a plain answer instead of an error mid-stream."""
     patch = FollowUpMemoryPatch()
-    run = _reading_run(patch, lead_in=lead_in)
-    shown = [
-        chunk.result
-        for chunk in run.stream(
-            [{"role": "user", "content": "What do you remember about me?"}]
-        )
-    ]
+    received: list[list[dict[str, str]]] = []
+    run = _reading_run(patch, lead_in=lead_in, received=received)
+    shown = [chunk.result for chunk in run.stream(MESSAGES)]
     expected = ["Let me check. ", "\n\n", "Plain answer."] if lead_in else []
     assert shown == (expected or ["Plain answer."])
     assert patch.variables == []
+    notice = _notice(received[0])
+    assert "Never say or imply that a fact was saved." in notice
+    assert ('"Let me check. "' in notice) is lead_in
 
 
 def test_busy_worker_answers_follow_ups_without_memory_tools(
@@ -1199,7 +1222,11 @@ def test_busy_worker_answers_follow_ups_without_memory_tools(
 
     monkeypatch.setattr(follow_up_memory_writer, "iter_turn", full)
     patch = FollowUpMemoryPatch()
-    run = _reading_run(patch, lead_in=False)
-    shown = [chunk.result for chunk in run.stream([{"role": "user", "content": "Hi"}])]
+    received: list[list[dict[str, str]]] = []
+    run = _reading_run(patch, lead_in=False, received=received)
+    shown = [chunk.result for chunk in run.stream(MESSAGES)]
     assert shown == ["Plain answer."]
     assert patch.variables == []
+    notice = _notice(received[0])
+    assert "say plainly that it was not saved this time" in notice
+    assert "already been shown" not in notice

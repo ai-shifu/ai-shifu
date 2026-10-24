@@ -541,7 +541,9 @@ def handle_input_ask(
         # Guardrail rejections resolve through invoke_llm in check_text instead.
         model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
 
-        def plain_stream() -> Generator[Any, None, None]:
+        def plain_stream(
+            plain_messages: list[dict[str, Any]] | None = None,
+        ) -> Generator[Any, None, None]:
             """Answer without memory tools."""
             return chat_llm_func(
                 app,
@@ -555,7 +557,7 @@ def handle_input_ask(
                     "temperature"
                 ],  # Use configured temperature parameter
                 generation_name=generation_name,
-                messages=stream_messages,
+                messages=stream_messages if plain_messages is None else plain_messages,
                 usage_context=usage_context,
                 usage_scene=usage_scene,
             )

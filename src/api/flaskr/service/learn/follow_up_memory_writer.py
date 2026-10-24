@@ -57,6 +57,34 @@ if TYPE_CHECKING:
     from flask import Flask
     from pydantic_ai.models import Model
 
+_FALLBACK_NOTICE = (
+    "Memory tools are unavailable for this answer, so nothing can be saved, "
+    "updated or deleted now. If the learner asks you to remember, save, update "
+    "or forget something, say plainly that it was not saved this time and that "
+    "they can ask again later. Never say or imply that a fact was saved."
+)
+_FALLBACK_CONTINUATION = (
+    "The learner has already been shown the start of your answer, quoted as JSON "
+    "data: {shown}. Continue it in a new paragraph. Do not repeat, restart or "
+    "contradict it."
+)
+
+
+def _fallback_messages(
+    messages: list[dict[str, str]], shown: str
+) -> list[dict[str, str]]:
+    """Tell a plain answer that memory writes are unavailable and what was already shown."""
+    notice = _FALLBACK_NOTICE
+    if shown.strip():
+        notice += " " + _FALLBACK_CONTINUATION.format(
+            shown=json.dumps(shown, ensure_ascii=False)
+        )
+    lead = 0
+    while lead < len(messages) and messages[lead].get("role") == "system":
+        lead += 1
+    return [*messages[:lead], {"role": "system", "content": notice}, *messages[lead:]]
+
+
 _MEMORY_EVIDENCE_POLICY = (
     "A recall result establishes only the current in-run value, not the history "
     "of saves. A found value does not show whether or when an earlier value "
@@ -269,7 +297,8 @@ class FollowUpMemoryRun:
         cancelled: Callable[[], bool] | None = None,
         value_versions: dict[str, int | tuple[int, str | None]] | None = None,
         quotation_messages: tuple[str, ...] = (),
-        fallback: Callable[[], Iterable[LLMStreamResponse]] | None = None,
+        fallback: Callable[[list[dict[str, str]]], Iterable[LLMStreamResponse]]
+        | None = None,
     ) -> None:
         """Capture immutable request evidence; DB state never enters the producer thread."""
         self.fallback = fallback
@@ -467,9 +496,10 @@ class FollowUpMemoryRun:
             # tools rather than failing it while lessons are busy.
             if self.fallback is None:
                 raise
-            yield from self.fallback()
+            yield from self.fallback(_fallback_messages(messages, ""))
             return
         exhausted = False
+        shown: list[str] = []
         try:
             for event in events:
                 check_active()
@@ -477,6 +507,7 @@ class FollowUpMemoryRun:
                     completed = event
                 elif event:
                     visible = visible or bool(event.strip())
+                    shown.append(event)
                     yield LLMStreamResponse(
                         "follow-up",
                         is_end=False,
@@ -486,8 +517,8 @@ class FollowUpMemoryRun:
                         usage=None,
                     )
         except UsageLimitExceeded:
-            # The run used its read/write budget while still calling tools, so any text
-            # shown is only a lead-in. Save nothing and finish without memory tools.
+            # The run used its read/write budget while still calling tools. Save nothing
+            # and finish without memory tools, continuing any text already shown.
             if self.fallback is None:
                 raise
             exhausted = True
@@ -503,7 +534,7 @@ class FollowUpMemoryRun:
                     finish_reason=None,
                     usage=None,
                 )
-            yield from self.fallback()
+            yield from self.fallback(_fallback_messages(messages, "".join(shown)))
             return
         check_active()
         if completed is not None and visible and not self.preview:
