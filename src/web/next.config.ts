@@ -84,6 +84,15 @@ const withMDX = createMDX({
   },
 });
 
+// MarkdownFlow 0.3.0 bundles Mermaid 11.10.1; Mermaid 11.16.1 bundles YAML 4.1.1.
+// Route their exact internal imports to the patched application dependencies.
+const renderingDependencyAliases = {
+  '../../../node_modules/mermaid/dist/mermaid.core.es.js': 'mermaid',
+  '../../../node_modules/mermaid/dist/mermaid.core.cjs': 'mermaid',
+  './chunks/mermaid.core/chunk-ZIRB5QZD.mjs': 'js-yaml',
+  './chunk-ZIRB5QZD.mjs': 'js-yaml',
+};
+
 const nextConfig: NextConfig = {
   // Enable standalone output to reduce production image size
   output: 'standalone',
@@ -122,12 +131,25 @@ const nextConfig: NextConfig = {
   reactStrictMode: false,
 
   turbopack: {
+    resolveAlias: renderingDependencyAliases,
     rules: {
       '*.less': {
         loaders: ['less-loader'],
         as: '*.css',
       },
     },
+  },
+  webpack(config) {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      ...Object.fromEntries(
+        Object.entries(renderingDependencyAliases).map(([request, target]) => [
+          `${request}$`,
+          target,
+        ]),
+      ),
+    };
+    return config;
   },
   env: {
     NEXT_PUBLIC_I18N_META: JSON.stringify(frontendLocalesMetadata),
