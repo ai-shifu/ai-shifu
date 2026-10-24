@@ -1,6 +1,6 @@
 ---
 name: listen-mode-slide-mobile-integration
-description: 当 learner 端听课模式需要接入 markdown-flow-ui 的移动端播放器新能力时使用本技能。覆盖横竖屏状态透传、自定义横屏 header、以及播放器文案国际化接入。
+description: Use when integrating new markdown-flow-ui mobile player capabilities into learner listen mode. Cover orientation state, custom landscape headers, and localized player text.
 ---
 
 # 听课模式 Slide 移动端接入

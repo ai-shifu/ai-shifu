@@ -1,6 +1,6 @@
 ---
 name: markdownflow-controlled-sync
-description: 当 ai-shifu 以受控方式接入 MarkdownFlowEditor，并出现变量中间态、临时标签或本地输入回灌问题时使用本技能。
+description: Use when a controlled MarkdownFlowEditor integration in ai-shifu retains intermediate variable names, temporary tags, or echoed local input.
 ---
 
 # MarkdownFlowEditor 受控同步

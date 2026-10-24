@@ -12,11 +12,11 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import clear_language, set_language
 from flaskr.service.learn.agent import run_agent, session_store
-from flaskr.service.learn.agent.engine import Engine
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity, get_user_entity_by_bid
+from markdownflow.engine import Engine
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 

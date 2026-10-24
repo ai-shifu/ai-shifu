@@ -25,8 +25,8 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/release_workflow.py"
-ENGINE = "src/api/flaskr/service/learn/agent/engine/__init__.py"
-PACKAGES = ("src/web", "scripts/markdownflow-arena")
+ENGINE = "src/api/markdownflow/engine/__init__.py"
+PACKAGES = ("src/web",)
 
 
 class ReleaseFixture(unittest.TestCase):
@@ -225,7 +225,6 @@ class ReleaseFixture(unittest.TestCase):
             "wrong-after",
             "lock-root",
             "lock-top",
-            "arena",
             "engine",
             "pinned",
             "rolling",
@@ -249,10 +248,6 @@ class ReleaseFixture(unittest.TestCase):
                     else:
                         lock["version"] = "3.0.0"
                     path.write_text(json.dumps(lock))
-                if case == "arena":
-                    self.write(
-                        "scripts/markdownflow-arena/package.json", '{"version":"3.0.0"}'
-                    )
                 if case == "engine":
                     self.write(ENGINE, '__version__ = "3.0.0"\n')
                 if case in {"pinned", "rolling"}:

@@ -11,7 +11,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from flaskr.service.learn.agent import gateway_model as gw
+from flaskr.api.llm import markdownflow_model as gw
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -292,7 +292,7 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
     `chat_llm` is faked, so this asserts the wiring rather than any model behaviour: the request
     the gateway builds, the parts it reassembles, and that pydantic-ai accepts both.
     """
-    from flaskr.service.learn.agent.engine import (
+    from markdownflow.engine import (
         Engine,
         InteractionRequest,
         InteractionResponseTurn,
@@ -384,7 +384,7 @@ async def test_the_gateway_sends_tools_but_never_forces_a_choice() -> None:
             )
         ]
     )
-    import flaskr.service.learn.agent.gateway_model as module
+    import flaskr.api.llm.markdownflow_model as module
 
     original, module.chat_llm = module.chat_llm, fake_chat_llm
     try:

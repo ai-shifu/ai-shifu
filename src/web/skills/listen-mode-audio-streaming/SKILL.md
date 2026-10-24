@@ -1,6 +1,6 @@
 ---
 name: listen-mode-audio-streaming
-description: 当处理学习模式初始化、URL 与存储偏好、听课模式流式音频、buffering、TTS 请求门禁与播放连续性问题时使用本技能。
+description: Use for learning-mode initialization, URL and stored preferences, listen-mode audio streaming, buffering, TTS request gates, and continuous playback.
 ---
 
 # 听课模式流式音频

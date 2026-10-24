@@ -45,6 +45,15 @@ by `python scripts/check_architecture_boundaries.py`.
 
 ## Backend Rules
 
+### MarkdownFlow is application-independent
+
+- Files under `src/api/markdownflow/` must not import `flaskr`, Flask,
+  Flask-SQLAlchemy or SQLAlchemy, including imports guarded by `TYPE_CHECKING`.
+- Application model gateways and localization belong in `flaskr/api/`;
+  persistence and business policy belong in their owning services. See the
+  [library design](../design-docs/markdownflow-engine-library.md).
+- The checker reports these imports as `backend.engine_imports_application`.
+
 ### Service modules must not depend on root routes
 
 - Files under `src/api/flaskr/service/**` must not import `flaskr.route.*`

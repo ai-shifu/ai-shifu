@@ -83,7 +83,7 @@ remain open; evaluate their applicability after the simplified base is tested.
 
 ## Context and Orientation
 
-`src/api/flaskr/service/learn/agent/pagination.py` owns the existing StreamFormatter integration.
+`src/api/markdownflow/pagination.py` owns the existing StreamFormatter integration.
 `preserve_markers.py` ran a second parser before classification at the start of this task;
 it now adapts the existing formatter and delegates only prose syntax to `markdown_text.py`.
 `run_agent.py` delivers typed SSE, persists derived narration and enforces the prepared-feedback

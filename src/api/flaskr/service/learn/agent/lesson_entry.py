@@ -20,10 +20,9 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
 )
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
+from flaskr.api.markdownflow import Engine, GatewayModel
 from flaskr.dao.uow import app_context_scope
 from flaskr.service.common.models import AppError, raise_error
-from flaskr.service.learn.agent.engine.engine import Engine
-from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
 from flaskr.service.learn.agent.memory_admission import make_request_check
 from flaskr.service.learn.agent.rewind import RewindUnavailableError, plan_rewind

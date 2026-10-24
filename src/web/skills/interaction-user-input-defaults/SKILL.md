@@ -1,6 +1,6 @@
 ---
 name: interaction-user-input-defaults
-description: 当 ai-shifu 与 markdown-flow-ui 之间需要同步交互式 markdown 状态时使用本技能。将原始 `user_input` 持久化在应用状态中，把 `userInput` 传给 `ContentRender` 或 `MarkdownFlow`，并让 markdown-flow-ui 负责推导按钮、输入框和已选项默认值，避免在业务代码重复解析。
+description: Use when synchronizing interactive Markdown state between ai-shifu and markdown-flow-ui. Persist raw user_input, pass userInput to ContentRender or MarkdownFlow, and let markdown-flow-ui derive button, input, and selected-option defaults instead of parsing them again in business code.
 ---
 
 # 交互输入默认值（`user_input`）

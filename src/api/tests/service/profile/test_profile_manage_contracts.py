@@ -1,6 +1,7 @@
 """Verify variable-definition scope, usage discovery, and persisted edits."""
 
 import uuid
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,7 +13,7 @@ from flaskr.service.common.models import AppError
 from flaskr.service.profile import profile_manage as profiles
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.models import DraftOutlineItem
-from sqlalchemy import event, text
+from sqlalchemy import MetaData, String, event, text
 
 
 @pytest.fixture
@@ -178,6 +179,138 @@ def test_quick_add_reuses_system_definition_and_validates_required_fields(
             profiles.add_profile_item_quick(app, course, key, "teacher")
 
 
+@pytest.mark.parametrize("operation", ["quick", "save"])
+@pytest.mark.parametrize(
+    "raw_key",
+    [
+        "  Your name?  ",
+        "\u00a0你的[性别] | 是//什么...？\u3000",
+        "user  name",
+        '"quoted" \\path',
+        "a{b}c",
+        "a}",
+        "\ufeff key \ufeff",
+    ],
+)
+def test_definition_creation_uses_the_script_key_after_trimming_only_its_edges(
+    app: object, variables: object, operation: str, raw_key: str
+) -> None:
+    expected = raw_key.strip()
+    result = (
+        profiles.add_profile_item_quick(app, variables.course, raw_key, "teacher")
+        if operation == "quick"
+        else profiles.save_profile_item(app, "", variables.course, "teacher", raw_key)
+    )
+    assert result.profile_key == expected
+    with app.app_context():
+        assert (
+            Variable.query.filter_by(variable_bid=result.profile_id).one().key
+            == expected
+        )
+
+
+@pytest.mark.parametrize("operation", ["quick", "save"])
+@pytest.mark.parametrize(
+    "key", ["  ", "a}}b", "a\x00b", "a\tb", "a\nb", "a\u2028b", 42]
+)
+def test_definition_creation_rejects_unrepresentable_keys_without_writes(
+    app: object, variables: object, operation: str, key: str
+) -> None:
+    with app.app_context():
+        before = Variable.query.filter_by(shifu_bid=variables.course).count()
+    create = (
+        partial(profiles.add_profile_item_quick, app, variables.course, key, "teacher")
+        if operation == "quick"
+        else partial(
+            profiles.save_profile_item, app, "", variables.course, "teacher", key
+        )
+    )
+    with pytest.raises(AppError):
+        create()
+    with app.app_context():
+        assert Variable.query.filter_by(shifu_bid=variables.course).count() == before
+
+
+def test_trimmed_definition_names_keep_system_reuse_and_collision_protection(
+    app: object, variables: object
+) -> None:
+    raw = f"  {variables.keys['system']}  "
+    result = profiles.add_profile_item_quick(app, variables.course, raw, "teacher")
+    assert result.profile_key == variables.keys["system"]
+    with pytest.raises(AppError):
+        profiles.save_profile_item(app, "", variables.course, "teacher", raw)
+
+
+@pytest.fixture
+def case_folding_app(tmp_path: Path) -> object:
+    app = Flask("case-folding-variable-contracts")
+    app.config.update(
+        SQLALCHEMY_DATABASE_URI=f"sqlite:///{tmp_path / 'case-folding.db'}",
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        SQLALCHEMY_ENGINE_OPTIONS={},
+    )
+    db.init_app(app)
+    table = Variable.__table__.to_metadata(MetaData())
+    table.c.key.type = String(255, collation="NOCASE")
+    with app.app_context():
+        table.create(db.engine)
+    yield app
+    with app.app_context():
+        db.session.remove()
+        db.engine.dispose()
+
+
+@pytest.mark.parametrize("operation", ["quick", "save"])
+def test_definition_identity_remains_exact_under_a_case_folding_database(
+    case_folding_app: object, operation: str
+) -> None:
+    app = case_folding_app
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            Variable(variable_bid="system-Name", shifu_bid="", key="Name", deleted=0)
+        )
+    lower = (
+        profiles.add_profile_item_quick(app, "course", " name ", "teacher")
+        if operation == "quick"
+        else profiles.save_profile_item(app, "", "course", "teacher", " name ")
+    )
+    upper = profiles.add_profile_item_quick(app, "course", " Name ", "teacher")
+    assert lower.profile_key == "name"
+    assert upper.profile_key == "Name"
+    assert lower.profile_id != upper.profile_id
+    with pytest.raises(AppError):
+        profiles.save_profile_item(app, "", "course", "teacher", " name ")
+    with app.app_context():
+        assert [row.key for row in Variable.query.filter_by(shifu_bid="course")] == [
+            "name"
+        ]
+
+
+@pytest.mark.parametrize("hidden", [False, True])
+def test_hidden_updates_select_exact_keys_under_a_case_folding_database(
+    case_folding_app: object, hidden: bool
+) -> None:
+    app = case_folding_app
+    for key in ("Goal?", "goal?"):
+        profiles.add_profile_item_quick(app, "course", key, "teacher")
+    with app.app_context(), unit_of_work():
+        for row in Variable.query.filter_by(shifu_bid="course"):
+            row.is_hidden = int(not hidden)
+
+    result = profiles.update_profile_item_hidden_state(
+        app, "course", ["goal?"], hidden, "teacher"
+    )
+    assert {item.profile_key: item.is_hidden for item in result} == {
+        "Goal?": not hidden,
+        "goal?": hidden,
+    }
+    with app.app_context():
+        assert {
+            row.key: bool(row.is_hidden)
+            for row in Variable.query.filter_by(shifu_bid="course")
+        } == {"Goal?": not hidden, "goal?": hidden}
+
+
 @pytest.mark.parametrize("system", [False, True])
 def test_delete_soft_deletes_custom_definitions_and_protects_system_variables(
     app: object, variables: object, system: bool
@@ -245,7 +378,12 @@ def legacy_app(tmp_path: Path) -> object:
             text(
                 "CREATE TABLE profile_item (id INTEGER PRIMARY KEY, "
                 "profile_index INTEGER, status INTEGER, "
-                + ", ".join(f"{field} TEXT" for field in fields)
+                + ", ".join(
+                    f"{field} TEXT COLLATE NOCASE"
+                    if field == "profile_key"
+                    else f"{field} TEXT"
+                    for field in fields
+                )
                 + ")"
             )
         )
@@ -296,6 +434,25 @@ def test_legacy_quick_add_reuses_active_identity_and_increments_index(
         assert [row["profile_key"] for row in rows] == ["first", "second"]
         assert all(row["created_by"] == "teacher" for row in rows)
         assert all(row["status"] == 1 and row["parent_id"] == parent for row in rows)
+
+
+def test_legacy_definition_reuse_uses_exact_keys_with_a_case_folding_column(
+    legacy_app: object,
+) -> None:
+    with legacy_app.app_context(), unit_of_work():
+        upper = profiles.add_profile_item_quick_internal(
+            legacy_app, "course", "Name", "teacher"
+        )
+        lower = profiles.add_profile_item_quick_internal(
+            legacy_app, "course", " name ", "teacher"
+        )
+        duplicate = profiles.add_profile_item_quick_internal(
+            legacy_app, "course", " Name ", "teacher"
+        )
+        assert upper.profile_key == "Name"
+        assert lower.profile_key == "name"
+        assert upper.profile_id != lower.profile_id
+        assert duplicate.profile_id == upper.profile_id
 
 
 def test_legacy_i18n_is_idempotent_per_language_and_preserves_first_remark(

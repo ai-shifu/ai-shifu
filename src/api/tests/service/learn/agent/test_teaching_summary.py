@@ -7,15 +7,15 @@ import json
 from typing import TYPE_CHECKING
 
 import pytest
-from flaskr.service.learn.agent import gateway_model as gw
-from flaskr.service.learn.agent.engine import Engine, MessageTurn, Session, TurnDone
-from flaskr.service.learn.agent.engine.script import ScriptBundle
-from flaskr.service.learn.agent.engine.teaching_history import project_teaching_history
+from flaskr.api.llm import markdownflow_model as gw
 from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
+from markdownflow.engine import Engine, MessageTurn, Session, TurnDone
+from markdownflow.engine.script import ScriptBundle
+from markdownflow.engine.teaching_history import project_teaching_history
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 from pydantic_ai.models import ModelRequestParameters
 
-from tests.service.learn.agent.engine.test_teaching_summary import history
+from tests.markdownflow.engine.test_teaching_summary import history
 from tests.service.learn.agent.test_gateway_model import FakeChunk, FakeSpan
 
 if TYPE_CHECKING:

@@ -85,10 +85,11 @@ def stream_operator_profile_onboarding_preview_session(
     operator_user_bid: str,
     session_id: str,
     user_input: dict[str, list[str]] | None,
-    expected_block_index: int | None = None,
+    expected_turn_index: int | None = None,
     request_id: str | None = None,
+    expected_interaction_id: str | None = None,
 ) -> Generator[dict[str, Any], None, None]:
-    """Run one cursor step while enforcing owner and preview-purpose scope."""
+    """Run one native engine turn while enforcing owner and preview-purpose scope."""
     from flaskr.service.profile_research.api import (
         PROFILE_ONBOARDING_PREVIEW_PURPOSE,
         stream_profile_research_session,
@@ -100,6 +101,7 @@ def stream_operator_profile_onboarding_preview_session(
         session_id=session_id,
         user_input=user_input,
         expected_purpose=PROFILE_ONBOARDING_PREVIEW_PURPOSE,
-        expected_block_index=expected_block_index,
+        expected_turn_index=expected_turn_index,
         request_id=request_id,
+        expected_interaction_id=expected_interaction_id,
     )

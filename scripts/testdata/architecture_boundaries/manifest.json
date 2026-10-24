@@ -14,7 +14,11 @@
         "backend.service_imports_root_route",
         "frontend.component_imports_route_internal",
         "frontend.cross_route_app_import",
-        "frontend.disallowed_fetch_callsite"
+        "frontend.disallowed_fetch_callsite",
+        "backend.engine_imports_application",
+        "backend.engine_imports_application",
+        "backend.engine_imports_application",
+        "backend.engine_imports_application"
       ]
     },
     {

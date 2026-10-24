@@ -13,7 +13,7 @@ from flaskr.service.learn.preview_language import resolve_preview_language
 from flaskr.service.profile.api import SYS_USER_LANGUAGE
 
 if TYPE_CHECKING:
-    from flaskr.service.learn.agent.engine.engine import Engine
+    from flaskr.api.markdownflow import Engine
 
 
 def configure_output_language(

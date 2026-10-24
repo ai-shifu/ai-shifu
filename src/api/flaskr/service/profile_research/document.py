@@ -1,4 +1,4 @@
-"""Official MarkdownFlow validation and profile-summary document assembly."""
+"""Published questionnaire validation and private profile transformation prompts."""
 
 from __future__ import annotations
 
@@ -23,10 +23,6 @@ def _profile_summary_prompt() -> str:
     return f"{research_source_prompt}\n\n{optimizer_prompt}"
 
 
-def _append_profile_summary(document: str) -> str:
-    return f"{document.rstrip()}\n\n---\n\n{_profile_summary_prompt()}"
-
-
 def validate_profile_research_document(document: str) -> dict[str, Any]:
     """Validate the configured document with MarkdownFlow's own parser."""
     if not isinstance(document, str) or not document.strip():
@@ -46,9 +42,6 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
     interaction_count = sum(
         block.block_type == BlockType.INTERACTION for block in blocks
     )
-    if interaction_count == 0:
-        msg = "document must contain an interaction"
-        raise ProfileResearchValidationError(msg)
     interaction_parser = InteractionParser()
     for block in blocks:
         if block.block_type != BlockType.INTERACTION:

@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from flask import Flask
-    from flaskr.service.learn.agent.engine import Engine
+    from markdownflow.engine import Engine
     from pydantic_ai.messages import ModelMessage
     from pydantic_ai.models.function import AgentInfo
 
@@ -288,7 +288,7 @@ def test_host_does_not_refresh_a_working_note_as_an_accepted_named_answer(
     app: Flask, learner: tuple[str, str], answered: bool, same_value: bool
 ) -> None:
     """A matching session-only key without an answered question retains its value."""
-    from flaskr.service.learn.agent.engine import Engine
+    from markdownflow.engine import Engine
 
     user, course = learner
     lesson = uuid4().hex

@@ -26,7 +26,8 @@ PROFILE_RESEARCH_SESSION_TTL_SECONDS = 30 * 60
 # Leave one minute of headroom without making a hard-killed run keep its session
 # busy for the rest of the conversation lifetime.
 PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS = 6 * 60
-SESSION_SCHEMA_VERSION = 1
+SESSION_SCHEMA_VERSION = 3
+_READABLE_SESSION_SCHEMA_VERSIONS = frozenset({SESSION_SCHEMA_VERSION})
 MAX_DOCUMENT_CODEPOINTS = 100_000
 MAX_BLOCK_COUNT = 100
 MAX_INPUT_KEY_CODEPOINTS = 256
@@ -189,9 +190,7 @@ class _ProfileResearchSession:
     temperature: float
     output_language: str
     config_revision: int
-    block_index: int
-    block_count: int
-    profile_draft_block_index: int
+    turn_index: int = 0
     assistant_prompt: str = ""
     variables: dict[str, str | list[str]] = field(default_factory=dict)
     context: list[dict[str, str]] = field(default_factory=list)
@@ -201,9 +200,12 @@ class _ProfileResearchSession:
     last_operation: str = "run"
     last_raw_text: str = ""
     last_request_id: str = ""
-    last_expected_block_index: int | None = None
+    last_expected_turn_index: int | None = None
+    last_expected_interaction_id: str | None = None
     last_user_input: dict[str, list[str]] = field(default_factory=dict)
     last_events: list[dict[str, Any]] = field(default_factory=list)
+    # The complete questionnaire owns one native session for its entire lifetime.
+    engine_session: dict[str, Any] | None = None
 
     def to_cache_payload(self) -> dict[str, Any]:
         return {
@@ -217,9 +219,7 @@ class _ProfileResearchSession:
             "temperature": self.temperature,
             "output_language": self.output_language,
             "config_revision": self.config_revision,
-            "block_index": self.block_index,
-            "block_count": self.block_count,
-            "profile_draft_block_index": self.profile_draft_block_index,
+            "turn_index": self.turn_index,
             "variables": self.variables,
             "context": self.context,
             "awaiting_input": self.awaiting_input,
@@ -228,15 +228,19 @@ class _ProfileResearchSession:
             "last_operation": self.last_operation,
             "last_raw_text": self.last_raw_text,
             "last_request_id": self.last_request_id,
-            "last_expected_block_index": self.last_expected_block_index,
+            "last_expected_turn_index": self.last_expected_turn_index,
+            "last_expected_interaction_id": self.last_expected_interaction_id,
             "last_user_input": self.last_user_input,
             "last_events": self.last_events,
+            "engine_session": self.engine_session,
         }
 
     @classmethod
     def from_cache_payload(cls, payload: Mapping[str, Any]) -> _ProfileResearchSession:
         try:
-            if int(payload.get("schema_version") or 0) != SESSION_SCHEMA_VERSION:
+            if int(payload.get("schema_version") or 0) not in (
+                _READABLE_SESSION_SCHEMA_VERSIONS
+            ):
                 msg = "session schema mismatch"
                 raise ProfileResearchSessionNotFound(msg)
             raw_events = payload.get("last_events")
@@ -249,7 +253,17 @@ class _ProfileResearchSession:
             else:
                 msg = "invalid replay events"
                 raise ProfileResearchSessionNotFound(msg)
-            last_expected_block_index = payload.get("last_expected_block_index")
+            last_expected_turn_index = payload.get("last_expected_turn_index")
+            last_expected_interaction_id = payload.get("last_expected_interaction_id")
+            if last_expected_interaction_id is not None and not isinstance(
+                last_expected_interaction_id, str
+            ):
+                msg = "invalid expected profile interaction"
+                raise ProfileResearchSessionNotFound(msg)
+            engine_session = payload.get("engine_session")
+            if engine_session is not None and not isinstance(engine_session, dict):
+                msg = "invalid engine session"
+                raise ProfileResearchSessionNotFound(msg)
             return cls(
                 session_id=str(payload["session_id"]),
                 user_bid=str(payload["user_bid"]),
@@ -260,9 +274,7 @@ class _ProfileResearchSession:
                 temperature=float(payload["temperature"]),
                 output_language=str(payload.get("output_language") or ""),
                 config_revision=int(payload.get("config_revision") or 0),
-                block_index=int(payload["block_index"]),
-                block_count=int(payload["block_count"]),
-                profile_draft_block_index=int(payload["profile_draft_block_index"]),
+                turn_index=int(payload["turn_index"]),
                 variables=_normalize_session_variables(payload.get("variables")),
                 context=_normalize_session_context(payload.get("context")),
                 awaiting_input=bool(payload.get("awaiting_input", False)),
@@ -271,15 +283,17 @@ class _ProfileResearchSession:
                 last_operation=str(payload.get("last_operation") or "run"),
                 last_raw_text=str(payload.get("last_raw_text") or ""),
                 last_request_id=str(payload.get("last_request_id") or ""),
-                last_expected_block_index=(
-                    int(last_expected_block_index)
-                    if last_expected_block_index is not None
+                last_expected_turn_index=(
+                    int(last_expected_turn_index)
+                    if last_expected_turn_index is not None
                     else None
                 ),
+                last_expected_interaction_id=last_expected_interaction_id,
                 last_user_input=_normalize_profile_research_user_input(
                     payload.get("last_user_input")
                 ),
                 last_events=events,
+                engine_session=engine_session,
             )
         except ProfileResearchError as exc:
             if isinstance(exc, ProfileResearchSessionNotFound):
@@ -294,9 +308,7 @@ class _ProfileResearchSession:
         return {
             "session_id": self.session_id,
             "purpose": self.purpose,
-            "block_index": self.block_index,
-            "block_count": self.block_count,
-            "profile_draft_block_index": self.profile_draft_block_index,
+            "turn_index": self.turn_index,
             "awaiting_input": self.awaiting_input,
             "done": self.done,
             "assistant_prompt": self.assistant_prompt,

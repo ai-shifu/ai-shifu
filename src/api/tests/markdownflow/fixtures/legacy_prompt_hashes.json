@@ -1,0 +1,20 @@
+{
+  "source_revision": "5991ac21a05ad992aa6ff4ae80c052970aa4e06b",
+  "sha256": {
+    "answer_review": "4a389e45e69f44d36b0937cd368f42f1bf45051c9c69d66a2cec69407a1c38e8",
+    "exercise_statistics": "53093341d6044f7e5cba0b951cb81b851f83dd578875ff2349b1ba257357d6db",
+    "feedback_contract": "f3966e53b2ad3babc67636c2990652796bac6d1f5bc672f7b8bd49ed0052edd0",
+    "html_display": "22c7617597825940752bac01d81ff5f42a01e4726b0fe85017e5f312ae8a5190",
+    "html_display_generic": "8a40388f9ce2097a50b75e6e8251dd761e829cc4109dddb4f79d7387817cfea5",
+    "listen_mode": "4905a2e9844a9ad27421b2ad1621e1d6cb1c6014cd4ad75a69f324635acc9955",
+    "memory_admission": "cdad77a648ee64fe3197af1f2e3d76486ecc2781f93c1f6246a4359a14222d03",
+    "memory_policy": "11c5d36ac922c76bf8779c320fae158003280052a2a9664e616e6f7750325a42",
+    "memory_recall": "6088b0919aa4cf9ce518419210790aa5567f40b522fe3931d2228bd84b672ddd",
+    "memory_unrestricted": "822baaed99a16b07e788e444eca0bf648ad2751b0a87b5e6973e3cfcde89161a",
+    "recall_history_compaction": "a3f97bd6c6d889785886f2ddba37e55abde8a81c9033547219a1190e8e3bae5e",
+    "system": "d712f4c5d5fa79dec5776629842cf5b0ce44364455dda8abbbfa79d09a174f46",
+    "teaching_history_compaction": "4950f9ac76c99e26391345712381cc7b7a6c279396339f4d4251caa461d34829",
+    "teaching_summary": "cc034d2ba70b833a92aaf9106618e927b2a750d58e6f2872499b1a7787037f3d",
+    "v1_syntax": "0d5541aa9a9bee87c41f272837001cc5b6f73a543cc6667aeb65f0c1b90bdcbc"
+  }
+}

@@ -12,9 +12,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-PACKAGES = ("src/web", "scripts/markdownflow-arena")
+PACKAGES = ("src/web",)
 PRIMARY = "src/web/package.json"
-ENGINE = "src/api/flaskr/service/learn/agent/engine/__init__.py"
+ENGINE = "src/api/markdownflow/engine/__init__.py"
 VERSION_PATTERN = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 IMAGE_PATTERN = re.compile(

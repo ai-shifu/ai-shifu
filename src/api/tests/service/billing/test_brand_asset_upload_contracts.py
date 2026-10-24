@@ -97,6 +97,41 @@ def test_corrupt_image_with_valid_magic_header_cannot_reach_storage(
 
 
 @pytest.mark.parametrize(
+    ("target", "suffix"),
+    [
+        (target, suffix)
+        for target in ("wide", "square", "favicon")
+        for suffix in ("png", "jpg", "webp")
+    ]
+    + [("favicon", "ico")],
+)
+def test_flashpix_magic_with_allowed_suffix_is_rejected_before_pillow(
+    target: str,
+    suffix: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # FPX uses OLE2 magic; renaming it must never select a raster decoder.
+    decode = Mock(side_effect=AssertionError("FPX must not reach Pillow"))
+    upload = Mock()
+    monkeypatch.setattr(customization.Image, "open", decode)
+    monkeypatch.setattr(customization, "upload_to_storage", upload)
+
+    with pytest.raises(AppError):
+        customization.upload_admin_creator_draft_logo(
+            Flask(__name__),
+            creator_bid="teacher-test",
+            file=FileStorage(
+                stream=BytesIO(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + bytes(504)),
+                filename="brand." + suffix,
+            ),
+            target=target,
+        )
+
+    decode.assert_not_called()
+    upload.assert_not_called()
+
+
+@pytest.mark.parametrize(
     ("target", "suffix"), [("wide", "png"), ("favicon", "png"), ("favicon", "ico")]
 )
 def test_pixel_limit_applies_before_normalizing_logo_or_icon(

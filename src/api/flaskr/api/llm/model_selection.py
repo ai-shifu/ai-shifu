@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING
 
 from flaskr.common.config import get_config
 from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
-from flaskr.service.config import get_config as get_override_config
-from flaskr.service.config import has_config_override
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -16,20 +14,18 @@ MODEL_INDEXES = tuple(str(index) for index in range(1, 10))
 
 
 def _slot_config(key: str) -> str:
-    # Numbered slots are environment settings. Only explicit process-local
-    # overrides (used by isolated Arena runs) may bypass that source; absent
-    # optional slots must not trigger database or cache lookups.
-    reader = get_override_config if has_config_override(key) else get_config
-    return str(reader(key, "") or "").strip()
+    # Numbered slots are environment settings; absent optional slots must not
+    # trigger database or cache lookups.
+    return str(get_config(key, "") or "").strip()
 
 
 def get_default_llm_model(app: Flask | None = None) -> str:
     """Read model 1's physical ID for default LLM calls.
 
-    Use an Arena override first, then a supplied app, then process config.
+    Use a supplied app's snapshot when available, otherwise process config.
     """
     key = "LLM_MODEL_1_ID"
-    if app is None or has_config_override(key):
+    if app is None:
         return _slot_config(key)
     return str(app.config.get(key, "") or "").strip()
 

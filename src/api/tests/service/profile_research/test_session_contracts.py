@@ -37,8 +37,8 @@ def test_invalid_cache_payload_fails_closed_without_refresh(raw: object) -> None
         {"last_events": 1},
         {"variables": []},
         {"context": {}},
-        {"block_index": "invalid"},
-        {"last_expected_block_index": "invalid"},
+        {"turn_index": "invalid"},
+        {"last_expected_turn_index": "invalid"},
     ],
 )
 def test_cached_state_validation_rejects_incompatible_fields(overrides: dict) -> None:
@@ -102,7 +102,7 @@ def test_invalid_learner_input_is_rejected_before_any_provider_work(
             )
         )
     assert providers == []
-    assert runtime.store.load(view["session_id"]).block_index == 0
+    assert runtime.store.load(view["session_id"]).turn_index == 0
 
 
 @pytest.mark.parametrize(
@@ -171,35 +171,9 @@ def test_replay_requires_valid_request_identity_pair(
         ProfileResearchRuntime._replay_or_validate_request(
             session,
             request_id=request_id,
-            expected_block_index=expected_index,
+            expected_turn_index=expected_index,
             user_input={},
         )
-
-
-@pytest.mark.parametrize("field", ["block_count", "block_index"])
-def test_corrupt_cursor_does_not_publish_partial_state_and_releases_owner_lock(
-    field: str,
-) -> None:
-    _app, runtime, _providers = _make_runtime()
-    view = _start_test_session(runtime)
-    session = runtime.store.load(view["session_id"])
-    setattr(session, field, -1)
-    runtime.store.save(session)
-    with pytest.raises(sessions.ProfileResearchSessionNotFound):
-        list(
-            runtime.stream_session(
-                user_bid="user-1",
-                session_id=session.session_id,
-                user_input=None,
-                expected_purpose=sessions.PROFILE_ONBOARDING_PURPOSE,
-            )
-        )
-    assert getattr(runtime.store.load(session.session_id), field) == -1
-    lock = runtime.store.owner_lock(
-        user_bid="user-1", purpose=sessions.PROFILE_ONBOARDING_PURPOSE
-    )
-    assert lock.acquire(blocking=False) is True
-    lock.release()
 
 
 def test_busy_session_lock_releases_owner_admission_for_a_later_run() -> None:
@@ -273,12 +247,14 @@ def test_corrupt_cached_purpose_cannot_be_resolved_implicitly() -> None:
         )
 
 
-def test_content_block_rejects_unsolicited_answers_without_advancing() -> None:
+def test_answer_without_a_pending_native_question_is_rejected() -> None:
     _app, runtime, _providers = _make_runtime()
     view = _start_test_session(
         runtime, document="Explain the process.\n\n---\n\n?[Continue]"
     )
-    with pytest.raises(sessions.ProfileResearchValidationError, match="not expected"):
+    with pytest.raises(
+        sessions.ProfileResearchValidationError, match="pending question"
+    ):
         list(
             runtime.stream_session(
                 user_bid="user-1",
@@ -287,28 +263,7 @@ def test_content_block_rejects_unsolicited_answers_without_advancing() -> None:
                 expected_purpose=sessions.PROFILE_ONBOARDING_PURPOSE,
             )
         )
-    assert runtime.store.load(view["session_id"]).block_index == 0
-
-
-def test_empty_profile_summary_does_not_complete_the_session() -> None:
-    _app, runtime, _providers = _make_runtime(output_chunks=[" "])
-    view = _start_test_session(runtime)
-    session = runtime.store.load(view["session_id"])
-    session.block_index = session.profile_draft_block_index
-    runtime.store.save(session)
-    with pytest.raises(sessions.ProfileResearchError, match="draft is empty"):
-        list(
-            runtime.stream_session(
-                user_bid="user-1",
-                session_id=session.session_id,
-                user_input=None,
-                expected_purpose=sessions.PROFILE_ONBOARDING_PURPOSE,
-            )
-        )
-    stored = runtime.store.load(session.session_id)
-    assert stored.done is False
-    assert stored.profile_draft == ""
-    assert stored.block_index == session.profile_draft_block_index
+    assert runtime.store.load(view["session_id"]).turn_index == 0
 
 
 def test_assistant_import_cannot_write_a_session_replaced_by_a_new_owner_session() -> (
@@ -353,10 +308,8 @@ def test_assistant_import_rejects_oversized_collected_nickname_without_staging_a
     [
         "schema_version",
         "config_revision",
-        "block_index",
-        "block_count",
-        "profile_draft_block_index",
-        "last_expected_block_index",
+        "turn_index",
+        "last_expected_turn_index",
     ],
 )
 @pytest.mark.parametrize("number", ["Infinity", "-Infinity", "1e309", "-1e309"])

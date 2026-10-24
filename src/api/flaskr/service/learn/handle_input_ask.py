@@ -563,7 +563,7 @@ def handle_input_ask(
             )
 
         if memory_policy is not None and memory_patch is not None:
-            from flaskr.service.learn.agent.gateway_model import GatewayModel
+            from flaskr.api.markdownflow import GatewayModel
             from flaskr.service.learn.agent.memory_admission import make_request_check
 
             shared = {

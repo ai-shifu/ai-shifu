@@ -4,6 +4,7 @@
     "avatar": "Avatar",
     "birth": "Date de naissance",
     "keyExist": "La clé existe déjà",
+    "keyInvalid": "Les noms de variable ne peuvent être vides ni contenir de caractères de contrôle ou }}.",
     "keyRequire": "La clé est requise",
     "keyRequired": "La clé est requise",
     "language": "Langue",

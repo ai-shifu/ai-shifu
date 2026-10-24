@@ -2,11 +2,76 @@
 title: Profile onboarding startup
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-23
 canonical: true
 ---
 
 # Profile onboarding startup
+
+## Questionnaire execution
+
+Profile onboarding and operator questionnaire previews use the shared
+MarkdownFlow 2.0 library through the shared `flaskr.api.markdownflow` binding.
+The application-independent implementation lives in `src/api/markdownflow/`;
+see the [library design](../design-docs/markdownflow-engine-library.md).
+The course-only `FLOW_ENGINE_V2_ENABLED` flag does not select the profile
+runtime: both profile entrypoints always use 2.0.
+
+The entire frozen questionnaire is the script of one native engine Session.
+The engine owns script progression, deferred interactions, accepted answers,
+typed message history and completion. The Profile host never executes individual
+authored blocks or advances an authored cursor. Published 1.0 notation remains
+supported by the engine and the publication validator; source parsing is not
+runtime orchestration.
+
+One engine turn may raise several interactions. The Session preserves all of
+those pending tool calls and the host displays only the first. Native answer
+handling collects each deferred result and resumes the model when all calls
+have answers. Named questions read only the matching submitted variable field;
+unnamed questions combine the submitted values. Choice-plus-text controls retain
+both selected values and free text. Invalid answers leave their native question
+pending. Cached controls must remain renderable before redisplay or submission.
+Responses rejected by native tool validation contribute no public text or
+accepted learner evidence. Public content is adapted through the existing
+pager, element SSE shape and frontend renderer.
+
+The private learner profile is a separate transformation of native accepted
+interaction answers, including unnamed answers, plus validated supplemental
+assistant evidence. Instructions, questions, model-generated memory notes,
+confirm clicks and the separately collected nickname are not personal profile
+evidence. Option display/value mappings are supplied as question context so
+stored machine values retain their meaning; unselected options are not facts.
+Input placeholders are also preserved as question context, including unnamed
+text questions whose prompt is empty. This context explains the accepted
+answer and is never itself learner information.
+Both manual completion and assistant import use the same private
+transformation function, existing profile prompts and nonbillable provider.
+The private summary is never appended to the public questionnaire script and
+never enters a `content` event. A `phase` event with `{phase: "summary"}` lets
+clients show the existing summary state. The result appears only as
+`profile_draft` in the terminal `done` event.
+
+The session API exposes `turn_index`, a host request revision, and submissions
+use `expected_turn_index` with `request_id`. This revision prevents stale writes
+and supports exact retries; it neither indexes script blocks nor equals native
+Engine.turn (answering one of several pending calls may not invoke the model).
+Terminal events include `next_turn_index`, `input_accepted` and the native
+`pending_interaction_ids`. Clients continue only when the native turn has no
+pending interaction and has not finished. They never count authored blocks.
+An interaction event carries its native `interaction_id`; an answer must submit
+that value as `expected_interaction_id`. Exact retries preserve the complete
+request identity, including this question token. Only an accepted answer marks
+its corresponding frontend control as answered. Content and question display
+identities are separate, and a retry replaces uncommitted controls.
+
+Owner locks, exact-request replay, thirty-minute expiration, frozen
+configuration, nonbillable metering and existing product analytics remain in
+the Profile host. Schema 3 stores the full native Session. Schema 1 and 2 cached
+per-block sessions expire as incompatible: callers receive the existing
+session-not-found response and can start a fresh questionnaire. Roll out the API
+workers and web clients together; old block-based clients cannot call the new
+turn-revision API. Rollback requires expiring schema-3 active sessions or waiting
+for their thirty-minute lifetime before restoring the old runtime.
 
 ## Course entry
 

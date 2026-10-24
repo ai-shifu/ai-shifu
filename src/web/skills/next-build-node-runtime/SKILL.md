@@ -1,6 +1,6 @@
 ---
 name: next-build-node-runtime
-description: 当 Cook Web 执行 npm run build 出现 SyntaxError Unexpected token '?' 或 next/dist/compiled 报错时使用本技能，优先排查 Node 运行时版本不一致问题。
+description: Use when Cook Web npm run build fails with SyntaxError Unexpected token '?' or next/dist/compiled errors. Check for mismatched Node runtime versions first.
 ---
 
 # Next Build Node 运行时排障

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec
 from flaskr.service.learn.agent.legacy_protocol import render_interaction
 from flaskr.service.learn.listen_element_history import (
     get_final_elements_for_generated_block,
@@ -18,6 +17,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
+from markdownflow.engine.interaction import InteractionSpec
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -310,7 +310,7 @@ def test_omitted_placeholder_survives_locale_change(
 ) -> None:
     spec = InteractionSpec(type="text", prompt="Question")
     monkeypatch.setattr(
-        "flaskr.service.learn.agent.legacy_protocol._",
+        "flaskr.api.markdownflow._",
         lambda _key: "Original locale hint",
     )
     question = _block(classroom, classroom + "-locale", 0)
@@ -325,9 +325,7 @@ def test_omitted_placeholder_survives_locale_change(
         ),
     )
     db.session.commit()
-    monkeypatch.setattr(
-        "flaskr.service.learn.agent.legacy_protocol._", lambda _key: "New locale hint"
-    )
+    monkeypatch.setattr("flaskr.api.markdownflow._", lambda _key: "New locale hint")
     assert json.loads(_history_input(question))["inputText"] == "Retained answer"
 
 

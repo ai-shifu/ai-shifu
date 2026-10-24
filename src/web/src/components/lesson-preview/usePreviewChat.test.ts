@@ -35,6 +35,7 @@ jest.mock('sse.js', () => ({
 }));
 
 jest.mock('remark-flow', () => ({
+  ...jest.requireActual('remark-flow/dist/variable-name'),
   createInteractionParser: () => ({
     parseToRemarkFormat: mockParseToRemarkFormat,
   }),
@@ -491,7 +492,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
 
     await act(async () =>
       result.current.onSend(
-        { variableName: 'answer', selectedValues: ['new choice'] },
+        { variableName: '  answer  ', selectedValues: ['new choice'] },
         'question-1',
       ),
     );
@@ -504,6 +505,8 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
     expect(answerRequest.debug_session_id).toBe(firstRequest.debug_session_id);
     expect(answerRequest.user_input).toEqual({ answer: ['new choice'] });
+    expect(result.current.variables['  answer  ']).toBeUndefined();
+    expect(result.current.variables.answer).toBe('new choice');
     expect(answerRequest.block_index).toBe(0);
 
     act(() => {

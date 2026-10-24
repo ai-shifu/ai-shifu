@@ -13,7 +13,7 @@ from flaskr.service.profile.api import (
     get_global_profile_keys,
 )
 from flaskr.service.profile.models import VariableValue
-from sqlalchemy import func, select
+from sqlalchemy import LargeBinary, cast, func, select
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -115,19 +115,26 @@ def load_course_variables(
     whole values that fit 32768 JSON characters. Canonical/defined values are resolved separately
     without these supplementary limits. Stored history is never truncated or purged.
     """
+    # Binary comparison preserves opaque text identity under case/accent-folding collations.
+    exact_key = cast(VariableValue.key, LargeBinary)
+    reserved_prefixes = tuple(
+        prefix.encode("utf-8")
+        for prefix in ("sys_", COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX)
+    )
     live_ids = (
         db.session.query(func.max(VariableValue.id))
         .filter(
             VariableValue.user_bid == user_bid,
             VariableValue.shifu_bid == shifu_bid,
             VariableValue.deleted == 0,
-            ~VariableValue.key.startswith("sys_", autoescape=True),
-            ~VariableValue.key.startswith(COURSE_REFERENCE_PREFIX, autoescape=True),
-            ~VariableValue.key.startswith(SHARED_ANSWER_PREFIX, autoescape=True),
-            VariableValue.key.not_in(get_global_profile_keys()),
-            VariableValue.key.not_in(exclude_keys),
+            *(
+                func.substr(exact_key, 1, len(prefix)) != prefix
+                for prefix in reserved_prefixes
+            ),
+            exact_key.not_in(key.encode("utf-8") for key in get_global_profile_keys()),
+            exact_key.not_in(key.encode("utf-8") for key in exclude_keys),
         )
-        .group_by(VariableValue.key)
+        .group_by(exact_key)
         .subquery()
     )
     rows = (
@@ -173,7 +180,7 @@ def load_learner_memory(
             VariableValue.user_bid == user_bid,
             VariableValue.deleted == 0,
         )
-        .group_by(VariableValue.shifu_bid, VariableValue.key)
+        .group_by(VariableValue.shifu_bid, cast(VariableValue.key, LargeBinary))
         .subquery()
     )
     rows: list[VariableValue] = (

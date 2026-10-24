@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from flaskr.service.learn.agent.engine.events import ContentDelta, TurnDone
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
     RunMarkdownFlowDTO,
 )
+from markdownflow.engine.events import ContentDelta, TurnDone
 
 from tests.service.learn.agent import test_element_format as format_fixture
 from tests.service.learn.agent import test_run_agent as host_fixture

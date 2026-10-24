@@ -4,6 +4,7 @@
     "avatar": "Foto de perfil",
     "birth": "Fecha de nacimiento",
     "keyExist": "La clave ya existe.",
+    "keyInvalid": "Los nombres de variable no pueden estar vacíos ni contener caracteres de control o }}.",
     "keyRequire": "La clave es obligatoria.",
     "keyRequired": "La clave es obligatoria.",
     "language": "Idioma",

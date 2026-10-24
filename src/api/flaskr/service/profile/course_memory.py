@@ -9,19 +9,21 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.profile.funcs import get_global_profile_keys
 from flaskr.service.profile.models import VariableValue
-from sqlalchemy import func, select
+from sqlalchemy import LargeBinary, cast, func, select
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Query
 
 
 def _course_rows(user_bid: str, shifu_bid: str) -> Query[VariableValue]:
+    # Match the runtime reader's opaque key identity under folding collations.
+    exact_key = cast(VariableValue.key, LargeBinary)
     return VariableValue.query.filter(
         VariableValue.user_bid == user_bid,
         VariableValue.shifu_bid == shifu_bid,
-        ~VariableValue.key.startswith("sys_", autoescape=True),
-        VariableValue.key.not_in(get_global_profile_keys()),
-        VariableValue.key != "",
+        func.substr(exact_key, 1, 4) != b"sys_",
+        exact_key.not_in(key.encode("utf-8") for key in get_global_profile_keys()),
+        exact_key != b"",
     )
 
 
@@ -78,7 +80,7 @@ def list_course_memory(
         _course_rows(user_bid, shifu_bid)
         .filter(VariableValue.deleted == 0)
         .with_entities(func.max(VariableValue.id))
-        .group_by(VariableValue.key)
+        .group_by(cast(VariableValue.key, LargeBinary))
         .subquery()
     )
     query = VariableValue.query.filter(
@@ -124,7 +126,8 @@ def delete_course_memory(user_bid: str, shifu_bid: str, value_id: int) -> dict:
         if newest is None:
             return {"conflict": False}
         _course_rows(user_bid, shifu_bid).filter(
-            VariableValue.key == selected.key, VariableValue.deleted == 0
+            cast(VariableValue.key, LargeBinary) == selected.key.encode("utf-8"),
+            VariableValue.deleted == 0,
         ).update({VariableValue.deleted: 1}, synchronize_session="fetch")
         # An appended marker advances the generation even when a legacy retired
         # row already had a larger ID than the live value being deleted.

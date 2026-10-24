@@ -94,7 +94,8 @@ jest.mock(
       createSession: () => Promise<{ session_id: string }>;
       runSession: (params: {
         sessionId: string;
-        expectedBlockIndex: number;
+        expectedTurnIndex: number;
+        expectedInteractionId?: string;
         requestId: string;
         userInput?: Record<string, string[]>;
         onMessage: () => void;
@@ -108,8 +109,9 @@ jest.mock(
           const session = await createSession();
           runSession({
             sessionId: session.session_id,
-            expectedBlockIndex: 2,
+            expectedTurnIndex: 2,
             requestId: 'preview-run-1',
+            expectedInteractionId: 'preview-question-1',
             userInput: { research_topic: ['AI 教学'] },
             onMessage: () => undefined,
             onError: () => undefined,
@@ -1510,8 +1512,9 @@ describe('ProfileOnboardingAdminPage', () => {
       expect.objectContaining({
         path: '/api/shifu/admin/operations/profile-onboarding/preview/preview-session-1/run',
         payload: {
-          expected_block_index: 2,
+          expected_turn_index: 2,
           request_id: 'preview-run-1',
+          expected_interaction_id: 'preview-question-1',
           user_input: { research_topic: ['AI 教学'] },
         },
       }),

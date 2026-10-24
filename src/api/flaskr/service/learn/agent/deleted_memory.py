@@ -6,8 +6,8 @@ import json
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from flaskr.service.learn.agent.engine.memory_context import parse_initial_memory_prompt
-from flaskr.service.learn.agent.engine.script import (
+from markdownflow.engine.memory_context import parse_initial_memory_prompt
+from markdownflow.engine.script import (
     collected_names,
     substitute_variables,
     substitution_names,
@@ -15,7 +15,7 @@ from flaskr.service.learn.agent.engine.script import (
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
-    from flaskr.service.learn.agent.engine.session import Session
+    from flaskr.api.markdownflow import Session
 
 
 def _section(

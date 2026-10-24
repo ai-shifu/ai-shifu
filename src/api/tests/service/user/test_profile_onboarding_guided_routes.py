@@ -822,8 +822,9 @@ def test_profile_onboarding_session_start_removes_a_late_ineligible_session(
     ]
 
 
+@pytest.mark.parametrize("interaction_id", [None, "learner-question-2"])
 def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
-    monkeypatch: object, test_client: object
+    monkeypatch: object, test_client: object, interaction_id: str | None
 ) -> None:
     from flaskr.route.common import make_common_response
 
@@ -853,8 +854,13 @@ def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
         headers={"Token": "token"},
         json={
             "user_input": {"preferred_name": ["小明"]},
-            "expected_block_index": 2,
+            "expected_turn_index": 2,
             "request_id": "learner-step-2",
+            **(
+                {"expected_interaction_id": interaction_id}
+                if interaction_id is not None
+                else {}
+            ),
         },
     )
 
@@ -868,8 +874,9 @@ def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
             "session_id": _SESSION_ID_1,
             "user_input": {"preferred_name": ["小明"]},
             "expected_purpose": "profile-onboarding",
-            "expected_block_index": 2,
+            "expected_turn_index": 2,
             "request_id": "learner-step-2",
+            "expected_interaction_id": interaction_id,
         }
     ]
 
@@ -899,7 +906,7 @@ def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
         ),
         (
             f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/run",
-            {"expected_block_index": 0},
+            {"expected_turn_index": 0},
         ),
         (
             f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/run",
@@ -907,15 +914,15 @@ def test_profile_onboarding_session_run_streams_with_owner_and_purpose_scope(
         ),
         (
             f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/run",
-            {"expected_block_index": True, "request_id": "step"},
+            {"expected_turn_index": True, "request_id": "step"},
         ),
         (
             f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/run",
-            {"expected_block_index": -1, "request_id": "step"},
+            {"expected_turn_index": -1, "request_id": "step"},
         ),
         (
             f"/api/user/profile-onboarding/session/{_SESSION_ID_1}/run",
-            {"expected_block_index": 0, "request_id": ""},
+            {"expected_turn_index": 0, "request_id": ""},
         ),
         (
             "/api/user/profile-onboarding/session/too-short/run",
@@ -1381,8 +1388,9 @@ def test_operator_profile_onboarding_preview_rejects_removed_document_prompt_fie
     assert calls == []
 
 
+@pytest.mark.parametrize("interaction_id", [None, "operator-question-4"])
 def test_operator_profile_onboarding_preview_run_enforces_owner_and_purpose(
-    monkeypatch: object, test_client: object
+    monkeypatch: object, test_client: object, interaction_id: str | None
 ) -> None:
     from flaskr.route.common import make_common_response
 
@@ -1412,8 +1420,13 @@ def test_operator_profile_onboarding_preview_run_enforces_owner_and_purpose(
         headers={"Token": "token"},
         json={
             "user_input": {"experience": ["三年"]},
-            "expected_block_index": 4,
+            "expected_turn_index": 4,
             "request_id": "operator-step-4",
+            **(
+                {"expected_interaction_id": interaction_id}
+                if interaction_id is not None
+                else {}
+            ),
         },
     )
 
@@ -1427,8 +1440,9 @@ def test_operator_profile_onboarding_preview_run_enforces_owner_and_purpose(
             "session_id": _SESSION_ID_2,
             "user_input": {"experience": ["三年"]},
             "expected_purpose": "profile-onboarding-preview",
-            "expected_block_index": 4,
+            "expected_turn_index": 4,
             "request_id": "operator-step-4",
+            "expected_interaction_id": interaction_id,
         }
     ]
 
@@ -1561,7 +1575,7 @@ def test_operator_profile_onboarding_config_rejects_invalid_shapes(
         ),
         (
             f"/api/shifu/admin/operations/profile-onboarding/preview/{_SESSION_ID_2}/run",
-            {"expected_block_index": 0},
+            {"expected_turn_index": 0},
         ),
         (
             f"/api/shifu/admin/operations/profile-onboarding/preview/{_SESSION_ID_2}/run",
@@ -1569,11 +1583,11 @@ def test_operator_profile_onboarding_config_rejects_invalid_shapes(
         ),
         (
             f"/api/shifu/admin/operations/profile-onboarding/preview/{_SESSION_ID_2}/run",
-            {"expected_block_index": False, "request_id": "step"},
+            {"expected_turn_index": False, "request_id": "step"},
         ),
         (
             f"/api/shifu/admin/operations/profile-onboarding/preview/{_SESSION_ID_2}/run",
-            {"expected_block_index": 0, "request_id": " "},
+            {"expected_turn_index": 0, "request_id": " "},
         ),
         (
             "/api/shifu/admin/operations/profile-onboarding/preview/too-short/run",
@@ -1662,7 +1676,7 @@ def test_assistant_answers_route_uses_same_session_without_saving_profile(
         headers={"Token": "token"},
         json={
             "raw_text": "  Call me Rain.  ",
-            "expected_block_index": 3,
+            "expected_turn_index": 3,
             "request_id": "import-1",
         },
     )
@@ -1673,7 +1687,7 @@ def test_assistant_answers_route_uses_same_session_without_saving_profile(
             "user_bid": user.user_id,
             "session_id": _SESSION_ID_1,
             "raw_text": "  Call me Rain.  ",
-            "expected_block_index": 3,
+            "expected_turn_index": 3,
             "request_id": "import-1",
         }
     ]
@@ -1685,19 +1699,19 @@ def test_assistant_answers_route_uses_same_session_without_saving_profile(
     [
         {},
         {"raw_text": "Answer"},
-        {"raw_text": "Answer", "expected_block_index": 0},
-        {"raw_text": "Answer", "expected_block_index": 0, "request_id": ""},
-        {"raw_text": "Answer", "expected_block_index": True, "request_id": "a"},
-        {"raw_text": "Answer", "expected_block_index": -1, "request_id": "a"},
+        {"raw_text": "Answer", "expected_turn_index": 0},
+        {"raw_text": "Answer", "expected_turn_index": 0, "request_id": ""},
+        {"raw_text": "Answer", "expected_turn_index": True, "request_id": "a"},
+        {"raw_text": "Answer", "expected_turn_index": -1, "request_id": "a"},
         {
             "raw_text": "Answer",
-            "expected_block_index": 0,
+            "expected_turn_index": 0,
             "request_id": "a",
             "nickname": "Injected",
         },
-        {"raw_text": " ", "expected_block_index": 0, "request_id": "a"},
-        {"raw_text": "x" * 10001, "expected_block_index": 0, "request_id": "a"},
-        {"raw_text": {}, "expected_block_index": 0, "request_id": "a"},
+        {"raw_text": " ", "expected_turn_index": 0, "request_id": "a"},
+        {"raw_text": "x" * 10001, "expected_turn_index": 0, "request_id": "a"},
+        {"raw_text": {}, "expected_turn_index": 0, "request_id": "a"},
     ],
 )
 def test_assistant_answers_route_rejects_invalid_envelopes(
