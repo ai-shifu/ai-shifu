@@ -40,7 +40,8 @@ deletion generations its memory already reflects, so only newer deletions are
 refreshed and an answer accepted after a deletion stays readable. Checkpoints
 carry this metadata; sessions and checkpoints without it refresh every key that
 was ever deleted.
-Session-only working notes and historical conversation are preserved.
+Historical conversation is preserved. Session-only working notes are preserved,
+except a note stored under a key that a deletion refresh clears.
 Acceptance is recorded with a SHA-256 fingerprint of the current answer copy,
 never inferred from a seeded session value. The optional `answer_hashes` session
 metadata stores no duplicate answer text and needs no database schema migration.
