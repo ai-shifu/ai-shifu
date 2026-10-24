@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
+from flaskr.api.llm import LLMStreamResponse
 from flaskr.service.learn.follow_up_memory_writer import (
     FollowUpMemoryPatch,
     FollowUpMemoryRun,
@@ -15,9 +16,13 @@ from pydantic_ai.messages import ModelMessage, ModelRequest, ToolReturnPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
 
 REQUEST = "Please remember that my practice code is 7319."
+MESSAGES = [
+    {"role": "system", "content": "Course context."},
+    {"role": "user", "content": REQUEST},
+]
 
 
 def note_model(
@@ -1118,3 +1123,110 @@ def test_quote_tool_uses_only_original_learner_history_without_write_permission(
     assert patch.variables == []
     assert history == before
     checker.assert_not_awaited()
+
+
+def _plain_answer(
+    received: list[list[dict[str, str]]],
+) -> Callable[[list[dict[str, str]]], list[LLMStreamResponse]]:
+    """Stand in for the plain chat answer used without memory tools."""
+
+    def answer(messages: list[dict[str, str]]) -> list[LLMStreamResponse]:
+        received.append(messages)
+        return [
+            LLMStreamResponse(
+                "plain",
+                is_end=False,
+                is_truncated=False,
+                result="Plain answer.",
+                finish_reason=None,
+                usage=None,
+            )
+        ]
+
+    return answer
+
+
+def _notice(messages: list[dict[str, str]]) -> str:
+    """Return the fallback's added system notice, after the original system messages."""
+    assert messages[0] == {"role": "system", "content": "Course context."}
+    assert messages[1]["role"] == "system"
+    assert messages[2:] == [{"role": "user", "content": REQUEST}]
+    return messages[1]["content"]
+
+
+def _reading_run(
+    patch: FollowUpMemoryPatch,
+    *,
+    lead_in: bool,
+    received: list[list[dict[str, str]]],
+) -> FollowUpMemoryRun:
+    """Read one key per model request until the run's tool budget is exhausted."""
+    keys = [f"pref_{i}" for i in range(12)]
+    calls = {"n": 0}
+
+    async def stream(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Announce the lookup once, then keep calling recall."""
+        index = calls["n"]
+        calls["n"] += 1
+        if index == 0 and lead_in:
+            yield "Let me check. "
+        yield {
+            0: DeltaToolCall(
+                name="recall",
+                tool_call_id=f"read-{index}",
+                json_args=json.dumps({"key": keys[index % len(keys)]}),
+            )
+        }
+
+    return FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input="What do you remember about me?",
+        declared_keys=frozenset(),
+        snapshot=dict.fromkeys(keys, "value"),
+        deleted_keys=frozenset(),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=AsyncMock(return_value=True),
+        preview=False,
+        fallback=_plain_answer(received),
+    )
+
+
+@pytest.mark.parametrize("lead_in", [False, True])
+def test_exhausted_tool_budget_finishes_without_memory_tools(lead_in: bool) -> None:
+    """Too many reads end with a plain answer instead of an error mid-stream."""
+    patch = FollowUpMemoryPatch()
+    received: list[list[dict[str, str]]] = []
+    run = _reading_run(patch, lead_in=lead_in, received=received)
+    shown = [chunk.result for chunk in run.stream(MESSAGES)]
+    expected = ["Let me check. ", "\n\n", "Plain answer."] if lead_in else []
+    assert shown == (expected or ["Plain answer."])
+    assert patch.variables == []
+    notice = _notice(received[0])
+    assert "Never say or imply that a fact was saved." in notice
+    assert ('"Let me check. "' in notice) is lead_in
+
+
+def test_busy_worker_answers_follow_ups_without_memory_tools(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A full turn pool degrades to a plain answer instead of an unknown error."""
+    from flaskr.service.learn import follow_up_memory_writer
+    from flaskr.service.learn.agent.bridge import TurnCapacityError
+
+    def full(*_args: object, **_kwargs: object) -> None:
+        raise TurnCapacityError
+
+    monkeypatch.setattr(follow_up_memory_writer, "iter_turn", full)
+    patch = FollowUpMemoryPatch()
+    received: list[list[dict[str, str]]] = []
+    run = _reading_run(patch, lead_in=False, received=received)
+    shown = [chunk.result for chunk in run.stream(MESSAGES)]
+    assert shown == ["Plain answer."]
+    assert patch.variables == []
+    notice = _notice(received[0])
+    assert "say plainly that it was not saved this time" in notice
+    assert "already been shown" not in notice

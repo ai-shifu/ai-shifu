@@ -540,6 +540,28 @@ def handle_input_ask(
         # External provider-only answers do not depend on LLM configuration.
         # Guardrail rejections resolve through invoke_llm in check_text instead.
         model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
+
+        def plain_stream(
+            plain_messages: list[dict[str, Any]] | None = None,
+        ) -> Generator[Any, None, None]:
+            """Answer without memory tools."""
+            return chat_llm_func(
+                app,
+                user_info.user_id,
+                span,
+                model=model,
+                usage_metadata=metadata,
+                json=True,
+                stream=True,  # Enable streaming output
+                temperature=follow_up_info.model_args[
+                    "temperature"
+                ],  # Use configured temperature parameter
+                generation_name=generation_name,
+                messages=stream_messages if plain_messages is None else plain_messages,
+                usage_context=usage_context,
+                usage_scene=usage_scene,
+            )
+
         if memory_policy is not None and memory_patch is not None:
             from flaskr.service.learn.agent.gateway_model import GatewayModel
             from flaskr.service.learn.agent.memory_admission import make_request_check
@@ -585,24 +607,10 @@ def handle_input_ask(
                     if getattr(context, "_stop_event", None) is not None
                     else None
                 ),
+                fallback=plain_stream,
             )
             return run.stream(stream_messages)
-        return chat_llm_func(
-            app,
-            user_info.user_id,
-            span,
-            model=model,
-            usage_metadata=metadata,
-            json=True,
-            stream=True,  # Enable streaming output
-            temperature=follow_up_info.model_args[
-                "temperature"
-            ],  # Use configured temperature parameter
-            generation_name=generation_name,
-            messages=stream_messages,
-            usage_context=usage_context,
-            usage_scene=usage_scene,
-        )
+        return plain_stream()
 
     llm_runtime = ask_provider_runtime_cls(
         # Pass complete conversation history; an empty knowledge context
