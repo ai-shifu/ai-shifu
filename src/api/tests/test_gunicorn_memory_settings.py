@@ -57,3 +57,10 @@ def test_workers_recycle_gracefully_and_inherit_frozen_objects(
     monkeypatch.setattr(gc, "freeze", freeze)
     config["pre_fork"](object(), object())
     freeze.assert_called_once_with()
+
+
+def test_litellm_logging_pool_stays_small() -> None:
+    import flaskr.api.llm  # noqa: F401 - sets the default before importing litellm
+    from litellm.litellm_core_utils.thread_pool_executor import executor
+
+    assert executor._max_workers <= 4
