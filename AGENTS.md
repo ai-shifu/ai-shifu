@@ -111,10 +111,11 @@ to.
   than `""` or a pre-formatted string. Display-time timezone conversion is a
   pure frontend concern: the browser renders UTC via helpers such as
   `formatAdminUtcDateTime`, so the API must not localize by request timezone.
-- In Chinese user-facing text and Chinese docs, do not use `创作者` as a
-  generic product term. Use `老师` for the general course-building or teacher
-  account role; use `课程负责人` or, inside an existing course context,
-  `负责人` when referring to a specific course owner.
+- Keep English README files, documentation prose, and examples free of Chinese
+  text. Keep dedicated Chinese translations, terminology references, and
+  multilingual test fixtures in their own language.
+- For Chinese user-facing text and Chinese docs, follow the required teacher
+  and course-owner terms in `docs/references/i18n-zh-CN.md`.
 - Keep English and French translations aligned with that distinction: use
   `teacher` / `enseignant` for the generic role, while a specific course
   owner may still be translated as `creator` / `créateur`.
@@ -256,9 +257,15 @@ pre-release/dev pin:
 
 Pin release versions of both before merging.
 
-## The vendored MarkdownFlow 2.0 engine
+## The MarkdownFlow 2.0 engine library
 
-`src/api/flaskr/service/learn/agent/engine/` holds the MarkdownFlow 2.0 engine.
+`src/api/markdownflow/` holds the application-independent MarkdownFlow 2.0
+engine library. Course and Profile runtimes use the shared application binding in
+`src/api/flaskr/api/markdownflow.py`; gateway integration lives under
+`src/api/flaskr/api/llm/`. See the [library design](docs/design-docs/markdownflow-engine-library.md)
+and the package's `AGENTS.md` for the dependency boundary. The foundation
+extracts the existing course runtime in PR #3163; the dependent Profile migration
+in PR #3161 uses the same library and application binding.
 Unlike the two component libraries above, it is **not** a pinned dependency: the
 code was copied in and is edited here, in place. `ai-shifu/markdown-flow-agent`
 still exists to serve the playground and the open-source release, but it is not
@@ -269,11 +276,11 @@ Because the engine no longer has its own repository's gate, its offline tests
 came with it and are the gate now:
 
 ```bash
-cd src/api && python -m pytest tests/service/learn/agent/engine/ -q
+cd src/api && python -m pytest tests/markdownflow/ -q
 ```
 
 These tests run on `pydantic-ai`'s `FunctionModel`, so they need no network and
-cost nothing. **They must be green for any change under `engine/`.** They cover
+cost nothing. **They must be green for any change under `markdownflow/`.** They cover
 what the surrounding service tests cannot: pausing and resuming on an
 interaction, several interactions raised in one turn, answers surviving a store
 round trip, variables reaching memory, listen-mode segmentation, 1.0 syntax

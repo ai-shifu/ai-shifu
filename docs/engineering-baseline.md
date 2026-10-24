@@ -155,7 +155,12 @@ The application has two main runtime components:
 
 - Shared text and tool LLM calls use the LiteLLM gateway in
   `src/api/flaskr/api/llm/__init__.py`; the MarkdownFlow 2.0 engine delegates
-  through `src/api/flaskr/service/learn/agent/gateway_model.py`
+  through `src/api/flaskr/api/llm/markdownflow_model.py`
+- The application-independent engine library lives in `src/api/markdownflow/`;
+  course and Profile runtimes use `flaskr.api.markdownflow` for shared application
+  bindings. The foundation in PR #3163 is based on `main`; the Profile migration
+  in PR #3161 depends on it. See the
+  [library design](design-docs/markdownflow-engine-library.md)
 - Gemini Live has a separate credential and browser WebSocket path; see the
   [Live setup notes](../INSTALL_MANUAL.md#optional-gemini-live-voice-follow-up)
 - Provider credentials continue to live in `.env` via the existing API-key
@@ -667,8 +672,12 @@ flows before promoting them.
   runtime harness's AMD64 validation. Ordinary manual dispatch checks both
   services on AMD64 and ARM64; explicit candidate dispatch also verifies
   publication without moving normal tags.
-- `prepare-release.yml`: manually prepares a release draft from a requested
-  `vX.Y.Z` version and opens a version-update PR.
+- `prepare-release.yml` (`Prepare Release PR`): manually validates a final
+  `vX.Y.Z` increase and opens a version-update PR against main; it creates no
+  formal tag or Release.
+- `draft-release.yml` (`Prepare Merged Release Draft`): compares the primary
+  version before/after each main push, validates merged release-PR provenance,
+  and pins a draft to the exact event commit only when the version increased.
 - `build-latest.yml`: builds `:latest` Docker images on pushes to `main` or
   manual dispatch on main; publishes to GHCR and configured Docker Hub / Aliyun
   mirrors unless the push toggle is disabled.
@@ -692,26 +701,42 @@ from ordinary application changes may first be detected by the main build.
 
 ### Release Path
 
-1. Start with `prepare-release.yml` and provide a version that starts with
-   `v`, such as `v1.5.0`.
-2. Review and merge the generated `release/version-bump-<tag>` PR into the
-   intended release branch. Confirm that the draft's tag will point to the
-   intended commit, including those version updates, before publishing it.
-3. Review the draft content. It includes repository commits since the previous `vX.Y.Z`
-   tag, plus MarkdownFlow dependency updates when the pinned `markdown-flow` or
-   `markdown-flow-ui` versions change; dependency notes are generated from the
-   corresponding library repository tag range when tags exist. When matching
-   tags do not exist, registry publish times are used to limit a GitHub commit
-   lookup for the dependency repository.
-4. Publish the final release through GitHub Releases. This triggers
-   `build-on-release.yml`, which skips drafts and prereleases and builds the
-   release-tagged images. Unexpected tag formats only produce a warning in
-   that workflow, so verify the tag before publication.
-5. `main` continues to drive `build-latest.yml` independently. A `:latest`
-   image may contain commits newer than the selected release tag.
-6. After image publication, smoke-check the pinned or latest Docker Compose
-   startup path, backend boot, and the primary frontend entry path before
-   treating the release as ready.
+1. Run `prepare-release.yml` on main with a canonical final `vX.Y.Z` increase
+   (no prerelease, build suffix or leading zeroes). It updates the two npm
+   manifests and lock roots, the vendored engine version, and first-party pinned
+   Compose images. Third-party images and rolling `latest` are unchanged. The
+   generated PR includes a notes preview; no formal tag or Release is created.
+2. A human reviews the version-only diff and CI, then **manually merges** the
+   `release/version-bump-<tag>` PR into main. AI/scripts must never merge or
+   enable auto-merge. Main/latest publication and existing production CICD/Drone
+   auto-deployment remain independent effects of that merge.
+3. `draft-release.yml` freezes the exact main push SHA, not moving main or
+   checkout HEAD. Unchanged versions and an initial missing baseline skip;
+   decreases, malformed versions, forced/deleted pushes and inconsistent source
+   versions fail closed. The source must introduce the version increase and be
+   the exact merge commit of a release PR into this repository's main.
+4. Automation verifies the npm/lock/engine versions and pinned Compose tags,
+   creates a non-forced exact-source formal tag, and creates a **draft only**.
+   Conflicting tags, mismatched drafts and already public releases fail closed.
+   Same-source reruns reuse a verified tag/draft without overwriting human notes.
+5. A human reviews the draft and **manually Publishes** in GitHub Releases.
+   `build-on-release.yml` revalidates the source, version, tag and merged-PR
+   provenance before passing the exact commit to the native image builder.
+   Drafts/prereleases skip; malformed or premature publication does not silently
+   build mislabeled images. Existing image names, registries and architectures
+   are retained. A `:latest` image can still be newer than the release.
+6. After image publication, smoke-check Compose startup, backend boot and the
+   primary frontend path before treating the release as ready. This automation
+   adds no production deployment operation and does not rewrite historical tags
+   or releases.
+
+Notes are recomputed at the frozen merged candidate, using the highest reachable
+lower final-version tag and excluding the candidate's own tag. Commitizen is
+preferred, with a Git fallback and omitted-PR coverage. MarkdownFlow notes retain
+locked dependency versions, historical frontend-lock lookup, library tag
+comparisons, registry-time fallback, author enrichment, deduplication, sorting
+and bounded detail. See [Docker image publication](references/docker-image-publication.md#pr-first-release-gates)
+for recovery and human-gate limitations.
 
 ### Release And Automation Rules
 

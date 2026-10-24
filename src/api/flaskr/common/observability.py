@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 
 from flask import Flask, Response, g, jsonify, request
@@ -11,8 +12,20 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Counter,
+    Histogram,
+    generate_latest,
+    multiprocess,
+)
 
+from .capacity_metrics import (
+    finalize_capacity_response,
+    start_capacity_request,
+    teardown_capacity_request,
+)
 from .request_context import thread_local
 
 HTTP_REQUEST_COUNT = Counter(
@@ -85,6 +98,7 @@ def init_observability(app: Flask) -> Flask:
 
     @app.before_request
     def _start_request_observability() -> None:
+        start_capacity_request({metrics_path, health_path, "/ping", "/health"})
         request_id = request.headers.get("X-Request-ID", "") or getattr(
             thread_local, "request_id", ""
         )
@@ -115,6 +129,7 @@ def init_observability(app: Flask) -> Flask:
 
     @app.after_request
     def _finalize_request_observability(response: Response) -> Response:
+        finalize_capacity_response(response)
         duration_ms = _record_request_metrics(response.status_code)
         span = getattr(g, "_ai_shifu_observability_span", None)
         if span is not None:
@@ -137,6 +152,7 @@ def init_observability(app: Flask) -> Flask:
 
     @app.teardown_request
     def _teardown_request_observability(error: Exception | None) -> None:
+        teardown_capacity_request()
         if error is None:
             return
         span = getattr(g, "_ai_shifu_observability_span", None)
@@ -146,7 +162,13 @@ def init_observability(app: Flask) -> Flask:
 
     @app.route(metrics_path, methods=["GET"])
     def metrics_handler() -> Response:
-        return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
+        if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
+            registry = CollectorRegistry()
+            multiprocess.MultiProcessCollector(registry)
+            payload = generate_latest(registry)
+        else:
+            payload = generate_latest()
+        return Response(payload, mimetype=CONTENT_TYPE_LATEST)
 
     @app.route(health_path, methods=["GET"])
     def observability_health_handler() -> Response:
@@ -187,7 +209,7 @@ def record_credit_notification_event(
 def _request_path_label() -> str:
     if request.url_rule is not None and request.url_rule.rule:
         return request.url_rule.rule
-    return request.path
+    return "<unmatched>"
 
 
 def _record_request_metrics(status_code: int) -> float:

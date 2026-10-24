@@ -19,6 +19,10 @@ import requests
 # outbound internet). Default to the bundled local map; deployments can still
 # override by exporting LITELLM_LOCAL_MODEL_COST_MAP=False before startup.
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+# litellm hands every completion's success logging to a process-wide pool that grows to
+# 100 threads and keeps them. No litellm callbacks are registered here, so a few threads
+# drain that work; 100 idle threads per Gunicorn worker only hold memory.
+os.environ.setdefault("LOGGING_EXECUTOR_MAX_THREADS", "4")
 
 import litellm
 from flask import Flask, current_app
@@ -273,20 +277,13 @@ def _load_and_register_model_max_output_tokens() -> dict[str, int]:
         _log_warning(f"Ignoring invalid LLM_MODEL_MAX_OUTPUT_TOKENS: {exc}")
         limits = {}
 
+    if not limits:
+        return limits
+
     model_metadata = {
         model: {"max_output_tokens": max_output_tokens}
         for model, max_output_tokens in limits.items()
     }
-    # LiteLLM 1.102.0 lacks exact GPT-6 Sol/Luna catalogue entries. Register
-    # their no-reasoning capability together with any configured output limit
-    # so catalogue reloads preserve both and temperature remains supported.
-    for model in ("gpt-6-sol", "gpt-6-luna"):
-        model_metadata[model] = {
-            **model_metadata.get(model, {}),
-            "litellm_provider": "openai",
-            "supports_none_reasoning_effort": True,
-        }
-
     register_model = getattr(litellm, "register_model", None)
     if not callable(register_model):
         _log_warning(
@@ -783,15 +780,15 @@ _THINKING_CONFLICT_PATHS = (
     "extra_body.generation_config.thinking_config",
 )
 
-# These entries cover confirmed gaps in LiteLLM 1.102.0. The normal path is
+# These entries cover confirmed gaps in LiteLLM 1.106.2. The normal path is
 # capability-driven; upgrading LiteLLM should make individual rows removable
 # when their contract tests start passing without the row.
 _ZAI_DISABLED_THINKING_PATCH: dict[str, object] = {
-    # LiteLLM 1.102 sends top-level thinking to the OpenAI SDK for ZAI, where it
+    # LiteLLM 1.106.2 sends top-level thinking to the OpenAI SDK for ZAI, where it
     # is rejected. extra_body reaches the provider wire format.
     "extra_body": {"thinking": {"type": "disabled"}},
 }
-_LITELLM_1102_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
+_LITELLM_1106_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, object]] = {
     ("qwen", None): {"extra_body": {"enable_thinking": False}},
     ("silicon", None): {"extra_body": {"enable_thinking": False}},
     ("ark", None): {"allowed_openai_params": ["response_format"]},
@@ -809,22 +806,10 @@ _LITELLM_1102_COMPATIBILITY_PATCHES: dict[tuple[str, str | None], dict[str, obje
     ("glm", "glm-5.1"): _ZAI_DISABLED_THINKING_PATCH,
     ("glm", "glm-5-code"): _ZAI_DISABLED_THINKING_PATCH,
     ("glm", "glm-5.2"): _ZAI_DISABLED_THINKING_PATCH,
-    ("qwen", "glm-5.3"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
-    ("qwen", "glm-5.3-flash"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
-    ("qwen", "zhipu/glm-5.3"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
-    ("qwen", "zhipu/glm-5.3-flash"): {
-        "reasoning_effort": "low",
-        "allowed_openai_params": ["reasoning_effort"],
-    },
+    ("qwen", "glm-5.3"): {"reasoning_effort": "low"},
+    ("qwen", "glm-5.3-flash"): {"reasoning_effort": "low"},
+    ("qwen", "zhipu/glm-5.3"): {"reasoning_effort": "low"},
+    ("qwen", "zhipu/glm-5.3-flash"): {"reasoning_effort": "low"},
     ("gemini", "gemini-3.7-flash"): {"reasoning_effort": "low"},
     ("gemini", "gemini-3.8-flash"): {"reasoning_effort": "low"},
     ("gemini", "gemini-2.5-pro"): {"reasoning_effort": "minimal"},
@@ -1026,8 +1011,8 @@ def _prepare_litellm_request_kwargs(
     custom_llm_provider = _litellm_provider_name(provider_key, provider_params)
     stages = [
         _litellm_minimum_thinking_params(model_id, custom_llm_provider),
-        _LITELLM_1102_COMPATIBILITY_PATCHES.get((provider_key, None), {}),
-        _LITELLM_1102_COMPATIBILITY_PATCHES.get(
+        _LITELLM_1106_COMPATIBILITY_PATCHES.get((provider_key, None), {}),
+        _LITELLM_1106_COMPATIBILITY_PATCHES.get(
             (provider_key, model_id.casefold()), {}
         ),
     ]

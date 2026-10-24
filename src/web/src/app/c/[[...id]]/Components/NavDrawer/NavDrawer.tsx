@@ -207,7 +207,6 @@ const NavDrawer = ({
           ref={footerRef}
           isCollapse={isCollapse}
           onClick={onFooterClick}
-          isMenuOpen={mainModalOpen}
         />
         <MainMenuModal
           open={mainModalOpen}
@@ -215,6 +214,7 @@ const NavDrawer = ({
           className={popupWindowClassname()}
           mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE}
           onPersonalInfoClick={onPersonalInfoClick}
+          onAboutCloseAutoFocus={() => footerRef.current?.focus()}
           surface='learner'
           courseId={courseId}
         />

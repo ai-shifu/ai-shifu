@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 env:
   DEFAULT_DOCKERHUB_USER: aishifu
@@ -18,51 +19,32 @@ jobs:
       version: ${{ steps.extract.outputs.version }}
       is_prerelease: ${{ steps.extract.outputs.is_prerelease }}
       should_build: ${{ steps.extract.outputs.should_build }}
+      commit: ${{ steps.extract.outputs.commit }}
 
     steps:
-      - name: Extract release information
+      - name: Check out exact release event source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Refresh main ancestry
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
+      - name: Validate published release source and version
         id: extract
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          TAG_NAME="${{ github.event.release.tag_name }}"
-          IS_PRERELEASE="${{ github.event.release.prerelease }}"
-          IS_DRAFT="${{ github.event.release.draft }}"
-
-          echo "📋 Release Information:"
-          echo "  Tag: $TAG_NAME"
-          echo "  Prerelease: $IS_PRERELEASE"
-          echo "  Draft: $IS_DRAFT"
-
-          # Extract version (remove 'v' prefix if present)
-          VERSION="${TAG_NAME#v}"
-
-          # Validate tag format
-          if [[ ! $TAG_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
-            echo "⚠️ Warning: Tag $TAG_NAME doesn't follow semantic versioning, but proceeding anyway"
-          fi
-
-          # Determine if we should build
-          SHOULD_BUILD="true"
-
-          # Skip prerelease builds (only build final releases)
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            echo "⏭️ Skipping build for prerelease $TAG_NAME"
-            SHOULD_BUILD="false"
-          fi
-
-          # Skip draft builds (should not happen with published event, but extra safety)
-          if [ "$IS_DRAFT" = "true" ]; then
-            echo "⏭️ Skipping build for draft release $TAG_NAME"
-            SHOULD_BUILD="false"
-          fi
-
-          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
-          echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
-
-          if [ "$SHOULD_BUILD" = "true" ]; then
-            echo "✅ Will proceed with building release $TAG_NAME"
-          fi
+          python scripts/release_workflow.py validate-published --source "$GITHUB_SHA" \
+            --event "$GITHUB_EVENT_PATH" --repository "$GITHUB_REPOSITORY" --output "$GITHUB_OUTPUT"
 
   build-docker:
     name: Build release (${{ matrix.service }})
@@ -86,6 +68,7 @@ jobs:
     uses: ./.github/workflows/build-docker-image.yml
     secrets: inherit
     with:
+      source-ref: ${{ needs.validate-release.outputs.commit }}
       service: ${{ matrix.service }}
       image-name: ${{ vars[matrix.image-name] || matrix.default-image }}
       dockerfile: ${{ matrix.dockerfile }}
@@ -106,7 +89,7 @@ jobs:
         org.opencontainers.image.documentation=https://github.com/ai-shifu/ai-shifu/blob/main/README.md
         org.opencontainers.image.url=https://github.com/ai-shifu/ai-shifu
         org.opencontainers.image.version=${{ needs.validate-release.outputs.tag }}
-        org.opencontainers.image.revision=${{ github.sha }}
+        org.opencontainers.image.revision=${{ needs.validate-release.outputs.commit }}
         ai-shifu.license-file=https://github.com/ai-shifu/ai-shifu/blob/main/LICENSE.txt
   deploy-summary:
     runs-on: ubuntu-latest

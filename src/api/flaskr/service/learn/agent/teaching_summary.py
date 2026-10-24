@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from pydantic_ai import Agent, UsageLimits
-
-from .engine.teaching_summary import (
+from markdownflow import load_prompt
+from markdownflow.engine.teaching_summary import (
     SUMMARY_TEXT_BYTES,
     TeachingSummarizer,
     encoded_size,
 )
+from pydantic_ai import Agent, UsageLimits
 
 if TYPE_CHECKING:
     from pydantic_ai.models import Model
@@ -21,9 +20,7 @@ if TYPE_CHECKING:
 
 def make_teaching_summarizer(model: Model) -> TeachingSummarizer:
     """Bind a prompt/model policy; the engine owns source limits and cache scope."""
-    instructions = (
-        Path(__file__).parent / "engine/prompts/teaching_summary.md"
-    ).read_text()
+    instructions = load_prompt("teaching_summary")
     policy = hashlib.sha256(
         f"teaching-summary-v1:{model.model_name}:{instructions}".encode()
     ).hexdigest()

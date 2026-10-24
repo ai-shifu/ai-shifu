@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 from uuid import uuid4
 
@@ -203,20 +205,26 @@ def test_publication_callers_use_new_web_package(filename: str, job_name: str) -
 def test_release_bump_migrates_web_without_retagging_other_images(
     tmp_path: Path, previous_web: str
 ) -> None:
-    """Exercise the real release shell against legacy and already migrated bundles."""
+    """Exercise the actual preparation shell against legacy and migrated bundles."""
     step = next(
         step
         for job in workflow("prepare-release.yml")["jobs"].values()
         for step in job.get("steps", [])
-        if step.get("name") == "Update project version files"
+        if step.get("id") == "version"
     )
-    # Run the Compose portion with a throwaway index; no commits or registry writes.
-    script = (
-        step["run"]
-        .split("# 6. Docker Compose files", 1)[1]
-        .split("# 7. Version files", 1)[0]
+    script = step["run"].replace(
+        "python scripts/release_workflow.py",
+        f'"{sys.executable}" "{ROOT / "scripts/release_workflow.py"}"',
     )
-    script = script.split("\n", 1)[1]
+    # Copy the real owned version inputs into disposable Git; never change this repo.
+    for name in (
+        "src/web/package.json",
+        "src/web/package-lock.json",
+        "src/api/markdownflow/engine/__init__.py",
+    ):
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, target)
     docker = tmp_path / "docker"
     docker.mkdir()
     pinned = docker / "docker-compose.yml"
@@ -233,14 +241,38 @@ def test_release_bump_migrates_web_without_retagging_other_images(
     subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
     subprocess.run(
         [
+            "git",
+            "-C",
+            str(tmp_path),
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.invalid",
+            "commit",
+            "-qm",
+            "Fixture version inputs",
+        ],
+        check=True,
+    )
+    source = subprocess.check_output(
+        ["git", "-C", str(tmp_path), "rev-parse", "HEAD"], text=True
+    ).strip()
+    subprocess.run(
+        [
             "bash",
             "-e",
             "-o",
             "pipefail",
             "-c",
-            "TAG_NAME=v9.8.7; UPDATED_FILES=();\n" + script,
+            script,
         ],
         cwd=tmp_path,
+        env={
+            **os.environ,
+            "RELEASE_TAG": "v9.8.7",
+            "GITHUB_SHA": source,
+            "GITHUB_OUTPUT": str(tmp_path / "outputs"),
+        },
         capture_output=True,
         text=True,
         check=True,

@@ -24,6 +24,10 @@ let mockRendererSubmission: OnSendContentParams = DEFAULT_RENDERER_SUBMISSION;
 let mockAutoFinishTypewriter = true;
 let mockLatestTypeFinished: (() => void) | undefined;
 let mockRenderedContents: string[] = [];
+const mockSendCallbacks = new Map<
+  string,
+  (value: OnSendContentParams) => void
+>();
 let mockLanguage = 'zh-CN';
 
 type MockScrollControlProps = {
@@ -57,6 +61,10 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('remark-flow', () =>
+  jest.requireActual('remark-flow/dist/variable-name'),
+);
+
 jest.mock('markdown-flow-ui/renderer', () => ({
   ContentRender: ({
     content,
@@ -82,6 +90,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     onTypeFinished?: () => void;
   }) => {
     mockRenderedContents.push(content);
+    if (onSend) mockSendCallbacks.set(content, onSend);
     React.useEffect(() => {
       mockLatestTypeFinished = onTypeFinished;
       if (mockAutoFinishTypewriter) onTypeFinished?.();
@@ -140,6 +149,7 @@ describe('ProfileOnboardingConversation', () => {
     mockAutoFinishTypewriter = true;
     mockLatestTypeFinished = undefined;
     mockRenderedContents = [];
+    mockSendCallbacks.clear();
     mockScrollToBottomControl.mockClear();
   });
 
@@ -341,7 +351,7 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 1 },
+            content: { done: false, next_turn_index: 1 },
           });
         });
       }
@@ -378,7 +388,7 @@ describe('ProfileOnboardingConversation', () => {
     await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
     expect(runSession.mock.calls[1][0]).toEqual(
       expect.objectContaining({
-        expectedBlockIndex: 1,
+        expectedTurnIndex: 1,
         userInput: { profile_goal: ['Learn practical AI skills'] },
       }),
     );
@@ -386,6 +396,70 @@ describe('ProfileOnboardingConversation', () => {
       screen.queryByText('module.profileOnboarding.guided.inputLimitError'),
     ).not.toBeInTheDocument();
   });
+
+  test.each<[string | undefined, string]>([
+    ['profile_goal', 'profile_goal'],
+    ['你的性别是？', '你的性别是？'],
+    ['gender?', 'gender?'],
+    ['\u0085gender?\u0085', 'gender?'],
+    ['\ufeffgender?\ufeff', '\ufeffgender?\ufeff'],
+    ['\ufeff', '\ufeff'],
+    ['  user  name  ', 'user  name'],
+    [' Which [path] | level//hint...? ', 'Which [path] | level//hint...?'],
+    [' a} ', 'a}'],
+    [undefined, 'input'],
+  ])(
+    'submits the exact normalized variable key %s',
+    async (variableName, expectedKey) => {
+      mockRendererSubmission = { variableName, inputText: '女' };
+      const runSession = jest.fn(({ onMessage }) => {
+        if (runSession.mock.calls.length === 1) {
+          queueMicrotask(() => {
+            onMessage({
+              type: 'interaction',
+              generated_block_bid: 'interaction-question-key',
+              interaction_id: 'native-question-key',
+              content: `?[%{{${expectedKey}}}...Your answer]`,
+            });
+            onMessage({
+              type: 'done',
+              is_terminal: true,
+              content: {
+                done: false,
+                next_turn_index: 1,
+                awaiting_input: true,
+                pending_interaction_ids: ['native-question-key'],
+              },
+            });
+          });
+        }
+        return { close: jest.fn() };
+      });
+
+      render(
+        <ProfileOnboardingConversation
+          createSession={async () => ({ session_id: 'session-question-key' })}
+          runSession={runSession}
+          onDraftReady={jest.fn()}
+          onError={jest.fn()}
+        />,
+      );
+      const answerButton = await screen.findByRole('button', {
+        name: ANSWER_GUIDED_QUESTION_LABEL,
+      });
+      await waitFor(() => expect(answerButton).toBeEnabled());
+      fireEvent.click(answerButton);
+
+      await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+      expect(runSession.mock.calls[1][0]).toEqual(
+        expect.objectContaining({
+          expectedTurnIndex: 1,
+          expectedInteractionId: 'native-question-key',
+          userInput: { [expectedKey]: ['女'] },
+        }),
+      );
+    },
+  );
 
   test('preserves official button values while keeping their display normalized', async () => {
     mockRendererSubmission = {
@@ -406,9 +480,21 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 1 },
+            content: { done: false, next_turn_index: 1 },
           });
         });
+      } else {
+        queueMicrotask(() =>
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: {
+              done: true,
+              input_accepted: true,
+              profile_draft: 'Profile',
+            },
+          }),
+        );
       }
       return { close: jest.fn() };
     });
@@ -434,7 +520,7 @@ describe('ProfileOnboardingConversation', () => {
         userInput: { style: [' brief '] },
       }),
     );
-    expect(screen.getByText('brief')).toBeInTheDocument();
+    expect(await screen.findByText('brief')).toBeInTheDocument();
   });
 
   test('ignores invalid button values and still trims free-text answers', async () => {
@@ -456,9 +542,21 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 1 },
+            content: { done: false, next_turn_index: 1 },
           });
         });
+      } else {
+        queueMicrotask(() =>
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: {
+              done: true,
+              input_accepted: true,
+              profile_draft: 'Profile',
+            },
+          }),
+        );
       }
       return { close: jest.fn() };
     });
@@ -497,7 +595,9 @@ describe('ProfileOnboardingConversation', () => {
         userInput: { style: ['Explain with examples'] },
       }),
     );
-    expect(screen.getByText('Explain with examples')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Explain with examples'),
+    ).toBeInTheDocument();
   });
 
   test('waits without progress indicators and keeps input read-only until its cursor arrives', async () => {
@@ -562,7 +662,7 @@ describe('ProfileOnboardingConversation', () => {
       firstOnMessage?.({
         type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 1 },
+        content: { done: false, next_turn_index: 1 },
       });
     });
     await waitFor(() => expect(answerButton).toBeEnabled());
@@ -572,7 +672,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(onRunInFlightChange).toHaveBeenLastCalledWith(true);
     expect(runSession.mock.calls[1][0]).toEqual(
       expect.objectContaining({
-        expectedBlockIndex: 1,
+        expectedTurnIndex: 1,
         userInput: { profile_goal: ['学会 AI'] },
       }),
     );
@@ -597,7 +697,7 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 1 },
+            content: { done: false, next_turn_index: 1 },
           });
         });
         return { close: jest.fn() };
@@ -802,7 +902,7 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 1 },
+            content: { done: false, next_turn_index: 1 },
           });
         });
         return { close: jest.fn() };
@@ -820,7 +920,11 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 2 },
+            content: {
+              done: false,
+              next_turn_index: 2,
+              input_accepted: true,
+            },
           });
         });
         return { close: jest.fn() };
@@ -1048,7 +1152,7 @@ describe('ProfileOnboardingConversation', () => {
       expect(runSession).toHaveBeenLastCalledWith(
         expect.objectContaining({
           sessionId: 'session-1',
-          expectedBlockIndex: 0,
+          expectedTurnIndex: 0,
           requestId: expect.any(String),
           userInput: { profile_goal: ['学会 AI'] },
         }),
@@ -1060,7 +1164,7 @@ describe('ProfileOnboardingConversation', () => {
     });
     expect(runSession.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        expectedBlockIndex: 0,
+        expectedTurnIndex: 0,
         requestId: expect.any(String),
         userInput: undefined,
       }),
@@ -1070,7 +1174,7 @@ describe('ProfileOnboardingConversation', () => {
     );
   });
 
-  test('uses the terminal cursor and a new identity when content auto-advances', async () => {
+  test('continues an unfinished native session without pending interactions using its turn identity', async () => {
     const runSession = jest
       .fn()
       .mockImplementationOnce(({ onMessage }) => {
@@ -1086,7 +1190,7 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 4 },
+            content: { done: false, next_turn_index: 4 },
           });
         });
         return { close: jest.fn() };
@@ -1104,7 +1208,7 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 5 },
+            content: { done: false, next_turn_index: 5 },
           });
         });
         return { close: jest.fn() };
@@ -1114,7 +1218,7 @@ describe('ProfileOnboardingConversation', () => {
       <ProfileOnboardingConversation
         createSession={async () => ({
           session_id: 'session-auto-next',
-          block_index: 3,
+          turn_index: 3,
         })}
         runSession={runSession}
         onDraftReady={jest.fn()}
@@ -1126,14 +1230,14 @@ describe('ProfileOnboardingConversation', () => {
     expect(runSession.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         sessionId: 'session-auto-next',
-        expectedBlockIndex: 3,
+        expectedTurnIndex: 3,
         requestId: expect.any(String),
       }),
     );
     expect(runSession.mock.calls[1][0]).toEqual(
       expect.objectContaining({
         sessionId: 'session-auto-next',
-        expectedBlockIndex: 4,
+        expectedTurnIndex: 4,
         requestId: expect.any(String),
       }),
     );
@@ -1171,7 +1275,7 @@ describe('ProfileOnboardingConversation', () => {
         onMessage({
           type: 'done',
           is_terminal: true,
-          content: { done: false, next_block_index: 4 },
+          content: { done: false, next_turn_index: 4 },
         });
       });
       return { close };
@@ -1193,6 +1297,87 @@ describe('ProfileOnboardingConversation', () => {
     expect(close).toHaveBeenCalledTimes(1);
     expect(runSession).toHaveBeenCalledTimes(1);
     expect(onDraftReady).not.toHaveBeenCalled();
+  });
+
+  test('does not loop on a native continuation that makes no committed progress', async () => {
+    const onError = jest.fn();
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() =>
+        onMessage({
+          type: 'done',
+          is_terminal: true,
+          content: {
+            done: false,
+            awaiting_input: false,
+            pending_interaction_ids: [],
+            next_turn_index: 3,
+          },
+        }),
+      );
+      return { close: jest.fn() };
+    });
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({
+          session_id: 'no-progress',
+          turn_index: 3,
+        })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={onError}
+      />,
+    );
+    await screen.findByRole('button', {
+      name: 'module.profileOnboarding.guided.retry',
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(runSession).toHaveBeenCalledTimes(1);
+  });
+
+  test('renders only the first native pending interaction without auto-continuing', async () => {
+    const runSession = jest.fn(({ onMessage }) => {
+      queueMicrotask(() => {
+        for (const id of ['first', 'second']) {
+          onMessage({
+            type: 'interaction',
+            generated_block_bid: `display-${id}`,
+            interaction_id: id,
+            content: `?[...${id}]`,
+          });
+        }
+        onMessage({
+          type: 'done',
+          is_terminal: true,
+          content: {
+            done: false,
+            awaiting_input: true,
+            pending_interaction_ids: ['first', 'second'],
+            next_turn_index: 1,
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({
+          session_id: 'pending-batch',
+          turn_index: 0,
+        })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+    expect(await screen.findByText('?[...first]')).toBeInTheDocument();
+    expect(screen.queryByText('?[...second]')).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+    expect(runSession.mock.calls[1][0]).toMatchObject({
+      expectedTurnIndex: 1,
+      expectedInteractionId: 'first',
+    });
   });
 
   test('keeps same-tick elements without server ids distinct', async () => {
@@ -1319,6 +1504,274 @@ describe('ProfileOnboardingConversation', () => {
     expect(onDraftReady).not.toHaveBeenCalled();
   });
 
+  test.each(['Robin', ''])(
+    'completes a manual nickname-only session only when a nickname exists: %s',
+    async nickname => {
+      const onDraftReady = jest.fn();
+      const onError = jest.fn();
+      const runSession = jest.fn(({ onMessage }) => {
+        queueMicrotask(() => {
+          onMessage({ type: 'phase', content: { phase: 'summary' } });
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: {
+              done: true,
+              profile_draft: '',
+              nickname,
+              next_turn_index: 1,
+              pending_interaction_ids: [],
+              awaiting_input: false,
+            },
+          });
+        });
+        return { close: jest.fn() };
+      });
+      render(
+        <ProfileOnboardingConversation
+          createSession={async () => ({
+            session_id: 'nickname-only-manual',
+            turn_index: 0,
+          })}
+          runSession={runSession}
+          onDraftReady={onDraftReady}
+          onError={onError}
+        />,
+      );
+      if (nickname) {
+        await waitFor(() =>
+          expect(onDraftReady).toHaveBeenCalledWith(
+            '',
+            'nickname-only-manual',
+            nickname,
+          ),
+        );
+        expect(onError).not.toHaveBeenCalled();
+      } else {
+        await waitFor(() =>
+          expect(onError).toHaveBeenCalledWith(
+            new Error('module.profileOnboarding.guided.missingDraft'),
+          ),
+        );
+        expect(onDraftReady).not.toHaveBeenCalled();
+      }
+      expect(runSession).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('binds normalized keys to the current interaction, rejects stale answers, and retries the same answer', async () => {
+    const variableKey = 'Which [path] |  level//hint...?';
+    mockRendererSubmission = {
+      variableName: `\u0085${variableKey}\u0085`,
+      inputText: 'Learn practical AI skills',
+    };
+    const emitQuestion = (
+      onMessage: Parameters<ProfileOnboardingRunSession>[0]['onMessage'],
+      id: string,
+    ) => {
+      onMessage({
+        type: 'interaction',
+        generated_block_bid: `display-${id}`,
+        interaction_id: id,
+        content: `?[...${id}]`,
+      });
+      onMessage({
+        type: 'done',
+        is_terminal: true,
+        content: {
+          done: false,
+          next_turn_index: 0,
+          input_accepted: id === 'native-question-2',
+          awaiting_input: true,
+          pending_interaction_ids: [id],
+        },
+      });
+    };
+    const runSession = jest
+      .fn()
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() => emitQuestion(onMessage, 'native-question-1'));
+        return { close: jest.fn() };
+      })
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() => emitQuestion(onMessage, 'native-question-2'));
+        return { close: jest.fn() };
+      })
+      .mockImplementationOnce(({ onMessage }) => {
+        queueMicrotask(() =>
+          onMessage({
+            type: 'error',
+            content: 'transient_markdownflow_session_busy',
+          }),
+        );
+        return { close: jest.fn() };
+      })
+      .mockImplementation(() => ({ close: jest.fn() }));
+
+    render(
+      <ProfileOnboardingConversation
+        createSession={async () => ({ session_id: 'native-session' })}
+        runSession={runSession}
+        onDraftReady={jest.fn()}
+        onError={jest.fn()}
+      />,
+    );
+
+    const firstAnswerButton = await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    const staleSend = mockSendCallbacks.get('?[...native-question-1]');
+    expect(staleSend).toBeDefined();
+    fireEvent.click(firstAnswerButton);
+    await screen.findByText('?[...native-question-2]');
+    expect(runSession.mock.calls[1][0]).toMatchObject({
+      expectedTurnIndex: 0,
+      expectedInteractionId: 'native-question-1',
+      userInput: { [variableKey]: ['Learn practical AI skills'] },
+    });
+    act(() => staleSend?.(mockRendererSubmission));
+    expect(runSession).toHaveBeenCalledTimes(2);
+    fireEvent.click(
+      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.profileOnboarding.guided.retry',
+      }),
+    );
+    await waitFor(() => expect(runSession).toHaveBeenCalledTimes(4));
+    expect(runSession.mock.calls[2][0]).toMatchObject({
+      expectedTurnIndex: 0,
+      expectedInteractionId: 'native-question-2',
+      userInput: { [variableKey]: ['Learn practical AI skills'] },
+    });
+    expect(runSession.mock.calls[3][0]).toMatchObject({
+      expectedInteractionId: 'native-question-2',
+      requestId: runSession.mock.calls[2][0].requestId,
+      userInput: runSession.mock.calls[2][0].userInput,
+    });
+  });
+
+  test('keeps one native session across validation and multiple pending interactions before summarizing', async () => {
+    const createSession = jest.fn(async () => ({
+      session_id: 'whole-questionnaire',
+      turn_index: 0,
+    }));
+    const onDraftReady = jest.fn();
+    const onError = jest.fn();
+    const runSession = jest.fn(({ onMessage }) => {
+      const turn = runSession.mock.calls.length;
+      queueMicrotask(() => {
+        if (turn === 1) {
+          onMessage({
+            type: 'content',
+            generated_block_bid: 'welcome',
+            content: 'Welcome to the complete questionnaire',
+          });
+        }
+        if (turn === 2) {
+          onMessage({
+            type: 'content',
+            generated_block_bid: 'validation',
+            content: 'Please explain your goal more clearly',
+          });
+        }
+        if (turn < 4) {
+          const interactionId = turn === 3 ? 'question-two' : 'question-one';
+          onMessage({
+            type: 'interaction',
+            generated_block_bid: `turn-${turn}:interaction`,
+            interaction_id: interactionId,
+            content:
+              turn === 3 ? '?[...Second question]' : '?[...First question]',
+          });
+          // A trailing text event must not conceal the pending interaction.
+          onMessage({
+            type: 'content',
+            generated_block_bid: `guidance-${turn}`,
+            content: `Guidance for native turn ${turn}`,
+          });
+        } else {
+          onMessage({ type: 'phase', content: { phase: 'summary' } });
+        }
+        onMessage({
+          type: 'done',
+          is_terminal: true,
+          content: {
+            session_id: 'whole-questionnaire',
+            turn_index: turn - 1,
+            next_turn_index: turn,
+            done: turn === 4,
+            awaiting_input: turn < 4,
+            input_accepted: turn >= 3,
+            pending_interaction_ids:
+              turn < 3
+                ? ['question-one', 'question-two']
+                : turn === 3
+                  ? ['question-two']
+                  : [],
+            ...(turn === 4
+              ? { profile_draft: 'Validated learner profile' }
+              : {}),
+          },
+        });
+      });
+      return { close: jest.fn() };
+    });
+    render(
+      <ProfileOnboardingConversation
+        createSession={createSession}
+        runSession={runSession}
+        onDraftReady={onDraftReady}
+        onError={onError}
+      />,
+    );
+
+    const firstAnswer = await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    expect(firstAnswer).toBeEnabled();
+    expect(runSession).toHaveBeenCalledTimes(1);
+    fireEvent.click(firstAnswer);
+    await screen.findByText('Please explain your goal more clearly');
+    const correctedAnswer = screen.getByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    expect(correctedAnswer).toBeEnabled();
+    expect(screen.queryByText('学会 AI')).not.toBeInTheDocument();
+    expect(runSession.mock.calls[1][0]).toMatchObject({
+      expectedTurnIndex: 1,
+      expectedInteractionId: 'question-one',
+    });
+
+    fireEvent.click(correctedAnswer);
+    await screen.findByText('?[...Second question]');
+    expect(await screen.findByText('学会 AI')).toBeInTheDocument();
+    expect(runSession.mock.calls[2][0]).toMatchObject({
+      expectedTurnIndex: 2,
+      expectedInteractionId: 'question-one',
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
+    );
+    await waitFor(() =>
+      expect(onDraftReady).toHaveBeenCalledWith(
+        'Validated learner profile',
+        'whole-questionnaire',
+      ),
+    );
+    expect(runSession.mock.calls[3][0]).toMatchObject({
+      expectedTurnIndex: 3,
+      expectedInteractionId: 'question-two',
+    });
+    expect(createSession).toHaveBeenCalledTimes(1);
+    expect(runSession).toHaveBeenCalledTimes(4);
+    expect(onError).not.toHaveBeenCalled();
+    expect(
+      screen.getByText('Welcome to the complete questionnaire'),
+    ).toBeInTheDocument();
+  });
+
   test('retries a retryable SSE failure in the same session with the same user input', async () => {
     const createSession = jest
       .fn()
@@ -1340,7 +1793,7 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 1 },
+            content: { done: false, next_turn_index: 1 },
           });
         });
         return { close: jest.fn() };
@@ -1389,7 +1842,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(runSession.mock.calls[1][0]).toEqual(
       expect.objectContaining({
         sessionId: 'session-retry',
-        expectedBlockIndex: 1,
+        expectedTurnIndex: 1,
         requestId: expect.any(String),
         userInput: { profile_goal: ['学会 AI'] },
       }),
@@ -1397,7 +1850,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(runSession.mock.calls[2][0]).toEqual(
       expect.objectContaining({
         sessionId: 'session-retry',
-        expectedBlockIndex: 1,
+        expectedTurnIndex: 1,
         requestId: expect.any(String),
         userInput: { profile_goal: ['学会 AI'] },
       }),
@@ -1447,7 +1900,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(runSession.mock.calls[1][0]).toEqual(
       expect.objectContaining({
         sessionId: 'session-network',
-        expectedBlockIndex: 0,
+        expectedTurnIndex: 0,
         requestId: expect.any(String),
         userInput: undefined,
       }),
@@ -1462,11 +1915,11 @@ describe('ProfileOnboardingConversation', () => {
       .fn()
       .mockResolvedValueOnce({
         session_id: 'stale-session',
-        block_index: 2,
+        turn_index: 2,
       })
       .mockResolvedValueOnce({
         session_id: 'fresh-session',
-        block_index: 7,
+        turn_index: 7,
       });
     const onError = jest.fn();
     const onRetry = jest.fn();
@@ -1486,7 +1939,7 @@ describe('ProfileOnboardingConversation', () => {
           onMessage({
             type: 'done',
             is_terminal: true,
-            content: { done: false, next_block_index: 3 },
+            content: { done: false, next_turn_index: 3 },
           });
         });
         return { close: jest.fn() };
@@ -1527,7 +1980,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(runSession.mock.calls[1][0]).toEqual(
       expect.objectContaining({
         sessionId: 'stale-session',
-        expectedBlockIndex: 3,
+        expectedTurnIndex: 3,
         requestId: expect.any(String),
         userInput: { profile_goal: ['学会 AI'] },
       }),
@@ -1540,7 +1993,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(runSession.mock.calls[2][0]).toEqual(
       expect.objectContaining({
         sessionId: 'fresh-session',
-        expectedBlockIndex: 7,
+        expectedTurnIndex: 7,
         requestId: expect.any(String),
         userInput: undefined,
       }),
@@ -1698,12 +2151,10 @@ describe('assistant answers in the existing session', () => {
   const begin = async (
     assistantPrompt = 'Shared research questions',
     questionPending = false,
-    profileDraftBlockIndex = 9,
   ) => {
     const createSession = jest.fn(async () => ({
       session_id: 'shared-session',
       assistant_prompt: assistantPrompt,
-      profile_draft_block_index: profileDraftBlockIndex,
     }));
     const runSession = jest.fn(
       ({ onMessage }: Parameters<ProfileOnboardingRunSession>[0]) => {
@@ -1716,7 +2167,7 @@ describe('assistant answers in the existing session', () => {
         onMessage({
           event_type: 'done',
           is_terminal: true,
-          content: { done: false, next_block_index: 2 },
+          content: { done: false, next_turn_index: 2 },
         });
         return { close: jest.fn() };
       },
@@ -1923,7 +2374,7 @@ describe('assistant answers in the existing session', () => {
       result.runSession.mock.calls[0][0].onMessage({
         event_type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 2 },
+        content: { done: false, next_turn_index: 2 },
       });
     });
     expect(screen.getByText('Question one')).not.toBeVisible();
@@ -1937,7 +2388,7 @@ describe('assistant answers in the existing session', () => {
     expect(result.assistantAnswers).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: 'shared-session',
-        expectedBlockIndex: 2,
+        expectedTurnIndex: 2,
         rawText: 'External answer',
       }),
     );
@@ -2006,14 +2457,14 @@ describe('assistant answers in the existing session', () => {
       first.onMessage({
         event_type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 1 },
+        content: { done: false, next_turn_index: 1 },
       });
     });
     expect(result.assistantAnswers).toHaveBeenCalledTimes(1);
     expect(result.assistantAnswers.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         sessionId: 'shared-session',
-        expectedBlockIndex: 1,
+        expectedTurnIndex: 1,
         rawText: 'External answer',
         requestId: expect.stringContaining('profile-onboarding-assistant-'),
       }),
@@ -2022,7 +2473,7 @@ describe('assistant answers in the existing session', () => {
       first.onMessage({
         event_type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 8 },
+        content: { done: false, next_turn_index: 8 },
       });
       result.assistantAnswers.mock.calls[0][0].onMessage({
         event_type: 'done',
@@ -2060,7 +2511,7 @@ describe('assistant answers in the existing session', () => {
     expect(replay).toEqual(
       expect.objectContaining({
         requestId: first.requestId,
-        expectedBlockIndex: first.expectedBlockIndex,
+        expectedTurnIndex: first.expectedTurnIndex,
         userInput: first.userInput,
       }),
     );
@@ -2068,13 +2519,13 @@ describe('assistant answers in the existing session', () => {
       replay.onMessage({
         event_type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 1 },
+        content: { done: false, next_turn_index: 1 },
       }),
     );
     expect(result.assistantAnswers).toHaveBeenCalledTimes(1);
     expect(result.assistantAnswers.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        expectedBlockIndex: 1,
+        expectedTurnIndex: 1,
         rawText: 'External answer',
       }),
     );
@@ -2096,12 +2547,12 @@ describe('assistant answers in the existing session', () => {
       manual.onMessage({
         event_type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 3 },
+        content: { done: false, next_turn_index: 3 },
       }),
     );
     expect(result.assistantAnswers.mock.calls[0][0]).toEqual(
       expect.objectContaining({
-        expectedBlockIndex: 3,
+        expectedTurnIndex: 3,
         rawText: 'External answer',
       }),
     );
@@ -2115,7 +2566,7 @@ describe('assistant answers in the existing session', () => {
       result.runSession.mock.calls[0][0].onMessage({
         event_type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 1 },
+        content: { done: false, next_turn_index: 1 },
       });
       process();
     });
@@ -2140,7 +2591,7 @@ describe('assistant answers in the existing session', () => {
       result.runSession.mock.calls[0][0].onMessage({
         event_type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 1 },
+        content: { done: false, next_turn_index: 1 },
       }),
     );
     expect(result.assistantAnswers).not.toHaveBeenCalled();
@@ -2157,7 +2608,7 @@ describe('assistant answers in the existing session', () => {
       result.runSession.mock.calls[0][0].onMessage({
         event_type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 1 },
+        content: { done: false, next_turn_index: 1 },
       }),
     );
     act(() =>
@@ -2175,25 +2626,25 @@ describe('assistant answers in the existing session', () => {
     expect(result.runSession.mock.calls[1][0]).toEqual(
       expect.objectContaining({
         sessionId: 'shared-session',
-        expectedBlockIndex: 1,
+        expectedTurnIndex: 1,
         userInput: undefined,
       }),
     );
     expect(result.createSession).toHaveBeenCalledTimes(1);
   });
 
-  test('a queued import takes the final-summary cursor before ordinary finalization starts', async () => {
-    const result = await begin('Shared research questions', true, 1);
+  test('a queued import takes the confirmed native turn before continuation starts', async () => {
+    const result = await begin('Shared research questions', true);
     enter();
     process();
     await act(async () =>
       result.runSession.mock.calls[0][0].onMessage({
         event_type: 'done',
         is_terminal: true,
-        content: { done: false, next_block_index: 1 },
+        content: { done: false, next_turn_index: 1 },
       }),
     );
-    expect(result.assistantAnswers.mock.calls[0][0].expectedBlockIndex).toBe(1);
+    expect(result.assistantAnswers.mock.calls[0][0].expectedTurnIndex).toBe(1);
     expect(result.runSession).toHaveBeenCalledTimes(1);
   });
 
@@ -2231,7 +2682,7 @@ describe('assistant answers in the existing session', () => {
         first.onMessage({
           event_type: 'done',
           is_terminal: true,
-          content: { done: false, next_block_index: 1 },
+          content: { done: false, next_turn_index: 1 },
         }),
       );
       expect(result.assistantAnswers).not.toHaveBeenCalled();
@@ -2239,15 +2690,14 @@ describe('assistant answers in the existing session', () => {
   );
 
   test('does not offer a new import once the ordinary final summary is running', async () => {
-    const result = await begin('Shared research questions', true, 1);
-    await act(async () =>
+    const result = await begin('Shared research questions', true);
+    act(() =>
       result.runSession.mock.calls[0][0].onMessage({
-        event_type: 'done',
-        is_terminal: true,
-        content: { done: false, next_block_index: 1 },
+        event_type: 'phase',
+        content: { phase: 'summary' },
       }),
     );
-    expect(result.runSession).toHaveBeenCalledTimes(2);
+    expect(result.runSession).toHaveBeenCalledTimes(1);
     expect(
       screen.queryByRole('button', {
         name: 'module.profileOnboarding.assistant.entry',
@@ -2276,7 +2726,7 @@ describe('assistant answers in the existing session', () => {
     expect(result.runSession.mock.calls[1][0]).toEqual(
       expect.objectContaining({
         requestId: result.runSession.mock.calls[0][0].requestId,
-        expectedBlockIndex: 0,
+        expectedTurnIndex: 0,
       }),
     );
     expect(result.assistantAnswers).not.toHaveBeenCalled();
@@ -2400,7 +2850,7 @@ describe('assistant answers in the existing session', () => {
     expect(result.assistantAnswers).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: 'shared-session',
-        expectedBlockIndex: 2,
+        expectedTurnIndex: 2,
         rawText: 'External answer',
       }),
     );
@@ -2417,7 +2867,7 @@ describe('assistant answers in the existing session', () => {
           done: true,
           profile_draft: '',
           nickname: 'Robin',
-          next_block_index: 9,
+          next_turn_index: 9,
         },
       }),
     );
@@ -2537,13 +2987,13 @@ describe('assistant answers in the existing session', () => {
     const corrected = (
       result.assistantAnswers.mock.calls[1] as unknown as [
         {
-          expectedBlockIndex: number;
+          expectedTurnIndex: number;
           requestId: string;
           onMessage: (event: unknown) => void;
         },
       ]
     )[0];
-    expect(corrected.expectedBlockIndex).toBe(2);
+    expect(corrected.expectedTurnIndex).toBe(2);
     expect(corrected.requestId).not.toBe(first.requestId);
     act(() =>
       corrected.onMessage({
@@ -2564,7 +3014,7 @@ describe('assistant answers in the existing session', () => {
     );
     expect(result.runSession).toHaveBeenCalledTimes(2);
     expect(result.runSession.mock.calls[1][0]).toEqual(
-      expect.objectContaining({ expectedBlockIndex: 2 }),
+      expect.objectContaining({ expectedTurnIndex: 2 }),
     );
     expect(result.createSession).toHaveBeenCalledTimes(1);
   });

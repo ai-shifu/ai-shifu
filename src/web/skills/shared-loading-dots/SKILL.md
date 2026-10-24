@@ -1,6 +1,6 @@
 ---
 name: shared-loading-dots
-description: 当 Cook Web 需要新增共享 loading 动画时，使用本技能统一公共组件目录、非破坏性导出方式，以及圆点序列动画的可配置实现。
+description: Use when adding shared Cook Web loading animations. Follow shared component placement, nonbreaking exports, and configurable dot animation conventions.
 ---
 
 # 共享圆点 Loading

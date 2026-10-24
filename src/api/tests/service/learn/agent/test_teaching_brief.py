@@ -8,18 +8,15 @@ so a course moved across was taught in a voice its author never chose. 513 outli
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from flaskr.service.learn.agent import lesson_entry
+from markdownflow.engine import Prompts
 
 if TYPE_CHECKING:
     import pytest
 
-_SYSTEM = (
-    Path(__file__).resolve().parents[4]
-    / "flaskr/service/learn/agent/engine/prompts/system.md"
-).read_text()
+_SYSTEM = Prompts.default().base
 
 
 class _Row:

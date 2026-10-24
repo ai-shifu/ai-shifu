@@ -12,6 +12,7 @@ include =
     celery_app.py
     gunicorn.conf.py
     flaskr/*
+    markdownflow/*
 precision = 2
 show_missing = True
 fail_under = 95.01

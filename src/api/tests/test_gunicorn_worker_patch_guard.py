@@ -58,6 +58,7 @@ def test_worker_class_controls_actual_preload_patching(
         SimpleNamespace(monkey=SimpleNamespace(patch_all=patch_all)),
     )
 
+    monkeypatch.setattr("flaskr.metrics_runtime.prepare_metrics_directory", Mock())
     config = runpy.run_path(
         str(Path(__file__).resolve().parents[1] / "gunicorn.conf.py")
     )

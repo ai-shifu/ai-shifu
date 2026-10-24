@@ -6,8 +6,8 @@ import json
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from flaskr.service.learn.agent.engine.memory_context import parse_initial_memory_prompt
-from flaskr.service.learn.agent.engine.script import (
+from markdownflow.engine.memory_context import parse_initial_memory_prompt
+from markdownflow.engine.script import (
     collected_names,
     substitute_variables,
     substitution_names,
@@ -15,13 +15,14 @@ from flaskr.service.learn.agent.engine.script import (
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
-    from flaskr.service.learn.agent.engine.session import Session
+    from flaskr.api.markdownflow import Session
 
 
-def _section(tag: str, text: str, values: dict, collected: set[str]) -> str:
-    return (
-        f"<{tag}>\n{substitute_variables(text, values, collected=collected)}\n</{tag}>"
-    )
+def _section(
+    tag: str, text: str, values: dict, collected: set[str], *, unavailable: bool = True
+) -> str:
+    """Render a known host section in the requested compatibility format."""
+    return f"<{tag}>\n{substitute_variables(text, values, collected=collected, unavailable=unavailable)}\n</{tag}>"
 
 
 def refresh_deleted_memory(
@@ -59,6 +60,14 @@ def refresh_deleted_memory(
 
             suffix = part.content[parsed.script_start :]
             old = _section("script", session.script.script, original, collected)
+            if not suffix.startswith(old):
+                old = _section(
+                    "script",
+                    session.script.script,
+                    original,
+                    collected,
+                    unavailable=False,
+                )
             if suffix.startswith(old):
                 suffix = (
                     _section("script", session.script.script, updated, collected)
@@ -79,6 +88,14 @@ def refresh_deleted_memory(
                     start = len(
                         _section("script", session.script.script, updated, collected)
                     )
+                    if old_brief and not suffix.startswith(old_brief, start):
+                        old_brief = "\n\n" + _section(
+                            "constraints",
+                            session.script.constraints,
+                            original,
+                            collected,
+                            unavailable=False,
+                        )
                     if suffix.startswith(old_brief, start):
                         brief = (
                             session.script.constraints

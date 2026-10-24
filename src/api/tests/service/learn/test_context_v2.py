@@ -1438,6 +1438,7 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         assert variables.get("language") == "zh-CN"
 
     def test_request_language_overrides_stale_profile_language(self) -> None:
+        """Keep the canonical preview language ahead of stored and legacy values."""
         app = Flask("preview-variables-request-language")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
@@ -1458,8 +1459,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
                 shifu_bid="shifu-1",
             )
 
-        assert variables.get("sys_user_language") == "zh-CN"
-        assert variables.get("language") == "zh-CN"
+        assert variables.get("sys_user_language") == "en-US"
+        assert variables.get("language") == "en-US"
         assert memory.variables == {"sys_user_language": "en-US", "language": "en-US"}
 
     def test_keeps_existing_sys_user_language(self) -> None:

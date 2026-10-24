@@ -69,7 +69,7 @@ retry alone does not close an intermittent failure.
 
 ## Context and Orientation
 
-Runtime: src/api/flaskr/service/learn/agent/bridge.py. Plain-thread tests live in
+Runtime: src/api/markdownflow/bridge.py. Plain-thread tests live in
 test_bridge.py; test_bridge_gevent.py launches gevent_scripts/bridge_under_gevent.py
 in a fresh interpreter to avoid patching the entire pytest process.
 

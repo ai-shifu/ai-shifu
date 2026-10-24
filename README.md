@@ -2,7 +2,7 @@
   <img src="assets/logo_en.png" width=256></img>
 <p><strong>Write Once, Teach Personally</strong></p>
 
-English | [简体中文](README_ZH-CN.md)
+English | [Simplified Chinese](README_ZH-CN.md)
 
 </div>
 AI-Shifu is designed for creators, instructors, and training/education teams, offering a scalable one-on-one teaching agent. Provide your expertise and teaching intent once, AI-Shifu will expand it into complete, personalized learning experiences. It adapts in real time to each learner’s profile with tailored explanations, interactive probing, assessments, and a full feedback loop—amplifying both your efficiency and the learner’s experience.

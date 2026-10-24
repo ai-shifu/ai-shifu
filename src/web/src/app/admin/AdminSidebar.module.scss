@@ -3,7 +3,7 @@
   width: 250px;
   left: 50%;
   transform: translate(-50%);
-  bottom: 80px;
+  bottom: var(--account-menu-bottom-offset, 60px);
   top: auto;
   z-index: 999;
 }

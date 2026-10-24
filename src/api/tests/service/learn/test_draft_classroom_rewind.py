@@ -11,7 +11,6 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
 from flaskr.service.learn.agent import lesson_entry, preview_history, preview_rewind
-from flaskr.service.learn.agent.engine import ScriptBundle, Session
 from flaskr.service.learn.agent.models import LearnAgentSession
 from flaskr.service.learn.agent.session_store import (
     load_agent_session,
@@ -29,6 +28,7 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
+from markdownflow.engine import ScriptBundle, Session
 from pydantic_ai.messages import ToolCallPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 

@@ -97,8 +97,8 @@ def test_attributed_device_journey_reaches_token_session(
     monkeypatch.setattr(
         device_auth,
         "track_external_client_event",
-        lambda _app, *, event_name, attribution, user_id="": events.append(
-            (event_name, attribution, user_id)
+        lambda _app, *, event_name, attribution, user_bid="": events.append(
+            (event_name, attribution, user_bid)
         ),
     )
     monkeypatch.setattr(
@@ -120,8 +120,8 @@ def test_attributed_device_journey_reaches_token_session(
         "external_device_token_collected",
     ]
     assert events[0][2] == ""
-    assert events[1][2] == ""
-    assert events[2][2] == ""
+    assert events[1][2] == USER_ID
+    assert events[2][2] == USER_ID
     assert saved == [(issued["token"], events[2][1])]
     assert attribution["handoff_id"] not in repr(events)
 
@@ -138,9 +138,9 @@ def test_unattributed_device_journey_emits_no_backend_events(
         *,
         event_name: str,
         attribution: object,
-        user_id: str = "",
+        user_bid: str = "",
     ) -> None:
-        del user_id
+        del user_bid
         if attribution is not None:
             events.append(event_name)
 

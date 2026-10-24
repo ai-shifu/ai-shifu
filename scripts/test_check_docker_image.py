@@ -3,22 +3,141 @@
 
 from __future__ import annotations
 
+import io
 import json
+import shutil
+import ssl
 import subprocess
+import types
 import unittest
+from contextlib import redirect_stdout
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 from check_docker_image import (
+    API_TRUST_PROBE,
+    TRUSTED_CONTROL,
+    UNTRUSTED_ROOTS,
+    WEB_TRUST_PROBE,
     docker,
     smoke,
     validate_health,
     validate_i18n,
+    validate_trust_stores,
     verify_published,
 )
 
 CONFIG = "sha256:" + "a" * 64
 MANIFEST = "sha256:" + "b" * 64
+TRUST_FIXTURES = Path(__file__).parent / "testdata/image_trust"
+
+
+@pytest.mark.parametrize("insecure_store", [None, "system", "certifi", "pip"])
+def test_python_probe_checks_each_real_openssl_store(
+    tmp_path: Path, insecure_store: str | None
+) -> None:
+    """Adding a distrusted public root to any independent bundle must fail smoke."""
+    safe = (TRUST_FIXTURES / "isrg-root-x1.pem").read_text()
+    unsafe = safe + (TRUST_FIXTURES / "emsign-ecc-root-g3.pem").read_text()
+    paths = {}
+    for name in ("system", "certifi", "pip"):
+        paths[name] = tmp_path / f"{name}.pem"
+        paths[name].write_text(unsafe if name == insecure_store else safe)
+    # The probe still loads/parses the real PEM files through OpenSSL. Only the
+    # package locations and the host's unrelated default CA path are redirected.
+    certifi = types.ModuleType("certifi")
+    certifi.where = lambda: str(paths["certifi"])
+    pip_certifi = types.ModuleType("pip._vendor.certifi")
+    pip_certifi.where = lambda: str(paths["pip"])
+    vendor = types.ModuleType("pip._vendor")
+    vendor.certifi = pip_certifi
+    pip = types.ModuleType("pip")
+    pip._vendor = vendor
+    create_context = ssl.create_default_context
+    report = io.StringIO()
+    with (
+        patch.dict(
+            "sys.modules",
+            {
+                "certifi": certifi,
+                "pip": pip,
+                "pip._vendor": vendor,
+                "pip._vendor.certifi": pip_certifi,
+            },
+        ),
+        patch(
+            "ssl.create_default_context",
+            side_effect=lambda *, cafile=None: create_context(
+                cafile=cafile or paths["system"]
+            ),
+        ),
+        redirect_stdout(report),
+    ):
+        exec(API_TRUST_PROBE, {})  # noqa: S102 -- Execute the same fixed probe used inside the final image.
+    if insecure_store:
+        with pytest.raises(
+            ValueError, match=f"{insecure_store} trust store.*distrusted"
+        ):
+            validate_trust_stores(report.getvalue(), set(paths))
+    else:
+        validate_trust_stores(report.getvalue(), set(paths))
+
+
+@pytest.mark.parametrize("insecure_store", [None, "bundled", "default", "system"])
+def test_node_probe_hashes_real_certificates_in_each_store(
+    insecure_store: str | None,
+) -> None:
+    """Node's X509 parser must detect the same root in built-in and system stores."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node is required to execute the final-image TLS probe")
+    safe = (TRUST_FIXTURES / "isrg-root-x1.pem").read_text()
+    unsafe = (TRUST_FIXTURES / "emsign-ecc-root-g3.pem").read_text()
+    stores = {
+        name: [safe, unsafe] if name == insecure_store else [safe]
+        for name in ("bundled", "default", "system")
+    }
+    script = (
+        "const stores = "
+        + json.dumps(stores)
+        + ";\n"
+        + """
+const realRequire = require;
+const fixtureRequire = name => {
+  if (name === 'node:tls') return {
+    rootCertificates: stores.bundled,
+    getCACertificates: () => stores.default,
+  };
+  if (name === 'node:fs') return {readFileSync: () => stores.system.join('\\n')};
+  return realRequire(name);
+};
+"""
+        + "new Function('require', "
+        + json.dumps(WEB_TRUST_PROBE)
+        + ")(fixtureRequire);"
+    )
+    report = subprocess.check_output([node, "-e", script], text=True)
+    if insecure_store:
+        with pytest.raises(
+            ValueError, match=f"{insecure_store} trust store.*distrusted"
+        ):
+            validate_trust_stores(report, set(stores))
+    else:
+        validate_trust_stores(report, set(stores))
+
+
+def test_trust_check_requires_every_store_and_a_positive_control() -> None:
+    """Empty, missing and unsafe trust reports cannot masquerade as successful smoke."""
+    with pytest.raises(ValueError, match="missing a required"):
+        validate_trust_stores("{}", {"system"})
+    with pytest.raises(ValueError, match="trusted control"):
+        validate_trust_stores('{"system":[]}', {"system"})
+    for fingerprint in UNTRUSTED_ROOTS:
+        with pytest.raises(ValueError, match="distrusted root"):
+            validate_trust_stores(
+                json.dumps({"system": [TRUSTED_CONTROL, fingerprint]}), {"system"}
+            )
 
 
 class ProductionImageTests(unittest.TestCase):
@@ -41,6 +160,13 @@ class ProductionImageTests(unittest.TestCase):
         """Model a daemon that starts a container on an isolated loopback port."""
         if args[:2] == ("image", "inspect"):
             return self.image()
+        if args[-1] in (API_TRUST_PROBE, WEB_TRUST_PROBE):
+            names = (
+                ("system", "certifi", "pip")
+                if args[-1] == API_TRUST_PROBE
+                else ("bundled", "default", "system")
+            )
+            return json.dumps({name: [TRUSTED_CONTROL] for name in names})
         if args[:2] == ("run", "-d"):
             return "smoke-container"
         if args[0] == "port":
@@ -121,6 +247,29 @@ class ProductionImageTests(unittest.TestCase):
         ):
             smoke("web", "local:web", "linux/arm64")
         assert daemon.call_count == 1
+
+    def test_distrusted_final_image_never_starts_the_application(self) -> None:
+        """Trust validation must gate startup for both final image types."""
+        for service in ("api", "web"):
+
+            def insecure_docker(*args: str) -> str:
+                result = self.docker(*args)
+                if args[-1] in (API_TRUST_PROBE, WEB_TRUST_PROBE):
+                    stores = json.loads(result)
+                    stores["system"].append(next(iter(UNTRUSTED_ROOTS)))
+                    return json.dumps(stores)
+                return result
+
+            with (
+                patch(
+                    "check_docker_image.docker", side_effect=insecure_docker
+                ) as daemon,
+                pytest.raises(ValueError, match=r"system trust store.*distrusted"),
+            ):
+                smoke(service, f"local:{service}", "linux/amd64")
+            assert not any(
+                call.args[:2] == ("run", "-d") for call in daemon.call_args_list
+            )
 
     def test_web_checks_runtime_config_i18n_and_static_assets(self) -> None:
         """The final runner must serve compiled assets and translations as non-root."""

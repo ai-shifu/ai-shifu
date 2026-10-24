@@ -1,6 +1,6 @@
 ---
 name: module-augmentation-guardrails
-description: 当 TypeScript 对子路径导出出现类型丢失或声明冲突时使用本技能。通过规范的 module augmentation 写法避免覆盖上游导出。
+description: Use when TypeScript subpath exports lose types or have declaration conflicts. Follow module augmentation conventions to avoid replacing upstream exports.
 ---
 
 # TypeScript 模块增强防护

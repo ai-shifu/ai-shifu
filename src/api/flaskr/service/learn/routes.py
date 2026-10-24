@@ -41,6 +41,7 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
 )
 from flaskr.service.learn.listen_elements import get_listen_element_record
+from flaskr.service.learn.preview_language import resolve_preview_language
 from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,
     resolve_preview_request_user,
@@ -594,6 +595,16 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", debug_run_bid)
         ):
             raise_param_error("Invalid debug session identifier")
+
+        # Capture the request fallback before streaming clears request-local i18n.
+        # Both runtimes receive the same authoritative editor language.
+        variables = dict(preview_request.variables or {})
+        preview_language = resolve_preview_language(variables)
+        preview_request.variables = {
+            **variables,
+            "sys_user_language": preview_language,
+            "language": preview_language,
+        }
         if uses_agent_engine(shifu_bid) and debug_run_bid:
             from flaskr.service.learn.agent.debug_session import stream_debug_preview
 

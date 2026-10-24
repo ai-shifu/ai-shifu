@@ -98,6 +98,75 @@ describe('useUserStore.initUser', () => {
     expect(mockChangeLanguage).not.toHaveBeenCalled();
   });
 
+  test('passes exclusion from restored user info and restores guest eligibility on logout', async () => {
+    mockTokenState = { token: 'excluded-token', faked: false };
+    const excludedUser = {
+      user_id: 'excluded-user',
+      email: 'excluded@example.com',
+      analytics_enabled: false,
+    };
+    mockGetUserInfo.mockResolvedValueOnce(excludedUser);
+
+    await useUserStore.getState().initUser();
+
+    expect(mockIdentifyUmamiUser).toHaveBeenLastCalledWith(excludedUser);
+    expect(useUserStore.getState().userInfo?.analytics_enabled).toBe(false);
+
+    const guestUser = { user_id: 'guest-user', analytics_enabled: true };
+    mockRegisterTmp.mockResolvedValueOnce({
+      token: 'guest-token',
+      userInfo: guestUser,
+    });
+
+    await useUserStore.getState().logout(false);
+
+    expect(mockIdentifyUmamiUser).toHaveBeenLastCalledWith(guestUser);
+    expect(mockTokenState).toEqual({ token: 'guest-token', faked: true });
+    expect(useUserStore.getState()).toMatchObject({
+      userInfo: null,
+      isGuest: true,
+      isLoggedIn: false,
+    });
+  });
+
+  test('preserves exclusion through login and profile edits and accepts refreshed eligibility', async () => {
+    await useUserStore.getState().login(
+      {
+        user_id: 'same-user',
+        name: 'Account',
+        analytics_enabled: false,
+      },
+      'user-token',
+    );
+    expect(mockIdentifyUmamiUser).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        user_id: 'same-user',
+        analytics_enabled: false,
+      }),
+    );
+
+    useUserStore.getState().updateUserInfo({ name: 'Updated account' });
+    expect(mockIdentifyUmamiUser).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        user_id: 'same-user',
+        analytics_enabled: false,
+      }),
+    );
+
+    mockGetUserInfo.mockResolvedValueOnce({
+      user_id: 'same-user',
+      language: 'zh-CN',
+      analytics_enabled: true,
+    });
+    await useUserStore.getState().refreshUserInfo();
+    expect(mockIdentifyUmamiUser).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        user_id: 'same-user',
+        analytics_enabled: true,
+      }),
+    );
+  });
+
   test('recovers a missing profile quietly after initialization preserves a signed-in session', async () => {
     mockTokenState = { token: 'owner-token', faked: false };
     mockGetUserInfo.mockRejectedValueOnce(new Error('Temporary failure'));

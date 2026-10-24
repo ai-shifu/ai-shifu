@@ -7,11 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from flaskr.api.llm import LLMStreamResponse
-from flaskr.service.learn.agent.bridge import iter_turn
-from flaskr.service.learn.agent.engine.recall import recall as engine_recall
-from flaskr.service.learn.agent.engine.script import collected_names
-from flaskr.service.learn.agent.engine.tools import Deps, prepare_memory_tool
-from flaskr.service.learn.agent.engine.tools import remember as engine_remember
+from flaskr.api.markdownflow import TurnCapacityError, iter_turn
 from flaskr.service.learn.agent.lesson_record import claim_for_writing
 from flaskr.service.learn.follow_up_quotations import LearnerQuotationSource
 from flaskr.service.learn.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
@@ -24,6 +20,10 @@ from flaskr.service.profile.api import (
     global_profile_value_versions,
 )
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
+from markdownflow.engine.recall import recall as engine_recall
+from markdownflow.engine.script import collected_names
+from markdownflow.engine.tools import Deps, prepare_memory_tool
+from markdownflow.engine.tools import remember as engine_remember
 from pydantic_ai import (
     Agent,
     AgentRunResultEvent,
@@ -32,6 +32,7 @@ from pydantic_ai import (
     ToolReturn,
     UsageLimits,
 )
+from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -45,10 +46,44 @@ from pydantic_ai.messages import (
 from pydantic_ai.usage import RunUsage
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Callable, Generator
+    from collections.abc import (
+        AsyncIterator,
+        Awaitable,
+        Callable,
+        Generator,
+        Iterable,
+    )
 
     from flask import Flask
     from pydantic_ai.models import Model
+
+_FALLBACK_NOTICE = (
+    "Memory tools are unavailable for this answer, so nothing can be saved, "
+    "updated or deleted now. If the learner asks you to remember, save, update "
+    "or forget something, say plainly that it was not saved this time and that "
+    "they can ask again later. Never say or imply that a fact was saved."
+)
+_FALLBACK_CONTINUATION = (
+    "The learner has already been shown the start of your answer, quoted as JSON "
+    "data: {shown}. Continue it in a new paragraph. Do not repeat, restart or "
+    "contradict it."
+)
+
+
+def _fallback_messages(
+    messages: list[dict[str, str]], shown: str
+) -> list[dict[str, str]]:
+    """Tell a plain answer that memory writes are unavailable and what was already shown."""
+    notice = _FALLBACK_NOTICE
+    if shown.strip():
+        notice += " " + _FALLBACK_CONTINUATION.format(
+            shown=json.dumps(shown, ensure_ascii=False)
+        )
+    lead = 0
+    while lead < len(messages) and messages[lead].get("role") == "system":
+        lead += 1
+    return [*messages[:lead], {"role": "system", "content": notice}, *messages[lead:]]
+
 
 _MEMORY_EVIDENCE_POLICY = (
     "A recall result establishes only the current in-run value, not the history "
@@ -262,8 +297,11 @@ class FollowUpMemoryRun:
         cancelled: Callable[[], bool] | None = None,
         value_versions: dict[str, int | tuple[int, str | None]] | None = None,
         quotation_messages: tuple[str, ...] = (),
+        fallback: Callable[[list[dict[str, str]]], Iterable[LLMStreamResponse]]
+        | None = None,
     ) -> None:
         """Capture immutable request evidence; DB state never enters the producer thread."""
+        self.fallback = fallback
         self.model = model
         self.patch = patch
         self.current_input = current_input
@@ -451,7 +489,17 @@ class FollowUpMemoryRun:
             if self.cancelled is not None and self.cancelled():
                 raise GeneratorExit
 
-        events = iter_turn(lambda: self._events(messages), heartbeat=check_active)
+        try:
+            events = iter_turn(lambda: self._events(messages), heartbeat=check_active)
+        except TurnCapacityError:
+            # Lessons share this worker's turn slots. Answer the question without memory
+            # tools rather than failing it while lessons are busy.
+            if self.fallback is None:
+                raise
+            yield from self.fallback(_fallback_messages(messages, ""))
+            return
+        exhausted = False
+        shown: list[str] = []
         try:
             for event in events:
                 check_active()
@@ -459,6 +507,7 @@ class FollowUpMemoryRun:
                     completed = event
                 elif event:
                     visible = visible or bool(event.strip())
+                    shown.append(event)
                     yield LLMStreamResponse(
                         "follow-up",
                         is_end=False,
@@ -467,8 +516,26 @@ class FollowUpMemoryRun:
                         finish_reason=None,
                         usage=None,
                     )
+        except UsageLimitExceeded:
+            # The run used its read/write budget while still calling tools. Save nothing
+            # and finish without memory tools, continuing any text already shown.
+            if self.fallback is None:
+                raise
+            exhausted = True
         finally:
             events.close()
+        if exhausted:
+            if visible:
+                yield LLMStreamResponse(
+                    "follow-up",
+                    is_end=False,
+                    is_truncated=False,
+                    result="\n\n",
+                    finish_reason=None,
+                    usage=None,
+                )
+            yield from self.fallback(_fallback_messages(messages, "".join(shown)))
+            return
         check_active()
         if completed is not None and visible and not self.preview:
             self.patch.variables = [

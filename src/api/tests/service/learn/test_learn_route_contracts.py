@@ -589,9 +589,22 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     preview.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "variables",
+    [
+        None,
+        {"language": "en-US"},
+        {"sys_user_language": "en-US"},
+        {"sys_user_language": "en-US", "language": "zh-CN"},
+    ],
+)
 def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks(
-    monkeypatch: object, test_client: object, feedback_course: object
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    variables: dict | None,
 ) -> None:
+    """Route editor sessions to the agent with synchronized language aliases."""
     from flaskr.service.learn.agent import debug_session
 
     marker = {"type": "preview_engine", "content": "2.0"}
@@ -608,14 +621,71 @@ def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks
             "content": "Current editor draft",
             "block_index": 0,
             "debug_session_id": "editor-run-1",
+            "variables": variables,
         },
-        headers={"Token": "test-token"},
+        headers={"Token": "test-token", "Accept-Language": "fr-FR"},
     )
 
     assert '"preview_engine"' in response.get_data(as_text=True)
     assert agent.call_args.kwargs["preview_request"].content == "Current editor draft"
     assert agent.call_args.kwargs["run_bid"] == "editor-run-1"
+    expected_language = "en-US" if variables else "fr-FR"
+    assert agent.call_args.kwargs["preview_request"].variables == {
+        "sys_user_language": expected_language,
+        "language": expected_language,
+    }
     legacy.assert_not_called()
+
+
+@pytest.mark.parametrize("agent_enabled", [False, True])
+@pytest.mark.parametrize(
+    ("variables", "expected"),
+    [
+        ({}, "fr-FR"),
+        ({"sys_user_language": "", "language": ""}, "fr-FR"),
+        ({"sys_user_language": "", "language": "zh-CN"}, "fr-FR"),
+        ({"sys_user_language": "unknown"}, "fr-FR"),
+        ({"sys_user_language": "en-US", "language": "zh-CN"}, "en-US"),
+    ],
+)
+def test_preview_captures_language_before_streaming_for_both_runtimes(
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    agent_enabled: bool,
+    variables: dict,
+    expected: str,
+) -> None:
+    """Keep resolved language valid after streaming loses request-local i18n."""
+    from flaskr.i18n import clear_language
+    from flaskr.service.learn.agent import debug_session
+    from flaskr.service.learn.preview_language import resolve_preview_language
+
+    seen = []
+
+    def stream(*_args: object, **kwargs: object) -> object:
+        """Observe captured variables after clearing the request language context."""
+        clear_language()
+        captured = kwargs["preview_request"].variables
+        seen.append(resolve_preview_language(captured))
+        yield {"type": "done"}
+
+    monkeypatch.setattr(routes, "uses_agent_engine", lambda *_: agent_enabled)
+    monkeypatch.setattr(debug_session, "stream_debug_preview", stream)
+    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", stream)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
+        json={
+            "content": "Draft",
+            "block_index": 0,
+            "debug_session_id": "run",
+            "variables": variables,
+        },
+        headers={"Token": "test-token", "Accept-Language": "fr-FR"},
+    )
+    assert '"done"' in response.get_data(as_text=True)
+    assert seen == [expected]
 
 
 @pytest.mark.parametrize("allowlisted", [False, True])

@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
     from flask import Flask
-    from flaskr.service.learn.agent.engine import Engine
+    from markdownflow.engine import Engine
     from pydantic_ai.messages import ModelMessage
     from pydantic_ai.models.function import AgentInfo
 
@@ -143,6 +143,79 @@ def test_deleted_answer_cannot_return_from_a_stored_session(
     assert after.memory["scratch"] == "lesson-only"
 
 
+def test_answer_given_after_an_earlier_deletion_stays_recallable(
+    app: Flask, learner: tuple[str, str]
+) -> None:
+    """A deletion generation does not discard an answer accepted after it."""
+    user, course = learner
+    first = uuid4().hex
+    engine = _collector()
+    _turn(app, engine, user, course, first)
+    _turn(app, engine, user, course, first, "Old answer")
+    row = VariableValue.query.filter_by(user_bid=user, key="goal", deleted=0).one()
+    delete_course_memory(user, course, row.id)
+    db.session.remove()
+    second = uuid4().hex
+    _turn(app, engine, user, course, second)
+    _turn(app, engine, user, course, second, ANSWER)
+    db.session.remove()
+    seen: list[dict] = []
+    _turn(app, _reader("goal", seen, []), user, course, second)
+    after = session_store.load_agent_session(app, user, second)
+    assert seen == [{"status": "found", "value": ANSWER}]
+    assert after.memory["goal"] == ANSWER
+    assert "goal" in after.answered_memory_keys()
+
+
+def test_same_value_recreated_elsewhere_does_not_answer_an_old_lesson(
+    app: Flask, learner: tuple[str, str]
+) -> None:
+    """Value equality cannot make a pre-deletion answer current again."""
+    user, course = learner
+    lesson = uuid4().hex
+    engine = _collector()
+    _turn(app, engine, user, course, lesson)
+    _turn(app, engine, user, course, lesson, ANSWER)
+    row = VariableValue.query.filter_by(user_bid=user, key="goal", deleted=0).one()
+    delete_course_memory(user, course, row.id)
+    _update(app, user, course, ANSWER)
+    db.session.remove()
+    seen: list[dict] = []
+    _turn(app, _reader("goal", seen, []), user, course, lesson)
+    assert seen == [{"status": "unavailable"}]
+    after = session_store.load_agent_session(app, user, lesson)
+    assert "goal" not in after.answered_memory_keys()
+
+
+def test_rewind_does_not_restore_an_answer_deleted_after_its_checkpoint(
+    app: Flask, learner: tuple[str, str]
+) -> None:
+    """A checkpoint carries the deletions its memory reflects."""
+    user, course = learner
+    lesson = uuid4().hex
+    engine = _collector()
+    _turn(app, engine, user, course, lesson)
+    _turn(app, engine, user, course, lesson, ANSWER)
+    checkpoint = checkpoint_of(session_store.load_agent_session(app, user, lesson))
+    assert checkpoint["memory"]["goal"] == ANSWER
+    row = VariableValue.query.filter_by(user_bid=user, key="goal", deleted=0).one()
+    delete_course_memory(user, course, row.id)
+    _update(app, user, course, ANSWER)
+    db.session.remove()
+    _turn(app, _reader("goal", [], []), user, course, lesson)
+    db.session.remove()
+    seen: list[dict] = []
+    _turn(
+        app,
+        _reader("goal", seen, []),
+        user,
+        course,
+        lesson,
+        rewind=RewindPlan(checkpoint=checkpoint, replay_values=None),
+    )
+    assert seen == [{"status": "unavailable"}]
+
+
 def test_failed_resume_does_not_commit_a_partially_refreshed_session(
     app: Flask, learner: tuple[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -215,7 +288,7 @@ def test_host_does_not_refresh_a_working_note_as_an_accepted_named_answer(
     app: Flask, learner: tuple[str, str], answered: bool, same_value: bool
 ) -> None:
     """A matching session-only key without an answered question retains its value."""
-    from flaskr.service.learn.agent.engine import Engine
+    from markdownflow.engine import Engine
 
     user, course = learner
     lesson = uuid4().hex

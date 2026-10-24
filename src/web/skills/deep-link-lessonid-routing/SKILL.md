@@ -1,6 +1,6 @@
 ---
 name: deep-link-lessonid-routing
-description: 当 Cook Web 需要按 URL 深链定位课节并保持学习端与后台端行为一致时使用本技能。统一使用 lessonid 参数、复用目录点击拦截链路，并覆盖登录/付费/无效课节兜底，以及 debug=1 初始化和鉴权恢复排查。
+description: Use when routing Cook Web deep links to lessons consistently across learner and admin surfaces. Use lessonid, reuse table-of-contents click handling, cover login, payment, and invalid-lesson fallbacks, and diagnose debug=1 initialization and authentication recovery.
 ---
 
 # 深链课节定位（`lessonid`）

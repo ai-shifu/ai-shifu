@@ -27,7 +27,7 @@ from flaskr.dao import (
 )
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
-from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
+from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.agent.routing import uses_agent_engine
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.context_v2 import RunScriptContextV2
@@ -729,8 +729,9 @@ def _lesson_events(
         reload_generated_block_bid=reload_generated_block_bid,
         reload_element_bid=reload_element_bid,
     ):
-        from flaskr.service.learn.agent.bridge import TurnCapacityError
+        from flaskr.api.markdownflow import TurnCapacityError
         from flaskr.service.learn.agent.lesson_entry import (
+            DiscardedTurnError,
             LessonNotTeachable,
             agent_lesson_events,
             require_teachable_preview,
@@ -856,12 +857,15 @@ def _lesson_events(
                     else:
                         yield payload
             except AppError as exc:
-                if (
-                    exc.code == ERROR_CODE["server.learn.agentInputBudgetExceeded"]
-                    and element_adapter is not None
+                if element_adapter is not None and not isinstance(
+                    exc, DiscardedTurnError
                 ):
-                    # A later tool request can be refused after text was shown. Persist its
+                    # A turn can fail after text was shown: a refused tool request, a provider
+                    # error after output started, or an exhausted recovery. The engine keeps
+                    # that text in its saved session and continues after it, so persist the
                     # buffered elements before surfacing the error, without sending DONE.
+                    # Errors raised before any output leave nothing pending, and a turn a
+                    # concurrent reset discarded must leave nothing behind.
                     yield from element_adapter.finalize_pending_blocks()
                     _commit_pending_step()
                 raise

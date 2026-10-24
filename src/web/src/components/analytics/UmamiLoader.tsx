@@ -1,10 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { usePathname } from 'next/navigation';
 import { useEnvStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
-import { flushUmamiIdentify, trackPageview } from '@/lib/tracking';
+import {
+  flushUmamiIdentify,
+  getTrackingResumeGeneration,
+  subscribeToTrackingResume,
+  trackPageview,
+} from '@/lib/tracking';
 import { useUserStore } from '@/store';
 
 const SCRIPT_ID = 'umami-analytics-script';
@@ -41,6 +46,11 @@ export const UmamiLoader = () => {
   );
   const pathname = usePathname();
   const isUserInitialized = useUserStore(state => state.isInitialized);
+  const trackingResumeGeneration = useSyncExternalStore(
+    subscribeToTrackingResume,
+    getTrackingResumeGeneration,
+    () => 0,
+  );
 
   useEffect(() => {
     if (!umamiScriptSrc || !umamiWebsiteId) {
@@ -59,7 +69,13 @@ export const UmamiLoader = () => {
     }
 
     trackPageview(pathname);
-  }, [pathname, umamiScriptSrc, umamiWebsiteId, isUserInitialized]);
+  }, [
+    pathname,
+    umamiScriptSrc,
+    umamiWebsiteId,
+    isUserInitialized,
+    trackingResumeGeneration,
+  ]);
 
   return null;
 };

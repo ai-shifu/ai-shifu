@@ -6,9 +6,9 @@ import hashlib
 import json
 from typing import TYPE_CHECKING
 
+from flaskr.api.markdownflow import Session
 from flaskr.common.cache_provider import cache
 from flaskr.service.common.models import raise_error
-from flaskr.service.learn.agent.engine.session import Session
 from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 

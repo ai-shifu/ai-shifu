@@ -2,7 +2,7 @@
 title: MarkdownFlow Memory Recall
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-13
 canonical: true
 ---
 
@@ -34,8 +34,14 @@ readable on the same deferred resume and on later requests. The AI-Shifu host
 refreshes existing named-answer copies from the committed course snapshot, so an
 old lesson cannot shadow a newer answer from another lesson. Unanswered questions
 are never prefilled by this refresh. Deletion clears the accepted-answer copy;
-recreating the course key does not answer that old lesson's question again.
-Session-only working notes and historical conversation are preserved.
+recreating the course key does not answer that old lesson's question again, even
+with the same value. The session's `memory_generations` metadata records the
+deletion generations its memory already reflects, so only newer deletions are
+refreshed and an answer accepted after a deletion stays readable. Checkpoints
+carry this metadata; sessions and checkpoints without it refresh every key that
+was ever deleted.
+Historical conversation is preserved. Session-only working notes are preserved,
+except a note stored under a key that a deletion refresh clears.
 Acceptance is recorded with a SHA-256 fingerprint of the current answer copy,
 never inferred from a seeded session value. The optional `answer_hashes` session
 metadata stores no duplicate answer text and needs no database schema migration.
@@ -58,3 +64,29 @@ Repeated tool results still consume that total budget. This increment provides e
 retrieval, not semantic search, historical conversation compression or automatic recovery
 from oversized overall inputs. Shared writes and independent teaching-quality acceptance
 remain separate work.
+
+
+## Unavailable authored values
+
+For script/brief reads outside fenced code, an absent, null or empty-string
+learner value is represented in the initial host prompt by
+`<unavailable_learner_value name="..." />`, with an escaped name. It is metadata,
+not a learner fact or display text. The syntax guidance also covers unresolved
+read templates in older host prompts: use the author's missing-evidence wording,
+or omit that personal claim, including inside generated visuals. Do not invent
+values, expose internal names or add an unauthored interaction to obtain them.
+
+Existing complete values, including zero and false, keep exact substitution even
+when omitted from the bounded memory block. Names collected in this lesson still
+wait for its actual answer; earlier stored answers cannot prefill them. Missing notation in authored verbatim syntax examples and fenced
+code/templates/CSS/JavaScript remains literal source content; known personalization
+in verbatim text retains its existing substitution behavior. This does not rewrite
+generated code or classroom output after generation.
+
+Nickname and deletion refresh match each known host section independently in
+both historical and current formats, then use the current rendering. Unrecognized
+history, later learner requests, tool returns and already displayed teaching stay
+unchanged. No memory placeholder is persisted as a profile value; course scope,
+recall/write permissions and all input/request/retry limits remain unchanged.
+Native SDK tests establish input/policy delivery only; actual-model and sim checks
+must separately verify learner-visible behavior.

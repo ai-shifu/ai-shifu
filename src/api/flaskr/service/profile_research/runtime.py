@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import contextlib
 import json
-from collections.abc import Callable, Generator, Iterable, Mapping
 from copy import deepcopy
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from flask import Flask, Response, stream_with_context
 from flaskr.api.langfuse import (
@@ -17,7 +16,6 @@ from flaskr.api.langfuse import (
     get_request_trace_id,
 )
 from flaskr.api.llm.model_selection import get_default_llm_model
-from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.dao import (
     invalidate_session,
     is_protocol_interrupt_error,
@@ -29,8 +27,12 @@ from flaskr.service.profile.api import (
 )
 from flaskr.service.profile_research.assistant_answers import parse_assistant_answers
 from flaskr.service.profile_research.document import (
-    _append_profile_summary,
+    _profile_summary_prompt,
     validate_profile_research_document,
+)
+from flaskr.service.profile_research.engine_runtime import (
+    profile_answer_evidence,
+    run_profile_turn,
 )
 from flaskr.service.profile_research.events import (
     _compact_replay_events,
@@ -39,12 +41,12 @@ from flaskr.service.profile_research.events import (
 from flaskr.service.profile_research.events import (
     _profile_research_event as _event,
 )
-from flaskr.service.profile_research.provider import _ProfileResearchLLMProvider
-from flaskr.service.profile_research.session import (
-    ALLOWED_PROFILE_RESEARCH_PURPOSES as _ALLOWED_PURPOSES,
+from flaskr.service.profile_research.provider import (
+    _ProfileResearchLLMProvider,
+    create_profile_research_model,
 )
 from flaskr.service.profile_research.session import (
-    MAX_BLOCK_COUNT as _MAX_BLOCK_COUNT,
+    ALLOWED_PROFILE_RESEARCH_PURPOSES as _ALLOWED_PURPOSES,
 )
 from flaskr.service.profile_research.session import (
     PROFILE_ONBOARDING_PREVIEW_PURPOSE,
@@ -65,18 +67,13 @@ from flaskr.service.profile_research.session import (
 from flaskr.service.profile_research.session import (
     _normalize_profile_research_user_input as _normalize_user_input,
 )
-from flaskr.service.profile_research.session import (
-    _normalize_session_variables as _normalize_variables,
-)
 from flaskr.util import generate_id
-from markdown_flow import (
-    USER_ANSWER_CONTEXT_KEY,
-    BlockType,
-    LLMProvider,
-    LLMResult,
-    MarkdownFlow,
-    ProcessMode,
-)
+from markdown_flow import USER_ANSWER_CONTEXT_KEY, LLMProvider
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator, Iterable, Mapping
+
+    from pydantic_ai.models import Model
 
 __all__ = [
     "PROFILE_ONBOARDING_PREVIEW_PURPOSE",
@@ -103,38 +100,11 @@ _NICKNAME_VARIABLE_KEY = "sys_user_nickname"
 
 
 @dataclass
-class _StepOutcome:
-    content: str = ""
-    prompt: str = ""
-    variable_updates: dict[str, str | list[str]] = field(default_factory=dict)
-    input_accepted: bool = False
-    answer_values: list[str] = field(default_factory=list)
-
-
-@dataclass
 class _RunAdmission:
     session: _ProfileResearchSession
     user_input: dict[str, list[str]]
     immediate_events: list[dict[str, Any]] | None = None
     refresh_session: bool = False
-
-
-@dataclass
-class _BlockExecution:
-    processed_block_index: int
-    current_block: Any
-    has_user_input: bool
-    outcome: _StepOutcome
-    rerendered_interaction: str
-    streamed_events: list[dict[str, Any]]
-
-
-def _iter_results(
-    result: LLMResult | Iterable[LLMResult],
-) -> Iterable[LLMResult]:
-    if isinstance(result, LLMResult):
-        return (result,)
-    return result
 
 
 def _collected_nickname(session: _ProfileResearchSession) -> str | None:
@@ -160,11 +130,15 @@ class ProfileResearchRuntime:
         provider_factory: Callable[
             [Flask, _ProfileResearchSession, object], LLMProvider
         ] = _ProfileResearchLLMProvider,
+        model_factory: Callable[
+            [Flask, _ProfileResearchSession, object], Model
+        ] = create_profile_research_model,
     ) -> None:
         """Initialize the runtime with shared storage and provider adapters."""
         self.app = app
         self.store = store or _ProfileResearchSessionStore(app)
         self._provider_factory = provider_factory
+        self._model_factory = model_factory
 
     def start_session(
         self,
@@ -188,16 +162,6 @@ class ProfileResearchRuntime:
         validate_profile_research_document(document)
 
         normalized_output_language = str(output_language or "").strip()
-        snapshotted_document = _append_profile_summary(document)
-        flow = MarkdownFlow(snapshotted_document)
-        blocks = flow.get_all_blocks()
-        if not blocks or blocks[-1].block_type != BlockType.CONTENT:
-            msg = "profile summary block is invalid"
-            raise ProfileResearchValidationError(msg)
-        if len(blocks) > _MAX_BLOCK_COUNT:
-            msg = "document has too many blocks"
-            raise ProfileResearchValidationError(msg)
-
         model = get_default_llm_model(self.app)
         if not model:
             msg = "LLM model is not configured"
@@ -216,15 +180,13 @@ class ProfileResearchRuntime:
             session_id=generate_id(self.app),
             user_bid=normalized_user_bid,
             purpose=normalized_purpose,
-            document=snapshotted_document,
+            document=document,
             assistant_prompt=assistant_prompt,
             model=model,
             temperature=temperature,
             output_language=normalized_output_language,
             config_revision=revision,
-            block_index=0,
-            block_count=len(blocks),
-            profile_draft_block_index=len(blocks) - 1,
+            turn_index=0,
         )
         owner_lock = self.store.owner_lock(
             user_bid=session.user_bid,
@@ -349,37 +311,24 @@ class ProfileResearchRuntime:
                 self.store.delete(session.session_id)
                 self.store.clear_active(session)
 
-    def _build_flow(
-        self,
-        session: _ProfileResearchSession,
-        provider: LLMProvider,
-    ) -> MarkdownFlow:
-        flow = MarkdownFlow(
-            document=session.document,
-            llm_provider=provider,
-        )
-        flow.set_model(session.model)
-        flow.set_temperature(session.temperature)
-        if session.output_language:
-            flow.set_output_language(
-                resolve_markdownflow_output_language(session.output_language)
-            )
-        return flow
-
     def _summary(
         self,
         session: _ProfileResearchSession,
         *,
-        processed_block_index: int,
-        advanced: bool,
+        processed_turn_index: int,
+        input_accepted: bool = False,
     ) -> dict[str, Any]:
         return {
             "session_id": session.session_id,
-            "block_index": processed_block_index,
-            "next_block_index": session.block_index,
-            "block_count": session.block_count,
-            "profile_draft_block_index": session.profile_draft_block_index,
-            "advanced": advanced,
+            "turn_index": processed_turn_index,
+            "next_turn_index": session.turn_index,
+            "input_accepted": input_accepted,
+            "pending_interaction_ids": [
+                pending["tool_call_id"]
+                for pending in (session.engine_session or {}).get("pending", [])
+            ]
+            if not session.done
+            else [],
             "awaiting_input": session.awaiting_input,
             "done": session.done,
             "profile_draft": session.profile_draft if session.done else None,
@@ -392,16 +341,18 @@ class ProfileResearchRuntime:
         session: _ProfileResearchSession,
         *,
         request_id: str | None,
-        expected_block_index: int | None,
+        expected_turn_index: int | None,
         user_input: dict[str, list[str]],
         events: list[dict[str, Any]],
         operation: str = "run",
         raw_text: str = "",
+        expected_interaction_id: str | None = None,
     ) -> None:
         session.last_operation = operation
         session.last_raw_text = raw_text if request_id else ""
         session.last_request_id = request_id or ""
-        session.last_expected_block_index = expected_block_index
+        session.last_expected_turn_index = expected_turn_index
+        session.last_expected_interaction_id = expected_interaction_id
         session.last_user_input = user_input if request_id else {}
         session.last_events = _compact_replay_events(events) if request_id else []
 
@@ -410,15 +361,16 @@ class ProfileResearchRuntime:
         session: _ProfileResearchSession,
         *,
         request_id: str | None,
-        expected_block_index: int | None,
+        expected_turn_index: int | None,
         user_input: dict[str, list[str]],
         operation: str = "run",
         raw_text: str = "",
+        expected_interaction_id: str | None = None,
     ) -> list[dict[str, Any]] | None:
-        if request_id is None and expected_block_index is None:
+        if request_id is None and expected_turn_index is None:
             return None
-        if request_id is None or expected_block_index is None:
-            msg = "expected_block_index and request_id must be provided together"
+        if request_id is None or expected_turn_index is None:
+            msg = "expected_turn_index and request_id must be provided together"
             raise ProfileResearchValidationError(msg)
         normalized_request_id = str(request_id).strip()
         if not normalized_request_id or len(normalized_request_id) > 128:
@@ -428,51 +380,18 @@ class ProfileResearchRuntime:
             if (
                 operation == session.last_operation
                 and raw_text == session.last_raw_text
-                and expected_block_index == session.last_expected_block_index
+                and expected_turn_index == session.last_expected_turn_index
+                and expected_interaction_id == session.last_expected_interaction_id
                 and user_input == session.last_user_input
                 and session.last_events
             ):
                 return _expand_replay_events(session.last_events)
             msg = "request_id was reused with different run input"
             raise ProfileResearchValidationError(msg)
-        if expected_block_index != session.block_index:
-            msg = "expected_block_index does not match the session cursor"
+        if expected_turn_index != session.turn_index:
+            msg = "expected_turn_index does not match the request revision"
             raise ProfileResearchValidationError(msg)
         return None
-
-    def _update_context(
-        self,
-        session: _ProfileResearchSession,
-        *,
-        current_block: object,
-        user_input: dict[str, list[str]],
-        outcome: _StepOutcome,
-    ) -> None:
-        if current_block.block_type == BlockType.INTERACTION:
-            answer_values = outcome.answer_values or [
-                value for values in user_input.values() for value in values
-            ]
-            interaction_context = {
-                "role": "assistant",
-                "content": str(current_block.content or ""),
-            }
-            if not outcome.variable_updates:
-                interaction_context[USER_ANSWER_CONTEXT_KEY] = ", ".join(answer_values)
-            session.context.append(interaction_context)
-            return
-        if current_block.block_type == BlockType.PRESERVED_CONTENT:
-            if outcome.content.strip():
-                session.context.append(
-                    {"role": "assistant", "content": outcome.content.strip()}
-                )
-            return
-        prompt = outcome.prompt or str(current_block.content or "")
-        if prompt.strip():
-            session.context.append({"role": "user", "content": prompt})
-        if outcome.content.strip():
-            session.context.append(
-                {"role": "assistant", "content": outcome.content.strip()}
-            )
 
     def _admit_run(
         self,
@@ -481,8 +400,9 @@ class ProfileResearchRuntime:
         session_id: str,
         purpose: str,
         user_input: Mapping[str, Any] | None,
-        expected_block_index: int | None,
+        expected_turn_index: int | None,
         request_id: str | None,
+        expected_interaction_id: str | None = None,
     ) -> _RunAdmission:
         session = self._load_authorized_session(
             user_bid=user_bid,
@@ -505,8 +425,9 @@ class ProfileResearchRuntime:
         replay = self._replay_or_validate_request(
             session,
             request_id=request_id,
-            expected_block_index=expected_block_index,
+            expected_turn_index=expected_turn_index,
             user_input=normalized_user_input,
+            expected_interaction_id=expected_interaction_id,
         )
         if replay is not None:
             return _RunAdmission(
@@ -515,6 +436,15 @@ class ProfileResearchRuntime:
                 immediate_events=replay,
                 refresh_session=True,
             )
+        pending = (session.engine_session or {}).get("pending") or []
+        if normalized_user_input:
+            actual_id = pending[0].get("tool_call_id") if pending else None
+            if expected_interaction_id is None or expected_interaction_id != actual_id:
+                msg = "expected_interaction_id does not match the pending question"
+                raise ProfileResearchValidationError(msg)
+        elif expected_interaction_id is not None:
+            msg = "expected_interaction_id requires user_input"
+            raise ProfileResearchValidationError(msg)
         if session.done:
             return _RunAdmission(
                 session=session,
@@ -524,8 +454,7 @@ class ProfileResearchRuntime:
                         "done",
                         self._summary(
                             session,
-                            processed_block_index=max(session.block_index - 1, 0),
-                            advanced=False,
+                            processed_turn_index=session.turn_index,
                         ),
                         run_session_bid=session.session_id,
                         is_terminal=True,
@@ -534,272 +463,151 @@ class ProfileResearchRuntime:
             )
         return _RunAdmission(session=session, user_input=normalized_user_input)
 
-    def _execute_block(
+    def _execute_turn(
         self,
         *,
         session: _ProfileResearchSession,
         user_input: dict[str, list[str]],
-    ) -> Generator[dict[str, Any], None, _BlockExecution]:
-        request_trace_id = get_request_trace_id()
+    ) -> tuple[list[dict[str, Any]], bool, bool]:
+        """Adapt one native engine turn without owning questionnaire progression."""
         trace, root_span = create_trace_with_root_span(
             client=get_langfuse_client(),
             trace_payload={
-                "id": request_trace_id,
+                "id": get_request_trace_id(),
                 "name": "profile_research_markdownflow",
                 "user_id": session.user_bid,
                 "session_id": session.session_id,
                 "metadata": {
                     "purpose": session.purpose,
                     "config_revision": session.config_revision,
-                    "block_index": session.block_index,
+                    "turn_index": session.turn_index,
                 },
             },
-            root_span_payload={"name": "profile_research_step"},
+            root_span_payload={"name": "profile_research_turn"},
         )
-        provider = self._provider_factory(self.app, session, root_span)
         events: list[dict[str, Any]] = []
-        outcome = _StepOutcome()
-        element_content_by_segment: dict[tuple[int, int], str] = {}
-        element_segment_count_by_number: dict[int, int] = {}
-        html_segment_by_number: dict[int, int] = {}
-        active_element_identity: tuple[int, str] | None = None
-        active_element_segment = 0
-        rerendered_interaction = ""
+        output = ""
         try:
-            flow = self._build_flow(session, provider)
-            blocks = flow.get_all_blocks()
-            if len(blocks) != session.block_count:
-                msg = "session document changed"
-                raise ProfileResearchSessionNotFound(msg)
-            if session.block_index < 0 or session.block_index >= len(blocks):
-                msg = "invalid session cursor"
-                raise ProfileResearchSessionNotFound(msg)
-            processed_block_index = session.block_index
-            current_block = blocks[processed_block_index]
-            is_profile_draft_block = (
-                processed_block_index == session.profile_draft_block_index
+            result = run_profile_turn(
+                session=session,
+                user_input=user_input,
+                model=self._model_factory(self.app, session, root_span),
             )
-            has_user_input = bool(user_input)
-            if current_block.block_type != BlockType.INTERACTION and has_user_input:
-                msg = "user_input is not expected for this block"
-                raise ProfileResearchValidationError(msg)
-            rendering_interaction = (
-                current_block.block_type == BlockType.INTERACTION and not has_user_input
-            )
-            result = flow.process(
-                block_index=processed_block_index,
-                mode=(
-                    ProcessMode.COMPLETE
-                    if rendering_interaction
-                    else ProcessMode.STREAM
-                ),
-                context=session.context or None,
-                variables=session.variables,
-                user_input=user_input or None,
-            )
-            generated_block_bid = (
-                f"profile-research:{session.session_id}:{processed_block_index}"
-            )
-            event_bid = (
-                f"{generated_block_bid}:feedback"
-                if current_block.block_type == BlockType.INTERACTION and has_user_input
-                else generated_block_bid
-            )
-            for llm_result in _iter_results(result):
-                variables = getattr(llm_result, "variables", None)
-                if variables is not None:
-                    outcome.input_accepted = True
-                    outcome.variable_updates.update(_normalize_variables(variables))
-                metadata = getattr(llm_result, "metadata", None)
-                if isinstance(metadata, Mapping):
-                    raw_answer = metadata.get("answer")
-                    if isinstance(raw_answer, list):
-                        outcome.answer_values = [str(value) for value in raw_answer]
-                prompt = str(getattr(llm_result, "prompt", "") or "")
-                if prompt and not outcome.prompt:
-                    outcome.prompt = prompt
-                content = str(getattr(llm_result, "content", "") or "")
-                if not content:
+            element_content: dict[tuple[int, str, int], str] = {}
+            segments: dict[int, int] = {}
+            html_segments: dict[int, int] = {}
+            previous_identity: tuple[int, str] | None = None
+            segment = 0
+            bid = f"profile-research:{session.session_id}:{session.turn_index}"
+            for chunk in result.chunks:
+                if chunk.interaction is not None:
+                    events.append(
+                        _event(
+                            "interaction",
+                            chunk.interaction,
+                            element_type="interaction",
+                            generated_block_bid=f"{bid}:interaction",
+                            run_session_bid=session.session_id,
+                            is_terminal=False,
+                            interaction_id=chunk.interaction_id,
+                        )
+                    )
                     continue
-                outcome.content += content
-                if is_profile_draft_block:
-                    # The generated profile is a structured terminal result,
-                    # not part of the learner-visible MarkdownFlow transcript.
+                if not chunk.content:
                     continue
-                raw_element_type = getattr(llm_result, "type", "")
-                element_type = str(
-                    getattr(raw_element_type, "value", raw_element_type) or ""
-                )
-                if rendering_interaction:
-                    element_type = "interaction"
-                elif not element_type:
-                    element_type = "text"
-                raw_element_number = getattr(llm_result, "number", 0)
-                element_number = (
-                    raw_element_number
-                    if isinstance(raw_element_number, int)
-                    and not isinstance(raw_element_number, bool)
-                    and raw_element_number >= 0
-                    else 0
-                )
-                element_identity = (element_number, element_type)
-                if element_identity != active_element_identity:
-                    active_element_identity = element_identity
-                    previous_html_segment = html_segment_by_number.get(element_number)
-                    if element_type == "html" and previous_html_segment is not None:
-                        active_element_segment = previous_html_segment
+                output += chunk.content
+                identity = (chunk.number, chunk.type)
+                if identity != previous_identity:
+                    previous_identity = identity
+                    if chunk.type == "html" and chunk.number in html_segments:
+                        segment = html_segments[chunk.number]
                     else:
-                        active_element_segment = element_segment_count_by_number.get(
-                            element_number, 0
-                        )
-                        element_segment_count_by_number[element_number] = (
-                            active_element_segment + 1
-                        )
-                        if element_type == "html":
-                            html_segment_by_number[element_number] = (
-                                active_element_segment
-                            )
-                segment_key = (element_number, active_element_segment)
-                element_content = (
-                    element_content_by_segment.get(segment_key, "") + content
+                        segment = segments.get(chunk.number, 0)
+                        segments[chunk.number] = segment + 1
+                        if chunk.type == "html":
+                            html_segments[chunk.number] = segment
+                key = (*identity, segment)
+                content = element_content.get(key, "") + chunk.content
+                element_content[key] = content
+                events.append(
+                    _event(
+                        "content",
+                        content,
+                        element_type=chunk.type,
+                        generated_block_bid=f"{bid}:{chunk.number}:{segment}",
+                        run_session_bid=session.session_id,
+                        is_terminal=False,
+                    )
                 )
-                element_content_by_segment[segment_key] = element_content
-                element_bid = event_bid
-                if not rendering_interaction:
-                    if active_element_segment > 0:
-                        element_bid = (
-                            f"{event_bid}:{element_number}:{active_element_segment}"
-                        )
-                    elif element_number > 0:
-                        element_bid = f"{event_bid}:{element_number}"
-                next_event = _event(
-                    "interaction" if rendering_interaction else "content",
-                    element_content,
-                    element_type=element_type,
-                    generated_block_bid=element_bid,
-                    run_session_bid=session.session_id,
-                    is_terminal=False,
-                )
-                events.append(next_event)
-                yield next_event
-            if rendering_interaction and not outcome.content.strip():
-                msg = "MarkdownFlow returned an empty interaction"
-                raise ProfileResearchError(msg)
-            if (
-                current_block.block_type == BlockType.INTERACTION
-                and has_user_input
-                and not outcome.input_accepted
-            ):
-                rerendered = flow.process(
-                    block_index=processed_block_index,
-                    mode=ProcessMode.COMPLETE,
-                    context=session.context or None,
-                    variables=session.variables,
-                    user_input=None,
-                )
-                rerendered_interaction = "".join(
-                    str(getattr(item, "content", "") or "")
-                    for item in _iter_results(rerendered)
-                )
-                if not rerendered_interaction:
-                    msg = "MarkdownFlow returned an empty interaction"
-                    raise ProfileResearchError(msg)
+            return events, result.input_accepted, result.finished
         finally:
             finalize_langfuse_trace(
                 trace=trace,
                 root_span=root_span,
-                trace_payload={
-                    "output": "".join(getattr(provider, "output_chunks", []))
-                },
-                root_span_payload={
-                    "output": "".join(getattr(provider, "output_chunks", []))
-                },
+                trace_payload={"output": output},
+                root_span_payload={"output": output},
             )
 
-        return _BlockExecution(
-            processed_block_index=processed_block_index,
-            current_block=current_block,
-            has_user_input=has_user_input,
-            outcome=outcome,
-            rerendered_interaction=rerendered_interaction,
-            streamed_events=events,
+    def _generate_profile_draft(self, session: _ProfileResearchSession) -> str:
+        """Transform accepted learner evidence without publishing private model text."""
+        evidence = profile_answer_evidence(session)
+        supplemental = [
+            message[USER_ANSWER_CONTEXT_KEY]
+            for message in session.context
+            if message.get(USER_ANSWER_CONTEXT_KEY)
+        ]
+        if not evidence and not supplemental:
+            return ""
+        trace, root_span = create_trace_with_root_span(
+            client=get_langfuse_client(),
+            trace_payload={
+                "id": get_request_trace_id(),
+                "name": "profile_research_summary",
+                "user_id": session.user_bid,
+                "session_id": session.session_id,
+            },
+            root_span_payload={"name": "profile_research_summary"},
         )
-
-    def _finalize_run(
-        self,
-        *,
-        session: _ProfileResearchSession,
-        execution: _BlockExecution,
-        user_input: dict[str, list[str]],
-        expected_block_index: int | None,
-        request_id: str | None,
-    ) -> list[dict[str, Any]]:
-        current_block = execution.current_block
-        outcome = execution.outcome
-        processed_block_index = execution.processed_block_index
-        advanced = current_block.block_type != BlockType.INTERACTION
-        if current_block.block_type == BlockType.INTERACTION:
-            advanced = execution.has_user_input and outcome.input_accepted
-        if (
-            processed_block_index == session.profile_draft_block_index
-            and not outcome.content.strip()
-        ):
-            msg = "profile draft is empty"
-            raise ProfileResearchError(msg)
-
-        trailing_events: list[dict[str, Any]] = []
-        if advanced:
-            session.variables.update(outcome.variable_updates)
-            self._update_context(
-                session,
-                current_block=current_block,
-                user_input=user_input,
-                outcome=outcome,
-            )
-            if processed_block_index == session.profile_draft_block_index:
-                session.profile_draft = outcome.content.strip()
-            session.block_index += 1
-        elif (
-            current_block.block_type == BlockType.INTERACTION
-            and execution.has_user_input
-        ):
-            trailing_events.append(
-                _event(
-                    "interaction",
-                    execution.rerendered_interaction,
-                    element_type="interaction",
-                    generated_block_bid=(
-                        f"profile-research:{session.session_id}:{processed_block_index}"
-                    ),
-                    run_session_bid=session.session_id,
-                    is_terminal=False,
+        try:
+            instructions = _profile_summary_prompt()
+            if session.output_language:
+                instructions += f"\n\nOUTPUT LANGUAGE: {session.output_language}"
+            draft = (
+                self._provider_factory(self.app, session, root_span)
+                .complete(
+                    messages=[
+                        {"role": "system", "content": instructions},
+                        {
+                            "role": "user",
+                            "content": json.dumps(
+                                {
+                                    "accepted_answers": evidence,
+                                    "supplemental_answers": supplemental,
+                                },
+                                ensure_ascii=False,
+                            ),
+                        },
+                    ],
+                    model=session.model,
+                    temperature=session.temperature,
                 )
+                .strip()
             )
+            if not draft:
+                msg = "profile draft is empty"
+                raise ProfileResearchError(msg)
+            return draft
+        finally:
+            finalize_langfuse_trace(trace=trace, root_span=root_span)
 
-        session.awaiting_input = (
-            current_block.block_type == BlockType.INTERACTION and not advanced
-        )
-        session.done = session.block_index >= session.block_count
-        terminal_event = _event(
-            "done",
-            self._summary(
-                session,
-                processed_block_index=processed_block_index,
-                advanced=advanced,
-            ),
+    @staticmethod
+    def _summary_phase(session: _ProfileResearchSession) -> dict[str, Any]:
+        return _event(
+            "phase",
+            {"phase": "summary"},
             run_session_bid=session.session_id,
-            is_terminal=True,
+            is_terminal=False,
         )
-        all_events = [*execution.streamed_events, *trailing_events, terminal_event]
-        self._remember_request(
-            session,
-            request_id=request_id,
-            expected_block_index=expected_block_index,
-            user_input=user_input,
-            events=all_events,
-        )
-        self.store.save(session)
-        return [*trailing_events, terminal_event]
 
     def stream_session(
         self,
@@ -808,10 +616,20 @@ class ProfileResearchRuntime:
         session_id: str,
         user_input: Mapping[str, Any] | None,
         expected_purpose: str | None,
-        expected_block_index: int | None = None,
+        expected_turn_index: int | None = None,
         request_id: str | None = None,
+        expected_interaction_id: str | None = None,
     ) -> Generator[dict[str, Any], None, None]:
-        """Run one idempotent cursor step and stream public events."""
+        """Run a native questionnaire turn and atomically persist its public result."""
+        if expected_interaction_id is not None:
+            if (
+                not isinstance(expected_interaction_id, str)
+                or not expected_interaction_id.strip()
+                or len(expected_interaction_id.strip()) > 256
+            ):
+                msg = "expected_interaction_id is invalid"
+                raise ProfileResearchValidationError(msg)
+            expected_interaction_id = expected_interaction_id.strip()
         normalized_session_id = str(session_id or "").strip()
         normalized_user_bid = str(user_bid or "").strip()
         normalized_purpose = self._resolve_existing_session_purpose(
@@ -839,8 +657,9 @@ class ProfileResearchRuntime:
                 session_id=normalized_session_id,
                 purpose=normalized_purpose,
                 user_input=user_input,
-                expected_block_index=expected_block_index,
+                expected_turn_index=expected_turn_index,
                 request_id=request_id,
+                expected_interaction_id=expected_interaction_id,
             )
             if admission.immediate_events is not None:
                 if admission.refresh_session:
@@ -848,17 +667,44 @@ class ProfileResearchRuntime:
                 yield from admission.immediate_events
                 return
 
-            execution = yield from self._execute_block(
-                session=admission.session,
+            # A failed turn or private transformation leaves the stored native Session
+            # untouched, including its pending calls and exact-request replay data.
+            staged = deepcopy(admission.session)
+            events, input_accepted, finished = self._execute_turn(
+                session=staged,
                 user_input=admission.user_input,
             )
-            yield from self._finalize_run(
-                session=admission.session,
-                execution=execution,
-                user_input=admission.user_input,
-                expected_block_index=expected_block_index,
+            if finished:
+                phase = self._summary_phase(staged)
+                yield phase
+                events.insert(0, phase)
+                staged.profile_draft = self._generate_profile_draft(staged)
+            staged.awaiting_input = bool((staged.engine_session or {}).get("pending"))
+            staged.done = finished
+            processed_turn_index = staged.turn_index
+            staged.turn_index += 1
+            terminal = _event(
+                "done",
+                self._summary(
+                    staged,
+                    processed_turn_index=processed_turn_index,
+                    input_accepted=input_accepted,
+                ),
+                run_session_bid=staged.session_id,
+                is_terminal=True,
+            )
+            all_events = [*events, terminal]
+            self._remember_request(
+                staged,
                 request_id=request_id,
+                expected_turn_index=expected_turn_index,
+                user_input=admission.user_input,
+                events=all_events,
+                expected_interaction_id=expected_interaction_id,
             )
+            self.store.save(staged)
+            yield from [event for event in events if event.get("type") != "phase"]
+            yield terminal
         finally:
             with contextlib.suppress(Exception):
                 lock.release()
@@ -890,10 +736,10 @@ class ProfileResearchRuntime:
         user_bid: str,
         session_id: str,
         raw_text: str,
-        expected_block_index: int,
+        expected_turn_index: int,
         request_id: str,
     ) -> Generator[dict[str, Any], None, None]:
-        """Atomically import supplemental answers and run the frozen final block."""
+        """Atomically transform imported and native accepted questionnaire evidence."""
         if (
             not isinstance(raw_text, str)
             or not raw_text.strip()
@@ -929,7 +775,7 @@ class ProfileResearchRuntime:
             replay = self._replay_or_validate_request(
                 session,
                 request_id=request_id,
-                expected_block_index=expected_block_index,
+                expected_turn_index=expected_turn_index,
                 user_input={},
                 operation="delegate",
                 raw_text=raw_text,
@@ -953,10 +799,9 @@ class ProfileResearchRuntime:
             ):
                 msg = "assistant nickname is too long"
                 raise ProfileResearchValidationError(msg)
-            has_manual_answers = any(
-                key != _NICKNAME_VARIABLE_KEY and bool(value)
-                for key, value in staged.variables.items()
-            ) or any(message.get(USER_ANSWER_CONTEXT_KEY) for message in staged.context)
+            has_manual_answers = bool(profile_answer_evidence(staged)) or any(
+                message.get(USER_ANSWER_CONTEXT_KEY) for message in staged.context
+            )
             if (
                 not answers
                 and not has_manual_answers
@@ -969,25 +814,23 @@ class ProfileResearchRuntime:
                     {
                         "role": "user",
                         "content": answers,
+                        USER_ANSWER_CONTEXT_KEY: answers,
                     }
                 )
-            staged.block_index = staged.profile_draft_block_index
-            # This is the same official MarkdownFlow execution used by the
-            # ordinary question flow, with no fabricated per-question runs.
-            execution = yield from self._execute_block(session=staged, user_input={})
-            has_profile_evidence = bool(answers or has_manual_answers)
-            draft = execution.outcome.content.strip() if has_profile_evidence else ""
-            if (has_profile_evidence and not draft) or len(
-                draft
-            ) > LEARNER_PROFILE_MAX_LENGTH:
+            phase = self._summary_phase(staged)
+            yield phase
+            draft = self._generate_profile_draft(staged)
+            if len(draft) > LEARNER_PROFILE_MAX_LENGTH:
                 msg = "assistant profile draft is invalid"
                 raise ProfileResearchValidationError(msg)
             staged.profile_draft = draft
-            staged.block_index = staged.block_count
             staged.awaiting_input = False
             staged.done = True
+            processed_turn_index = staged.turn_index
+            staged.turn_index += 1
             summary = self._summary(
-                staged, processed_block_index=session.block_index, advanced=True
+                staged,
+                processed_turn_index=processed_turn_index,
             )
             summary["operation"] = "delegate"
             event = _event(
@@ -996,11 +839,11 @@ class ProfileResearchRuntime:
             self._remember_request(
                 staged,
                 request_id=request_id,
-                expected_block_index=expected_block_index,
+                expected_turn_index=expected_turn_index,
                 user_input={},
                 operation="delegate",
                 raw_text=raw_text,
-                events=[event],
+                events=[phase, event],
             )
             yield from self._save_assistant_result(staged, event)
 
@@ -1019,7 +862,7 @@ class ProfileResearchRuntime:
                 replay = self._replay_or_validate_request(
                     persisted,
                     request_id=session.last_request_id,
-                    expected_block_index=session.last_expected_block_index,
+                    expected_turn_index=session.last_expected_turn_index,
                     user_input={},
                     operation="delegate",
                     raw_text=session.last_raw_text,
@@ -1030,7 +873,7 @@ class ProfileResearchRuntime:
                 msg = "assistant result persistence is uncertain"
                 raise ProfileResearchSessionBusy(msg) from exc
             if replay is not None:
-                return replay
+                return [item for item in replay if item.get("type") != "phase"]
             # A readable unchanged cursor confirms failure before publication.
             raise
         return [event]
@@ -1064,17 +907,19 @@ def stream_profile_research_session(
     session_id: str,
     user_input: Mapping[str, Any] | None = None,
     expected_purpose: str | None = None,
-    expected_block_index: int | None = None,
+    expected_turn_index: int | None = None,
     request_id: str | None = None,
+    expected_interaction_id: str | None = None,
 ) -> Generator[dict[str, Any], None, None]:
-    """Stream one profile-research session cursor step."""
+    """Stream one native turn of the complete profile questionnaire."""
     yield from ProfileResearchRuntime(app).stream_session(
         user_bid=user_bid,
         session_id=session_id,
         user_input=user_input,
         expected_purpose=expected_purpose,
-        expected_block_index=expected_block_index,
+        expected_turn_index=expected_turn_index,
         request_id=request_id,
+        expected_interaction_id=expected_interaction_id,
     )
 
 
@@ -1084,7 +929,7 @@ def stream_profile_research_assistant_answers(
     user_bid: str,
     session_id: str,
     raw_text: str,
-    expected_block_index: int,
+    expected_turn_index: int,
     request_id: str,
 ) -> Generator[dict[str, Any], None, None]:
     """Import external answers into an authorized learner session."""
@@ -1092,7 +937,7 @@ def stream_profile_research_assistant_answers(
         user_bid=user_bid,
         session_id=session_id,
         raw_text=raw_text,
-        expected_block_index=expected_block_index,
+        expected_turn_index=expected_turn_index,
         request_id=request_id,
     )
 

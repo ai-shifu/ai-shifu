@@ -6,16 +6,16 @@ import json
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from flaskr.service.learn.agent.engine.memory_context import parse_initial_memory_prompt
-from flaskr.service.learn.agent.engine.script import (
+from flaskr.service.profile.api import SYS_USER_NICKNAME
+from markdownflow.engine.memory_context import parse_initial_memory_prompt
+from markdownflow.engine.script import (
     collected_names,
     substitute_variables,
 )
-from flaskr.service.profile.api import SYS_USER_NICKNAME
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
-    from flaskr.service.learn.agent.engine.session import Session
+    from flaskr.api.markdownflow import Session
 
 
 def refresh_nickname(session: Session, current: dict[str, Any]) -> None:
@@ -77,8 +77,9 @@ def _refresh_prompt(
     else:
         updated.pop(SYS_USER_NICKNAME, None)
 
-    def section(tag: str, text: str, memory: dict) -> str:
-        return f"<{tag}>\n{substitute_variables(text, memory, collected=collected)}\n</{tag}>"
+    def section(tag: str, text: str, memory: dict, *, unavailable: bool = True) -> str:
+        """Reconstruct an exact host section for current or historical matching."""
+        return f"<{tag}>\n{substitute_variables(text, memory, collected=collected, unavailable=unavailable)}\n</{tag}>"
 
     start = parsed.script_start
     # A bounded JSON block can omit a value that the initial script substituted in full.
@@ -92,14 +93,27 @@ def _refresh_prompt(
     updated_script_memory = {**script_memory, SYS_USER_NICKNAME: nickname}
     old_script = section("script", session.script.script, script_memory)
     if not content.startswith(old_script, start):
+        old_script = section(
+            "script", session.script.script, script_memory, unavailable=False
+        )
+    if not content.startswith(old_script, start):
         return content
     suffix = content[start + len(old_script) :]
     # The host re-reads the brief each turn. An older, different brief cannot be reconstructed
     # safely from today's bundle, so leave that unmatched history untouched.
     if session.script.constraints:
         old_brief = "\n\n" + section(
-            "constraints", session.script.constraints, script_memory
+            "constraints",
+            session.script.constraints,
+            script_memory,
         )
+        if not suffix.startswith(old_brief):
+            old_brief = "\n\n" + section(
+                "constraints",
+                session.script.constraints,
+                script_memory,
+                unavailable=False,
+            )
         if suffix.startswith(old_brief):
             suffix = (
                 "\n\n"

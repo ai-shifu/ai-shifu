@@ -1,5 +1,12 @@
 # Skill Channel Analytics Through Umami
 
+> Current producer note, 2026-10-16: the CLI no longer sends the direct Umami
+> events described below. The replacement
+> [Skill usage contract](../../product-specs/skill-usage-analytics.md) detects
+> invoking Agents in-process and instruments authenticated backend requests.
+> Existing authorization and legacy attribution consumers remain compatible;
+> this plan does not establish current Skill usage or retention coverage.
+
 > Lifecycle review, 2026-09-26: Backend #2916 and browser #2934 are merged. The separate Skills producer delivery and end-to-end acquisition report remain external dependencies.
 
 ## Purpose / Big Picture

@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
-    from flaskr.service.learn.agent.engine import Session
+    from markdownflow.engine import Session
     from pydantic_ai import RunContext
     from pydantic_ai.messages import ModelMessage, ModelResponse
     from pydantic_ai.models import Model, ModelRequestParameters, StreamedResponse
@@ -53,8 +53,8 @@ def load_cases(selected: list[str] | None = None) -> list[dict[str, Any]]:
 
 async def evaluate_admission(case: dict[str, Any], model: Model) -> dict[str, Any]:
     """Distinguish a semantic refusal from provider/structured-output failure."""
-    from flaskr.service.learn.agent.engine.usage import accumulate_usage
     from flaskr.service.learn.agent.memory_admission import make_request_check
+    from markdownflow.engine.usage import accumulate_usage
     from pydantic_ai.messages import ToolCallPart
     from pydantic_ai.models.wrapper import WrapperModel
 
@@ -109,8 +109,8 @@ async def evaluate_admission(case: dict[str, Any], model: Model) -> dict[str, An
 
 def recall_session(case: dict[str, Any]) -> Session:
     """Build a synthetic current snapshot plus deliberately stale historical evidence."""
-    from flaskr.service.learn.agent.engine import ScriptBundle, Session
-    from flaskr.service.learn.agent.engine.script import render_first_prompt
+    from markdownflow.engine import ScriptBundle, Session
+    from markdownflow.engine.script import render_first_prompt
     from pydantic_ai.messages import (
         ModelRequest,
         ModelResponse,
@@ -222,7 +222,7 @@ def parse_recall_result(content: object) -> dict | None:
 
 def current_recall_evidence(case: dict[str, Any], events: list) -> bool:
     """Require a paired relevant read before the answer, with no conflicting reads."""
-    from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
+    from markdownflow.engine import ContentDelta, ToolCall, ToolResult
 
     calls = {}
     reads = []
@@ -256,7 +256,7 @@ def current_recall_evidence(case: dict[str, Any], events: list) -> bool:
 
 async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
     """Score real engine tools, exact learner output, and read-only memory behavior."""
-    from flaskr.service.learn.agent.engine import (
+    from markdownflow.engine import (
         ContentDelta,
         ContinueTurn,
         Engine,
@@ -355,8 +355,8 @@ async def evaluate_recall(case: dict[str, Any], model: Model) -> dict[str, Any]:
 
 def teaching_session(case: dict[str, Any]) -> Session:
     """Hide an exact older example between excerpt boundaries and two recent turns."""
-    from flaskr.service.learn.agent.engine import ScriptBundle
-    from flaskr.service.learn.agent.engine.script import render_first_prompt
+    from markdownflow.engine import ScriptBundle
+    from markdownflow.engine.script import render_first_prompt
     from pydantic_ai.messages import (
         ModelRequest,
         ModelResponse,
@@ -411,7 +411,7 @@ def teaching_read_evidence(
     events: list, sources: dict[str, str], expected: str
 ) -> bool:
     """Require an exact original page containing the answer before learner output."""
-    from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
+    from markdownflow.engine import ContentDelta, ToolCall, ToolResult
 
     calls = {}
     verified = False
@@ -454,7 +454,7 @@ def teaching_read_evidence(
 
 def observe_summary_usage(model: Model, totals: dict[str, int]) -> Model:
     """Record completed summary responses without changing model identity or requests."""
-    from flaskr.service.learn.agent.engine.usage import accumulate_usage
+    from markdownflow.engine.usage import accumulate_usage
     from pydantic_ai.models.wrapper import WrapperModel
 
     class ObservedSummaryModel(WrapperModel):
@@ -526,7 +526,8 @@ async def evaluate_teaching(
     case: dict[str, Any], model: Model, summary_model: Model
 ) -> dict[str, Any]:
     """Combine real summary generation, cache reload and current versus historical reads."""
-    from flaskr.service.learn.agent.engine import (
+    from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
+    from markdownflow.engine import (
         ContentDelta,
         ContinueTurn,
         Engine,
@@ -536,14 +537,13 @@ async def evaluate_teaching(
         Session,
         TurnDone,
     )
-    from flaskr.service.learn.agent.engine.teaching_history import (
+    from markdownflow.engine.teaching_history import (
         project_teaching_history,
     )
-    from flaskr.service.learn.agent.engine.teaching_summary import (
+    from markdownflow.engine.teaching_summary import (
         TeachingSummarizer,
         summarize_teaching_history,
     )
-    from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
     from pydantic_ai.messages import ModelMessagesTypeAdapter
 
     session = teaching_session(case)
@@ -723,11 +723,13 @@ def report(
         "scripts/mdf2_memory_quality/grading.py": API_DIR
         / "scripts/mdf2_memory_quality/grading.py",
     }
+    sources["flaskr/api/llm/markdownflow_model.py"] = (
+        API_DIR / "flaskr/api/llm/markdownflow_model.py"
+    )
     for name in (
         "memory_admission.py",
         "lesson_entry.py",
         "run_agent.py",
-        "gateway_model.py",
         "engine/engine.py",
         "engine/exercise_statistics.py",
         "engine/prompts/exercise_statistics.md",
@@ -749,7 +751,19 @@ def report(
         "engine/prompts/teaching_history_compaction.md",
         "engine/prompts/teaching_summary.md",
     ):
-        relative = "flaskr/service/learn/agent/" + name
+        relative = (
+            "markdownflow/" + name
+            if name.startswith("engine/")
+            else "flaskr/service/learn/agent/" + name
+        )
+        sources[relative] = API_DIR / relative
+    for name in (
+        "bridge.py",
+        "preserve_markers.py",
+        "markdown_text.py",
+        "resources.py",
+    ):
+        relative = "markdownflow/" + name
         sources[relative] = API_DIR / relative
     fingerprints = {
         name: hashlib.sha256(path.read_bytes()).hexdigest()
@@ -862,8 +876,8 @@ def main(argv: list[str] | None = None) -> int:
         finalize_langfuse_trace,
         get_langfuse_client,
     )
+    from flaskr.api.llm.markdownflow_model import GatewayModel
     from flaskr.api.llm.model_selection import resolve_selection
-    from flaskr.service.learn.agent.gateway_model import GatewayModel
     from flaskr.service.learn.agent.lesson_entry import _resolve
     from flaskr.service.learn.agent.routing import uses_agent_engine
     from flaskr.service.metering.api import UsageContext
@@ -877,7 +891,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         if UserInfo.query.filter_by(user_bid=args.learner, deleted=0).first() is None:
             parser.error("the dedicated evaluation learner does not exist")
-        _, _, settings, _content_revision = _resolve(
+        _, _, settings, _content_revision, _language = _resolve(
             app,
             user_bid=args.learner,
             shifu_bid=args.course,

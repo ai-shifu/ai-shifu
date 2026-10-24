@@ -7,19 +7,19 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 import pytest
+from flaskr.api.llm import markdownflow_model as gw
+from flaskr.api.llm.markdownflow_budget import INPUT_BUDGET_BYTES
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.agent import gateway_model as gw
 from flaskr.service.learn.agent import run_agent, session_store
-from flaskr.service.learn.agent.engine import Engine, ErrorEvent, MessageTurn, TurnDone
-from flaskr.service.learn.agent.engine.script import ScriptBundle, render_first_prompt
-from flaskr.service.learn.agent.engine.session import Session
-from flaskr.service.learn.agent.input_budget import INPUT_BUDGET_BYTES
 from flaskr.service.learn.agent.rewind import checkpoint_of, restore
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.profile.api import delete_course_memory
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.repository import create_user_entity
+from markdownflow.engine import Engine, ErrorEvent, MessageTurn, TurnDone
+from markdownflow.engine.script import ScriptBundle, render_first_prompt
+from markdownflow.engine.session import Session
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -145,7 +145,9 @@ async def test_real_gateway_recovers_from_old_recall_growth_and_still_enforces_t
             separators=(",", ":"),
         ).encode("utf-8")
     )
-    assert projected_size < 65536
+    # The envelope includes evolving instructions and tool schemas as well as history.
+    # Compaction must fit the configured request budget.
+    assert projected_size < INPUT_BUDGET_BYTES
     calls.clear()
     _, exact = await run(enabled=True, limit=projected_size)
     assert isinstance(exact[-1], TurnDone)
