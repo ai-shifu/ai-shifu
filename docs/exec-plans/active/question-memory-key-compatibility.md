@@ -2,7 +2,7 @@
 title: Define and align MarkdownFlow text variable names
 status: active
 owner_surface: learner
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-24
 canonical: false
 ---
 
@@ -142,11 +142,47 @@ with their edges trimmed, rather than programming-language identifiers.
       1,390 API files, including all 1,341 source, configuration and fixture files
       and the new tests. The earlier 23:21 run was interrupted when the fence
       regression was confirmed and does not establish final acceptance.
-- [ ] Complete the final full-backend gate, verify unchanged source hashes, and
-      synchronize the final head's CI and review feedback in application PR #3160.
-- [ ] Replace application Python/component development pins with verified
-      formal releases and complete merge readiness. This requires explicit
-      publication authorization and the component library's confirmed main SHA.
+- [x] 2026-10-24 00:04 UTC: Complete acceptance on `fd60c15b1`: the local full
+      backend passes 14,824 tests with 112 skips and unchanged hashes for all
+      1,390 API files. Backend CI passes 14,921 tests with 15 skips; both collect
+      14,936 tests with different environment-dependent skip eligibility. All
+      checks reach a terminal state, with only the known development-pin gate
+      failing. Fresh review has no new unclassified feedback.
+- [x] 2026-10-24 02:45 UTC: Incorporate main through `dda7becb5` into the
+      feature branch to resolve the generated document-inventory conflict.
+      Regenerate the inventory from both branches' source documents rather than
+      selecting one side. Independent integration review passes 61 capacity,
+      observability, Gunicorn, worker-aggregation and learning-stream cleanup
+      tests; the metrics wrapper preserves chunks and forwards stream closure.
+- [x] 2026-10-24: Verify the earlier `89d2d4d3` integration checkpoint in CI:
+      14,938 backend tests pass with 15 skips. Its only failing check is the
+      development-version gate; these results predate the next main integration.
+- [x] 2026-10-24: Publish and verify `remark-flow@1.4.1` and
+      `markdown-flow-ui@0.3.0` through their official workflows. The component
+      release comes from human-merged main `6ff0542349bf254a0395afbfaf299b0d3c90d92d`.
+- [x] 2026-10-24: Integrate main through `7a23e7c57`, moving the text-name
+      implementation and its tests into the independent `markdownflow` package.
+      Retain the thin course adapter and Profile's native interaction identity,
+      stale-control guards and session transitions. Replace frontend development
+      dependencies with the verified formal releases and regenerate the lockfile.
+- [ ] Complete the new integration's shared-engine, course, Profile, frontend and
+      repository gates, then synchronize current-head CI and review feedback in
+      application PR #3160. Never merge the feature branch into main automatically.
+- [x] 2026-10-24: Publish Python `markdown-flow==0.4.2` after explicit user
+      authorization, using official run `40071222859` from SDK PR #80 at
+      `aa4f337517e8b935d42b65d9e69fee36f7767b6f`. Verify the actual PyPI wheel,
+      all 34 runtime/resource members, 1,131 installed-package tests and the
+      question-key answer round trip, then select the formal application pin.
+- [x] 2026-10-24: Fix Profile evidence's raw-versus-canonical binding mismatch
+      in independent commit `9c5f6b763`. Padded nickname keys stay excluded;
+      punctuation and internal-space keys survive accepted answers and cache
+      serialization. Cross-host coverage passes 1,016 tests, including Profile,
+      course streaming and exact-key memory boundaries; 41 focused Profile
+      binding/runtime tests pass. The shared-engine gate passes 2,643 tests.
+- [x] 2026-10-24: Verify the integrated frontend against stable npm packages:
+      all 3,364 tests in 273 suites pass, along with type checking and lint.
+      Toolchain validation and all-file repository hooks pass.
+
 
 ## Surprises & Discoveries
 
@@ -216,6 +252,9 @@ with their edges trimmed, rather than programming-language identifiers.
   already ended before a native code fence. That later incomplete marker must
   not make the fence provisional. Independent whole/chunk comparison reproduces
   a regression against the unchanged main-branch filter.
+- Later main commits added API capacity metrics and rollout documentation.
+  Only the generated inventory conflicts with this feature; regenerate from
+  the combined canonical documents and validate the shared SSE close chain.
 
 ## Decision Log
 
@@ -289,9 +328,12 @@ reference, 36 raw-marker and three fence-order cases. The complete application
 backend checkpoint on `583da075`
 passed 14,739 tests with 112 intentional skips using Python dev4 after the
 input-hint and initial pending-literal repairs. Exact-key database and optional
-unnamed-question coverage is included. The final frozen-source full-backend run
-is in progress; its readback belongs in the linked PR together with current-head
-CI and review status, rather than being inferred from an earlier checkpoint.
+unnamed-question coverage is included. The frozen `fd60c15b1` full-backend run
+passes 14,824 tests locally and 14,921 in CI, with the same 14,936 collected total
+and different skip eligibility. Integration with subsequent main commits passes
+61 focused metrics, worker and stream-cleanup tests. New-head CI and review
+readback belongs in the linked PR; prior-head results are not relabeled as new
+integration results.
 Required toolchain checks, architecture boundaries and all-file hooks pass.
 The latest full-backend and remote-CI acceptance are tracked in the remaining
 progress item; earlier checkpoints do not establish that final gate.
@@ -323,12 +365,16 @@ The Python wheel SHA-256 is
 The application pins these actual development artifacts only on its feature
 branch; the original narrow-repair pins have been replaced.
 
-Formal publication remains an explicit prerequisite. Automatic approval review
-rejected irreversible parser release publication without explicit authorization;
-the component library additionally requires a maintainer merge and human
-confirmation of its exact main commit. No main-branch merge or release-gate
-bypass is performed. Release-pin CI must stay failing until verified formal
-Python and component releases replace the development pins.
+The formal parser and component releases are now published and verified.
+`remark-flow@1.4.1` includes the native tokenizer-state compatibility repair;
+`markdown-flow-ui@0.3.0` uses that exact parser. The regenerated application
+lockfile selects both stable versions. The Python stable release is also published through official run
+`40071222859`. Its actual wheel SHA-256 is
+`3c852cad2b1ca3284b4c4c1f7b0e51b9f83c0b38c88abd8f4cef7bca9e1d62b0`;
+all 34 runtime/resource files match the formal candidate and 1,131 installed
+package tests pass without provider/network calls. The application now selects
+`markdown-flow==0.4.2`, preserving the existing release gate. No automatic main merge
+or release-gate bypass is part of this task.
 
 ## Context and Orientation
 
@@ -339,9 +385,11 @@ Python and component releases replace the development pins.
   segmentation and built interactive rendering.
 - `markdown-flow-agent-py` owns legacy extraction, replacement, interaction
   parsing, document splitting, translation and validation templates.
-- `src/api/flaskr/service/learn/agent/engine/` owns current collection,
-  substitution and memory tools; adjacent legacy and streaming adapters emit
-  and filter controls before the browser sees them.
+- `src/api/markdownflow/engine/` owns current collection, substitution and
+  memory tools. `src/api/markdownflow/interaction_rendering.py` accepts explicit
+  host labels, while course and Profile hosts share `flaskr.api.markdownflow`.
+  Course legacy and streaming adapters emit and filter controls before the
+  browser sees them.
 - `src/api/flaskr/service/profile/profile_manage.py` persists definitions.
   App editors and preview/onboarding submissions consume frontend helpers.
 
