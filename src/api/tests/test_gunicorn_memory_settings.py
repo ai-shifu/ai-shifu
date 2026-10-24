@@ -44,15 +44,12 @@ def test_explicit_arena_setting_and_non_glibc_hosts_are_left_alone(
     assert config["_limit_malloc_arenas"]() is False
 
 
-def test_workers_recycle_gracefully_and_inherit_frozen_objects(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_workers_inherit_frozen_objects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MALLOC_ARENA_MAX", "2")
     config = _load(monkeypatch, Mock())
-    assert config["max_requests"] > 0
-    assert 0 < config["max_requests_jitter"] < config["max_requests"]
-    # Long lesson streams may finish before a recycled worker exits.
-    assert config["graceful_timeout"] >= 300
+    # Recycling would strand gthread workers behind open lesson streams and leave
+    # a Prometheus counter file per retired worker; the causes are bounded instead.
+    assert "max_requests" not in config
     freeze = Mock()
     monkeypatch.setattr(gc, "freeze", freeze)
     config["pre_fork"](object(), object())

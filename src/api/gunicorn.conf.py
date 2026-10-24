@@ -91,14 +91,6 @@ os.environ["AI_SHIFU_PRELOAD_MASTER"] = "1"
 # Without this each worker pays the full ~350MB import cost separately.
 preload_app = True
 
-# Recycle each worker after a bounded number of requests, so memory a worker cannot
-# return to the system is released periodically. The jitter keeps workers from
-# restarting together. A recycled worker finishes its in-flight requests first,
-# including long lesson streams, for up to the deployment's request timeout.
-max_requests = 2000
-max_requests_jitter = 500
-graceful_timeout = 300
-
 
 def pre_fork(server: object, worker: object) -> None:
     """Keep the preloaded app's objects shared with the forked worker.
