@@ -48,6 +48,11 @@ so a flush or eviction would silently hand every learner a fresh allowance.
   snapshot and miss the row the first reset wrote. The admission count is
   therefore a locking read (`for_update=True`), which returns the latest
   committed rows and serializes admissions for the same learner and lesson.
+- That locking read gap-locks an empty ledger range, and two first-ever resets
+  whose empty ranges share one gap can deadlock on each other's insert. MySQL
+  rolls one back, so `reset_learn_record` is wrapped in the repository's
+  `retry_on_deadlock`; the whole transaction reruns from the top and re-reads
+  receipts and locks, so a retry cannot double-apply.
 - A learner reset used to discard both the published and the draft preview
   agent session (`preview_mode=None`). The reset now passes the explicit scope,
   so an author's preview survives a learner reset of the same lesson.

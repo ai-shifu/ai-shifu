@@ -26,6 +26,7 @@ from flaskr.service.shifu.models import (
     DraftShifu,
     PublishedOutlineItem,
 )
+from sqlalchemy.exc import OperationalError
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -427,3 +428,28 @@ def test_status_stays_open_when_nothing_chargeable_remains(
     assert status(app, course) is True
     start(app, course)
     assert status(app, course) is False
+
+
+def test_reset_retries_the_whole_transaction_after_a_deadlock(
+    app: Flask, course: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A deadlocked ledger insert is rolled back and the reset reruns from the top."""
+    real_record = learn_funcs.record_lesson_reset
+    calls = {"n": 0}
+
+    def flaky_record(**kwargs: object) -> object:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            statement = "INSERT INTO learn_lesson_reset_records"
+            deadlock = Exception(1213, "Deadlock found")
+            raise OperationalError(statement, {}, deadlock)
+        return real_record(**kwargs)
+
+    monkeypatch.setattr(learn_funcs, "record_lesson_reset", flaky_record)
+    start(app, course)
+    assert reset(app, course, request_id="deadlocked-once") is True
+    assert calls["n"] == 2
+    assert live_records(app, course) == []
+    rows = reset_rows(app, course)
+    assert len(rows) == 1
+    assert rows[0].counted == 1

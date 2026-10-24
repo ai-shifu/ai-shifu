@@ -21,6 +21,7 @@ from flaskr.api.tts import (
     is_tts_configured,
     synthesize_text,
 )
+from flaskr.dao import retry_on_deadlock
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common import raise_error, raise_error_with_args
@@ -776,6 +777,7 @@ def get_learn_record(
         )
 
 
+@retry_on_deadlock()
 def reset_learn_record(
     app: Flask,
     shifu_bid: str,
@@ -790,6 +792,11 @@ def reset_learn_record(
     An effective reset is recorded in ``learn_lesson_reset_records`` inside the same
     transaction; ordinary learners are refused once their recorded resets for this lesson
     reach ``LESSON_RESET_LIMIT``. Nothing is written or counted for an empty reset.
+
+    The whole transaction is retried on a MySQL deadlock: the locking quota count takes
+    a gap lock on the ledger index, and two first-ever resets whose empty ranges share a
+    gap can each block the other's insert. MySQL rolls one back; rerunning it from the
+    top re-reads every receipt and lock, so a retry cannot double-apply anything.
     """
     with app_context_scope(app), unit_of_work():
         from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
