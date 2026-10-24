@@ -320,9 +320,19 @@ def _load_or_start(
             discard_course_references(stored, teaching_brief=teaching_brief)
             if debug_store is None:
                 refresh_nickname(stored, user_memory)
-                refresh_deleted_memory(
-                    stored, frozenset(generations), current=user_memory
+                # Deletion generations are permanent, so a key deleted once keeps one. Keep
+                # a named answer this session accepted that is still the learner's live
+                # value: it was given after the deletion, and dropping it on every turn
+                # would leave the learner's new answer unavailable for the whole lesson.
+                answered = stored.answered_memory_keys()
+                refreshed = frozenset(
+                    key
+                    for key in generations
+                    if key in deleted
+                    or key not in answered
+                    or stored.memory.get(key) != user_memory.get(key)
                 )
+                refresh_deleted_memory(stored, refreshed, current=user_memory)
                 # Named answers are durable course values. Retain the answered marker,
                 # but do not let its old session copy shadow another lesson's update.
                 for key in (

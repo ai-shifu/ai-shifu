@@ -143,6 +143,30 @@ def test_deleted_answer_cannot_return_from_a_stored_session(
     assert after.memory["scratch"] == "lesson-only"
 
 
+def test_answer_given_after_an_earlier_deletion_stays_recallable(
+    app: Flask, learner: tuple[str, str]
+) -> None:
+    """A deletion generation does not discard an answer accepted after it."""
+    user, course = learner
+    first = uuid4().hex
+    engine = _collector()
+    _turn(app, engine, user, course, first)
+    _turn(app, engine, user, course, first, "Old answer")
+    row = VariableValue.query.filter_by(user_bid=user, key="goal", deleted=0).one()
+    delete_course_memory(user, course, row.id)
+    db.session.remove()
+    second = uuid4().hex
+    _turn(app, engine, user, course, second)
+    _turn(app, engine, user, course, second, ANSWER)
+    db.session.remove()
+    seen: list[dict] = []
+    _turn(app, _reader("goal", seen, []), user, course, second)
+    after = session_store.load_agent_session(app, user, second)
+    assert seen == [{"status": "found", "value": ANSWER}]
+    assert after.memory["goal"] == ANSWER
+    assert "goal" in after.answered_memory_keys()
+
+
 def test_failed_resume_does_not_commit_a_partially_refreshed_session(
     app: Flask, learner: tuple[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
