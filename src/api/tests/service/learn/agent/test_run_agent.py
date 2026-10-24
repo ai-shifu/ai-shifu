@@ -855,6 +855,39 @@ def test_a_turn_whose_lesson_was_reset_while_it_ran_writes_nothing(
     assert calls == []
 
 
+@pytest.mark.parametrize("reset", [False, True])
+def test_a_failed_turn_reports_whether_a_reset_discarded_it(
+    monkeypatch: pytest.MonkeyPatch, calls: list, reset: bool
+) -> None:
+    """The stream must not keep shown text from a turn whose save a reset rejected."""
+    if reset:
+        monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: None)
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    turn = run_agent.run_agent_lesson(
+        _App(),
+        engine=_Engine([ContentDelta(text="a"), ErrorEvent(message="boom")]),
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    outcome = None
+    while outcome is None:
+        try:
+            next(turn)
+        except StopIteration as done:
+            outcome = done.value
+    assert outcome.reason is None
+    assert outcome.discarded is reset
+    assert ([name for name, _ in calls].count("save_session") == 1) is not reset
+
+
 def test_the_block_a_turn_records_is_the_one_its_elements_reference(
     calls: list,
 ) -> None:
