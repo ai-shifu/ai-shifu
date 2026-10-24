@@ -1,6 +1,6 @@
 ---
 name: fullscreen-dialog-portal
-description: 当 Cook Web 页面在浏览器 fullscreen 场景下需要展示基于 Dialog 的支付弹窗、设置弹窗或业务弹层时，使用本技能排查 portal 容器是否落在全屏节点外。
+description: Use when Cook Web payment dialogs, settings dialogs, or other overlays appear during browser fullscreen. Check whether their portal container is outside the fullscreen element.
 ---
 
 # 浏览器全屏 Dialog Portal

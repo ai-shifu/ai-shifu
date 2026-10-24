@@ -1,0 +1,972 @@
+{
+  "contract": "MarkdownFlow text variable names",
+  "normalization": [
+    {
+      "raw": "",
+      "name": null
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "\t\n\r",
+      "name": null
+    },
+    {
+      "raw": "name",
+      "name": "name"
+    },
+    {
+      "raw": " Name ",
+      "name": "Name"
+    },
+    {
+      "raw": "user name",
+      "name": "user name"
+    },
+    {
+      "raw": "user  name",
+      "name": "user  name"
+    },
+    {
+      "raw": "你的性别是？",
+      "name": "你的性别是？"
+    },
+    {
+      "raw": "Which [path] | level//hint...?",
+      "name": "Which [path] | level//hint...?"
+    },
+    {
+      "raw": "🚀 rocket",
+      "name": "🚀 rocket"
+    },
+    {
+      "raw": "a{b",
+      "name": "a{b"
+    },
+    {
+      "raw": "a}b",
+      "name": "a}b"
+    },
+    {
+      "raw": "a}",
+      "name": "a}"
+    },
+    {
+      "raw": "}",
+      "name": "}"
+    },
+    {
+      "raw": "{{inner",
+      "name": "{{inner"
+    },
+    {
+      "raw": "a}}b",
+      "name": null
+    },
+    {
+      "raw": "\"name\"",
+      "name": "\"name\""
+    },
+    {
+      "raw": "path\\",
+      "name": "path\\"
+    },
+    {
+      "raw": "a\\\\b",
+      "name": "a\\\\b"
+    },
+    {
+      "raw": "é",
+      "name": "é"
+    },
+    {
+      "raw": "é",
+      "name": "é"
+    },
+    {
+      "raw": "﻿",
+      "name": "﻿"
+    },
+    {
+      "raw": "﻿ key ﻿",
+      "name": "﻿ key ﻿"
+    },
+    {
+      "raw": "👩‍💻",
+      "name": "👩‍💻"
+    },
+    {
+      "raw": "a\u0000b",
+      "name": null
+    },
+    {
+      "raw": "a\tb",
+      "name": null
+    },
+    {
+      "raw": "a\nb",
+      "name": null
+    },
+    {
+      "raw": "a\rb",
+      "name": null
+    },
+    {
+      "raw": "a\u001fb",
+      "name": null
+    },
+    {
+      "raw": "ab",
+      "name": null
+    },
+    {
+      "raw": "ab",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": null
+    },
+    {
+      "raw": "<b>name</b>",
+      "name": "<b>name</b>"
+    },
+    {
+      "raw": "`code` [x](url)",
+      "name": "`code` [x](url)"
+    },
+    {
+      "raw": "\tkey\t",
+      "name": "key"
+    },
+    {
+      "raw": "\t",
+      "name": null
+    },
+    {
+      "raw": "a\tb",
+      "name": null
+    },
+    {
+      "raw": "\nkey\n",
+      "name": "key"
+    },
+    {
+      "raw": "\n",
+      "name": null
+    },
+    {
+      "raw": "a\nb",
+      "name": null
+    },
+    {
+      "raw": "\u000bkey\u000b",
+      "name": "key"
+    },
+    {
+      "raw": "\u000b",
+      "name": null
+    },
+    {
+      "raw": "a\u000bb",
+      "name": null
+    },
+    {
+      "raw": "\fkey\f",
+      "name": "key"
+    },
+    {
+      "raw": "\f",
+      "name": null
+    },
+    {
+      "raw": "a\fb",
+      "name": null
+    },
+    {
+      "raw": "\rkey\r",
+      "name": "key"
+    },
+    {
+      "raw": "\r",
+      "name": null
+    },
+    {
+      "raw": "a\rb",
+      "name": null
+    },
+    {
+      "raw": "\u001ckey\u001c",
+      "name": "key"
+    },
+    {
+      "raw": "\u001c",
+      "name": null
+    },
+    {
+      "raw": "a\u001cb",
+      "name": null
+    },
+    {
+      "raw": "\u001dkey\u001d",
+      "name": "key"
+    },
+    {
+      "raw": "\u001d",
+      "name": null
+    },
+    {
+      "raw": "a\u001db",
+      "name": null
+    },
+    {
+      "raw": "\u001ekey\u001e",
+      "name": "key"
+    },
+    {
+      "raw": "\u001e",
+      "name": null
+    },
+    {
+      "raw": "a\u001eb",
+      "name": null
+    },
+    {
+      "raw": "\u001fkey\u001f",
+      "name": "key"
+    },
+    {
+      "raw": "\u001f",
+      "name": null
+    },
+    {
+      "raw": "a\u001fb",
+      "name": null
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": "key",
+      "name": "key"
+    },
+    {
+      "raw": "",
+      "name": null
+    },
+    {
+      "raw": "ab",
+      "name": null
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": null
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": null
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": " key ",
+      "name": "key"
+    },
+    {
+      "raw": " ",
+      "name": null
+    },
+    {
+      "raw": "a b",
+      "name": "a b"
+    },
+    {
+      "raw": "　key　",
+      "name": "key"
+    },
+    {
+      "raw": "　",
+      "name": null
+    },
+    {
+      "raw": "a　b",
+      "name": "a　b"
+    },
+    {
+      "raw": "key ?[A|B]",
+      "name": "key ?[A|B]"
+    }
+  ],
+  "extraction": [
+    {
+      "source": "{{ name }}",
+      "names": [
+        "name"
+      ]
+    },
+    {
+      "source": "%{{ user name }}",
+      "names": [
+        "user name"
+      ]
+    },
+    {
+      "source": "{{a}}b}}",
+      "names": [
+        "a"
+      ]
+    },
+    {
+      "source": "{{a} }}",
+      "names": [
+        "a}"
+      ]
+    },
+    {
+      "source": "{{ } }}",
+      "names": [
+        "}"
+      ]
+    },
+    {
+      "source": "{{outer{{inner}}",
+      "names": [
+        "outer{{inner"
+      ]
+    },
+    {
+      "source": "{{bad\n{{inner}} {{valid}}",
+      "names": [
+        "valid"
+      ]
+    },
+    {
+      "source": "{{}} {{   }}",
+      "names": []
+    },
+    {
+      "source": "{{path\\}}",
+      "names": [
+        "path\\"
+      ]
+    },
+    {
+      "source": "{{\"name\"}}",
+      "names": [
+        "\"name\""
+      ]
+    },
+    {
+      "source": "{{x}} {{x}} %{{x}}",
+      "names": [
+        "x"
+      ]
+    },
+    {
+      "source": "{{unterminated",
+      "names": []
+    },
+    {
+      "source": "{{a\u0000{{inner}} {{next}}",
+      "names": [
+        "next"
+      ]
+    },
+    {
+      "source": "%{{ Which [path] | level//hint...? }}",
+      "names": [
+        "Which [path] | level//hint...?"
+      ]
+    },
+    {
+      "source": "{{ key ?[A|B] }}",
+      "names": [
+        "key ?[A|B]"
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "source": "?[%{{ 你的性别是？ }} 男 | 女 | 秘密]",
+      "name": "你的性别是？",
+      "buttons": [
+        "男",
+        "女",
+        "秘密"
+      ],
+      "values": [
+        "男",
+        "女",
+        "秘密"
+      ]
+    },
+    {
+      "source": "?[%{{ Which [path] | level//hint...? }} Yes//yes | No//no]",
+      "name": "Which [path] | level//hint...?",
+      "buttons": [
+        "Yes",
+        "No"
+      ],
+      "values": [
+        "yes",
+        "no"
+      ]
+    },
+    {
+      "source": "?[%{{ user  name }} A | B]",
+      "name": "user  name",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "source": "?[%{{ } }} A | B]",
+      "name": "}",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "source": "?[%{{ <b>name</b> }} A | B]",
+      "name": "<b>name</b>",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "source": "?[%{{ path\\ }} A | B]",
+      "name": "path\\",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    }
+  ],
+  "boundary_cases": [
+    {
+      "source": "?[ \t%{{ x]y }} A | B]",
+      "interaction_count": 1,
+      "name": "x]y",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "source": "?[A %{{ x]y }} | B]",
+      "interaction_count": 1,
+      "name": null,
+      "buttons": [
+        "A %{{ x]y }}",
+        "B"
+      ],
+      "values": [
+        "A %{{ x]y }}",
+        "B"
+      ]
+    },
+    {
+      "source": "?[A {{ x]y|a//b... }} | B]",
+      "interaction_count": 1,
+      "name": null,
+      "buttons": [
+        "A {{ x]y|a//b... }}",
+        "B"
+      ],
+      "values": [
+        "A {{ x]y|a//b... }}",
+        "B"
+      ]
+    },
+    {
+      "source": "?[A %{{ x|y//z... }} | B]",
+      "interaction_count": 1,
+      "name": null,
+      "buttons": [
+        "A %{{ x|y//z... }}",
+        "B"
+      ],
+      "values": [
+        "A %{{ x|y//z... }}",
+        "B"
+      ]
+    },
+    {
+      "source": "?[%{{unterminated ?[Go]",
+      "interaction_count": 0
+    },
+    {
+      "source": "?[A %{{unterminated ?[Go]",
+      "interaction_count": 0
+    },
+    {
+      "source": "?[A {{unterminated ?[Go]",
+      "interaction_count": 0
+    },
+    {
+      "source": "?[﻿%{{ x]y }} A | B]",
+      "interaction_count": 1,
+      "name": null,
+      "buttons": [
+        "﻿%{{ x]y }} A",
+        "B"
+      ],
+      "values": [
+        "﻿%{{ x]y }} A",
+        "B"
+      ]
+    },
+    {
+      "source": "{{ key ?[A|B] }}",
+      "interaction_count": 0
+    },
+    {
+      "source": "prefix {{ key ?[A|B] }} suffix",
+      "interaction_count": 0
+    },
+    {
+      "source": "{{ unterminated ?[Go]",
+      "interaction_count": 0
+    }
+  ],
+  "document_context_cases": [
+    {
+      "id": "inline-code-example",
+      "source": "Show `{{` then ?[%{{ q }} A|B]",
+      "names": [
+        "q"
+      ],
+      "collected": [
+        "q"
+      ],
+      "interaction_count": 1,
+      "name": "q",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "multiline-inline-code-example",
+      "source": "Show `{{`\n?[%{{ q }} A|B]",
+      "names": [
+        "q"
+      ],
+      "collected": [
+        "q"
+      ],
+      "interaction_count": 1,
+      "name": "q",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "escaped-example",
+      "source": "\\{{\n?[%{{ q }} A|B]",
+      "names": [
+        "q"
+      ],
+      "collected": [
+        "q"
+      ],
+      "interaction_count": 1,
+      "name": "q",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "inline-html-example",
+      "source": "Text <span title=\"{{\">\n?[%{{ q }} A|B]",
+      "names": [
+        "q"
+      ],
+      "collected": [
+        "q"
+      ],
+      "interaction_count": 1,
+      "name": "q",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "multiline-inline-html-example",
+      "source": "Text <span title=\"before\n{{\">\n?[%{{ q }} A|B]",
+      "names": [
+        "q"
+      ],
+      "collected": [
+        "q"
+      ],
+      "interaction_count": 1,
+      "name": "q",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "complete-inline-code-assignment",
+      "source": "Show `%{{ q }}` then ?[A|B]",
+      "names": [
+        "q"
+      ],
+      "collected": [
+        "q"
+      ],
+      "interaction_count": 1,
+      "name": null,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "complete-inline-code-reference",
+      "source": "Show `{{ q }}` then ?[A|B]",
+      "names": [
+        "q"
+      ],
+      "collected": [],
+      "interaction_count": 1,
+      "name": null,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "complete-inline-html-assignment",
+      "source": "Text <span title=\"%{{ attr }}\">\n?[A|B]",
+      "names": [
+        "attr"
+      ],
+      "collected": [
+        "attr"
+      ],
+      "interaction_count": 1,
+      "name": null,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "literal-looking-name",
+      "source": "?[%{{ <span title=\"`\"> }} A|B]",
+      "names": [
+        "<span title=\"`\">"
+      ],
+      "collected": [
+        "<span title=\"`\">"
+      ],
+      "interaction_count": 1,
+      "name": "<span title=\"`\">",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "complete-escaped-example",
+      "source": "Show \\{{ not a variable }} then ?[%{{ q }} A|B]",
+      "names": [
+        "q"
+      ],
+      "collected": [
+        "q"
+      ],
+      "interaction_count": 1,
+      "name": "q",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "escaped-example-before-complete-assignment",
+      "source": "\\{{ example ?[%{{ q }} A|B]",
+      "names": [
+        "q"
+      ],
+      "collected": [
+        "q"
+      ],
+      "interaction_count": 1,
+      "name": "q",
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "values": [
+        "A",
+        "B"
+      ]
+    }
+  ]
+}

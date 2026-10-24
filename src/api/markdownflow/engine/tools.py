@@ -26,7 +26,14 @@ from .direction import (
 )
 from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
+from .marker_context import analyze_marker_context, marker_syntax_source
 from .session import answer_fingerprint
+from .variable_names import (
+    VARIABLE_ASSIGNMENT_SOURCE,
+    find_interaction_spans,
+    normalize_variable_name,
+    read_variable_marker,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -137,10 +144,7 @@ def recall_exclusions(deps: Deps) -> frozenset[str]:
     )
 
 
-_FENCED = re.compile(
-    r"^[ ]{0,3}(`{3,}|~{3,})[^\n]*\n.*?^[ ]{0,3}\1[ \t]*$", re.MULTILINE | re.DOTALL
-)
-_VARIABLE = re.compile(r"^\s*%\{\{([^}]*)\}\}")
+_VARIABLE = re.compile(r"^\s*" + VARIABLE_ASSIGNMENT_SOURCE)
 
 
 def _is_escape(text: str, index: int) -> bool:
@@ -152,6 +156,12 @@ def _is_escape(text: str, index: int) -> bool:
 def _find_unescaped(text: str, needle: str, start: int = 0) -> int:
     index = start
     while index < len(text):
+        if text.startswith("{{", index):
+            marker = read_variable_marker(text, index)
+            if marker is None:
+                return -1
+            index = marker.end
+            continue
         if _is_escape(text, index):
             index += 2
             continue
@@ -177,6 +187,10 @@ def _split_on_single_pipe(text: str) -> list[str]:
     start = 0
     index = 0
     while index < len(text):
+        if text.startswith("{{", index):
+            marker = read_variable_marker(text, index)
+            index = marker.end if marker is not None else len(text)
+            continue
         if _is_escape(text, index):
             index += 2
             continue
@@ -199,6 +213,12 @@ def _unescape(text: str) -> str:
     out: list[str] = []
     index = 0
     while index < len(text):
+        if text.startswith("{{", index):
+            marker = read_variable_marker(text, index)
+            end = marker.end if marker is not None else len(text)
+            out.append(text[index:end])
+            index = end
+            continue
         if _is_escape(text, index):
             out.append(text[index + 1])
             index += 2
@@ -257,22 +277,24 @@ class _Question:
 
 def _script_questions(script_text: str) -> list[_Question]:
     """Return the script's `?[...]` questions, outside code fences, in order."""
-    text = _FENCED.sub("", script_text)
+    text = script_text
+    context = analyze_marker_context(text, fence_indent=3)
     questions: list[_Question] = []
-    at = 0
-    while (start := text.find("?[", at)) >= 0:
-        at = start + 2
-        if start and text[start - 1] == "\\":
-            continue
-        end = _find_unescaped(text, "]", at)
-        if end < 0:
-            break
-        at = end + 1
-        if text[end + 1 : end + 2] == "(":
-            continue  # `?[text](url)` is a link
+    for start, end_exclusive in find_interaction_spans(
+        text, syntax_source=marker_syntax_source(text, context)
+    ):
+        end = end_exclusive - 1
         raw = text[start + 2 : end]
         body = _VARIABLE.sub("", raw)
-        first_line = body.split("\n", 1)[0]
+        newline = min(
+            (
+                at
+                for ending in ("\r", "\n")
+                if (at := _find_unescaped(body, ending)) >= 0
+            ),
+            default=-1,
+        )
+        first_line = body[:newline] if newline >= 0 else body
         ellipsis = _find_unescaped(first_line, "...")
         if ellipsis >= 0:
             body = body[:ellipsis]
@@ -284,7 +306,7 @@ def _script_questions(script_text: str) -> list[_Question]:
             choices = _split_unescaped(body, "||")
         questions.append(
             _Question(
-                variable=(match.group(1).strip() or None)
+                variable=normalize_variable_name(match.group(1))
                 if (match := _VARIABLE.match(raw))
                 else None,
                 text=ellipsis >= 0,
@@ -303,9 +325,20 @@ def _script_questions(script_text: str) -> list[_Question]:
 
 def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
     """Read authored input hints; examples in comments do not define a learner question."""
+    context = analyze_marker_context(script_text, fence_indent=3)
+    syntax = list(script_text)
+    for marker in context.markers:
+        # Document scanning bounds examples before protection, so an unfinished
+        # literal marker cannot hide a real outer comment or fence terminator.
+        syntax[marker.start : marker.end] = [
+            char if char in "\r\n" else "x"
+            for char in script_text[marker.start : marker.end]
+        ]
     lines: list[str] = []
+    syntax_lines: list[str] = []
     opening: str | None = None
-    for line in script_text.splitlines():
+    offset = 0
+    for line in "".join(syntax).splitlines(keepends=True):
         fence = re.match(r"^[ ]{0,3}(`{3,}|~{3,})(.*)$", line)
         if opening is not None:
             if (
@@ -318,10 +351,21 @@ def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
         elif fence:
             opening = fence.group(1)
         elif line.expandtabs(4).startswith("    "):
-            lines.append("")  # Indented Markdown code cannot declare lesson controls.
+            ending = line[len(line.rstrip("\r\n")) :]
+            lines.append(ending)  # Retain the blank line after an indented example.
+            syntax_lines.append(ending)
         else:
-            lines.append(line)
-    text = re.sub(r"<!--.*?-->", "", "\n".join(lines), flags=re.DOTALL)
+            lines.append(script_text[offset : offset + len(line)])
+            syntax_lines.append(line)
+        offset += len(line)
+    source = "".join(lines)
+    parts: list[str] = []
+    offset = 0
+    for comment in re.finditer(r"<!--.*?-->", "".join(syntax_lines), re.DOTALL):
+        parts.append(source[offset : comment.start()])
+        offset = comment.end()
+    parts.append(source[offset:])
+    text = "".join(parts)
     return tuple(q for q in _script_questions(text) if q.placeholder)
 
 
@@ -755,7 +799,8 @@ async def interact(
     read-back as content and pause with a plain `confirm`.
     Give `options` for every type except `text`. `variable` is ONLY for a memory key the script
     explicitly names; follow the host memory policy for eligible declarations. Leave it empty
-    otherwise.
+    otherwise. Copy its exact internal text, including spaces and punctuation; only surrounding
+    whitespace is trimmed. Do not translate, rename or collapse spaces in a declared name.
     The learner's answer is returned as the tool result; then continue the script.
     Before personal feedback and the next interaction, cite the original submission
     supporting each claimed misconception. A quoted denial of prior storage does not
@@ -829,6 +874,15 @@ async def interact(
             review = feedback
     validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
+    if variable is not None and not variable.strip():
+        # An empty optional argument means the answer has no memory key.
+        variable = None
+    if variable is not None:
+        normalized_variable = normalize_variable_name(variable)
+        if normalized_variable is None:
+            message = "Use a nonblank variable name without control characters or a closing brace pair."
+            raise ModelRetry(message)
+        variable = normalized_variable
     if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
         message = "This variable is a read-only reference. Ask using a local variable instead."
         raise ModelRetry(message)
@@ -920,7 +974,7 @@ async def interact(
         msg = (
             f"The learner cannot be shown this question: {problem}. Call `interact` again "
             "with the same question, rewriting what the problem names: every option must be "
-            "non-empty text without `%{{` or `}}`, and the variable must be a short plain name."
+            "non-empty single-line text that preserves its authored meaning, and the variable must preserve the script's exact name."
         )
         raise ModelRetry(msg)
     ctx.deps.interaction_markup_pending = False
@@ -1063,8 +1117,10 @@ async def remember(
 ) -> str:
     """Store something about the learner.
 
-    `key` is a short snake_case identifier; `value` is the learner's own words or the concrete
-    fact. `scope="session"` (default) is for this script run (answers, collected variables);
+    `key` preserves the declared name's exact internal text; only surrounding whitespace is
+    trimmed. Spaces and punctuation are allowed, but internal control characters and `}}` are
+    not. `value` is the learner's own words or the concrete fact.
+    `scope="session"` (default) is for this script run (answers, collected variables);
     `scope="user"` is for things that should follow the learner into future sessions
     (preferences, stable facts, requests like "keep answers short"). Overwrites an existing key.
 
@@ -1081,8 +1137,10 @@ async def remember(
         validate_direction_call(ctx, review=review)
     if ctx.deps.finished is not None:
         return LESSON_OVER
-    if not key.strip() or len(key) > _MEMORY_KEY_LIMIT:
+    normalized_key = normalize_variable_name(key)
+    if normalized_key is None or len(normalized_key) > _MEMORY_KEY_LIMIT:
         return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
+    key = normalized_key
     if len(value) > _MEMORY_VALUE_LIMIT:
         return "Not remembered: the value exceeds 2000 characters. Continue teaching."
     if ctx.deps.memory_keys is not None and (

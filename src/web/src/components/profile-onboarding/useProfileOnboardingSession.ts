@@ -1,5 +1,6 @@
 import React from 'react';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
+import { normalizeVariableName } from 'remark-flow';
 import type { ProfileOnboardingStreamEvent } from '@/lib/profileOnboardingSse';
 import {
   initialProfileOnboardingConversationState,
@@ -617,7 +618,8 @@ export const useProfileOnboardingSession = ({
       if (!values.length) {
         return;
       }
-      const variableName = content.variableName?.trim() || 'input';
+      const variableName =
+        normalizeVariableName(content.variableName ?? '') || 'input';
       if (!isProfileOnboardingSubmissionWithinLimits(variableName, values)) {
         dispatch({ type: 'reject_submission' });
         return;

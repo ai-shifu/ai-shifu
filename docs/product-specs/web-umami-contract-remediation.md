@@ -2,7 +2,7 @@
 title: Cook Web Umami Contract Remediation
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-10
+last_reviewed: 2026-10-23
 canonical: true
 ---
 
@@ -125,6 +125,29 @@ are not backfilled under another name.
   non-personal), and booleans for toggles/fallbacks. Fallback booleans support
   adoption analysis only, never billing or audit decisions. Regression coverage
   verifies timing, privacy, exclusions, failure isolation and edits during saves.
+- The 2026-10-23 lesson-preview revision adds the boolean
+  `has_text_variable_keys` to `creator_lesson_preview_click` for teacher-editor
+  adoption analysis. It classifies the accepted click's source snapshot as true
+  when `extractVariableNames` finds a name outside the historical Unicode
+  letter/number/underscore identifier shape (`^[\p{L}\p{N}_]+$`); that shape is
+  an analytics classification only, never a name-validation rule. The decision
+  is whether teachers preview text-key prompts and need continued editor support.
+  Per UTC day, the numerator is recorded accepted preview clicks with true and
+  the denominator is recorded accepted preview clicks with either boolean value.
+  This measures preview intent, not successful preview execution, an answer, or
+  a memory write. Historical rows missing the field remain `legacy_unknown` and
+  are excluded from this denominator, never inferred as false; no backfill is
+  performed and existing preview-count consumers may continue counting all rows.
+- Lesson-preview eligibility remains the existing `canPreview`, course-ID and
+  lesson-ID handler guards, including eligible read-only course previews.
+  Chapters, unresolved preview eligibility and missing IDs emit nothing. The
+  event fires once per accepted handler invocation, before saving or parsing;
+  render, re-render and disabled/rejected clicks emit nothing. Repeated accepted
+  clicks count separately, with no persisted deduplication. The complete payload
+  is the existing stable course/lesson IDs plus this low-cardinality boolean;
+  no variable key, question, source, prompt, answer or other authored text is sent.
+  Product analytics owns the daily adoption consumer. Tracking is best-effort,
+  is not awaited, and unavailable analytics never blocks save, parse or preview.
 
 | Event                          | Exact trigger                                                                | Complete payload                                                                                                                                                                                                               |
 | ------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -133,7 +156,7 @@ are not backfilled under another name.
 | `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`, `prompt_change`                                                                                                                                                                       |
 | `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                                                                                                                                                       |
 | `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                                                                                                                                                    |
-| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`                                                                                                                                                                                                     |
+| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`, `has_text_variable_keys`                                                                                                                                                                           |
 
 Allowed enums are `save_type=auto|manual`, `follow_up_mode=text|live_voice`,
 `price_tier=free|micro_paid|standard_paid`,

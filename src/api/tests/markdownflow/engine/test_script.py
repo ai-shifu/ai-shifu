@@ -1,5 +1,6 @@
 """Script bundling: variable substitution, 1.0 syntax detection, prompt assembly."""
 
+import pytest
 from markdownflow.engine import (
     ScriptBundle,
     collected_names,
@@ -7,6 +8,7 @@ from markdownflow.engine import (
     render_first_prompt,
     substitute_variables,
 )
+from markdownflow.engine.script import substitution_names
 
 
 def test_detects_each_v1_marker() -> None:
@@ -86,6 +88,42 @@ def test_an_indented_marker_does_not_close_a_fence() -> None:
     out = substitute_variables(text, {"name": "Ada"})
     assert out.count("{{name}}") == 1  # the one inside the block survives
     assert out.endswith("Ada\n")
+
+
+@pytest.mark.parametrize("fence", ["```", "~~~~"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r", "\x85", "\u2028"])
+@pytest.mark.parametrize(
+    "example",
+    ["{{unclosed", "%{{unclosed", "<!-- {{unclosed -->", "<!-- %{{unclosed -->"],
+)
+def test_unclosed_code_example_cannot_capture_markers_after_its_fence(
+    fence: str, newline: str, example: str
+) -> None:
+    """An example's opener cannot hide the closing fence or consume real course keys."""
+    before = f"{fence}{newline}{example}{newline}{fence}{newline}Outside "
+    text = before + "{{name}} %{{answer}}"
+
+    assert substitution_names(ScriptBundle(script=text)) == frozenset({"name"})
+    assert collected_names(text) == frozenset({"answer"})
+    assert substitute_variables(text, {"name": "Ada", "answer": "old"}) == (
+        before + "Ada %{{answer}}"
+    )
+
+
+def test_marker_outside_code_keeps_fence_and_comment_text_inside_its_name() -> None:
+    """Only a real outer fence wins; an opaque key's punctuation remains ordinary text."""
+    text = "{{\n```\n}} {{ <!-- key --> }} %{{\n~~~\n}}"
+
+    assert substitution_names(ScriptBundle(script=text)) == frozenset(
+        {"```", "<!-- key -->"}
+    )
+    assert collected_names(text) == frozenset({"~~~"})
+    assert (
+        substitute_variables(
+            text, {"```": "fence", "<!-- key -->": "comment", "~~~": "old"}
+        )
+        == "fence comment %{{\n~~~\n}}"
+    )
 
 
 # --- a variable this lesson collects ------------------------------------------------------

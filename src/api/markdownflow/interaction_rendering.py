@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from markdown_flow.escaping import escape_interaction_text
 
 from .engine.interaction import InteractionSpec, Option
+from .engine.variable_names import format_variable_assignment
 
 
 @dataclass(frozen=True)
@@ -73,7 +74,13 @@ def _compose(spec: InteractionSpec) -> str:
         placeholder = escape_interaction_text(spec.placeholder or "")
         parts.append(f"{_FREE_TEXT_MARKER}{placeholder}")
 
-    prefix = f"%{{{{{spec.variable}}}}} " if spec.variable else ""
+    marker = (
+        format_variable_assignment(spec.variable) if spec.variable is not None else None
+    )
+    if spec.variable is not None and marker is None:
+        message = "Invalid variable name"
+        raise UnrepresentableInteractionError(message)
+    prefix = marker + " " if marker else ""
     return f"?[{prefix}{separator.join(parts)}]"
 
 
@@ -126,6 +133,9 @@ def render_interaction(spec: InteractionSpec, *, labels: QuestionLabels) -> str:
     does. The variable prefix is emitted only when the script named one to store the answer under;
     a confirm carries none by construction, since pressing continue is not an answer.
     """
+    if spec.variable is not None and not spec.variable.strip():
+        # Preserve pending interactions saved before blank names were validated.
+        spec = spec.model_copy(update={"variable": None})
     if spec.type in _FREE_TEXT_TYPES and not (spec.placeholder or "").strip():
         # The UI uses a nonempty hint to expose its text box. A bare ... marker
         # parses successfully but displays only Submit, even for type="text".

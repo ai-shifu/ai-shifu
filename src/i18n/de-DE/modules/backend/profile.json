@@ -4,6 +4,7 @@
     "avatar": "Profilbild",
     "birth": "Geburtsdatum",
     "keyExist": "Schlüssel existiert bereits",
+    "keyInvalid": "Variablennamen dürfen nicht leer sein und keine Steuerzeichen oder }} enthalten.",
     "keyRequire": "Schlüssel ist erforderlich",
     "keyRequired": "Schlüssel ist erforderlich",
     "language": "Sprache",

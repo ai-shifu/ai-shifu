@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { SSE } from 'sse.js';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
-import { createInteractionParser } from 'remark-flow';
+import { createInteractionParser, normalizeVariableName } from 'remark-flow';
 import {
   ELEMENT_TYPE,
   LIKE_STATUS,
@@ -1886,10 +1886,10 @@ export function usePreviewChat({
 
       const { variableName } = content;
       const normalizedVariableName =
-        typeof variableName === 'string' ? variableName : '';
+        normalizeVariableName(variableName ?? '') || '';
       const hasVariableName = Boolean(normalizedVariableName);
       const listUpdateContent =
-        typeof variableName === 'string'
+        variableName === normalizedVariableName
           ? content
           : { ...content, variableName: normalizedVariableName };
 

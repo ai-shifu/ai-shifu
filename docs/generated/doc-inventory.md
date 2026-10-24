@@ -89,6 +89,7 @@
 | `docs/exec-plans/active/profile-onboarding-layout-oauth-gate.md` | Gate Profile on every course WeChat authorization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/progressive-html-typewriter.md` | Progressive HTML alongside typed lesson text | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/public-web-image-name.md` | Publish Web images without the Cook name | `exec-plan-active` | `active` | `repository` | `2026-10-08` | `true` |
+| `docs/exec-plans/active/question-memory-key-compatibility.md` | Define and align MarkdownFlow text variable names | `exec-plan-active` | `active` | `learner` | `2026-10-24` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/resumed-learner-nickname.md` | Refresh Nicknames in Existing Agent Lessons | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -283,16 +284,17 @@
 | `docs/product-specs/skill-usage-analytics.md` | Skill Usage Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-10-23` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
-| `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-10` | `true` |
+| `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-23` | `true` |
 | `docs/references/api-capacity-metrics.md` | API capacity metrics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
-| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
+| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-23` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
 | `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
 | `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/gemini-live-follow-up.md` | Gemini Live follow-up implementation contract | `reference` | `reference` | `repo` | `-` | `true` |
+| `docs/references/i18n-zh-CN.md` | Simplified Chinese product terminology | `reference` | `current` | `shared` | `2026-10-23` | `true` |
 | `docs/references/i18n.md` | Internationalization (i18n) Guide | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/index.md` | References | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/references/lesson-content-update-performance.md` | Lesson Content Revision Comparison Performance | `reference` | `reference` | `repo` | `-` | `true` |

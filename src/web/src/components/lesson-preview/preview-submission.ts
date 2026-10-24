@@ -1,4 +1,5 @@
 import type { ChatContentItem } from '@/types/chatUi';
+import { normalizeVariableName } from 'remark-flow';
 
 export const resolvePreviewRequestBlockIndex = (
   generatedBlockBid: string,
@@ -63,7 +64,7 @@ export const buildPreviewInteractionUserInput = (
   if (!values.length) {
     return undefined;
   }
-  const normalizedVariableName = variableName.trim();
+  const normalizedVariableName = normalizeVariableName(variableName);
   return {
     [normalizedVariableName || 'input']: values,
   };

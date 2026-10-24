@@ -32,6 +32,7 @@ from flaskr.service.profile_research.session import (
     _ProfileResearchSession,
 )
 from markdown_flow import BlockType, MarkdownFlow
+from markdownflow.engine.variable_names import normalize_variable_name
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -340,12 +341,22 @@ def profile_answer_evidence(
                     args = part.args_as_dict()
                 except (AssertionError, TypeError, ValueError):
                     continue
+                variable = args.get("variable")
+                if variable is not None:
+                    if not isinstance(variable, str):
+                        continue
+                    normalized_variable = normalize_variable_name(variable)
+                    if normalized_variable is None and variable.strip():
+                        continue
+                    variable = normalized_variable
                 if (
                     args.get("type") != "confirm"
-                    and args.get("variable") != SYS_USER_NICKNAME
+                    and variable != SYS_USER_NICKNAME
                     and isinstance(args.get("prompt"), str)
                 ):
-                    calls[part.tool_call_id] = args
+                    # Tool history retains the model's original arguments, before
+                    # interact canonicalizes its binding or drops a blank optional key.
+                    calls[part.tool_call_id] = {**args, "variable": variable}
             elif (
                 isinstance(message, ModelRequest)
                 and isinstance(part, ToolReturnPart)

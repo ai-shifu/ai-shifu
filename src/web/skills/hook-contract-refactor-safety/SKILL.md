@@ -1,6 +1,6 @@
 ---
 name: hook-contract-refactor-safety
-description: 当重构 hook 返回字段或参数契约时使用本技能。统一同步调用方解构与参数对象，避免大面积 TS 属性错误。
+description: Use when refactoring hook return fields or parameter contracts. Update caller destructuring and argument objects together to prevent TypeScript property errors.
 ---
 
 # Hook 契约重构安全

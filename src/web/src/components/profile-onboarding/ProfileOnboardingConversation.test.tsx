@@ -24,6 +24,10 @@ let mockRendererSubmission: OnSendContentParams = DEFAULT_RENDERER_SUBMISSION;
 let mockAutoFinishTypewriter = true;
 let mockLatestTypeFinished: (() => void) | undefined;
 let mockRenderedContents: string[] = [];
+const mockSendCallbacks = new Map<
+  string,
+  (value: OnSendContentParams) => void
+>();
 let mockLanguage = 'zh-CN';
 
 type MockScrollControlProps = {
@@ -57,6 +61,10 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+jest.mock('remark-flow', () =>
+  jest.requireActual('remark-flow/dist/variable-name'),
+);
+
 jest.mock('markdown-flow-ui/renderer', () => ({
   ContentRender: ({
     content,
@@ -82,6 +90,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     onTypeFinished?: () => void;
   }) => {
     mockRenderedContents.push(content);
+    if (onSend) mockSendCallbacks.set(content, onSend);
     React.useEffect(() => {
       mockLatestTypeFinished = onTypeFinished;
       if (mockAutoFinishTypewriter) onTypeFinished?.();
@@ -140,6 +149,7 @@ describe('ProfileOnboardingConversation', () => {
     mockAutoFinishTypewriter = true;
     mockLatestTypeFinished = undefined;
     mockRenderedContents = [];
+    mockSendCallbacks.clear();
     mockScrollToBottomControl.mockClear();
   });
 
@@ -386,6 +396,70 @@ describe('ProfileOnboardingConversation', () => {
       screen.queryByText('module.profileOnboarding.guided.inputLimitError'),
     ).not.toBeInTheDocument();
   });
+
+  test.each<[string | undefined, string]>([
+    ['profile_goal', 'profile_goal'],
+    ['你的性别是？', '你的性别是？'],
+    ['gender?', 'gender?'],
+    ['\u0085gender?\u0085', 'gender?'],
+    ['\ufeffgender?\ufeff', '\ufeffgender?\ufeff'],
+    ['\ufeff', '\ufeff'],
+    ['  user  name  ', 'user  name'],
+    [' Which [path] | level//hint...? ', 'Which [path] | level//hint...?'],
+    [' a} ', 'a}'],
+    [undefined, 'input'],
+  ])(
+    'submits the exact normalized variable key %s',
+    async (variableName, expectedKey) => {
+      mockRendererSubmission = { variableName, inputText: '女' };
+      const runSession = jest.fn(({ onMessage }) => {
+        if (runSession.mock.calls.length === 1) {
+          queueMicrotask(() => {
+            onMessage({
+              type: 'interaction',
+              generated_block_bid: 'interaction-question-key',
+              interaction_id: 'native-question-key',
+              content: `?[%{{${expectedKey}}}...Your answer]`,
+            });
+            onMessage({
+              type: 'done',
+              is_terminal: true,
+              content: {
+                done: false,
+                next_turn_index: 1,
+                awaiting_input: true,
+                pending_interaction_ids: ['native-question-key'],
+              },
+            });
+          });
+        }
+        return { close: jest.fn() };
+      });
+
+      render(
+        <ProfileOnboardingConversation
+          createSession={async () => ({ session_id: 'session-question-key' })}
+          runSession={runSession}
+          onDraftReady={jest.fn()}
+          onError={jest.fn()}
+        />,
+      );
+      const answerButton = await screen.findByRole('button', {
+        name: ANSWER_GUIDED_QUESTION_LABEL,
+      });
+      await waitFor(() => expect(answerButton).toBeEnabled());
+      fireEvent.click(answerButton);
+
+      await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
+      expect(runSession.mock.calls[1][0]).toEqual(
+        expect.objectContaining({
+          expectedTurnIndex: 1,
+          expectedInteractionId: 'native-question-key',
+          userInput: { [expectedKey]: ['女'] },
+        }),
+      );
+    },
+  );
 
   test('preserves official button values while keeping their display normalized', async () => {
     mockRendererSubmission = {
@@ -1485,7 +1559,12 @@ describe('ProfileOnboardingConversation', () => {
     },
   );
 
-  test('binds successive questions at one cursor to their own identities and retries the same answer', async () => {
+  test('binds normalized keys to the current interaction, rejects stale answers, and retries the same answer', async () => {
+    const variableKey = 'Which [path] |  level//hint...?';
+    mockRendererSubmission = {
+      variableName: `\u0085${variableKey}\u0085`,
+      inputText: 'Learn practical AI skills',
+    };
     const emitQuestion = (
       onMessage: Parameters<ProfileOnboardingRunSession>[0]['onMessage'],
       id: string,
@@ -1538,14 +1617,20 @@ describe('ProfileOnboardingConversation', () => {
       />,
     );
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
-    );
+    const firstAnswerButton = await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    const staleSend = mockSendCallbacks.get('?[...native-question-1]');
+    expect(staleSend).toBeDefined();
+    fireEvent.click(firstAnswerButton);
     await screen.findByText('?[...native-question-2]');
     expect(runSession.mock.calls[1][0]).toMatchObject({
       expectedTurnIndex: 0,
       expectedInteractionId: 'native-question-1',
+      userInput: { [variableKey]: ['Learn practical AI skills'] },
     });
+    act(() => staleSend?.(mockRendererSubmission));
+    expect(runSession).toHaveBeenCalledTimes(2);
     fireEvent.click(
       screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
     );
@@ -1558,7 +1643,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(runSession.mock.calls[2][0]).toMatchObject({
       expectedTurnIndex: 0,
       expectedInteractionId: 'native-question-2',
-      userInput: { profile_goal: ['学会 AI'] },
+      userInput: { [variableKey]: ['Learn practical AI skills'] },
     });
     expect(runSession.mock.calls[3][0]).toMatchObject({
       expectedInteractionId: 'native-question-2',

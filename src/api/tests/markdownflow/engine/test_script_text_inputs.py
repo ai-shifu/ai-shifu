@@ -16,6 +16,7 @@ from markdownflow.engine import (
     Session,
 )
 from markdownflow.engine.script import ScriptBundle
+from markdownflow.engine.tools import script_text_inputs
 from pydantic_ai.messages import ModelMessage, ToolReturnPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
@@ -31,6 +32,122 @@ _CHOICES = [
 ]
 _HINT = "Describe my project directly"
 _SCRIPT = "?[%{{project_path}} " + " | ".join([*_CHOICES, "..." + _HINT]) + "]"
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    ("raw_name", "expected"),
+    [
+        (" Why <!--this-->? ", "Why <!--this-->?"),
+        (" Why <!--unfinished? ", "Why <!--unfinished?"),
+        ("\n```\n", "```"),
+        ("\n~~~\n", "~~~"),
+        ("\n    café\n", "café"),
+        (" Why {{this? ", "Why {{this?"),
+    ],
+)
+def test_authored_text_hint_keeps_the_exact_opaque_variable(
+    newline: str, raw_name: str, expected: str
+) -> None:
+    """Hint preprocessing cannot interpret comment, fence or indentation text in a key."""
+    script = "?[%{{" + raw_name.replace("\n", newline) + "}} A | ...Explain]"
+    questions = script_text_inputs(script)
+    assert len(questions) == 1
+    assert questions[0].variable == expected
+    assert questions[0].placeholder == "Explain"
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "<!-- outer --> ",
+        "<!-- {{ unfinished -->\n\n",
+        "<!-- ?[%{{ fake }} A | ...Fake] -->\n\n",
+        "```\n{{ unfinished\n?[%{{ fake }} A | ...Fake]\n```\n\n",
+        "    ?[%{{ fake }} A | ...Fake]\n\n",
+        "\t?[%{{ fake }} A | ...Fake]\n\n",
+    ],
+)
+def test_literal_examples_stay_excluded_before_a_real_opaque_question(
+    newline: str, prefix: str
+) -> None:
+    """Bounded literal markers cannot hide their outer closing delimiter or a real input."""
+    question = "?[%{{ Why <!--this-->? }} A | ...Explain]"
+    questions = script_text_inputs(prefix.replace("\n", newline) + question)
+    assert [(q.variable, q.placeholder) for q in questions] == [
+        ("Why <!--this-->?", "Explain")
+    ]
+
+
+def test_html_block_question_retains_its_existing_hint_admission() -> None:
+    """Native literal metadata must not exclude a question the legacy hint reader accepts."""
+    script = "<div>\n?[%{{ Why <!--this-->? }} A | ...Explain]\n</div>"
+    assert [(q.variable, q.placeholder) for q in script_text_inputs(script)] == [
+        ("Why <!--this-->?", "Explain")
+    ]
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+def test_hint_uses_only_its_first_physical_line(newline: str) -> None:
+    """Preserving marker source cannot merge later instructions into an authored input hint."""
+    script = "?[%{{ Why <!--this-->? }} A | ...Explain" + newline + "More instructions]"
+    assert [(q.variable, q.placeholder) for q in script_text_inputs(script)] == [
+        ("Why <!--this-->?", "Explain")
+    ]
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        "?[%{{ Why }<!--x-->} A | ...Explain]",
+        "{{ Why }<!--x-->} ?[A | ...Explain]",
+    ],
+)
+def test_preprocessing_cannot_complete_an_unfinished_marker(script: str) -> None:
+    """Removing a comment cannot synthesize a closing pair inside an opaque tail."""
+    assert script_text_inputs(script) == ()
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("raw_name", [" Why <!--this-->? ", "\n```\n", "\n    café\n"])
+@pytest.mark.parametrize("translated", [False, True])
+async def test_opaque_question_key_restores_the_input_and_saves_a_typed_answer(
+    newline: str, raw_name: str, translated: bool
+) -> None:
+    """An authored hint remains free text when its stored key contains Markdown syntax."""
+    key = raw_name.strip()
+    display = "Choix" if translated else "A"
+    hint = "Expliquez" if translated else "Explain"
+    script = "?[%{{" + raw_name.replace("\n", newline) + "}} A | ...Explain]"
+    engine = _engine(
+        _arguments(
+            type="single",
+            variable=key,
+            placeholder=None,
+            options=[
+                {"display": display, "value": "A"},
+                {"display": hint, "value": "Explain"},
+            ],
+        )
+    )
+    session = await engine.new_session(script)
+    events = [event async for event in engine.run_turn(session)]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.type == "single_or_text"
+    assert spec.variable == key
+    assert [(option.display, option.stored) for option in spec.options] == [
+        (display, "A")
+    ]
+    assert spec.placeholder == hint
+    restored = Session.loads(session.dumps())
+    _ = [
+        event
+        async for event in engine.run_turn(
+            restored, InteractionResponseTurn(text="My typed answer")
+        )
+    ]
+    assert restored.memory[key] == "My typed answer"
 
 
 @pytest.mark.parametrize("placeholder", [None, ""])
@@ -55,7 +172,8 @@ async def test_text_only_hint_is_restored_among_multiple_authored_questions(
     events = [e async for e in engine.run_turn(session)]
     spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
     assert spec.placeholder == hints[0]
-    assert render_interaction(spec) == "?[" + prefix + "..." + hints[0] + "]"
+    rendered_prefix = "%{{ " + variable + " }} " if variable else ""
+    assert render_interaction(spec) == "?[" + rendered_prefix + "..." + hints[0] + "]"
     assert InteractionParser().parse(render_interaction(spec))["question"] == hints[0]
     session = Session.loads(session.dumps())
     events = [

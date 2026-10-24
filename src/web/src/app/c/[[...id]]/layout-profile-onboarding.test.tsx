@@ -1,4 +1,8 @@
 import React from 'react';
+
+jest.mock('remark-flow', () =>
+  jest.requireActual('remark-flow/dist/variable-name'),
+);
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useCourseStore, useEnvStore } from '@/store';
 import { useSystemStore } from '@/store/useSystemStore';

@@ -1,6 +1,6 @@
 ---
 name: chat-element-streaming
-description: 当 ai-shifu 聊天流从 block 粒度向 element 粒度演进，或历史记录与 SSE 渲染一致性出现问题时使用本技能。统一 element_bid 渲染键、兼容旧字段并收敛 AskBlock 归并逻辑。
+description: Use when evolving ai-shifu chat streams from blocks to elements or aligning historical messages with SSE rendering. Use element_bid as the rendering key, support legacy fields, and consolidate AskBlock merging.
 ---
 
 # Element 粒度聊天流
