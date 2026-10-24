@@ -273,11 +273,11 @@ backend directory. Run this from the repository root; keep an existing
 cp -n docker/.env src/api/.env
 ```
 
-The Docker template includes demo authentication settings such as
-`UNIVERSAL_VERIFICATION_CODE`. The API and frontend commands below bind to
-loopback so those settings are not exposed through either development server.
-Before making the application remotely accessible, clear the universal code,
-replace the demo `SECRET_KEY`, and configure a real login provider.
+Verification bypass is disabled by default, including for `ENV=development`.
+The API and frontend commands below bind to loopback. Before making the
+application remotely accessible, replace the demo `SECRET_KEY` and configure a
+real login provider. See [Local Demo Login](#local-demo-login) for the explicit
+development-only bootstrap.
 
 Edit `src/api/.env`, retaining the provider key and required `LLM_MODEL_1_ID`
 mapping. Replace Docker service hostnames with the addresses of your local
@@ -498,8 +498,41 @@ do not call the LLM.
 
 ### Local Demo Login
 
-With the unmodified Docker template, phone login is enabled and
-`UNIVERSAL_VERIFICATION_CODE=1024` accepts the demo code without SMS delivery.
-Use a valid test phone number. This shortcut applies only while that setting
-is enabled; installations with it cleared require their configured login
-provider.
+Phone login normally requires a code issued by the configured SMS provider.
+Email login likewise requires a code issued through the configured SMTP provider.
+The Docker environment example leaves `UNIVERSAL_VERIFICATION_CODE` empty;
+there is no default login code.
+For an isolated local demo or automated test, explicitly set
+`ENV=development` and a nonblank `UNIVERSAL_VERIFICATION_CODE` in your local
+environment, then select the development factory:
+
+```bash
+gunicorn -w 1 -b 127.0.0.1:5800 'app:create_development_app()' --timeout 300
+```
+
+The development Compose and runtime harness select this factory explicitly;
+neither template supplies a default universal code. Use a synthetic test
+phone number and keep these servers isolated. The development factory refuses
+environments other than `development` or `testing`. Tests constructing a Flask
+app directly can opt in with `enable_development_verification_codes(app)` from
+`flaskr.service.user.verification_codes` after setting that environment.
+
+The normal `app:app` and `create_app()` entrypoints never enable the bypass,
+even if both `ENV=development` and a universal code are accidentally configured.
+Production and unknown environments also reject the bypass after a development
+app's configuration changes. An actually issued code still follows normal
+expiry, attempt limits, and single-use consumption, including when its value
+happens to match a legacy universal setting.
+
+### Upgrading Existing Verification-Code Deployments
+
+Upgrade the API image or source to a release containing this fix; changing the
+Compose file alone does not update older pinned images. Remove
+`UNIVERSAL_VERIFICATION_CODE` from deployment environment files, Compose
+overrides, and secret/configuration stores, use the normal `app:app` production
+entrypoint with `ENV=production`, and recreate API containers/processes so the
+new code and configuration take effect. Configure and verify a real SMS or
+email provider before opening login and password recovery to users. Verify
+normal issued-code login and password recovery in a controlled environment.
+These steps are operator actions; the patch does not change running deployments
+or assume whether any existing production installation was exposed.

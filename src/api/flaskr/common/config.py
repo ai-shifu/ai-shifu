@@ -1390,12 +1390,13 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
         required=False,
-        example="1024",
+        example="",
         description=(
-            "Universal verification code for testing.\n"
-            "**SECURITY WARNING:** Do NOT set this in production environments.\n"
-            "If set, it will allow anyone to bypass verification.\n"
-            "Only use for local development or testing."
+            "Optional verification bypass for isolated development/testing only.\n"
+            "Disabled by default; requires app:create_development_app() and "
+            "ENV=development or testing.\n"
+            "The normal app:app / create_app entrypoints ignore this setting.\n"
+            "Never use the development factory on a remotely accessible deployment."
         ),
         group="auth",
     ),
@@ -1909,7 +1910,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     "ENV": EnvVar(
         name="ENV",
         default="production",
-        description="Environment (development/production)",
+        description="Environment (development/testing/production)",
         group="flask",
     ),
     # Testing Configuration
