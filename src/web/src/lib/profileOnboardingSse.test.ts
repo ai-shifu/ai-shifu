@@ -60,7 +60,7 @@ describe('streamProfileOnboardingRuntime', () => {
   test('starts an authenticated POST stream with the language snapshot', () => {
     const source = streamProfileOnboardingRuntime({
       path: '/api/user/profile-onboarding/session/session-1/run',
-      payload: { expected_block_index: 0, request_id: 'run-1' },
+      payload: { expected_turn_index: 0, request_id: 'run-1' },
       language: 'fr-FR',
       onMessage: jest.fn(),
       onError: jest.fn(),
@@ -76,7 +76,7 @@ describe('streamProfileOnboardingRuntime', () => {
           Token: 'token-1',
         },
         payload: JSON.stringify({
-          expected_block_index: 0,
+          expected_turn_index: 0,
           request_id: 'run-1',
         }),
         method: 'POST',

@@ -157,9 +157,9 @@ The application has two main runtime components:
   `src/api/flaskr/api/llm/__init__.py`; the MarkdownFlow 2.0 engine delegates
   through `src/api/flaskr/api/llm/markdownflow_model.py`
 - The application-independent engine library lives in `src/api/markdownflow/`;
-  the course runtime uses `flaskr.api.markdownflow` for shared application
-  bindings. Profile remains on MarkdownFlow 1.0 until its separate migration
-  consumes this foundation. See the
+  course and Profile runtimes use `flaskr.api.markdownflow` for shared application
+  bindings. The foundation in PR #3163 is based on `main`; the Profile migration
+  in PR #3161 depends on it. See the
   [library design](design-docs/markdownflow-engine-library.md)
 - Gemini Live has a separate credential and browser WebSocket path; see the
   [Live setup notes](../INSTALL_MANUAL.md#optional-gemini-live-voice-follow-up)

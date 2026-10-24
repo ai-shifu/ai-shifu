@@ -6,10 +6,12 @@ import {
   isProfileOnboardingSubmissionWithinLimits,
   isRetryableSessionCreateError,
   isRetryableRuntimeError,
+  isProfileSummaryPhase,
   profileOnboardingConversationReducer,
-  resolveNextBlockIndex,
+  resolveNextTurnIndex,
   resolveProfileDraftFromRunEvent,
   resolveProfileNicknameFromRunEvent,
+  resolveProfileRunState,
   resolveProfileOnboardingElement,
   resolveProfileOnboardingSubmission,
   resolveRuntimeErrorCode,
@@ -26,9 +28,11 @@ import type { ProfileAssistantFailureCategory } from './profileOnboardingAnalyti
 type StreamHandle = { close?: () => void };
 
 type ProfileOnboardingRunRequest = {
-  expectedBlockIndex: number;
+  expectedTurnIndex: number;
+  expectedInteractionId?: string;
   requestId: string;
   userInput?: Record<string, string[]>;
+  displayInput?: string;
   rawText?: string;
 };
 
@@ -98,9 +102,9 @@ export const useProfileOnboardingSession = ({
   const [runningOperation, setRunningOperation] = React.useState<
     'questions' | 'summary' | 'assistant' | null
   >(null);
-  const profileDraftBlockIndexRef = React.useRef<number | null>(null);
   const sessionDoneRef = React.useRef(false);
   const assistantReturnToInputRef = React.useRef(false);
+  const assistantReturnInteractionIdRef = React.useRef<string | null>(null);
   const sessionIdRef = React.useRef('');
   const uncertainRequestRef = React.useRef(false);
   const statusRef = React.useRef(state.status);
@@ -109,7 +113,7 @@ export const useProfileOnboardingSession = ({
   assistantAnswersRef.current = assistantAnswers;
   const onAssistantDraftReadyRef = React.useRef(onAssistantDraftReady);
   onAssistantDraftReadyRef.current = onAssistantDraftReady;
-  const blockIndexRef = React.useRef(0);
+  const turnIndexRef = React.useRef(0);
   const requestSequenceRef = React.useRef(0);
   const streamRef = React.useRef<StreamHandle | null>(null);
   const runAttemptRef = React.useRef(0);
@@ -119,11 +123,16 @@ export const useProfileOnboardingSession = ({
     null,
   );
   const awaitingInteractionRef = React.useRef(false);
+  const activeInteractionIdRef = React.useRef<string | null>(null);
   const streamCompletedRef = React.useRef(false);
   const runtimeFailedRef = React.useRef(false);
   const mountedRef = React.useRef(true);
   const runNextRef = React.useRef<
-    (userInput?: Record<string, string[]>) => void
+    (
+      userInput?: Record<string, string[]>,
+      expectedInteractionId?: string,
+      displayInput?: string,
+    ) => void
   >(() => {});
   const flushAssistantRequestRef = React.useRef<() => void>(() => {});
   const createSessionRef = React.useRef(createSession);
@@ -218,9 +227,20 @@ export const useProfileOnboardingSession = ({
         return;
       }
       const type = event.event_type || event.type || '';
+      if (isProfileSummaryPhase(event)) {
+        setRunningOperation(
+          lastRunRequestRef.current?.rawText !== undefined
+            ? 'assistant'
+            : 'summary',
+        );
+      }
       const element = resolveProfileOnboardingElement(event);
       if (element && lastRunRequestRef.current?.rawText === undefined) {
-        awaitingInteractionRef.current = element.interaction;
+        if (element.interaction) {
+          awaitingInteractionRef.current = true;
+          activeInteractionIdRef.current =
+            element.interactionId || element.elementBid;
+        }
         dispatch({ type: 'receive_item', item: element });
       }
       if (type === 'error') {
@@ -251,7 +271,7 @@ export const useProfileOnboardingSession = ({
         }
         if (requiresFreshSession) {
           sessionIdRef.current = '';
-          blockIndexRef.current = 0;
+          turnIndexRef.current = 0;
           lastRunRequestRef.current = null;
         }
         onErrorRef.current(
@@ -271,9 +291,30 @@ export const useProfileOnboardingSession = ({
       }
 
       uncertainRequestRef.current = false;
-      const nextBlockIndex = resolveNextBlockIndex(event);
-      if (nextBlockIndex !== null) {
-        blockIndexRef.current = nextBlockIndex;
+      const runState = resolveProfileRunState(event);
+      const submittedRequest = lastRunRequestRef.current;
+      if (
+        runState.inputAccepted &&
+        submittedRequest?.displayInput !== undefined
+      ) {
+        dispatch({
+          type: 'accept_submission',
+          userInput: submittedRequest.displayInput,
+          interactionId: submittedRequest.expectedInteractionId,
+        });
+      }
+      if (runState.pendingInteractionIds !== null) {
+        activeInteractionIdRef.current =
+          runState.pendingInteractionIds[0] ?? null;
+        awaitingInteractionRef.current =
+          runState.pendingInteractionIds.length > 0;
+      } else if (runState.awaitingInput !== null) {
+        awaitingInteractionRef.current = runState.awaitingInput;
+        if (!runState.awaitingInput) activeInteractionIdRef.current = null;
+      }
+      const nextTurnIndex = resolveNextTurnIndex(event);
+      if (nextTurnIndex !== null) {
+        turnIndexRef.current = nextTurnIndex;
       }
       streamCompletedRef.current = true;
       stopStream();
@@ -286,7 +327,7 @@ export const useProfileOnboardingSession = ({
         holdAssistantRequest(null);
         const assistantResult =
           lastRunRequestRef.current?.rawText !== undefined;
-        if (!draft && !(assistantResult && nickname)) {
+        if (!draft && !nickname) {
           dispatch({ type: 'fail', retryable: false });
           if (assistantResult) {
             reportAssistantResult('failed', 'missing_result');
@@ -312,8 +353,24 @@ export const useProfileOnboardingSession = ({
         return;
       }
 
+      if (
+        !awaitingInteractionRef.current &&
+        (nextTurnIndex === null ||
+          nextTurnIndex <= (submittedRequest?.expectedTurnIndex ?? -1))
+      ) {
+        // A native Continue must advance a committed turn. Refuse malformed
+        // summaries rather than issuing an unbounded loop at the same cursor.
+        runtimeFailedRef.current = true;
+        dispatch({ type: 'fail', retryable: true });
+        onErrorRef.current(new Error(messagesRef.current.retryableError));
+        return;
+      }
+
       if (awaitingInteractionRef.current) {
-        dispatch({ type: 'await_input' });
+        dispatch({
+          type: 'await_input',
+          interactionId: activeInteractionIdRef.current,
+        });
       }
       const settledAttempt = runAttemptRef.current;
       queueMicrotask(() => {
@@ -324,8 +381,7 @@ export const useProfileOnboardingSession = ({
           runtimeFailedRef.current
         )
           return;
-        // A clicked import takes the first confirmed cursor, even when this
-        // block was only welcome text. Never generate another question first.
+        // A clicked import uses the first confirmed native session turn.
         if (pendingAssistantRequestRef.current) {
           flushAssistantRequestRef.current();
         } else if (!awaitingInteractionRef.current) {
@@ -351,19 +407,17 @@ export const useProfileOnboardingSession = ({
         lastRunRequestRef.current?.rawText === undefined
       ) {
         assistantReturnToInputRef.current = awaitingInteractionRef.current;
+        assistantReturnInteractionIdRef.current =
+          activeInteractionIdRef.current;
       }
       lastRunRequestRef.current = request;
       streamCompletedRef.current = false;
       runtimeFailedRef.current = false;
       awaitingInteractionRef.current = false;
+      activeInteractionIdRef.current = null;
       setRunInFlight(true);
       setRunningOperation(
-        request.rawText !== undefined
-          ? 'assistant'
-          : profileDraftBlockIndexRef.current !== null &&
-              request.expectedBlockIndex >= profileDraftBlockIndexRef.current
-            ? 'summary'
-            : 'questions',
+        request.rawText !== undefined ? 'assistant' : 'questions',
       );
       dispatch({ type: 'start_run' });
       if (request.rawText !== undefined) {
@@ -373,7 +427,7 @@ export const useProfileOnboardingSession = ({
       try {
         const callbacks = {
           sessionId: sessionIdRef.current,
-          expectedBlockIndex: request.expectedBlockIndex,
+          expectedTurnIndex: request.expectedTurnIndex,
           requestId: request.requestId,
           onMessage: (event: ProfileOnboardingStreamEvent) => {
             if (runAttempt === runAttemptRef.current) {
@@ -395,6 +449,9 @@ export const useProfileOnboardingSession = ({
             : runSessionRef.current({
                 ...callbacks,
                 userInput: request.userInput,
+                ...(request.expectedInteractionId !== undefined
+                  ? { expectedInteractionId: request.expectedInteractionId }
+                  : {}),
               });
         if (
           streamCompletedRef.current ||
@@ -432,16 +489,24 @@ export const useProfileOnboardingSession = ({
     )
       return;
     holdAssistantRequest(null);
-    runRequest({ ...request, expectedBlockIndex: blockIndexRef.current });
+    runRequest({ ...request, expectedTurnIndex: turnIndexRef.current });
   }, [holdAssistantRequest, runRequest]);
   flushAssistantRequestRef.current = flushAssistantRequest;
 
   const runNext = React.useCallback(
-    (userInput?: Record<string, string[]>) => {
+    (
+      userInput?: Record<string, string[]>,
+      expectedInteractionId?: string,
+      displayInput?: string,
+    ) => {
       runRequest({
-        expectedBlockIndex: blockIndexRef.current,
+        expectedTurnIndex: turnIndexRef.current,
         requestId: `profile-onboarding-run-${++requestSequenceRef.current}`,
         userInput,
+        displayInput,
+        ...(expectedInteractionId !== undefined
+          ? { expectedInteractionId }
+          : {}),
       });
     },
     [runRequest],
@@ -458,13 +523,14 @@ export const useProfileOnboardingSession = ({
     setAssistantPrompt('');
     holdAssistantRequest(null);
     setRunningOperation(null);
-    profileDraftBlockIndexRef.current = null;
     sessionDoneRef.current = false;
     assistantReturnToInputRef.current = false;
+    assistantReturnInteractionIdRef.current = null;
     uncertainRequestRef.current = false;
-    blockIndexRef.current = 0;
+    turnIndexRef.current = 0;
     lastRunRequestRef.current = null;
     awaitingInteractionRef.current = false;
+    activeInteractionIdRef.current = null;
     initialRunPendingRef.current = false;
     streamCompletedRef.current = false;
     runtimeFailedRef.current = false;
@@ -477,17 +543,11 @@ export const useProfileOnboardingSession = ({
         }
         sessionIdRef.current = session.session_id;
         setAssistantPrompt(session.assistant_prompt || '');
-        profileDraftBlockIndexRef.current =
-          typeof session.profile_draft_block_index === 'number' &&
-          Number.isInteger(session.profile_draft_block_index) &&
-          session.profile_draft_block_index >= 0
-            ? session.profile_draft_block_index
-            : null;
-        blockIndexRef.current =
-          typeof session.block_index === 'number' &&
-          Number.isInteger(session.block_index) &&
-          session.block_index >= 0
-            ? session.block_index
+        turnIndexRef.current =
+          typeof session.turn_index === 'number' &&
+          Number.isInteger(session.turn_index) &&
+          session.turn_index >= 0
+            ? session.turn_index
             : 0;
         onSessionStartedRef.current?.(session.session_id);
         if (disabledRef.current) {
@@ -542,28 +602,41 @@ export const useProfileOnboardingSession = ({
     };
   }, [invalidatePendingAttempts, setRunInFlight, startSession, stopStream]);
 
-  const send = React.useCallback((content: OnSendContentParams) => {
-    if (
-      disabledRef.current ||
-      !streamCompletedRef.current ||
-      runInFlightRef.current ||
-      pendingAssistantRequestRef.current ||
-      statusRef.current !== 'awaiting_input'
-    ) {
-      return;
-    }
-    const { values, userInput } = resolveProfileOnboardingSubmission(content);
-    if (!values.length) {
-      return;
-    }
-    const variableName = content.variableName?.trim() || 'input';
-    if (!isProfileOnboardingSubmissionWithinLimits(variableName, values)) {
-      dispatch({ type: 'reject_submission' });
-      return;
-    }
-    dispatch({ type: 'accept_submission', userInput });
-    runNextRef.current({ [variableName]: values });
-  }, []);
+  const send = React.useCallback(
+    (content: OnSendContentParams, expectedInteractionId?: string) => {
+      if (
+        disabledRef.current ||
+        !streamCompletedRef.current ||
+        runInFlightRef.current ||
+        pendingAssistantRequestRef.current ||
+        statusRef.current !== 'awaiting_input'
+      ) {
+        return;
+      }
+      const { values, userInput } = resolveProfileOnboardingSubmission(content);
+      if (!values.length) {
+        return;
+      }
+      const variableName = content.variableName?.trim() || 'input';
+      if (!isProfileOnboardingSubmissionWithinLimits(variableName, values)) {
+        dispatch({ type: 'reject_submission' });
+        return;
+      }
+      const interactionId =
+        expectedInteractionId ?? activeInteractionIdRef.current;
+      if (
+        activeInteractionIdRef.current &&
+        interactionId !== activeInteractionIdRef.current
+      )
+        return;
+      runNextRef.current(
+        { [variableName]: values },
+        interactionId ?? undefined,
+        userInput,
+      );
+    },
+    [],
+  );
 
   const retry = React.useCallback(() => {
     const lastRunRequest = lastRunRequestRef.current;
@@ -596,10 +669,7 @@ export const useProfileOnboardingSession = ({
       const previous = lastRunRequestRef.current;
       if (
         runInFlightRef.current &&
-        (previous?.rawText !== undefined ||
-          (profileDraftBlockIndexRef.current !== null &&
-            previous &&
-            previous.expectedBlockIndex >= profileDraftBlockIndexRef.current))
+        (previous?.rawText !== undefined || runningOperation === 'summary')
       )
         return;
       if (uncertainRequestRef.current) {
@@ -619,13 +689,13 @@ export const useProfileOnboardingSession = ({
         previous?.rawText === rawText
           ? previous
           : {
-              expectedBlockIndex: blockIndexRef.current,
+              expectedTurnIndex: turnIndexRef.current,
               requestId: `profile-onboarding-assistant-${++requestSequenceRef.current}`,
               rawText,
             },
       );
     },
-    [holdAssistantRequest, runRequest],
+    [holdAssistantRequest, runRequest, runningOperation],
   );
 
   const resumeQuestions = React.useCallback(() => {
@@ -643,6 +713,7 @@ export const useProfileOnboardingSession = ({
       lastRunRequestRef.current = null;
       runtimeFailedRef.current = false;
       awaitingInteractionRef.current = assistantReturnToInputRef.current;
+      activeInteractionIdRef.current = assistantReturnInteractionIdRef.current;
       onRetryRef.current?.();
       if (assistantReturnToInputRef.current) {
         dispatch({ type: 'resume_input' });

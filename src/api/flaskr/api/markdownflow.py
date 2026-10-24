@@ -1,7 +1,7 @@
 """Shared application binding for the independent MarkdownFlow engine library.
 
-The course host and subsequent integrations use these native engine objects
-and the same LLM adapter. Persistence and product policies belong to the caller.
+Both course and Profile hosts use these native engine objects and the same LLM
+adapter. Persistence, authorization and product policies belong to the caller.
 """
 
 from __future__ import annotations

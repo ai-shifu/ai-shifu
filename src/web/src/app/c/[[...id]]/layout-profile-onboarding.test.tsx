@@ -319,9 +319,7 @@ describe('course layout and page WeChat authorization integration', () => {
     mockGetLearnerProfile.mockResolvedValue(onboardingStatus);
     mockCreateProfileOnboardingSession.mockResolvedValue({
       session_id: 'session-1',
-      block_index: 0,
-      block_count: 2,
-      profile_draft_block_index: 1,
+      turn_index: 0,
       done: false,
       expires_in: 600,
     });

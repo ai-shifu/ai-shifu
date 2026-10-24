@@ -6,6 +6,7 @@ import json
 from typing import TYPE_CHECKING
 
 from flaskr.service.profile.api import LEARNER_PROFILE_NICKNAME_MAX_LENGTH
+from flaskr.service.profile_research.engine_runtime import profile_answer_evidence
 from flaskr.service.profile_research.session import ProfileResearchValidationError
 from flaskr.util.prompt_loader import load_prompt_template
 
@@ -30,6 +31,7 @@ def parse_assistant_answers(
                     {
                         "questionnaire": session.assistant_prompt,
                         "manual_variables": session.variables,
+                        "accepted_answers": profile_answer_evidence(session),
                         "conversation": session.context,
                         "external_answer": raw_text,
                     },

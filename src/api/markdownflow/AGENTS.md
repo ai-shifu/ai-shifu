@@ -3,8 +3,9 @@
 This package owns application-independent MarkdownFlow execution, native session
 state, typed events, synchronous turn streaming and control presentation.
 It inherits the repository root rules. Application host rules under
-`flaskr/service/` do not apply here. The foundation extracts the existing course
-runtime; Profile remains on MarkdownFlow 1.0 until its separate migration.
+`flaskr/service/` do not apply here. Course and Profile runtimes consume this
+library through the same shared application binding. Keep product migration
+behavior separate from structural library extraction.
 
 ## Boundaries
 

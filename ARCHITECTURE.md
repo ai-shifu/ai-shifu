@@ -46,10 +46,10 @@ validation.
 - Langfuse tracing helpers live in `src/api/flaskr/api/langfuse.py`.
 - Business behavior is grouped under `src/api/flaskr/service/<module>/`.
 - MarkdownFlow 2.0 execution lives in the application-independent
-  `src/api/markdownflow/` library. The course runtime uses
-  `src/api/flaskr/api/markdownflow.py` for model and locale bindings. Profile
-  remains on MarkdownFlow 1.0 until its separate migration consumes this
-  foundation. See the
+  `src/api/markdownflow/` library. Course and Profile runtimes use
+  `src/api/flaskr/api/markdownflow.py` for model and locale bindings. The
+  foundation is extracted from `main` in PR #3163; the Profile migration in
+  PR #3161 depends on it. See the
   [library design](docs/design-docs/markdownflow-engine-library.md).
 
 ### Frontend
