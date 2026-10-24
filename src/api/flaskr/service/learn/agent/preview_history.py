@@ -38,7 +38,7 @@ from flaskr.util.datetime import to_utc_iso
 
 if TYPE_CHECKING:
     from flask import Flask
-    from flaskr.service.learn.agent.engine import Session
+    from flaskr.api.markdownflow import Session
 
 
 def has_preview_script(app: Flask, *, shifu_bid: str, outline_bid: str) -> bool:

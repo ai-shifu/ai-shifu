@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from flaskr.service.learn.agent.engine import Session
+from flaskr.api.markdownflow import Session
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.agent.rewind import (
     RewindPlan,

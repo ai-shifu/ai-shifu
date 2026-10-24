@@ -256,9 +256,15 @@ pre-release/dev pin:
 
 Pin release versions of both before merging.
 
-## The vendored MarkdownFlow 2.0 engine
+## The MarkdownFlow 2.0 engine library
 
-`src/api/flaskr/service/learn/agent/engine/` holds the MarkdownFlow 2.0 engine.
+`src/api/markdownflow/` holds the application-independent MarkdownFlow 2.0
+engine library. The course runtime uses the shared application binding in
+`src/api/flaskr/api/markdownflow.py`; gateway integration lives under
+`src/api/flaskr/api/llm/`. See the [library design](docs/design-docs/markdownflow-engine-library.md)
+and the package's `AGENTS.md` for the dependency boundary. The foundation
+extracts the existing course runtime; Profile remains on MarkdownFlow 1.0
+until its separate migration consumes this library.
 Unlike the two component libraries above, it is **not** a pinned dependency: the
 code was copied in and is edited here, in place. `ai-shifu/markdown-flow-agent`
 still exists to serve the playground and the open-source release, but it is not
@@ -269,11 +275,11 @@ Because the engine no longer has its own repository's gate, its offline tests
 came with it and are the gate now:
 
 ```bash
-cd src/api && python -m pytest tests/service/learn/agent/engine/ -q
+cd src/api && python -m pytest tests/markdownflow/ -q
 ```
 
 These tests run on `pydantic-ai`'s `FunctionModel`, so they need no network and
-cost nothing. **They must be green for any change under `engine/`.** They cover
+cost nothing. **They must be green for any change under `markdownflow/`.** They cover
 what the surrounding service tests cannot: pausing and resuming on an
 interaction, several interactions raised in one turn, answers surviving a store
 round trip, variables reaching memory, listen-mode segmentation, 1.0 syntax

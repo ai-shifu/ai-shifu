@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 from flaskr.i18n import _
 from flaskr.service.learn.agent import legacy_protocol
-from flaskr.service.learn.agent.engine.events import (
+from flaskr.service.learn.learn_dtos import GeneratedType
+from markdownflow.engine.events import (
     ContentDelta,
     ErrorEvent,
     InteractionRequest,
@@ -18,12 +19,11 @@ from flaskr.service.learn.agent.engine.events import (
     TurnDone,
     Visual,
 )
-from flaskr.service.learn.agent.engine.interaction import (
+from markdownflow.engine.interaction import (
     DEFAULT_CONFIRM_LABEL,
     InteractionSpec,
     Option,
 )
-from flaskr.service.learn.learn_dtos import GeneratedType
 
 OUTLINE = "outline-bid"
 BLOCK = "block-bid"
@@ -433,7 +433,7 @@ def test_the_stored_value_a_learner_returns_is_the_one_the_engine_will_match() -
     A renderer that trimmed or dropped text would send the learner a token absent from that map,
     and a required answer would be rejected with nothing to explain it.
     """
-    from flaskr.service.learn.agent.engine.interaction import (
+    from markdownflow.engine.interaction import (
         InteractionAnswer,
         normalize_answer,
     )

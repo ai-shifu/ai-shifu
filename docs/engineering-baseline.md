@@ -155,7 +155,12 @@ The application has two main runtime components:
 
 - Shared text and tool LLM calls use the LiteLLM gateway in
   `src/api/flaskr/api/llm/__init__.py`; the MarkdownFlow 2.0 engine delegates
-  through `src/api/flaskr/service/learn/agent/gateway_model.py`
+  through `src/api/flaskr/api/llm/markdownflow_model.py`
+- The application-independent engine library lives in `src/api/markdownflow/`;
+  the course runtime uses `flaskr.api.markdownflow` for shared application
+  bindings. Profile remains on MarkdownFlow 1.0 until its separate migration
+  consumes this foundation. See the
+  [library design](design-docs/markdownflow-engine-library.md)
 - Gemini Live has a separate credential and browser WebSocket path; see the
   [Live setup notes](../INSTALL_MANUAL.md#optional-gemini-live-voice-follow-up)
 - Provider credentials continue to live in `.env` via the existing API-key

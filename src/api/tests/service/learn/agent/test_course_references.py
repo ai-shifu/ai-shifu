@@ -10,15 +10,15 @@ from unittest.mock import AsyncMock
 import pytest
 from flaskr.service.learn.agent import run_agent
 from flaskr.service.learn.agent.course_references import discard_course_references
-from flaskr.service.learn.agent.engine import (
+from markdownflow.engine import (
     Engine,
     InteractionResponseTurn,
     MemoryUpdated,
     Session,
 )
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec
-from flaskr.service.learn.agent.engine.script import ScriptBundle, render_first_prompt
-from flaskr.service.learn.agent.engine.session import PendingInteraction
+from markdownflow.engine.interaction import InteractionSpec
+from markdownflow.engine.script import ScriptBundle, render_first_prompt
+from markdownflow.engine.session import PendingInteraction
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -255,7 +255,7 @@ def test_saved_pending_reference_answer_is_kept_as_evidence_without_a_memory_wri
 @pytest.mark.parametrize("readonly", [True, False])
 def test_interact_readonly_policy_is_opt_in_for_portable_hosts(readonly: bool) -> None:
     async def check() -> None:
-        from flaskr.service.learn.agent.engine import InteractionRequest
+        from markdownflow.engine import InteractionRequest
         from pydantic_ai.messages import RetryPromptPart
 
         key = "course:" + "a" * 32 + ":goal"

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
 from typing import TYPE_CHECKING
 
+from markdownflow import load_prompt
 from pydantic import BaseModel
 from pydantic_ai import Agent, UsageLimits
 
@@ -27,9 +27,7 @@ def make_request_check(model: Model) -> Callable[[str, str, str], Awaitable[bool
     judge = Agent(
         model,
         output_type=MemoryDecision,
-        instructions=(
-            Path(__file__).parent / "engine/prompts/memory_admission.md"
-        ).read_text(),
+        instructions=load_prompt("memory_admission"),
         retries=0,
         model_settings={"temperature": 0, "max_tokens": 512},
     )

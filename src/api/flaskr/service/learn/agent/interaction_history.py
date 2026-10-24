@@ -5,15 +5,15 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from markdown_flow import InteractionParser
-from pydantic import ValidationError
-
-from .engine.interaction import (
+from flaskr.api.markdownflow import (
     InteractionAnswer,
     InteractionSpec,
     answer_is_usable,
     normalize_answer,
 )
+from markdown_flow import InteractionParser
+from pydantic import ValidationError
+
 from .legacy_protocol import render_interaction
 from .rewind import read_turn_learner_values, read_turn_record
 

@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from types import SimpleNamespace
 
-    from flaskr.service.learn.agent.engine import Session
+    from markdownflow.engine import Session
     from pydantic_ai.messages import ModelMessage
     from pydantic_ai.models.function import AgentInfo
 
@@ -18,14 +18,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 from flaskr.service.learn.agent import run_agent, session_store
-from flaskr.service.learn.agent.engine import (
+from flaskr.service.profile.models import VariableValue
+from markdownflow.engine import (
     Engine,
     MemoryUpdated,
     MessageTurn,
 )
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec
-from flaskr.service.learn.agent.engine.session import PendingInteraction
-from flaskr.service.profile.models import VariableValue
+from markdownflow.engine.interaction import InteractionSpec
+from markdownflow.engine.session import PendingInteraction
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,

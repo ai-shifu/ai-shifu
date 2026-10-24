@@ -29,25 +29,25 @@ from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
 from typing import TYPE_CHECKING, Any
 
+from flaskr.api.markdownflow import (
+    ContentDelta,
+    ContinueTurn,
+    ErrorEvent,
+    InteractionRequest,
+    InteractionResponseTurn,
+    LessonPager,
+    MemoryUpdated,
+    MessageTurn,
+    ScriptBundle,
+    StartTurn,
+    TurnDone,
+    collected_names,
+)
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, translate_for_language
 from flaskr.service.learn.agent.course_references import discard_course_references
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
 from flaskr.service.learn.agent.echoed_memory import EchoedMemoryFilter
-from flaskr.service.learn.agent.engine.engine import (
-    ContinueTurn,
-    InteractionResponseTurn,
-    MessageTurn,
-    StartTurn,
-)
-from flaskr.service.learn.agent.engine.events import (
-    ContentDelta,
-    ErrorEvent,
-    InteractionRequest,
-    MemoryUpdated,
-    TurnDone,
-)
-from flaskr.service.learn.agent.engine.script import ScriptBundle, collected_names
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import (
     UnrepresentableInteractionError,
@@ -67,7 +67,6 @@ from flaskr.service.learn.agent.lesson_record import (
 from flaskr.service.learn.agent.listen import LessonVoice
 from flaskr.service.learn.agent.nickname import refresh_nickname
 from flaskr.service.learn.agent.output_language import configure_output_language
-from flaskr.service.learn.agent.pagination import LessonPager
 from flaskr.service.learn.agent.rewind import (
     RewindPlan,
     RewindUnavailableError,
@@ -118,10 +117,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Generator
 
     from flask import Flask
+    from flaskr.api.markdownflow import Engine, Event, Session, TurnInput
     from flaskr.service.learn.agent.debug_session import DebugSessionStore
-    from flaskr.service.learn.agent.engine.engine import Engine, TurnInput
-    from flaskr.service.learn.agent.engine.events import Event
-    from flaskr.service.learn.agent.engine.session import Session
 
 
 def learner_values(user_input: str | dict | None) -> list[str]:
@@ -408,7 +405,7 @@ def run_agent_lesson(
     `iter_turn` is injectable so a test can drive the turn without a thread; the default is the
     bridge, which runs the engine on its own loop and yields events as they arrive.
     """
-    from flaskr.service.learn.agent.bridge import iter_turn as bridge_iter_turn
+    from flaskr.api.markdownflow import iter_turn as bridge_iter_turn
 
     run_turn_on_thread = iter_turn or bridge_iter_turn
     memory_generations: dict[str, int] = {}

@@ -729,7 +729,7 @@ def _lesson_events(
         reload_generated_block_bid=reload_generated_block_bid,
         reload_element_bid=reload_element_bid,
     ):
-        from flaskr.service.learn.agent.bridge import TurnCapacityError
+        from flaskr.api.markdownflow import TurnCapacityError
         from flaskr.service.learn.agent.lesson_entry import (
             DiscardedTurnError,
             LessonNotTeachable,

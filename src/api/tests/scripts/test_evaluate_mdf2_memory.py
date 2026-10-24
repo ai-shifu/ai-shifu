@@ -251,7 +251,7 @@ async def test_projection_evidence_requires_original_message_and_part(
 ) -> None:
     from copy import deepcopy
 
-    from flaskr.service.learn.agent.engine.teaching_history import (
+    from markdownflow.engine.teaching_history import (
         project_teaching_history,
     )
 
@@ -334,7 +334,7 @@ async def test_missing_real_summary_is_an_error_even_when_the_answer_is_correct(
 
 
 def test_teaching_fixture_preserves_the_matching_host_script_prompt() -> None:
-    from flaskr.service.learn.agent.engine.script import render_first_prompt
+    from markdownflow.engine.script import render_first_prompt
 
     session = quality.teaching_session(
         quality.load_cases(["teaching-exact-example"])[0]
@@ -434,6 +434,25 @@ def test_report_is_private_and_contains_no_case_payloads(tmp_path: Path) -> None
     assert cases[0]["request"] not in output.read_text()
 
 
+def test_report_fingerprints_the_shared_library_and_application_gateway() -> None:
+    cases = quality.load_cases(["remember-direct"])
+    fingerprints = quality.report(cases, [], 1)["fingerprints"]
+    assert {
+        "markdownflow/engine/engine.py",
+        "markdownflow/engine/session.py",
+        "markdownflow/engine/prompts/system.md",
+        "markdownflow/bridge.py",
+        "markdownflow/preserve_markers.py",
+        "flaskr/api/llm/markdownflow_model.py",
+    } <= fingerprints.keys()
+    assert not any(
+        name.startswith("flaskr/service/learn/agent/engine/")
+        or name == "flaskr/service/learn/agent/gateway_model.py"
+        for name in fingerprints
+    )
+    assert all(len(value) == 64 for value in fingerprints.values())
+
+
 def test_missing_git_in_runtime_image_cannot_discard_evaluation_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -454,9 +473,10 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
 
     import app as app_module
     from flaskr.api import langfuse
+    from flaskr.api.llm import markdownflow_model as gateway_model
     from flaskr.api.llm import model_selection
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.agent import gateway_model, lesson_entry, routing
+    from flaskr.service.learn.agent import lesson_entry, routing
     from flaskr.service.metering.api import UsageContext
     from flaskr.service.user.repository import create_user_entity
 
@@ -543,10 +563,10 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
     "identifier", ["recall-updated-history", "recall-deleted-history"]
 )
 def test_resumed_fixture_contains_the_product_first_prompt(identifier: str) -> None:
-    from flaskr.service.learn.agent.engine.memory_context import (
+    from markdownflow.engine.memory_context import (
         parse_initial_memory_prompt,
     )
-    from flaskr.service.learn.agent.engine.script import render_first_prompt
+    from markdownflow.engine.script import render_first_prompt
 
     case = quality.load_cases([identifier])[0]
     session = quality.recall_session(case)
@@ -570,7 +590,7 @@ async def test_unpaused_answer_can_finish_on_one_host_continuation() -> None:
 async def test_in_place_history_mutation_cannot_pass_the_preservation_check(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from flaskr.service.learn.agent.engine import Engine
+    from markdownflow.engine import Engine
 
     original = Engine.run_turn
 
@@ -601,7 +621,7 @@ def test_author_fixture_does_not_supply_the_recall_procedure() -> None:
 async def test_silent_first_turn_does_not_get_an_extra_answer_attempt(
     monkeypatch: pytest.MonkeyPatch, content: str
 ) -> None:
-    from flaskr.service.learn.agent.engine import ContentDelta, Engine, TurnDone
+    from markdownflow.engine import ContentDelta, Engine, TurnDone
 
     calls = []
 
@@ -628,7 +648,7 @@ def test_current_evidence_requires_the_relevant_ordered_consistent_read(
     mode: str,
     identifier: str,
 ) -> None:
-    from flaskr.service.learn.agent.engine import ContentDelta, ToolCall, ToolResult
+    from markdownflow.engine import ContentDelta, ToolCall, ToolResult
 
     case = quality.load_cases([identifier])[0]
     call = ToolCall(
@@ -670,7 +690,7 @@ def test_current_evidence_requires_the_relevant_ordered_consistent_read(
 async def test_invalid_recall_result_keeps_assertions_and_usage(
     monkeypatch: pytest.MonkeyPatch, content: object
 ) -> None:
-    from flaskr.service.learn.agent.engine import (
+    from markdownflow.engine import (
         ContentDelta,
         Engine,
         ToolCall,

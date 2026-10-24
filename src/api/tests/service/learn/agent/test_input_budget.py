@@ -4,8 +4,10 @@ import json
 from collections.abc import Iterator
 
 import pytest
-from flaskr.service.learn.agent import gateway_model as gw
-from flaskr.service.learn.agent.engine import (
+from flaskr.api.llm import markdownflow_model as gw
+from flaskr.api.llm.markdownflow_budget import INPUT_BUDGET_BYTES
+from flaskr.service.learn.agent.memory_admission import make_request_check
+from markdownflow.engine import (
     ContinueTurn,
     Engine,
     ErrorEvent,
@@ -13,9 +15,7 @@ from flaskr.service.learn.agent.engine import (
     Session,
     TurnDone,
 )
-from flaskr.service.learn.agent.engine.events import InputBudgetExceededError
-from flaskr.service.learn.agent.input_budget import INPUT_BUDGET_BYTES
-from flaskr.service.learn.agent.memory_admission import make_request_check
+from markdownflow.engine.events import InputBudgetExceededError
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,

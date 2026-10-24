@@ -43,7 +43,7 @@ def grading_script(case: dict[str, Any]) -> str:
 
 async def evaluate_grading(case: dict[str, Any], model: Model) -> dict[str, Any]:
     """Check observable advancement/retry, never ask the model to score itself."""
-    from flaskr.service.learn.agent.engine import (
+    from markdownflow.engine import (
         ContentDelta,
         ContinueTurn,
         Engine,

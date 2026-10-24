@@ -1275,8 +1275,8 @@ def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_co
     import json
 
     from flaskr.api.llm import LLMStreamResponse
+    from flaskr.api.llm import markdownflow_model as gateway_model
     from flaskr.service.learn import handle_input_ask as module
-    from flaskr.service.learn.agent import gateway_model
     from flaskr.service.learn.follow_up_memory_writer import (
         FollowUpMemoryPatch,
         FollowUpMemoryPolicy,

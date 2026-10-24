@@ -464,7 +464,7 @@ def test_a_busy_worker_tells_the_learner_to_retry(
     """
     from flaskr.service.common.models import AppError
     from flaskr.service.learn.agent import lesson_entry
-    from flaskr.service.learn.agent.bridge import TurnCapacityError
+    from markdownflow.bridge import TurnCapacityError
 
     monkeypatch.setattr(runscript_v2, "uses_agent_engine", lambda _bid: True)
 

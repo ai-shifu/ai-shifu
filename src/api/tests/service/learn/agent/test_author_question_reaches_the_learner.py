@@ -9,9 +9,9 @@ gateway, which no offline test can do.
 
 from __future__ import annotations
 
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
 from flaskr.service.learn.agent.legacy_protocol import render_interaction
 from markdown_flow import InteractionParser
+from markdownflow.engine.interaction import InteractionSpec, Option
 
 # The question as the author wrote it, from 跟 AI 学 AI 通识.
 AUTHORED = (

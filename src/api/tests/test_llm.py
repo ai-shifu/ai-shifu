@@ -2951,7 +2951,7 @@ def test_stream_rate_limit_retries_are_bounded(
 def test_disconnect_during_rate_limit_wait_releases_agent_turn(
     monkeypatch: object, app: object
 ) -> None:
-    from flaskr.service.learn.agent import bridge
+    from markdownflow import bridge
 
     _patch_retryable_stream_errors(monkeypatch)
     monkeypatch.setattr(llm, "_STREAM_RATE_LIMIT_RETRY_DELAYS", (5.0,))
@@ -4354,7 +4354,7 @@ async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retr
     """Exercise shared chat accounting, not a fake chat_llm replacement."""
     import asyncio
 
-    from flaskr.service.learn.agent import gateway_model as gateway
+    from flaskr.api.llm import markdownflow_model as gateway
     from pydantic_ai.models import ModelRequestParameters
 
     clock = [0.0]
@@ -4479,7 +4479,7 @@ async def test_real_chat_gateway_preserves_cache_observations_and_billing(
     billed: int,
 ) -> None:
     """Exercise provider normalization through chat_llm and the real agent adapter."""
-    from flaskr.service.learn.agent import gateway_model as gateway
+    from flaskr.api.llm import markdownflow_model as gateway
     from pydantic_ai.models import ModelRequestParameters
 
     _use_fake_provider(monkeypatch)
@@ -4541,9 +4541,10 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
     import asyncio
     import uuid
 
+    from flaskr.api.llm import markdownflow_model as gateway_model
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.billing import ownership
-    from flaskr.service.learn.agent import gateway_model, lesson_entry
+    from flaskr.service.learn.agent import lesson_entry
     from flaskr.service.learn.llmsetting import LLMSettings
     from flaskr.service.metering import recorder
     from flaskr.service.metering.models import BillUsageRecord

@@ -8,7 +8,6 @@ from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import run_agent, session_store
-from flaskr.service.learn.agent.engine import Engine
 from flaskr.service.learn.memory import (
     MemoryUpdate,
     VariableMemoryUpdate,
@@ -17,6 +16,7 @@ from flaskr.service.learn.memory import (
 )
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.user.repository import create_user_entity
+from markdownflow.engine import Engine
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 

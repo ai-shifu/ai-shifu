@@ -12,9 +12,6 @@ import json
 import pytest
 from flaskr.dao import db
 from flaskr.service.learn.agent import rewind
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
-from flaskr.service.learn.agent.engine.script import ScriptBundle
-from flaskr.service.learn.agent.engine.session import PendingInteraction, Session
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -25,6 +22,9 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
 )
+from markdownflow.engine.interaction import InteractionSpec, Option
+from markdownflow.engine.script import ScriptBundle
+from markdownflow.engine.session import PendingInteraction, Session
 from pydantic_ai.messages import ModelRequest, ModelResponse, TextPart, UserPromptPart
 
 USER = "learner-rewind"

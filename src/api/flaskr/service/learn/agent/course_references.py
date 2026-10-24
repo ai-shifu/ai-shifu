@@ -6,16 +6,16 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
-from flaskr.service.learn.agent.engine.memory_context import parse_initial_memory_prompt
-from flaskr.service.learn.agent.engine.script import (
+from flaskr.service.profile.api import is_course_reference
+from markdownflow.engine.memory_context import parse_initial_memory_prompt
+from markdownflow.engine.script import (
     render_first_prompt,
     substitution_names,
 )
-from flaskr.service.profile.api import is_course_reference
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
-    from flaskr.service.learn.agent.engine.session import Session
+    from flaskr.api.markdownflow import Session
 
 
 def discard_course_references(

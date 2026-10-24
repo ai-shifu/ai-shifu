@@ -6,16 +6,16 @@ import json
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from flaskr.service.learn.agent.engine.memory_context import parse_initial_memory_prompt
-from flaskr.service.learn.agent.engine.script import (
+from flaskr.service.profile.api import SYS_USER_NICKNAME
+from markdownflow.engine.memory_context import parse_initial_memory_prompt
+from markdownflow.engine.script import (
     collected_names,
     substitute_variables,
 )
-from flaskr.service.profile.api import SYS_USER_NICKNAME
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
-    from flaskr.service.learn.agent.engine.session import Session
+    from flaskr.api.markdownflow import Session
 
 
 def refresh_nickname(session: Session, current: dict[str, Any]) -> None:

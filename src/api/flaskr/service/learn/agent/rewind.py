@@ -41,7 +41,7 @@ from flaskr.service.shifu.consts import (
 )
 
 if TYPE_CHECKING:
-    from flaskr.service.learn.agent.engine.session import Session
+    from flaskr.api.markdownflow import Session
 
 _KEY = "agent_turn"
 _VERSION = 1
@@ -86,7 +86,7 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     The script, the learner's profile and the usage count stay as they are: the first two are
     re-read every turn, and the model calls already made were made.
     """
-    from flaskr.service.learn.agent.engine.session import Session as SessionClass
+    from flaskr.api.markdownflow import Session as SessionClass
 
     state = session.to_dict()
     state.update(
