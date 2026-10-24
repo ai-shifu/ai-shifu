@@ -1,10 +1,10 @@
 """Keep incomplete Markdown examples inside their literal document regions."""
 
 import pytest
-from flaskr.service.learn.agent.engine import collected_names, substitute_variables
-from flaskr.service.learn.agent.engine.marker_context import analyze_marker_context
-from flaskr.service.learn.agent.engine.tools import _script_questions
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+from markdownflow.engine import collected_names, substitute_variables
+from markdownflow.engine.marker_context import analyze_marker_context
+from markdownflow.engine.tools import _script_questions
 
 
 @pytest.mark.parametrize(

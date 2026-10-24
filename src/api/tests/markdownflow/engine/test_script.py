@@ -8,7 +8,7 @@ from markdownflow.engine import (
     render_first_prompt,
     substitute_variables,
 )
-from flaskr.service.learn.agent.engine.script import substitution_names
+from markdownflow.engine.script import substitution_names
 
 
 def test_detects_each_v1_marker() -> None:

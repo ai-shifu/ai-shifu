@@ -4,7 +4,7 @@ import json
 from collections.abc import AsyncIterator
 
 import pytest
-from flaskr.service.learn.agent.engine import (
+from markdownflow.engine import (
     Engine,
     ErrorEvent,
     InteractionRequest,

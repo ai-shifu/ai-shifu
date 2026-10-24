@@ -17,8 +17,6 @@ from markdownflow.engine import (
 )
 from markdownflow.engine.script import ScriptBundle
 from markdownflow.engine.tools import script_text_inputs
-from flaskr.service.learn.agent.legacy_protocol import render_interaction
-from markdown_flow import InteractionParser
 from pydantic_ai.messages import ModelMessage, ToolReturnPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 

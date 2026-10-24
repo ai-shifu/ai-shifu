@@ -3,10 +3,10 @@
 import re
 
 import pytest
-from flaskr.service.learn.agent.engine import document_blocks
-from flaskr.service.learn.agent.engine.document_blocks import DocumentBlocks
-from flaskr.service.learn.agent.engine.marker_context import analyze_marker_context
 from markdown_it.common.html_re import HTML_TAG_RE
+from markdownflow.engine import document_blocks
+from markdownflow.engine.document_blocks import DocumentBlocks
+from markdownflow.engine.marker_context import analyze_marker_context
 
 HTML_PATTERN = re.compile(HTML_TAG_RE.pattern.removeprefix("^"))
 

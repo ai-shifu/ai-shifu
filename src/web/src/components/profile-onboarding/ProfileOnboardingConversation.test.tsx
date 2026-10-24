@@ -24,6 +24,10 @@ let mockRendererSubmission: OnSendContentParams = DEFAULT_RENDERER_SUBMISSION;
 let mockAutoFinishTypewriter = true;
 let mockLatestTypeFinished: (() => void) | undefined;
 let mockRenderedContents: string[] = [];
+const mockSendCallbacks = new Map<
+  string,
+  (value: OnSendContentParams) => void
+>();
 let mockLanguage = 'zh-CN';
 
 type MockScrollControlProps = {
@@ -86,6 +90,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     onTypeFinished?: () => void;
   }) => {
     mockRenderedContents.push(content);
+    if (onSend) mockSendCallbacks.set(content, onSend);
     React.useEffect(() => {
       mockLatestTypeFinished = onTypeFinished;
       if (mockAutoFinishTypewriter) onTypeFinished?.();
@@ -144,6 +149,7 @@ describe('ProfileOnboardingConversation', () => {
     mockAutoFinishTypewriter = true;
     mockLatestTypeFinished = undefined;
     mockRenderedContents = [];
+    mockSendCallbacks.clear();
     mockScrollToBottomControl.mockClear();
   });
 
@@ -410,17 +416,20 @@ describe('ProfileOnboardingConversation', () => {
         if (runSession.mock.calls.length === 1) {
           queueMicrotask(() => {
             onMessage({
-              type: 'element',
-              content: {
-                element_bid: 'interaction-question-key',
-                element_type: 'interaction',
-                content: `?[%{{${expectedKey}}}...Your answer]`,
-              },
+              type: 'interaction',
+              generated_block_bid: 'interaction-question-key',
+              interaction_id: 'native-question-key',
+              content: `?[%{{${expectedKey}}}...Your answer]`,
             });
             onMessage({
               type: 'done',
               is_terminal: true,
-              content: { done: false, next_block_index: 1 },
+              content: {
+                done: false,
+                next_turn_index: 1,
+                awaiting_input: true,
+                pending_interaction_ids: ['native-question-key'],
+              },
             });
           });
         }
@@ -444,7 +453,8 @@ describe('ProfileOnboardingConversation', () => {
       await waitFor(() => expect(runSession).toHaveBeenCalledTimes(2));
       expect(runSession.mock.calls[1][0]).toEqual(
         expect.objectContaining({
-          expectedBlockIndex: 1,
+          expectedTurnIndex: 1,
+          expectedInteractionId: 'native-question-key',
           userInput: { [expectedKey]: ['女'] },
         }),
       );
@@ -1549,7 +1559,12 @@ describe('ProfileOnboardingConversation', () => {
     },
   );
 
-  test('binds successive questions at one cursor to their own identities and retries the same answer', async () => {
+  test('binds normalized keys to the current interaction, rejects stale answers, and retries the same answer', async () => {
+    const variableKey = 'Which [path] |  level//hint...?';
+    mockRendererSubmission = {
+      variableName: `\u0085${variableKey}\u0085`,
+      inputText: 'Learn practical AI skills',
+    };
     const emitQuestion = (
       onMessage: Parameters<ProfileOnboardingRunSession>[0]['onMessage'],
       id: string,
@@ -1602,14 +1617,20 @@ describe('ProfileOnboardingConversation', () => {
       />,
     );
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
-    );
+    const firstAnswerButton = await screen.findByRole('button', {
+      name: ANSWER_GUIDED_QUESTION_LABEL,
+    });
+    const staleSend = mockSendCallbacks.get('?[...native-question-1]');
+    expect(staleSend).toBeDefined();
+    fireEvent.click(firstAnswerButton);
     await screen.findByText('?[...native-question-2]');
     expect(runSession.mock.calls[1][0]).toMatchObject({
       expectedTurnIndex: 0,
       expectedInteractionId: 'native-question-1',
+      userInput: { [variableKey]: ['Learn practical AI skills'] },
     });
+    act(() => staleSend?.(mockRendererSubmission));
+    expect(runSession).toHaveBeenCalledTimes(2);
     fireEvent.click(
       screen.getByRole('button', { name: ANSWER_GUIDED_QUESTION_LABEL }),
     );
@@ -1622,7 +1643,7 @@ describe('ProfileOnboardingConversation', () => {
     expect(runSession.mock.calls[2][0]).toMatchObject({
       expectedTurnIndex: 0,
       expectedInteractionId: 'native-question-2',
-      userInput: { profile_goal: ['学会 AI'] },
+      userInput: { [variableKey]: ['Learn practical AI skills'] },
     });
     expect(runSession.mock.calls[3][0]).toMatchObject({
       expectedInteractionId: 'native-question-2',

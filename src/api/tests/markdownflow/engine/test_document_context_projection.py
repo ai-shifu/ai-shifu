@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 
 import pytest
-from flaskr.service.learn.agent.engine import collected_names, substitute_variables
-from flaskr.service.learn.agent.engine.marker_context import analyze_marker_context
-from flaskr.service.learn.agent.engine.tools import _script_questions
+from markdownflow.engine import collected_names, substitute_variables
+from markdownflow.engine.marker_context import analyze_marker_context
+from markdownflow.engine.tools import _script_questions
 
 QUESTION = "?[%{{ real }} A|B]"
 CONTAINERS = [("> ", "> "), ("- ", "  "), ("1. ", "   "), ("> - ", ">   ")]

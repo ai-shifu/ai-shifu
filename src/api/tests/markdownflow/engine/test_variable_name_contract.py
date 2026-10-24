@@ -6,7 +6,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from flaskr.service.learn.agent.engine import (
+from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+from flaskr.service.learn.agent.legacy_protocol import render_interaction
+from markdown_flow import InteractionParser, MarkdownFlow
+from markdown_flow.parser.variable import replace_variables_in_text
+from markdownflow.engine import (
     Engine,
     ErrorEvent,
     InteractionResponseTurn,
@@ -16,22 +20,18 @@ from flaskr.service.learn.agent.engine import (
     marker_context,
     substitute_variables,
 )
-from flaskr.service.learn.agent.engine.events import InteractionRequest
-from flaskr.service.learn.agent.engine.interaction import InteractionSpec, Option
-from flaskr.service.learn.agent.engine.marker_context import analyze_marker_context
-from flaskr.service.learn.agent.engine.script import final_preserved_line
-from flaskr.service.learn.agent.engine.tools import _script_questions
-from flaskr.service.learn.agent.engine.variable_names import (
+from markdownflow.engine.events import InteractionRequest
+from markdownflow.engine.interaction import InteractionSpec, Option
+from markdownflow.engine.marker_context import analyze_marker_context
+from markdownflow.engine.script import final_preserved_line
+from markdownflow.engine.tools import _script_questions
+from markdownflow.engine.variable_names import (
     find_variable_markers,
     format_variable_assignment,
     format_variable_reference,
     normalize_variable_name,
     read_variable_marker,
 )
-from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
-from flaskr.service.learn.agent.legacy_protocol import render_interaction
-from markdown_flow import InteractionParser, MarkdownFlow
-from markdown_flow.parser.variable import replace_variables_in_text
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 

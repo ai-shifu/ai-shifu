@@ -1,11 +1,11 @@
 """Settle native reference definitions before classifying their raw marker text."""
 
 import pytest
-from flaskr.service.learn.agent.engine.stream_marker_context import (
+from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+from markdownflow.engine.stream_marker_context import (
     compact_marker_context,
     pending_literal_context,
 )
-from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 
 INNER = "?[A|B]"
 QUESTION = "?[%{{ real }} C|D]"

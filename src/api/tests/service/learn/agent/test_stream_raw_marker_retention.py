@@ -2,9 +2,9 @@
 
 import pytest
 from flaskr.service.learn.agent import interaction_syntax
-from flaskr.service.learn.agent.engine import stream_marker_context
-from flaskr.service.learn.agent.engine.marker_context import MarkerContext
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+from markdownflow.engine import stream_marker_context
+from markdownflow.engine.marker_context import MarkerContext
 
 QUESTION = "?[%{{ real }} A|B]"
 

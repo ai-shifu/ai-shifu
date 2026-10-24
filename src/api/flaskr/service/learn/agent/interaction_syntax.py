@@ -38,15 +38,20 @@ from __future__ import annotations
 import re
 
 from markdown_it.common.html_re import HTML_TAG_RE
-
-from .engine.document_blocks import DocumentBlocks
-from .engine.marker_context import analyze_marker_context, marker_syntax_source
-from .engine.stream_marker_context import (
+from markdownflow.engine.document_blocks import DocumentBlocks
+from markdownflow.engine.marker_context import (
+    analyze_marker_context,
+    marker_syntax_source,
+)
+from markdownflow.engine.stream_marker_context import (
     compact_marker_context,
     pending_autolink_is_primary,
     pending_literal_context,
 )
-from .engine.variable_names import find_interaction_end, read_variable_marker
+from markdownflow.engine.variable_names import (
+    find_interaction_end,
+    read_variable_marker,
+)
 
 _OPEN = "?["
 _FENCE_OPEN = re.compile(r"^[ ]{0,3}(`{3,}|~{3,})", re.MULTILINE)
