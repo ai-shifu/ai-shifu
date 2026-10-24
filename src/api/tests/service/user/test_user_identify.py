@@ -219,6 +219,12 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(
     from flaskr.service.user.models import UserInfo as UserEntity
 
     app = Flask(__name__)
+    from flaskr.service.user.verification_codes import (
+        enable_development_verification_codes,
+    )
+
+    app.config["ENV"] = "testing"
+    enable_development_verification_codes(app)
     db_uri = f"sqlite:///{tmp_path / 'phone-claim.db'}"
     app.config.update(
         SECRET_KEY="test-secret-key",
@@ -230,6 +236,7 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         TOKEN_EXPIRE_TIME=60 * 60,
         UNIVERSAL_VERIFICATION_CODE="9999",
+        ENV="testing",
         REDIS_KEY_PREFIX_PHONE_CODE="test:phone:",
         REDIS_KEY_PREFIX_USER="test:user:",
         ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO=False,
@@ -295,6 +302,12 @@ def test_email_flow_marks_temp_email_claim_as_created_new_user(
     from flaskr.service.user.models import UserInfo as UserEntity
 
     app = Flask(__name__)
+    from flaskr.service.user.verification_codes import (
+        enable_development_verification_codes,
+    )
+
+    app.config["ENV"] = "testing"
+    enable_development_verification_codes(app)
     db_uri = f"sqlite:///{tmp_path / 'email-claim.db'}"
     app.config.update(
         SECRET_KEY="test-secret-key",
@@ -306,6 +319,7 @@ def test_email_flow_marks_temp_email_claim_as_created_new_user(
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         TOKEN_EXPIRE_TIME=60 * 60,
         UNIVERSAL_VERIFICATION_CODE="9999",
+        ENV="testing",
         REDIS_KEY_PREFIX_MAIL_CODE="test:email:",
         REDIS_KEY_PREFIX_USER="test:user:",
         ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO=False,

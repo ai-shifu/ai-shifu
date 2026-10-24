@@ -17,6 +17,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Credit Notification Email Delivery](./active/credit-notification-email-delivery.md)
 - [Custom manual credit validity](./active/custom-credit-validity.md)
 - [Admit Declared Variables and Explicit Learner Requests](./active/declared-and-requested-memory.md)
+- [Confine Universal Verification Codes to Explicit Development Bootstraps](./active/development-verification-code-boundary.md)
 - [Main Docker build failures: evidence and repair strategy](./active/docker-build-failure-analysis.md)
 - [Docker build stability with native platform runners](./active/docker-build-stability.md)
 - [Repair independent Docker trust stores](./active/emudhra-build-trust.md)

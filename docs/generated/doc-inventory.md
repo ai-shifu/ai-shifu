@@ -52,6 +52,7 @@
 | `docs/exec-plans/active/credit-notification-email-delivery.md` | Credit Notification Email Delivery | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/custom-credit-validity.md` | Custom manual credit validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/declared-and-requested-memory.md` | Admit Declared Variables and Explicit Learner Requests | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/development-verification-code-boundary.md` | Confine Universal Verification Codes to Explicit Development Bootstraps | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-build-failure-analysis.md` | Main Docker build failures: evidence and repair strategy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-build-stability.md` | Docker build stability with native platform runners | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/emudhra-build-trust.md` | Repair independent Docker trust stores | `exec-plan-active` | `active` | `cross-surface` | `2026-10-21` | `true` |
