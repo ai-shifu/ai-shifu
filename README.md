@@ -53,6 +53,7 @@ cp .env.example.full .env
 # Edit .env: configure an LLM provider API key and set LLM_MODEL_1_ID
 # to a text model ID served by that provider (required; no default).
 # LLM_MODEL_1_NAME is optional; an empty name displays the model ID.
+# Configure the SMS/email provider used by your selected login method.
 
 # Start all services
 docker compose -f docker-compose.latest.yml up -d
@@ -63,7 +64,8 @@ Notes
 - `LLM_MODEL_1_ID` is required and has no default. Configure optional model IDs for numbers 2-9; gaps are supported. All `LLM_MODEL_<number>_NAME` values are optional: omitted or blank names display the configured model ID. A name without a model ID does not enable an option. Historical selections automatically use model 1 when they do not reference a configured number; no data cleanup is needed.
 - For an existing installation, follow [Upgrading to numbered models](INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new images. This applies to latest, pinned-release and development Compose modes.
 - First verified user is automatically promoted to Admin and Creator; the bundled demo course is assigned to this user.
-- Default universal verification code for demos is 1024 (change via `UNIVERSAL_VERIFICATION_CODE`).
+- No universal verification code is configured by default. Normal deployments require a code issued by the configured SMS/email provider. Isolated development/testing can use the [explicit development login setup](INSTALL_MANUAL.md#local-demo-login).
+- Existing installations must [upgrade the API code/image and remove legacy bypass overrides](INSTALL_MANUAL.md#upgrading-existing-verification-code-deployments); changing an environment example alone does not patch an older image.
 - `docker-compose.latest.yml` pulls the freshest `:latest` images (or your own locally built `latest` tags). Use `docker-compose.yml` when you need pinned release tags for reproducible environments.
 
 ### Using Docker Hub image (customize)
@@ -82,7 +84,8 @@ cp .env.example.full .env
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
 # - REDIS_HOST: Optional; set to enable Redis caching/locks (leave empty to disable)
 # - SECRET_KEY: Defaults to a demo value; change for production (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
-# - UNIVERSAL_VERIFICATION_CODE: Test verification code (remove/empty in production)
+# - SMS/email delivery: Configure the provider used by your selected login method
+# - UNIVERSAL_VERIFICATION_CODE: Leave empty; only an explicitly bootstrapped isolated development/test app can use it
 # - Any other optional integrations
 
 docker compose -f docker-compose.latest.yml up -d  # Use -f docker-compose.yml for pinned versions
@@ -104,6 +107,13 @@ cp .env.example.full .env
 ```
 
 `dev_in_docker.sh` builds the backend and frontend images from your local source tree and then launches `docker-compose.dev.yml` (hot reload + bind mounts). Use it whenever you need to iterate on code without managing Python/Node runtimes locally.
+
+This Compose mode explicitly selects `app:create_development_app()` with
+`ENV=development`, but supplies no universal code. Configure real delivery or,
+only for an isolated local test, deliberately choose a nonblank
+`UNIVERSAL_VERIFICATION_CODE`. The normal `app:app` / `create_app()` entrypoints
+do not enable this shortcut, even if that setting or `ENV=development` is present.
+See [Local Demo Login](INSTALL_MANUAL.md#local-demo-login) for manual setup.
 
 The script records the checkout's current commit before building the Web image,
 so the user menu can show its source revision. Source archives without Git
@@ -134,7 +144,7 @@ for automatic triggers, manual backfills and use with the existing Compose bundl
 After Docker starts:
 
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
-2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
+2. Use the configured login method and enter the code actually delivered to your phone number or email address; there is no default login code
 3. The first verified user becomes Admin and Creator
 
 ## Internationalization (i18n)

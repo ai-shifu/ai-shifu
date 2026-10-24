@@ -23,10 +23,15 @@ validation and the explicitly selected local development and test workflow.
 - [x] 2026-10-24 UTC: Passed Ruff, syntax checks, repository-wide pre-commit,
   architecture/UOW/harness guards, all three edited Compose configurations,
   and frontend type checking with locked dependencies and Node 22.23.4.
-- [ ] Run the container browser smoke on an existing Docker-capable harness.
-  This environment has no Docker daemon; no containers or deployments were started.
-- [ ] 2026-10-24 UTC: Following explicit user approval, commit and push the
-  reviewed branch, create a ready-for-review PR, and follow its exact-head CI.
+- [x] 2026-10-24 UTC: Following explicit user approval, committed and pushed
+  `b091ca8` and created ready-for-review PR #3175. Its runtime harness passed
+  authentication, admin, and learner smoke (3 tests). This is historical
+  evidence for that head only; local container smoke remains unrun (no daemon).
+- [x] 2026-10-24 UTC: Confirmed review discussion `r4367049467` and aligned the
+  English/Chinese README quick-start, configuration, and login instructions.
+- [ ] Follow the documentation revision's exact-head CI at
+  <https://github.com/ai-shifu/ai-shifu/pull/3175/checks>; earlier-head passes do
+  not count for a newer revision.
 
 ## Surprises & Discoveries
 
@@ -54,9 +59,11 @@ gating would either retain a misconfiguration risk or break the harness.
 
 The patch closes the shared bypass while preserving ordinary issued-code flows
 and explicit isolated development/test usage. All runnable checks listed above
-passed; the added executable runtime lines are covered. Full sign-off remains
-blocked on the container browser smoke. Do not treat this plan as evidence that
-a running deployment has been patched.
+passed; the added executable runtime lines are covered. Runtime browser smoke
+subsequently passed in CI for `b091ca8`. The documentation follow-up requires
+its own exact-head CI, tracked by PR #3175 checks. Local container smoke was
+not run. Do not treat this plan as evidence that a running deployment has been
+patched.
 
 The remaining minimum acceptance is the existing runtime-harness stack and
 `cd src/web && npm run test:e2e -- --project=runtime-harness-smoke`, which also
