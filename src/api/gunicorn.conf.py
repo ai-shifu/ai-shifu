@@ -4,6 +4,8 @@
 
 """Configure Gunicorn worker startup and lifecycle hooks."""
 
+import ctypes
+import gc
 import os
 import sys
 
@@ -51,6 +53,27 @@ if _gevent_worker_requested(sys.argv):
 
     monkey.patch_all()
 
+# glibc gives each thread that allocates its own malloc arena (up to 8 per CPU), and
+# freed memory stays in those arenas. Each gthread worker accumulates arenas as request,
+# engine-bridge and SDK threads come and go, so a worker's memory only grows. Two arenas
+# keep that bounded. Set before any thread exists; an explicit MALLOC_ARENA_MAX wins.
+M_ARENA_MAX = -8
+MALLOC_ARENAS = 2
+
+
+def _limit_malloc_arenas() -> bool:
+    """Cap glibc malloc arenas for this process and the workers it forks."""
+    if os.environ.get("MALLOC_ARENA_MAX"):
+        return False
+    try:
+        libc = ctypes.CDLL("libc.so.6")
+    except OSError:  # not glibc (e.g. macOS development)
+        return False
+    return bool(libc.mallopt(M_ARENA_MAX, MALLOC_ARENAS))
+
+
+_limit_malloc_arenas()
+
 # Bootstrap before preload imports prometheus_client and fixes its writer class.
 prepare_metrics_directory()
 
@@ -67,6 +90,25 @@ os.environ["AI_SHIFU_PRELOAD_MASTER"] = "1"
 # model tables, litellm's cost map, ...) with every worker via copy-on-write.
 # Without this each worker pays the full ~350MB import cost separately.
 preload_app = True
+
+# Recycle each worker after a bounded number of requests, so memory a worker cannot
+# return to the system is released periodically. The jitter keeps workers from
+# restarting together. A recycled worker finishes its in-flight requests first,
+# including long lesson streams, for up to the deployment's request timeout.
+max_requests = 2000
+max_requests_jitter = 500
+graceful_timeout = 300
+
+
+def pre_fork(server: object, worker: object) -> None:
+    """Keep the preloaded app's objects shared with the forked worker.
+
+    Without this, the garbage collector touching inherited objects in a worker
+    copies the master's pages one by one, and each idle worker grows to about
+    100 MB of private memory. Frozen objects are never examined again.
+    """
+    _ = (server, worker)
+    gc.freeze()
 
 
 def post_fork(server: object, worker: object) -> None:
