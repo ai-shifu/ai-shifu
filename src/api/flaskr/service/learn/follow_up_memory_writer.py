@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from flaskr.api.llm import LLMStreamResponse
-from flaskr.service.learn.agent.bridge import iter_turn
+from flaskr.service.learn.agent.bridge import TurnCapacityError, iter_turn
 from flaskr.service.learn.agent.engine.recall import recall as engine_recall
 from flaskr.service.learn.agent.engine.script import collected_names
 from flaskr.service.learn.agent.engine.tools import Deps, prepare_memory_tool
@@ -32,6 +32,7 @@ from pydantic_ai import (
     ToolReturn,
     UsageLimits,
 )
+from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -45,7 +46,13 @@ from pydantic_ai.messages import (
 from pydantic_ai.usage import RunUsage
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Callable, Generator
+    from collections.abc import (
+        AsyncIterator,
+        Awaitable,
+        Callable,
+        Generator,
+        Iterable,
+    )
 
     from flask import Flask
     from pydantic_ai.models import Model
@@ -262,8 +269,10 @@ class FollowUpMemoryRun:
         cancelled: Callable[[], bool] | None = None,
         value_versions: dict[str, int | tuple[int, str | None]] | None = None,
         quotation_messages: tuple[str, ...] = (),
+        fallback: Callable[[], Iterable[LLMStreamResponse]] | None = None,
     ) -> None:
         """Capture immutable request evidence; DB state never enters the producer thread."""
+        self.fallback = fallback
         self.model = model
         self.patch = patch
         self.current_input = current_input
@@ -451,7 +460,16 @@ class FollowUpMemoryRun:
             if self.cancelled is not None and self.cancelled():
                 raise GeneratorExit
 
-        events = iter_turn(lambda: self._events(messages), heartbeat=check_active)
+        try:
+            events = iter_turn(lambda: self._events(messages), heartbeat=check_active)
+        except TurnCapacityError:
+            # Lessons share this worker's turn slots. Answer the question without memory
+            # tools rather than failing it while lessons are busy.
+            if self.fallback is None:
+                raise
+            yield from self.fallback()
+            return
+        exhausted = False
         try:
             for event in events:
                 check_active()
@@ -467,8 +485,26 @@ class FollowUpMemoryRun:
                         finish_reason=None,
                         usage=None,
                     )
+        except UsageLimitExceeded:
+            # The run used its read/write budget while still calling tools, so any text
+            # shown is only a lead-in. Save nothing and finish without memory tools.
+            if self.fallback is None:
+                raise
+            exhausted = True
         finally:
             events.close()
+        if exhausted:
+            if visible:
+                yield LLMStreamResponse(
+                    "follow-up",
+                    is_end=False,
+                    is_truncated=False,
+                    result="\n\n",
+                    finish_reason=None,
+                    usage=None,
+                )
+            yield from self.fallback()
+            return
         check_active()
         if completed is not None and visible and not self.preview:
             self.patch.variables = [
