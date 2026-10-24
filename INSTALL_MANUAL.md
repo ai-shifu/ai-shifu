@@ -526,8 +526,11 @@ do not call the LLM.
 ### Local Demo Login
 
 Phone login normally requires a code issued by the configured SMS provider.
+Email login likewise requires a code issued through the configured SMTP provider.
+The Docker environment example leaves `UNIVERSAL_VERIFICATION_CODE` empty;
+there is no default login code.
 For an isolated local demo or automated test, explicitly set
-`ENV=development` and a nonempty `UNIVERSAL_VERIFICATION_CODE` in your local
+`ENV=development` and a nonblank `UNIVERSAL_VERIFICATION_CODE` in your local
 environment, then select the development factory:
 
 ```bash
