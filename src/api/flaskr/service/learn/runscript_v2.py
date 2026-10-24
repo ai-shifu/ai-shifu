@@ -27,7 +27,7 @@ from flaskr.dao import (
 )
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
-from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
+from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.agent.routing import uses_agent_engine
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.context_v2 import RunScriptContextV2
@@ -855,13 +855,13 @@ def _lesson_events(
                         terminal_done = payload
                     else:
                         yield payload
-            except AppError as exc:
-                if (
-                    exc.code == ERROR_CODE["server.learn.agentInputBudgetExceeded"]
-                    and element_adapter is not None
-                ):
-                    # A later tool request can be refused after text was shown. Persist its
+            except AppError:
+                if element_adapter is not None:
+                    # A turn can fail after text was shown: a refused tool request, a provider
+                    # error after output started, or an exhausted recovery. The engine keeps
+                    # that text in its saved session and continues after it, so persist the
                     # buffered elements before surfacing the error, without sending DONE.
+                    # Errors raised before any output leave nothing pending.
                     yield from element_adapter.finalize_pending_blocks()
                     _commit_pending_step()
                 raise

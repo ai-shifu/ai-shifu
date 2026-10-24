@@ -263,11 +263,16 @@ def test_real_adapter_finalizes_read_narration_before_advertising_backfill(
     )
 
 
+@pytest.mark.parametrize(
+    "error_key",
+    ["server.learn.agentInputBudgetExceeded", "server.common.unknownError"],
+)
 @pytest.mark.parametrize("formatted", [False, True])
-def test_budget_failure_commits_partial_elements_without_success_or_completion(
+def test_failed_turn_commits_partial_elements_without_success_or_completion(
     app: Flask,
     monkeypatch: pytest.MonkeyPatch,
     formatted: bool,
+    error_key: str,
 ) -> None:
     from uuid import uuid4
 
@@ -287,9 +292,7 @@ def test_budget_failure_commits_partial_elements_without_success_or_completion(
     )
     monkeypatch.setattr(adapter, "_load_block_meta", lambda _bid: BlockMeta())
     monkeypatch.setattr(runtime, "uses_agent_engine", lambda _bid: True)
-    failure = AppError(
-        "Input capacity exceeded", ERROR_CODE["server.learn.agentInputBudgetExceeded"]
-    )
+    failure = AppError("Turn failed", ERROR_CODE[error_key])
 
     def agent(*_args: object, **_kwargs: object) -> Iterator:
         raw = RunMarkdownFlowDTO(
