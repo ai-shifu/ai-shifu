@@ -320,9 +320,18 @@ def _load_or_start(
             discard_course_references(stored, teaching_brief=teaching_brief)
             if debug_store is None:
                 refresh_nickname(stored, user_memory)
-                refresh_deleted_memory(
-                    stored, frozenset(generations), current=user_memory
+                # Deletion generations are permanent, so a key deleted once keeps one.
+                # Refresh only deletions this session has not seen yet: an answer given
+                # after a deletion must stay, while one given before it must go, even
+                # when a later answer elsewhere has the same value.
+                refreshed = frozenset(
+                    key
+                    for key, generation in generations.items()
+                    if key in deleted
+                    or stored.memory_generations.get(key) != generation
                 )
+                refresh_deleted_memory(stored, refreshed, current=user_memory)
+                stored.memory_generations = dict(generations)
                 # Named answers are durable course values. Retain the answered marker,
                 # but do not let its old session copy shadow another lesson's update.
                 for key in (
@@ -357,6 +366,7 @@ def _load_or_start(
         bundle = ScriptBundle(script=script, constraints=teaching_brief or None)
         session = await engine.new_session(bundle, user_id=user_bid, listen_mode=False)
         session.user_memory = dict(user_memory)
+        session.memory_generations = dict(generations)
         return session
 
     return make_session, bool(stored is not None and stored.finished)

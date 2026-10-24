@@ -73,6 +73,8 @@ class Session:
     messages: list[ModelMessage] = field(default_factory=list)
     memory: dict[str, Any] = field(default_factory=dict)  # session scope
     answer_hashes: dict[str, str] = field(default_factory=dict)
+    # Host-supplied memory deletion generations this session's memory reflects.
+    memory_generations: dict[str, int] = field(default_factory=dict)
     user_memory: dict[str, Any] = field(default_factory=dict)  # snapshot of user scope
     # Exact source values for initial host substitutions; None identifies legacy sessions.
     initial_variables: dict[str, Any] | None = None
@@ -221,6 +223,7 @@ class Session:
             "messages": json.loads(ModelMessagesTypeAdapter.dump_json(self.messages)),
             "memory": self.memory,
             "answer_hashes": dict(self.answer_hashes),
+            "memory_generations": dict(self.memory_generations),
             "user_memory": self.user_memory,
             "initial_variables": self.initial_variables,
             "pending": [
@@ -251,6 +254,10 @@ class Session:
             ),
             memory=dict(d.get("memory") or {}),
             answer_hashes=dict(d.get("answer_hashes") or {}),
+            memory_generations={
+                str(key): int(value)
+                for key, value in (d.get("memory_generations") or {}).items()
+            },
             user_memory=dict(d.get("user_memory") or {}),
             initial_variables=(
                 dict(d["initial_variables"])
