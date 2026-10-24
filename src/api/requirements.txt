@@ -67,7 +67,7 @@ opentelemetry-sdk==1.36.0
 orjson==3.11.6
 oss2==2.18.6
 packaging==24.0
-pillow==12.3.0
+pillow==13.0.0
 pingpp==2.7.2
 prometheus-client==0.22.1
 pydantic-graph==2.43.0
