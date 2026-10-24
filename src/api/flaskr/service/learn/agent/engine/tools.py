@@ -18,7 +18,12 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
-from .direction import DirectionFeedback, FeedbackReview, has_direction
+from .direction import (
+    DirectionFeedback,
+    FeedbackReview,
+    feedback_arguments,
+    has_direction,
+)
 from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .session import answer_fingerprint
@@ -54,6 +59,9 @@ class Deps:
     feedback_contract: bool = False
     feedback_review: FeedbackReview | None = None
     hidden_feedback_responses: set[int] = field(default_factory=set)
+    _hidden_feedback_objects: dict[int, ModelResponse] = field(
+        default_factory=dict, init=False, repr=False
+    )
     feedback_text_pending: bool = False
     feedback_text_delivered: bool = False
     # The host's answer to "can the learner be shown this question?": None if it can, otherwise
@@ -92,6 +100,9 @@ class Deps:
 
     def hide_feedback_response(self, response: ModelResponse) -> None:
         """Track withheld prose until a successful replacement actually supplies it."""
+        # SDK history projection can release the original response. Keep its ID
+        # unique until this turn's Deps is discarded, including final projection.
+        self._hidden_feedback_objects[id(response)] = response
         self.hidden_feedback_responses.add(id(response))
         if any(isinstance(p, TextPart) and p.content.strip() for p in response.parts):
             self.feedback_text_pending = True
@@ -320,10 +331,10 @@ def normalize_script_text_input(
 ) -> InteractionSpec:
     """Restore a missing text hint or remove its duplicate generated choice.
 
-    The remaining display/value pairs must be the author's exact ordered choices. A hint that
-    the author also wrote as a real choice, another question, or a model-created option is kept.
+    The remaining stored values must be the author's exact ordered choices; display text
+    may be translated. A hint stored as a real choice or a model-created value is kept.
     Text-only questions must match the copied prompt and the same variable.
-    Ambiguous questions and explicitly supplied placeholders are left unchanged.
+    Ambiguous questions and unrelated explicit placeholders are left unchanged.
     """
     if spec.type == "text" and not spec.options and not spec.placeholder:
         hints = {
@@ -336,7 +347,7 @@ def normalize_script_text_input(
         if len(hints) == 1 and (hint := next(iter(hints))):
             return spec.model_copy(update={"placeholder": hint})
     candidates: dict[str, InteractionSpec] = {}
-    submitted = [(o.display, o.stored) for o in spec.options]
+    submitted = [o.stored for o in spec.options]
     for question in questions:
         if question.variable != spec.variable:
             continue
@@ -345,45 +356,52 @@ def normalize_script_text_input(
             if question.multi
             else ("single", "single_or_text", "text")
         )
-        if spec.type not in kinds or spec.placeholder not in (
-            None,
-            "",
-            question.placeholder,
-            question.written_placeholder,
-        ):
+        if spec.type not in kinds:
             continue
-        authored: list[tuple[str, str]] = []
+        authored: list[str] = []
         for choice in question.choices:
             if not choice.strip():
                 continue
             halves = [
                 _unescape(half.strip()) for half in _split_unescaped(choice, "//")[:2]
             ]
-            authored.append((halves[0], halves[1] if len(halves) > 1 else halves[0]))
+            authored.append(halves[1] if len(halves) > 1 else halves[0])
         hint = question.placeholder or ""
         forms = {hint, question.written_placeholder or hint}
         extras = {
-            (marker + display, marker + value)
+            marker + value
             for marker in ("", "...")
-            if (marker + hint, marker + hint) not in authored
-            for display in forms
             for value in forms
-            if (marker + display, marker + value) not in authored
+            if marker + value not in authored
         }
-        remaining = [pair for pair in submitted if pair not in extras]
+        duplicate_hints = [o for o in spec.options if o.stored in extras]
+        display_hints = {
+            hint
+            if o.display in forms or o.display.removeprefix("...") in forms
+            else o.display.removeprefix("...")
+            for o in duplicate_hints
+        }
+        if spec.placeholder not in (None, "", *forms, *display_hints):
+            continue
+        remaining = [value for value in submitted if value not in extras]
         if submitted == authored:
             candidate = spec
         elif remaining == authored and len(remaining) < len(submitted):
+            # A stable hint value identifies its translated display. Do not restore
+            # an authored-language placeholder over it or guess between translations.
+            if len(display_hints) != 1:
+                continue
+            restored_hint = next(iter(display_hints))
+            if not restored_hint.strip():
+                continue
             kind: InteractionType = (
                 "multi_or_text" if question.multi else "single_or_text"
             )
             candidate = spec.model_copy(
                 update={
                     "type": kind if authored else "text",
-                    "options": [
-                        o for o in spec.options if (o.display, o.stored) not in extras
-                    ],
-                    "placeholder": hint,
+                    "options": [o for o in spec.options if o.stored not in extras],
+                    "placeholder": restored_hint,
                 }
             )
         else:
@@ -625,12 +643,13 @@ def feedback_response_problem(
     reviews = []
     for call in calls:
         try:
-            value = call.args_as_dict().get("review")
+            value = feedback_arguments(call).get("review")
             if value is not None:
                 reviews.append(FeedbackReview.model_validate(value))
         except (TypeError, ValueError):
             return "invalid feedback branch declaration", None
-    if len(reviews) > 1:
+    # Schema-required sibling declarations must represent one identical decision.
+    if reviews and any(review != reviews[0] for review in reviews[1:]):
         return "declare one feedback branch for this response", None
     if any(has_direction(call) for call in calls):
         if reviews or deps.feedback_review is not None:
@@ -683,8 +702,8 @@ def feedback_response_problem(
         and review is None
     ):
         return (
-            "Declare the feedback branch in this same tool response: use interact.direction "
-            "for an authored checking-direction correction; otherwise attach review with "
+            "Declare the feedback branch in interact/finish.feedback: a checking direction object "
+            "for authored correction; otherwise an ordinary review object with "
             "the actual answer_id, phase accepted/clarification/authored_help, exact "
             "submission_quote and internal reason. authored_help also requires exact "
             "current rule_quote permitting that help now. Do not skip the author's stage. "
@@ -722,6 +741,7 @@ async def interact(
     placeholder: str | None = None,
     direction: DirectionFeedback | None = None,
     review: FeedbackReview | None = None,
+    feedback: DirectionFeedback | FeedbackReview | None = None,
 ) -> str:
     """Show an interaction to the learner and wait for the answer.
 
@@ -799,6 +819,14 @@ async def interact(
     if ctx.deps.finished is not None:
         # Nothing is asked once the lesson is over; see the `finished` branch of `run_turn`.
         return LESSON_OVER
+    if feedback is not None:
+        if direction is not None or review is not None:
+            message = "Use feedback without legacy direction/review fields"
+            raise ModelRetry(message)
+        if isinstance(feedback, DirectionFeedback):
+            direction = feedback
+        else:
+            review = feedback
     validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
     if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
@@ -953,6 +981,55 @@ async def memory_admission_error(
     return "the learner's explicit request could not be verified"
 
 
+async def prepare_feedback_tool(
+    ctx: RunContext[Deps], definition: ToolDefinition
+) -> ToolDefinition:
+    """Expose the current reply's required branch without changing native validation."""
+    schema = definition.parameters_json_schema
+    properties = dict(schema["properties"])
+    if (
+        not ctx.deps.feedback_contract
+        or not ctx.deps.direction_sections
+        or ctx.deps.feedback_review is not None
+    ):
+        properties.pop("feedback", None)
+        return replace(
+            definition,
+            parameters_json_schema={**schema, "properties": properties},
+        )
+    for name in ("direction", "review"):
+        properties.pop(name, None)
+    original = properties["feedback"]
+    # A required property survives provider conversion; a root anyOf may not.
+    properties["feedback"] = {
+        **{k: v for k, v in original.items() if k not in ("anyOf", "default")},
+        "type": "object",
+        "anyOf": [v for v in original["anyOf"] if v.get("type") != "null"],
+    }
+    description = (definition.description or "").partition(
+        "When the host requires an explicit feedback branch"
+    )[0]
+    description = description.replace(
+        "send `direction` in this same tool call instead of writing free content.",
+        "send its direction object in `feedback` without free content.",
+    ).replace("omit `direction`", "choose ordinary review")
+    kind = "direction or review" if definition.name == "interact" else "review"
+    description += (
+        f"For supported returned text, put the {kind} object in `feedback`. "
+        "Read/memory calls retain `review`. Follow the offered schema and authored stage "
+        "without a planning request."
+    )
+    return replace(
+        definition,
+        description=description,
+        parameters_json_schema={
+            **schema,
+            "properties": properties,
+            "required": list(dict.fromkeys([*schema.get("required", []), "feedback"])),
+        },
+    )
+
+
 async def prepare_memory_tool(
     _ctx: RunContext[Deps], definition: ToolDefinition
 ) -> ToolDefinition:
@@ -1038,7 +1115,10 @@ async def remember(
 
 
 async def finish(
-    ctx: RunContext[Deps], summary: str = "", review: FeedbackReview | None = None
+    ctx: RunContext[Deps],
+    summary: str = "",
+    review: FeedbackReview | None = None,
+    feedback: FeedbackReview | None = None,
 ) -> str:
     """Mark the script as delivered to its end.
 
@@ -1046,6 +1126,11 @@ async def finish(
     it remains to do. `summary` is one short line about what the learner did. Do not call it
     when the script merely pauses, asks a question, or waits for the learner.
     """
+    if feedback is not None:
+        if review is not None:
+            message = "Use feedback without a legacy review field"
+            raise ModelRetry(message)
+        review = feedback
     if review is not None:
         validate_direction_call(ctx, review=review)
     current = [

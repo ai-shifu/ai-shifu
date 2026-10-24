@@ -15,6 +15,7 @@ export interface ApiResponse<T = any> {
 export interface UserInfo {
   token?: string;
   user_id?: string;
+  analytics_enabled?: boolean;
   username?: string;
   avatar?: string;
   phone?: string;

@@ -6,7 +6,7 @@ lockfile in this directory.
 
 ## Local Development
 
-Use Node.js 22.16.0, as pinned in [package.json](package.json). Start the
+Use Node.js 22.23.4, as pinned in [package.json](package.json). Start the
 backend on port 5800 using the
 [local installation steps](../../INSTALL_MANUAL.md#step-5-manual-installation-development).
 
@@ -97,7 +97,9 @@ architecture and verifies the source lockfile after installation. A separate
 stage removes development dependencies offline without rerunning lifecycle
 scripts, checks the same source lockfile, then the runner copies node_modules.
 Native module failures stop the build instead of installing a new Sharp version.
-The Node 22.16.0 Alpine base and `npm start` entrypoint remain unchanged.
+Builder and runner share Node 22.23.4 on Alpine 3.23 with an updated system CA
+bundle. The `npm start` entrypoint remains unchanged. Final-image smoke checks
+the built-in, effective default, and system trust stores independently.
 
 Build from the repository root on a native runner for each supported platform:
 

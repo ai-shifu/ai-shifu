@@ -153,6 +153,31 @@ def lesson(app: object, monkeypatch: object) -> object:
 
 
 @pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("multilingual", [False, True])
+def test_resolver_reads_language_setting_from_the_selected_course_version(
+    app: object, lesson: str, preview: bool, multilingual: bool
+) -> None:
+    selected = DraftShifu if preview else PublishedShifu
+    other = PublishedShifu if preview else DraftShifu
+    with app.app_context(), unit_of_work():
+        selected.query.filter_by(shifu_bid=lesson).one().use_learner_language = int(
+            multilingual
+        )
+        other.query.filter_by(shifu_bid=lesson).one().use_learner_language = int(
+            not multilingual
+        )
+    with app.app_context():
+        resolved = entry._resolve(
+            app,
+            user_bid="teacher",
+            shifu_bid=lesson,
+            outline_bid=lesson,
+            preview_mode=preview,
+        )
+        assert resolved[-1] is multilingual
+
+
+@pytest.mark.parametrize("preview", [False, True])
 @pytest.mark.parametrize("saved", ["2", "", "legacy-model"])
 def test_lesson_resolution_preserves_course_selection_and_revision_metadata(
     app: object, lesson: str, preview: bool, saved: str, monkeypatch: pytest.MonkeyPatch
@@ -168,7 +193,7 @@ def test_lesson_resolution_preserves_course_selection_and_revision_metadata(
         course.llm = saved
         record_id = course.id
     with app.app_context():
-        script, brief, settings, _revision = entry._resolve(
+        script, brief, settings, _revision, _language = entry._resolve(
             app,
             user_bid="learner",
             shifu_bid=lesson,
@@ -238,7 +263,7 @@ def test_lesson_revision_belongs_to_the_physical_row_supplying_the_script(
                 )
             )
     with app.app_context():
-        script, _brief, _settings, revision = entry._resolve(
+        script, _brief, _settings, revision, _language = entry._resolve(
             app,
             user_bid="learner",
             shifu_bid=lesson,
@@ -339,7 +364,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         },
     )
     monkeypatch.setattr(
-        entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41)
+        entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41, False)
     )
     trace, span = object(), object()
     monkeypatch.setattr(entry, "get_langfuse_client", object)
@@ -489,6 +514,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "listen": listen,
         "preview_mode": preview_mode,
         "content_revision": 41,
+        "use_learner_language": False,
         "shifu_model": DraftShifu if preview_mode else PublishedShifu,
         "heartbeat_interval": 0.1,
         "rewind": None,
@@ -499,7 +525,7 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     """Stub everything around the turn and return the mock standing in for the turn itself."""
     settings = LLMSettings(model="2", temperature=0.25, usage_metadata={})
     monkeypatch.setattr(
-        entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41)
+        entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41, False)
     )
     monkeypatch.setattr(entry, "get_langfuse_client", object)
     monkeypatch.setattr(
@@ -513,6 +539,36 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     runner = Mock(side_effect=lambda *_a, **_kw: iter(()))
     monkeypatch.setattr(entry, "run_agent_lesson", runner)
     return runner
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("listen", [False, True])
+def test_entry_passes_multilingual_setting_to_every_lesson_mode(
+    app: object, monkeypatch: object, preview: bool, listen: bool
+) -> None:
+    runner = _entry_with_runner(monkeypatch)
+    monkeypatch.setattr(
+        entry,
+        "_resolve",
+        lambda *_a, **_k: (
+            "script",
+            "",
+            LLMSettings(model="1", temperature=0.0),
+            None,
+            True,
+        ),
+    )
+    list(
+        entry.agent_lesson_events(
+            app,
+            user_bid="learner",
+            shifu_bid="course",
+            outline_bid="lesson",
+            preview_mode=preview,
+            listen=listen,
+        )
+    )
+    assert runner.call_args.kwargs["use_learner_language"] is True
 
 
 def _reload(app: object, **kwargs: object) -> list:

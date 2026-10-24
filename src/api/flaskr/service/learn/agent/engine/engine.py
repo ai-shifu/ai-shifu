@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -89,6 +90,7 @@ from .interaction_markup import (
     contains_interaction_markup,
 )
 from .memory_context import project_memory_history
+from .output_language import language_request_history, output_language_instructions
 from .recall import recall
 from .script import (
     ScriptBundle,
@@ -110,6 +112,7 @@ from .tools import (
     finish,
     interact,
     normalize_script_text_input,
+    prepare_feedback_tool,
     prepare_memory_tool,
     recall_exclusions,
     remember,
@@ -303,10 +306,13 @@ def _previous_turn_text(
 
 
 def _display_text(text: str, *, complete: bool = True) -> str:
-    """Apply the host's verbatim-marker filtering while retaining line boundaries."""
+    """Project comparison text through the host policy, independently of line buffering."""
+    if not complete:
+        # A comparison needs the current candidate even before its physical line ends.
+        # A trailing marker fragment is still undecided, rather than visible divergence.
+        text = re.sub(r"!?=*\Z", "", text)
     markers = PreserveMarkerFilter()
-    displayed = markers.feed(text)
-    return displayed + markers.flush() if complete else displayed
+    return markers.feed(text) + markers.flush()
 
 
 def _unanswered_interaction_markup(
@@ -385,6 +391,7 @@ class Engine:
         *,
         prompts: Prompts | None = None,
         extra_instructions: str | None = None,
+        output_language: str | None = None,
         toolsets: Sequence[AbstractToolset[Deps]] | None = None,
         memory_store: MemoryStore | None = None,
         render: RenderProfile = "sandbox",
@@ -508,6 +515,7 @@ class Engine:
                 "\n\n" + (PROMPTS_DIR / "recall_history_compaction.md").read_text()
             )
         self.extra_instructions = extra_instructions
+        self.output_language = output_language
         self.render: RenderProfile = render
         self.memory_store = memory_store
         self.limits = UsageLimits(
@@ -524,13 +532,17 @@ class Engine:
             deps_type=Deps,
             output_type=[str, DeferredToolRequests],
             instructions=self._instructions,
-            capabilities=[ProcessHistory(self._feedback_retry_history)],
+            capabilities=[
+                ProcessHistory(self._feedback_retry_history),
+                ProcessHistory(self._language_request_history),
+            ],
             # Three, not two: a refused question (`interaction_check`) takes a retry to be asked
             # again, and a model rewriting options sometimes needs more than one attempt.
             tools=[
                 Tool(
                     interact,
                     max_retries=3,
+                    prepare=prepare_feedback_tool,
                     description=(interact.__doc__ or "")
                     + "\n"
                     + self.memory_instructions,
@@ -543,7 +555,11 @@ class Engine:
                     + "\n"
                     + self.memory_instructions,
                 ),
-                Tool(finish, args_validator=validate_direction_call),
+                Tool(
+                    finish,
+                    args_validator=validate_direction_call,
+                    prepare=prepare_feedback_tool,
+                ),
                 *(
                     [
                         Tool(
@@ -617,6 +633,12 @@ class Engine:
             feedback_text_pending=ctx.deps.feedback_text_pending,
         )
 
+    async def _language_request_history(
+        self, _ctx: RunContext[Deps], messages: list[ModelMessage]
+    ) -> list[ModelMessage]:
+        """Apply current language after the latest tool results without saving it."""
+        return language_request_history(messages, self.output_language)
+
     def compose_instructions(
         self,
         *,
@@ -646,6 +668,7 @@ class Engine:
         if self.extra_instructions:
             parts.append(self.extra_instructions)
         parts.append(self.exercise_instructions)
+        parts.append(output_language_instructions(self.output_language))
         return "\n\n".join(p.strip() for p in parts if p and p.strip())
 
     def _instructions(self, ctx: RunContext[Deps]) -> str:
@@ -1139,10 +1162,21 @@ class Engine:
                 return _out(text)
             held.append(text)
             held_text += "".join(text.split())
-            if _closing_was_shown() and final_line_text.startswith(
-                "".join(_display_text("".join(held), complete=False).split())
-            ):
-                return []
+            if _closing_was_shown():
+                candidate = "".join(held)
+                compared = "".join(_display_text(candidate, complete=False).split())
+                # An unfinished inline construct can change its display when completed.
+                # The author's exact source prefix still identifies that closing safely.
+                source_prefix = re.sub(
+                    r"^!?={3,}", "", re.sub(r"!?=*\Z", "", candidate).lstrip()
+                )
+                if final_line_text.startswith(compared) or (
+                    final_line is not None
+                    and "".join(final_line.split()).startswith(
+                        "".join(source_prefix.split())
+                    )
+                ):
+                    return []
             if len(held_text) < hold_floor or held_text in previous:
                 return []
             holding = False
@@ -1395,6 +1429,9 @@ class Engine:
                             )
                             else list(result.all_messages())
                         )
+                        session.messages = language_request_history(
+                            session.messages, None
+                        )
                         history_saved = True
                         direction_pending: set[str] = set()
                         if isinstance(result.output, DeferredToolRequests):
@@ -1540,6 +1577,7 @@ class Engine:
                         deps.hidden_feedback_responses,
                     ),
                 ]
+                session.messages = language_request_history(session.messages, None)
                 session.answers = {}
                 session.usage = accumulate_usage(session.usage, events.usage)
                 session.interrupted = True

@@ -14,12 +14,14 @@ const mockTranslate = (key: string) => `${mockTranslationPrefix}${key}`;
 const mockUsePathname = jest.fn(() => '/admin');
 const mockApplyCreatorBranding = jest.fn();
 const mockRefreshUserInfo = jest.fn();
+const mockFocusNavFooter = jest.fn();
 let mockSearchParamsValue = '';
 
 interface MockMainMenuModalProps {
   open: boolean;
   onClose?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onPersonalInfoClick: () => void;
+  onAboutCloseAutoFocus?: () => void;
   surface: 'learner' | 'admin';
 }
 
@@ -227,7 +229,10 @@ jest.mock('@/components/NavDrawer/NavFooter', () => ({
     },
     ref,
   ) {
-    void ref;
+    React.useImperativeHandle(ref, () => ({
+      containElement: () => false,
+      focus: mockFocusNavFooter,
+    }));
     return <button onClick={onClick}>{footerLabel}</button>;
   }),
 }));
@@ -281,6 +286,7 @@ describe('SidebarContent', () => {
     baseProps.onUserMenuClose.mockReset();
     baseProps.onPersonalInfoClick.mockReset();
     mockMainMenuModal.mockClear();
+    mockFocusNavFooter.mockClear();
   });
 
   test('auto expands the operations menu when the course submenu is active', () => {
@@ -410,6 +416,21 @@ describe('SidebarContent', () => {
 
     expect(baseProps.onUserMenuClose).toHaveBeenCalledTimes(1);
     expect(baseProps.onPersonalInfoClick).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns About close autofocus to the persistent admin footer', () => {
+    render(
+      <SidebarContent
+        {...baseProps}
+        menuItems={buildAdminMenuItems({ t, isOperator: false })}
+        activePath='/admin'
+      />,
+    );
+
+    const menuProps = mockMainMenuModal.mock.calls.at(-1)?.[0];
+    expect(menuProps?.onAboutCloseAutoFocus).toEqual(expect.any(Function));
+    menuProps?.onAboutCloseAutoFocus?.();
+    expect(mockFocusNavFooter).toHaveBeenCalledTimes(1);
   });
 
   test('does not render operations submenu items for non-operators', () => {

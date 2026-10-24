@@ -145,7 +145,9 @@ async def test_real_gateway_recovers_from_old_recall_growth_and_still_enforces_t
             separators=(",", ":"),
         ).encode("utf-8")
     )
-    assert projected_size < 65536
+    # The envelope includes evolving instructions and tool schemas as well as history.
+    # Compaction must fit the configured request budget.
+    assert projected_size < INPUT_BUDGET_BYTES
     calls.clear()
     _, exact = await run(enabled=True, limit=projected_size)
     assert isinstance(exact[-1], TurnDone)

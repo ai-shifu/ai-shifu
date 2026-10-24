@@ -1,9 +1,9 @@
 {
   "name": "web",
-  "version": "2.3.3",
+  "version": "3.0.1",
   "private": true,
   "engines": {
-    "node": "22.16.0"
+    "node": "22.23.4"
   },
   "scripts": {
     "dev": "next dev --turbopack",

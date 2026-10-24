@@ -55,6 +55,7 @@
 | `docs/exec-plans/active/docker-build-failure-analysis.md` | Main Docker build failures: evidence and repair strategy | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-build-stability.md` | Docker build stability with native platform runners | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-web-dependency-reuse.md` | Reuse production Web Docker dependencies | `exec-plan-active` | `active` | `web` | `2026-10-06` | `true` |
+| `docs/exec-plans/active/emudhra-build-trust.md` | Repair independent Docker trust stores | `exec-plan-active` | `active` | `cross-surface` | `2026-10-21` | `true` |
 | `docs/exec-plans/active/environment-wide-markdownflow-v2.md` | Environment-wide MarkdownFlow 2.0 | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/gemini-live-configurable-capacity.md` | Configurable Gemini Live admission capacity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live follow-up acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -65,13 +66,16 @@
 | `docs/exec-plans/active/markdownflow-total-input-budget.md` | MarkdownFlow total input budget | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/mdf2-agent-lesson-rewind.md` | MarkdownFlow 2.0: rewind a lesson to an earlier turn | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-broader-classroom-acceptance.md` | MDF 2.0 Broader Classroom Acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/mdf2-clarification-phase-boundary.md` | Keep Knowledge Clarification Within Its Authored Phase | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-coze-follow-up-context.md` | Deliver classroom context to Coze follow-ups | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/mdf2-feedback-branch-schema.md` | MDF 2.0 Feedback Branch Schema | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-follow-up-memory-writeback.md` | Admit and persist memory from completed follow-up answers | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-gevent-bridge-stability.md` | Keep concurrent gevent lesson streams responsive | `exec-plan-active` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/exec-plans/active/mdf2-historical-interaction-answers.md` | Restore historical MDF 2.0 interaction answers | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-interrupted-teaching-history.md` | Continue teaching after a failed model stream | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-native-usage-classification.md` | Keep native usage classification inside an application scope | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-preview-text-placeholder.md` | Restore authored text inputs in lesson previews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/mdf2-shared-element-format.md` | Reuse the 1.0 formatter for every 2.0 lesson mode | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-teaching-usage-attempt.md` | Attribute teaching usage to the actual learning attempt | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-unavailable-learner-values.md` | Unavailable Learner Values | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-volc-follow-up-context.md` | Volc Knowledge Follow-up Context | `exec-plan-active` | `active` | `learner` | `2026-10-09` | `true` |
@@ -79,6 +83,7 @@
 | `docs/exec-plans/active/operator-credit-deduction.md` | Operator Credit Deduction | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/pr-first-release-workflow.md` | PR-first product release workflow | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/preserve-independent-credit-validity.md` | Preserve Independent Credit Validity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/profile-onboarding-layout-oauth-gate.md` | Gate Profile on every course WeChat authorization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/progressive-html-typewriter.md` | Progressive HTML alongside typed lesson text | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -86,7 +91,9 @@
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/resumed-learner-nickname.md` | Refresh Nicknames in Existing Agent Lessons | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/simplify-typed-marker-cleanup.md` | Simplify typed MarkdownFlow marker cleanup | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/skill-request-analytics.md` | Account-linked Skill request pageviews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/stripe-refund-credit-reversal.md` | Stop Stripe Refund Credit Regrant | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/urdu-product-locale.md` | Urdu product locale | `exec-plan-active` | `active` | `cross-surface` | `2026-09-27` | `true` |
 | `docs/exec-plans/completed/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -115,6 +122,7 @@
 | `docs/exec-plans/completed/creator-dashboard-ratings-sql-optimization.md` | Creator Dashboard Ratings SQL Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/creator-dashboard-request-splitting.md` | Creator Dashboard Request Splitting | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/device-auth-skill-analytics.md` | Device Authorization Skill Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/editor-preview-language.md` | Keep editor previews in the selected language | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/elevenlabs-tts.md` | ElevenLabs TTS Provider | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/follow-up-classroom-history.md` | Preserve the classroom context of anchored follow-ups | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/follow-up-course-memory.md` | Explicit course memory in follow-up prompts | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
@@ -134,6 +142,7 @@
 | `docs/exec-plans/completed/learner-profile-foundation.md` | Learner Profile Foundation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/legacy-stripe-billing-timeout-recovery.md` | Recover legacy Stripe billing timeouts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/litellm-1-102-upgrade.md` | Upgrade LiteLLM to 1.102.0 and retire covered compatibility patches | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/litellm-1-106-upgrade.md` | Upgrade LiteLLM to 1.106.2 and assess redundant compatibility code | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/llm-provider-parameter-policies.md` | LiteLLM-First Minimum-Thinking Parameters | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdown-flow-agent-memory-migration.md` | Expose Learner Memory through a Typed Host Facade | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -163,9 +172,11 @@
 | `docs/exec-plans/completed/mdf2-natural-memory-follow-up.md` | Keep current memory distinct from old follow-up answers | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-natural-text-controls.md` | Keep natural-language text questions answerable | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-quality-usage-attribution.md` | Attribute synthetic quality evaluation usage to its selected course | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/mdf2-responsive-canvas.md` | Responsive canvases for newly generated MarkdownFlow 2.0 visuals | `exec-plan-completed` | `completed` | `learner` | `2026-10-20` | `false` |
 | `docs/exec-plans/completed/mdf2-teaching-semantic-summary.md` | Semantic summaries for older MarkdownFlow teaching | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mobile-personalization-dialog.md` | Mobile Learner Personalization Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/model-option-display-normalization.md` | Centralize model option display normalization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/multilingual-agent-lessons.md` | Respect the course output language in agent lessons | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/multilingual-subtitle-segmentation.md` | Multilingual Subtitle Segmentation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/notification-channel-foundation.md` | Notification Channel Foundation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/numbered-course-models.md` | Numbered course models | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -216,6 +227,7 @@
 | `docs/exec-plans/completed/tts-provider-capabilities.md` | TTS Provider Capabilities | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/umami-contract-remediation.md` | Remediate Cook Web Umami contracts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/umami-scope-correction.md` | Correct the Umami remediation scope | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/umami-user-exclusions.md` | Configurable Umami user exclusions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/unified-learner-profile-dialog.md` | Unified Learner Profile Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/unify-frontend-directories.md` | Unify Frontend Source Directories | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/unused-translation-cleanup.md` | Unused Translation Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -264,6 +276,7 @@
 | `docs/product-specs/outline-learning-permission-default.md` | Backend-owned outline learning permission default | `product-spec` | `implemented` | `shared` | `2026-10-11` | `true` |
 | `docs/product-specs/password-login-design.md` | Password Login Feature Design | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
 | `docs/product-specs/profile-onboarding-startup.md` | Profile onboarding startup | `product-spec` | `implemented` | `frontend` | `2026-10-13` | `true` |
+| `docs/product-specs/skill-usage-analytics.md` | Skill Usage Analytics | `product-spec` | `implemented` | `frontend-backend` | `2026-10-23` | `true` |
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-10` | `true` |
@@ -271,8 +284,8 @@
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
 | `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-08` | `true` |
-| `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-06` | `true` |
-| `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-08` | `true` |
+| `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
+| `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
 | `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
 | `docs/references/frontend-product-analytics.md` | Frontend Product Analytics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/gemini-live-follow-up.md` | Gemini Live follow-up implementation contract | `reference` | `reference` | `repo` | `-` | `true` |
@@ -292,6 +305,7 @@
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration | `reference` | `reference` | `repo` | `2026-09-27` | `true` |
 | `docs/references/scripts.md` | Scripts Overview | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/shared-course-answers.md` | Retired shared course answers | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
+| `docs/references/skill-usage-reporting.md` | Skill Usage Reporting | `reference` | `implemented` | `backend` | `2026-10-17` | `true` |
 | `scripts/AGENTS.md` | Repository Scripts Rules | `instruction` | `current` | `repo` | `-` | `true` |
 | `scripts/markdownflow-arena/README.md` | MarkdownFlow slide comparison | `reference` | `reference` | `repo` | `-` | `false` |
 | `scripts/markdownflow-arena/renderer/README.md` | MarkdownFlow arena renderer | `reference` | `reference` | `repo` | `-` | `false` |
