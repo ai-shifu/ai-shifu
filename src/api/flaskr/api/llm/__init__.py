@@ -19,6 +19,10 @@ import requests
 # outbound internet). Default to the bundled local map; deployments can still
 # override by exporting LITELLM_LOCAL_MODEL_COST_MAP=False before startup.
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+# litellm hands every completion's success logging to a process-wide pool that grows to
+# 100 threads and keeps them. No litellm callbacks are registered here, so a few threads
+# drain that work; 100 idle threads per Gunicorn worker only hold memory.
+os.environ.setdefault("LOGGING_EXECUTOR_MAX_THREADS", "4")
 
 import litellm
 from flask import Flask, current_app
