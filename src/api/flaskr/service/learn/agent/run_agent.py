@@ -1060,7 +1060,7 @@ def _stream_turn(
                         preview_question_ids=[p.tool_call_id for p in session.pending],
                     )
                 if not kept:
-                    return TurnOutcome(reason=None, taught=False)
+                    return TurnOutcome(reason=None, taught=False, discarded=True)
                 persisted = True
                 pending_memory = []
             if not event.text:
@@ -1266,11 +1266,12 @@ def _stream_turn(
         # synthesis already submitted carries on with nowhere to go.
         yield from voice.finish()
     session = session_holder.get("session")
+    discarded = False
     if not persisted and session is not None:
         if debug_store is not None:
             debug_store.save(session)
         else:
-            _persist(
+            discarded = not _persist(
                 app,
                 session,
                 memory=pending_memory,
@@ -1293,6 +1294,7 @@ def _stream_turn(
         reason=session_holder.get("reason"),
         taught=bool("".join(taught).strip()),
         error_code=error_code,
+        discarded=discarded,
     )
 
 
@@ -1302,12 +1304,13 @@ class TurnOutcome:
 
     `reason` is the engine's: "interaction" (waiting on the learner), "finished", "end" (out of
     content for this turn, the lesson not over), or None when the turn died. `taught` says whether
-    the turn put any text in front of the learner.
+    the turn put any text in front of the learner. `discarded` says a reset rejected its save.
     """
 
     reason: str | None
     taught: bool
     error_code: str | None = None
+    discarded: bool = False
 
 
 class _TurnDiscardedError(Exception):

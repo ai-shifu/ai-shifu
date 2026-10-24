@@ -606,6 +606,28 @@ def test_failed_engine_turn_surfaces_an_error_instead_of_ending_silently(
         )
 
 
+def test_failed_turn_a_reset_discarded_is_marked_for_the_stream(
+    app: object, monkeypatch: object
+) -> None:
+    runner = _entry_with_runner(monkeypatch)
+
+    def failed_turn(*_args: object, **_kwargs: object) -> object:
+        yield from ()
+        return TurnOutcome(reason=None, taught=False, discarded=True)
+
+    runner.side_effect = failed_turn
+    with pytest.raises(entry.DiscardedTurnError) as exc:
+        list(
+            entry.agent_lesson_events(
+                app,
+                user_bid="learner",
+                shifu_bid="course",
+                outline_bid="lesson",
+            )
+        )
+    assert exc.value.code == ERROR_CODE["server.common.unknownError"]
+
+
 def test_input_budget_failure_uses_localized_error_after_the_saved_turn(
     app: object,
     monkeypatch: object,

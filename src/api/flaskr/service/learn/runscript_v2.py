@@ -731,6 +731,7 @@ def _lesson_events(
     ):
         from flaskr.service.learn.agent.bridge import TurnCapacityError
         from flaskr.service.learn.agent.lesson_entry import (
+            DiscardedTurnError,
             LessonNotTeachable,
             agent_lesson_events,
             require_teachable_preview,
@@ -855,13 +856,16 @@ def _lesson_events(
                         terminal_done = payload
                     else:
                         yield payload
-            except AppError:
-                if element_adapter is not None:
+            except AppError as exc:
+                if element_adapter is not None and not isinstance(
+                    exc, DiscardedTurnError
+                ):
                     # A turn can fail after text was shown: a refused tool request, a provider
                     # error after output started, or an exhausted recovery. The engine keeps
                     # that text in its saved session and continues after it, so persist the
                     # buffered elements before surfacing the error, without sending DONE.
-                    # Errors raised before any output leave nothing pending.
+                    # Errors raised before any output leave nothing pending, and a turn a
+                    # concurrent reset discarded must leave nothing behind.
                     yield from element_adapter.finalize_pending_blocks()
                     _commit_pending_step()
                 raise
