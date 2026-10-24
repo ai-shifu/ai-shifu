@@ -34,7 +34,12 @@ readable on the same deferred resume and on later requests. The AI-Shifu host
 refreshes existing named-answer copies from the committed course snapshot, so an
 old lesson cannot shadow a newer answer from another lesson. Unanswered questions
 are never prefilled by this refresh. Deletion clears the accepted-answer copy;
-recreating the course key does not answer that old lesson's question again.
+recreating the course key does not answer that old lesson's question again, even
+with the same value. The session's `memory_generations` metadata records the
+deletion generations its memory already reflects, so only newer deletions are
+refreshed and an answer accepted after a deletion stays readable. Checkpoints
+carry this metadata; sessions and checkpoints without it refresh every key that
+was ever deleted.
 Session-only working notes and historical conversation are preserved.
 Acceptance is recorded with a SHA-256 fingerprint of the current answer copy,
 never inferred from a seeded session value. The optional `answer_hashes` session
