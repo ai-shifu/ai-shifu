@@ -896,10 +896,15 @@ def reset_learn_record(
             record.status != LEARN_STATUS_NOT_STARTED for record in progress_records
         )
         charged = limited and has_learning
-        # Two concurrent resets serialize on the row locks above; the second one then finds
-        # nothing live, counts as empty and spends nothing, so no extra lock is needed to keep
-        # the count exact.
-        if charged and count_lesson_resets(user_bid, shifu_bid, outline_bid) >= limit:
+        # Two concurrent resets serialize on the row locks above and the second usually finds
+        # nothing live. It can still see learning that started after the first one committed,
+        # so the admission count must be a locking read: a plain count would reuse this
+        # transaction's REPEATABLE READ snapshot and miss the row the first reset just wrote.
+        if (
+            charged
+            and count_lesson_resets(user_bid, shifu_bid, outline_bid, for_update=True)
+            >= limit
+        ):
             raise_error("server.learn.resetLimitReached")
         for progress_record in progress_records:
             progress_record.status = LEARN_STATUS_RESET

@@ -42,9 +42,12 @@ so a flush or eviction would silently hand every learner a fresh allowance.
 - PR #3091's exec plan records that Redis was chosen only because a schema
   change was refused at the time. That constraint no longer applies.
 - The reset path already takes `FOR UPDATE` on the live progress rows and the
-  live agent session. Two concurrent resets therefore serialize on those locks,
-  and the second finds nothing live and is treated as empty. No extra lock is
-  needed to keep the SQL count exact.
+  live agent session, so two concurrent resets serialize there. The second can
+  still observe learning that started after the first committed, and under
+  MySQL REPEATABLE READ a plain count would reuse the transaction's first
+  snapshot and miss the row the first reset wrote. The admission count is
+  therefore a locking read (`for_update=True`), which returns the latest
+  committed rows and serializes admissions for the same learner and lesson.
 - A learner reset used to discard both the published and the draft preview
   agent session (`preview_mode=None`). The reset now passes the explicit scope,
   so an author's preview survives a learner reset of the same lesson.

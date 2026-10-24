@@ -57,19 +57,28 @@ def normalize_reset_request_id(value: str | None) -> str | None:
     return hashlib.sha256(normalized.encode()).hexdigest()
 
 
-def count_lesson_resets(user_bid: str, shifu_bid: str, outline_bid: str) -> int:
-    """Count resets that consumed this learner's allowance for the lesson."""
-    return (
-        db.session.query(LearnLessonResetRecord.id)
-        .filter(
-            LearnLessonResetRecord.user_bid == user_bid,
-            LearnLessonResetRecord.shifu_bid == shifu_bid,
-            LearnLessonResetRecord.outline_item_bid == outline_bid,
-            LearnLessonResetRecord.counted == 1,
-            LearnLessonResetRecord.deleted == 0,
-        )
-        .count()
+def count_lesson_resets(
+    user_bid: str, shifu_bid: str, outline_bid: str, *, for_update: bool = False
+) -> int:
+    """Count resets that consumed this learner's allowance for the lesson.
+
+    ``for_update`` makes the count a locking read. Under MySQL REPEATABLE READ a plain
+    count reuses the transaction's first snapshot and can miss a counted row another
+    reset committed meanwhile; a locking read returns the latest committed rows and
+    holds next-key locks on the scope index, so concurrent admissions for the same
+    learner and lesson serialize on it. The rows are at most the limit, so loading
+    them is cheap. Advisory readers keep the plain count.
+    """
+    query = db.session.query(LearnLessonResetRecord.id).filter(
+        LearnLessonResetRecord.user_bid == user_bid,
+        LearnLessonResetRecord.shifu_bid == shifu_bid,
+        LearnLessonResetRecord.outline_item_bid == outline_bid,
+        LearnLessonResetRecord.counted == 1,
+        LearnLessonResetRecord.deleted == 0,
     )
+    if for_update:
+        return len(query.with_for_update().all())
+    return query.count()
 
 
 def find_reset_receipt(
