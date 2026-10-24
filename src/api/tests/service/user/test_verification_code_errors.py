@@ -35,3 +35,25 @@ def test_consume_verification_code_rejects_empty_normalized_phone_as_param_error
 
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
     assert "identifier" in exc_info.value.message
+
+
+def test_explicit_email_kind_cannot_consume_an_sms_challenge(app: object) -> None:
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    identifier = "13800138000"
+    code = "2468"
+    sms_key = app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + identifier
+    fake_redis = FakeRedis()
+    fake_redis.set(sms_key, code)
+
+    with app.app_context(), pytest.raises(AppError) as exc_info:
+        consume_verification_code(
+            app,
+            identifier=identifier,
+            code=code,
+            kind="email",
+            cache_provider=fake_redis,
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.user.mailSendExpired"]
+    assert fake_redis.get(sms_key) == code.encode()

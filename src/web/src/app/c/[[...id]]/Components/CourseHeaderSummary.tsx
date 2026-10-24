@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
-import { useCourseStore } from '@/c-store';
+import { useCourseStore } from '@/store';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 
 interface CourseHeaderSummaryProps {
@@ -10,6 +10,7 @@ interface CourseHeaderSummaryProps {
   className?: string;
   avatarClassName?: string;
   titleClassName?: string;
+  titleLanguage?: string;
 }
 
 export const CourseHeaderSummary = ({
@@ -18,6 +19,7 @@ export const CourseHeaderSummary = ({
   className,
   avatarClassName,
   titleClassName,
+  titleLanguage,
 }: CourseHeaderSummaryProps) => {
   const { storedCourseAvatar, storedCourseName } = useCourseStore(
     useShallow(state => ({
@@ -44,6 +46,7 @@ export const CourseHeaderSummary = ({
           titleClassName,
         )}
         title={title}
+        lang={titleLanguage}
       >
         {title}
       </span>

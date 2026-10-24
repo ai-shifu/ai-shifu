@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from flask import Flask, request
 from flaskr.common.config import get_config
+from flaskr.common.http import sensitive_body
 from flaskr.route.admin_profile_onboarding import (
     register_operator_profile_onboarding_routes,
 )
@@ -50,6 +51,8 @@ from flaskr.service.referral.api import (
     update_operator_referral_status,
 )
 from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserContactChangeRequestDTO,
+    AdminOperationUserCreditDeductionRequestDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserPackageGrantRequestDTO,
 )
@@ -72,19 +75,24 @@ from flaskr.service.shifu.admin_operations.courses import (
     get_operator_course_users,
     list_operator_courses,
     transfer_operator_course_creator,
+    transfer_operator_published_courses,
 )
 from flaskr.service.shifu.admin_operations.credit_notifications import (
     dry_run_operator_credit_notifications,
     get_operator_credit_notification_config,
     get_operator_credit_notification_detail,
     get_operator_credit_notification_overview,
+    list_operator_credit_notification_email_templates,
     list_operator_credit_notification_templates,
     list_operator_credit_notifications,
     requeue_operator_credit_notification,
+    save_operator_credit_notification_email_template,
     sync_operator_credit_notification_template,
     update_operator_credit_notification_config,
+    update_operator_credit_notification_email_template_status,
 )
 from flaskr.service.shifu.admin_operations.user_credits import (
+    deduct_operator_user_credits,
     get_operator_user_credit_usage_detail,
     get_operator_user_credits,
     get_operator_user_grant_bootstrap,
@@ -104,13 +112,26 @@ from flaskr.service.shifu.admin_operations.voice_clones import (
     list_operator_voice_clones,
     register_operator_voice_clone,
 )
+from flaskr.service.user.api import (
+    cancel_account_subscription_renewals,
+    change_operator_user_contact,
+    get_account_cancellation_preview,
+    get_account_cancellation_status,
+    request_user_account_cancellation,
+)
 from flaskr.util.datetime import parse_naive_utc
 from pydantic import ValidationError
 
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
-OPERATOR_USER_STATUS_VALUES = {"unregistered", "registered", "trial", "paid"}
+OPERATOR_USER_STATUS_VALUES = {
+    "unregistered",
+    "registered",
+    "trial",
+    "paid",
+    "cancelled",
+}
 OPERATOR_USER_ROLE_VALUES = {"operator", "creator", "learner", "regular"}
 PROMOTION_COUPON_STATUS_VALUES = {"inactive", "not_started", "active", "expired"}
 PROMOTION_CAMPAIGN_STATUS_VALUES = {"inactive", "not_started", "active", "ended"}
@@ -1069,6 +1090,79 @@ def register_admin_operations_routes(
         return make_common_response(list_operator_credit_notification_templates(app))
 
     @app.route(
+        path_prefix + "/admin/operations/credit-notifications/email-templates",
+        methods=["GET"],
+    )
+    def admin_operation_credit_notification_email_templates() -> str:
+        """List operator-managed notification email templates."""
+        _require_operator()
+        return make_common_response(
+            list_operator_credit_notification_email_templates(app)
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/credit-notifications/email-templates",
+        methods=["POST"],
+    )
+    def admin_operation_create_credit_notification_email_template() -> str:
+        """Create an operator-managed notification email template."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_email_template")
+        return make_common_response(
+            save_operator_credit_notification_email_template(
+                app,
+                payload=payload,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/credit-notifications/email-templates/<notification_template_bid>",
+        methods=["PUT"],
+    )
+    def admin_operation_update_credit_notification_email_template(
+        notification_template_bid: str,
+    ) -> str:
+        """Update an operator-managed notification email template."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_email_template")
+        return make_common_response(
+            save_operator_credit_notification_email_template(
+                app,
+                payload=payload,
+                notification_template_bid=notification_template_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/credit-notifications/email-templates/<notification_template_bid>/status",
+        methods=["PUT"],
+    )
+    def admin_operation_update_credit_notification_email_template_status(
+        notification_template_bid: str,
+    ) -> str:
+        """Update one operator-managed notification email template's availability."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("credit_notification_email_template_status")
+        return make_common_response(
+            update_operator_credit_notification_email_template_status(
+                app,
+                notification_template_bid=notification_template_bid,
+                template_status=str(payload.get("template_status") or ""),
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
         path_prefix + "/admin/operations/credit-notifications/dry-run",
         methods=["POST"],
     )
@@ -1951,6 +2045,138 @@ def register_admin_operations_routes(
         return make_common_response(get_operator_user_detail(app, user_bid))
 
     @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/contact",
+        methods=["POST"],
+    )
+    @sensitive_body(max_bytes=4096)
+    def admin_operation_user_contact_change(user_bid: str) -> str:
+        """Replace an operator-managed user's configured login contact."""
+        _require_operator()
+        try:
+            payload = AdminOperationUserContactChangeRequestDTO.model_validate(
+                request.get_json(silent=True) or {}
+            )
+        except ValidationError:
+            raise_param_error("contact_change_payload")
+        return make_common_response(
+            change_operator_user_contact(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                contact_type=payload.contact_type,
+                new_identifier=payload.identifier,
+                reason=payload.reason,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/cancellation-preview",
+        methods=["GET"],
+    )
+    def admin_operation_user_cancellation_preview(user_bid: str) -> str:
+        """Preview blockers and warnings for operator account cancellation."""
+        _require_operator()
+        operator_user_bid = str(getattr(request.user, "user_id", "") or "")
+        return make_common_response(
+            get_account_cancellation_preview(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=operator_user_bid,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/transfer-published-courses",
+        methods=["POST"],
+    )
+    def admin_operation_user_transfer_published_courses(user_bid: str) -> str:
+        """Transfer every published course before cancelling its owner."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        contact_type = _normalize_contact_type(payload.get("contact_type", ""))
+        allowed_methods = _get_login_methods_enabled()
+        if contact_type not in {"phone", "email"}:
+            raise_param_error("contact_type")
+        if allowed_methods and contact_type not in allowed_methods:
+            raise_param_error("contact_type")
+        identifiers = _validate_contacts(
+            contact_type,
+            _normalize_contacts(payload.get("identifier", "")),
+        )
+        if len(identifiers) != 1:
+            raise_param_error("contact")
+        return make_common_response(
+            transfer_operator_published_courses(
+                app,
+                previous_creator_user_bid=user_bid,
+                contact_type=contact_type,
+                identifier=identifiers[0],
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/cancel-subscription-renewals",
+        methods=["POST"],
+    )
+    def admin_operation_user_cancel_subscription_renewals(user_bid: str) -> str:
+        """Cancel future renewals before final account cancellation."""
+        _require_operator()
+        return make_common_response(
+            cancel_account_subscription_renewals(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/cancel",
+        methods=["POST"],
+    )
+    def admin_operation_user_cancel(user_bid: str) -> str:
+        """Cancel and de-identify one user account."""
+        _require_operator()
+        payload = request.get_json(silent=True) or {}
+        if not isinstance(payload, dict):
+            raise_param_error("payload")
+        return make_common_response(
+            request_user_account_cancellation(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                cancellation_bid=str(payload.get("cancellation_bid", "") or ""),
+                idempotency_key=str(
+                    payload.get("idempotency_key")
+                    or payload.get("cancellation_bid")
+                    or ""
+                ),
+                preview_version=str(payload.get("preview_version", "") or ""),
+                reason=str(payload.get("reason", "") or ""),
+            )
+        )
+
+    @app.route(
+        path_prefix
+        + "/admin/operations/users/<user_bid>/cancellations/<cancellation_bid>",
+        methods=["GET"],
+    )
+    def admin_operation_user_cancellation_status(
+        user_bid: str, cancellation_bid: str
+    ) -> str:
+        """Return the durable account-cancellation task state."""
+        _require_operator()
+        return make_common_response(
+            get_account_cancellation_status(
+                app,
+                user_bid=user_bid,
+                cancellation_bid=cancellation_bid,
+            )
+        )
+
+    @app.route(
         path_prefix + "/admin/operations/users/<user_bid>/credits", methods=["GET"]
     )
     def admin_operation_user_credits(user_bid: str) -> str:
@@ -2154,6 +2380,29 @@ def register_admin_operations_routes(
             raise_param_error("credits_grant_payload")
         return make_common_response(
             grant_operator_user_credits(
+                app,
+                user_bid=user_bid,
+                operator_user_bid=str(getattr(request.user, "user_id", "") or ""),
+                payload=payload,
+            )
+        )
+
+    @app.route(
+        path_prefix + "/admin/operations/users/<user_bid>/credits/deduct",
+        methods=["POST"],
+    )
+    def admin_operation_user_credit_deduct(user_bid: str) -> str:
+        """Deduct operator user credits with paid credits first."""
+        _require_operator()
+        payload_data = request.get_json(silent=True) or {}
+        try:
+            payload = AdminOperationUserCreditDeductionRequestDTO.model_validate(
+                payload_data
+            )
+        except ValidationError:
+            raise_param_error("credits_deduction_payload")
+        return make_common_response(
+            deduct_operator_user_credits(
                 app,
                 user_bid=user_bid,
                 operator_user_bid=str(getattr(request.user, "user_id", "") or ""),

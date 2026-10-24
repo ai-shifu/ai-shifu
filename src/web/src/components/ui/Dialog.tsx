@@ -5,7 +5,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 import { cn } from '@/lib/utils';
 
 const Dialog = DialogPrimitive.Root;
@@ -49,6 +49,7 @@ const DialogContent = React.forwardRef<
     container?: DialogPortalContainer;
     overlayClassName?: string;
     showClose?: boolean;
+    closeOnOutsideClick?: boolean;
   }
 >(({ overlayClassName, ...contentProps }, ref) => {
   const {
@@ -56,6 +57,7 @@ const DialogContent = React.forwardRef<
     children,
     container,
     showClose = true,
+    closeOnOutsideClick = false,
     ...props
   } = contentProps;
   const [resolvedContainer, setResolvedContainer] =
@@ -102,6 +104,12 @@ const DialogContent = React.forwardRef<
           className,
         )}
         {...props}
+        onPointerDownOutside={event => {
+          props.onPointerDownOutside?.(event);
+          if (!closeOnOutsideClick) {
+            event.preventDefault();
+          }
+        }}
       >
         {children}
         {showClose ? (

@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 import pytest
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
     PROFILE_ONBOARDING_STATE_VERSION,
@@ -31,7 +32,6 @@ from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     create_user_entity,
     load_user_aggregate,
-    transactional_session,
     upsert_credential,
 )
 from sqlalchemy.orm.attributes import set_committed_value
@@ -50,6 +50,28 @@ class _FakeRedis:
 
     def delete(self, *_keys: str) -> None:
         return None
+
+    def lock(self, *_args: object, **_kwargs: object) -> _FakeRedisLock:
+        return _FakeRedisLock()
+
+
+class _FakeRedisLock:
+    def acquire(self, *_args: object, **_kwargs: object) -> bool:
+        return True
+
+    def release(self) -> None:
+        return None
+
+    def extend(self, *_args: object, **_kwargs: object) -> bool:
+        return True
+
+
+def _use_verification_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    from flaskr.service.user import verification_codes
+
+    cache = _FakeRedis()
+    monkeypatch.setattr(verification_codes, "redis", cache)
+    monkeypatch.setattr(verification_codes, "distributed_lock_cache", cache)
 
 
 class _FakeGoogleResponse:
@@ -154,7 +176,7 @@ def test_merge_helper_transfers_profile_and_handled_state(
         )
         db.session.commit()
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -200,7 +222,7 @@ def test_merge_helper_preserves_target_profile_and_state(app: object) -> None:
         _add_state(target.user_bid, status="skipped", trigger_source="settings")
         db.session.commit()
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -238,7 +260,7 @@ def test_merge_helper_replaces_account_identifier_fallback_with_guest_nickname(
         _add_state(source.user_bid, status="completed")
         db.session.commit()
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -269,7 +291,7 @@ def test_merge_helper_keeps_target_identifier_fallback_without_guest_nickname(
         _add_state(source.user_bid, status="completed")
         db.session.commit()
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -302,7 +324,7 @@ def test_merge_helper_does_not_restore_a_profile_the_target_cleared(
         _add_state(target.user_bid, status="completed", trigger_source="settings")
         db.session.commit()
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -338,7 +360,7 @@ def test_merge_helper_never_copies_from_a_source_with_account_identifier(
         _add_state(source.user_bid, status="completed", trigger_source="settings")
         db.session.commit()
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -371,7 +393,7 @@ def test_merge_helper_never_copies_from_non_guest_random_identifier(
         _add_state(source.user_bid, status="completed", trigger_source="settings")
         db.session.commit()
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -398,7 +420,7 @@ def test_merge_helper_allows_numeric_uuid_guest_identifier(app: object) -> None:
         _add_state(source.user_bid, status="completed", trigger_source="settings")
         db.session.commit()
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -440,7 +462,7 @@ def test_merge_helper_allows_unregistered_guest_with_wechat_credential(
         _add_state(source.user_bid, status="completed", trigger_source="settings")
         db.session.commit()
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -496,7 +518,7 @@ def test_merge_helper_allows_unregistered_guest_with_unverified_account_credenti
         assert stored_source.state == USER_STATE_UNREGISTERED
         assert stored_source.user_identify == source.user_identify
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -557,7 +579,7 @@ def test_merge_helper_rejects_unregistered_source_with_verified_account_credenti
         assert stored_source.state == USER_STATE_UNREGISTERED
         assert stored_source.user_identify == source.user_identify
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -586,7 +608,7 @@ def test_merge_helper_rolls_back_with_sign_in_transaction(app: object) -> None:
         db.session.commit()
 
         def merge_then_fail() -> None:
-            with transactional_session():
+            with unit_of_work():
                 merge_learner_profile_for_sign_in(
                     source_user_id=source.user_bid,
                     target_user_id=target.user_bid,
@@ -645,7 +667,7 @@ def test_merge_helper_locks_target_then_source_profile_snapshots(
             return original_first(query)
 
         monkeypatch.setattr(query_type, "first", track_first)
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source.user_bid,
                 target_user_id=target.user_bid,
@@ -687,7 +709,7 @@ def test_merge_helper_refreshes_a_stale_source_identity_map(app: object) -> None
             "可以叫我旧名字。stale identity-map profile",
         )
 
-        with transactional_session():
+        with unit_of_work():
             merge_learner_profile_for_sign_in(
                 source_user_id=source_user_id,
                 target_user_id=target_user_id,
@@ -708,7 +730,7 @@ def test_phone_sign_in_merges_profile_without_course_id(
     from flaskr.service.user import phone_flow
 
     caplog.set_level(logging.INFO)
-    monkeypatch.setattr(phone_flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(phone_flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(
@@ -758,7 +780,7 @@ def test_email_sign_in_transfers_cleared_state_without_course_id(
 ) -> None:
     from flaskr.service.user import email_flow
 
-    monkeypatch.setattr(email_flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(email_flow, "init_first_course", lambda *_args: False)
     with app.app_context():
@@ -793,7 +815,7 @@ def test_legacy_profile_migration_preserves_target_nickname(
     from flaskr.service.user import email_flow, phone_flow
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
-    monkeypatch.setattr(flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
@@ -854,7 +876,7 @@ def test_sign_in_generic_label_migration_ignores_historical_background(
     from flaskr.service.user import email_flow, phone_flow
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
-    monkeypatch.setattr(flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)
@@ -927,7 +949,7 @@ def test_legacy_profile_migration_transfers_guest_nickname_when_target_has_none(
     from flaskr.service.user import email_flow, phone_flow
 
     flow = phone_flow if sign_in_method == "phone" else email_flow
-    monkeypatch.setattr(flow, "redis", _FakeRedis())
+    _use_verification_cache(monkeypatch)
     app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
     monkeypatch.setattr(flow, "init_first_course", lambda *_args: False)
     monkeypatch.setattr(flow, "migrate_user_study_record", lambda *_args: None)

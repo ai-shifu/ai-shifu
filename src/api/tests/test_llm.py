@@ -20,7 +20,12 @@ def _install_litellm_stub() -> None:
         return
 
     litellm_stub = types.ModuleType("litellm")
+    litellm_stub.__path__ = []
     litellm_stub.model_cost = {}
+    litellm_types_stub = types.ModuleType("litellm.types")
+    litellm_types_stub.__path__ = []
+    litellm_utils_stub = types.ModuleType("litellm.types.utils")
+    litellm_utils_stub.ModelResponseStream = type("ModelResponseStream", (), {})
 
     def register_model(model_map: object) -> None:
         litellm_stub.model_cost.update(model_map)
@@ -33,8 +38,11 @@ def _install_litellm_stub() -> None:
     litellm_stub.register_model = register_model
     litellm_stub.get_max_tokens = lambda _model: 4096
     litellm_stub.get_model_info = get_model_info
+    litellm_stub.get_supported_openai_params = lambda **_kwargs: []
     litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
+    sys.modules["litellm.types"] = litellm_types_stub
+    sys.modules["litellm.types.utils"] = litellm_utils_stub
 
 
 def _install_openai_responses_stub() -> None:
@@ -92,7 +100,9 @@ _install_litellm_stub()
 _install_openai_responses_stub()
 
 from flaskr.api import llm
+from flaskr.api.llm import model_selection
 from flaskr.dao import db
+from flaskr.route import model_gateway_runtime as gateway_runtime
 from flaskr.service.billing.consts import (
     BILLING_METRIC_LLM_CACHE_TOKENS,
     BILLING_METRIC_LLM_INPUT_TOKENS,
@@ -102,6 +112,7 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.models import CreditUsageRate
 from flaskr.service.common import credit_rate_references
+from flaskr.service.common.models import AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
@@ -145,12 +156,14 @@ class FakeResponse:
         finish_reason: object = None,
         usage: object = None,
         reasoning_content: object = None,
+        tool_calls: object = None,
     ) -> None:
-        """Capture streamed content, finish state, reasoning, and usage."""
+        """Capture streamed content, finish state, reasoning, tool calls, and usage."""
         self.id = chunk_id
         delta = SimpleNamespace(
             content=content,
             reasoning_content=reasoning_content,
+            tool_calls=tool_calls,
         )
         self.choices = [SimpleNamespace(delta=delta, finish_reason=finish_reason)]
         self.usage = usage
@@ -167,6 +180,18 @@ class FakeModelsResponse:
         return None
 
     def json(self) -> object:
+        return self.payload
+
+
+class FakeOpenAIResponse:
+    """Simulate one serializable OpenAI-compatible response or chunk."""
+
+    def __init__(self, payload: dict[str, object], usage: object = None) -> None:
+        """Store one serialized payload and its optional usage object."""
+        self.payload = payload
+        self.usage = usage
+
+    def model_dump(self, **_kwargs: object) -> dict[str, object]:
         return self.payload
 
 
@@ -236,13 +261,20 @@ def _configure_model_list(monkeypatch: object) -> None:
         },
     )
     config = {
-        "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
         "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "0.066667",
-        "LLM_ALLOWED_MODELS": ",".join(available_models),
-        "LLM_ALLOWED_MODEL_DISPLAY_NAMES": (
-            "DeepSeek-V4-Flash,Doubao-Seed-2.0-lite,No Rate"
-        ),
+        **{
+            f"LLM_MODEL_{index}_ID": model
+            for index, model in enumerate(available_models, 1)
+        },
+        "LLM_MODEL_1_NAME": "DeepSeek-V4-Flash",
+        "LLM_MODEL_2_NAME": "Doubao-Seed-2.0-lite",
+        "LLM_MODEL_3_NAME": "No Rate",
     }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
     monkeypatch.setattr(
         llm, "get_config", lambda key, default=None: config.get(key, default)
     )
@@ -383,11 +415,16 @@ def test_get_current_models_hides_multiplier_when_credit_1x_anchor_missing(
 ) -> None:
     _configure_model_list(monkeypatch)
     missing_anchor_config = {
-        "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
-        "LLM_ALLOWED_MODELS": (
-            "qwen/deepseek-v4-flash,ark/doubao-seed-2-0-lite-260428"
-        ),
+        "LLM_MODEL_1_NAME": "Default",
+        "LLM_MODEL_1_ID": "qwen/deepseek-v4-flash",
+        "LLM_MODEL_2_NAME": "Second",
+        "LLM_MODEL_2_ID": "ark/doubao-seed-2-0-lite-260428",
     }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: missing_anchor_config.get(key, default),
+    )
     monkeypatch.setattr(
         llm,
         "get_config",
@@ -503,6 +540,383 @@ def test_deepseek_model_loader_falls_back_when_list_models_fails(
     assert models == llm.DEEPSEEK_FALLBACK_MODELS
 
 
+def test_gemini_model_loader_discovers_text_and_bidi_capabilities(
+    monkeypatch: object,
+) -> None:
+    def fake_get(*args: object, **kwargs: object) -> object:
+        _ = args, kwargs
+        return FakeModelsResponse(
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-3.7-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemini-3.8-live",
+                        "supportedGenerationMethods": ["bidiGenerateContent"],
+                    },
+                    {
+                        "name": "models/text-embedding-005",
+                        "supportedGenerationMethods": ["embedContent"],
+                    },
+                ]
+            }
+        )
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+    )
+
+    models = llm._load_gemini_models(
+        config,
+        {"api_key": "test-key"},
+        None,
+    )
+
+    assert models == [
+        "gemini-3.7-flash",
+        "gemini-3.8-live",
+    ]
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.7-flash"] == {
+        "generateContent"
+    }
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.8-live"] == {
+        "bidiGenerateContent"
+    }
+
+
+def test_gemini_model_loader_discovers_capabilities_on_later_pages(
+    monkeypatch: object,
+) -> None:
+    requests_seen: list[dict[str, object]] = []
+
+    def fake_get(
+        _url: str,
+        *,
+        params: dict[str, object],
+        timeout: int,
+    ) -> object:
+        requests_seen.append({"params": dict(params), "timeout": timeout})
+        if params.get("pageToken") == "second-page":
+            return FakeModelsResponse(
+                {
+                    "models": [
+                        {
+                            "name": "models/gemini-3.8-live",
+                            "supportedGenerationMethods": ["bidiGenerateContent"],
+                        }
+                    ]
+                }
+            )
+        return FakeModelsResponse(
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-3.7-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    }
+                ],
+                "nextPageToken": "second-page",
+            }
+        )
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+    )
+
+    models = llm._load_gemini_models(config, {"api_key": "test-key"}, None)
+
+    assert models == [
+        "gemini-3.7-flash",
+        "gemini-3.8-live",
+    ]
+    assert requests_seen == [
+        {"params": {"key": "test-key", "pageSize": 1000}, "timeout": 20},
+        {
+            "params": {
+                "key": "test-key",
+                "pageSize": 1000,
+                "pageToken": "second-page",
+            },
+            "timeout": 20,
+        },
+    ]
+
+
+@pytest.mark.parametrize(
+    ("base_url", "expected_url"),
+    [
+        (
+            "https://generativelanguage.googleapis.com/v1beta/",
+            "https://generativelanguage.googleapis.com/v1beta/models",
+        ),
+        (
+            "https://gemini-proxy.example.com/gateway/v1beta",
+            "https://gemini-proxy.example.com/gateway/v1beta/models",
+        ),
+        (
+            "https://gemini-proxy.example.com/gateway/v1beta/",
+            "https://gemini-proxy.example.com/gateway/v1beta/models",
+        ),
+        (
+            "https://gemini-proxy.example.com/gateway/",
+            "https://gemini-proxy.example.com/gateway/v1beta/models",
+        ),
+    ],
+)
+@pytest.mark.parametrize("openai_probe_fails", [True, False])
+def test_gemini_native_proxy_preserves_version_prefix_and_capabilities(
+    monkeypatch: pytest.MonkeyPatch,
+    base_url: str,
+    expected_url: str,
+    openai_probe_fails: bool,
+) -> None:
+    native_requests: list[str] = []
+    live_model = "gemini-3.8-live"
+
+    def fake_get(url: str, **kwargs: object) -> object:
+        if "headers" in kwargs and openai_probe_fails:
+            message = "OpenAI authentication unsupported"
+            raise RuntimeError(message)
+        if "params" in kwargs:
+            native_requests.append(url)
+            assert kwargs["params"] == {"key": "test-key", "pageSize": 1000}
+        return FakeModelsResponse(
+            {
+                "models": [
+                    {
+                        "name": "models/gemini-3.7-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": f"models/{live_model}",
+                        "supportedGenerationMethods": ["bidiGenerateContent"],
+                    },
+                ]
+            }
+        )
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
+    )
+    assert llm._load_gemini_models(config, {"api_key": "test-key"}, base_url) == [
+        "gemini-3.7-flash",
+        live_model,
+    ]
+    assert native_requests == [expected_url]
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS[live_model] == {"bidiGenerateContent"}
+    assert llm.MODEL_SUPPORTED_GENERATION_METHODS["gemini-3.7-flash"] == {
+        "generateContent"
+    }
+
+
+def test_gemini_openai_proxy_preserves_text_discovery_without_native_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests_seen: list[str] = []
+
+    def fake_get(url: str, **kwargs: object) -> object:
+        requests_seen.append(url)
+        assert kwargs["headers"] == {
+            "Authorization": "Bearer test-key",
+            "Content-Type": "application/json",
+        }
+        return FakeModelsResponse({"data": [{"id": "gemini-3.7-flash"}]})
+
+    monkeypatch.setattr(llm.requests, "get", fake_get)
+    config = llm.ProviderConfig(
+        key="gemini", api_key_env="GEMINI_API_KEY", base_url_env="GEMINI_API_URL"
+    )
+    assert llm._load_gemini_models(
+        config, {"api_key": "test-key"}, "https://gemini-proxy.example.com/v1"
+    ) == ["gemini-3.7-flash"]
+    assert requests_seen == ["https://gemini-proxy.example.com/v1/models"]
+    assert "gemini-3.7-flash" not in llm.MODEL_SUPPORTED_GENERATION_METHODS
+
+
+def test_gemini_model_loader_never_logs_api_key_from_request_errors(
+    monkeypatch: object,
+) -> None:
+    secret = "gemini-super-secret"
+    warnings: list[str] = []
+
+    def raise_request_error(*_args: object, **_kwargs: object) -> object:
+        message = f"timeout at https://example.invalid/models?key={secret}"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(llm.requests, "get", raise_request_error)
+    monkeypatch.setattr(llm, "_log_warning", warnings.append)
+    config = llm.ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+    )
+
+    assert llm._load_gemini_models(config, {"api_key": secret}, None) == []
+    assert warnings == ["load gemini models failed"]
+    assert secret not in "".join(warnings)
+
+
+def test_gemini_compatible_proxy_clears_stale_capability_metadata(
+    monkeypatch: object,
+) -> None:
+    proxy_model = "proxy-model-without-capability-metadata"
+    monkeypatch.setattr(
+        llm,
+        "MODEL_SUPPORTED_GENERATION_METHODS",
+        {proxy_model: frozenset({"bidiGenerateContent"})},
+    )
+    monkeypatch.setattr(
+        llm,
+        "_GEMINI_CAPABILITY_DISCOVERED_MODELS",
+        {proxy_model},
+    )
+    monkeypatch.setattr(
+        llm,
+        "_fetch_provider_models",
+        lambda *_args, **_kwargs: [proxy_model],
+    )
+    config = llm.ProviderConfig(
+        key="gemini",
+        api_key_env="GEMINI_API_KEY",
+        base_url_env="GEMINI_API_URL",
+    )
+
+    models = llm._load_gemini_models(
+        config,
+        {"api_key": "test-key"},
+        "https://gemini-proxy.example.com/v1",
+    )
+
+    assert models == [proxy_model]
+    assert proxy_model not in llm.MODEL_SUPPORTED_GENERATION_METHODS
+
+
+@pytest.mark.parametrize(
+    "other_bidi_only_model",
+    [
+        "gemini-future-bidi-preview",
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ],
+)
+def test_follow_up_model_catalog_keeps_live_out_of_main_picker(
+    monkeypatch: object,
+    other_bidi_only_model: str,
+) -> None:
+    live_model = "gemini-3.8-live"
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "gemini": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test-key"},
+                models=[
+                    "gemini-3.7-flash",
+                    live_model,
+                    other_bidi_only_model,
+                    "openai-compatible-without-capabilities",
+                ],
+            )
+        },
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_SUPPORTED_GENERATION_METHODS",
+        {
+            "gemini-3.7-flash": frozenset({"generateContent"}),
+            live_model: frozenset({"bidiGenerateContent"}),
+            other_bidi_only_model: frozenset({"bidiGenerateContent"}),
+        },
+    )
+    config = {
+        "LLM_MODEL_1_NAME": "First",
+        "LLM_MODEL_1_ID": "gemini-3.7-flash",
+        "LLM_MODEL_3_NAME": "Third",
+        "LLM_MODEL_3_ID": "openai-compatible-without-capabilities",
+    }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda model: ({"api_key": "test-key"}, model, "gemini"),
+    )
+    monkeypatch.setattr(
+        llm, "_attach_credit_multipliers", lambda _app, options: options
+    )
+
+    monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: False)
+    assert [item["model"] for item in llm.get_current_models(object())] == [
+        "gemini-3.7-flash",
+        "openai-compatible-without-capabilities",
+    ]
+    assert [item["model"] for item in llm.get_follow_up_models(object())] == ["1", "3"]
+
+    monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
+    follow_up_models = llm.get_follow_up_models(object())
+    assert [item["model"] for item in follow_up_models] == ["1", "3", live_model]
+    assert follow_up_models[0]["interaction_mode"] == "text"
+    assert follow_up_models[0]["allowed_roles"] == ["main", "follow_up"]
+    assert follow_up_models[0]["billing_mode"] == "billable"
+    assert follow_up_models[2]["interaction_mode"] == "live_voice"
+    assert follow_up_models[2]["display_name"] == "Gemini Live"
+    assert follow_up_models[2]["allowed_roles"] == ["follow_up"]
+    assert follow_up_models[2]["billing_mode"] == "free_preview"
+    assert len(follow_up_models[2]["voices"]) == 30
+    assert {voice["voice_id"] for voice in follow_up_models[2]["voices"]} >= {
+        "Kore",
+        "Puck",
+    }
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gemini-3.8-live",
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ],
+)
+@pytest.mark.parametrize("capabilities_discovered", [False, True])
+def test_known_live_only_models_never_enter_text_catalogs(
+    monkeypatch: pytest.MonkeyPatch, model: str, capabilities_discovered: bool
+) -> None:
+    monkeypatch.setattr(llm, "is_gemini_live_enabled", lambda: True)
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {"gemini": llm.ProviderState(enabled=True, params={}, models=[model])},
+    )
+    monkeypatch.setattr(
+        llm,
+        "MODEL_SUPPORTED_GENERATION_METHODS",
+        {model: frozenset({"bidiGenerateContent"})} if capabilities_discovered else {},
+    )
+    monkeypatch.setattr(
+        model_selection, "get_config", lambda _key, default=None: default
+    )
+
+    available = model == "gemini-3.8-live" and capabilities_discovered
+    assert llm.get_current_models(object()) == []
+    assert llm.is_live_follow_up_model_available(model) is available
+    assert [item["model"] for item in llm.get_follow_up_models(object())] == (
+        [model] if available else []
+    )
+
+
 def test_qwen_prefixed_model_routes_without_fetched_alias(
     monkeypatch: object, app: object
 ) -> None:
@@ -565,6 +979,7 @@ def test_load_and_register_model_max_output_tokens(monkeypatch: object) -> None:
     configured = {
         "qwen/deepseek-v4-flash": 393216,
         "ark/doubao-seed-2-0-lite-260428": 131072,
+        "gpt-6-sol": 65536,
     }
     captured = {}
 
@@ -588,12 +1003,14 @@ def test_load_and_register_model_max_output_tokens(monkeypatch: object) -> None:
     assert captured == {
         "qwen/deepseek-v4-flash": {"max_output_tokens": 393216},
         "ark/doubao-seed-2-0-lite-260428": {"max_output_tokens": 131072},
+        "gpt-6-sol": {"max_output_tokens": 65536},
     }
 
 
 def test_load_model_max_output_tokens_ignores_invalid_config(
     monkeypatch: object,
 ) -> None:
+    captured = {}
     monkeypatch.setattr(
         llm,
         "get_config",
@@ -604,11 +1021,12 @@ def test_load_model_max_output_tokens_ignores_invalid_config(
     monkeypatch.setattr(
         llm.litellm,
         "register_model",
-        lambda _model_map: pytest.fail("invalid limits must not be registered"),
+        captured.update,
         raising=False,
     )
 
     assert llm._load_and_register_model_max_output_tokens() == {}
+    assert captured == {}
 
 
 def test_stream_litellm_completion_falls_back_to_litellm_limit(
@@ -954,7 +1372,7 @@ def test_zai_patch_keeps_thinking_in_extra_body(monkeypatch: object) -> None:
     )
     assert {
         model_id
-        for provider, model_id in llm._LITELLM_198_COMPATIBILITY_PATCHES
+        for provider, model_id in llm._LITELLM_1106_COMPATIBILITY_PATCHES
         if provider == "glm" and model_id is not None
     } == {model_id.casefold() for model_id in patched_model_ids}
 
@@ -1038,7 +1456,10 @@ def test_ark_uses_litellm_thinking_and_provider_response_format_patch(
     assert "extra_body.thinking" not in prepared["additional_drop_params"]
 
 
-@pytest.mark.parametrize("model_id", ["ZHIPU/GLM-5.3", "zhipu/glm-5.3-FLASH"])
+@pytest.mark.parametrize(
+    "model_id",
+    ["glm-5.3", "GLM-5.3-Flash", "ZHIPU/GLM-5.3", "zhipu/glm-5.3-FLASH"],
+)
 def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
     monkeypatch: object, model_id: object
 ) -> None:
@@ -1068,16 +1489,20 @@ def test_qwen_glm_exact_patch_wins_and_marks_conflicts_for_litellm(
 
     assert prepared["reasoning_effort"] == "low"
     assert prepared["temperature"] == 0.3
-    assert prepared["allowed_openai_params"] == [
-        "response_format",
-        "reasoning_effort",
-    ]
-    assert prepared["additional_drop_params"][:4] == [
-        "caller_only",
-        "enable_thinking",
-        "reasoning",
-        "thinking",
-    ]
+    assert (
+        "additional_drop_params"
+        not in llm._LITELLM_1106_COMPATIBILITY_PATCHES[
+            ("qwen", str(model_id).casefold())
+        ]
+    )
+    assert prepared["allowed_openai_params"] == ["response_format"]
+    assert llm._LITELLM_1106_COMPATIBILITY_PATCHES[
+        ("qwen", str(model_id).casefold())
+    ] == {"reasoning_effort": "low"}
+    assert prepared["additional_drop_params"][0] == "caller_only"
+    assert prepared["additional_drop_params"].count("enable_thinking") == 1
+    assert "reasoning" in prepared["additional_drop_params"]
+    assert "thinking" in prepared["additional_drop_params"]
     assert "extra_body.reasoning_effort" in prepared["additional_drop_params"]
     assert prepared["extra_body"]["custom_field"] == "keep"
     assert "drop_params" not in prepared
@@ -1124,6 +1549,8 @@ def test_gemini_uses_native_mapping_and_does_not_override_temperature(
     [
         ("gemini-3.7-flash", "low", False),
         ("GEMINI-3.7-FLASH", "low", False),
+        ("gemini-3.8-flash", "low", False),
+        ("GEMINI-3.8-FLASH", "low", False),
         ("gemini-2.5-pro", "minimal", True),
     ],
 )
@@ -1148,6 +1575,10 @@ def test_gemini_exact_minimum_patches(
 
     assert prepared["reasoning_effort"] == expected_effort
     assert ("temperature" in prepared) is expects_temperature
+    if str(model_id).lower() == "gemini-3.8-flash":
+        assert llm._LITELLM_1106_COMPATIBILITY_PATCHES[
+            ("gemini", "gemini-3.8-flash")
+        ] == {"reasoning_effort": "low"}
     assert "allowed_openai_params" not in prepared
 
 
@@ -1160,11 +1591,9 @@ def test_gemini_exact_minimum_patches(
         ("gpt-5.2-pro-2025-12-11", "medium"),
         ("gpt-5.4-pro", "medium"),
         ("gpt-5.4-pro-2026-03-05", "medium"),
-        ("gpt-5.5-pro", "medium"),
-        ("gpt-5.5-pro-2026-04-23", "medium"),
     ],
 )
-def test_openai_pro_patches_correct_litellm_198_metadata(
+def test_openai_pro_patches_correct_litellm_1106_metadata(
     monkeypatch: object, model_id: object, expected_effort: object
 ) -> None:
     monkeypatch.setattr(
@@ -1181,6 +1610,34 @@ def test_openai_pro_patches_correct_litellm_198_metadata(
     )
 
     assert prepared["reasoning_effort"] == expected_effort
+    assert "temperature" not in prepared
+
+
+@pytest.mark.parametrize("model_id", ["gpt-5.5-pro", "gpt-5.5-pro-2026-04-23"])
+def test_openai_55_pro_uses_native_minimum_without_patch(
+    monkeypatch: pytest.MonkeyPatch, model_id: str
+) -> None:
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_supported_openai_params",
+        lambda **_kwargs: ["reasoning_effort"],
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_model_info",
+        lambda **_kwargs: {
+            "supports_none_reasoning_effort": False,
+            "supports_minimal_reasoning_effort": False,
+            "supports_low_reasoning_effort": False,
+        },
+    )
+
+    prepared = llm._prepare_litellm_request_kwargs(
+        "openai", model_id, {"custom_llm_provider": "openai"}, {}
+    )
+
+    assert ("openai", model_id) not in llm._LITELLM_1106_COMPATIBILITY_PATCHES
+    assert prepared["reasoning_effort"] == "medium"
     assert "temperature" not in prepared
 
 
@@ -1205,7 +1662,54 @@ def test_explicit_temperature_is_preserved_for_strict_provider_validation(
     assert "drop_params" not in prepared
 
 
-LITELLM_CONTRACT_VERSION = "1.98.0"
+@pytest.mark.parametrize(
+    ("model_id", "expected_effort", "expected_temperature"),
+    [
+        ("gpt-6-sol", "none", 0.3),
+        ("gpt-6-luna", "none", 0.3),
+        ("gpt-6-astra", "low", None),
+    ],
+)
+@pytest.mark.parametrize("course_temperature", ["0.3", None])
+def test_gpt_6_keeps_minimum_reasoning_and_compatible_temperature(
+    monkeypatch: object,
+    model_id: str,
+    expected_effort: str,
+    expected_temperature: float | None,
+    course_temperature: str | None,
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "_litellm_minimum_thinking_params",
+        lambda *_args, **_kwargs: {"reasoning_effort": "none"},
+    )
+
+    prepared = llm._prepare_litellm_request_kwargs(
+        "openai",
+        model_id,
+        {"custom_llm_provider": "openai"},
+        {
+            "reasoning_effort": "high",
+            "stop": ["done"],
+            **({"temperature": course_temperature} if course_temperature else {}),
+        },
+    )
+
+    assert prepared["reasoning_effort"] == expected_effort
+    assert prepared.get("temperature") == expected_temperature
+    assert "allowed_openai_params" not in prepared
+    assert prepared["stop"] == ["done"]
+
+
+def test_only_gpt_6_astra_needs_an_exact_request_patch() -> None:
+    assert {
+        key: patch
+        for key, patch in llm._LITELLM_1106_COMPATIBILITY_PATCHES.items()
+        if key[0] == "openai" and key[1] and key[1].startswith("gpt-6-")
+    } == {("openai", "gpt-6-astra"): {"reasoning_effort": "low"}}
+
+
+LITELLM_CONTRACT_VERSION = "1.106.2"
 
 
 def _installed_litellm_version() -> str | None:
@@ -1216,15 +1720,11 @@ def _installed_litellm_version() -> str | None:
 
 
 @pytest.mark.skipif(
-    _installed_litellm_version() != LITELLM_CONTRACT_VERSION,
-    reason=(
-        "contract test targets litellm=="
-        f"{LITELLM_CONTRACT_VERSION}, found "
-        f"{_installed_litellm_version() or 'no litellm distribution'}; "
-        "install requirements.txt to run it"
-    ),
+    _installed_litellm_version() is None,
+    reason="install requirements.txt to run the native LiteLLM adapter contract",
 )
-def test_litellm_198_native_adapter_contracts() -> None:
+def test_litellm_1106_native_adapter_contracts() -> None:
+    assert _installed_litellm_version() == LITELLM_CONTRACT_VERSION
     script = textwrap.dedent(
         """
         import copy
@@ -1237,6 +1737,7 @@ def test_litellm_198_native_adapter_contracts() -> None:
         from litellm.completion_extras.litellm_responses_transformation.transformation import LiteLLMResponsesTransformationHandler
         from openai import OpenAI
         from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from litellm.litellm_core_utils.get_model_cost_map import adopt_model_cost_map
         from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
 
         messages = [{"role": "user", "content": "hello"}]
@@ -1358,6 +1859,20 @@ def test_litellm_198_native_adapter_contracts() -> None:
             except Exception as exc:
                 return type(exc).__name__
             return None
+
+        def native_reasoning_capabilities(provider, model):
+            supported = litellm.get_supported_openai_params(
+                model=model, custom_llm_provider=provider
+            )
+            model_info = litellm.get_model_info(
+                model=model, custom_llm_provider=provider
+            )
+            return {
+                "supports_reasoning_effort": "reasoning_effort" in (supported or []),
+                "supports_none": model_info.get("supports_none_reasoning_effort"),
+                "supports_minimal": model_info.get("supports_minimal_reasoning_effort"),
+                "supports_low": model_info.get("supports_low_reasoning_effort"),
+            }
 
         def prepared(provider_key, provider, model, kwargs=None):
             return app_llm._prepare_litellm_request_kwargs(
@@ -1486,7 +2001,7 @@ def test_litellm_198_native_adapter_contracts() -> None:
                     {"response_format": {"type": "json_object"}},
                 ),
             ),
-            "zai_198_supported_params": {
+            "zai_supported_params": {
                 model: litellm.get_supported_openai_params(
                     model=model,
                     custom_llm_provider="zai",
@@ -1508,10 +2023,25 @@ def test_litellm_198_native_adapter_contracts() -> None:
                 custom_llm_provider="gemini",
                 reasoning_effort="none",
             ),
+            "gemini_38_flash": litellm.get_optional_params(
+                model="gemini-3.8-flash",
+                custom_llm_provider="gemini",
+                **prepared("gemini", "gemini", "gemini-3.8-flash"),
+            ),
+            "unpatched_gemini_38_flash": litellm.get_optional_params(
+                model="gemini-3.8-flash",
+                custom_llm_provider="gemini",
+                reasoning_effort="none",
+            ),
             "gemini_25_pro": litellm.get_optional_params(
                 model="gemini-2.5-pro",
                 custom_llm_provider="gemini",
                 **prepared("gemini", "gemini", "gemini-2.5-pro"),
+            ),
+            "unpatched_gemini_25_pro": litellm.get_optional_params(
+                model="gemini-2.5-pro",
+                custom_llm_provider="gemini",
+                reasoning_effort="none",
             ),
             "gemini_25_flash": litellm.get_optional_params(
                 model="gemini-2.5-flash",
@@ -1555,7 +2085,36 @@ def test_litellm_198_native_adapter_contracts() -> None:
                     "gpt-5.2-pro",
                     "gpt-5.4-pro",
                     "gpt-5.5-pro",
+                    "gpt-5.5-pro-2026-04-23",
                 )
+            },
+            "openai_55_native_capabilities": {
+                model: native_reasoning_capabilities("openai", model)
+                for model in ("gpt-5.5-pro", "gpt-5.5-pro-2026-04-23")
+            },
+            "openai_6_sol": adapter_contract(
+                "openai",
+                "gpt-6-sol",
+                "https://api.openai.com/v1",
+                prepared("openai", "openai", "gpt-6-sol"),
+            ),
+            "openai_6_sol_course_temperature": adapter_contract(
+                "openai",
+                "gpt-6-sol",
+                "https://api.openai.com/v1",
+                prepared("openai", "openai", "gpt-6-sol", {"temperature": "0.4"}),
+            ),
+            "gpt_6": {
+                model: litellm.get_optional_params(
+                    model=model,
+                    custom_llm_provider="openai",
+                    **prepared("openai", "openai", model, {"temperature": "0.3"}),
+                )
+                for model in ("gpt-6-sol", "gpt-6-luna", "gpt-6-astra")
+            },
+            "gpt_6_native_capabilities": {
+                model: native_reasoning_capabilities("openai", model)
+                for model in ("gpt-6-sol", "gpt-6-luna")
             },
             "openai_responses_reasoning_conflict": (
                 openai_responses_reasoning_contract()
@@ -1569,6 +2128,34 @@ def test_litellm_198_native_adapter_contracts() -> None:
                     "deepseek-v4-flash",
                 )
             },
+        }
+        for model in ("glm-5.3", "GLM-5.3-Flash", "ZHIPU/GLM-5.3", "zhipu/glm-5.3-flash"):
+            contracts[model] = adapter_contract(
+                "dashscope",
+                model,
+                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                prepared("qwen", "dashscope", model, {
+                    "reasoning_effort": "high",
+                    "enable_thinking": True,
+                    "allowed_openai_params": ["response_format"],
+                    "extra_body": {"reasoning_effort": "max", "enable_thinking": True},
+                }),
+            )
+        baseline = copy.deepcopy(litellm.model_cost)
+        configured_limits = {"gpt-6-sol": 16384, "gpt-6-luna": 8192}
+        app_llm.get_config = lambda *_args: configured_limits
+        assert app_llm._load_and_register_model_max_output_tokens() == configured_limits
+        adopt_model_cost_map(baseline)
+        contracts["gpt_6_registered_after_refresh"] = {
+            model: {
+                "supports_none": native_reasoning_capabilities("openai", model)["supports_none"],
+                "max_output_tokens": litellm.get_max_tokens(model),
+                "request": adapter_contract(
+                    "openai", model, "https://api.openai.com/v1",
+                    prepared("openai", "openai", model, {"temperature": "0.4"}),
+                ),
+            }
+            for model in configured_limits
         }
         print(json.dumps(contracts, sort_keys=True))
         """
@@ -1586,7 +2173,7 @@ def test_litellm_198_native_adapter_contracts() -> None:
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     contracts = json.loads(completed.stdout.strip().splitlines()[-1])
-    assert contracts["version"] == "1.98.0"
+    assert contracts["version"] == LITELLM_CONTRACT_VERSION
 
     expected_urls = {
         "deepseek": "https://api.deepseek.com/chat/completions",
@@ -1620,6 +2207,17 @@ def test_litellm_198_native_adapter_contracts() -> None:
     assert contracts["dashscope"]["body"]["enable_thinking"] is False
     assert "enable_thinking" not in contracts["dashscope_glm_53"]["body"]
     assert contracts["dashscope_glm_53"]["body"]["reasoning_effort"] == "low"
+    for model_id in (
+        "glm-5.3",
+        "GLM-5.3-Flash",
+        "ZHIPU/GLM-5.3",
+        "zhipu/glm-5.3-flash",
+    ):
+        body = contracts[model_id]["body"]
+        assert body["model"] == model_id
+        assert "enable_thinking" not in body
+        assert body["reasoning_effort"] == "low"
+
     assert contracts["volcengine"]["body"]["thinking"] == {"type": "disabled"}
     assert contracts["volcengine"]["body"]["response_format"] == {"type": "json_object"}
     assert contracts["zai"]["body"]["thinking"] == {"type": "disabled"}
@@ -1627,9 +2225,9 @@ def test_litellm_198_native_adapter_contracts() -> None:
     assert contracts["zai_native_thinking"]["body"]["thinking"] == {"type": "disabled"}
     assert "thinking" not in contracts["zai_legacy"]["body"]
     assert contracts["zai_legacy"]["body"]["response_format"] == {"type": "json_object"}
-    assert "thinking" not in contracts["zai_198_supported_params"]["glm-4.5"]
-    assert "thinking" in contracts["zai_198_supported_params"]["glm-4.6"]
-    assert "thinking" not in contracts["zai_198_supported_params"]["glm-5.2"]
+    assert "thinking" not in contracts["zai_supported_params"]["glm-4.5"]
+    assert "thinking" in contracts["zai_supported_params"]["glm-4.6"]
+    assert "thinking" in contracts["zai_supported_params"]["glm-5.2"]
 
     assert contracts["gemini_3"]["thinkingConfig"] == {
         "thinkingLevel": "minimal",
@@ -1639,19 +2237,31 @@ def test_litellm_198_native_adapter_contracts() -> None:
         "thinkingLevel": "low",
         "includeThoughts": True,
     }
+    assert contracts["gemini_38_flash"]["thinkingConfig"] == {
+        "thinkingLevel": "low",
+        "includeThoughts": True,
+    }
+    assert contracts["unpatched_gemini_38_flash"]["thinkingConfig"] == {
+        "thinkingLevel": "low",
+        "includeThoughts": False,
+    }
     assert contracts["unpatched_gemini_37_flash"]["thinkingConfig"] == {
-        "thinkingLevel": "minimal",
+        "thinkingLevel": "low",
         "includeThoughts": False,
     }
     assert contracts["gemini_25_pro"]["thinkingConfig"] == {
         "thinkingBudget": 128,
         "includeThoughts": True,
     }
+    assert contracts["unpatched_gemini_25_pro"]["thinkingConfig"] == {
+        "thinkingBudget": 0,
+        "includeThoughts": False,
+    }
     assert contracts["gemini_25_flash"]["thinkingConfig"] == {
         "thinkingBudget": 0,
         "includeThoughts": False,
     }
-    assert contracts["unpatched_dashscope_glm_error"] == "UnsupportedParamsError"
+    assert contracts["unpatched_dashscope_glm_error"] is None
     assert contracts["strict_openai_errors"] == {
         "temperature": "UnsupportedParamsError",
         "stop": "UnsupportedParamsError",
@@ -1666,10 +2276,50 @@ def test_litellm_198_native_adapter_contracts() -> None:
         "gpt-5.2-pro": "medium",
         "gpt-5.4-pro": "medium",
         "gpt-5.5-pro": "medium",
+        "gpt-5.5-pro-2026-04-23": "medium",
+    }
+    assert contracts["openai_55_native_capabilities"] == {
+        model: {
+            "supports_reasoning_effort": True,
+            "supports_none": False,
+            "supports_minimal": False,
+            "supports_low": False,
+        }
+        for model in ("gpt-5.5-pro", "gpt-5.5-pro-2026-04-23")
     }
     assert all(
         "temperature" not in params for params in contracts["openai_pro"].values()
     )
+    assert contracts["openai_6_sol"]["body"]["reasoning_effort"] == "none"
+    assert contracts["openai_6_sol"]["body"]["temperature"] == 0.3
+    assert contracts["openai_6_sol"]["content"] == "Hello world"
+    assert (
+        contracts["openai_6_sol_course_temperature"]["body"]["reasoning_effort"]
+        == "none"
+    )
+    assert contracts["openai_6_sol_course_temperature"]["body"]["temperature"] == 0.4
+    assert {
+        model: params["reasoning_effort"]
+        for model, params in contracts["gpt_6"].items()
+    } == {
+        "gpt-6-sol": "none",
+        "gpt-6-luna": "none",
+        "gpt-6-astra": "low",
+    }
+    assert contracts["gpt_6"]["gpt-6-sol"]["temperature"] == 0.3
+    assert contracts["gpt_6"]["gpt-6-luna"]["temperature"] == 0.3
+    assert "temperature" not in contracts["gpt_6"]["gpt-6-astra"]
+    assert all(
+        capability["supports_none"] is True
+        for capability in contracts["gpt_6_native_capabilities"].values()
+    )
+    for model, limit in (("gpt-6-sol", 16384), ("gpt-6-luna", 8192)):
+        refreshed = contracts["gpt_6_registered_after_refresh"][model]
+        assert refreshed["supports_none"] is True
+        assert refreshed["max_output_tokens"] == limit
+        assert refreshed["request"]["body"]["reasoning_effort"] == "none"
+        assert refreshed["request"]["body"]["temperature"] == 0.4
+        assert refreshed["request"]["content"] == "Hello world"
     responses_contract = contracts["openai_responses_reasoning_conflict"]
     assert responses_contract["request"]["reasoning"] == {"effort": "medium"}
     assert responses_contract["optional"]["extra_body"] == {"custom": "keep"}
@@ -1850,6 +2500,62 @@ def test_chat_llm_ends_partial_response_on_repeated_stream_chunk(
     )
 
     assert [resp.result for resp in responses] == ["你好"]
+
+
+@pytest.mark.parametrize("llm_method", ["invoke_llm", "chat_llm"])
+def test_llm_content_and_credentials_stay_out_of_application_logs(
+    monkeypatch: object, app: object, llm_method: str
+) -> None:
+    """Preserve provider and trace data without logging stored notes or credentials."""
+    note = "private-current-course-note-8729"
+    credential = "private-provider-key-3841"
+    logged = []
+    outbound = {}
+    usage = {}
+    monkeypatch.setattr(app.logger, "info", lambda *args: logged.append(args))
+
+    def complete(**kwargs: object) -> object:
+        outbound.update(kwargs)
+        return iter([FakeResponse("chunk-1", content=note, finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: (
+            {"api_key": credential, "custom_llm_provider": "openai"},
+            "gpt-test",
+            "openai",
+        ),
+    )
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
+    )
+    span = DummySpan()
+    content = (
+        {"message": note, "system": "Course facts"}
+        if llm_method == "invoke_llm"
+        else {"messages": [{"role": "system", "content": note}]}
+    )
+    responses = list(
+        getattr(llm, llm_method)(
+            app=app,
+            user_id="user-1",
+            span=span,
+            model="gpt-test",
+            **content,
+        )
+    )
+    assert [response.result for response in responses] == [note]
+    assert note in str(outbound["messages"])
+    assert outbound["api_key"] == credential
+    assert note in str(span.generation_args["input"])
+    assert span.end_args["output"] == note
+    assert usage["extra"]["output_text"] == note
+    assert note not in str(logged)
+    assert credential not in str(logged)
+    assert "message_count" in str(logged)
+    assert "response_chars" in str(logged)
 
 
 def test_chat_llm_streams(monkeypatch: object, app: object) -> None:
@@ -2073,6 +2779,10 @@ class _FakeMidStreamFallbackError(Exception):
     """Stands in for litellm.exceptions.MidStreamFallbackError."""
 
 
+class _FakeRateLimitError(Exception):
+    """Stands in for litellm.exceptions.RateLimitError."""
+
+
 def _stream_chunk(content: object) -> object:
     return SimpleNamespace(
         choices=[
@@ -2106,6 +2816,7 @@ def _patch_retryable_stream_errors(monkeypatch: object) -> None:
         SimpleNamespace(
             APIConnectionError=_FakeAPIConnectionError,
             MidStreamFallbackError=_FakeMidStreamFallbackError,
+            RateLimitError=_FakeRateLimitError,
         ),
         raising=False,
     )
@@ -2165,6 +2876,223 @@ def test_stream_retries_connection_error_before_first_content(
 
     assert [c.choices[0].delta.content for c in chunks] == ["hello", " world"]
     assert calls["count"] == 2
+
+
+def test_stream_retries_rate_limit_before_first_output(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[_FakeRateLimitError("TPM exhausted")], [_stream_chunk("lesson")]],
+    )
+
+    chunks = _collect_retry_stream(app)
+
+    assert [chunk.choices[0].delta.content for chunk in chunks] == ["lesson"]
+    assert calls["count"] == 2
+    assert delays == [15.0]
+
+
+def test_stream_retries_rate_limit_during_request_setup(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    calls = {"count": 0}
+
+    def completion(*_args: object, **_kwargs: object) -> object:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            message = "TPM exhausted"
+            raise _FakeRateLimitError(message)
+        return iter([_stream_chunk("lesson")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+
+    chunks = _collect_retry_stream(app)
+
+    assert [chunk.choices[0].delta.content for chunk in chunks] == ["lesson"]
+    assert calls["count"] == 2
+    assert delays == [15.0]
+
+
+def test_stream_rate_limit_retries_are_bounded(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    errors = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    monkeypatch.setattr(
+        app.logger,
+        "exception",
+        lambda message, *args: errors.append(message % args),
+    )
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[_FakeRateLimitError("TPM exhausted")]],
+    )
+
+    with pytest.raises(AppError):
+        _collect_retry_stream(app)
+
+    assert calls["count"] == 3
+    assert delays == [15.0, 45.0]
+    assert "LLM provider rate limit stopped stream" in errors[0]
+
+
+def test_disconnect_during_rate_limit_wait_releases_agent_turn(
+    monkeypatch: object, app: object
+) -> None:
+    from flaskr.service.learn.agent import bridge
+
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(llm, "_STREAM_RATE_LIMIT_RETRY_DELAYS", (5.0,))
+    monkeypatch.setattr(llm.secrets, "randbelow", lambda _upper: 0)
+    _patch_scripted_streams(
+        monkeypatch,
+        [[_FakeRateLimitError("TPM exhausted")]],
+    )
+
+    async def events() -> object:
+        for chunk in llm._iter_stream_with_precontent_retry(
+            app,
+            "qwen/test-model",
+            "test-model",
+            [],
+            {},
+            {},
+            retry_cancelled=bridge.turn_stop_requested,
+        ):
+            yield chunk
+
+    starting_slots = bridge._InFlight.count
+    stream = bridge.iter_turn(
+        events, heartbeat_interval=0.02, heartbeat=lambda: "waiting"
+    )
+    assert next(stream) == "waiting"
+    started = llm.time.monotonic()
+    stream.close()
+
+    assert llm.time.monotonic() - started < bridge.PRODUCER_EXIT_TIMEOUT
+    assert bridge._InFlight.count == starting_slots
+
+
+def test_stream_rate_limit_honors_bounded_retry_after(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    delays = []
+    monkeypatch.setattr(llm.time, "sleep", delays.append)
+    error = _FakeRateLimitError("TPM exhausted")
+    error.response = SimpleNamespace(headers={"retry-after": "27"})
+    _patch_scripted_streams(
+        monkeypatch,
+        [[error], [_stream_chunk("lesson")]],
+    )
+
+    assert len(_collect_retry_stream(app)) == 1
+    assert delays == [27.0]
+
+
+def test_stream_rate_limit_after_output_is_not_retried(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[_stream_chunk("partial"), _FakeRateLimitError("TPM exhausted")]],
+    )
+
+    with pytest.raises(AppError):
+        _collect_retry_stream(app)
+
+    assert calls["count"] == 1
+
+
+def test_stream_rate_limit_after_tool_call_is_not_retried(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [
+            [
+                FakeResponse(
+                    "c1",
+                    tool_calls=[_tool_call_chunk(0, "call_1", "interact", '{"type":')],
+                ),
+                _FakeRateLimitError("TPM exhausted"),
+            ]
+        ],
+    )
+
+    with pytest.raises(AppError):
+        list(
+            llm._iter_stream_with_precontent_retry(
+                app,
+                "qwen/test-model",
+                "test-model",
+                [],
+                {},
+                {},
+                tool_calls_are_output=True,
+            )
+        )
+
+    assert calls["count"] == 1
+
+
+def test_raw_gateway_does_not_replay_tool_call_after_rate_limit(
+    monkeypatch: object, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm, "_record_gateway_llm_usage", lambda *_args, **_kwargs: None
+    )
+    fragment = _tool_call_chunk(0, "call_1", "interact", '{"type":')
+    first = FakeResponse("c1", tool_calls=[fragment])
+    first.model_dump = lambda **_kwargs: {
+        "choices": [
+            {"delta": {"tool_calls": [{"function": {"arguments": '{"type":'}}]}}
+        ]
+    }
+    calls = _patch_scripted_streams(
+        monkeypatch,
+        [[first, _FakeRateLimitError("TPM exhausted")]],
+    )
+
+    stream = llm.stream_openai_chat_completion(
+        app,
+        user_id="u",
+        span=DummySpan(),
+        model="test-model",
+        messages=[],
+        request_id="request-1",
+        fallback_input_tokens=1,
+    )
+    assert next(stream)["choices"][0]["delta"]["tool_calls"]
+    with pytest.raises(AppError):
+        next(stream)
+
+    assert calls["count"] == 1
 
 
 def test_stream_retry_discards_reasoning_from_failed_attempt(
@@ -2252,3 +3180,1611 @@ def test_stream_retry_noop_when_exception_types_unavailable(
         _collect_retry_stream(app)
 
     assert calls["count"] == 1
+
+
+@pytest.mark.skipif(
+    _installed_litellm_version() is None,
+    reason="install requirements.txt to run the native LiteLLM adapter contract",
+)
+def test_native_gateway_without_output_metadata_uses_both_completion_paths() -> None:
+    script = textwrap.dedent(
+        """
+        import json
+        from unittest.mock import MagicMock
+
+        import httpx
+        import litellm
+        from flask import Flask
+        from openai import OpenAI
+        from flaskr.api import llm
+        from flaskr.route import model_gateway_runtime as runtime
+
+        app = Flask(__name__)
+        runtime.admit_creator_usage = lambda *args, **kwargs: None
+        runtime.has_complete_llm_rates = lambda model: True
+        runtime._claim_gateway_request = lambda *args: None
+        runtime._trace_for_request = lambda request: MagicMock()
+        llm.MODEL_MAX_OUTPUT_TOKENS = {}
+        messages = [{"role": "user", "content": "hello"}]
+        for provider, model, upstream in [
+            ("qwen", "qwen/deepseek-v4.1-flash", "deepseek-v4.1-flash"),
+            ("openai", "gpt-6-sol", "gpt-6-sol"),
+        ]:
+            adapter = "dashscope" if provider == "qwen" else "openai"
+            for name in (model, upstream, f"{adapter}/{upstream}"):
+                litellm.model_cost.pop(name, None)
+            if provider == "openai":
+                litellm.register_model({model: {
+                    "litellm_provider": "openai", "supports_none_reasoning_effort": True,
+                }})
+            assert llm._get_llm_max_output_tokens(model, upstream) is None
+            for stream in (False, True):
+                for requested in (None, 8192):
+                    captured = []
+                    recorded = []
+                    usage = {"prompt_tokens": 3, "completion_tokens": 2, "total_tokens": 5}
+                    payload = {
+                        "id": "reply", "created": 1, "model": upstream,
+                        "object": "chat.completion.chunk" if stream else "chat.completion",
+                        "choices": [{"index": 0, "finish_reason": "stop",
+                            "delta" if stream else "message": {"role": "assistant", "content": "ok"}}],
+                        "usage": usage,
+                    }
+                    def respond(request):
+                        captured.append(json.loads(request.content))
+                        if stream:
+                            content = "data: " + json.dumps(payload) + "\\n\\ndata: [DONE]\\n\\n"
+                            return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=content, request=request)
+                        return httpx.Response(200, json=payload, request=request)
+                    with httpx.Client(transport=httpx.MockTransport(respond), trust_env=False) as http:
+                        client = OpenAI(api_key="test", base_url="https://llm.invalid/v1", http_client=http)
+                        llm.MODEL_ALIAS_MAP = {model: (provider, upstream)}
+                        llm.PROVIDER_STATES = {provider: llm.ProviderState(
+                            enabled=True, models=[model], params={"api_key": "test", "custom_llm_provider": adapter, "client": client},
+                        )}
+                        llm.record_llm_usage = lambda app, context, **kwargs: recorded.append((context, kwargs))
+                        body = {"model": model, "messages": messages, "stream": stream}
+                        body["max_tokens"] = requested
+                        request = runtime.prepare_gateway_chat_request(app, creator_bid="user", idempotency_key="native", payload=body)
+                        assert request.input_tokens > 0
+                        if stream:
+                            chunks = list(runtime.stream_gateway_chat_request(app, request))
+                            assert any(c.get("choices") and c["choices"][0]["delta"].get("content") == "ok" for c in chunks)
+                        else:
+                            assert runtime.complete_gateway_chat_request(app, request)["choices"][0]["message"]["content"] == "ok"
+                        assert len(captured) == 1
+                        body_tokens = captured[0].get("max_tokens", captured[0].get("max_completion_tokens"))
+                        assert body_tokens == requested
+                        if requested is None:
+                            assert "max_tokens" not in captured[0]
+                            assert "max_completion_tokens" not in captured[0]
+                        assert len(recorded) == 1
+                        context, record = recorded[0]
+                        assert context.billable == 1
+                        assert record["status"] == 0
+                        assert (record["input"], record["output"], record["total"]) == (3, 2, 5)
+        print("native gateway fallback passed")
+        """
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "LITELLM_LOCAL_MODEL_COST_MAP": "True"},
+        timeout=30,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "native gateway fallback passed" in completed.stdout
+
+
+def test_gateway_token_count_uses_known_output_limit_as_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "token_counter",
+        lambda **_kwargs: 12,
+        raising=False,
+    )
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"rated-model": 8192})
+
+    assert (
+        llm.count_llm_chat_input_tokens(
+            "rated-model", [{"role": "user", "content": "hello"}]
+        )
+        == 12
+    )
+    assert llm.resolve_llm_max_output_tokens("rated-model") == 8192
+    assert llm.resolve_llm_max_output_tokens("rated-model", 2048) == 2048
+
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"small-model": 2048})
+    assert llm.resolve_llm_max_output_tokens("small-model") == 2048
+
+
+def test_shared_stream_retries_keep_known_ceiling_as_default(
+    monkeypatch: pytest.MonkeyPatch, app: object
+) -> None:
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(llm, "MODEL_MAX_OUTPUT_TOKENS", {"rated-model": 16384})
+    captured = []
+
+    def complete(**kwargs: object) -> object:
+        captured.append(dict(kwargs))
+        attempt = len(captured)
+
+        def chunks() -> object:
+            if attempt == 1:
+                message = "connection died"
+                raise _FakeAPIConnectionError(message)
+            yield FakeResponse("reply", content="ok", finish_reason="stop")
+
+        return chunks()
+
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    chunks = list(
+        llm._iter_stream_with_precontent_retry(
+            app,
+            "rated-model",
+            "upstream-model",
+            [],
+            {},
+            {},
+        )
+    )
+    assert chunks[0].choices[0].delta.content == "ok"
+    assert len(captured) == 2
+    assert all(call["max_tokens"] == 16384 for call in captured)
+    assert all("default_to_model_limit" not in call for call in captured)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    "model", ["qwen/deepseek-v4.1-flash", "gpt-6-sol", "gemini-3.8-flash"]
+)
+@pytest.mark.parametrize("requested", ["omitted", None, 32, 8192])
+@pytest.mark.parametrize("limit", [None, 16384])
+def test_gateway_optional_limits_reaches_provider_and_records_actual_usage(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    stream: bool,
+    model: str,
+    requested: object,
+    limit: int | None,
+) -> None:
+    provider = (
+        "qwen"
+        if model.startswith("qwen/")
+        else "gemini"
+        if model.startswith("gemini")
+        else "openai"
+    )
+    invoke_model = model.removeprefix("qwen/")
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {model: (provider, invoke_model)})
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            provider: llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test", "custom_llm_provider": provider},
+                models=[model],
+            )
+        },
+    )
+    monkeypatch.setattr(
+        llm, "MODEL_MAX_OUTPUT_TOKENS", {} if limit is None else {model: limit}
+    )
+
+    def unknown_limit(_model: str) -> None:
+        message = "Model is not mapped yet"
+        raise ValueError(message)
+
+    monkeypatch.setattr(llm.litellm, "get_max_tokens", unknown_limit)
+    monkeypatch.setattr(
+        llm.litellm, "get_supported_openai_params", lambda **_kwargs: []
+    )
+    monkeypatch.setattr(
+        llm.litellm, "token_counter", lambda **_kwargs: 12, raising=False
+    )
+    admitted = []
+    claimed = []
+    monkeypatch.setattr(
+        gateway_runtime,
+        "admit_creator_usage",
+        lambda _app, **kwargs: admitted.append(kwargs),
+    )
+    monkeypatch.setattr(gateway_runtime, "has_complete_llm_rates", lambda _model: True)
+    monkeypatch.setattr(
+        gateway_runtime,
+        "_claim_gateway_request",
+        lambda _app, user, key: claimed.append((user, key)),
+    )
+    monkeypatch.setattr(
+        gateway_runtime, "_trace_for_request", lambda _request: DummySpan()
+    )
+    recorded = []
+    monkeypatch.setattr(
+        llm,
+        "record_llm_usage",
+        lambda _app, context, **kwargs: recorded.append((context, kwargs)),
+    )
+    captured = {}
+    usage = SimpleNamespace(
+        prompt_tokens=12,
+        completion_tokens=2,
+        total_tokens=14,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=3),
+    )
+    response = FakeOpenAIResponse(
+        {"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]}, usage
+    )
+    chunk = FakeOpenAIResponse(
+        {"choices": [{"delta": {"content": "ok"}, "finish_reason": "stop"}]}, usage
+    )
+    chunk.choices = FakeResponse("reply", content="ok", finish_reason="stop").choices
+
+    def complete(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([chunk]) if stream else response
+
+    monkeypatch.setattr(llm.litellm, "completion", complete)
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": stream,
+    }
+    if requested != "omitted":
+        payload["max_tokens"] = requested
+    request = gateway_runtime.prepare_gateway_chat_request(
+        app,
+        creator_bid="gateway-user",
+        idempotency_key="missing-limit",
+        payload=payload,
+    )
+    if stream:
+        chunks = list(gateway_runtime.stream_gateway_chat_request(app, request))
+        assert chunks[0]["choices"][0]["delta"]["content"] == "ok"
+        assert captured["stream_options"] == {"include_usage": True}
+    else:
+        assert (
+            gateway_runtime.complete_gateway_chat_request(app, request)["choices"][0][
+                "message"
+            ]["content"]
+            == "ok"
+        )
+    assert captured["model"] == invoke_model
+    assert captured["stream"] is stream
+    if requested in (None, "omitted"):
+        if limit is None:
+            assert "max_tokens" not in captured
+        else:
+            assert captured["max_tokens"] == limit
+    else:
+        assert captured["max_tokens"] == requested
+    assert "default_to_model_limit" not in captured
+    assert admitted == [
+        {"creator_bid": "gateway-user", "usage_scene": BILL_USAGE_SCENE_PROD}
+    ]
+    assert claimed == [("gateway-user", request.request_id)]
+    assert len(recorded) == 1
+    context, record = recorded[0]
+    assert context.user_bid == "gateway-user"
+    assert context.request_id == request.request_id
+    assert context.billable == 1
+    assert record["model"] == model
+    assert record["status"] == 0
+    assert (
+        record["input"],
+        record["input_cache"],
+        record["output"],
+        record["total"],
+    ) == (12, 3, 2, 14)
+    assert record["extra"]["billing_source"] == "model_gateway"
+    assert record["extra"]["usage_source"] == "litellm"
+    assert "enqueue_settlement" not in record
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize(
+    ("reasoning_fields", "expected_reasoning"),
+    [
+        ({}, ""),
+        ({"reasoning": "thought"}, "thought"),
+        ({"reasoning_content": "thought"}, "thought"),
+        ({"reasoning_content": "thought", "reasoning": "thought"}, "thought"),
+        ({"reasoning_content": "", "reasoning": "thought"}, "thought"),
+        ({"reasoning_content": "primary", "reasoning": "secondary"}, "primary"),
+        ({"reasoning_content": [{"text": "first"}, {"text": "second"}]}, "firstsecond"),
+        ({"reasoning": [{"text": "first"}, {"text": "second"}]}, "firstsecond"),
+    ],
+)
+def test_gateway_missing_usage_counts_only_generated_output(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    stream: bool,
+    reasoning_fields: dict[str, object],
+    expected_reasoning: str,
+) -> None:
+    recorded = {}
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "token_counter",
+        lambda *, text, **_kwargs: len(text),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: recorded.update(kwargs)
+    )
+    message = {
+        "content": "hello",
+        **reasoning_fields,
+        "tool_calls": [{"function": {"name": "lookup", "arguments": "{}"}}],
+    }
+    response = FakeOpenAIResponse({"choices": [{"message": message}]})
+    chunks = [
+        FakeOpenAIResponse({"choices": [{"delta": delta, "index": 0}]})
+        for delta in [
+            {"role": "assistant"},
+            {"content": "hel"},
+            {"content": "lo", **reasoning_fields},
+            {"tool_calls": [{"function": {"name": "lookup", "arguments": "{"}}]},
+            {"tool_calls": [{"function": {"arguments": "}"}}]},
+            {},
+        ]
+    ]
+    monkeypatch.setattr(llm.litellm, "completion", lambda **_kwargs: response)
+    monkeypatch.setattr(
+        llm,
+        "_iter_stream_with_precontent_retry",
+        lambda *_args, **_kwargs: iter(chunks),
+    )
+    kwargs = {
+        "user_id": "user-1",
+        "span": DummySpan(),
+        "model": "rated-model",
+        "messages": [],
+        "request_id": "request-1",
+        "fallback_input_tokens": 3,
+    }
+    if stream:
+        payloads = list(llm.stream_openai_chat_completion(app, **kwargs))
+        assert len(payloads) == len(chunks)
+        assert payloads[2]["choices"][0]["delta"] == {
+            "content": "lo",
+            **reasoning_fields,
+        }
+    else:
+        assert (
+            llm.complete_openai_chat_completion(app, **kwargs)["choices"][0]["message"]
+            == message
+        )
+    expected_output = f"hello{expected_reasoning}lookup{{}}"
+    assert recorded["output"] == len(expected_output)
+    assert recorded["extra"]["output_text"] == expected_output
+    assert recorded["extra"]["usage_source"] == "estimated"
+
+
+@pytest.mark.parametrize(
+    ("stream", "partial"), [(False, False), (True, False), (True, True)]
+)
+def test_gateway_failures_follow_shared_non_billable_policy(
+    monkeypatch: pytest.MonkeyPatch, app: object, stream: bool, partial: bool
+) -> None:
+    recorded = {}
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm.litellm, "token_counter", lambda **_kwargs: 1, raising=False
+    )
+
+    def record(_app: object, context: object, **kwargs: object) -> None:
+        recorded.update(kwargs, billable=context.billable)
+
+    monkeypatch.setattr(llm, "record_llm_usage", record)
+
+    def fail(**_kwargs: object) -> None:
+        message = "provider failed"
+        raise RuntimeError(message)
+
+    def chunks(*_args: object, **_kwargs: object) -> object:
+        if partial:
+            yield FakeOpenAIResponse({"choices": [{"delta": {"content": "hello"}}]})
+        else:
+            yield FakeOpenAIResponse({"choices": [{"delta": {"role": "assistant"}}]})
+        message = "provider failed"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(llm.litellm, "completion", fail)
+    monkeypatch.setattr(llm, "_iter_stream_with_precontent_retry", chunks)
+    kwargs = {
+        "user_id": "user-1",
+        "span": DummySpan(),
+        "model": "rated-model",
+        "messages": [],
+        "request_id": "request-1",
+        "fallback_input_tokens": 3,
+    }
+    if stream:
+        with pytest.raises(RuntimeError, match="provider failed"):
+            list(llm.stream_openai_chat_completion(app, **kwargs))
+    else:
+        with pytest.raises(RuntimeError, match="provider failed"):
+            llm.complete_openai_chat_completion(app, **kwargs)
+    assert recorded["status"] == 1
+    assert recorded["billable"] == 0
+
+
+def test_non_stream_gateway_completion_uses_shared_recorder_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+) -> None:
+    recorded: dict[str, object] = {}
+    usage = SimpleNamespace(
+        prompt_tokens=3,
+        completion_tokens=2,
+        total_tokens=5,
+        prompt_tokens_details=SimpleNamespace(cached_tokens=1),
+    )
+    response = FakeOpenAIResponse(
+        {
+            "id": "chatcmpl-1",
+            "object": "chat.completion",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": "hello"},
+                    "finish_reason": "stop",
+                }
+            ],
+        },
+        usage,
+    )
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(llm.litellm, "completion", lambda **_kwargs: response)
+    monkeypatch.setattr(
+        llm,
+        "record_llm_usage",
+        lambda *_args, **kwargs: recorded.update(kwargs),
+    )
+
+    payload = llm.complete_openai_chat_completion(
+        app,
+        user_id="gateway-user",
+        span=DummySpan(),
+        model="rated-model",
+        messages=[{"role": "user", "content": "hello"}],
+        request_id="gateway-request",
+        fallback_input_tokens=3,
+        max_tokens=32,
+    )
+
+    assert payload["id"] == "chatcmpl-1"
+    assert "usage_bid" not in recorded
+    assert "enqueue_settlement" not in recorded
+    assert recorded["extra"]["billing_source"] == "model_gateway"
+    assert recorded["input"] == 3
+    assert recorded["input_cache"] == 1
+    assert recorded["output"] == 2
+
+
+def test_stream_gateway_completion_preserves_tool_call_chunks(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+) -> None:
+    recorded: dict[str, object] = {}
+    usage = SimpleNamespace(prompt_tokens=4, completion_tokens=3, total_tokens=7)
+    chunks = [
+        FakeOpenAIResponse(
+            {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call-1",
+                                    "function": {
+                                        "name": "lookup",
+                                        "arguments": "{}",
+                                    },
+                                }
+                            ]
+                        },
+                    }
+                ],
+            }
+        ),
+        FakeOpenAIResponse(
+            {
+                "id": "chatcmpl-stream",
+                "object": "chat.completion.chunk",
+                "choices": [],
+            },
+            usage,
+        ),
+    ]
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "provider-model", "openai"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm,
+        "_iter_stream_with_precontent_retry",
+        lambda *_args, **_kwargs: iter(chunks),
+    )
+    monkeypatch.setattr(
+        llm,
+        "record_llm_usage",
+        lambda *_args, **kwargs: recorded.update(kwargs),
+    )
+
+    payloads = list(
+        llm.stream_openai_chat_completion(
+            app,
+            user_id="gateway-user",
+            span=DummySpan(),
+            model="rated-model",
+            messages=[{"role": "user", "content": "use a tool"}],
+            request_id="gateway-stream-request",
+            fallback_input_tokens=4,
+            max_tokens=32,
+        )
+    )
+
+    assert payloads[0]["choices"][0]["delta"]["tool_calls"][0]["id"] == "call-1"
+    assert "usage_bid" not in recorded
+    assert "enqueue_settlement" not in recorded
+    assert recorded["extra"]["billing_source"] == "model_gateway"
+    assert recorded["input"] == 4
+    assert recorded["output"] == 3
+
+
+def _use_fake_provider(monkeypatch: object) -> None:
+    """Point the model resolver at a stub provider so chat_llm reaches litellm."""
+    monkeypatch.setattr(
+        llm,
+        "PROVIDER_STATES",
+        {
+            "openai": llm.ProviderState(
+                enabled=True,
+                params={"api_key": "test-key", "api_base": "https://example.com"},
+                models=["gpt-test"],
+                prefix="",
+                wildcard_prefixes=("gpt",),
+            )
+        },
+    )
+    monkeypatch.setattr(llm, "MODEL_ALIAS_MAP", {"gpt-test": ("openai", "gpt-test")})
+    monkeypatch.setattr(llm, "PROVIDER_CONFIG_HINTS", {"openai": "OPENAI_API_KEY"})
+
+
+@pytest.mark.parametrize("method", ["invoke_llm", "chat_llm"])
+@pytest.mark.parametrize("metadata", ["configured", "catalogue", "unknown"])
+@pytest.mark.parametrize("requested", ["omitted", None, 32])
+def test_learning_calls_share_gateway_output_token_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    method: str,
+    metadata: str,
+    requested: object,
+) -> None:
+    """Exercise learning entry points with the same optional-limit policy."""
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm,
+        "MODEL_MAX_OUTPUT_TOKENS",
+        {"gpt-test": 16384} if metadata == "configured" else {},
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_max_tokens",
+        lambda _model: 8192 if metadata == "catalogue" else None,
+    )
+    monkeypatch.setattr(llm, "record_llm_usage", lambda *_args, **_kwargs: None)
+    captured = {}
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("reply", content="ok", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    arguments = {
+        "app": app,
+        "user_id": "learning-user",
+        "span": DummySpan(),
+        "model": "gpt-test",
+    }
+    if requested != "omitted":
+        arguments["max_tokens"] = requested
+    if method == "invoke_llm":
+        list(llm.invoke_llm(message="hello", **arguments))
+    else:
+        list(llm.chat_llm(messages=[{"role": "user", "content": "hello"}], **arguments))
+    expected = llm.resolve_llm_max_output_tokens(
+        "gpt-test", None if requested == "omitted" else requested
+    )
+    if requested == 32:
+        assert expected == 32
+    else:
+        assert (
+            expected
+            == {"configured": 16384, "catalogue": 8192, "unknown": None}[metadata]
+        )
+    if expected is None:
+        assert "max_tokens" not in captured
+    else:
+        assert captured["max_tokens"] == expected
+
+
+@pytest.mark.parametrize("task", ["compile", "localize", "optimize"])
+@pytest.mark.parametrize("metadata", ["configured", "catalogue", "unknown"])
+def test_internal_profile_tasks_fit_output_budgets_to_known_limits(
+    monkeypatch: pytest.MonkeyPatch, app: object, task: str, metadata: str
+) -> None:
+    """Exercise real internal consumers through invoke_llm, including low ceilings."""
+    from flaskr.service.common import profile_onboarding_prompt
+    from flaskr.service.profile import learner_profile_optimizer
+
+    module = (
+        learner_profile_optimizer if task == "optimize" else profile_onboarding_prompt
+    )
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm,
+        "MODEL_MAX_OUTPUT_TOKENS",
+        {"gpt-test": 1024} if metadata == "configured" else {},
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "get_max_tokens",
+        lambda _model: 1024 if metadata == "catalogue" else None,
+    )
+    monkeypatch.setattr(module, "invoke_llm", llm.invoke_llm)
+    monkeypatch.setattr(module, "get_default_llm_model", lambda _app: "gpt-test")
+    monkeypatch.setattr(
+        module, "create_trace_with_root_span", lambda **_kwargs: (object(), DummySpan())
+    )
+    monkeypatch.setattr(module, "finalize_langfuse_trace", lambda **_kwargs: None)
+    monkeypatch.setattr(module, "get_langfuse_client", lambda: None)
+    records = []
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: records.append(kwargs)
+    )
+    captured = {}
+    output = "Generated prompt"
+    if task == "localize":
+        monkeypatch.setattr(module, "get_locale_labels", lambda: {"en-US": "English"})
+        output = json.dumps(
+            {
+                "source_locale": "en-US",
+                "assistant_prompts": {"en-US": "Generated prompt"},
+                "complete": True,
+            }
+        )
+    if task == "optimize":
+        monkeypatch.setattr(module, "check_text_content", lambda *_args: True)
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("reply", content=output, finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    if task == "compile":
+        assert (
+            module.compile_profile_onboarding_assistant_prompt(app, "?[...Answer]")
+            == output
+        )
+        budget = 8192
+    elif task == "localize":
+        assert module.localize_profile_onboarding_assistant_prompt(
+            app, "Generated prompt"
+        ) == {"en-US": "Generated prompt"}
+        budget = 16384
+    else:
+        result = module.optimize_learner_profile(
+            app, user_id="user", learner_profile="Learner context"
+        )
+        assert result["optimized_learner_profile"] == output
+        budget = 1200
+    assert captured["max_tokens"] == (budget if metadata == "unknown" else 1024)
+    assert captured["model"] == "gpt-test"
+    assert len(records) == 1
+    assert records[0]["status"] == 0
+
+
+def _tool_call_chunk(
+    index: int,
+    call_id: str | None,
+    name: str | None,
+    arguments: str | None,
+    as_dict: bool = False,
+) -> object:
+    """One streamed tool-call fragment, in either shape a provider may send."""
+    if as_dict:
+        return {
+            "index": index,
+            "id": call_id,
+            "function": {"name": name, "arguments": arguments},
+        }
+    return SimpleNamespace(
+        index=index,
+        id=call_id,
+        function=SimpleNamespace(name=name, arguments=arguments),
+    )
+
+
+def _tool_call_stream(as_dict: bool = False) -> list:
+    """Text, then a tool call whose arguments arrive split over two chunks, then usage."""
+    return [
+        FakeResponse("c1", content="thinking "),
+        FakeResponse(
+            "c1",
+            tool_calls=[_tool_call_chunk(0, "call_1", "interact", '{"type":', as_dict)],
+        ),
+        FakeResponse(
+            "c1",
+            tool_calls=[_tool_call_chunk(0, None, None, '"confirm"}', as_dict)],
+        ),
+        FakeResponse("c1", finish_reason="tool_calls"),
+        FakeResponse(
+            "c1",
+            usage=SimpleNamespace(
+                prompt_tokens=10, completion_tokens=4, total_tokens=14
+            ),
+        ),
+    ]
+
+
+def test_chat_llm_drops_tool_calls_by_default(monkeypatch: object, app: object) -> None:
+    """The 1.0 runtime only reads text; a tool-call chunk must stay invisible to it."""
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm.litellm, "completion", lambda *_a, **_k: iter(_tool_call_stream())
+    )
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app, "u", DummySpan(), "gpt-test", [{"role": "user", "content": "hi"}]
+            )
+        )
+    assert [c.result for c in chunks] == ["thinking "]
+    assert all(c.tool_call_deltas == [] for c in chunks)
+
+
+@pytest.mark.parametrize("as_dict", [False, True])
+def test_chat_llm_emits_tool_call_deltas_when_asked(
+    monkeypatch: object, app: object, as_dict: bool
+) -> None:
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm.litellm, "completion", lambda *_a, **_k: iter(_tool_call_stream(as_dict))
+    )
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert "".join(c.result for c in chunks) == "thinking "
+    deltas = [d for c in chunks for d in c.tool_call_deltas]
+    assert [d["name"] for d in deltas] == ["interact", None]
+    assert "".join(d["arguments"] or "" for d in deltas) == '{"type":"confirm"}'
+    assert [d["index"] for d in deltas] == [0, 0]
+    assert deltas[0]["id"] == "call_1"
+    assert any(c.finish_reason == "tool_calls" and c.is_end for c in chunks)
+    usage_chunks = [c for c in chunks if c.usage is not None]
+    assert len(usage_chunks) == 1
+    assert usage_chunks[0].usage.prompt_tokens == 10
+    assert usage_chunks[0].usage.completion_tokens == 4
+
+
+def test_chat_llm_forwards_tools_to_litellm(monkeypatch: object, app: object) -> None:
+    """`tools` and `tool_choice` must reach litellm; `emit_tool_calls` must not."""
+    seen = {}
+
+    def fake_completion(*_args: object, **kwargs: object) -> object:
+        seen.update(kwargs)
+        return iter([FakeResponse("c1", content="ok", finish_reason="stop")])
+
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(llm.litellm, "completion", fake_completion)
+    tools = [{"type": "function", "function": {"name": "interact", "parameters": {}}}]
+    with app.app_context():
+        list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+                tools=tools,
+            )
+        )
+    assert seen.get("tools") == tools
+    assert "emit_tool_calls" not in seen
+
+
+def test_only_one_chunk_claims_to_end_the_stream(
+    monkeypatch: object, app: object
+) -> None:
+    """Keep exactly one end marker on the stream.
+
+    The usage frame trails the one carrying the finish reason, so a caller that stops at the
+    first `is_end` would otherwise never see the token counts it is waiting for.
+    """
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm.litellm, "completion", lambda *_a, **_k: iter(_tool_call_stream())
+    )
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert sum(1 for c in chunks if c.is_end) == 1
+    assert chunks[-1].usage is not None, "usage is the last thing on the stream"
+    assert chunks[-1].is_end is False
+
+
+class _FakeStreamDropError(Exception):
+    """Stand in for the connection-level failure the retry helper is meant to absorb."""
+
+
+def test_a_tool_call_already_sent_stops_the_retry(
+    monkeypatch: object, app: object
+) -> None:
+    """Do not reissue a request whose tool fragments already reached the caller.
+
+    The stream retry is safe only while nothing user-visible has been handed over. Replaying
+    afterwards would deliver the same arguments twice and could run one tool call as two.
+    """
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm, "_retryable_stream_error_types", lambda: (_FakeStreamDropError,)
+    )
+    attempts = {"n": 0}
+
+    def flaky(*_a: object, **_k: object) -> object:
+        attempts["n"] += 1
+
+        def stream() -> object:
+            yield FakeResponse(
+                "c1",
+                tool_calls=[_tool_call_chunk(0, "call_1", "interact", '{"type":')],
+            )
+            raise _FakeStreamDropError
+
+        return stream()
+
+    monkeypatch.setattr(llm.litellm, "completion", flaky)
+    with app.app_context(), pytest.raises(_FakeStreamDropError):
+        list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert attempts["n"] == 1, (
+        "the request must not be reissued after fragments were sent"
+    )
+
+
+def test_the_retry_still_runs_when_only_tool_calls_were_asked_for_but_none_sent(
+    monkeypatch: object, app: object
+) -> None:
+    """Failing before anything reached the caller is still safe to retry."""
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(
+        llm, "_retryable_stream_error_types", lambda: (_FakeStreamDropError,)
+    )
+    attempts = {"n": 0}
+
+    def flaky(*_a: object, **_k: object) -> object:
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+
+            def failing() -> object:
+                raise _FakeStreamDropError
+                yield  # pragma: no cover - generator marker
+
+            return failing()
+        return iter(_tool_call_stream())
+
+    monkeypatch.setattr(llm.litellm, "completion", flaky)
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert attempts["n"] == 2
+    assert [d["name"] for c in chunks for d in c.tool_call_deltas] == ["interact", None]
+
+
+def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
+    monkeypatch: object, app: object
+) -> None:
+    """Absorb the repeated-chunk fault for a turn that produced only tool calls.
+
+    litellm's fault is tolerated when part of the answer already arrived, and a tool-calling turn
+    can be entirely tool calls, so text alone is the wrong test for that.
+    """
+    _use_fake_provider(monkeypatch)
+
+    def repeating(*_a: object, **_k: object) -> object:
+        def stream() -> object:
+            yield FakeResponse(
+                "c1",
+                tool_calls=[
+                    _tool_call_chunk(0, "call_1", "interact", '{"type": "confirm"}')
+                ],
+            )
+            msg = "Repeated chunk detected"
+            raise llm.litellm.APIError(msg)
+
+        return stream()
+
+    monkeypatch.setattr(llm.litellm, "completion", repeating)
+    monkeypatch.setattr(
+        llm, "_is_litellm_repeated_stream_chunk_error", lambda _exc: True
+    )
+    with app.app_context():
+        chunks = list(
+            llm.chat_llm(
+                app,
+                "u",
+                DummySpan(),
+                "gpt-test",
+                [{"role": "user", "content": "hi"}],
+                emit_tool_calls=True,
+            )
+        )
+    assert [d["name"] for c in chunks for d in c.tool_call_deltas] == ["interact"]
+
+
+@pytest.mark.parametrize("method", ["invoke_llm", "chat_llm"])
+def test_numbered_call_uses_one_model_for_provider_usage_and_trace(
+    monkeypatch: pytest.MonkeyPatch, app: object, method: str
+) -> None:
+    from flaskr.api.llm import model_selection
+
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "gpt-test")
+    captured = {}
+    usage = {}
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("part", content="done", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
+    )
+    span = DummySpan()
+    arguments = {
+        "app": app,
+        "user_id": "selection-user",
+        "span": span,
+        "model": "legacy-model",
+        "usage_metadata": {
+            "model_selection_scope": "course",
+            "model_selection_record_id": 123,
+        },
+    }
+    if method == "invoke_llm":
+        list(llm.invoke_llm(message="hello", **arguments))
+    else:
+        list(llm.chat_llm(messages=[{"role": "user", "content": "hello"}], **arguments))
+    assert captured["model"] == "gpt-test"
+    assert usage["model"] == "gpt-test"
+    assert usage["extra"]["resolved_model"] == "gpt-test"
+    assert usage["extra"]["model_index"] == "1"
+    assert usage["extra"]["model_selection_original"] == "legacy-model"
+    assert usage["extra"]["model_selection_fallback"] is True
+    assert (
+        span.generation_args["metadata"]["model_selection_original"] == "legacy-model"
+    )
+    assert span.end_args["metadata"]["resolved_model"] == "gpt-test"
+    assert span.end_args["metadata"]["model_selection_record_id"] == 123
+
+
+@pytest.mark.parametrize("preview", [True, False])
+@pytest.mark.parametrize("selection", ["1", "3", "7", "fast", "gpt-test", ""])
+def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
+    monkeypatch: pytest.MonkeyPatch, app: object, preview: bool, selection: str
+) -> None:
+    """The 2.0 entry point carries revision, number and actual model into usage."""
+    from uuid import uuid4
+
+    from flaskr.api.llm import model_selection
+    from flaskr.dao import db
+    from flaskr.service.learn.agent import lesson_entry
+    from pydantic_ai.models import ModelRequestParameters
+
+    _use_fake_provider(monkeypatch)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "gpt-test")
+    captured, usage = {}, {}
+
+    def completion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return iter([FakeResponse("part", content="done", finish_reason="stop")])
+
+    monkeypatch.setattr(llm.litellm, "completion", completion)
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
+    )
+    span = DummySpan()
+    monkeypatch.setattr(
+        lesson_entry, "create_trace_with_root_span", lambda **_kw: (None, span)
+    )
+    monkeypatch.setattr(lesson_entry, "finalize_langfuse_trace", lambda **_kw: None)
+    monkeypatch.setattr(
+        lesson_entry,
+        "Engine",
+        lambda model, **kwargs: SimpleNamespace(
+            model=model, settings=kwargs["model_settings"]
+        ),
+    )
+
+    def run_gateway(_app: object, *, engine: object, **_kwargs: object) -> object:
+        yield from engine.model._stream([], ModelRequestParameters(), engine.settings)
+
+    monkeypatch.setattr(lesson_entry, "run_agent_lesson", run_gateway)
+    with app.test_request_context():
+        outline_type, course_type = lesson_entry._models(preview)
+        course_bid, outline_bid = uuid4().hex, uuid4().hex
+        course = course_type(shifu_bid=course_bid, llm=selection, llm_temperature=0.4)
+        outline = outline_type(
+            shifu_bid=course_bid, outline_item_bid=outline_bid, content="Teach."
+        )
+        db.session.add_all([course, outline])
+        db.session.flush()
+        db.session.commit()
+        list(
+            lesson_entry.agent_lesson_events(
+                app,
+                user_bid="selection-user",
+                shifu_bid=course_bid,
+                outline_bid=outline_bid,
+                preview_mode=preview,
+            )
+        )
+        assert captured["model"] == usage["model"] == "gpt-test"
+        assert captured["temperature"] == 0.4
+        metadata = usage["extra"]
+        assert metadata["resolved_model"] == "gpt-test"
+        assert metadata["model_index"] == (
+            selection if selection in {"1", "3", "7"} else "1"
+        )
+        assert metadata["model_selection_original"] == selection
+        assert metadata["model_selection_fallback"] is (
+            selection not in {"1", "3", "7"}
+        )
+        assert course.llm == selection
+        assert metadata["model_selection_table"] == course_type.__tablename__
+        assert metadata["model_selection_record_id"] == course.id
+        assert metadata["model_selection_field"] == "llm"
+        assert metadata["model_selection_scope"] == "course"
+        assert "model_migration_batch" not in metadata
+        for key in metadata:
+            if key.startswith("model_") or key == "resolved_model":
+                assert span.end_args["metadata"][key] == metadata[key]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "phase",
+    [
+        "late_chunk",
+        "late_connection",
+        "eof",
+        "close",
+        "disconnect",
+        "provider_error",
+        "normal",
+    ],
+)
+async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retries(
+    monkeypatch: pytest.MonkeyPatch, app: object, phase: str
+) -> None:
+    """Exercise shared chat accounting, not a fake chat_llm replacement."""
+    import asyncio
+
+    from flaskr.service.learn.agent import gateway_model as gateway
+    from pydantic_ai.models import ModelRequestParameters
+
+    clock = [0.0]
+    records = []
+    provider_calls = []
+    provider_closed = []
+    span = DummySpan()
+    _patch_retryable_stream_errors(monkeypatch)
+    monkeypatch.setattr(gateway.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(gateway, "turn_stop_requested", lambda: phase == "disconnect")
+    monkeypatch.setattr(
+        llm, "resolve_selection", lambda model, metadata: (model, metadata)
+    )
+    monkeypatch.setattr(
+        llm,
+        "get_litellm_params_and_model",
+        lambda _model: ({"api_key": "test"}, "test", "test"),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_prepare_litellm_request_kwargs",
+        lambda _provider, _model, _params, kwargs: kwargs,
+    )
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: records.append(kwargs)
+    )
+
+    def stream(*_args: object, **_kwargs: object) -> object:
+        provider_calls.append(True)
+        try:
+            if phase == "late_connection":
+                clock[0] = 9
+                message = "connection failed after deadline"
+                raise _FakeAPIConnectionError(message)
+            if phase == "provider_error":
+                message = "non-retryable provider failure"
+                raise RuntimeError(message)
+            if phase == "late_chunk":
+                clock[0] = 9
+            yield FakeResponse(
+                "summary",
+                content="Partial historical overview",
+                usage=SimpleNamespace(
+                    prompt_tokens=7, completion_tokens=3, total_tokens=10
+                ),
+            )
+            if phase == "eof":
+                clock[0] = 9
+        finally:
+            provider_closed.append(True)
+
+    monkeypatch.setattr(llm, "_stream_litellm_completion", stream)
+    if phase == "close":
+        chunks = llm.chat_llm(
+            app=app,
+            user_id="internal",
+            span=span,
+            model="test",
+            messages=[],
+            generation_name="agent_teaching_summary",
+        )
+        next(chunks)
+        chunks.close()
+    else:
+        model = gateway.GatewayModel(
+            app,
+            "test",
+            user_id="internal",
+            span=span,
+            generation_name="agent_teaching_summary",
+            retry_deadline_seconds=8,
+            timeout=8,
+            num_retries=0,
+        )
+        expected = (
+            asyncio.CancelledError
+            if phase == "disconnect"
+            else RuntimeError
+            if phase == "provider_error"
+            else TimeoutError
+        )
+        if phase == "normal":
+            await model.request([], None, ModelRequestParameters())
+        else:
+            with pytest.raises(expected):
+                await model.request([], None, ModelRequestParameters())
+    assert len(provider_calls) == (0 if phase == "disconnect" else 1)
+    assert provider_closed == provider_calls
+    assert len(records) == 1
+    assert records[0]["status"] == (0 if phase == "normal" else 1)
+    assert records[0]["total"] == (
+        10 if phase in {"late_chunk", "eof", "close", "normal"} else 0
+    )
+    assert records[0]["extra"]["generation_name"] == "agent_teaching_summary"
+    assert span.end_args is not None
+    if phase != "normal":
+        assert records[0]["error_message"]
+        assert span.end_args["metadata"]["status"] == 1
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("cache_fields", "expected", "billed"),
+    [
+        ({"input_cache": 40}, 40, 40),
+        ({"input_cache": 0}, 0, 0),
+        ({"prompt_tokens_details": {"cached_tokens": 30}}, 30, 30),
+        ({"input_tokens_details": SimpleNamespace(cached_tokens=20)}, 20, 20),
+        ({}, None, 0),
+        ({"input_cache": None}, None, 0),
+        ({"input_cache": True}, None, 1),
+        ({"input_cache": 1.5}, None, 1),
+        ({"input_cache": -1}, None, -1),
+        ({"input_cache": 101}, None, 101),
+    ],
+)
+async def test_real_chat_gateway_preserves_cache_observations_and_billing(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    cache_fields: dict[str, object],
+    expected: int | None,
+    billed: int,
+) -> None:
+    """Exercise provider normalization through chat_llm and the real agent adapter."""
+    from flaskr.service.learn.agent import gateway_model as gateway
+    from pydantic_ai.models import ModelRequestParameters
+
+    _use_fake_provider(monkeypatch)
+    records = []
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: records.append(kwargs)
+    )
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *_args, **_kwargs: iter(
+            [
+                FakeResponse("cache", content="Explanation."),
+                FakeResponse("cache", finish_reason="stop"),
+                FakeResponse(
+                    "cache",
+                    usage=SimpleNamespace(
+                        prompt_tokens=100,
+                        completion_tokens=3,
+                        total_tokens=103,
+                        **cache_fields,
+                    ),
+                ),
+            ]
+        ),
+    )
+    model = gateway.GatewayModel(app, "gpt-test", user_id="internal", span=DummySpan())
+    with app.app_context():
+        response = await model.request([], None, ModelRequestParameters())
+    assert response.usage.input_tokens == 100
+    assert response.usage.output_tokens == 3
+    if expected is None:
+        assert "mdf2_cache_reported_requests" not in response.usage.details
+        assert response.usage.cache_read_tokens == 0
+    else:
+        assert response.usage.cache_read_tokens == expected
+        assert response.usage.details["mdf2_cache_reported_requests"] == 1
+        assert response.usage.details["mdf2_cache_reported_input_tokens"] == 100
+        assert response.usage.details["mdf2_cache_reported_read_tokens"] == expected
+    assert len(records) == 1
+    assert records[0]["input"] == 100
+    assert records[0]["output"] == 3
+    assert records[0]["total"] == 103
+    assert records[0]["input_cache"] == billed
+    assert records[0]["status"] == 0
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
+@pytest.mark.parametrize("course_table", ["draft", "published"])
+def test_agent_entry_attributes_all_model_usage_to_the_course(
+    monkeypatch: pytest.MonkeyPatch,
+    app: object,
+    preview_mode: bool,
+    learning_mode: str,
+    course_table: str,
+) -> None:
+    """Exercise entry, all three real adapters, shared chat normalization and persistence."""
+    import asyncio
+    import uuid
+
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.billing import ownership
+    from flaskr.service.learn.agent import gateway_model, lesson_entry
+    from flaskr.service.learn.llmsetting import LLMSettings
+    from flaskr.service.metering import recorder
+    from flaskr.service.metering.models import BillUsageRecord
+    from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+    from pydantic_ai.models import ModelRequestParameters
+
+    _use_fake_provider(monkeypatch)
+    identity = uuid.uuid4().hex
+    monkeypatch.setattr(
+        lesson_entry,
+        "_resolve",
+        lambda *_args, **_kwargs: (
+            "script",
+            "",
+            LLMSettings(model="gpt-test", temperature=0.25),
+            None,
+            False,
+        ),
+    )
+    monkeypatch.setattr(
+        lesson_entry,
+        "create_trace_with_root_span",
+        lambda **_kwargs: (object(), DummySpan()),
+    )
+    monkeypatch.setattr(lesson_entry, "get_langfuse_client", lambda: None)
+    monkeypatch.setattr(lesson_entry, "finalize_langfuse_trace", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        recorder, "_enqueue_usage_settlement", lambda *_args, **_kw: None
+    )
+    monkeypatch.setattr(llm, "get_request_id", lambda: "course-usage-request")
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *_args, **_kwargs: iter(
+            [
+                FakeResponse("course-usage", content="Explanation."),
+                FakeResponse("course-usage", finish_reason="stop"),
+                FakeResponse(
+                    "course-usage",
+                    usage=SimpleNamespace(
+                        prompt_tokens=100,
+                        completion_tokens=3,
+                        total_tokens=103,
+                        input_cache=40,
+                    ),
+                ),
+            ]
+        ),
+    )
+    models = []
+
+    def gateway(*args: object, **kwargs: object) -> object:
+        model = gateway_model.GatewayModel(*args, **kwargs)
+        models.append(model)
+        return model
+
+    monkeypatch.setattr(lesson_entry, "GatewayModel", gateway)
+
+    def run(*_args: object, **_kwargs: object) -> object:
+        for model in models:
+            response = asyncio.run(model.request([], None, ModelRequestParameters()))
+            assert response.usage.cache_read_tokens == 40
+        yield from ()
+
+    monkeypatch.setattr(lesson_entry, "run_agent_lesson", run)
+    with app.app_context():
+        course_bid = uuid.uuid4().hex
+        owner_bid = uuid.uuid4().hex
+        table = DraftShifu if course_table == "draft" else PublishedShifu
+        with unit_of_work():
+            db.session.add(table(shifu_bid=course_bid, created_user_bid=owner_bid))
+        assert (
+            list(
+                lesson_entry.agent_lesson_events(
+                    app,
+                    user_bid=identity,
+                    shifu_bid=course_bid,
+                    outline_bid="course-usage-lesson",
+                    preview_mode=preview_mode,
+                    listen=learning_mode == "listen",
+                    learning_mode=learning_mode,
+                )
+            )
+            == []
+        )
+        rows = BillUsageRecord.query.filter_by(user_bid=identity).all()
+        assert len(rows) == 3
+        assert {row.extra["generation_name"] for row in rows} == {
+            "agent_lesson",
+            "agent_teaching_summary",
+            "agent_memory_admission",
+        }
+        for row in rows:
+            assert row.shifu_bid == course_bid
+            assert row.outline_item_bid == "course-usage-lesson"
+            assert row.usage_scene == (
+                BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
+            )
+            assert row.extra["learning_mode"] == learning_mode
+            assert row.request_id == "course-usage-request"
+            assert (row.input, row.input_cache, row.output, row.total) == (
+                100,
+                40,
+                3,
+                103,
+            )
+            assert row.status == 0
+            assert ownership.resolve_usage_creator_bid(app, row) == owner_bid
+
+
+@pytest.mark.parametrize("demo", [False, True])
+def test_quality_cli_attributes_every_family_without_fabricating_classroom_records(
+    app: object, monkeypatch: pytest.MonkeyPatch, tmp_path: object, demo: bool
+) -> None:
+    """Keep evaluator costs scoped through real gateway persistence and demo policy."""
+    import uuid
+
+    import app as app_module
+    from flaskr.api import langfuse
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.billing import ownership
+    from flaskr.service.learn.agent import lesson_entry, routing
+    from flaskr.service.learn.llmsetting import LLMSettings
+    from flaskr.service.metering import recorder
+    from flaskr.service.metering.models import BillUsageRecord
+    from flaskr.service.shifu import demo_courses
+    from flaskr.service.shifu.models import PublishedShifu
+    from flaskr.service.user.repository import create_user_entity
+    from pydantic_ai.models import ModelRequestParameters
+
+    from scripts import evaluate_mdf2_memory as quality
+
+    _use_fake_provider(monkeypatch)
+    learner, course, lesson, owner = [uuid.uuid4().hex for _ in range(4)]
+    monkeypatch.setattr(app_module, "create_app", lambda **_kwargs: app)
+    monkeypatch.setattr(routing, "uses_agent_engine", lambda _course: True)
+    monkeypatch.setattr(
+        lesson_entry,
+        "_resolve",
+        lambda *_args, **_kwargs: (
+            "script",
+            "",
+            LLMSettings(model="gpt-test", temperature=0),
+            None,
+            False,
+        ),
+    )
+    monkeypatch.setattr(langfuse, "get_langfuse_client", lambda: None)
+    monkeypatch.setattr(
+        langfuse,
+        "create_trace_with_root_span",
+        lambda **_kwargs: (object(), DummySpan()),
+    )
+    monkeypatch.setattr(langfuse, "finalize_langfuse_trace", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        demo_courses,
+        "get_dynamic_config",
+        lambda key, default="": course if demo and key == "DEMO_SHIFU_BID" else default,
+    )
+    enqueued = []
+    monkeypatch.setattr(
+        recorder,
+        "_enqueue_usage_settlement",
+        lambda _app, *, usage_bid: enqueued.append(usage_bid),
+    )
+    monkeypatch.setattr(llm, "get_request_id", lambda: "evaluation-usage-request")
+    monkeypatch.setattr(
+        llm.litellm,
+        "completion",
+        lambda *_args, **_kwargs: iter(
+            [
+                FakeResponse("evaluation-usage", content="Synthetic explanation."),
+                FakeResponse("evaluation-usage", finish_reason="stop"),
+                FakeResponse(
+                    "evaluation-usage",
+                    usage=SimpleNamespace(
+                        prompt_tokens=100,
+                        completion_tokens=3,
+                        total_tokens=103,
+                        input_cache=40,
+                    ),
+                ),
+            ]
+        ),
+    )
+    families = ["admission", "recall", "teaching", "exercise", "teaching_summary"]
+
+    async def evaluate(cases: list, factory: object, repeats: int) -> list:
+        assert repeats == 1
+        for family in families:
+            model = factory(family)
+            response = await model.request([], None, ModelRequestParameters())
+            assert response.usage.cache_read_tokens == 40
+        return [{"id": cases[0]["id"], "repetition": 1, "passed": True}]
+
+    monkeypatch.setattr(quality, "evaluate", evaluate)
+    with app.app_context(), unit_of_work():
+        create_user_entity(user_bid=learner, identify=learner, nickname="Evaluation")
+        db.session.add(PublishedShifu(shifu_bid=course, created_user_bid=owner))
+    output = tmp_path / "quality.json"
+    assert (
+        quality.main(
+            [
+                "--live",
+                "--course",
+                course,
+                "--lesson",
+                lesson,
+                "--learner",
+                learner,
+                "--case",
+                "ordinary-preference",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    with app.app_context():
+        rows = BillUsageRecord.query.filter_by(user_bid=learner).all()
+        assert len(rows) == len(families)
+        assert {row.extra["generation_name"] for row in rows} == {
+            f"agent_memory_quality_{family}" for family in families
+        }
+        for row in rows:
+            assert row.shifu_bid == course
+            assert row.outline_item_bid == lesson
+            assert row.progress_record_bid == row.generated_block_bid == ""
+            assert row.usage_scene == BILL_USAGE_SCENE_PROD
+            assert row.billable == int(not demo)
+            assert row.request_id == "evaluation-usage-request"
+            assert (row.input, row.input_cache, row.output, row.total) == (
+                100,
+                40,
+                3,
+                103,
+            )
+            assert row.status == 0
+            assert "learning_mode" not in row.extra
+            assert ownership.resolve_usage_creator_bid(app, row) == owner
+        assert set(enqueued) == ({row.usage_bid for row in rows} if not demo else set())
+    assert learner not in output.read_text()
+    assert course not in output.read_text()
+    assert lesson not in output.read_text()

@@ -363,13 +363,6 @@ export function formatBillingCredits(value: number, locale: string): string {
   return formatBillingNumber(value, locale);
 }
 
-export function formatBillingPercent(value: number, locale: string): string {
-  return formatBillingNumber(value, locale, {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
-}
-
 export function formatBillingCreditBalance(
   value: number,
   locale = 'en-US',
@@ -965,13 +958,11 @@ export function registerBillingTranslationUsage(t: BillingTranslator): void {
     t('module.billing.package.topupComingSoon'),
     t('module.billing.package.topup.noteFrozen'),
     t('module.billing.package.topup.noteInstant'),
-    t('module.billing.package.scale.advanced.students'),
-    t('module.billing.package.scale.basic.students'),
-    t('module.billing.package.scale.free.students'),
-    t('module.billing.package.scale.lite.students'),
-    t('module.billing.package.scale.premium.students'),
-    t('module.billing.package.scale.pro.students'),
-    t('module.billing.package.scale.sectionTitle'),
+    t('module.billing.package.learningTime.label'),
+    t('module.billing.package.learningTime.value', { minutes: '6,000' }),
+    t('module.billing.package.learningTime.compactValue', { minutes: '30 万' }),
+    t('module.billing.package.learningTime.lessThanOne'),
+    t('module.billing.package.learningTime.unavailable'),
     t('module.billing.package.features.advanced.includesLabel'),
     t('module.billing.package.features.advanced.parallelProcessing'),
     t('module.billing.package.features.advanced.taskPriority'),

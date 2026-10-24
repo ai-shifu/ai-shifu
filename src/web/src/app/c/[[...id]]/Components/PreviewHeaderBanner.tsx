@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { buildUrlWithLessonId } from '@/c-utils/urlUtils';
+import { buildUrlWithLessonId } from '@/lib/urlUtils';
 
 interface PreviewHeaderBannerProps {
   courseId: string;

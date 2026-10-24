@@ -40,7 +40,7 @@ const mockEnvState: { officialSiteUrl: string } = {
   officialSiteUrl: 'https://official.example.com',
 };
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (
     selector: ((state: typeof mockEnvState) => unknown) | undefined,

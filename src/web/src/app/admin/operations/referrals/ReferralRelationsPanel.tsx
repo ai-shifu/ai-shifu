@@ -3,10 +3,10 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
@@ -19,8 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import { useEnvStore } from '@/c-store/envStore';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store/envStore';
+import type { EnvStoreState } from '@/types/store';
 import {
   Table,
   TableBody,

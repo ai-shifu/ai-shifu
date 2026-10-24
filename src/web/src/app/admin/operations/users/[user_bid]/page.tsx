@@ -5,13 +5,18 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminTitle from '@/app/admin/components/AdminTitle';
+import { Button } from '@/components/ui/Button';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
 import type { AdminOperationUserCreditUsageDetailResponse } from '../../operation-user-types';
 import useOperatorGuard from '../../useOperatorGuard';
 import UserDetailSummarySection from './UserDetailSummarySection';
+import UserContactChangeDialog from './UserContactChangeDialog';
 import UserDetailTabsSection from './UserDetailTabsSection';
 import useUserCreditLedgerData from './useUserCreditLedgerData';
 import useUserDetailData from './useUserDetailData';
@@ -144,9 +149,21 @@ export default function AdminOperationUserDetailPage() {
   const router = useRouter();
   const params = useParams<UserBidParams>();
   const { isReady } = useOperatorGuard();
+  const detailScrollRef = useRef<HTMLDivElement | null>(null);
   const detailTabsSectionRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedDetailTabRef = useRef(false);
   const [activeTab, setActiveTab] = useState<DetailTab>('credits');
+  const [contactChangeOpen, setContactChangeOpen] = useState(false);
+  const loginMethodsEnabled = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
+  const defaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
+  const contactType = resolveContactMode(
+    loginMethodsEnabled,
+    defaultLoginMethod,
+  );
   const {
     detail,
     detailLoading,
@@ -178,9 +195,16 @@ export default function AdminOperationUserDetailPage() {
   });
 
   const scrollToDetailTabsSection = useCallback(() => {
-    detailTabsSectionRef.current?.scrollIntoView({
+    const scrollContainer = detailScrollRef.current;
+    const detailTabsSection = detailTabsSectionRef.current;
+    if (!scrollContainer || !detailTabsSection) {
+      return;
+    }
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const sectionRect = detailTabsSection.getBoundingClientRect();
+    scrollContainer.scrollTo({
+      top: scrollContainer.scrollTop + sectionRect.top - containerRect.top,
       behavior: 'smooth',
-      block: 'start',
     });
   }, []);
   const syncDetailTabHash = useCallback((nextTab: DetailTab) => {
@@ -260,7 +284,7 @@ export default function AdminOperationUserDetailPage() {
 
     setActiveTab(hashTab);
     scrollToDetailTabsSection();
-  }, [detailLoading, scrollToDetailTabsSection]);
+  }, [detail.user_bid, detailLoading, scrollToDetailTabsSection]);
 
   if (!isReady || detailLoading) {
     return <Loading />;
@@ -295,10 +319,24 @@ export default function AdminOperationUserDetailPage() {
                 { label: tOperationsUsers('detail.title') },
               ]}
             />
-            <AdminTitle title={tOperationsUsers('detail.title')} />
+            <AdminTitle
+              title={tOperationsUsers('detail.title')}
+              actions={
+                detail.user_status !== 'cancelled' ? (
+                  <Button
+                    type='button'
+                    variant='outline'
+                    onClick={() => setContactChangeOpen(true)}
+                  >
+                    {tOperationsUsers(`contactChange.${contactType}.action`)}
+                  </Button>
+                ) : null
+              }
+            />
           </div>
 
           <div
+            ref={detailScrollRef}
             className='min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-stone-50 pr-1'
             data-testid='admin-operation-user-detail-scroll'
           >
@@ -377,6 +415,16 @@ export default function AdminOperationUserDetailPage() {
               />
             </div>
           </div>
+          <UserContactChangeDialog
+            open={contactChangeOpen}
+            userBid={userBid}
+            contactType={contactType}
+            currentIdentifier={
+              contactType === 'email' ? detail.email : detail.mobile
+            }
+            onOpenChange={setContactChangeOpen}
+            onChanged={() => retryDetail()}
+          />
         </div>
       </div>
     </TooltipProvider>

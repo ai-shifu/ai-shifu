@@ -2,7 +2,7 @@
 title: Cook Web Umami Contract Remediation
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-08-31
+last_reviewed: 2026-10-10
 canonical: true
 ---
 
@@ -79,10 +79,14 @@ are not backfilled under another name.
 ## Creator authoring interactions
 
 - Business question: which successful authoring operations and accepted editor
-  actions are used, without collecting course content?
+  actions are used, and which follow-up interaction mode is saved, without
+  collecting course content or provider configuration?
 - Metric definition: raw successful saves/creates and accepted actions per day,
-  grouped only by the documented enums or stable business IDs. These are usage
-  counts, not exact user funnels.
+  grouped only by the documented enums or stable business IDs. The follow-up
+  adoption view groups successful `creator_shifu_setting_save` rows by
+  `follow_up_mode`, `price_tier`, `main_model_index`, `follow_up_model_index`,
+  `main_model_fallback` and `follow_up_model_fallback`. These are usage counts, not exact user
+  funnels.
 - Actor and surface: authenticated teachers in Cook Web authoring surfaces.
 - Population: normal and read-only-aware producer eligibility as implemented by
   each control; failed validation, rejected API calls, and disabled controls are
@@ -91,22 +95,97 @@ are not backfilled under another name.
   handler invocation is one count; render and React re-renders emit nothing.
 - Consumer: authoring adoption queries owned by product analytics.
 - Consumer change: the listed event names are retained with payloads narrowed
-  in place. Queries using removed free-form fields must migrate.
+  in place. Queries using removed free-form fields must migrate. The
+  2026-09-02 contract revision adds `follow_up_mode` to
+  `creator_shifu_setting_save`; historical rows are not backfilled and a
+  missing value must be treated as `legacy_unknown`, never inferred as `text`.
+- The numbered-model revision replaces historical fixed-level model
+  selections with `main_model_index` and `follow_up_model_index`.
+  Indexes are canonical strings `1` through `9`; Live follow-up uses
+  `not_applicable`. Add `main_model_fallback` and `follow_up_model_fallback`
+  booleans (the latter is false for Live). These fields describe the effective
+  selections confirmed by the successful save, including unchanged legacy
+  values resolved to model 1. No raw saved selection, configured display name,
+  physical model ID, provider identity or configuration is collected.
+- The decision supported is whether teachers adopt configured model choices and
+  how often saved course settings still depend on compatibility fallback. The
+  daily consumer groups successful saves by effective index and fallback flag;
+  it must keep historical `fast|balanced|ultimate|legacy` fixed-level rows separate,
+  never reinterpret them as numbered choices or backfill missing flags as false.
+  No checked-in dashboard or query consumes the retired selection fields.
+- Eligible population is authenticated teachers editing writable courses,
+  including drafts; learners, guest learners and learner preview are excluded.
+  Failed validation, rejected API calls and read-only courses emit nothing.
+  Each successful API save emits once with its submission snapshot; renders,
+  option loading and Live-to-text availability checks emit nothing. There is
+  no persisted deduplication. Tracking failures never change save behavior.
+- The complete delivered application payload is the table below; transport adds
+  no implicit business fields. Field types are string for course ID (stable,
+  pseudonymous, high cardinality), enums for save/mode/price/index (bounded,
+  non-personal), and booleans for toggles/fallbacks. Fallback booleans support
+  adoption analysis only, never billing or audit decisions. Regression coverage
+  verifies timing, privacy, exclusions, failure isolation and edits during saves.
 
-| Event                          | Exact trigger                                                                | Complete payload                                                                               |
-| ------------------------------ | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `creator_shifu_setting_save`   | After the course-settings API succeeds                                       | `shifu_bid`, `save_type`, `tts_enabled`, `default_listen_mode_enabled`, `use_learner_language` |
-| `creator_outline_setting_save` | After lesson settings save succeeds                                          | `shifu_bid`, `outline_bid`, `save_type`, `variant`, `learning_permission`, `hide_chapter`      |
-| `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`                                                        |
-| `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                       |
-| `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                    |
-| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`                                                                     |
+| Event                          | Exact trigger                                                                | Complete payload                                                                                                                                                                                                               |
+| ------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `creator_shifu_setting_save`   | After the course-settings API succeeds                                       | `shifu_bid`, `save_type`, `tts_enabled`, `default_listen_mode_enabled`, `use_learner_language`, `follow_up_mode`, `price_tier`, `main_model_index`, `follow_up_model_index`, `main_model_fallback`, `follow_up_model_fallback` |
+| `creator_outline_setting_save` | After lesson settings save succeeds                                          | `shifu_bid`, `outline_bid`, `save_type`, `variant`, `learning_permission`, `hide_chapter`, `prompt_change`                                                                                                                     |
+| `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`, `prompt_change`                                                                                                                                                                       |
+| `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                                                                                                                                                       |
+| `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                                                                                                                                                    |
+| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`                                                                                                                                                                                                     |
 
-Allowed enums are `save_type=auto|manual`, `variant=chapter|lesson`, and
-`learning_permission=normal|trial|guest`, as defined by `LEARNING_PERMISSION` in
-`src/web/src/c-api/studyV2.ts`. Course/chapter/lesson names, descriptions,
-system prompts, provider configuration, URLs, and route text were removed from
-these contracts.
+Allowed enums are `save_type=auto|manual`, `follow_up_mode=text|live_voice`,
+`price_tier=free|micro_paid|standard_paid`,
+`variant=chapter|lesson`, and `learning_permission=normal|trial|guest`, as
+defined by `LEARNING_PERMISSION` in `src/web/src/api/studyV2.ts`.
+Course/chapter/lesson names, descriptions, system prompts, model names, voice
+IDs, provider configuration, URLs, and route text are excluded from these
+contracts.
+
+Chapter and lesson prompt editors are shown only while their current prompt
+contains non-whitespace content. Empty, missing, and whitespace-only prompts
+hide the label, hint, and editor. Clearing an existing prompt hides its editor
+but preserves the pending empty value for the existing automatic or manual
+save. At runtime, empty and whitespace-only chapter and lesson prompts do not
+override inherited instructions: resolution continues to the nearest ancestor
+with content, then the course prompt. A blank course fallback resolves to no
+prompt. Substantive prompts retain their original
+text and precedence, and stored values do not require a migration.
+These saves remain covered by `creator_outline_prompt_save` for chapters
+and `creator_outline_setting_save` for lessons, only after the API succeeds.
+Visibility changes emit no event; their saved outcome is measured through the
+`prompt_change` field on these existing save events.
+
+### Outline prompt save outcomes (2026-09-19)
+
+- Business question: how often do teachers save prompt edits or clear an
+  existing prompt, returning the outline to inherited instructions?
+- Metric: daily successful outline saves grouped by `prompt_change` and
+  `save_type`, optionally by the existing course/outline IDs. These are outcome
+  counts, not an exposure funnel or an attempt-to-success conversion rate.
+- Population: authenticated teachers editing existing chapters or lessons.
+  Read-only viewers, new unsaved outlines, invalid titles, unchanged forms,
+  failed saves, and abandoned edits are excluded.
+- Trigger: after `modifyOutline` succeeds. Determine the change against the
+  last loaded or successfully saved prompt before submitting the request.
+- Payload addition: `prompt_change` is a required, non-personal, low-cardinality
+  string enum: `unchanged` when the prompt text did not change, `updated` when
+  it changed to substantive text, and `cleared` when it changed to blank text.
+  It contains no prompt content, hashes, lengths, names, or descriptions.
+- Count unit and deduplication: one event per successful API save. Re-renders,
+  editor hiding, and closing again without further changes emit nothing.
+  Automatic and manual saves use the same classification. Tracking is
+  best-effort; a synchronous throw or rejected tracking promise must not affect
+  saving or closing the settings panel.
+- Consumers and compatibility: product analytics authoring-adoption queries
+  can group by the new field. Existing aggregate counts and event names remain
+  compatible. Missing historical values mean `legacy_unknown`, never inferred
+  as `unchanged`; no backfill or content-based reconstruction is performed.
+- Verification: exact event names and allowlisted payloads, manual/automatic
+  clears, substantive edits, non-prompt edits, successful-save timing,
+  unchanged/read-only/failed-save exclusions, duplicate-close prevention, and
+  tracking-failure isolation.
 
 ## Learner navigation and shared interactions
 
@@ -163,20 +242,28 @@ The only contact enum is `surface=admin|invite|other`.
   Repeated deliberate attempts count again; without an attempt ID, only
   aggregate conversion is valid.
 - Trigger: after local validation and terms acceptance, immediately before the
-  password/SMS/OAuth-start request; result after local login state is committed
+  email/password/SMS/OAuth-start request; result after local login state is committed
   or a bounded terminal failure is known. OAuth callback results correlate to
   the earlier start only at aggregate level.
-- Population: guests using password, SMS, or Google login. Validation-only and
+- Population: guests using email, password, SMS, or Google login. Validation-only and
   terms-dialog opens are excluded.
+- Verification-code submission: the SMS/email login button is visible from the
+  initial render and remains disabled until the form has entered the code stage,
+  the phone number or normalized email is valid, and the four-digit code is
+  complete. Clicking the button and pressing Enter share the same submission
+  guard; incomplete forms and requests already in progress emit no login events.
 - Deduplication: UI submission guards own concurrent suppression; otherwise none.
 - Consumer: login conversion and reliability analysis.
+- Compatibility: the always-visible verification login button reuses the existing
+  attempt/result producers and payloads. Consumers keep the same event names and
+  aggregate metric; disabled-button exposure does not count as an attempt.
 - Replacement: delete the `learner_login_success` producer and consumers. Login
   queries use `learner_login_attempt` and `learner_login_result`.
 
-| Event                   | Fields and allowed values                                                                                                                                                                 |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `learner_login_attempt` | `login_method` is `password`, `sms`, or `google`                                                                                                                                          |
-| `learner_login_result`  | `login_method`; `outcome` is `success` or `failed`; failed only: `failure_category` is `credentials_rejected`, `request_failed`, `start_failed`, `callback_invalid`, or `callback_failed` |
+| Event                   | Fields and allowed values                                                                                                                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `learner_login_attempt` | `login_method` is `email`, `password`, `sms`, or `google`                                                                                                                                                 |
+| `learner_login_result`  | `login_method`; `outcome` is `success` or `failed`; failed only: `failure_category` is `credentials_rejected`, `rate_limited`, `request_failed`, `start_failed`, `callback_invalid`, or `callback_failed` |
 
 Credentials, mobile/email identifiers, OAuth code/state, token, user ID, and raw
 backend messages are excluded.
@@ -184,11 +271,12 @@ backend messages are excluded.
 ## Device authorization
 
 - Business question: which device-authorization prompts are resolved by the
-  user, and how does that vary by a bounded operating-system category?
+  user, and how does that vary by a bounded operating-system category, Skill
+  host platform, Skill identity, and semantic-version major bucket?
 - Metric definition: approved and denied outcomes divided by prompt exposures,
-  grouped only by the shared `device_os` and `from_link` fields. There is no
-  request identifier, so this is an aggregate ratio rather than a row-level
-  join.
+  grouped only by the shared `device_os`, `from_link`, `host_platform`,
+  `skill_id`, and `skill_version_major` fields. There is no request identifier,
+  so this is an aggregate ratio rather than a row-level join.
 - Trigger: prompt shown once after a pairing request resolves; approved or
   denied once after the corresponding API call succeeds.
 - Population: authenticated users viewing a valid pending device request.
@@ -199,15 +287,19 @@ backend messages are excluded.
   decisions emit a terminal event.
 - Consumer: device-authorization adoption and completion analysis.
 
-| Event                      | Complete reviewed field set |
-| -------------------------- | --------------------------- |
-| `device_auth_prompt_shown` | `device_os`, `from_link`    |
-| `device_auth_approved`     | `device_os`, `from_link`    |
-| `device_auth_denied`       | `device_os`, `from_link`    |
+| Event                      | Complete reviewed field set                                                  |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `device_auth_prompt_shown` | `device_os`, `from_link`, `host_platform`, `skill_id`, `skill_version_major` |
+| `device_auth_approved`     | `device_os`, `from_link`, `host_platform`, `skill_id`, `skill_version_major` |
+| `device_auth_denied`       | `device_os`, `from_link`, `host_platform`, `skill_id`, `skill_version_major` |
 
 `device_os` is exactly one of `android|chromeos|ios|linux|macos|other|unknown|windows`.
-The pairing code, device name, client version, IP address, raw operating-system
-string, user identity, and raw errors are excluded.
+`host_platform` (`workbuddy`, `doubao`, `qclaw`, `lobster`, `codex`, or
+`direct`) and `skill_id` use the backend allowlists or `unattributed`.
+`skill_version_major` is exactly `v0` through `v9`, `unknown`, or
+`unattributed`; the caller-owned raw version is never sent. The pairing code,
+handoff ID, device name, client version, IP address, raw operating-system
+string, user identity, URLs, and raw errors are excluded.
 
 ## Learner payment
 
@@ -293,6 +385,12 @@ raw rejection.
   storage suppresses the cancellation event without changing synchronization,
   UI, or retry behavior. Cancellation and confirmation-failure events omit an
   unverified query parameter.
+- QR replacement compatibility: when a refresh or channel switch returns a new
+  `bill_order_bid`, both subsequent synchronization and attempt/result/status
+  correlation use that confirmed replacement key. The closed order retains its
+  financial history; the replacement is a distinct order for outcome grouping.
+  Event names, triggers, population, payload allowlist and terminal deduplication
+  stay unchanged; no QR URL or provider credential is tracked.
 - Consumer: billing checkout adoption and provider reliability analysis; the
   billing ledger remains the financial source of truth.
 - Replacement: delete the `creator_billing_checkout_click` producer and
@@ -329,28 +427,59 @@ analytics.
 
 ## Course creation
 
-- Business question: which creation path is selected and does the accepted
-  manual operation or AI handoff complete?
-- Metric definition: manual API success/failure counts per accepted attempt;
-  AI `success` means only that the external handoff link was accepted, not that
-  a course was later created. These two path results must not be combined into
-  one course-created metric.
-- Trigger: manual attempt immediately before the create API and result after its
-  terminal response; cancel on explicit modal close; AI attempt/result together
-  when the external handoff click is accepted.
-- Population: authenticated teachers on the admin course list.
-- Deduplication: none beyond the existing UI behavior. Every accepted submit is
-  counted independently, and analytics never suppresses a create request.
-- Consumer: course-creation path adoption and manual reliability analysis.
-- Replacement: delete the `creator_shifu_create_click` and
-  `creator_shifu_create_success` producers and consumers. Course-creation
-  queries use attempt/result/cancel.
+- Business question: do accepted manual course-creation operations complete,
+  and do teachers explicitly abandon an engaged manual form?
+- Metric definition: raw manual API success/failure counts per accepted attempt
+  within a named reporting window. Cancellation counts are separate abandoned
+  form sessions, not terminal results for API attempts. No attempt identifier
+  exists, so result-to-attempt ratios are aggregate reliability indicators.
+- Actor and surface: authenticated teachers with resolved admin access on the
+  admin course list. Guests, unresolved or denied access, and learner surfaces
+  are excluded.
+- Trigger: attempt immediately before the create API after local validation;
+  one result after its terminal response. The unified creation dialog emits a
+  manual cancellation only on explicit dismissal after a manual field edit or
+  invalid manual submit attempt during that opening. Untouched and AI-only
+  dismissals, programmatic closes, and successful creation do not emit cancel.
+  Dismissal and duplicate submission are blocked synchronously when manual
+  submission begins, throughout validation and any accepted create request.
+  Invalid input releases the guard without an API attempt or result.
+- Count unit and deduplication: one accepted manual submit and one terminal
+  result per API operation; the form prevents duplicate pending submissions.
+  Cancellation is emitted at most once per dialog opening using dialog-local
+  engagement and close guards. Opening again resets engagement. Every accepted
+  retry is a separate attempt; analytics never suppresses a create request.
+- Correlation: shared identified-user/session context; successful results may
+  join the stable `shifu_bid` to the created course. No course text is collected.
+- Consumers: course-creation adoption and manual reliability reports. Repository
+  consumers are the adjacent analytics helper, admin page producer, and focused
+  tests; no checked-in dashboard or query consumes these events.
+- Compatibility: keep the existing manual event names and payloads. Before the
+  unified-dialog release, cancel meant dismissal of the separately selected
+  manual modal, including an untouched form. After this release, engagement is
+  established by a field edit or invalid submit attempt instead. Reports must
+  separate these cancellation populations by deployment/release cohort and
+  must not compare raw cancellation counts or rates across the boundary. During
+  a mixed-version rollout, aggregate cancel data cannot identify a clean cohort.
+  Existing attempt/result reliability remains comparable. Retired
+  `creator_shifu_create_click` and `creator_shifu_create_success` stay retired.
+- AI compatibility: the AI guide and installation-instruction-copy path uses its
+  own event family and never emits a manual create attempt, result, or cancel.
+  Its current contract is documented in the
+  [AI course-entry plan](../exec-plans/completed/lobster-course-entry-analytics.md);
+  historical
+  `creation_path=ai_assistant` results describe only the former handoff and must
+  not be combined with confirmed manual course creation.
+- Verification: direct inline submission, validation and pending-submit guards,
+  terminal success/failure and retry, cancellation eligibility and per-open
+  deduplication, exact allowlisted payloads, exclusion of free-form fields and
+  raw errors, and continued creation when tracking throws or is unavailable.
 
-| Event                           | Fields                                                                                                                                   |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `creator_course_create_attempt` | `creation_path` is `manual` or `ai_assistant`                                                                                            |
-| `creator_course_create_result`  | `creation_path`; `outcome` is `success` or `failed`; successful manual only: `shifu_bid`; failed only: `failure_category=request_failed` |
-| `creator_course_create_cancel`  | `creation_path=manual`                                                                                                                   |
+| Event                           | Fields                                                                                                                                |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `creator_course_create_attempt` | `creation_path=manual`; historical `ai_assistant` is retained for old data only                                                       |
+| `creator_course_create_result`  | `creation_path=manual`; `outcome` is `success` or `failed`; success only: `shifu_bid`; failed only: `failure_category=request_failed` |
+| `creator_course_create_cancel`  | `creation_path=manual`                                                                                                                |
 
 ## Learner profile assistant
 

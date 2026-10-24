@@ -15,15 +15,36 @@ from urllib.parse import urlparse
 import requests
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
+from flaskr.common.safe_outbound import (
+    OutboundRedirectError,
+    OutboundResponseTooLargeError,
+    OutboundUrlPolicy,
+    SafeOutboundClient,
+    UnsafeOutboundUrlError,
+)
 from flaskr.dao import db
-from flaskr.service.common.models import raise_error
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES, get_image_content_type
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config import get_config
 from flaskr.service.resource.models import Resource
+from urllib3.exceptions import HTTPError as Urllib3HTTPError
 
 from .models import AiCourseAuth, FavoriteScenario
 from .utils import get_shifu_creator_bid
+
+_REMOTE_IMAGE_MAX_BYTES = 10 * 1024 * 1024
+_REMOTE_IMAGE_POLICY = OutboundUrlPolicy(
+    max_redirects=3,
+    max_response_bytes=_REMOTE_IMAGE_MAX_BYTES,
+    connect_timeout_seconds=5,
+    read_timeout_seconds=10,
+)
+_REMOTE_IMAGE_HEADERS = {
+    "User-Agent": "AI-Shifu remote image importer",
+    "Accept": "image/jpeg,image/png,image/gif,image/*;q=0.8",
+}
 
 
 def mark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> bool:
@@ -38,19 +59,17 @@ def mark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> bool:
         bool: True if successful
 
     """
-    with app.app_context():
+    with app.app_context(), unit_of_work():
         existing_favorite_shifu = FavoriteScenario.query.filter_by(
             scenario_id=shifu_id, user_id=user_id
         ).first()
         if existing_favorite_shifu:
             existing_favorite_shifu.status = 1
-            db.session.commit()
             return True
         favorite_shifu = FavoriteScenario(
             scenario_id=shifu_id, user_id=user_id, status=1
         )
         db.session.add(favorite_shifu)
-        db.session.commit()
         return True
 
 
@@ -67,13 +86,12 @@ def unmark_favorite_shifu(app: object, user_id: str, shifu_id: str) -> bool:
         bool: True if successful
 
     """
-    with app.app_context():
+    with app.app_context(), unit_of_work():
         favorite_shifu = FavoriteScenario.query.filter_by(
             scenario_id=shifu_id, user_id=user_id
         ).first()
         if favorite_shifu:
             favorite_shifu.status = 0
-            db.session.commit()
             return True
         return False
 
@@ -136,28 +154,27 @@ def upload_file(app: object, user_id: str, resource_id: str, file: object) -> st
             profile=OSS_PROFILE_COURSES,
         )
 
-        if is_update:
-            resource.name = file.filename
-            resource.oss_bucket = result.bucket
-            resource.oss_name = result.object_key
-            resource.url = result.url
-            resource.updated_by = user_id
-            db.session.commit()
-        else:
-            resource = Resource(
-                resource_id=file_id,
-                name=file.filename,
-                type=0,
-                oss_bucket=result.bucket,
-                oss_name=result.object_key,
-                url=result.url,
-                status=0,
-                is_deleted=0,
-                created_by=user_id,
-                updated_by=user_id,
-            )
-            db.session.add(resource)
-            db.session.commit()
+        with unit_of_work():
+            if is_update:
+                resource.name = file.filename
+                resource.oss_bucket = result.bucket
+                resource.oss_name = result.object_key
+                resource.url = result.url
+                resource.updated_by = user_id
+            else:
+                resource = Resource(
+                    resource_id=file_id,
+                    name=file.filename,
+                    type=0,
+                    oss_bucket=result.bucket,
+                    oss_name=result.object_key,
+                    url=result.url,
+                    status=0,
+                    is_deleted=0,
+                    created_by=user_id,
+                    updated_by=user_id,
+                )
+                db.session.add(resource)
 
         return result.url
 
@@ -176,37 +193,28 @@ def upload_url(app: object, user_id: str, url: str) -> str:
     """
     with app.app_context():
         try:
-            # Validate URL format
             if not url or not url.strip():
                 raise_error("server.file.videoUrlRequired")
+            normalized_url = url.strip()
+            with SafeOutboundClient(policy=_REMOTE_IMAGE_POLICY).request(
+                "GET",
+                normalized_url,
+                headers=_REMOTE_IMAGE_HEADERS,
+            ) as response:
+                if not 200 <= response.status < 300:
+                    raise_error("server.file.fileDownloadFailed")
+                content_type = (
+                    _get_response_header(response.headers, "content-type")
+                    .partition(";")[0]
+                    .strip()
+                    .lower()
+                )
+                if not content_type.startswith("image/"):
+                    raise_error("server.file.fileTypeNotSupport")
+                file_content = BytesIO(response.content)
+                parsed_url = urlparse(response.url)
 
-            # Ensure URL is properly formatted
-            if not url.startswith(("http://", "https://")):
-                raise_error("server.file.videoInvalidUrlFormat")
-
-            parsed_url = urlparse(url)
-            clean_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
-
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
-                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-                "Referer": url,
-                "Connection": "keep-alive",
-            }
-
-            app.logger.info("Downloading image from URL: %s", clean_url)
-            response = requests.get(clean_url, headers=headers, timeout=10)
-            response.raise_for_status()
-
-            content_type = response.headers.get("Content-Type", "")
-            if not content_type.startswith("image/"):
-                app.logger.error("Invalid content type: %s", content_type)
-                raise_error("server.file.fileTypeNotSupport")
-
-            file_content = BytesIO(response.content)
-
-            filename = parsed_url.path.split("/")[-1]
+            filename = parsed_url.path.rsplit("/", 1)[-1]
             if "." not in filename:
                 ext = content_type.split("/")[-1]
                 if ext in ["jpeg", "png", "gif"]:
@@ -216,7 +224,19 @@ def upload_url(app: object, user_id: str, url: str) -> str:
 
             content_type = get_image_content_type(filename)
             file_id = str(uuid.uuid4()).replace("-", "")
+        except AppError:
+            raise
+        except (
+            OutboundRedirectError,
+            OutboundResponseTooLargeError,
+            UnsafeOutboundUrlError,
+            Urllib3HTTPError,
+            OSError,
+        ):
+            app.logger.warning("Remote image download was rejected or failed")
+            raise_error("server.file.fileDownloadFailed")
 
+        try:
             result = upload_to_storage(
                 app,
                 file_content=file_content,
@@ -225,29 +245,40 @@ def upload_url(app: object, user_id: str, url: str) -> str:
                 profile=OSS_PROFILE_COURSES,
             )
 
-            resource = Resource(
-                resource_id=file_id,
-                name=filename,
-                type=0,
-                oss_bucket=result.bucket,
-                oss_name=result.object_key,
-                url=result.url,
-                status=0,
-                is_deleted=0,
-                created_by=user_id,
-                updated_by=user_id,
-            )
-            db.session.add(resource)
-            db.session.commit()
-
-        except requests.RequestException:
-            app.logger.exception("Failed to download image from URL: %s", url)
-            raise_error("server.file.fileDownloadFailed")
+            with unit_of_work():
+                resource = Resource(
+                    resource_id=file_id,
+                    name=filename,
+                    type=0,
+                    oss_bucket=result.bucket,
+                    oss_name=result.object_key,
+                    url=result.url,
+                    status=0,
+                    is_deleted=0,
+                    created_by=user_id,
+                    updated_by=user_id,
+                )
+                db.session.add(resource)
+        except AppError:
+            raise
         except Exception:
-            app.logger.exception("Failed to upload image to OSS: %s", url)
+            app.logger.exception("Failed to store downloaded remote image")
             raise_error("server.file.fileUploadFailed")
-        else:
-            return result.url
+        return result.url
+
+
+def _get_response_header(headers: object, name: str) -> str:
+    if not hasattr(headers, "items"):
+        return ""
+    expected_name = name.lower()
+    return next(
+        (
+            str(value)
+            for key, value in headers.items()
+            if str(key).lower() == expected_name
+        ),
+        "",
+    )
 
 
 def shifu_permission_verification(
@@ -385,6 +416,8 @@ def get_video_info(app: object, user_id: str, url: str) -> dict:
         except KeyError:
             app.logger.exception("Missing expected field in API response")
             raise_error("server.file.videoParseError")
+        except AppError:
+            raise
         except Exception:
             app.logger.exception("Unexpected error getting video info")
             raise_error("server.file.videoGetInfoError")

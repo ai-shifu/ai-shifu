@@ -22,6 +22,7 @@ type CourseCatalogProps = {
   lessons?: LessonTreeLesson[];
   collapse?: boolean;
   selectedLessonId?: string;
+  titleLanguage?: string;
   onCollapse?: (id: string) => void;
   onLessonSelect?: (params: { id: string }) => void;
   onTrySelect?: (params: { chapterId: string; lessonId: string }) => void;
@@ -33,6 +34,7 @@ export const CourseCatalog = ({
   lessons = [],
   collapse = false,
   selectedLessonId = '',
+  titleLanguage,
   onCollapse,
   onLessonSelect = () => {},
   onTrySelect,
@@ -65,11 +67,17 @@ export const CourseCatalog = ({
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className={styles.leftSectionText}>{name}</span>
+                <span
+                  className={styles.leftSectionText}
+                  lang={titleLanguage}
+                >
+                  {name}
+                </span>
               </TooltipTrigger>
               <TooltipContent
                 side='top'
                 className='max-w-[260px] whitespace-pre-wrap break-words'
+                lang={titleLanguage}
               >
                 {name}
               </TooltipContent>
@@ -97,6 +105,7 @@ export const CourseCatalog = ({
               is_paid={e.is_paid}
               canLearning={e.canLearning}
               chapterId={id}
+              titleLanguage={titleLanguage}
               onSelect={onLessonSelect}
               onTrySelect={_onTrySelect}
             />

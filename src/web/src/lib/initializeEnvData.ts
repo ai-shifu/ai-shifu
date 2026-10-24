@@ -1,8 +1,8 @@
 'use client';
 
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
-import { getBoolEnv } from '@/c-utils/envUtils';
+import { useEnvStore } from '@/store';
+import { EnvStoreState } from '@/types/store';
+import { getBoolEnv } from '@/lib/envUtils';
 import {
   environment,
   getDynamicApiBaseUrl,
@@ -75,7 +75,6 @@ const buildRuntimeConfigUrl = (resolvedBase: string): string => {
 const loadRuntimeConfig = async () => {
   const {
     updateAppId,
-    updateDefaultLlmModel,
     updateAlwaysShowLessonTree,
     updateUmamiWebsiteId,
     updateUmamiScriptSrc,
@@ -89,6 +88,8 @@ const loadRuntimeConfig = async () => {
     updateContactUsUrl,
     updateOfficialSiteUrl,
     updateCurrencySymbol,
+    updateDefaultCoursePrice,
+    updateMinimumPaidCoursePrice,
     updateBillingEnabled,
     updateStripePublishableKey,
     updateStripeEnabled,
@@ -170,13 +171,22 @@ const loadRuntimeConfig = async () => {
   await updateEnableWxcode(
     runtimeConfig?.enableWechatCode?.toString() || 'true',
   );
-  await updateDefaultLlmModel(runtimeConfig?.defaultLlmModel || '');
   await updateHomeUrl(runtimeConfig?.homeUrl || environment.homeUrl);
   await updateContactUsUrl(runtimeConfig?.contactUsUrl || '');
   await updateOfficialSiteUrl(
     resolveOfficialSiteUrl(runtimeConfig?.officialSiteUrl),
   );
   await updateCurrencySymbol(runtimeConfig?.currencySymbol || '¥');
+  await updateDefaultCoursePrice(
+    typeof runtimeConfig?.defaultCoursePrice === 'number'
+      ? runtimeConfig.defaultCoursePrice
+      : 0.5,
+  );
+  await updateMinimumPaidCoursePrice(
+    typeof runtimeConfig?.minimumPaidCoursePrice === 'number'
+      ? runtimeConfig.minimumPaidCoursePrice
+      : 0.5,
+  );
   await updateBillingEnabled(
     runtimeConfig?.billingEnabled !== undefined
       ? runtimeConfig.billingEnabled.toString()

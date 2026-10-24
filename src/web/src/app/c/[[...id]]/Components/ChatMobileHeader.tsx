@@ -4,11 +4,11 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { useSystemStore } from '@/store/useSystemStore';
 import { Menu, X } from 'lucide-react';
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
-import { shifu } from '@/c-service/Shifu';
+import { useDisclosure } from '@/hooks/useDisclosure';
+import { shifu } from '@/lib/shifu/Shifu';
 import CourseHeaderSummary from './CourseHeaderSummary';
 import LearningModeSwitch from './LearningModeSwitch';
 import LearnerCourseShareButton from './LearnerCourseShareButton';
@@ -25,6 +25,7 @@ export const ChatMobileHeader = ({
   chapterId,
   lessonId,
   lessonTitle,
+  titleLanguage,
 }) => {
   const { t } = useTranslation();
   const { onOpen: onIconPopoverOpen, onClose: onIconPopoverClose } =
@@ -64,7 +65,7 @@ export const ChatMobileHeader = ({
         />
       ) : null}
       <div className={styles.headerRow}>
-        <CourseHeaderSummary />
+        <CourseHeaderSummary titleLanguage={titleLanguage} />
 
         <div className={styles.actionGroup}>
           {showLearningModeToggle ? <LearningModeSwitch /> : null}

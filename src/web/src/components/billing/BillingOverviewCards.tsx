@@ -40,27 +40,6 @@ const PLAN_FEATURE_FALLBACK_KEYS: Record<string, string[]> = {
   ],
 };
 
-const PLAN_SCALE_KEYS: Record<string, { students: string }> = {
-  'creator-plan-trial': {
-    students: 'module.billing.package.scale.free.students',
-  },
-  'creator-plan-monthly': {
-    students: 'module.billing.package.scale.lite.students',
-  },
-  'creator-plan-monthly-pro': {
-    students: 'module.billing.package.scale.basic.students',
-  },
-  'creator-plan-yearly-lite': {
-    students: 'module.billing.package.scale.advanced.students',
-  },
-  'creator-plan-yearly': {
-    students: 'module.billing.package.scale.pro.students',
-  },
-  'creator-plan-yearly-premium': {
-    students: 'module.billing.package.scale.premium.students',
-  },
-};
-
 export function getPlanFeatureData(product: BillingPlan): PlanFeatureData {
   if (PLAN_FEATURE_FALLBACK_KEYS[product.product_code]) {
     return {
@@ -102,12 +81,6 @@ export function getFreeFeatureData(_highlights?: string[]): PlanFeatureData {
   return {
     items: DEFAULT_FREE_FEATURE_KEYS,
   };
-}
-
-export function getPlanScaleKeys(
-  productCode: string,
-): { students: string } | null {
-  return PLAN_SCALE_KEYS[productCode] || null;
 }
 
 type TopupCardProps = {

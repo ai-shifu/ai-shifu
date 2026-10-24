@@ -1,0 +1,11 @@
+{
+  "__namespace__": "module.lesson",
+  "reset": {
+    "confirmContent": "Beim Wiederholen wird der Lernfortschritt dieser Lektion zurückgesetzt. Möchten Sie fortfahren?",
+    "confirmTitle": "Wiederholen bestätigen",
+    "title": "Wiederholen"
+  },
+  "tooltip": {
+    "paidExclusive": "Bezahlter Premium-Zugang"
+  }
+}

@@ -89,18 +89,24 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
                 **{
                     "zh-CN": get_config("LEGAL_AGREEMENT_URL_ZH_CN", "") or "",
                     "en-US": get_config("LEGAL_AGREEMENT_URL_EN_US", "") or "",
+                    "de-DE": get_config("LEGAL_AGREEMENT_URL_DE_DE", "") or "",
+                    "es-ES": get_config("LEGAL_AGREEMENT_URL_ES_ES", "") or "",
                     "fr-FR": get_config("LEGAL_AGREEMENT_URL_FR_FR", "") or "",
                     "ar-SA": get_config("LEGAL_AGREEMENT_URL_AR_SA", "") or "",
                     "th-TH": get_config("LEGAL_AGREEMENT_URL_TH_TH", "") or "",
+                    "ur-PK": get_config("LEGAL_AGREEMENT_URL_UR_PK", "") or "",
                 }
             ),
             privacy=RuntimeLocalizedUrlDTO(
                 **{
                     "zh-CN": get_config("LEGAL_PRIVACY_URL_ZH_CN", "") or "",
                     "en-US": get_config("LEGAL_PRIVACY_URL_EN_US", "") or "",
+                    "de-DE": get_config("LEGAL_PRIVACY_URL_DE_DE", "") or "",
+                    "es-ES": get_config("LEGAL_PRIVACY_URL_ES_ES", "") or "",
                     "fr-FR": get_config("LEGAL_PRIVACY_URL_FR_FR", "") or "",
                     "ar-SA": get_config("LEGAL_PRIVACY_URL_AR_SA", "") or "",
                     "th-TH": get_config("LEGAL_PRIVACY_URL_TH_TH", "") or "",
+                    "ur-PK": get_config("LEGAL_PRIVACY_URL_UR_PK", "") or "",
                 }
             ),
         )
@@ -222,7 +228,6 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
         ) or get_config("STRIPE_PUBLISHABLE_KEY", "")
 
         config = RuntimeConfigDTO(
-            default_llm_model=get_config("DEFAULT_LLM_MODEL", ""),
             wechat_app_id=wechat_app_id,
             enable_wechat_code=bool(wechat_app_id),
             billing_enabled=billing_enabled,
@@ -269,6 +274,8 @@ def register_config_handler(app: Flask, path_prefix: str) -> Flask:
             contact_us_url=contact_us_url,
             official_site_url=official_site_url,
             currency_symbol=get_config("CURRENCY_SYMBOL", "¥"),
+            default_course_price=float(get_config("DEFAULT_SHIFU_PRICE", 0.5)),
+            minimum_paid_course_price=float(get_config("MIN_SHIFU_PRICE", 0.5)),
             legal_urls=legal_urls,
             entitlements=runtime_billing.entitlements,
             branding=runtime_billing.branding,

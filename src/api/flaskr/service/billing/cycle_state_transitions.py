@@ -11,11 +11,13 @@ from flaskr.util.datetime import now_utc
 from .bucket_categories import (
     load_billing_order_type_by_bid,
     resolve_wallet_bucket_runtime_category,
+    wallet_bucket_requires_active_subscription,
 )
 from .consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -202,4 +204,11 @@ def load_active_credit_buckets_by_runtime_category(
             load_order_type=load_billing_order_type_by_bid,
         )
         == bucket_category
+        and (
+            bucket_category != CREDIT_BUCKET_CATEGORY_SUBSCRIPTION
+            or wallet_bucket_requires_active_subscription(
+                row,
+                load_order_type=load_billing_order_type_by_bid,
+            )
+        )
     ]

@@ -8,8 +8,17 @@ export const NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT =
   'operator_notification_template_filter_applied';
 export const NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT =
   'operator_notification_template_detail_opened';
+export const NOTIFICATION_TEMPLATE_SAVE_ATTEMPT_EVENT =
+  'operator_notification_template_save_attempt';
+export const NOTIFICATION_TEMPLATE_SAVE_RESULT_EVENT =
+  'operator_notification_template_save_result';
 
 export const NOTIFICATION_TEMPLATE_TRACKING_CONTEXT = {
   channel: 'sms',
   provider: 'aliyun',
+} as const;
+
+export const NOTIFICATION_EMAIL_TEMPLATE_TRACKING_CONTEXT = {
+  channel: 'email',
+  provider: 'smtp',
 } as const;

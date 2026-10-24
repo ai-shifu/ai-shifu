@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.metering.models import BillUsageRecord
 from flaskr.util.datetime import now_utc, parse_naive_utc
 from flaskr.util.uuid import generate_id
@@ -142,7 +143,7 @@ def aggregate_daily_usage_metrics(
         now=now,
     )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         usage_rows = (
             BillUsageRecord.query.filter(
                 BillUsageRecord.deleted == 0,
@@ -266,7 +267,6 @@ def aggregate_daily_usage_metrics(
                 )
             )
 
-        db.session.commit()
         return DailyAggregateJobResult(
             status="finalized" if finalize else "aggregated",
             stat_date=normalized_stat_date,
@@ -318,7 +318,7 @@ def aggregate_daily_ledger_summary(
         now=now,
     )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         query = CreditLedgerEntry.query.filter(
             CreditLedgerEntry.deleted == 0,
             CreditLedgerEntry.created_at >= window_started_at,
@@ -379,7 +379,6 @@ def aggregate_daily_ledger_summary(
                 )
             )
 
-        db.session.commit()
         return DailyAggregateJobResult(
             status="finalized" if finalize else "aggregated",
             stat_date=normalized_stat_date,

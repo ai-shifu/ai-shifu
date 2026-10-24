@@ -9,16 +9,32 @@ Date: 2025-08-07
 import json
 import math
 from datetime import datetime
+from decimal import Decimal
 from time import perf_counter
 from typing import Any
 
 from flask import Flask
+from flaskr.api.llm.model_selection import (
+    course_model_selection,
+    get_configured_model_slots,
+    normalize_course_model,
+)
+from flaskr.common.config import parse_nonnegative_cent_amount
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.common.dtos import PageNationDTO
-from flaskr.service.common.models import raise_error, raise_error_with_args
+from flaskr.service.common.models import (
+    raise_error,
+    raise_error_with_args,
+    raise_param_error,
+)
 from flaskr.service.config import get_config
+from flaskr.service.learn.api import (
+    is_live_follow_up_model,
+    normalize_live_follow_up_provider_config,
+)
 
 # Deprecation-window shim: the ask-provider constants moved to their canonical
 # home in flaskr/service/learn/ask_provider_adapters/consts.py. They are
@@ -67,6 +83,34 @@ SUPPORTED_ASK_ENABLED_STATUSES = {
     ASK_MODE_DISABLE,
     ASK_MODE_ENABLE,
 }
+
+
+def _resolve_shifu_price(shifu_price: float | Decimal | None) -> Decimal:
+    """Resolve and validate a course price for the current deployment."""
+    try:
+        minimum_paid_price = parse_nonnegative_cent_amount(
+            get_config("MIN_SHIFU_PRICE")
+        )
+    except ValueError:
+        raise_param_error("shifu_price")
+    configured_default = get_config("DEFAULT_SHIFU_PRICE")
+    raw_price = (
+        configured_default
+        if shifu_price is None and configured_default is not None
+        else minimum_paid_price
+        if shifu_price is None
+        else shifu_price
+    )
+    try:
+        price = parse_nonnegative_cent_amount(raw_price)
+    except ValueError:
+        raise_param_error("shifu_price")
+    if price > 0 and price < minimum_paid_price:
+        raise_error_with_args(
+            "server.shifu.shifuPriceTooLow",
+            min_shifu_price=minimum_paid_price,
+        )
+    return price
 
 
 def normalize_ask_provider_config(raw_config: object) -> dict[str, object]:
@@ -162,6 +206,22 @@ def return_shifu_draft_dto(
     ask_provider_config = normalize_ask_provider_config(
         getattr(shifu_draft, "ask_provider_config", "")
     )
+    resolved_ask_provider_config, live_config_error = (
+        normalize_live_follow_up_provider_config(
+            getattr(shifu_draft, "ask_llm", "") or "",
+            ask_provider_config,
+        )
+    )
+    if live_config_error is None:
+        ask_provider_config = resolved_ask_provider_config
+
+    display_names = {
+        slot["index"]: slot["display_name"] for slot in get_configured_model_slots()
+    }
+    main_selection = course_model_selection(shifu_draft.llm)
+    raw_ask_model = getattr(shifu_draft, "ask_llm", "") or ""
+    live_follow_up = is_live_follow_up_model(raw_ask_model)
+    ask_selection = course_model_selection(raw_ask_model)
 
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,
@@ -171,8 +231,9 @@ def return_shifu_draft_dto(
         shifu_keywords=(
             shifu_draft.keywords.split(",") if shifu_draft.keywords else []
         ),
-        shifu_model=shifu_draft.llm,
-        shifu_temperature=shifu_draft.llm_temperature,
+        shifu_model=main_selection["index"],
+        model_fallback=main_selection["fallback"],
+        model_display_name=display_names.get(main_selection["index"], ""),
         shifu_price=shifu_draft.price,
         shifu_url=shifu_url,
         shifu_preview_url=shifu_preview_url,
@@ -198,10 +259,18 @@ def return_shifu_draft_dto(
         ask_enabled_status=int(
             getattr(shifu_draft, "ask_enabled_status", ASK_MODE_DEFAULT)
         ),
-        ask_model=getattr(shifu_draft, "ask_llm", "") or "",
-        ask_temperature=float(getattr(shifu_draft, "ask_llm_temperature", 0.0) or 0.0),
+        ask_model=raw_ask_model if live_follow_up else ask_selection["index"],
+        ask_model_fallback=False if live_follow_up else ask_selection["fallback"],
+        ask_model_display_name=""
+        if live_follow_up
+        else display_names.get(ask_selection["index"], ""),
         ask_system_prompt=getattr(shifu_draft, "ask_llm_system_prompt", "") or "",
         ask_provider_config=ask_provider_config,
+        follow_up_mode=(
+            "live_voice"
+            if is_live_follow_up_model(getattr(shifu_draft, "ask_llm", "") or "")
+            else "text"
+        ),
     )
 
 
@@ -246,7 +315,7 @@ def create_shifu_draft(
         ShifuDto: Shifu dto.
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         total_started_at = perf_counter()
         stage_started_at = total_started_at
         now_time = now_utc()
@@ -261,6 +330,8 @@ def create_shifu_draft(
             )
         if len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")
+        if is_live_follow_up_model(shifu_model):
+            raise_param_error("model")
 
         # create a new DraftShifu object
         shifu_draft: DraftShifu = DraftShifu(
@@ -269,9 +340,10 @@ def create_shifu_draft(
             description=shifu_description,
             avatar_res_bid=shifu_image,
             keywords=",".join(shifu_keywords) if shifu_keywords else "",
-            llm=shifu_model or "",
+            llm=normalize_course_model(shifu_model),
+            ask_llm="1",
             llm_temperature=shifu_temperature or 0.3,
-            price=shifu_price or get_config("MIN_SHIFU_PRICE"),
+            price=_resolve_shifu_price(shifu_price),
             deleted=0,  # not deleted
             created_user_bid=user_id,
             created_at=now_time,
@@ -315,17 +387,15 @@ def create_shifu_draft(
         )
 
         draft_persist_elapsed_ms = round((perf_counter() - stage_started_at) * 1000, 2)
-        stage_started_at = perf_counter()
-        db.session.commit()
-        commit_elapsed_ms = round((perf_counter() - stage_started_at) * 1000, 2)
         total_elapsed_ms = round((perf_counter() - total_started_at) * 1000, 2)
+        # The unit of work commits when this block exits, so the timings here
+        # cover the risk check and the staged writes only.
         app.logger.info(
-            "create_shifu_draft finished | shifu_id=%s user_id=%s risk_check_ms=%s draft_persist_ms=%s commit_ms=%s total_ms=%s",
+            "create_shifu_draft finished | shifu_id=%s user_id=%s risk_check_ms=%s draft_persist_ms=%s total_ms=%s",
             shifu_id,
             user_id,
             risk_check_elapsed_ms,
             draft_persist_elapsed_ms,
-            commit_elapsed_ms,
             total_elapsed_ms,
         )
 
@@ -446,7 +516,7 @@ def save_shifu_draft_info(
         ShifuDetailDto: Shifu detail dto.
 
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         total_started_at = perf_counter()
         risk_check_elapsed_ms = 0.0
         persist_elapsed_ms = 0.0
@@ -454,6 +524,8 @@ def save_shifu_draft_info(
         # so we merge the incoming (non-None) values with the existing draft
         # before validation, rather than validating partial data.
         shifu_draft = get_latest_shifu_draft(shifu_id)
+        if shifu_model is not None and is_live_follow_up_model(shifu_model):
+            raise_param_error("model")
 
         # Resolve the effective TTS enabled flag: caller-provided value wins,
         # otherwise keep what the draft already has.
@@ -537,9 +609,11 @@ def save_shifu_draft_info(
         if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
             ask_enabled_status = ASK_MODE_DEFAULT
 
-        if ask_model is None:
-            ask_model = shifu_draft.ask_llm if shifu_draft else ""
-        ask_model = ask_model or ""
+        ask_model_provided = ask_model is not None
+        if not ask_model_provided:
+            ask_model = shifu_draft.ask_llm if shifu_draft else "1"
+        elif not is_live_follow_up_model(ask_model):
+            ask_model = normalize_course_model(ask_model, "ask_model")
 
         if ask_temperature is None:
             ask_temperature = (
@@ -552,27 +626,42 @@ def save_shifu_draft_info(
             ask_system_prompt = shifu_draft.ask_llm_system_prompt if shifu_draft else ""
         ask_system_prompt = ask_system_prompt or ""
 
-        if ask_provider_config is None:
-            if shifu_draft:
-                serialized_ask_provider_config = (
-                    getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
-                )
-            else:
-                serialized_ask_provider_config = "{}"
+        if ask_provider_config is None and not is_live_follow_up_model(ask_model):
+            serialized_ask_provider_config = (
+                getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+                if shifu_draft
+                else "{}"
+            )
         else:
+            raw_ask_provider_config = ask_provider_config
+            if raw_ask_provider_config is None:
+                raw_ask_provider_config = (
+                    getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+                    if shifu_draft
+                    else "{}"
+                )
+            normalized_ask_provider_config = normalize_ask_provider_config(
+                raw_ask_provider_config
+            )
+            normalized_ask_provider_config, live_config_error = (
+                normalize_live_follow_up_provider_config(
+                    ask_model,
+                    normalized_ask_provider_config,
+                )
+            )
+            if live_config_error:
+                raise_param_error(
+                    f"ask_provider_config.{live_config_error}"
+                    if live_config_error in {"provider", "mode"}
+                    else f"ask_provider_config.config.{live_config_error}"
+                )
             serialized_ask_provider_config = serialize_ask_provider_config(
-                ask_provider_config
+                normalized_ask_provider_config
             )
 
-        min_shifu_price = get_config("MIN_SHIFU_PRICE")
         if shifu_price is None and shifu_draft:
             shifu_price = float(shifu_draft.price)
-        elif shifu_price is None:
-            shifu_price = min_shifu_price
-        if shifu_price < min_shifu_price:
-            raise_error_with_args(
-                "server.shifu.shifuPriceTooLow", min_shifu_price=min_shifu_price
-            )
+        shifu_price = _resolve_shifu_price(shifu_price)
         if not shifu_draft:
             # First-time draft: there is no current value to preserve, so fill
             # sensible defaults for any field the caller omitted (None).
@@ -582,7 +671,7 @@ def save_shifu_draft_info(
                 description=shifu_description or "",
                 avatar_res_bid=shifu_avatar or "",
                 keywords=",".join(shifu_keywords) if shifu_keywords else "",
-                llm=shifu_model or "",
+                llm=normalize_course_model(shifu_model),
                 llm_temperature=(
                     shifu_temperature if shifu_temperature is not None else 0.3
                 ),
@@ -609,7 +698,6 @@ def save_shifu_draft_info(
             db.session.add(shifu_draft)
             db.session.flush()
             save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
-            db.session.commit()
         else:
             new_shifu_draft: DraftShifu = shifu_draft.clone()
             # PATCH semantics: only overwrite a field the caller actually provided
@@ -627,12 +715,13 @@ def save_shifu_draft_info(
                     ",".join(shifu_keywords) if shifu_keywords else ""
                 )
             if shifu_model is not None:
-                new_shifu_draft.llm = shifu_model
+                new_shifu_draft.llm = normalize_course_model(shifu_model)
             if shifu_temperature is not None:
                 new_shifu_draft.llm_temperature = shifu_temperature
             new_shifu_draft.price = shifu_price
             new_shifu_draft.ask_enabled_status = ask_enabled_status
-            new_shifu_draft.ask_llm = ask_model
+            if ask_model_provided:
+                new_shifu_draft.ask_llm = ask_model
             new_shifu_draft.ask_llm_temperature = ask_temperature
             new_shifu_draft.ask_llm_system_prompt = ask_system_prompt
             new_shifu_draft.ask_provider_config = serialized_ask_provider_config
@@ -676,7 +765,6 @@ def save_shifu_draft_info(
                 db.session.add(new_shifu_draft)
                 db.session.flush()
                 save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
-                db.session.commit()
                 persist_elapsed_ms = round(
                     (perf_counter() - persist_started_at) * 1000, 2
                 )
@@ -959,7 +1047,7 @@ def get_shifu_published_list(
 def _set_shifu_archive_state(
     app: object, user_id: str, shifu_id: str, archived: bool
 ) -> None:
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
@@ -989,8 +1077,6 @@ def _set_shifu_archive_state(
                     updated_at=now,
                 )
             )
-
-        db.session.commit()
 
 
 def archive_shifu(app: object, user_id: str, shifu_id: str) -> None:

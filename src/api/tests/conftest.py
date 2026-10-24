@@ -17,6 +17,8 @@ from flask.testing import FlaskClient
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
+# Third-party integrations may call load_dotenv without the app's skip flag.
+os.environ["PYTHON_DOTENV_DISABLED"] = "1"
 
 from flaskr.common.config import ENV_VARS
 
@@ -94,7 +96,6 @@ import contextlib
 
 from tests.common.fixtures.fake_llm import (
     fake_chat_llm,
-    fake_get_allowed_models,
     fake_get_current_models,
     fake_invoke_llm,
 )
@@ -113,7 +114,8 @@ def app() -> Iterator[Flask | None]:
     os.environ["ADMIN_DB_URI"] = _test_db_uri
     os.environ["SECRET_KEY"] = "test-secret-key"
     os.environ["UNIVERSAL_VERIFICATION_CODE"] = "9999"
-    os.environ["DEFAULT_LLM_MODEL"] = "gpt-test"
+    os.environ["LLM_MODEL_1_NAME"] = "Test model"
+    os.environ["LLM_MODEL_1_ID"] = "gpt-test"
     os.environ["OPENAI_API_KEY"] = "test-key"
     os.environ["CELERY_BROKER_URL"] = "memory://"
     os.environ["CELERY_RESULT_BACKEND"] = "cache+memory://"
@@ -230,9 +232,6 @@ def mock_llm_calls(monkeypatch: object, request: object) -> None:
         return
     monkeypatch.setattr(llm, "invoke_llm", fake_invoke_llm, raising=False)
     monkeypatch.setattr(llm, "chat_llm", fake_chat_llm, raising=False)
-    monkeypatch.setattr(
-        llm, "get_allowed_models", fake_get_allowed_models, raising=False
-    )
     monkeypatch.setattr(
         llm, "get_current_models", fake_get_current_models, raising=False
     )

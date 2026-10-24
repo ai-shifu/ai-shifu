@@ -8,6 +8,7 @@ type UserDetailInfoCardItem = {
   key: string;
   label: ReactNode;
   value?: string;
+  secondaryValue?: string;
   onClick?: () => void;
   valueClassName?: string;
   valueAriaLabel?: string;
@@ -38,6 +39,7 @@ export default function UserDetailInfoCard({
               key={item.key}
               label={item.label}
               value={item.value}
+              secondaryValue={item.secondaryValue}
               emptyValue={emptyValue}
               onClick={item.onClick}
               valueClassName={item.valueClassName}

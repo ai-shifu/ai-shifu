@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
-import { copyText } from '@/c-utils/textutils';
+import { copyText } from '@/lib/textutils';
 import AdminReferralPage from './page';
 
 jest.mock('@/api', () => ({
@@ -10,7 +10,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/c-utils/textutils', () => ({
+jest.mock('@/lib/textutils', () => ({
   copyText: jest.fn(),
 }));
 

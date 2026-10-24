@@ -9,6 +9,7 @@ from flaskr.service.config import get_config
 
 from . import register_payment_provider
 from .base import (
+    PaymentCancellationResult,
     PaymentCreationResult,
     PaymentNotificationResult,
     PaymentProvider,
@@ -100,7 +101,6 @@ class StripeProvider(PaymentProvider):
                 params["customer_email"] = customer_email
 
             if params.get("mode") == "subscription":
-                params["metadata"] = metadata
                 subscription_data = dict(params.get("subscription_data") or {})
                 subscription_metadata = subscription_data.get("metadata") or {}
                 if hasattr(subscription_metadata, "to_dict"):
@@ -116,9 +116,19 @@ class StripeProvider(PaymentProvider):
                 if existing_metadata:
                     if hasattr(existing_metadata, "to_dict"):
                         existing_metadata = existing_metadata.to_dict()
-                    metadata.update(existing_metadata)
+                    # Caller keys are kept, but the order evidence wins: it is
+                    # what a later sync matches the order against.
+                    metadata = {**dict(existing_metadata), **metadata}
                 payment_intent_data["metadata"] = metadata
                 params["payment_intent_data"] = payment_intent_data
+            # The session itself has to carry the evidence as well. A
+            # payment-mode session has no PaymentIntent until the buyer starts
+            # paying, so a sync that runs before that can only read metadata
+            # from the session.
+            session_metadata = params.get("metadata")
+            if hasattr(session_metadata, "to_dict"):
+                session_metadata = session_metadata.to_dict()
+            params["metadata"] = {**dict(session_metadata or {}), **metadata}
             is_subscription_mode = params.get("mode") == "subscription"
             params["payment_method_types"] = ["card"]
             if not is_subscription_mode and get_config("STRIPE_ALIPAY_ENABLED"):
@@ -274,6 +284,55 @@ class StripeProvider(PaymentProvider):
         session = stripe.checkout.Session.expire(session_id, **request_options)
         return session.to_dict() if hasattr(session, "to_dict") else session
 
+    def cancel_payment(
+        self,
+        *,
+        provider_reference: str,
+        reference_type: str,
+        app: Flask,
+    ) -> PaymentCancellationResult:
+        """Expire Checkout or cancel an uncaptured PaymentIntent."""
+        stripe, request_options = self._client_options(app)
+        normalized_type = str(reference_type or "").strip().lower()
+        if normalized_type not in {"checkout_session", "payment_intent"}:
+            message = f"Unsupported Stripe reference type: {reference_type}"
+            raise RuntimeError(message)
+        try:
+            if normalized_type == "checkout_session":
+                response = stripe.checkout.Session.expire(
+                    provider_reference, **request_options
+                )
+            else:
+                response = stripe.PaymentIntent.cancel(
+                    provider_reference, **request_options
+                )
+        except Exception:
+            if normalized_type == "checkout_session":
+                response = stripe.checkout.Session.retrieve(
+                    provider_reference, **request_options
+                )
+                recovered_status = str(response.get("status") or "").lower()
+                terminal = recovered_status in {"complete", "expired"}
+            elif normalized_type == "payment_intent":
+                response = stripe.PaymentIntent.retrieve(
+                    provider_reference, **request_options
+                )
+                terminal = str(response.get("status") or "").lower() == "canceled"
+            if not terminal:
+                raise
+        payload = response.to_dict() if hasattr(response, "to_dict") else dict(response)
+        cancellation_status = "cancelled"
+        if (
+            normalized_type == "checkout_session"
+            and str(payload.get("status") or "").lower() == "complete"
+        ):
+            cancellation_status = "completed"
+        return PaymentCancellationResult(
+            provider_reference=provider_reference,
+            raw_response=payload,
+            status=cancellation_status,
+        )
+
     def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> dict[str, Any]:
         """Retrieve a Stripe payment intent."""
         stripe, request_options = self._client_options(app)
@@ -358,6 +417,8 @@ class StripeProvider(PaymentProvider):
                     if charges:
                         charge_id = str(charges[0].get("id") or "")
             metadata = session.get("metadata", {}) or {}
+            if not metadata.get("order_bid") and intent:
+                metadata = intent.get("metadata", {}) or {}
             return PaymentNotificationResult(
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
@@ -400,9 +461,10 @@ class StripeProvider(PaymentProvider):
         if request.reason:
             params["reason"] = request.reason
 
-        metadata = request.metadata or {}
+        metadata = dict(request.metadata or {})
         if hasattr(metadata, "to_dict"):
             metadata = metadata.to_dict()
+        idempotency_key = str(metadata.pop("idempotency_key", "") or "")
         metadata.setdefault("order_bid", request.order_bid)
         params["metadata"] = metadata
 
@@ -416,6 +478,11 @@ class StripeProvider(PaymentProvider):
             message = "Stripe refund requires payment_intent_id or charge_id metadata"
             raise RuntimeError(message)
 
+        if idempotency_key:
+            request_options = {
+                **request_options,
+                "idempotency_key": idempotency_key,
+            }
         refund = stripe.Refund.create(**params, **request_options)
         refund_dict = refund.to_dict()
 

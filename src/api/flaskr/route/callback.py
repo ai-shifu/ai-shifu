@@ -10,6 +10,7 @@ from flaskr.service.billing.webhooks import (
     apply_billing_native_notification,
     handle_billing_pingxx_webhook,
 )
+from flaskr.service.common.models import AppError
 from flaskr.service.config import config_overrides
 from flaskr.service.order import (
     handle_stripe_webhook,
@@ -89,7 +90,7 @@ def register_callback_handler(app: Flask, path_prefix: str) -> Flask:
     # pingxx支付回调
     @app.route(path_prefix + "/pingxx-callback", methods=["POST"])
     @bypass_token_validation
-    def pingxx_callback() -> Response:
+    def pingxx_callback() -> Response | tuple[Response, int]:
         body = request.get_json()
         app.logger.info("pingxx-callback: %s", body)
         event_type = body.get("type", "")
@@ -99,7 +100,11 @@ def register_callback_handler(app: Flask, path_prefix: str) -> Flask:
             app.logger.info("pingxx-callback: charge.succeeded order_no: %s", order_no)
             billing_result = handle_billing_pingxx_webhook(app, body)
             if not billing_result.matched:
-                success_buy_record_from_pingxx(app, charge_id, body)
+                try:
+                    success_buy_record_from_pingxx(app, charge_id, body)
+                except AppError:
+                    app.logger.exception("Pingxx callback failed")
+                    return jsonify({"code": "FAIL", "message": "processing error"}), 400
             # 处理支付成功逻辑
             # do something
 

@@ -102,7 +102,7 @@ Collection completion itself does not invoke this optimizer.
   `src/web/src/api/learnerProfile.ts`
 - Learner onboarding and menu entry:
   `src/web/src/app/c/[[...id]]/page.tsx` and
-  `src/web/src/c-components/NavDrawer/MainMenuModal.tsx`
+  `src/web/src/components/NavDrawer/MainMenuModal.tsx`
 - Canonical persistence, moderation, and account merge:
   `src/api/flaskr/service/profile/learner_profile.py`
 - Optimizer and its admission guard:

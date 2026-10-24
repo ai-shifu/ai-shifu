@@ -21,7 +21,7 @@ This design is based on the external requirement artifact named
 `AI-Shifu 套餐订购与预购方案 (1).pdf`. The PDF is not committed to the
 repository, so the assumptions needed for implementation are captured directly
 in this document. This design extends the existing billing model documented in
-`docs/billing-subscription-design.md`.
+`docs/design-docs/billing-subscription-design.md`.
 
 ## Goals
 

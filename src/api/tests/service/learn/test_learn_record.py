@@ -181,6 +181,32 @@ class LearnRecordFallbackTests(unittest.TestCase):
         assert CONTEXT_INTERACTION_NEXT in record.content
         assert is_lesson_feedback_interaction(result.records[1].content)
 
+    def test_hiding_the_successor_removes_a_persisted_button(self) -> None:
+        """A saved navigation block cannot override the current outline."""
+        self._seed_struct(["outline-1", "outline-2"])
+        progress = self._create_progress(LEARN_STATUS_COMPLETED)
+        self._add_interaction_block(progress, "?[Next lesson//_sys_next_chapter]")
+        successor = PublishedOutlineItem.query.filter_by(
+            outline_item_bid="outline-2"
+        ).first()
+        successor.hidden = True
+        dao.db.session.commit()
+
+        with self.app.test_request_context():
+            self._set_request_user()
+            result = get_learn_record(
+                self.app,
+                progress.shifu_bid,
+                progress.outline_item_bid,
+                progress.user_bid,
+                preview_mode=False,
+                progress_record_bid=progress.progress_record_bid,
+            )
+
+        assert all(
+            CONTEXT_INTERACTION_NEXT not in record.content for record in result.records
+        )
+
     def test_no_button_when_not_completed(self) -> None:
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_IN_PROGRESS)
@@ -195,6 +221,28 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 preview_mode=False,
             )
 
+        assert result.records == []
+
+    def test_progress_selector_does_not_read_an_older_completed_attempt(self) -> None:
+        """The listen history must request the attempt whose elements it is returning."""
+        self._seed_struct(["outline-1", "outline-2"])
+        old_progress = self._create_progress(LEARN_STATUS_COMPLETED)
+        new_progress = self._create_progress(LEARN_STATUS_IN_PROGRESS)
+        new_progress.progress_record_bid = "progress-2"
+        dao.db.session.commit()
+
+        with self.app.test_request_context():
+            self._set_request_user()
+            result = get_learn_record(
+                self.app,
+                new_progress.shifu_bid,
+                new_progress.outline_item_bid,
+                new_progress.user_bid,
+                preview_mode=False,
+                progress_record_bid=new_progress.progress_record_bid,
+            )
+
+        assert old_progress.progress_record_bid != new_progress.progress_record_bid
         assert result.records == []
 
     def test_feedback_when_completed_without_next(self) -> None:

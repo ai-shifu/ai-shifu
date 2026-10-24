@@ -8,12 +8,9 @@ import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
-import {
-  FRAME_LAYOUT_MOBILE,
-  FRAME_LAYOUT_PC,
-} from '@/c-constants/uiConstants';
-import { useSystemStore } from '@/c-store/useSystemStore';
-import { useCourseStore, useUiLayoutStore } from '@/c-store';
+import { FRAME_LAYOUT_MOBILE, FRAME_LAYOUT_PC } from '@/constants/uiConstants';
+import { useSystemStore } from '@/store/useSystemStore';
+import { useCourseStore, useUiLayoutStore } from '@/store';
 import MarkdownFlowLink from '@/components/ui/MarkdownFlowLink';
 import type { ListenMobileViewModeChangeHandler } from './listenModeTypes';
 import CourseHeaderSummary from '../CourseHeaderSummary';
@@ -45,8 +42,10 @@ interface ChatUiProps {
   onPurchased: () => void;
   lessonTitle?: string;
   lessonStatus?: string;
-  lessonHasContentUpdate?: boolean;
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
   runtimeReady?: boolean;
+  titleLanguage?: string;
+  contentLanguage?: string;
   onMobileSettingClick?: () => void;
   chapterUpdate: ChapterUpdateHandler;
   updateSelectedLesson: LessonSelectionUpdater;
@@ -69,8 +68,10 @@ export const ChatUi = ({
   onPurchased,
   lessonTitle = '',
   lessonStatus = '',
-  lessonHasContentUpdate = false,
+  followUpMode = 'text',
   runtimeReady = true,
+  titleLanguage,
+  contentLanguage,
   chapterUpdate,
   updateSelectedLesson,
   getNextLessonId,
@@ -167,6 +168,7 @@ export const ChatUi = ({
                 <CourseHeaderSummary
                   courseAvatar={courseAvatar}
                   courseName={courseName}
+                  titleLanguage={titleLanguage}
                   className={styles.courseSummary}
                   titleClassName={styles.courseSummaryTitle}
                 />
@@ -218,8 +220,10 @@ export const ChatUi = ({
           lessonUpdate={lessonUpdate}
           onGoChapter={onGoChapter}
           lessonTitle={lessonTitle}
+          titleLanguage={titleLanguage}
+          contentLanguage={contentLanguage}
           lessonStatus={lessonStatus}
-          lessonHasContentUpdate={lessonHasContentUpdate}
+          followUpMode={followUpMode}
           className={styles.chatComponents}
           previewMode={previewMode}
           onPurchased={onPurchased}

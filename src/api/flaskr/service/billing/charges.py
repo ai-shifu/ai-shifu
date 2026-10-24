@@ -40,6 +40,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 _ZERO = Decimal(0)
+
+
 _ROUNDING_LABELS = {
     CREDIT_ROUNDING_MODE_CEIL: "ceil",
     CREDIT_ROUNDING_MODE_FLOOR: "floor",
@@ -179,6 +181,29 @@ class UsageEntryMetadata:
                 item.to_metadata_json() for item in self.bucket_breakdown
             ],
         }
+
+
+def has_complete_llm_rates(model: str) -> bool:
+    """Check gateway model eligibility using the existing production rate rules."""
+    usage = BillUsageRecord(
+        usage_type=BILL_USAGE_TYPE_LLM,
+        usage_scene=BILL_USAGE_SCENE_PROD,
+        provider="",
+        model=model,
+        input=2,
+        input_cache=1,
+        output=1,
+        total=3,
+    )
+    metrics = {
+        int(charge.billing_metric)
+        for charge in build_usage_metric_charges(usage, settlement_at=now_utc())
+    }
+    return {
+        BILLING_METRIC_LLM_INPUT_TOKENS,
+        BILLING_METRIC_LLM_CACHE_TOKENS,
+        BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    }.issubset(metrics)
 
 
 def build_usage_metric_charges(

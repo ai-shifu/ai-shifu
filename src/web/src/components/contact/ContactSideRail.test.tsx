@@ -22,14 +22,14 @@ jest.mock('next/navigation', () => ({
   usePathname: () => '/admin',
 }));
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (
     selector: ((state: typeof mockEnvState) => unknown) | undefined,
   ) => selector?.(mockEnvState) ?? mockEnvState.contactUsUrl,
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { LoaderIcon } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
-import { getPaymentAgreementUrl } from '@/c-utils/urlUtils';
+import { getPaymentAgreementUrl } from '@/lib/urlUtils';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Button } from '@/components/ui/Button';
 import {
@@ -26,6 +26,7 @@ const BILLING_PINGXX_CHANNELS: BillingPingxxChannel[] = [
 ];
 
 type BillingPingxxQrDialogProps = {
+  billingOrderBid: string;
   amountInMinor: number;
   currency: string;
   description: string;
@@ -44,6 +45,7 @@ type BillingPingxxQrDialogProps = {
 };
 
 export function BillingPingxxQrDialog({
+  billingOrderBid,
   amountInMinor,
   currency,
   description,
@@ -103,7 +105,7 @@ export function BillingPingxxQrDialog({
     return () => {
       window.clearInterval(timer);
     };
-  }, [expiresInSeconds, open]);
+  }, [billingOrderBid, expiresInSeconds, open]);
 
   const countdownLabel =
     remainingSeconds === null

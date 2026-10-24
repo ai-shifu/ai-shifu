@@ -32,7 +32,6 @@ import contextlib
 import json
 import re
 import tempfile
-import uuid
 from collections.abc import Callable, Generator
 from enum import Enum
 from functools import wraps
@@ -44,6 +43,7 @@ from flask import (
     Response,
     after_this_request,
     current_app,
+    g,
     has_request_context,
     request,
     send_file,
@@ -53,20 +53,32 @@ from flaskr.api.langfuse import (
     finalize_langfuse_trace,
     get_langfuse_client,
 )
-from flaskr.common.cache_provider import cache as redis
-from flaskr.common.config import get_config, get_redis_key_prefix
+from flaskr.api.llm.model_selection import (
+    resolve_course_selection,
+    selection_metadata,
+    selection_model,
+)
+from flaskr.common.config import get_config
 from flaskr.common.public_urls import resolve_public_origin
 from flaskr.common.shifu_context import with_shifu_context
-from flaskr.dao import db
 from flaskr.framework.plugin.inject import inject
 from flaskr.i18n import _, get_current_language, set_language
-from flaskr.route.common import bypass_token_validation, fmt, make_common_response
+from flaskr.route.common import (
+    bypass_token_validation,
+    fmt,
+    make_common_response,
+)
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import (
     admit_creator_preview_usage,
     assert_creator_debug_allowed,
 )
 from flaskr.service.common.models import ERROR_CODE, raise_error, raise_param_error
+from flaskr.service.common.server_analytics import track_external_client_event
+from flaskr.service.common.session_attribution import (
+    get_session_skill_attribution_by_reference,
+)
+from flaskr.service.common.skill_request_analytics import has_skill_request_analytics
 from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
@@ -95,6 +107,7 @@ from flaskr.service.shifu.shifu_draft_funcs import (
     SUPPORTED_ASK_PROVIDERS,
     archive_shifu,
     create_shifu_draft,
+    get_latest_shifu_draft,
     get_shifu_draft_info,
     get_shifu_draft_list,
     normalize_ask_provider_config,
@@ -118,7 +131,12 @@ from flaskr.service.shifu.shifu_outline_funcs import (
     get_outline_tree,
     get_unit_by_id,
     modify_unit,
+    reorder_outline_siblings,
     reorder_outline_tree,
+)
+from flaskr.service.shifu.shifu_permission_funcs import (
+    grant_shifu_permissions,
+    remove_shifu_permission,
 )
 from flaskr.service.shifu.shifu_publish_funcs import (
     preview_shifu_draft,
@@ -126,22 +144,12 @@ from flaskr.service.shifu.shifu_publish_funcs import (
 )
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.common import validate_user
-from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
-    ensure_user_for_identifier,
     load_user_aggregate,
-    load_user_aggregate_by_identifier,
-    set_user_state,
-    upsert_credential,
 )
 from flaskr.service.user.utils import (
-    ensure_demo_course_permissions,
     get_user_language,
-    load_existing_demo_shifu_ids,
-    mark_creator_role_if_needed,
-    run_creator_granted_post_auth,
 )
-from flaskr.util.uuid import generate_id
 
 from .funcs import (
     get_video_info,
@@ -152,6 +160,44 @@ from .funcs import (
 )
 
 
+@contextlib.contextmanager
+def _external_client_course_event(app: Flask, operation: str) -> Generator[None]:
+    """Report one attributed course operation without changing its outcome."""
+    if has_skill_request_analytics():
+        # The request lifecycle owns exactly one terminal event for this client.
+        yield
+        return
+    attribution = get_session_skill_attribution_by_reference(
+        app,
+        reference=str(
+            getattr(g, "authenticated_session_attribution", "") or ""
+        ).strip(),
+    )
+    user_bid = getattr(getattr(request, "user", None), "user_id", None)
+    track_external_client_event(
+        app,
+        event_name=f"external_course_{operation}_started",
+        attribution=attribution,
+        user_bid=user_bid,
+    )
+    try:
+        yield
+    except Exception:
+        track_external_client_event(
+            app,
+            event_name=f"external_course_{operation}_failed",
+            attribution=attribution,
+            user_bid=user_bid,
+        )
+        raise
+    track_external_client_event(
+        app,
+        event_name=f"external_course_{operation}_completed",
+        attribution=attribution,
+        user_bid=user_bid,
+    )
+
+
 class ShifuPermission(Enum):
     """Enumerate permission levels for course operations."""
 
@@ -160,7 +206,6 @@ class ShifuPermission(Enum):
     PUBLISH = "publish"
 
 
-MAX_SHARED_COURSE_USERS = 10
 MAX_CONTACT_LENGTH = 320
 PHONE_PATTERN = re.compile(r"^\d{11}$")
 EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
@@ -323,17 +368,31 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 normalized.append(trimmed)
         return normalized
 
-    def _admit_creator_debug_usage() -> None:
+    def _admit_creator_debug_usage(raw_shifu_bid: object) -> str:
         request_user = getattr(request, "user", None)
-        creator_bid = str(getattr(request_user, "user_id", "") or "").strip()
-        if not creator_bid or not getattr(request_user, "is_creator", False):
-            return
+        user_bid = str(getattr(request_user, "user_id", "") or "").strip()
+        if not user_bid:
+            raise_error("server.user.userNotLogin")
+        if not isinstance(raw_shifu_bid, str) or not raw_shifu_bid.strip():
+            raise_param_error("shifu_bid is required")
+        shifu_bid = raw_shifu_bid.strip()
+        if not shifu_permission_verification(
+            app, user_bid, shifu_bid, ShifuPermission.EDIT.value
+        ):
+            raise_error("server.shifu.noPermission")
+        creator_bid = get_shifu_creator_bid(app, shifu_bid)
+        if not creator_bid:
+            raise_error("server.shifu.shifuNotFound")
+        # Resolve the payer from the authorized course, never from client fields
+        # or the caller's teacher role. Settings previews cannot opt out of billing.
         assert_creator_debug_allowed(app, creator_bid)
         admit_creator_usage(
             app,
             creator_bid=creator_bid,
+            shifu_bid=shifu_bid,
             usage_scene=BILL_USAGE_SCENE_DEBUG,
         )
+        return shifu_bid
 
     def _admit_creator_preview_usage_for_shifu(shifu_bid: str) -> None:
         if is_builtin_demo_shifu(app, shifu_bid):
@@ -370,17 +429,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         if creator_bid != user_id:
             raise_error("server.shifu.noPermission")
         return user_id
-
-    def _clear_shifu_permission_cache(user_id: str, shifu_bid: str) -> None:
-        """Remove cached permission entries for a given user/shifu pair."""
-        # Clear both legacy and current redis prefixes to avoid stale permissions.
-        prefixes = {
-            app.config.get("CACHE_KEY_PREFIX", "") or "",
-            get_redis_key_prefix(app),
-        }
-        for prefix in prefixes:
-            cache_key = f"{prefix}shifu_permission:{user_id}:{shifu_bid}"
-            redis.delete(cache_key)
 
     def _parse_ask_provider_config(raw_value: object) -> dict | None:
         """Parse and validate ask_provider_config from request payload."""
@@ -594,132 +642,15 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         if not contacts:
             raise_param_error("contact")
 
-        existing_auths = AiCourseAuth.query.filter(
-            AiCourseAuth.course_id == shifu_bid,
-            AiCourseAuth.status == 1,
-        ).all()
-        existing_user_ids = {
-            auth.user_id
-            for auth in existing_auths
-            if auth.user_id and auth.user_id != owner_id
-        }
-
-        user_id_by_contact: dict[str, str] = {}
-        aggregate_by_contact: dict[str, object] = {}
-        new_contact_count = 0
-        for contact in contacts:
-            aggregate = load_user_aggregate_by_identifier(
-                contact, providers=[contact_type]
-            )
-            if aggregate:
-                if aggregate.user_bid == owner_id:
-                    continue
-                user_id_by_contact[contact] = aggregate.user_bid
-                aggregate_by_contact[contact] = aggregate
-            else:
-                new_contact_count += 1
-
-        new_existing_user_ids = {
-            user_id
-            for user_id in user_id_by_contact.values()
-            if user_id not in existing_user_ids and user_id != owner_id
-        }
-
-        if (
-            len(existing_user_ids) + len(new_existing_user_ids) + new_contact_count
-            > MAX_SHARED_COURSE_USERS
-        ):
-            raise_param_error(
-                _("server.shifu.permissionContactLimit").format(
-                    count=MAX_SHARED_COURSE_USERS
-                )
-            )
-
-        auth_types = ["view"]
-        if permission == "edit":
-            auth_types = ["edit"]
-        elif permission == "publish":
-            # Publish grants both edit and publish permissions.
-            auth_types = ["edit", "publish"]
-
-        demo_shifu_ids = load_existing_demo_shifu_ids()
-        creator_upgrade_contexts: dict[str, dict[str, object]] = {}
-        for contact in contacts:
-            aggregate = aggregate_by_contact.get(contact)
-            created_new_user = False
-            should_grant_demo_permissions = False
-            if aggregate is None:
-                aggregate, created_new_user = ensure_user_for_identifier(
-                    app,
-                    provider=contact_type,
-                    identifier=contact,
-                    defaults={"state": USER_STATE_REGISTERED},
-                )
-                should_grant_demo_permissions = created_new_user
-            elif aggregate.state == USER_STATE_UNREGISTERED:
-                set_user_state(aggregate.user_bid, USER_STATE_REGISTERED)
-                should_grant_demo_permissions = True
-            if not aggregate or aggregate.user_bid == owner_id:
-                continue
-
-            normalized_contact = contact
-            if contact_type == "email":
-                normalized_contact = contact.lower()
-
-            upsert_credential(
-                app,
-                user_bid=aggregate.user_bid,
-                provider_name=contact_type,
-                subject_id=normalized_contact,
-                subject_format=contact_type,
-                identifier=normalized_contact,
-                metadata={},
-                verified=True,
-            )
-            if should_grant_demo_permissions:
-                ensure_demo_course_permissions(
-                    app, aggregate.user_bid, demo_ids=demo_shifu_ids
-                )
-            if permission in {"edit", "publish"}:
-                creator_granted_now = mark_creator_role_if_needed(aggregate.user_bid)
-                if creator_granted_now:
-                    creator_upgrade_contexts.setdefault(
-                        aggregate.user_bid,
-                        {
-                            "created_new_user": created_new_user,
-                            "language": aggregate.user_language,
-                        },
-                    )
-
-            auth = AiCourseAuth.query.filter(
-                AiCourseAuth.course_id == shifu_bid,
-                AiCourseAuth.user_id == aggregate.user_bid,
-            ).first()
-            if auth:
-                auth.auth_type = json.dumps(auth_types)
-                auth.status = 1
-            else:
-                db.session.add(
-                    AiCourseAuth(
-                        course_auth_id=generate_id(app),
-                        user_id=aggregate.user_bid,
-                        course_id=shifu_bid,
-                        auth_type=json.dumps(auth_types),
-                        status=1,
-                    )
-                )
-            _clear_shifu_permission_cache(aggregate.user_bid, shifu_bid)
-
-        db.session.commit()
-        for user_id, upgrade_context in creator_upgrade_contexts.items():
-            run_creator_granted_post_auth(
-                app,
-                user_id=user_id,
-                source="shifu_permission_grant",
-                created_new_user=bool(upgrade_context.get("created_new_user")),
-                language=str(upgrade_context.get("language") or ""),
-            )
-        return make_common_response({"count": len(contacts)})
+        count = grant_shifu_permissions(
+            app,
+            shifu_bid=shifu_bid,
+            owner_id=owner_id,
+            contact_type=contact_type,
+            contacts=contacts,
+            permission=permission,
+        )
+        return make_common_response({"count": count})
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/permissions/remove",
@@ -736,14 +667,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         if user_id == owner_id:
             raise_error("server.shifu.noPermission")
 
-        auth = AiCourseAuth.query.filter(
-            AiCourseAuth.course_id == shifu_bid,
-            AiCourseAuth.user_id == user_id,
-        ).first()
-        if auth:
-            auth.status = 0
-        _clear_shifu_permission_cache(user_id, shifu_bid)
-        db.session.commit()
+        remove_shifu_permission(app, shifu_bid=shifu_bid, user_id=user_id)
         return make_common_response({"removed": True})
 
     @app.route(path_prefix + "/shifus", methods=["PUT"])
@@ -787,17 +711,22 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: object
                                     $ref: "#/components/schemas/ShifuDto"
         """
-        user_id = request.user.user_id
-        shifu_name = request.get_json().get("name")
-        if not shifu_name:
-            raise_param_error("name is required")
-        shifu_description = request.get_json().get("description")
-        shifu_avatar = request.get_json().get("avatar", "")
-        return make_common_response(
-            create_shifu_draft(
-                app, user_id, shifu_name, shifu_description, shifu_avatar, []
+        with _external_client_course_event(app, "creation"):
+            user_id = request.user.user_id
+            shifu_name = request.get_json().get("name")
+            if not shifu_name:
+                raise_param_error("name is required")
+            shifu_description = request.get_json().get("description")
+            shifu_avatar = request.get_json().get("avatar", "")
+            result = create_shifu_draft(
+                app,
+                user_id,
+                shifu_name,
+                shifu_description,
+                shifu_avatar,
+                [],
             )
-        )
+        return make_common_response(result)
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
@@ -878,18 +807,12 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                     price:
                         type: number
                         description: shifu price
-                    temperature:
-                        type: number
-                        description: shifu temperature
                     ask_enabled_status:
                         type: integer
                         description: Ask status (5101=default, 5102=disabled, 5103=enabled)
                     ask_model:
                         type: string
                         description: Ask model name
-                    ask_temperature:
-                        type: number
-                        description: Ask model temperature (0.0 - 2.0)
                     ask_system_prompt:
                         type: string
                         description: Ask model system prompt
@@ -943,9 +866,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         shifu_description = json_data.get("description")
         shifu_avatar = json_data.get("avatar")
         shifu_keywords = json_data.get("keywords")
-        shifu_model = json_data.get("model")
+        shifu_model = (json_data.get("model") or "") if "model" in json_data else None
         shifu_price = json_data.get("price")
-        shifu_temperature = json_data.get("temperature")
         shifu_system_prompt = json_data.get("system_prompt", None)
         # Ask configuration
         ask_enabled_status = json_data.get("ask_enabled_status")
@@ -956,17 +878,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 raise_param_error("ask_enabled_status")
             if ask_enabled_status not in SUPPORTED_ASK_ENABLED_STATUSES:
                 raise_param_error("ask_enabled_status")
-        ask_model = json_data.get("ask_model")
-        if ask_model is not None:
-            ask_model = str(ask_model)
-        ask_temperature = json_data.get("ask_temperature")
-        if ask_temperature is not None:
-            try:
-                ask_temperature = float(ask_temperature)
-            except (TypeError, ValueError):
-                raise_param_error("ask_temperature")
-            if ask_temperature < 0 or ask_temperature > 2:
-                raise_param_error("ask_temperature")
+        ask_model = (
+            (json_data.get("ask_model") or "") if "ask_model" in json_data else None
+        )
         ask_system_prompt = json_data.get("ask_system_prompt")
         if ask_system_prompt is not None:
             ask_system_prompt = str(ask_system_prompt)
@@ -998,6 +912,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         if isinstance(use_learner_language, str):
             use_learner_language = use_learner_language.lower() == "true"
         base_url = _resolve_publish_base_url(app)
+        # Keep stored temperatures and defaults internal to course generation.
         return make_common_response(
             save_shifu_draft_info(
                 app,
@@ -1008,7 +923,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 shifu_avatar,
                 shifu_keywords,
                 shifu_model,
-                shifu_temperature,
+                None,
                 shifu_price,
                 shifu_system_prompt,
                 base_url,
@@ -1023,7 +938,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 use_learner_language=use_learner_language,
                 ask_enabled_status=ask_enabled_status,
                 ask_model=ask_model,
-                ask_temperature=ask_temperature,
+                ask_temperature=None,
                 ask_system_prompt=ask_system_prompt,
                 ask_provider_config=ask_provider_config,
             )
@@ -1032,7 +947,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     @app.route(path_prefix + "/shifus/<shifu_bid>/favorite", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
     @with_shifu_context()
-    def mark_favorite_shifu_api() -> str:
+    def mark_favorite_shifu_api(shifu_bid: str) -> str:
         """Mark favorite shifu.
 
         ---
@@ -1069,7 +984,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     description: is favorite
         """
         user_id = request.user.user_id
-        shifu_bid = request.view_args.get("shifu_bid")
         is_favorite = request.get_json().get("is_favorite")
         if isinstance(is_favorite, str):
             is_favorite = is_favorite.lower() == "true"
@@ -1109,11 +1023,11 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: string
                                     description: publish url
         """
-        user_id = request.user.user_id
-        base_url = _resolve_publish_base_url(app)
-        return make_common_response(
-            publish_shifu_draft(app, user_id, shifu_bid, base_url)
-        )
+        with _external_client_course_event(app, "publish"):
+            user_id = request.user.user_id
+            base_url = _resolve_publish_base_url(app)
+            result = publish_shifu_draft(app, user_id, shifu_bid, base_url)
+        return make_common_response(result)
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/preview", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
@@ -1168,7 +1082,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
     def update_chapter_order_api(shifu_bid: str) -> str:
         """Update chapter order.
 
-        Reset the chapter order to the order of the chapter IDs.
+        Reorder one complete sibling group, or submit the legacy full tree.
+        Supply exactly one of order and outlines.
 
         ---
         tags:
@@ -1182,7 +1097,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
               required: true
               schema:
                 type: object
-                $ref: "#/components/schemas/ReorderOutlineDto"
+                oneOf:
+                    - $ref: "#/components/schemas/ReorderOutlineDto"
+                    - $ref: "#/components/schemas/ReorderOutlineSiblingsDto"
 
 
         responses:
@@ -1199,14 +1116,18 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: string
                                     description: message
                                 data:
-                                    type: array
-                                    items:
-                                        $ref: "#/components/schemas/OutlineDto"
+                                    type: boolean
         """
         user_id = request.user.user_id
         request_json = request.get_json(silent=True)
         if not isinstance(request_json, dict):
             raise_param_error("outlines")
+        if "order" in request_json:
+            if "outlines" in request_json:
+                raise_param_error("order")
+            return make_common_response(
+                reorder_outline_siblings(app, user_id, shifu_bid, request_json["order"])
+            )
         outlines = request_json.get("outlines")
         app.logger.info(type(outlines))
         app.logger.info(
@@ -1420,7 +1341,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: object
                                     $ref: "#/components/schemas/OutlineDto"
         """
-        _ = shifu_bid
         user_id = request.user.user_id
         name = request.get_json().get("name")
         description = request.get_json().get("description")
@@ -1435,6 +1355,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             modify_unit(
                 app,
                 user_id,
+                shifu_bid,
                 outline_bid,
                 name,
                 description,
@@ -1476,9 +1397,10 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: object
                                     $ref: "#/components/schemas/OutlineDto"
         """
-        _ = shifu_bid
         user_id = request.user.user_id
-        return make_common_response(get_unit_by_id(app, user_id, outline_bid))
+        return make_common_response(
+            get_unit_by_id(app, user_id, shifu_bid, outline_bid)
+        )
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>",
@@ -1516,9 +1438,8 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     type: boolean
                                     description: delete unit success
         """
-        _ = shifu_bid
         user_id = request.user.user_id
-        return make_common_response(delete_unit(app, user_id, outline_bid))
+        return make_common_response(delete_unit(app, user_id, shifu_bid, outline_bid))
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
@@ -2073,8 +1994,9 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     description: uploaded file url
         """
         user_id = request.user.user_id
-        url = request.get_json().get("url")
-        if not url:
+        payload = request.get_json(silent=True)
+        url = payload.get("url") if isinstance(payload, dict) else None
+        if not isinstance(url, str) or not url.strip():
             raise_param_error("url is required")
         return make_common_response(upload_url(app, user_id, url))
 
@@ -2217,16 +2139,17 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 application/json:
                     schema:
                         type: object
+                        required: [shifu_bid]
                         properties:
+                            shifu_bid:
+                                type: string
+                                description: Course to preview; requires edit permission
                             query:
                                 type: string
                                 description: Test question content
                             ask_model:
                                 type: string
                                 description: Ask model used for llm/fallback
-                            ask_temperature:
-                                type: number
-                                description: Ask model temperature (0.0 - 2.0)
                             ask_system_prompt:
                                 type: string
                                 description: Optional ask system prompt
@@ -2305,32 +2228,40 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             or requested_provider in ASK_PROVIDERS_WITH_LLM_SYNTHESIS
         )
 
-        ask_model = str(json_data.get("ask_model") or "").strip()
-        if not ask_model and require_llm_model:
-            ask_model = str(get_config("DEFAULT_LLM_MODEL") or "").strip()
-        if not ask_model and require_llm_model:
-            raise_param_error("ask_model")
+        preview_shifu_bid = _admit_creator_debug_usage(json_data.get("shifu_bid"))
+        preview_course = get_latest_shifu_draft(preview_shifu_bid)
+        if preview_course is None:
+            raise_error("server.shifu.shifuNotFound")
+        ask_model = (
+            json_data["ask_model"]
+            if "ask_model" in json_data
+            else selection_model(preview_course, follow_up=True)
+        )
+        from flaskr.service.learn.api import is_live_follow_up_model
 
-        ask_temperature = json_data.get("ask_temperature", 0.3)
-        try:
-            ask_temperature = float(ask_temperature)
-        except (TypeError, ValueError):
-            raise_param_error("ask_temperature")
-        if ask_temperature < 0 or ask_temperature > 2:
-            raise_param_error("ask_temperature")
+        if is_live_follow_up_model(ask_model):
+            # Live preview is handled by its separate voice session controller.
+            raise_param_error("ask_model")
+        ask_usage_metadata = selection_metadata(preview_course, follow_up=True)
+        if require_llm_model:
+            ask_model, ask_usage_metadata = resolve_course_selection(
+                ask_model, ask_usage_metadata
+            )
+
+        # Preview shares the saved follow-up generation settings.
+        stored_ask_temperature = preview_course.ask_llm_temperature
+        ask_temperature = (
+            float(stored_ask_temperature) if stored_ask_temperature is not None else 0.0
+        )
 
         ask_system_prompt = str(json_data.get("ask_system_prompt") or "").strip()
-        _admit_creator_debug_usage()
 
         messages: list[dict[str, str]] = []
         if ask_system_prompt:
             messages.append({"role": "system", "content": ask_system_prompt})
         messages.append({"role": "user", "content": query})
 
-        preview_user_id = (
-            str(getattr(getattr(request, "user", None), "user_id", "")).strip()
-            or f"ask-preview-{uuid.uuid4().hex[:8]}"
-        )
+        preview_user_id = str(request.user.user_id).strip()
         preview_scene = "ask_provider_preview"
         preview_title = "ask_provider_preview"
         preview_trace, preview_span = create_trace_with_root_span(
@@ -2356,12 +2287,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         )
 
         def _build_llm_runtime() -> AskProviderRuntime:
-            runtime_billable = (
-                1
-                if bool(getattr(getattr(request, "user", None), "is_creator", False))
-                else 0
-            )
-
             def _chat_llm_stream(
                 stream_messages: list[dict[str, str]],
             ) -> Generator[Any, None, None]:
@@ -2370,16 +2295,18 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                     preview_user_id,
                     preview_span,
                     model=ask_model,
+                    usage_metadata=ask_usage_metadata,
                     messages=stream_messages,
                     generation_name="ask_provider_preview",
                     temperature=ask_temperature,
                     usage_context=UsageContext(
                         user_bid=preview_user_id,
+                        shifu_bid=preview_shifu_bid,
                         usage_scene=BILL_USAGE_SCENE_DEBUG,
-                        billable=runtime_billable,
+                        billable=1,
                     ),
                     usage_scene=BILL_USAGE_SCENE_DEBUG,
-                    billable=runtime_billable,
+                    billable=1,
                     stream=True,
                 )
 
@@ -2508,17 +2435,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
             }
         )
 
-    @app.route(path_prefix + "/tts/minimax/voices/clone-cost", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def minimax_tts_clone_cost_api() -> str:
-        from flaskr.service.tts.api import build_minimax_clone_cost
-
-        user_id = request.user.user_id
-        shifu_bid = (request.args.get("shifu_bid") or "").strip()
-        return make_common_response(
-            build_minimax_clone_cost(app, creator_bid=user_id, shifu_bid=shifu_bid)
-        )
-
     @app.route(path_prefix + "/tts/minimax/voices/validate-id", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
     def validate_minimax_tts_voice_id_api() -> str:
@@ -2533,84 +2449,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 "voice_id": voice_id,
                 "valid": is_valid_minimax_custom_voice_id(voice_id),
             }
-        )
-
-    @app.route(path_prefix + "/tts/minimax/voices/clone", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
-    def clone_minimax_tts_voice_api() -> Response:
-        from flaskr.service.tts.api import (
-            serialize_minimax_cloned_voice,
-            submit_minimax_voice_clone,
-        )
-
-        source_file = request.files.get("source_audio")
-        if source_file is None:
-            raise_param_error("source_audio is required")
-        prompt_file = request.files.get("prompt_audio")
-        row = submit_minimax_voice_clone(
-            app,
-            owner_user_bid=request.user.user_id,
-            shifu_bid=(request.form.get("shifu_bid") or "").strip(),
-            display_name=(request.form.get("display_name") or "").strip(),
-            voice_id=(request.form.get("voice_id") or "").strip(),
-            source_audio_bytes=source_file.read(),
-            source_filename=source_file.filename or "recording.webm",
-            source_content_type=source_file.content_type or "",
-            source_capture_method=(
-                request.form.get("source_capture_method") or "upload"
-            ).strip(),
-            prompt_audio_bytes=prompt_file.read() if prompt_file is not None else None,
-            prompt_filename=prompt_file.filename if prompt_file is not None else "",
-            prompt_content_type=(
-                prompt_file.content_type if prompt_file is not None else ""
-            ),
-        )
-        return current_app.response_class(
-            response=make_common_response(serialize_minimax_cloned_voice(row)),
-            status=202,
-            mimetype="application/json",
-        )
-
-    @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW, is_creator=True)
-    def get_minimax_tts_voice_api(voice_bid: str) -> str:
-        from flaskr.service.tts.api import get_minimax_cloned_voice
-
-        return make_common_response(
-            get_minimax_cloned_voice(
-                app,
-                owner_user_bid=request.user.user_id,
-                voice_bid=voice_bid,
-            )
-        )
-
-    @app.route(
-        path_prefix + "/tts/minimax/voices/<voice_bid>/retry",
-        methods=["POST"],
-    )
-    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
-    def retry_minimax_tts_voice_api(voice_bid: str) -> str:
-        from flaskr.service.tts.api import retry_minimax_voice_clone
-
-        return make_common_response(
-            retry_minimax_voice_clone(
-                app,
-                owner_user_bid=request.user.user_id,
-                voice_bid=voice_bid,
-            )
-        )
-
-    @app.route(path_prefix + "/tts/minimax/voices/<voice_bid>", methods=["DELETE"])
-    @ShifuTokenValidation(ShifuPermission.EDIT, is_creator=True)
-    def delete_minimax_tts_voice_api(voice_bid: str) -> str:
-        from flaskr.service.tts.api import delete_minimax_cloned_voice
-
-        return make_common_response(
-            delete_minimax_cloned_voice(
-                app,
-                owner_user_bid=request.user.user_id,
-                voice_bid=voice_bid,
-            )
         )
 
     @app.route(path_prefix + "/tts/config", methods=["GET"])
@@ -2651,7 +2489,11 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 application/json:
                     schema:
                         type: object
+                        required: [shifu_bid]
                         properties:
+                            shifu_bid:
+                                type: string
+                                description: Course to preview; requires edit permission
                             voice_id:
                                 type: string
                                 description: Voice ID for synthesis
@@ -2679,12 +2521,12 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         from flaskr.service.shifu.tts_preview import build_tts_preview_response
 
         json_data = request.get_json() or {}
-        _admit_creator_debug_usage()
+        preview_shifu_bid = _admit_creator_debug_usage(json_data.get("shifu_bid"))
         request_user = getattr(request, "user", None)
         return build_tts_preview_response(
             json_data,
+            shifu_bid=preview_shifu_bid,
             request_user_id=str(getattr(request_user, "user_id", "") or "").strip(),
-            request_user_is_creator=bool(getattr(request_user, "is_creator", False)),
         )
 
     return app

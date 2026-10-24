@@ -6,8 +6,8 @@ AI compatibility instruction files.
 
 ## Scope
 
-- Apply this file to `.github/`, especially `.github/workflows/`,
-  `.github/instructions/`, and `.github/copilot-instructions.md`.
+- Apply this file to `.github/`, especially `.github/workflows/` and
+  `.github/copilot-instructions.md`.
 
 - GitHub engineering conventions live in the
   [engineering baseline](../docs/engineering-baseline.md), especially:
@@ -20,8 +20,8 @@ AI compatibility instruction files.
   image build-and-publish automation that affects backend, frontend, and
   Docker surfaces together.
 
-- The instruction compatibility files under `.github/` are mirrors of the
-  primary manual docs and must stay aligned with them.
+- `.github/copilot-instructions.md` is a short navigation entry point to
+  the `AGENTS.md` tree.
 
 ## Do
 
@@ -38,9 +38,8 @@ AI compatibility instruction files.
   aligned with the actual image names, tag semantics, and Docker expectations
   used elsewhere in the repo.
 
-- When changing `.github/instructions/` or
-  `.github/copilot-instructions.md`, update the corresponding manual docs and
-  generated mirrors in the same change.
+- Keep `.github/copilot-instructions.md` limited to finding the root and
+  relevant subtree `AGENTS.md` files; edit shared rules in those files.
 
 ## Avoid
 
@@ -52,23 +51,22 @@ AI compatibility instruction files.
 - Do not change release versioning or image tag behavior in one workflow
   without checking the related release and build workflows together.
 
-- Do not treat `.github/instructions/` or `copilot-instructions.md` as the
-  source of truth when the nearest manual `AGENTS.md` and `CLAUDE.md` say
-  otherwise.
+- Do not duplicate shared rules in `copilot-instructions.md` or restore a
+  parallel `.github/instructions/` tree.
 
 ## Commands
 
 - `find .github/workflows -maxdepth 1 -type f | sort` lists the repository
   workflow set before you change trigger scope or release behavior.
 
-- `git diff -- .github/workflows .github/instructions .github/copilot-instructions.md`
+- `git diff -- .github/workflows .github/AGENTS.md .github/copilot-instructions.md`
   shows the affected automation and compatibility surfaces together.
 
 - `lefthook run pre-commit` is the focused hygiene pass for workflow and
   GitHub-side instruction changes (runs the hooks on your staged files).
 
 - `python scripts/check_repo_harness.py` is required when `.github/`
-  instruction mirrors or manual AI-doc entry points change.
+  instruction entry points change.
 
 - `python scripts/check_architecture_boundaries.py` is required when workflow
   path filters or repo-harness coverage changes affect source ownership.

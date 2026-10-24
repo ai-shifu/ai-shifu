@@ -104,7 +104,6 @@ def test_provider_config_exposes_selected_models_and_capabilities(
     assert config.pitch.min == config.pitch.max == config.pitch.default == 0
     assert config.supports_emotion is False
     assert config.supports_custom_voice_id is False
-    assert config.supports_voice_cloning is False
 
 
 def test_provider_is_registered_for_explicit_selection_only(

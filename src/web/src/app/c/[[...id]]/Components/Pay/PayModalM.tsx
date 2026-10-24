@@ -7,9 +7,9 @@ import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 
 import Image from 'next/image';
-import weixinIcon from '@/c-assets/newchat/weixin.png';
-import zhifuboIcon from '@/c-assets/newchat/zhifubao.png';
-import paySuccessBg from '@/c-assets/newchat/pay-success@2x.png';
+import weixinIcon from '@/assets/newchat/weixin.png';
+import zhifuboIcon from '@/assets/newchat/zhifubao.png';
+import paySuccessBg from '@/assets/newchat/pay-success@2x.png';
 
 import {
   Dialog,
@@ -26,11 +26,11 @@ import {
   PAY_CHANNEL_STRIPE,
 } from './constans';
 import { isWechatJsapiAvailable } from './wechatJsapi';
-import MainButtonM from '@/c-components/m/MainButtonM';
+import MainButtonM from '@/components/m/MainButtonM';
 import StripeCardForm from './StripeCardForm';
 
 import { usePaymentFlow } from './hooks/usePaymentFlow';
-import { useWechat } from '@/c-common/hooks/useWechat';
+import { useWechat } from '@/hooks/useWechat';
 
 import { toast } from '@/hooks/useToast';
 import { resolveLearnerPaymentToast } from '@/lib/learnerError';
@@ -50,25 +50,25 @@ import {
   type LearnerPaymentChannel,
 } from '@/lib/paymentAnalytics';
 
-import { inWechat } from '@/c-constants/uiConstants';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
-import { SettingInputM } from '@/c-components/m/SettingInputM';
+import { inWechat } from '@/constants/uiConstants';
+import { useDisclosure } from '@/hooks/useDisclosure';
+import { SettingInputM } from '@/components/m/SettingInputM';
 import PayModalFooter from './PayModalFooter';
 
-import { getStringEnv } from '@/c-utils/envUtils';
+import { getStringEnv } from '@/lib/envUtils';
 import { useUserStore } from '@/store';
-import { shifu } from '@/c-service/Shifu';
-import { useEnvStore } from '@/c-store/envStore';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { shifu } from '@/lib/shifu/Shifu';
+import { useEnvStore } from '@/store/envStore';
+import { useSystemStore } from '@/store/useSystemStore';
 import type {
   NativePaymentPayload,
   PaymentChannel,
   StripePaymentPayload,
-} from '@/c-api/order';
+} from '@/api/order';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
-import { getCourseInfo } from '@/c-api/course';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { getCurrencyCode } from '@/c-utils/currency';
+import { getCourseInfo } from '@/api/course';
+import { useTracking } from '@/hooks/useTracking';
+import { getCurrencyCode } from '@/lib/currency';
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
   return (
@@ -586,9 +586,7 @@ export const PayModalM = ({
       nextSnapshot = snapshot;
       nextOrderId = snapshot?.order_id || '';
     }
-    if (!nextOrderId) {
-      return;
-    }
+    if (!nextOrderId) return;
     let nextChannel = payChannel;
     if (!qrChannelEnabled && isStripeAvailable) {
       nextChannel = PAY_CHANNEL_STRIPE;
@@ -720,13 +718,12 @@ export const PayModalM = ({
   const onPayChannelChange = useCallback(
     (value: string) => {
       setPayChannel(value);
-      if (!orderId) {
-        return;
+      if (orderId) {
+        refreshPayment({
+          channel: resolveRequestChannel(value),
+          paymentChannel: resolvePaymentChannel(value),
+        });
       }
-      refreshPayment({
-        channel: resolveRequestChannel(value),
-        paymentChannel: resolvePaymentChannel(value),
-      });
     },
     [orderId, refreshPayment, resolvePaymentChannel, resolveRequestChannel],
   );
@@ -836,10 +833,15 @@ export const PayModalM = ({
     if (!couponCodeInput) {
       return;
     }
-    await applyCoupon({
+    const snapshot = await applyCoupon({
       code: couponCodeInput,
       channel: resolveRequestChannel(payChannel),
       paymentChannel: resolvePaymentChannel(payChannel),
+    });
+    await refreshPayment({
+      channel: resolveRequestChannel(payChannel),
+      paymentChannel: resolvePaymentChannel(payChannel),
+      snapshot,
     });
     trackLearnerPaymentEventSafely(trackEvent, 'learner_coupon_apply', {
       shifu_bid: courseId,
@@ -852,6 +854,7 @@ export const PayModalM = ({
     couponCodeInput,
     courseId,
     payChannel,
+    refreshPayment,
     resolvePaymentChannel,
     resolveRequestChannel,
     trackEvent,

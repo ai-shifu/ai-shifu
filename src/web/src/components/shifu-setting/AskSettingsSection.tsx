@@ -1,8 +1,9 @@
 import type { Dispatch, SetStateAction } from 'react';
-import { Loader2, Minus, Plus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-import ModelList from '@/components/model-list';
+import CourseModelSelect from '@/components/model-list/CourseModelSelect';
+import type { ModelIndex } from '@/types/shifu';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -16,6 +17,10 @@ import { Switch } from '@/components/ui/Switch';
 import { Textarea } from '@/components/ui/Textarea';
 import { FormLabel } from '@/components/ui/Form';
 import { useToast } from '@/hooks/useToast';
+import type { ModelOption } from '@/types/shifu';
+import type { FollowUpVoice } from '@/lib/liveVoiceFollowUp';
+
+import { getLiveVoiceStyleI18nKey } from './live-voice-style';
 
 type AskPreviewMeta = {
   provider: string;
@@ -28,19 +33,28 @@ type AskProviderOption = {
   label: string;
 };
 
+const VOICE_STYLE_SEPARATOR = ' · ';
+
 type AskSettingsSectionProps = {
   readonly?: boolean;
+  textDebugAllowed: boolean;
   askProviderOptions: AskProviderOption[];
   resolvedAskProvider: string;
   askProviderLlmValue: string;
+  askModelIndex?: ModelIndex | null;
+  modelDisplayName?: string;
+  canRestoreText?: boolean;
+  checkingTextMode?: boolean;
+  onAskModelIndexChange?: (modelIndex: ModelIndex) => void;
+  liveAvailable?: boolean;
+  onFollowUpModeChange?: (mode: 'text' | 'live_voice') => void;
   askModel: string;
   onAskModelChange: (value: string) => void;
-  askTemperature: number;
-  askTemperatureInput: string;
-  setAskTemperature: Dispatch<SetStateAction<number>>;
-  setAskTemperatureInput: Dispatch<SetStateAction<string>>;
-  normalizeAskTemperature: (value: number) => number;
-  adjustAskTemperature: (delta: number) => void;
+  askModelOptions: ModelOption[];
+  isLiveVoiceFollowUp: boolean;
+  liveVoices: FollowUpVoice[];
+  liveVoice: string;
+  onLiveVoiceChange: (value: string) => void;
   onAskProviderChange: (value: string) => void;
   askProviderFieldEntries: Array<[string, any]>;
   askProviderRequiredFields: Set<string>;
@@ -58,17 +72,21 @@ type AskSettingsSectionProps = {
 
 export default function AskSettingsSection({
   readonly,
+  textDebugAllowed,
   askProviderOptions,
   resolvedAskProvider,
   askProviderLlmValue,
-  askModel,
-  onAskModelChange,
-  askTemperature,
-  askTemperatureInput,
-  setAskTemperature,
-  setAskTemperatureInput,
-  normalizeAskTemperature,
-  adjustAskTemperature,
+  askModelIndex,
+  modelDisplayName,
+  canRestoreText = false,
+  checkingTextMode = false,
+  onAskModelIndexChange,
+  liveAvailable,
+  onFollowUpModeChange,
+  isLiveVoiceFollowUp,
+  liveVoices,
+  liveVoice,
+  onLiveVoiceChange,
   onAskProviderChange,
   askProviderFieldEntries,
   askProviderRequiredFields,
@@ -85,6 +103,7 @@ export default function AskSettingsSection({
 }: AskSettingsSectionProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const textConfigurationReadonly = readonly || !textDebugAllowed;
 
   return (
     <div className='mb-6'>
@@ -95,7 +114,7 @@ export default function AskSettingsSection({
         <Select
           value={resolvedAskProvider}
           onValueChange={onAskProviderChange}
-          disabled={readonly}
+          disabled={textConfigurationReadonly || isLiveVoiceFollowUp}
         >
           <SelectTrigger className='h-9'>
             <SelectValue
@@ -113,66 +132,90 @@ export default function AskSettingsSection({
             ))}
           </SelectContent>
         </Select>
-        {resolvedAskProvider === askProviderLlmValue && (
+        {(resolvedAskProvider === askProviderLlmValue ||
+          !textDebugAllowed ||
+          isLiveVoiceFollowUp) && (
           <div className='space-y-2 pt-2'>
             <FormLabel className='text-sm font-medium text-foreground'>
               {t('module.shifuSetting.askModel')}
             </FormLabel>
-            <ModelList
+            <Select
+              value={isLiveVoiceFollowUp ? 'live_voice' : 'text'}
+              onValueChange={value =>
+                onFollowUpModeChange?.(value as 'text' | 'live_voice')
+              }
               disabled={readonly}
-              className='h-9'
-              value={askModel}
-              onChange={onAskModelChange}
-            />
+            >
+              <SelectTrigger className='h-9'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  value='text'
+                  disabled={
+                    checkingTextMode ||
+                    (!textDebugAllowed &&
+                      !canRestoreText &&
+                      isLiveVoiceFollowUp)
+                  }
+                >
+                  {t('module.shifuSetting.modelOptions.text')}
+                </SelectItem>
+                <SelectItem
+                  value='live_voice'
+                  disabled={!liveAvailable && !isLiveVoiceFollowUp}
+                >
+                  {t('module.shifuSetting.modelOptions.liveVoice')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            {!isLiveVoiceFollowUp && (
+              <CourseModelSelect
+                value={askModelIndex ?? null}
+                displayName={modelDisplayName}
+                onChange={modelIndex => onAskModelIndexChange?.(modelIndex)}
+                disabled={textConfigurationReadonly}
+              />
+            )}
 
-            <div className='space-y-2 pt-2'>
-              <FormLabel className='text-sm font-medium text-foreground'>
-                {t('module.shifuSetting.askTemperature')}
-              </FormLabel>
-              <p className='text-xs text-muted-foreground'>
-                {t('module.shifuSetting.askTemperatureHint')}
-              </p>
-              <div className='flex items-center gap-2'>
-                <Input
-                  type='text'
-                  inputMode='decimal'
-                  value={askTemperatureInput}
-                  onChange={e => setAskTemperatureInput(e.target.value)}
-                  onBlur={() => {
-                    const parsed = Number(askTemperatureInput);
-                    const normalized = Number.isFinite(parsed)
-                      ? normalizeAskTemperature(parsed)
-                      : askTemperature;
-                    setAskTemperature(normalized);
-                    setAskTemperatureInput(String(normalized));
-                  }}
+            {isLiveVoiceFollowUp && (
+              <div className='space-y-2 pt-2'>
+                <FormLabel className='text-sm font-medium text-foreground'>
+                  {t('module.shifuSetting.liveVoiceLabel')}
+                </FormLabel>
+                <p className='text-xs text-muted-foreground'>
+                  {t('module.shifuSetting.liveVoiceDescription')}
+                </p>
+                <Select
+                  value={liveVoice}
+                  onValueChange={onLiveVoiceChange}
                   disabled={readonly}
-                  className='h-9 flex-1'
-                />
-                {!readonly && (
-                  <div className='flex items-center gap-2'>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='icon'
-                      onClick={() => adjustAskTemperature(-0.1)}
-                      className='h-9 w-9'
-                    >
-                      <Minus className='h-4 w-4' />
-                    </Button>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='icon'
-                      onClick={() => adjustAskTemperature(0.1)}
-                      className='h-9 w-9'
-                    >
-                      <Plus className='h-4 w-4' />
-                    </Button>
-                  </div>
-                )}
+                >
+                  <SelectTrigger className='h-9'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {liveVoices.map(voice => {
+                      const styleKey = getLiveVoiceStyleI18nKey(voice.style);
+                      return (
+                        <SelectItem
+                          key={voice.voice_id}
+                          value={voice.voice_id}
+                        >
+                          {voice.voice_id}
+                          {styleKey && (
+                            <>
+                              {VOICE_STYLE_SEPARATOR}
+                              {t(styleKey)}
+                            </>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
@@ -203,7 +246,7 @@ export default function AskSettingsSection({
                 <p className='text-xs text-muted-foreground'>{fieldHint}</p>
               )}
               <Textarea
-                disabled={readonly}
+                disabled={textConfigurationReadonly}
                 value={rawValue}
                 onChange={e =>
                   setAskProviderObjectInputs(prev => ({
@@ -280,7 +323,7 @@ export default function AskSettingsSection({
                     [fieldName]: value,
                   }))
                 }
-                disabled={readonly}
+                disabled={textConfigurationReadonly}
               />
             </div>
           );
@@ -314,46 +357,56 @@ export default function AskSettingsSection({
                   [fieldName]: e.target.value,
                 }))
               }
-              disabled={readonly}
+              disabled={textConfigurationReadonly}
               className='h-9'
             />
           </div>
         );
       })}
 
-      <div className='space-y-2 mb-4'>
-        <FormLabel className='text-sm font-medium text-foreground'>
-          {t('module.shifuSetting.askPreviewQuestion')}
-        </FormLabel>
-        <Input
-          disabled={readonly || askPreviewLoading}
-          value={askPreviewQuery}
-          onChange={e => setAskPreviewQuery(e.target.value)}
-          placeholder={t('module.shifuSetting.askPreviewQuestionPlaceholder')}
-          className='h-9'
-        />
-      </div>
+      {isLiveVoiceFollowUp ? (
+        <div className='rounded-md border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground'>
+          {t('module.shifuSetting.liveVoicePreviewHint')}
+        </div>
+      ) : (
+        <>
+          <div className='space-y-2 mb-4'>
+            <FormLabel className='text-sm font-medium text-foreground'>
+              {t('module.shifuSetting.askPreviewQuestion')}
+            </FormLabel>
+            <Input
+              disabled={textConfigurationReadonly || askPreviewLoading}
+              value={askPreviewQuery}
+              onChange={e => setAskPreviewQuery(e.target.value)}
+              placeholder={t(
+                'module.shifuSetting.askPreviewQuestionPlaceholder',
+              )}
+              className='h-9'
+            />
+          </div>
 
-      <div className='pt-2'>
-        <Button
-          type='button'
-          variant='outline'
-          onClick={handleAskPreview}
-          disabled={readonly || askPreviewLoading}
-          className='w-full'
-        >
-          {askPreviewLoading ? (
-            <>
-              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-              {t('module.shifuSetting.askPreviewLoading')}
-            </>
-          ) : (
-            t('module.shifuSetting.askPreview')
-          )}
-        </Button>
-      </div>
+          <div className='pt-2'>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={handleAskPreview}
+              disabled={textConfigurationReadonly || askPreviewLoading}
+              className='w-full'
+            >
+              {askPreviewLoading ? (
+                <>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  {t('module.shifuSetting.askPreviewLoading')}
+                </>
+              ) : (
+                t('module.shifuSetting.askPreview')
+              )}
+            </Button>
+          </div>
+        </>
+      )}
 
-      {askPreviewMeta && (
+      {!isLiveVoiceFollowUp && askPreviewMeta && (
         <p className='mt-3 text-xs text-muted-foreground'>
           {askPreviewMeta.fallbackUsed
             ? t('module.shifuSetting.askPreviewUsedFallback', {
@@ -365,7 +418,7 @@ export default function AskSettingsSection({
         </p>
       )}
 
-      {askPreviewResult && (
+      {!isLiveVoiceFollowUp && askPreviewResult && (
         <div className='space-y-2 mt-3'>
           <FormLabel className='text-sm font-medium text-foreground'>
             {t('module.shifuSetting.askPreviewResult')}

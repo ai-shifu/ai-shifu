@@ -1,0 +1,20 @@
+{
+  "owner_phone": "10000000000",
+  "models": [
+    "gemini-3.8-flash",
+    "doubao-seed-2-0-lite-260428",
+    "deepseek-v4-flash-0731",
+    "qwen3.8-flash",
+    "glm-5.3-flash"
+  ],
+  "case_count": 12,
+  "smoke_case_count": 2,
+  "seed": 20260908,
+  "concurrency": 2,
+  "variables": {
+    "language": "zh-CN",
+    "sys_user_language": "zh-CN",
+    "sys_user_nickname": "Test learner"
+  },
+  "renderer_asset_urls": []
+}

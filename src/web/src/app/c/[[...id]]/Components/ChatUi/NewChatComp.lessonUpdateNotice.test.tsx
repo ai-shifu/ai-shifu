@@ -64,17 +64,19 @@ Object.defineProperty(global, 'IntersectionObserver', {
 });
 
 jest.mock('react-i18next', () => {
+  const chat = jest.requireActual<Record<string, string>>(
+    '../../../../../../../i18n/zh-CN/modules/chat.json',
+  );
   const translations: Record<string, string> = {
     'common.core.cancel': '取消',
     'common.core.ok': '确认',
     'common.core.scrollToBottom': '滚动到底部',
     'module.chat.ask': '追问',
-    'module.chat.lessonUpdateRecommendRetake':
-      '本节课程已更新，建议<action>重修</action>',
+    'module.chat.lessonUpdateRecommendRetake': chat.lessonUpdateRecommendRetake,
     'module.chat.lessonFeedbackSubmit': '提交',
     'module.chat.lessonPdfCourseQrLabel': '扫码进入课程，获得一对一讲解与答疑',
-    'module.chat.lessonUpdateRetakeAccessibleLabel': '重修本节课程',
-    'module.chat.lessonUpdateRetakeAction': '重修',
+    'module.chat.lessonUpdateRetakeAccessibleLabel':
+      chat.lessonUpdateRetakeAccessibleLabel,
     'module.lesson.reset.confirmContent': '重修会清空本节学习数据。确定重修？',
     'module.lesson.reset.confirmTitle': '确认重修',
     'module.billing.alerts.actions.checkoutTopup': '购买积分',
@@ -115,12 +117,12 @@ jest.mock('zustand/react/shallow', () => ({
   useShallow: (selector: unknown) => selector,
 }));
 
-jest.mock('@/c-assets/newchat/light/icon_ask.svg', () => ({
+jest.mock('@/assets/newchat/light/icon_ask.svg', () => ({
   __esModule: true,
   default: { src: '/ask.svg' },
 }));
 
-jest.mock('@/c-assets/logos/ai-shifu-logo-horizontal.png', () => ({
+jest.mock('@/assets/logos/ai-shifu-logo-horizontal.png', () => ({
   __esModule: true,
   default: {
     src: '/ai-shifu-logo-horizontal.png',
@@ -171,14 +173,14 @@ jest.mock('./useLessonPdfPrint', () => ({
   }),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: jest.fn(),
     trackTrailProgress: jest.fn(),
   }),
 }));
 
-jest.mock('@/c-service/Shifu', () => ({
+jest.mock('@/lib/shifu/Shifu', () => ({
   shifu: {
     resetTools: {
       resetChapter: jest.fn(),
@@ -186,10 +188,11 @@ jest.mock('@/c-service/Shifu', () => ({
   },
 }));
 
-jest.mock('@/c-store/envStore', () => ({
+jest.mock('@/store/envStore', () => ({
   useEnvStore: Object.assign(
     (selector: (state: any) => unknown) =>
       selector({
+        courseId: 'shifu-1',
         logoHorizontal: mockLogoHorizontal,
         logoWideUrl: mockLogoWideUrl,
         officialSiteUrl: mockOfficialSiteUrl,
@@ -209,7 +212,7 @@ jest.mock('@/store', () => ({
     }),
 }));
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (selector: (state: any) => unknown) =>
     selector({
       courseAvatar: mockCourseAvatar,
@@ -225,9 +228,10 @@ jest.mock('@/c-store/useCourseStore', () => ({
     }),
 }));
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector: (state: any) => unknown) =>
     selector({
+      previewMode: true,
       learningMode: mockLearningMode,
       updateLearningMode: jest.fn(),
     }),
@@ -278,16 +282,19 @@ jest.mock(
   () =>
     function MockContentBlock({
       item,
+      contentLanguage,
       contentRenderKey,
       enableStreamingTypewriter,
     }: {
       item: { content?: string; element_bid?: string };
+      contentLanguage?: string;
       contentRenderKey?: string;
       enableStreamingTypewriter?: boolean;
     }) {
       return (
         <div
           data-testid={`content-block-${item.element_bid || 'item'}`}
+          data-content-language={contentLanguage}
           data-content-render-key={contentRenderKey}
           data-typewriter={String(Boolean(enableStreamingTypewriter))}
         >
@@ -320,8 +327,20 @@ jest.mock(
 jest.mock(
   './ListenModeSlideRenderer',
   () =>
-    function MockListenModeSlideRenderer() {
-      return <div data-testid='listen-mode-renderer' />;
+    function MockListenModeSlideRenderer({
+      titleLanguage,
+      contentLanguage,
+    }: {
+      titleLanguage?: string;
+      contentLanguage?: string;
+    }) {
+      return (
+        <div
+          data-testid='listen-mode-renderer'
+          data-title-language={titleLanguage}
+          data-content-language={contentLanguage}
+        />
+      );
     },
 );
 jest.mock(
@@ -384,6 +403,8 @@ const createNewChatComponentsElement = (
   onLessonPdfActionChange: jest.Mock,
   previewMode = false,
   mobileStyle = false,
+  titleLanguage?: string,
+  contentLanguage?: string,
 ) => (
   <AppContext.Provider
     value={{
@@ -398,9 +419,10 @@ const createNewChatComponentsElement = (
       chapterId='chapter-1'
       chapterUpdate={jest.fn()}
       getNextLessonId={jest.fn()}
-      lessonHasContentUpdate={true}
       lessonId='lesson-1'
       lessonTitle='第一课'
+      titleLanguage={titleLanguage}
+      contentLanguage={contentLanguage}
       lessonUpdate={jest.fn()}
       onGoChapter={jest.fn()}
       onPurchased={jest.fn()}
@@ -420,6 +442,8 @@ const renderNewChatComponents = (
   items: Array<Record<string, unknown>> = [],
   previewMode = false,
   mobileStyle = false,
+  titleLanguage?: string,
+  contentLanguage?: string,
 ) => {
   setMockChatLogicItems(items);
   const renderElement = () =>
@@ -428,6 +452,8 @@ const renderNewChatComponents = (
       onLessonPdfActionChange,
       previewMode,
       mobileStyle,
+      titleLanguage,
+      contentLanguage,
     );
   const renderResult = render(renderElement());
 
@@ -496,7 +522,7 @@ describe('NewChatComponents', () => {
       name: '重修本节课程',
     });
     expect(retakeAction.closest('span')).toHaveTextContent(
-      '本节课程已更新，建议重修',
+      '本节已更新，建议重修',
     );
     expect(retakeAction).toHaveTextContent('重修');
 
@@ -526,9 +552,7 @@ describe('NewChatComponents', () => {
         name: '重修本节课程',
       }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('本节课程已更新，建议重修'),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('本节已更新，建议重修')).not.toBeInTheDocument();
   });
 
   it('shows the credit purchase action only to the course owner in preview mode', () => {
@@ -840,6 +864,65 @@ describe('NewChatComponents', () => {
     expect(screen.getByTestId('listen-mode-renderer')).toBeInTheDocument();
   });
 
+  it.each(['listen', 'classroom'] as const)(
+    'passes the authored title language to the %s slide renderer',
+    variant => {
+      mockLearningMode = variant;
+      renderNewChatComponents(jest.fn(), jest.fn(), [], false, false, 'en-US');
+
+      expect(screen.getByTestId('listen-mode-renderer')).toHaveAttribute(
+        'data-title-language',
+        'en-US',
+      );
+    },
+  );
+
+  it('passes known guide output language separately from the slide title', () => {
+    mockLearningMode = 'listen';
+    renderNewChatComponents(
+      jest.fn(),
+      jest.fn(),
+      [],
+      false,
+      false,
+      'fr-FR',
+      'en-US',
+    );
+
+    expect(screen.getByTestId('listen-mode-renderer')).toHaveAttribute(
+      'data-title-language',
+      'fr-FR',
+    );
+    expect(screen.getByTestId('listen-mode-renderer')).toHaveAttribute(
+      'data-content-language',
+      'en-US',
+    );
+  });
+
+  it('passes the known English guide language to read-mode content', () => {
+    mockLearningMode = 'read';
+    renderNewChatComponents(
+      jest.fn(),
+      jest.fn(),
+      [
+        {
+          content: 'Create your first course',
+          element_bid: 'guide-content',
+          type: 'content',
+        },
+      ],
+      false,
+      false,
+      'fr-FR',
+      'en-US',
+    );
+
+    expect(screen.getByTestId('content-block-guide-content')).toHaveAttribute(
+      'data-content-language',
+      'en-US',
+    );
+  });
+
   it('keeps the slide renderer mounted while preparing the read-mode print tree', async () => {
     mockLessonPdfReady = true;
     mockLessonPdfPreparing = true;
@@ -983,6 +1066,26 @@ describe('NewChatComponents', () => {
     expect(
       container.querySelector('[data-lesson-print-lesson-title="true"]'),
     ).toHaveTextContent('第一课');
+  });
+
+  it('marks print-only course and lesson headings with their authored language', () => {
+    mockLearningMode = 'read';
+
+    const { container } = renderNewChatComponents(
+      jest.fn(),
+      jest.fn(),
+      [],
+      false,
+      false,
+      'en-US',
+    );
+
+    expect(
+      container.querySelector('[data-lesson-print-course-name="true"]'),
+    ).toHaveAttribute('lang', 'en-US');
+    expect(
+      container.querySelector('[data-lesson-print-lesson-title="true"]'),
+    ).toHaveAttribute('lang', 'en-US');
   });
 
   it('keeps the configured site brand when the course has no avatar', () => {

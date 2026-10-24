@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING
 import pytest
 from flask import Flask
 from flaskr import dao
-from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
+from flaskr.service.shifu.demo_courses import (
+    get_demo_course_content_language,
+    get_demo_course_title_language,
+    is_builtin_demo_shifu,
+)
 from flaskr.service.shifu.models import PublishedShifu
 
 if TYPE_CHECKING:
@@ -49,6 +53,48 @@ def test_is_builtin_demo_shifu_matches_configured_demo_id(
     )
 
     assert is_builtin_demo_shifu(demo_course_app, "demo-configured-1") is True
+
+
+def test_demo_course_title_language_uses_exact_configured_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = {
+        "DEMO_SHIFU_BID": "demo-zh",
+        "DEMO_EN_SHIFU_BID": "demo-en",
+    }
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": configured.get(key, default),
+    )
+
+    assert get_demo_course_title_language("demo-en") == "en-US"
+    assert get_demo_course_title_language("demo-zh") == "zh-CN"
+    assert get_demo_course_title_language("other-course") is None
+    assert get_demo_course_title_language("") is None
+
+    configured["DEMO_EN_SHIFU_BID"] = "demo-zh"
+    assert get_demo_course_title_language("demo-zh") is None
+
+
+def test_demo_course_content_language_uses_exact_configured_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = {
+        "DEMO_SHIFU_BID": "demo-zh",
+        "DEMO_EN_SHIFU_BID": "demo-en",
+    }
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": configured.get(key, default),
+    )
+
+    assert get_demo_course_content_language("demo-en") == "en-US"
+    assert get_demo_course_content_language("demo-zh") == "zh-CN"
+    assert get_demo_course_content_language("other-course") is None
+    assert get_demo_course_content_language("") is None
+
+    configured["DEMO_EN_SHIFU_BID"] = "demo-zh"
+    assert get_demo_course_content_language("demo-zh") is None
 
 
 def test_is_builtin_demo_shifu_matches_system_title_fallback(

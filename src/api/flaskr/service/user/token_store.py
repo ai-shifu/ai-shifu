@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from flaskr.common.cache_provider import cache
-from flaskr.dao import db
+from flaskr.dao import db, uow
 from flaskr.service.user.models import UserToken as UserTokenModel
 from flaskr.util.datetime import now_utc
 
@@ -54,6 +54,12 @@ class TokenStoreProvider:
         prefix = app.config.get("REDIS_KEY_PREFIX_USER", "ai-shifu:user:")
         return f"{prefix}{token}"
 
+    def discard_uncommitted(self, app: Flask, token: str) -> None:
+        """Remove cache state when the transaction that owns a token fails."""
+        with contextlib.suppress(Exception):
+            self._cache.delete(self._cache_key(app, token))
+            self._cache.delete(self._refresh_marker_key(app, token))
+
     def save(
         self,
         app: Flask,
@@ -71,45 +77,48 @@ class TokenStoreProvider:
         now = now_utc()
         expires_at = now + datetime.timedelta(seconds=ttl_seconds)
 
-        with db.session.begin_nested():
-            record = (
-                UserTokenModel.query.filter(UserTokenModel.token == token)
-                .order_by(UserTokenModel.id.desc())
-                .first()
+        record = (
+            UserTokenModel.query.filter(UserTokenModel.token == token)
+            .order_by(UserTokenModel.id.desc())
+            .first()
+        )
+        if record is None:
+            record = UserTokenModel(
+                user_id=user_id,
+                token=token,
+                token_type=0,
+                token_expired_at=expires_at,
             )
-            if record is None:
-                record = UserTokenModel(
-                    user_id=user_id,
-                    token=token,
-                    token_type=0,
-                    token_expired_at=expires_at,
-                )
-                db.session.add(record)
-            else:
-                record.user_id = user_id
-                record.token_expired_at = expires_at
-
             if metadata is not None:
-                # Recorded once, at creation: these describe where the session
-                # started, not where it was last used.
+                # Creation metadata describes where the session began and
+                # must not be replaced by a later save of the same token.
                 record.session_bid = metadata.session_bid
                 record.source = metadata.source
                 record.device_name = metadata.device_name
                 record.device_os = metadata.device_os
                 record.created_ip = metadata.created_ip
+            db.session.add(record)
+        else:
+            record.user_id = user_id
+            record.token_expired_at = expires_at
 
-        try:
-            self._cache.set(self._cache_key(app, token), user_id, ex=ttl_seconds)
-        except Exception:
-            # Cache failures should not block login flows.
-            return
+        def populate_cache() -> None:
+            try:
+                self._cache.set(self._cache_key(app, token), user_id, ex=ttl_seconds)
+            except Exception:
+                # Cache failures should not block login flows.
+                return
+
+        # Authentication flows own their transaction. Do not expose a token in
+        # cache when that transaction later rolls back.
+        uow.on_commit(populate_cache)
 
     def _refresh_marker_key(self, app: Flask, token: str) -> str:
         return f"{self._cache_key(app, token)}:row"
 
     def _refresh_row_periodically(
         self, app: Flask, *, token: str, user_id: str, ttl_seconds: int
-    ) -> None:
+    ) -> bool | None:
         """Keep the stored expiry from falling behind a cache-served session.
 
         A cache hit renews only the cache entry, so a session in constant use
@@ -123,28 +132,31 @@ class TokenStoreProvider:
         marker = self._refresh_marker_key(app, token)
         with contextlib.suppress(Exception):
             if self._cache.get(marker):
-                return
+                return True
 
         expires_at = now_utc() + datetime.timedelta(seconds=ttl_seconds)
         try:
-            with db.session.begin_nested():
-                record = (
-                    UserTokenModel.query.filter(
+            # Authentication runs before the request handler and read-only
+            # requests do not commit the scoped ORM session. Persist the sliding
+            # expiry in its own transaction so teardown cannot roll it back.
+            with db.engine.begin() as connection:
+                result = connection.execute(
+                    UserTokenModel.__table__.update()
+                    .where(
                         UserTokenModel.token == token,
                         UserTokenModel.user_id == user_id,
                     )
-                    .order_by(UserTokenModel.id.desc())
-                    .first()
+                    .values(token_expired_at=expires_at)
                 )
-                if record is None:
-                    return
-                record.token_expired_at = expires_at
+                if result.rowcount < 1:
+                    return False
         except Exception:
             app.logger.warning("could not refresh token row expiry")
-            return
+            return None
 
         with contextlib.suppress(Exception):
             self._cache.set(marker, "1", ex=max(1, ttl_seconds // 2))
+        return True
 
     def get_and_refresh(
         self, app: Flask, *, token: str, expected_user_id: str, ttl_seconds: int
@@ -167,12 +179,39 @@ class TokenStoreProvider:
                 cached_user_id = cached_user_id.decode("utf-8")
             if cached_user_id:
                 if str(cached_user_id) == expected_user_id:
-                    self._refresh_row_periodically(
+                    # Session revocation and account cancellation both delete the
+                    # durable token row. Treat it as the source of truth on cache hits
+                    # so a failed Redis eviction cannot keep either session alive.
+                    durable_session = (
+                        UserTokenModel.query.filter(
+                            UserTokenModel.token == token,
+                            UserTokenModel.user_id == expected_user_id,
+                        )
+                        .order_by(UserTokenModel.id.desc())
+                        .first()
+                    )
+                    expires_at = getattr(durable_session, "token_expired_at", None)
+                    if (
+                        durable_session is None
+                        or expires_at is None
+                        or expires_at <= now_utc()
+                    ):
+                        with contextlib.suppress(Exception):
+                            self._cache.delete(cache_key)
+                            self._cache.delete(self._refresh_marker_key(app, token))
+                        return None
+                    refresh_result = self._refresh_row_periodically(
                         app,
                         token=token,
                         user_id=expected_user_id,
                         ttl_seconds=ttl_seconds,
                     )
+                    # A missing row means the session was revoked between the
+                    # validation query and the refresh write. Database errors are
+                    # different: expiry renewal is best-effort and must not turn a
+                    # valid request into a logout.
+                    if refresh_result is False:
+                        return None
                     return TokenLookupResult(user_id=expected_user_id)
                 # Defensive: token should never map to a different user id.
                 self._cache.delete(cache_key)

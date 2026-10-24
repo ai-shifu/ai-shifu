@@ -92,10 +92,10 @@
         "table": {
           "createdAt": "消耗时间",
           "credits": "消耗积分",
-          "inputTokens": "输入 Tokens",
+          "inputTokens": "输入词元",
           "model": "模型",
           "outputSummary": "输出摘要",
-          "outputTokens": "输出 Tokens",
+          "outputTokens": "输出词元",
           "ttsContent": "合成内容",
           "ttsDuration": "音频时长",
           "ttsSegmentCount": "分段数",

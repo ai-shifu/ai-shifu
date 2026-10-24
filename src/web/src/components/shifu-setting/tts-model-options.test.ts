@@ -7,6 +7,31 @@ import {
 } from './tts-model-options';
 
 describe('tts-model-options', () => {
+  test('normalizes display metadata without deduplicating TTS options', () => {
+    const option = {
+      provider: ' MiniMax ',
+      model: ' speech-01 ',
+      label: ' Voice ',
+      credit_multiplier: '2.2',
+      credit_multiplier_label: ' 3x ',
+      is_default: false,
+      isDefault: true,
+    };
+    const expected = {
+      provider: 'minimax',
+      model: 'speech-01',
+      value: 'minimax/speech-01',
+      label: 'Voice',
+      creditMultiplier: 3,
+      creditMultiplierLabel: '3x',
+      isDefault: false,
+    };
+
+    expect(
+      normalizeTtsModelOptions([null, 'legacy-model', {}, option, option]),
+    ).toEqual([expected, expected]);
+  });
+
   test('builds and parses provider/model values', () => {
     const options = normalizeTtsModelOptions([
       {

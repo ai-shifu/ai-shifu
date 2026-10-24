@@ -11,11 +11,10 @@ import { useLatest } from 'react-use';
 import {
   mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
-} from '@/c-utils/markdownUtils';
-import { useCourseStore } from '@/c-store/useCourseStore';
+} from '@/lib/markdownUtils';
+import { useCourseStore } from '@/store/useCourseStore';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
-import api from '@/api';
 import {
   StudyRecordItem,
   LikeStatus,
@@ -36,7 +35,7 @@ import {
   streamGeneratedBlockAudio,
   submitLessonFeedback,
   ELEMENT_TYPE,
-} from '@/c-api/studyV2';
+} from '@/api/studyV2';
 import {
   getAudioTrackByPosition,
   normalizeAudioCompletePayload,
@@ -44,22 +43,23 @@ import {
   toAudioSegmentData,
   upsertAudioComplete,
   upsertAudioSegment,
-} from '@/c-utils/audio-utils';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+} from '@/lib/audio-utils';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import {
   events,
   EVENT_NAMES as BZ_EVENT_NAMES,
   type StopActiveLessonStreamDetail,
 } from '@/app/c/[[...id]]/events';
-import { EVENT_NAMES } from '@/c-common/hooks/useTracking';
+import { EVENT_NAMES } from '@/hooks/useTracking';
 import {
   buildLessonFeedbackUserInput,
   parseLessonFeedbackUserInput,
   resolveInteractionSubmission,
-} from '@/c-utils/interaction-user-input';
+} from '@/lib/interaction-user-input';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import LoadingBar from './LoadingBar';
+import { startPreviewRewindTracking } from './previewRewindTracking';
 import { useTranslation } from 'react-i18next';
 import { show as showToast, toast, toastOnce } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
@@ -69,8 +69,7 @@ import {
   EMPTY_LESSON_RUN_CONTENT_ENTRY,
   EMPTY_LESSON_RUN_ITEMS,
   useLessonRunContentStore,
-} from '@/c-store/useLessonRunContentStore';
-import { parseLessonHistoryDate } from '@/lib/lesson-history-time';
+} from '@/store/useLessonRunContentStore';
 import { resolveLearnerErrorToast } from '@/lib/learnerError';
 import {
   AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
@@ -78,7 +77,7 @@ import {
   AI_SERVICE_ERROR_TOAST_KEY,
   resolveAiServiceErrorToast,
 } from '@/lib/aiServiceError';
-import { debugWarn } from '@/c-utils/debugConsole';
+import { debugWarn } from '@/lib/debugConsole';
 import {
   getCreditInsufficientMessage,
   isCreditInsufficientBusinessCode,
@@ -235,7 +234,6 @@ function useChatLogicHook({
   lessonId,
   chapterId,
   previewMode,
-  lessonHasContentUpdate = false,
   isListenMode = false,
   learningMode = isListenMode ? 'listen' : 'read',
   listenRequestEnabled = false,
@@ -263,14 +261,19 @@ function useChatLogicHook({
   const isStreamingRef = useRef(false);
   const [isOutputInProgress, setIsOutputInProgress] = useState(false);
   const [hasRunFailed, setHasRunFailed] = useState(false);
-  const { updateResetedLessonId, resetedLessonId, isCurrentUserCourseOwner } =
-    useCourseStore(
-      useShallow(state => ({
-        resetedLessonId: state.resetedLessonId,
-        updateResetedLessonId: state.updateResetedLessonId,
-        isCurrentUserCourseOwner: state.isCurrentUserCourseOwner,
-      })),
-    );
+  const {
+    updateResetedLessonId,
+    resetedLessonId,
+    resettingLessonId,
+    isCurrentUserCourseOwner,
+  } = useCourseStore(
+    useShallow(state => ({
+      resetedLessonId: state.resetedLessonId,
+      resettingLessonId: state.resettingLessonId,
+      updateResetedLessonId: state.updateResetedLessonId,
+      isCurrentUserCourseOwner: state.isCurrentUserCourseOwner,
+    })),
+  );
 
   const effectivePreviewMode = previewMode ?? false;
   const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
@@ -323,10 +326,31 @@ function useChatLogicHook({
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
   const pendingInteractionAnchorBidRef = useRef('');
-  const runRef = useRef<((params: SSEParams) => void) | null>(null);
+  const runRef = useRef<
+    | ((
+        params: SSEParams,
+        continuingRewind?: ReturnType<typeof startPreviewRewindTracking>,
+      ) => void)
+    | null
+  >(null);
   const sseRef = useRef<any>(null);
+  const previewRewindResultRef =
+    useRef<ReturnType<typeof startPreviewRewindTracking>>(undefined);
   const sseRunSerialRef = useRef(0);
   const refreshDataSerialRef = useRef(0);
+  // The lesson an empty-input run has already been started for. Loading a lesson calls
+  // `refreshData` from three places -- the lesson-id effect, the reset subscription, and the
+  // effect watching `resetedLessonId` return to null -- and on a reset all three fire. They run
+  // one after another, so `refreshDataSerialRef` cannot tell them apart: each is the newest at
+  // the moment it finishes, and each started its own run. Measured on a reset: three identical
+  // runs within 332ms. The first two are closed client-side, which does not stop the server, so
+  // each one still teaches a turn, bills for it, and leaves an unfinalized row behind.
+  const autoRunStartedForRef = useRef<string | null>(null);
+  // The lesson the reset subscription has reloaded and not yet handed back. Clearing
+  // `resetedLessonId` afterwards re-runs the lesson-id effect, which would otherwise close the run
+  // the reset just started and start it again -- measured after the mark above: two identical runs
+  // per reset, the first closed after 7ms and still taught and billed by the server.
+  const reloadedForResetRef = useRef<string | null>(null);
   const runStreamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -662,6 +686,7 @@ function useChatLogicHook({
         messageElementBid?: string;
         messageGeneratedBlockBid?: string;
         messageContent: string;
+        messagePayload?: StudyRecordItem['payload'];
         isHistory?: boolean;
         insertionMode?: 'anchor' | 'sequence';
       },
@@ -683,6 +708,10 @@ function useChatLogicHook({
         parent_element_bid: parentElementBid,
         type: messageType,
         content: messageContent,
+        payload: params.messagePayload,
+        ...(params.messagePayload?.interaction_mode === 'live_voice'
+          ? { interaction_mode: 'live_voice' as const }
+          : {}),
         readonly: true,
         customRenderBar: () => null,
         user_input: '',
@@ -1321,7 +1350,11 @@ function useChatLogicHook({
    * Applies stream-driven lesson status updates and triggers follow-up actions.
    */
   const lessonUpdateResp = useCallback(
-    (response, isEnd: boolean) => {
+    (
+      response,
+      isEnd: boolean,
+      continuingRewind?: ReturnType<typeof startPreviewRewindTracking>,
+    ) => {
       const {
         outline_bid: currentOutlineBid,
         status,
@@ -1334,10 +1367,13 @@ function useChatLogicHook({
         status_value: status,
       });
       if (status === LESSON_STATUS_VALUE.PREPARE_LEARNING && !isEnd) {
-        runRef.current?.({
-          input: '',
-          input_type: SSE_INPUT_TYPE.NORMAL,
-        });
+        runRef.current?.(
+          {
+            input: '',
+            input_type: SSE_INPUT_TYPE.NORMAL,
+          },
+          continuingRewind,
+        );
       }
 
       if (status === LESSON_STATUS_VALUE.LEARNING && !isEnd) {
@@ -1349,6 +1385,7 @@ function useChatLogicHook({
 
   const stopActiveRunStream = useCallback(() => {
     clearRunStreamTimeout();
+    previewRewindResultRef.current?.('cancelled');
     if (sseRef.current) {
       try {
         sseRef.current.close();
@@ -1412,13 +1449,18 @@ function useChatLogicHook({
    * Starts the SSE request and streams content into the chat list.
    */
   const run = useCallback(
-    (sseParams: SSEParams) => {
+    (
+      sseParams: SSEParams,
+      continuingRewind?: ReturnType<typeof startPreviewRewindTracking>,
+    ) => {
       if (creditInsufficientAudience === null) {
         return;
       }
       const runSerial = sseRunSerialRef.current + 1;
       sseRunSerialRef.current = runSerial;
       clearRunStreamTimeout();
+      // Internal continuation retains the original attempt; a user replacement cancels it.
+      if (!continuingRewind) previewRewindResultRef.current?.('cancelled');
       if (sseRef.current) {
         try {
           sseRef.current?.close();
@@ -1455,6 +1497,20 @@ function useChatLogicHook({
         });
       }
 
+      const finishPreviewRewind =
+        continuingRewind ??
+        startPreviewRewindTracking({
+          preview: effectivePreviewMode,
+          anchor:
+            sseParams.reload_element_bid ||
+            sseParams.reload_generated_block_bid,
+          answering: Boolean(sseParams.input),
+          shifuBid,
+          outlineBid,
+          learningMode,
+          trackEvent,
+        });
+      previewRewindResultRef.current = finishPreviewRewind;
       let isEnd = false;
       let didReachTerminalSuccess = false;
       const clearLoadingPlaceholder = () => {
@@ -1492,6 +1548,7 @@ function useChatLogicHook({
           return;
         }
 
+        finishPreviewRewind?.('failed');
         cleanupRunStreamState();
         setHasRunFailed(true);
         appendRunTimeoutError(runSerial);
@@ -1539,6 +1596,7 @@ function useChatLogicHook({
           // if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
           try {
             if (response?.type === SSE_OUTPUT_TYPE.ERROR) {
+              finishPreviewRewind?.('failed');
               clearRunStreamTimeout();
               setHasRunFailed(true);
               const rawContent = response?.content;
@@ -1673,6 +1731,7 @@ function useChatLogicHook({
                     messageGeneratedBlockBid:
                       elementRecord.generated_block_bid || itemBid,
                     messageContent: elementRecord.content || '',
+                    messagePayload: elementRecord.payload,
                     insertionMode: 'anchor',
                   }),
                 );
@@ -1921,7 +1980,7 @@ function useChatLogicHook({
                     isEnd = true;
                     setHasRunFailed(false);
                   }
-                  lessonUpdateResp(response, isEnd);
+                  lessonUpdateResp(response, isEnd, finishPreviewRewind);
                 }
               }
             } else if (
@@ -1930,6 +1989,7 @@ function useChatLogicHook({
             ) {
               if (response.is_terminal === true) {
                 didReachTerminalSuccess = true;
+                finishPreviewRewind?.('success');
                 setHasRunFailed(false);
                 cleanupRunStreamState();
                 try {
@@ -1958,10 +2018,13 @@ function useChatLogicHook({
                   lastRenderableItem &&
                   lastRenderableItem.type === ChatContentItemType.CONTENT
                 ) {
-                  runRef.current?.({
-                    input: '',
-                    input_type: SSE_INPUT_TYPE.NORMAL,
-                  });
+                  runRef.current?.(
+                    {
+                      input: '',
+                      input_type: SSE_INPUT_TYPE.NORMAL,
+                    },
+                    finishPreviewRewind,
+                  );
                 }
                 return updatedList;
               });
@@ -2142,6 +2205,7 @@ function useChatLogicHook({
           if (!isLatestRun || !isCurrentSource) {
             return;
           }
+          finishPreviewRewind?.('failed');
           const businessError = (
             error as { detail?: { code?: number; message?: string } }
           )?.detail;
@@ -2179,6 +2243,7 @@ function useChatLogicHook({
         }
         if (source.readyState === 2) {
           if (isActiveSource) {
+            finishPreviewRewind?.('failed');
             // Always clear the loading placeholder when the active stream closes.
             // Some interaction flows may only emit control events before closing,
             // which still leaves the placeholder visible without this cleanup.
@@ -2238,6 +2303,7 @@ function useChatLogicHook({
   useEffect(() => {
     return () => {
       clearRunStreamTimeout();
+      previewRewindResultRef.current?.('cancelled');
       sseRef.current?.close();
       isStreamingRef.current = false;
     };
@@ -2318,6 +2384,7 @@ function useChatLogicHook({
             messageElementBid: itemBid,
             messageGeneratedBlockBid: item.generated_block_bid || itemBid,
             messageContent: item.content || '',
+            messagePayload: item.payload,
             isHistory: true,
             insertionMode: 'anchor',
           });
@@ -2377,9 +2444,10 @@ function useChatLogicHook({
   /**
    * Loads the persisted lesson records and primes the chat stream.
    */
-  const refreshData = useCallback(async () => {
+  // Resolves true when the lesson's history was loaded and applied by this call.
+  const refreshData = useCallback(async (): Promise<boolean> => {
     if (creditInsufficientAudience === null) {
-      return;
+      return false;
     }
     const refreshSerial = ++refreshDataSerialRef.current;
     const isCurrentRefresh = () =>
@@ -2403,42 +2471,11 @@ function useChatLogicHook({
         preview_mode: effectivePreviewMode,
       });
       if (!isCurrentRefresh()) {
-        return;
+        return false;
       }
-      let shouldShowLessonUpdateNotice = false;
-      const latestStudyUpdatedAt =
-        effectivePreviewMode && recordResp?.elements?.length > 0
-          ? parseLessonHistoryDate(recordResp.last_progress_updated_at)
-          : null;
-      if (
-        effectivePreviewMode &&
-        recordResp?.elements?.length > 0 &&
-        latestStudyUpdatedAt
-      ) {
-        const draftMeta = await api
-          .getShifuDraftMeta({
-            shifu_bid: shifuBid,
-            outline_bid: outlineBid,
-          })
-          .catch(() => null);
-        if (!isCurrentRefresh()) {
-          return;
-        }
-        const latestDraftUpdatedAt = parseLessonHistoryDate(
-          draftMeta?.updated_at,
-        );
-        shouldShowLessonUpdateNotice = Boolean(
-          latestDraftUpdatedAt &&
-          latestStudyUpdatedAt &&
-          latestDraftUpdatedAt.getTime() > latestStudyUpdatedAt.getTime(),
-        );
-      } else if (!effectivePreviewMode && recordResp?.elements?.length > 0) {
-        shouldShowLessonUpdateNotice = Boolean(lessonHasContentUpdate);
-      }
-      if (!isCurrentRefresh()) {
-        return;
-      }
-      setShowLessonUpdateNotice(shouldShowLessonUpdateNotice);
+      setShowLessonUpdateNotice(
+        recordResp?.has_content_update_for_current_user === true,
+      );
 
       if (recordResp?.elements?.length > 0) {
         const contentRecords = mapRecordsToContent(recordResp.elements);
@@ -2474,29 +2511,38 @@ function useChatLogicHook({
           // recordResp.elements[recordResp.elements.length - 1].element_type ===
           //   BLOCK_TYPE.ERROR
         ) {
+          if (autoRunStartedForRef.current !== outlineBid) {
+            autoRunStartedForRef.current = outlineBid;
+            runRef.current?.({
+              input: '',
+              input_type: SSE_INPUT_TYPE.NORMAL,
+            });
+          }
+        }
+      } else {
+        if (autoRunStartedForRef.current !== outlineBid) {
+          autoRunStartedForRef.current = outlineBid;
           runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
           });
-        }
-      } else {
-        setShowLessonUpdateNotice(false);
-        runRef.current?.({
-          input: '',
-          input_type: SSE_INPUT_TYPE.NORMAL,
-        });
-        if (!effectivePreviewMode) {
-          trackEvent('learner_lesson_start', {
-            shifu_bid: shifuBid,
-            outline_bid: outlineBid,
-          });
+          // Inside the guard: the refreshes this deduplicates would otherwise each report a
+          // start, and one reset would read as several in the analytics.
+          if (!effectivePreviewMode) {
+            trackEvent('learner_lesson_start', {
+              shifu_bid: shifuBid,
+              outline_bid: outlineBid,
+            });
+          }
         }
       }
+      return true;
     } catch (error) {
       if (isCurrentRefresh()) {
         setShowLessonUpdateNotice(false);
       }
       debugWarn('[lesson-run] refreshData error', error);
+      return false;
     } finally {
       if (isCurrentRefresh()) {
         setIsLoading(false);
@@ -2507,7 +2553,6 @@ function useChatLogicHook({
     creditInsufficientAudience,
     getLessonFeedbackDefaults,
     isLessonFeedbackContent,
-    lessonHasContentUpdate,
     mapRecordsToContent,
     openLessonFeedbackPopup,
     outlineBid,
@@ -2541,8 +2586,16 @@ function useChatLogicHook({
         }
         setIsLoading(true);
         if (curr === lessonId) {
+          previewRewindResultRef.current?.('cancelled');
           sseRef.current?.close();
-          await refreshData();
+          // A reset clears the lesson, so the run that follows it is a new first run, not the
+          // one already started for this lesson.
+          autoRunStartedForRef.current = null;
+          // Marked only once the reload has loaded the lesson. If it failed -- the history
+          // request errored -- handing the reset back lets the lesson effect load it again.
+          if (await refreshData()) {
+            reloadedForResetRef.current = curr;
+          }
           // updateResetedChapterId(null);
           // @ts-expect-error resetedLessonId can be null per store design
           updateResetedLessonId(null);
@@ -2579,18 +2632,60 @@ function useChatLogicHook({
     };
   }, [chapterId, refreshData]);
 
+  // Only the open lesson's own reset concerns the effect below. The store's reset fields name
+  // whichever lesson is being reset, and a reset of another lesson from the catalog, with this
+  // one staying open, would otherwise re-run it: close this lesson's stream and start its run
+  // again.
+  const isResettingOpenLesson =
+    Boolean(lessonId) && resettingLessonId === lessonId;
+  const hasResetLandedForOpenLesson =
+    Boolean(lessonId) && resetedLessonId === lessonId;
+
   useEffect(() => {
-    sseRef.current?.close();
+    // A mark for another lesson is stale: the learner moved on before the reset was handed back.
+    if (reloadedForResetRef.current !== lessonId) {
+      reloadedForResetRef.current = null;
+    }
+    // The reset is being handed back for the lesson the subscription has just reloaded. That
+    // load is this lesson's; closing its run and loading again would start the same run twice.
     if (
-      !lessonId ||
-      resetedLessonId === lessonId ||
-      creditInsufficientAudience === null
+      lessonId &&
+      !hasResetLandedForOpenLesson &&
+      reloadedForResetRef.current === lessonId
     ) {
+      reloadedForResetRef.current = null;
       return;
     }
+    // The reset of this lesson has landed and the subscription is reloading it; closing here
+    // could close the run that reload has just started.
+    if (hasResetLandedForOpenLesson) {
+      return;
+    }
+    previewRewindResultRef.current?.('cancelled');
+    sseRef.current?.close();
+    if (!lessonId || creditInsufficientAudience === null) {
+      return;
+    }
+    // This lesson is being reset. Confirming a reset from the catalog also opens the lesson, so
+    // it arrives here before the reset has landed: loading it now would start a run on the
+    // lesson as it was, which the reset's own reload then closes -- measured: two runs 70ms
+    // apart, the first still taught and billed. The subscription loads it once the reset lands;
+    // if the reset fails, clearing `resettingLessonId` brings the load back here.
+    if (isResettingOpenLesson) {
+      return;
+    }
+    // Opening a lesson is a fresh load, so whatever was started for the lesson left behind does
+    // not speak for this one. Without this, coming back to a lesson whose history ends in text
+    // -- which the host continues by itself -- would find its own mark still set and stall.
+    autoRunStartedForRef.current = null;
     refreshData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [creditInsufficientAudience, lessonId, resetedLessonId]);
+  }, [
+    creditInsufficientAudience,
+    lessonId,
+    hasResetLandedForOpenLesson,
+    isResettingOpenLesson,
+  ]);
 
   useEffect(() => {
     const onGoToNavigationNode = (
@@ -2634,7 +2729,7 @@ function useChatLogicHook({
         item => item.element_bid === blockBid,
       );
       const variableName = params.variableName;
-      if (variableName) {
+      if (variableName && needChangeItemIndex === -1) {
         // first find the item with the same variable value
         const variableMatchIndex = newList.findIndex(item =>
           item.content?.includes(variableName),
@@ -2756,7 +2851,12 @@ function useChatLogicHook({
         return;
       }
 
-      newList.length = needChangeItemIndex;
+      const firstBlockIndex = newList.findIndex(
+        item =>
+          resolveSourceGeneratedBlockBid(item.element_bid) === sourceBlockBid,
+      );
+      newList.length =
+        firstBlockIndex === -1 ? needChangeItemIndex : firstBlockIndex;
       setTrackedContentList(newList);
 
       isTypeFinishedRef.current = false;
@@ -2764,7 +2864,7 @@ function useChatLogicHook({
         input: '',
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_generated_block_bid: sourceBlockBid,
-        reload_element_bid: sourceBlockBid,
+        reload_element_bid: elementBid,
       });
     },
     [
@@ -2980,12 +3080,9 @@ function useChatLogicHook({
       isTypeFinishedRef.current = false;
 
       const { values } = resolveInteractionSubmission(content);
-      const reload_generated_block_bid =
-        isReGenerate && needChangeItemIndex !== -1
-          ? resolveSourceGeneratedBlockBid(
-              newList[needChangeItemIndex].element_bid,
-            )
-          : undefined;
+      const reload_generated_block_bid = isReGenerate
+        ? sourceBlockBid
+        : undefined;
       runRef.current?.({
         input: {
           // No-variable interactions have an empty variableName; submit
@@ -2994,7 +3091,7 @@ function useChatLogicHook({
           [variableName || 'input']: values,
         },
         input_type: SSE_INPUT_TYPE.NORMAL,
-        reload_element_bid: reload_generated_block_bid,
+        reload_element_bid: isReGenerate ? blockBid : undefined,
         reload_generated_block_bid,
       });
     },

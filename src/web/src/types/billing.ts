@@ -336,6 +336,7 @@ export type BillingSubscription = {
   subscription_bid: string;
   product_bid: string;
   product_code: string;
+  product_name_key?: string;
   status: BillingSubscriptionStatus;
   billing_provider: BillingProvider;
   current_period_start_at: string | null;

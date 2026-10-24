@@ -1,5 +1,12 @@
 # Global Billing Pricing Page
 
+This is the historical delivery record. The subsequent
+[billing learning-time contract](../../product-specs/billing-learning-hours-estimate.md)
+replaces learner-count estimates, public validity wording and Global-specific
+comparison copy. The current page uses actual billing-period prices and shared
+domestic wording, while retaining Global plan names, purchase button labels and
+its existing benefits.
+
 ## Purpose / Big Picture
 
 The global deployment needs an international SaaS pricing experience while the

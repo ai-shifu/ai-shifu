@@ -1,0 +1,11 @@
+{
+  "__namespace__": "module.preview",
+  "aiDebugUnavailable": "La prueba de la IA no está disponible temporalmente. Inténtalo de nuevo más tarde; si el problema persiste, revisa la configuración del modelo.",
+  "invalidParams": "Faltan parámetros de vista previa. Actualiza la página e inténtalo de nuevo.",
+  "llmError": "Error al invocar el modelo de lenguaje",
+  "missingApiBaseUrl": "Este entorno no está configurado correctamente. Inténtalo de nuevo más tarde.",
+  "previewAll": "Vista previa del borrador",
+  "previewModeBanner": "Estás viendo la vista previa de un borrador. Los alumnos verán los cambios cuando se publiquen.<editLink>Editar curso</editLink>",
+  "requestFailed": "No se ha podido cargar la vista previa. Inténtalo de nuevo más tarde.",
+  "streamError": "Se ha interrumpido la conexión de la vista previa. Inténtalo de nuevo."
+}

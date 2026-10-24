@@ -1,0 +1,22 @@
+{
+  "__namespace__": "component.courseCreationChoiceDialog",
+  "aiDescription": "Turn your materials and ideas into a course in your AI assistant.",
+  "aiExamples": "e.g. Claude Cowork, Codex, Hermes Agent, OpenClaw",
+  "aiPrompt": "Please find and install the AI Shifu course creation skill (ai-shifu-course-creator). If it is already installed, just let me know I can start creating a course.",
+  "aiTitle": "Create with AI",
+  "copiedAction": "Copied",
+  "copyAction": "Copy installation instructions",
+  "copyFailed": "Copy failed. Please try again.",
+  "copyHint": "Send to your AI assistant. Skip if already installed.",
+  "copySuccess": "Installation instructions copied",
+  "copySuccessDescription": "Open your AI assistant, paste, and send.",
+  "createExample": "“Use the AI Shifu course creation skill to help me create a course about…”",
+  "createStep": "Tell your assistant what you want to teach",
+  "description": "Choose how to create it.",
+  "guideAction": "First time? Read the guide",
+  "installStep": "Install the course creation skill",
+  "manualAction": "Create blank course",
+  "manualDescription": "Start editing a blank course here.",
+  "manualTitle": "Create manually",
+  "title": "Create course"
+}

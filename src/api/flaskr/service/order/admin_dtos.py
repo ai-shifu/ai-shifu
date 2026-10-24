@@ -15,32 +15,26 @@ class OrderAdminOverviewDTO(BaseModel):
     total_order_count: int = Field(
         default=0,
         description="Total visible order count",
-        required=False,
     )
     paid_order_count: int = Field(
         default=0,
         description="Visible paid order count",
-        required=False,
     )
     pending_order_count: int = Field(
         default=0,
         description="Visible pending order count",
-        required=False,
     )
     refunded_order_count: int = Field(
         default=0,
         description="Visible refunded order count",
-        required=False,
     )
     closed_order_count: int = Field(
         default=0,
         description="Visible closed order count",
-        required=False,
     )
     paid_amount_total: str = Field(
         default="0",
         description="Total paid amount for successful orders",
-        required=False,
     )
 
     def __json__(self) -> dict:
@@ -59,33 +53,28 @@ class OrderAdminOverviewDTO(BaseModel):
 class OrderAdminSummaryDTO(BaseModel):
     """Summary information for an order in admin views."""
 
-    order_bid: str = Field(..., description="Order business identifier", required=False)
-    shifu_bid: str = Field(..., description="Shifu business identifier", required=False)
-    shifu_name: str = Field(..., description="Shifu name", required=False)
-    user_bid: str = Field(..., description="User business identifier", required=False)
-    user_mobile: str = Field(..., description="User mobile", required=False)
-    user_email: str = Field(..., description="User email", required=False)
-    user_nickname: str = Field(..., description="User nickname", required=False)
-    payable_price: str = Field(..., description="Payable price", required=False)
-    paid_price: str = Field(..., description="Paid price", required=False)
-    discount_amount: str = Field(..., description="Discount amount", required=False)
-    status: int = Field(..., description="Order status", required=False)
-    status_key: str = Field(..., description="Order status i18n key", required=False)
-    payment_channel: str = Field(..., description="Payment channel", required=False)
-    payment_channel_key: str = Field(
-        ..., description="Payment channel i18n key", required=False
-    )
-    order_source: str = Field(..., description="Order source", required=False)
-    order_source_key: str = Field(
-        ..., description="Order source i18n key", required=False
-    )
+    order_bid: str = Field(..., description="Order business identifier")
+    shifu_bid: str = Field(..., description="Shifu business identifier")
+    shifu_name: str = Field(..., description="Shifu name")
+    user_bid: str = Field(..., description="User business identifier")
+    user_mobile: str = Field(..., description="User mobile")
+    user_email: str = Field(..., description="User email")
+    user_nickname: str = Field(..., description="User nickname")
+    payable_price: str = Field(..., description="Payable price")
+    paid_price: str = Field(..., description="Paid price")
+    discount_amount: str = Field(..., description="Discount amount")
+    status: int = Field(..., description="Order status")
+    status_key: str = Field(..., description="Order status i18n key")
+    payment_channel: str = Field(..., description="Payment channel")
+    payment_channel_key: str = Field(..., description="Payment channel i18n key")
+    order_source: str = Field(..., description="Order source")
+    order_source_key: str = Field(..., description="Order source i18n key")
     coupon_codes: list[str] = Field(
         default_factory=list,
         description="Coupon codes applied to this order",
-        required=False,
     )
-    created_at: datetime | None = Field(..., description="Created at", required=False)
-    updated_at: datetime | None = Field(..., description="Updated at", required=False)
+    created_at: datetime | None = Field(..., description="Created at")
+    updated_at: datetime | None = Field(..., description="Updated at")
 
     def __init__(
         self,
@@ -161,13 +150,13 @@ class OrderAdminSummaryDTO(BaseModel):
 class OrderAdminActivityDTO(BaseModel):
     """Activity participation info associated with an order."""
 
-    active_id: str = Field(..., description="Active identifier", required=False)
-    active_name: str = Field(..., description="Active name", required=False)
-    price: str = Field(..., description="Active price", required=False)
-    status: int = Field(..., description="Active status", required=False)
-    status_key: str = Field(..., description="Active status i18n key", required=False)
-    created_at: datetime | None = Field(..., description="Created at", required=False)
-    updated_at: datetime | None = Field(..., description="Updated at", required=False)
+    active_id: str = Field(..., description="Active identifier")
+    active_name: str = Field(..., description="Active name")
+    price: str = Field(..., description="Active price")
+    status: int = Field(..., description="Active status")
+    status_key: str = Field(..., description="Active status i18n key")
+    created_at: datetime | None = Field(..., description="Created at")
+    updated_at: datetime | None = Field(..., description="Updated at")
 
     def __init__(
         self,
@@ -207,18 +196,16 @@ class OrderAdminActivityDTO(BaseModel):
 class OrderAdminCouponDTO(BaseModel):
     """Coupon usage detail associated with an order."""
 
-    coupon_bid: str = Field(..., description="Coupon identifier", required=False)
-    code: str = Field(..., description="Coupon code", required=False)
-    name: str = Field(..., description="Coupon name", required=False)
-    discount_type: int = Field(..., description="Discount type", required=False)
-    discount_type_key: str = Field(
-        ..., description="Discount type i18n key", required=False
-    )
-    value: str = Field(..., description="Discount value", required=False)
-    status: int = Field(..., description="Coupon status", required=False)
-    status_key: str = Field(..., description="Coupon status i18n key", required=False)
-    created_at: datetime | None = Field(..., description="Created at", required=False)
-    updated_at: datetime | None = Field(..., description="Updated at", required=False)
+    coupon_bid: str = Field(..., description="Coupon identifier")
+    code: str = Field(..., description="Coupon code")
+    name: str = Field(..., description="Coupon name")
+    discount_type: int = Field(..., description="Discount type")
+    discount_type_key: str = Field(..., description="Discount type i18n key")
+    value: str = Field(..., description="Discount value")
+    status: int = Field(..., description="Coupon status")
+    status_key: str = Field(..., description="Coupon status i18n key")
+    created_at: datetime | None = Field(..., description="Created at")
+    updated_at: datetime | None = Field(..., description="Updated at")
 
     def __init__(
         self,
@@ -267,34 +254,22 @@ class OrderAdminCouponDTO(BaseModel):
 class OrderAdminPaymentDTO(BaseModel):
     """Payment information for an order including channel-specific fields."""
 
-    payment_channel: str = Field(..., description="Payment channel", required=False)
-    payment_channel_key: str = Field(
-        ..., description="Payment channel i18n key", required=False
-    )
-    status: int = Field(..., description="Payment status", required=False)
-    status_key: str = Field(..., description="Payment status i18n key", required=False)
-    amount: str = Field(..., description="Payment amount", required=False)
-    currency: str = Field(..., description="Payment currency", required=False)
-    payment_intent_id: str = Field(
-        ..., description="Stripe payment intent id", required=False
-    )
-    checkout_session_id: str = Field(
-        ..., description="Stripe checkout session id", required=False
-    )
-    latest_charge_id: str = Field(
-        ..., description="Stripe latest charge id", required=False
-    )
-    receipt_url: str = Field(..., description="Stripe receipt url", required=False)
-    payment_method: str = Field(
-        ..., description="Stripe payment method", required=False
-    )
-    transaction_no: str = Field(
-        ..., description="Pingxx transaction number", required=False
-    )
-    charge_id: str = Field(..., description="Pingxx charge id", required=False)
-    channel: str = Field(..., description="Pingxx channel", required=False)
-    created_at: datetime | None = Field(..., description="Created at", required=False)
-    updated_at: datetime | None = Field(..., description="Updated at", required=False)
+    payment_channel: str = Field(..., description="Payment channel")
+    payment_channel_key: str = Field(..., description="Payment channel i18n key")
+    status: int = Field(..., description="Payment status")
+    status_key: str = Field(..., description="Payment status i18n key")
+    amount: str = Field(..., description="Payment amount")
+    currency: str = Field(..., description="Payment currency")
+    payment_intent_id: str = Field(..., description="Stripe payment intent id")
+    checkout_session_id: str = Field(..., description="Stripe checkout session id")
+    latest_charge_id: str = Field(..., description="Stripe latest charge id")
+    receipt_url: str = Field(..., description="Stripe receipt url")
+    payment_method: str = Field(..., description="Stripe payment method")
+    transaction_no: str = Field(..., description="Pingxx transaction number")
+    charge_id: str = Field(..., description="Pingxx charge id")
+    channel: str = Field(..., description="Pingxx channel")
+    created_at: datetime | None = Field(..., description="Created at")
+    updated_at: datetime | None = Field(..., description="Updated at")
 
     def __init__(
         self,
@@ -361,18 +336,10 @@ class OrderAdminPaymentDTO(BaseModel):
 class OrderAdminDetailDTO(BaseModel):
     """Full order detail bundle returned to admin clients."""
 
-    order: OrderAdminSummaryDTO = Field(
-        ..., description="Order summary", required=False
-    )
-    activities: list[OrderAdminActivityDTO] = Field(
-        ..., description="Order activities", required=False
-    )
-    coupons: list[OrderAdminCouponDTO] = Field(
-        ..., description="Order coupons", required=False
-    )
-    payment: OrderAdminPaymentDTO = Field(
-        ..., description="Payment detail", required=False
-    )
+    order: OrderAdminSummaryDTO = Field(..., description="Order summary")
+    activities: list[OrderAdminActivityDTO] = Field(..., description="Order activities")
+    coupons: list[OrderAdminCouponDTO] = Field(..., description="Order coupons")
+    payment: OrderAdminPaymentDTO = Field(..., description="Payment detail")
 
     def __init__(
         self,

@@ -14,6 +14,8 @@ import pytz
 import requests
 from flask import Flask, Response, request
 
+from .client_ip import resolve_client_ip
+from .http import is_sensitive_body
 from .observability import current_trace_ids
 from .request_context import thread_local
 
@@ -177,12 +179,12 @@ def init_log(app: Flask) -> Flask:
         thread_local.url = request.path
         thread_local.status_code = "-"
         thread_local.duration_ms = "-"
-        if "X-Forwarded-For" in request.headers:
-            user_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
-        else:
-            user_ip = request.remote_addr
+        user_ip = resolve_client_ip()
         request.client_ip = user_ip
         thread_local.client_ip = user_ip
+        if is_sensitive_body():
+            app.logger.info("Request body: <sensitive body omitted>")
+            return
         if request.method == "POST":
             try:
                 request_body = {}
@@ -208,6 +210,9 @@ def init_log(app: Flask) -> Flask:
     def after_request(response: Response) -> Response:
         try:
             _update_request_timing(response.status_code)
+            if is_sensitive_body():
+                app.logger.info("Response: <sensitive body omitted>")
+                return response
             if response.headers.get(
                 "Content-Type"
             ) and "text/event-stream" in response.headers.get("Content-Type"):
@@ -256,8 +261,7 @@ def init_log(app: Flask) -> Flask:
     )
     log_file = app.config.get("LOGGING_PATH", "logs/ai-shifu.log")
     log_dir = str(Path(log_file).parent)
-    if not Path(log_dir).exists():
-        Path(log_dir).mkdir(parents=True)
+    Path(log_dir).mkdir(parents=True, exist_ok=True)
     file_handler = TimedRotatingFileHandler(log_file, when="midnight", backupCount=7)
     file_handler.setFormatter(formatter)
     console_handler = logging.StreamHandler()

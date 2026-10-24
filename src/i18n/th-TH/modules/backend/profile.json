@@ -12,7 +12,7 @@
     "learnerProfileOptimizationModerationFailed": "บริการตรวจสอบเนื้อหาไม่พร้อมใช้งานชั่วคราว โปรดลองอีกครั้งภายหลัง",
     "learnerProfileOptimizationNotConfigured": "ยังไม่ได้ตั้งค่าโมเดลปรับปรุงโปรไฟล์ โปรดติดต่อผู้ดูแลระบบ",
     "learnerProfileOptimizationRateLimited": "มีคำขอปรับปรุงที่กำลังดำเนินการอยู่แล้ว โปรดลองอีกครั้งภายหลัง",
-    "learnerProfileOptimizationRejected": "คำแนะนำนี้มีเนื้อหาที่ไม่เป็นไปตามข้อกำหนด โปรดแก้ไขแล้วลองอีกครั้ง",
+    "learnerProfileOptimizationRejected": "ข้อมูลแนะนำตัวนี้มีเนื้อหาที่ไม่เป็นไปตามข้อกำหนด โปรดแก้ไขแล้วลองอีกครั้ง",
     "learnerProfileOptimizationTimedOut": "คำขอปรับปรุงโดย AI หมดเวลา โปรดลองอีกครั้ง",
     "nickname": "ชื่อเล่น",
     "notFound": "ไม่พบตัวแปร",

@@ -7,10 +7,13 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from flask import Config as FlaskConfig
 from flask import Flask
+
+from flaskr.common.client_ip import validate_trusted_proxy_cidrs
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -18,6 +21,36 @@ if TYPE_CHECKING:
 
 class EnvironmentConfigError(Exception):
     """Exception raised for environment configuration errors."""
+
+
+MAX_COURSE_PRICE = Decimal("99999999.99")
+
+
+def parse_nonnegative_cent_amount(value: object) -> Decimal:
+    """Parse an amount that fits the course-price DECIMAL(10, 2) columns."""
+    try:
+        amount = Decimal(str(value))
+        cent_amount = amount.quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        message = "must be a finite nonnegative amount with at most two decimals"
+        raise ValueError(message) from exc
+    if (
+        not amount.is_finite()
+        or amount < 0
+        or amount > MAX_COURSE_PRICE
+        or amount != cent_amount
+    ):
+        message = "must be a finite nonnegative amount with at most two decimals"
+        raise ValueError(message)
+    return cent_amount
+
+
+def _is_valid_nonnegative_cent_amount(value: object) -> bool:
+    try:
+        parse_nonnegative_cent_amount(value)
+    except ValueError:
+        return False
+    return True
 
 
 @dataclass
@@ -73,8 +106,14 @@ class EnvVar:
         elif self.type is float:
             try:
                 return float(value)
-            except ValueError as exc:
+            except (TypeError, ValueError) as exc:
                 message = f"Invalid float value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
+        elif self.type is Decimal:
+            try:
+                return Decimal(str(value))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                message = f"Invalid decimal value for {self.name}: {value}"
                 raise EnvironmentConfigError(message) from exc
         elif self.type is list:
             if isinstance(value, str):
@@ -332,6 +371,18 @@ ENV_VARS: dict[str, EnvVar] = {
         description="Umami analytics site identifier",
         group="frontend",
     ),
+    "ANALYTICS_EXCLUDED_USER_IDS": EnvVar(
+        name="ANALYTICS_EXCLUDED_USER_IDS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated user business identifiers (user_bid, exposed as "
+            "user_id in APIs) excluded by the shared analytics tracking policy "
+            "once identified. "
+            "Empty means no users are excluded."
+        ),
+        group="analytics",
+    ),
     "ANALYTICS_DATABASE_URI": EnvVar(
         name="ANALYTICS_DATABASE_URI",
         default="",
@@ -439,16 +490,34 @@ Default: "phone".""",
         description="Service agreement URL for English (en-US) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_AGREEMENT_URL_DE_DE": EnvVar(
+        name="LEGAL_AGREEMENT_URL_DE_DE",
+        default="",
+        description="Service agreement URL for German (de-DE) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
     "LEGAL_AGREEMENT_URL_FR_FR": EnvVar(
         name="LEGAL_AGREEMENT_URL_FR_FR",
         default="",
         description="Service agreement URL for French (fr-FR) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_AGREEMENT_URL_ES_ES": EnvVar(
+        name="LEGAL_AGREEMENT_URL_ES_ES",
+        default="",
+        description="Service agreement URL for Spanish (es-ES) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
     "LEGAL_AGREEMENT_URL_AR_SA": EnvVar(
         name="LEGAL_AGREEMENT_URL_AR_SA",
         default="",
         description="Service agreement URL for Arabic (ar-SA) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
+    "LEGAL_AGREEMENT_URL_UR_PK": EnvVar(
+        name="LEGAL_AGREEMENT_URL_UR_PK",
+        default="",
+        description="Service agreement URL for Urdu (ur-PK) users. Leave empty to use the English reference.",
         group="legal",
     ),
     "LEGAL_AGREEMENT_URL_TH_TH": EnvVar(
@@ -469,16 +538,34 @@ Default: "phone".""",
         description="Privacy policy URL for English (en-US) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_PRIVACY_URL_DE_DE": EnvVar(
+        name="LEGAL_PRIVACY_URL_DE_DE",
+        default="",
+        description="Privacy policy URL for German (de-DE) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
     "LEGAL_PRIVACY_URL_FR_FR": EnvVar(
         name="LEGAL_PRIVACY_URL_FR_FR",
         default="",
         description="Privacy policy URL for French (fr-FR) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_PRIVACY_URL_ES_ES": EnvVar(
+        name="LEGAL_PRIVACY_URL_ES_ES",
+        default="",
+        description="Privacy policy URL for Spanish (es-ES) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
     "LEGAL_PRIVACY_URL_AR_SA": EnvVar(
         name="LEGAL_PRIVACY_URL_AR_SA",
         default="",
         description="Privacy policy URL for Arabic (ar-SA) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
+    "LEGAL_PRIVACY_URL_UR_PK": EnvVar(
+        name="LEGAL_PRIVACY_URL_UR_PK",
+        default="",
+        description="Privacy policy URL for Urdu (ur-PK) users. Leave empty to use the English reference.",
         group="legal",
     ),
     "LEGAL_PRIVACY_URL_TH_TH": EnvVar(
@@ -488,6 +575,17 @@ Default: "phone".""",
         group="legal",
     ),
     # LLM Configuration
+    "MODEL_GATEWAY_CLIENT_ALLOWLIST": EnvVar(
+        name="MODEL_GATEWAY_CLIENT_ALLOWLIST",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated client IDs allowed to list and invoke gateway models. "
+            "Requests must send X-AI-Shifu-Client-ID and a user Bearer token. "
+            "Empty denies all clients; IDs are case-sensitive with no wildcard matching."
+        ),
+        group="llm",
+    ),
     "OPENAI_API_KEY": EnvVar(
         name="OPENAI_API_KEY",
         default="",
@@ -549,17 +647,10 @@ Default: "phone".""",
         secret=True,
         group="llm",
     ),
-    "GLM_API_KEY": EnvVar(
-        name="GLM_API_KEY",
-        default="",
-        description="Zhipu BigModel GLM API Key",
-        secret=True,
-        group="llm",
-    ),
     "BIGMODEL_API_KEY": EnvVar(
         name="BIGMODEL_API_KEY",
         default="",
-        description="Zhipu BigModel API Key (alternative format)",
+        description="Zhipu BigModel API key for GLM models",
         secret=True,
         group="llm",
     ),
@@ -589,6 +680,71 @@ Default: "phone".""",
         description="Optional Google Gemini API base URL (leave blank to use default)",
         group="llm",
     ),
+    "GEMINI_LIVE_ENABLED": EnvVar(
+        name="GEMINI_LIVE_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Expose the allowlisted Gemini Live model for voice follow-up sessions. "
+            "Keep disabled until compatible workers and the Redis recovery gate "
+            "are ready. Redis eviction can invalidate credential capacity "
+            "accounting even when credential rotation is disabled."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_ROTATION_ENABLED": EnvVar(
+        name="GEMINI_LIVE_ROTATION_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Allow bounded Gemini Live credential rotation. Requires compatible "
+            "workers, Redis and the credential-drain recovery gate. Eviction "
+            "can invalidate credential capacity accounting."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_GLOBAL_CREDENTIAL_LIMIT": EnvVar(
+        name="GEMINI_LIVE_GLOBAL_CREDENTIAL_LIMIT",
+        default=96,
+        type=int,
+        description="Maximum unexpired Gemini Live credentials across users when rotation is enabled.",
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_USER_CREDENTIAL_LIMIT": EnvVar(
+        name="GEMINI_LIVE_USER_CREDENTIAL_LIMIT",
+        default=8,
+        type=int,
+        description="Maximum unexpired Gemini Live credentials per user when rotation is enabled.",
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_ACTIVE_SESSION_LIMIT": EnvVar(
+        name="GEMINI_LIVE_ACTIVE_SESSION_LIMIT",
+        default=24,
+        type=int,
+        description="Maximum active Gemini Live session owners across users.",
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_USER_MINT_RATE_LIMIT": EnvVar(
+        name="GEMINI_LIVE_USER_MINT_RATE_LIMIT",
+        default=4,
+        type=int,
+        description="Maximum Gemini Live credential issuance attempts per user in a rolling minute.",
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_GLOBAL_MINT_RATE_LIMIT": EnvVar(
+        name="GEMINI_LIVE_GLOBAL_MINT_RATE_LIMIT",
+        default=24,
+        type=int,
+        description="Maximum Gemini Live credential issuance attempts across users in a rolling minute.",
+        group="llm",
+        required=False,
+    ),
     "QWEN_API_KEY": EnvVar(
         name="QWEN_API_KEY",
         default="",
@@ -610,17 +766,186 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
-    "DEFAULT_LLM_MODEL": EnvVar(
-        name="DEFAULT_LLM_MODEL",
-        default="",
-        description="""Default LLM model. Supported models:
-OpenAI: gpt-4o-latest, gpt-4o-mini, gpt-4, gpt-3.5-turbo, chatgpt-4o-latest
-ERNIE: ERNIE-4.0-8K, ERNIE-3.5-8K, ERNIE-3.5-128K, ERNIE-Speed-8K, ERNIE-Speed-128K
-GLM: glm-4, glm-4-air, glm-4-airx, glm-4-flash, glm-4v, glm-3-turbo
-Qwen: qwen-long, qwen-max, qwen-max-longcontext, qwen-plus, qwen-turbo, qwen2-*
-DeepSeek: deepseek-chat
-Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
+    "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS": EnvVar(
+        name="ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS",
+        default=300,
+        type=int,
+        description=(
+            "Maximum wall-clock seconds for one external ask provider request or "
+            "stream. This must remain bounded even when response chunks continue "
+            "arriving."
+        ),
         group="llm",
+        required=False,
+    ),
+    "ASK_PROVIDER_ALLOW_INSECURE_HTTP": EnvVar(
+        name="ASK_PROVIDER_ALLOW_INSECURE_HTTP",
+        default=False,
+        type=bool,
+        description=(
+            "Allow credential-bearing Coze and Volcengine-compatible provider "
+            "requests over plain HTTP. Leave disabled unless a trusted private "
+            "deployment cannot provide HTTPS."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "DIFY_TRUSTED_ORIGINS": EnvVar(
+        name="DIFY_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Dify origins allowed to resolve to private "
+            "addresses. Leave empty unless this deployment intentionally uses "
+            "a self-hosted Dify service, for example "
+            "http://host.docker.internal:5001."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "COZE_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze chat origins allowed to resolve to private "
+            "addresses. Leave empty unless this deployment intentionally uses a "
+            "self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "COZE_WORKFLOW_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_WORKFLOW_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze workflow origins allowed to resolve to "
+            "private addresses. Leave empty unless this deployment intentionally "
+            "uses a self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "VOLC_KNOWLEDGE_TRUSTED_ORIGINS": EnvVar(
+        name="VOLC_KNOWLEDGE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Volcengine Knowledge origins allowed to resolve "
+            "to private addresses. Leave empty unless this deployment intentionally "
+            "uses a private compatible endpoint."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_1_NAME": EnvVar(
+        name="LLM_MODEL_1_NAME",
+        description="Optional display name for course model 1. Uses LLM_MODEL_1_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_1_ID": EnvVar(
+        name="LLM_MODEL_1_ID",
+        description="Routed text model ID for course model 1. Required at startup; no default.",
+        group="llm",
+        required=True,
+    ),
+    "LLM_MODEL_2_NAME": EnvVar(
+        name="LLM_MODEL_2_NAME",
+        description="Optional display name for course model 2. Uses LLM_MODEL_2_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_2_ID": EnvVar(
+        name="LLM_MODEL_2_ID",
+        description="Routed text model ID for course model 2. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_3_NAME": EnvVar(
+        name="LLM_MODEL_3_NAME",
+        description="Optional display name for course model 3. Uses LLM_MODEL_3_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_3_ID": EnvVar(
+        name="LLM_MODEL_3_ID",
+        description="Routed text model ID for course model 3. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_4_NAME": EnvVar(
+        name="LLM_MODEL_4_NAME",
+        description="Optional display name for course model 4. Uses LLM_MODEL_4_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_4_ID": EnvVar(
+        name="LLM_MODEL_4_ID",
+        description="Routed text model ID for course model 4. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_5_NAME": EnvVar(
+        name="LLM_MODEL_5_NAME",
+        description="Optional display name for course model 5. Uses LLM_MODEL_5_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_5_ID": EnvVar(
+        name="LLM_MODEL_5_ID",
+        description="Routed text model ID for course model 5. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_6_NAME": EnvVar(
+        name="LLM_MODEL_6_NAME",
+        description="Optional display name for course model 6. Uses LLM_MODEL_6_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_6_ID": EnvVar(
+        name="LLM_MODEL_6_ID",
+        description="Routed text model ID for course model 6. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_7_NAME": EnvVar(
+        name="LLM_MODEL_7_NAME",
+        description="Optional display name for course model 7. Uses LLM_MODEL_7_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_7_ID": EnvVar(
+        name="LLM_MODEL_7_ID",
+        description="Routed text model ID for course model 7. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_8_NAME": EnvVar(
+        name="LLM_MODEL_8_NAME",
+        description="Optional display name for course model 8. Uses LLM_MODEL_8_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_8_ID": EnvVar(
+        name="LLM_MODEL_8_ID",
+        description="Routed text model ID for course model 8. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_9_NAME": EnvVar(
+        name="LLM_MODEL_9_NAME",
+        description="Optional display name for course model 9. Uses LLM_MODEL_9_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_9_ID": EnvVar(
+        name="LLM_MODEL_9_ID",
+        description="Routed text model ID for course model 9. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
     ),
     "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": EnvVar(
         name="LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS",
@@ -630,29 +955,7 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
             "Fixed global 1x credit anchor for LLM output tokens, expressed as "
             "credits consumed per 1000 output tokens. This value is used for "
             "operator rate multiplier display, save conversion, and model-picker "
-            "multiplier labels. It must not be derived from DEFAULT_LLM_MODEL."
-        ),
-        group="llm",
-        required=False,
-    ),
-    "LLM_ALLOWED_MODELS": EnvVar(
-        name="LLM_ALLOWED_MODELS",
-        default=[],
-        type=list,
-        description=(
-            "Comma separated list of allowed LLM models to expose in UI. "
-            "When empty, all detected models are shown."
-        ),
-        group="llm",
-        required=False,
-    ),
-    "LLM_ALLOWED_MODEL_DISPLAY_NAMES": EnvVar(
-        name="LLM_ALLOWED_MODEL_DISPLAY_NAMES",
-        default=[],
-        type=list,
-        description=(
-            "Optional display names for allowed LLM models. Must match the "
-            "length and order of LLM_ALLOWED_MODELS. Ignored otherwise."
+            "multiplier labels. It is independent of configured model prices."
         ),
         group="llm",
         required=False,
@@ -754,6 +1057,17 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Redis key prefix",
         group="redis",
     ),
+    "TRUSTED_PROXY_CIDRS": EnvVar(
+        name="TRUSTED_PROXY_CIDRS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated nginx/CDN proxy networks allowed to supply "
+            "X-Forwarded-For; empty trusts no proxy"
+        ),
+        group="network",
+        validator=validate_trusted_proxy_cidrs,
+    ),
     # Celery Configuration
     "CELERY_BROKER_URL": EnvVar(
         name="CELERY_BROKER_URL",
@@ -842,6 +1156,54 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         type=int,
         description="Token expiration time in seconds",
         group="auth",
+    ),
+    "PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
+        default=900,
+        type=int,
+        description="Fixed window for counting failed password sign-in attempts",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_MAX_FAILURES": EnvVar(
+        name="PASSWORD_LOGIN_MAX_FAILURES",
+        default=10,
+        type=int,
+        description="Failed password attempts before an account enters cooldown",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_COOLDOWN_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_COOLDOWN_SECONDS",
+        default=600,
+        type=int,
+        description="Password sign-in cooldown after too many failed attempts",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS",
+        default=30,
+        type=int,
+        description="Renewable Redis lock lease for one account sign-in",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_LOCK_WAIT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_LOCK_WAIT_SECONDS",
+        default=5,
+        type=int,
+        description="Maximum wait to serialize one account sign-in",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS",
+        default=1,
+        type=int,
+        description="Redis connect and read timeout for password sign-in protection",
+        group="auth",
+        validator=lambda value: int(value) > 0,
     ),
     "DEVICE_AUTH_EXPIRE_TIME": EnvVar(
         name="DEVICE_AUTH_EXPIRE_TIME",
@@ -1506,6 +1868,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="SMTP sender email address",
         group="email",
     ),
+    "SMTP_SENDER_NAME": EnvVar(
+        name="SMTP_SENDER_NAME",
+        default="",
+        description="Optional SMTP sender display name",
+        group="email",
+    ),
     # Flask Configuration
     "FLASK_APP": EnvVar(
         name="FLASK_APP",
@@ -1548,10 +1916,32 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     # Minimum Shifu Price
     "MIN_SHIFU_PRICE": EnvVar(
         name="MIN_SHIFU_PRICE",
-        default=0.5,
-        type=float,
-        description="Minimum price of shifu",
+        default=Decimal("0.5"),
+        type=Decimal,
+        validator=_is_valid_nonnegative_cent_amount,
+        description="Minimum positive price of shifu; zero is free",
         group="shifu",
+    ),
+    "DEFAULT_SHIFU_PRICE": EnvVar(
+        name="DEFAULT_SHIFU_PRICE",
+        default=Decimal("0.5"),
+        type=Decimal,
+        validator=_is_valid_nonnegative_cent_amount,
+        description="Default price assigned to a new shifu",
+        group="shifu",
+    ),
+    "FLOW_ENGINE_V2_ENABLED": EnvVar(
+        name="FLOW_ENGINE_V2_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Enable the MarkdownFlow 2.0 lesson engine for every course in this "
+            "deployment. Defaults to false (1.0). Set only in the target "
+            "deployment's environment, never shared database configuration. "
+            "The retired FLOW_ENGINE_V2_SHIFU_BIDS allowlist is ignored."
+        ),
+        group="shifu",
+        required=False,
     ),
     # TTS Configuration
     "MINIMAX_API_KEY": EnvVar(
@@ -1675,8 +2065,8 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
             "shared 1x anchor. Default 0.216 = omega(13.5%) x 1.6 chars/token. "
             "The picker multiplier is TTS char cost x this factor / the fixed "
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS anchor, so TTS tiers stay on "
-            "the same scale as LLM model multipliers without depending on the "
-            "current DEFAULT_LLM_MODEL price."
+            "the same scale as LLM model multipliers without depending on any "
+            "configured model price."
         ),
         group="tts",
     ),
@@ -1895,7 +2285,6 @@ class EnhancedConfig:
             "ERNIE_API_ID",
             "ARK_API_KEY",
             "SILICON_API_KEY",
-            "GLM_API_KEY",
             "GEMINI_API_KEY",
             "DEEPSEEK_API_KEY",
             "QWEN_API_KEY",
@@ -2086,13 +2475,16 @@ class EnhancedConfig:
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
                 "# These are the bare minimum values that must be set.",
-                "# Start from docker/.env.example.full and configure at least one LLM API key.\n",
+                "# Start from docker/.env.example.full and configure a provider API key.",
+                "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
-                "# Copy this file to docker/.env (or .env) to boot the Docker stack with sane defaults",
-                "# Set at least one LLM API key (e.g., OPENAI_API_KEY) before using in production.\n",
+                "# Copy this file to docker/.env (or .env) and configure a provider API key.",
+                "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
 
         lines = header_lines
@@ -2108,6 +2500,13 @@ class EnhancedConfig:
                 groups[env_var.group] = []
             groups[env_var.group].append(env_var)
 
+        # Keep each numbered model's name and binding together in numeric order.
+        model_order = {
+            f"LLM_MODEL_{index}_{suffix}": f"LLM_MODEL_{index}_{position}"
+            for index in range(1, 10)
+            for position, suffix in enumerate(("NAME", "ID"))
+        }
+
         # Generate output for each group
         for group, group_vars in sorted(groups.items()):
             # Skip empty groups
@@ -2118,7 +2517,9 @@ class EnhancedConfig:
             lines.append(f"# {group.replace('_', ' ').title()}")
             lines.append(f"#{'=' * 60}\n")
 
-            for env_var in sorted(group_vars, key=lambda x: x.name):
+            for env_var in sorted(
+                group_vars, key=lambda x: model_order.get(x.name, x.name)
+            ):
                 example_value = (
                     env_var.example if env_var.example is not None else env_var.default
                 )
@@ -2132,6 +2533,12 @@ class EnhancedConfig:
                 metadata = []
                 if env_var.required:
                     metadata.append("REQUIRED - must be set")
+                elif env_var.name in model_order and env_var.default is None:
+                    if env_var.name.endswith("_NAME"):
+                        model_id = env_var.name.removesuffix("_NAME") + "_ID"
+                        metadata.append(f"Optional - defaults to {model_id}")
+                    else:
+                        metadata.append("Optional - no default")
                 elif env_var.default is None:
                     metadata.append("Optional - handled by libraries")
                 else:

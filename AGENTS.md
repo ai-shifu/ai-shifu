@@ -7,11 +7,19 @@ to.
 ## Scope
 
 - Apply this file across the repository unless a deeper `AGENTS.md` narrows
-  the rules.
+  the rules. Coding agents start at the nearest `AGENTS.md`; that layered tree
+  is the only project-instruction body.
 - Treat `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md` as
   the main source documents behind this entry point.
 - Use `docs/QUALITY_SCORE.md`, `docs/RELIABILITY.md`, and `docs/SECURITY.md`
   to understand repository-wide quality gaps and harness constraints.
+- Keep each subtree focused on its local constraints and inherit shared rules
+  from its parents.
+- Do not add a `CLAUDE.md` file to version control or duplicate instruction
+  routers. Use native `AGENTS.md` loading as described in
+  `docs/design-docs/ai-tool-compat.md`.
+  Keep the Copilot navigation file and the `GEMINI.md` link as minimal
+  compatibility entry points.
 
 ## Do
 
@@ -21,6 +29,15 @@ to.
   docs before changing behavior.
 - Reuse existing modules, DTOs, stores, provider wrappers, and request paths
   before creating new abstractions.
+- Generate every `package-lock.json` change by running `npm install` in its
+  package directory. For lockfile-only updates, use
+  `npm install --package-lock-only --ignore-scripts`. Never edit
+  `package-lock.json` directly by hand, patches, or scripts.
+  Automated lockfile updates in CI workflows are an explicit exception.
+- When changing a shared contract, update all affected producers and consumers
+  in the same task, including compatibility handling and relevant regression
+  tests. This applies to DTO fields, exception codes, and hook, store, type, and
+  utility interfaces; subtree files inherit this coordination requirement.
 - Use ExecPlans for complex work. `PLANS.md` defines the format, and active
   plans live under `docs/exec-plans/active/`.
 - Whenever creating a Git worktree for this repository, copy existing local
@@ -31,7 +48,9 @@ to.
   in the new worktree.
 - Before committing, run `python scripts/check_dev_tools.py` to confirm
   lefthook and its underlying tools are installed; the local checks are
-  silently skipped if lefthook was never installed.
+  silently skipped if lefthook was never installed. If required tools are
+  missing, show their install commands and pause the commit until the tools
+  are installed or the user explicitly authorizes proceeding.
 - Treat a Ruff finding as a code or contract signal. Prefer an established
   project pattern plus focused regression coverage; if the flagged construct
   is intentional, use the narrowest coded suppression with a plain-English
@@ -51,8 +70,7 @@ to.
   problem correctly, safely, completely, and with adequate tests, including
   regressions or contract effects introduced by the change.
 - Keep shared instruction surfaces aligned. When shared rules move, update the
-  touched `AGENTS.md`, `CLAUDE.md`, generated `.cursor` rules, and generated
-  `.github` instructions in the same change.
+  owning `AGENTS.md` files and any affected navigation links in the same change.
 - Treat product analytics as a completion requirement for every new user-facing
   Cook Web capability or interaction path. In the same change, define or extend
   a decision-relevant Umami event family, implement its producer, and add
@@ -74,6 +92,10 @@ to.
   product documentation, compatibility plan, and regression tests together.
 - Keep code-facing text in English and keep user-facing text in shared i18n
   JSON under `src/i18n/`.
+- For product translation or a new locale, follow the end-to-end checklist in
+  `docs/references/i18n.md`. A dependency library's own translations are
+  separate library work: do not translate, publish, or bump a library solely
+  to complete the product locale task.
 - Store and compute all timestamps in UTC. On the backend, use the shared
   `now_utc()` helper in `src/api/flaskr/util/datetime.py` for any time written
   to the database, and default new model timestamp columns to
@@ -119,7 +141,7 @@ to.
   and do not block or alter a user action when analytics is unavailable.
 - Do not create new root `tasks.md` checklists. Complex execution now belongs
   in ExecPlans under `docs/exec-plans/`.
-- Do not let shared guidance drift from generated mirrors or from the current
+- Do not let shared guidance or its navigation links drift from the current
   repository structure.
 - Do not introduce mixed-timezone timestamps: avoid `func.now()` /
   `CURRENT_TIMESTAMP` defaults and naked `datetime.now()` / `datetime.utcnow()`
@@ -148,6 +170,8 @@ rules, but must not duplicate or redefine them.
 - The local `commit-msg` hook is only a baseline Conventional Commits syntax
   check. It does not enforce the `Changed:` / `Benefit:` body or the
   classification rules below.
+- The `Changed:` / `Benefit:` body requirement applies only to commit messages;
+  PR descriptions are not subject to this constraint.
 - Subject: use English Conventional Commits without scope parentheses, such as
   `type: summary`; do not use `type(scope): summary`. Write the summary in
   plain language that product users can understand. When a change affects
@@ -175,14 +199,15 @@ Contributors have one place to check the required commit title and body format.
 
 ## Commands
 
-- `python scripts/generate_ai_collab_docs.py` regenerates compatibility
-  instruction surfaces.
 - `python scripts/build_repo_knowledge_index.py` regenerates repository
   knowledge indexes and the doc inventory.
 - `python scripts/check_repo_harness.py` validates AI-doc ownership, knowledge
   metadata, and generated harness artifacts.
 - `python scripts/check_architecture_boundaries.py` validates the committed
   frontend/backend boundary baseline and blocks new drift.
+- `python scripts/check_uow_commit_sites.py` enforces the backend
+  unit-of-work ratchet: no new `db.session.commit()` outside `flaskr/dao/`,
+  and `--update` shrinks the baseline after a migration removes sites.
 - `python scripts/check_dev_tools.py` verifies lefthook and its underlying
   tools are installed, so the pre-commit hooks are not silently skipped.
 - `lefthook run pre-commit --all-files` is the repository-wide verification
@@ -194,6 +219,10 @@ ai-shifu consumes two MarkdownFlow component libraries. Changing either is
 usually done in order to use it here, so the overall flow is: **change the
 library → publish a build → point ai-shifu at it → debug locally / on test / in
 prod**.
+
+Product localization is an exception to this cross-repository flow. Use the
+currently pinned library's supported locales and document any untranslated
+library controls; translate and release that library only as separate work.
 
 | Library            | Kind             | Pinned in                                            | Published from                                                            |
 | ------------------ | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -226,6 +255,29 @@ pre-release/dev pin:
 - The `markdown-flow-ui` release pin is checked in `src/web/package.json`.
 
 Pin release versions of both before merging.
+
+## The vendored MarkdownFlow 2.0 engine
+
+`src/api/flaskr/service/learn/agent/engine/` holds the MarkdownFlow 2.0 engine.
+Unlike the two component libraries above, it is **not** a pinned dependency: the
+code was copied in and is edited here, in place. `ai-shifu/markdown-flow-agent`
+still exists to serve the playground and the open-source release, but it is not
+an upstream — nothing is synced back and forth, and the two are expected to
+diverge.
+
+Because the engine no longer has its own repository's gate, its offline tests
+came with it and are the gate now:
+
+```bash
+cd src/api && python -m pytest tests/service/learn/agent/engine/ -q
+```
+
+These tests run on `pydantic-ai`'s `FunctionModel`, so they need no network and
+cost nothing. **They must be green for any change under `engine/`.** They cover
+what the surrounding service tests cannot: pausing and resuming on an
+interaction, several interactions raised in one turn, answers surviving a store
+round trip, variables reaching memory, listen-mode segmentation, 1.0 syntax
+detection, and the confirm guardrails.
 
 ## Tests
 

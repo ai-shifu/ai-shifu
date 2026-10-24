@@ -148,7 +148,6 @@
     "course": "Course",
     "createdAt": "Created At",
     "failure": "Failure Reason",
-    "minimax": "MiniMax",
     "owner": "Creator",
     "provider": "Provider",
     "status": "Status",

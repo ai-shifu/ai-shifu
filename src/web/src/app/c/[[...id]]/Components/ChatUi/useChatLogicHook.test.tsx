@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { toast, toastOnce } from '@/hooks/useToast';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
-import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
+import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/api/studyV2';
 import {
   buildBaseParams,
   createDeferred,
@@ -12,7 +12,7 @@ import {
   type RunRequestBody,
 } from './useChatLogicHook.testUtils';
 import { stopAllActiveLessonStreams } from '@/app/c/[[...id]]/events';
-import { useLessonRunContentStore } from '@/c-store/useLessonRunContentStore';
+import { useLessonRunContentStore } from '@/store/useLessonRunContentStore';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -49,7 +49,7 @@ jest.mock('@/hooks/useToast', () => ({
   fail: jest.fn(),
 }));
 
-jest.mock('@/c-assets/newchat/light/icon_ask.svg', () => ({
+jest.mock('@/assets/newchat/light/icon_ask.svg', () => ({
   __esModule: true,
   default: {
     src: '/ask.svg',
@@ -64,15 +64,25 @@ declare global {
   var __chatHookMockUpdateResetedLessonId__: jest.Mock | undefined;
 
   var __chatHookIsCurrentUserCourseOwner__: boolean | null | undefined;
+
+  var __chatHookCourseState__:
+    | { resetedLessonId: string | null; resettingLessonId: string }
+    | undefined;
+
+  var __chatHookCourseListeners__:
+    | Array<(value: unknown) => unknown>
+    | undefined;
 }
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (() => {
     globalThis.__chatHookMockUpdateResetedChapterId__ = jest.fn();
     globalThis.__chatHookMockUpdateResetedLessonId__ = jest.fn();
     globalThis.__chatHookIsCurrentUserCourseOwner__ = true;
+    globalThis.__chatHookCourseListeners__ = [];
     const state = {
       resetedLessonId: null as string | null,
+      resettingLessonId: '',
       updateResetedChapterId: globalThis.__chatHookMockUpdateResetedChapterId__,
       updateResetedLessonId: globalThis.__chatHookMockUpdateResetedLessonId__,
       get isCurrentUserCourseOwner() {
@@ -81,11 +91,24 @@ jest.mock('@/c-store/useCourseStore', () => ({
           : globalThis.__chatHookIsCurrentUserCourseOwner__;
       },
     };
+    globalThis.__chatHookCourseState__ = state;
     return Object.assign(
       (selector?: (store: typeof state) => unknown) =>
         selector ? selector(state) : state,
       {
-        subscribe: jest.fn(() => jest.fn()),
+        // Keeps the listener, so a test can play a store change the way zustand delivers it.
+        subscribe: jest.fn(
+          (_selector: unknown, listener: (value: unknown) => unknown) => {
+            const listeners = globalThis.__chatHookCourseListeners__!;
+            listeners.push(listener);
+            return jest.fn(() => {
+              const index = listeners.indexOf(listener);
+              if (index >= 0) {
+                listeners.splice(index, 1);
+              }
+            });
+          },
+        ),
       },
     );
   })(),
@@ -126,7 +149,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/c-api/studyV2', () => {
+jest.mock('@/api/studyV2', () => {
   return {
     BLOCK_TYPE: {
       CONTENT: 'content',
@@ -232,6 +255,253 @@ describe('useChatLogicHook stream cleanup', () => {
       },
     );
   });
+
+  it.each(['success', 'business', 'transport', 'closed', 'stop', 'unmount'])(
+    'tracks draft regeneration outcome %s once with exact element anchors',
+    async outcome => {
+      const params = {
+        ...buildBaseParams(),
+        previewMode: true,
+        trackEvent: jest.fn(),
+      };
+      const { result, unmount } = renderHook(() => useChatLogicHook(params), {
+        wrapper,
+      });
+      await waitFor(() => expect(activeRun).toBeDefined());
+      await act(async () => {
+        for (const [element_bid, content] of [
+          ['part-1', 'First paragraph'],
+          ['part-2', 'Second paragraph'],
+        ]) {
+          await activeRun?.onMessage({
+            type: SSE_OUTPUT_TYPE.ELEMENT,
+            content: {
+              element_bid,
+              generated_block_bid: 'shared-block',
+              element_type: 'content',
+              content,
+              like_status: 'none',
+            },
+          });
+        }
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.TEXT_END,
+          is_terminal: true,
+          content: '',
+        });
+      });
+      expect(
+        params.trackEvent.mock.calls.filter(([name]) =>
+          name.startsWith('teacher_preview_rewind'),
+        ),
+      ).toHaveLength(0);
+      await act(async () => {
+        await result.current.onRefresh('part-2');
+      });
+      expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+        reload_generated_block_bid: 'shared-block',
+        reload_element_bid: 'part-2',
+        input: '',
+      });
+      expect(
+        result.current.items.some(item => item.element_bid === 'part-1'),
+      ).toBe(false);
+      expect(params.trackEvent).toHaveBeenCalledWith(
+        'teacher_preview_rewind_start',
+        {
+          shifu_bid: params.shifuBid,
+          outline_bid: params.outlineBid,
+          learning_mode: 'read',
+          operation: 'regenerate',
+        },
+      );
+      const stream = activeRun;
+      await act(async () => {
+        await stream?.onMessage({
+          type: SSE_OUTPUT_TYPE.TEXT_END,
+          content: '',
+          is_terminal: false,
+        });
+      });
+      expect(
+        params.trackEvent.mock.calls.filter(
+          ([name]) => name === 'teacher_preview_rewind_result',
+        ),
+      ).toHaveLength(0);
+      await act(async () => {
+        if (outcome === 'success')
+          await stream?.onMessage({
+            type: SSE_OUTPUT_TYPE.TEXT_END,
+            content: '',
+            is_terminal: true,
+          });
+        if (outcome === 'business')
+          await stream?.onMessage({
+            type: SSE_OUTPUT_TYPE.ERROR,
+            content: 'Failure',
+          });
+        if (outcome === 'transport') stream?.onError(new Error('Failure'));
+        if (outcome === 'closed') stream?.source.close();
+        if (outcome === 'stop') stopAllActiveLessonStreams();
+        if (outcome === 'unmount') unmount();
+        stream?.onError(new Error('Late failure'));
+      });
+      const terminal = params.trackEvent.mock.calls.filter(
+        ([name]) => name === 'teacher_preview_rewind_result',
+      );
+      expect(terminal).toEqual([
+        [
+          'teacher_preview_rewind_result',
+          {
+            shifu_bid: params.shifuBid,
+            outline_bid: params.outlineBid,
+            learning_mode: 'read',
+            operation: 'regenerate',
+            result:
+              outcome === 'success'
+                ? 'success'
+                : ['stop', 'unmount'].includes(outcome)
+                  ? 'cancelled'
+                  : 'failed',
+          },
+        ],
+      ]);
+    },
+  );
+
+  it.each([
+    'success',
+    'business',
+    'transport',
+    'closed',
+    'stop',
+    'unmount',
+    'replacement',
+  ])(
+    'carries one draft rewind outcome through automatic continuations: %s',
+    async outcome => {
+      const params = {
+        ...buildBaseParams(),
+        previewMode: true,
+        trackEvent: jest.fn(),
+      };
+      const { result, unmount } = renderHook(() => useChatLogicHook(params), {
+        wrapper,
+      });
+      await waitFor(() => expect(activeRun).toBeDefined());
+      const emitContent = async (elementBid: string) => {
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.ELEMENT,
+          content: {
+            element_bid: elementBid,
+            generated_block_bid: elementBid,
+            element_type: 'content',
+            content: 'Teaching',
+            like_status: 'none',
+          },
+        });
+      };
+      await act(async () => {
+        await emitContent('original');
+        await activeRun?.onMessage({
+          type: SSE_OUTPUT_TYPE.TEXT_END,
+          is_terminal: true,
+          content: '',
+        });
+      });
+      await act(async () => {
+        await result.current.onRefresh('original');
+      });
+      for (const elementBid of ['continued-1', 'continued-2']) {
+        const precedingRun = activeRun;
+        const runCount = mockGetRunMessage.mock.calls.length;
+        await act(async () => {
+          await emitContent(elementBid);
+          await precedingRun?.onMessage(
+            elementBid === 'continued-1'
+              ? {
+                  type: SSE_OUTPUT_TYPE.TEXT_END,
+                  is_terminal: false,
+                  content: '',
+                }
+              : {
+                  type: SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE,
+                  content: {
+                    outline_bid: params.lessonId,
+                    status: 'not_started',
+                    has_children: false,
+                  },
+                },
+          );
+        });
+        expect(mockGetRunMessage).toHaveBeenCalledTimes(runCount + 1);
+        expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+          input: '',
+          input_type: SSE_INPUT_TYPE.NORMAL,
+        });
+        await act(async () => {
+          precedingRun?.onError(new Error('Retired source closed'));
+          await precedingRun?.onMessage({
+            type: SSE_OUTPUT_TYPE.TEXT_END,
+            is_terminal: true,
+            content: '',
+          });
+        });
+        expect(
+          params.trackEvent.mock.calls.filter(
+            ([name]) => name === 'teacher_preview_rewind_result',
+          ),
+        ).toHaveLength(0);
+        expect(
+          params.trackEvent.mock.calls.filter(
+            ([name]) => name === 'teacher_preview_rewind_start',
+          ),
+        ).toHaveLength(1);
+      }
+      const stream = activeRun;
+      await act(async () => {
+        if (outcome === 'success')
+          await stream?.onMessage({
+            type: SSE_OUTPUT_TYPE.TEXT_END,
+            is_terminal: true,
+            content: '',
+          });
+        if (outcome === 'business')
+          await stream?.onMessage({
+            type: SSE_OUTPUT_TYPE.ERROR,
+            content: 'Failure',
+          });
+        if (outcome === 'transport') stream?.onError(new Error('Failure'));
+        if (outcome === 'closed') stream?.source.close();
+        if (outcome === 'stop') stopAllActiveLessonStreams();
+        if (outcome === 'unmount') unmount();
+        if (outcome === 'replacement')
+          await result.current.onRefresh('continued-2');
+        stream?.onError(new Error('Late failure'));
+      });
+      expect(
+        params.trackEvent.mock.calls.filter(
+          ([name]) => name === 'teacher_preview_rewind_result',
+        ),
+      ).toEqual([
+        [
+          'teacher_preview_rewind_result',
+          {
+            shifu_bid: params.shifuBid,
+            outline_bid: params.outlineBid,
+            learning_mode: 'read',
+            operation: 'regenerate',
+            result:
+              outcome === 'success'
+                ? 'success'
+                : ['stop', 'unmount', 'replacement'].includes(outcome)
+                  ? 'cancelled'
+                  : 'failed',
+          },
+        ],
+      ]);
+    },
+  );
 
   it('sends listen=false in the run body when listen requests are disabled', async () => {
     const { result } = renderHook(
@@ -371,6 +641,213 @@ describe('useChatLogicHook stream cleanup', () => {
       'learner_lesson_start',
       expect.anything(),
     );
+  });
+
+  it('starts one run when the open lesson is reset', async () => {
+    // Measured on a reset before this was fixed: the reset subscription started a run, then the
+    // lesson effect closed it as the reset was cleared and started the same run again. Closing
+    // it in the browser does not stop the server, so each reset taught and billed a turn twice.
+    const courseState = globalThis.__chatHookCourseState__!;
+    courseState.resetedLessonId = null;
+    const params = buildBaseParams();
+    const { result, rerender } = renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+    await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // The store's `resetChapter`: the reset lands and the subscription hears it in the same
+    // update, then the page renders it.
+    courseState.resetedLessonId = 'lesson-1';
+    let reloaded: Promise<unknown> | undefined;
+    act(() => {
+      reloaded = Promise.all(
+        [...globalThis.__chatHookCourseListeners__!].map(listener =>
+          listener('lesson-1'),
+        ),
+      );
+    });
+    rerender();
+    await act(async () => {
+      await reloaded;
+    });
+    // Having reloaded the lesson, the subscription clears the reset.
+    expect(
+      globalThis.__chatHookMockUpdateResetedLessonId__,
+    ).toHaveBeenCalledWith(null);
+    courseState.resetedLessonId = null;
+    rerender();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    try {
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(2);
+      const resetRun = mockGetRunMessage.mock.results[1]
+        ?.value as MockRunSource;
+      expect(resetRun.close).not.toHaveBeenCalled();
+    } finally {
+      courseState.resetedLessonId = null;
+    }
+  });
+
+  it('starts one run when a lesson is reset from the catalog while another is open', async () => {
+    // Confirming a reset from the catalog also opens that lesson, before the reset has landed.
+    // Measured before this was fixed: the opened lesson started a run on the lesson as it was,
+    // and the reset's own reload closed it 70ms later and started another.
+    const courseState = globalThis.__chatHookCourseState__!;
+    courseState.resetedLessonId = null;
+    courseState.resettingLessonId = '';
+    let params = buildBaseParams();
+    const { result, rerender } = renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+    await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    try {
+      // The reset of lesson-2 starts, and the same click opens lesson-2.
+      courseState.resettingLessonId = 'lesson-2';
+      params = { ...params, lessonId: 'lesson-2', outlineBid: 'lesson-2' };
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(1);
+
+      // The reset lands: the subscription hears it and reloads the lesson...
+      courseState.resetedLessonId = 'lesson-2';
+      let reloaded: Promise<unknown> | undefined;
+      act(() => {
+        reloaded = Promise.all(
+          [...globalThis.__chatHookCourseListeners__!].map(listener =>
+            listener('lesson-2'),
+          ),
+        );
+      });
+      courseState.resettingLessonId = '';
+      rerender();
+      await act(async () => {
+        await reloaded;
+      });
+      // ...and hands the reset back.
+      courseState.resetedLessonId = null;
+      rerender();
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(2);
+      expect(mockGetRunMessage.mock.calls[1]?.[1]).toBe('lesson-2');
+      const resetRun = mockGetRunMessage.mock.results[1]
+        ?.value as MockRunSource;
+      expect(resetRun.close).not.toHaveBeenCalled();
+    } finally {
+      courseState.resetedLessonId = null;
+      courseState.resettingLessonId = '';
+    }
+  });
+
+  it('opens a lesson whose reset failed', async () => {
+    const courseState = globalThis.__chatHookCourseState__!;
+    courseState.resetedLessonId = null;
+    courseState.resettingLessonId = '';
+    let params = buildBaseParams();
+    const { result, rerender } = renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+    await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    try {
+      courseState.resettingLessonId = 'lesson-2';
+      params = { ...params, lessonId: 'lesson-2', outlineBid: 'lesson-2' };
+      rerender();
+      // The reset request fails: `resettingLessonId` clears and nothing lands.
+      courseState.resettingLessonId = '';
+      rerender();
+
+      await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(2));
+      expect(mockGetRunMessage.mock.calls[1]?.[1]).toBe('lesson-2');
+    } finally {
+      courseState.resettingLessonId = '';
+    }
+  });
+
+  it('leaves the open lesson alone while another lesson is reset', async () => {
+    // Review of the reset fix: watching the store's reset fields for any lesson re-ran the open
+    // lesson's effect when another one was reset, closing its stream and starting its run again.
+    const courseState = globalThis.__chatHookCourseState__!;
+    courseState.resetedLessonId = null;
+    courseState.resettingLessonId = '';
+    const params = buildBaseParams();
+    const { result, rerender } = renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+    await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const openRun = mockGetRunMessage.mock.results[0]?.value as MockRunSource;
+
+    try {
+      // lesson-2 is reset from the catalog and lesson-1 stays open.
+      courseState.resettingLessonId = 'lesson-2';
+      rerender();
+      courseState.resetedLessonId = 'lesson-2';
+      await act(async () => {
+        await Promise.all(
+          [...globalThis.__chatHookCourseListeners__!].map(listener =>
+            listener('lesson-2'),
+          ),
+        );
+      });
+      courseState.resettingLessonId = '';
+      rerender();
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(1);
+      expect(openRun.close).not.toHaveBeenCalled();
+    } finally {
+      courseState.resetedLessonId = null;
+      courseState.resettingLessonId = '';
+    }
+  });
+
+  it('loads the lesson again when the reload after a reset fails', async () => {
+    // Review of the reset fix: marking the reload as done before it succeeded left the lesson
+    // blank when its history request failed, with nothing to load it again.
+    const courseState = globalThis.__chatHookCourseState__!;
+    courseState.resetedLessonId = null;
+    courseState.resettingLessonId = '';
+    const params = buildBaseParams();
+    const { result, rerender } = renderHook(() => useChatLogicHook(params), {
+      wrapper,
+    });
+    await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    try {
+      mockGetLessonStudyRecord.mockRejectedValueOnce(new Error('network'));
+      courseState.resetedLessonId = 'lesson-1';
+      let reloaded: Promise<unknown> | undefined;
+      act(() => {
+        reloaded = Promise.all(
+          [...globalThis.__chatHookCourseListeners__!].map(listener =>
+            listener('lesson-1'),
+          ),
+        );
+      });
+      rerender();
+      await act(async () => {
+        await reloaded;
+      });
+      expect(mockGetRunMessage).toHaveBeenCalledTimes(1);
+
+      courseState.resetedLessonId = null;
+      rerender();
+
+      await waitFor(() => expect(mockGetRunMessage).toHaveBeenCalledTimes(2));
+      expect(mockGetLessonStudyRecord).toHaveBeenCalledTimes(3);
+    } finally {
+      courseState.resetedLessonId = null;
+    }
   });
 
   it('sends listen=true in the run body when listen requests are enabled', async () => {
@@ -3629,15 +4106,20 @@ describe('useChatLogicHook stream cleanup', () => {
 
     const renderWithStreamingRun = async (options?: {
       isListenMode?: boolean;
+      previewMode?: boolean;
+      trackEvent?: jest.Mock;
+      history?: typeof HISTORY_WITH_TWO_INTERACTIONS;
     }) => {
       mockGetLessonStudyRecord.mockResolvedValueOnce(
-        HISTORY_WITH_TWO_INTERACTIONS,
+        options?.history ?? HISTORY_WITH_TWO_INTERACTIONS,
       );
       const renderResult = renderHook(
         () =>
           useChatLogicHook({
             ...buildBaseParams(),
             isListenMode: options?.isListenMode ?? false,
+            previewMode: options?.previewMode ?? false,
+            trackEvent: options?.trackEvent ?? jest.fn(),
           }),
         { wrapper },
       );
@@ -3671,6 +4153,122 @@ describe('useChatLogicHook stream cleanup', () => {
       );
       return renderResult;
     };
+
+    it('keeps the selected question when only teaching mentions its variable name', async () => {
+      const history = {
+        ...HISTORY_WITH_TWO_INTERACTIONS,
+        elements: HISTORY_WITH_TWO_INTERACTIONS.elements.map(item =>
+          item.element_bid === 'content-1'
+            ? { ...item, content: 'Teaching mentions var_old.' }
+            : item.element_bid === 'interaction-old'
+              ? {
+                  ...item,
+                  content: '?[A | B]',
+                  generated_block_bid: 'content-1',
+                }
+              : item,
+        ),
+      };
+      const { result } = await renderWithStreamingRun({
+        previewMode: true,
+        history,
+      });
+      act(() => {
+        result.current.onSend(
+          { variableName: 'var_old', selectedValues: ['B'] },
+          'interaction-old',
+        );
+      });
+      await act(async () => {
+        result.current.reGenerateConfirm.onConfirm();
+      });
+      await waitFor(() =>
+        expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+          reload_element_bid: 'interaction-old',
+          reload_generated_block_bid: 'content-1',
+        }),
+      );
+      expect(
+        result.current.items.find(
+          item => item.element_bid === 'interaction-old',
+        )?.user_input,
+      ).toBe('B');
+      expect(
+        result.current.items.find(
+          item => item.element_bid === history.elements[0].element_bid,
+        )?.content,
+      ).toBe('Teaching mentions var_old.');
+    });
+
+    it.each([true, false])(
+      'tracks confirmed draft answer edits only (confirm=%s)',
+      async confirm => {
+        const trackEvent = jest.fn();
+        const { result } = await renderWithStreamingRun({
+          previewMode: true,
+          trackEvent,
+        });
+        act(() => {
+          result.current.onSend(
+            { variableName: 'var_old', selectedValues: ['Private answer'] },
+            'interaction-old',
+          );
+        });
+        expect(result.current.reGenerateConfirm.open).toBe(true);
+        expect(
+          trackEvent.mock.calls.filter(([name]) =>
+            name.startsWith('teacher_preview_rewind'),
+          ),
+        ).toHaveLength(0);
+        await act(async () => {
+          if (confirm) result.current.reGenerateConfirm.onConfirm();
+          else result.current.reGenerateConfirm.onCancel();
+        });
+        if (!confirm) {
+          expect(
+            trackEvent.mock.calls.filter(([name]) =>
+              name.startsWith('teacher_preview_rewind'),
+            ),
+          ).toHaveLength(0);
+          return;
+        }
+        await waitFor(() =>
+          expect(trackEvent).toHaveBeenCalledWith(
+            'teacher_preview_rewind_start',
+            {
+              shifu_bid: 'shifu-1',
+              outline_bid: 'lesson-1',
+              operation: 'answer_edit',
+              learning_mode: 'read',
+            },
+          ),
+        );
+        expect(mockGetRunMessage.mock.calls.at(-1)?.[3]).toMatchObject({
+          reload_element_bid: 'interaction-old',
+        });
+        await act(async () => {
+          await activeRun?.onMessage({
+            type: SSE_OUTPUT_TYPE.TEXT_END,
+            is_terminal: true,
+            content: '',
+          });
+        });
+        expect(trackEvent).toHaveBeenCalledWith(
+          'teacher_preview_rewind_result',
+          {
+            shifu_bid: 'shifu-1',
+            outline_bid: 'lesson-1',
+            operation: 'answer_edit',
+            learning_mode: 'read',
+            result: 'success',
+          },
+        );
+        expect(JSON.stringify(trackEvent.mock.calls)).not.toContain(
+          'Private answer',
+        );
+        expect(JSON.stringify(trackEvent.mock.calls)).not.toContain('var_old');
+      },
+    );
 
     it('pops the regenerate confirm dialog instead of toasting while the stream is running', async () => {
       const { result } = await renderWithStreamingRun();
@@ -3721,6 +4319,7 @@ describe('useChatLogicHook stream cleanup', () => {
       expect(lastCall[3]).toMatchObject({
         input: { var_old: expect.anything() },
         input_type: SSE_INPUT_TYPE.NORMAL,
+        reload_element_bid: 'interaction-old',
       });
     });
 
@@ -3782,197 +4381,224 @@ describe('useChatLogicHook stream cleanup', () => {
   });
 
   describe('lesson update notice', () => {
-    it('shows the notice when draft content is newer than learner history', async () => {
-      mockGetLessonStudyRecord.mockResolvedValue({
-        elements: [
-          {
-            element_type: 'content',
-            element_bid: 'history-1',
-            generated_block_bid: 'history-1',
-            content: 'history content',
-            like_status: 'none',
-            user_input: '',
-            is_marker: false,
-            is_new: false,
-            is_renderable: true,
-            is_speakable: false,
-          },
-        ],
-        last_progress_updated_at: '2026-06-30T10:00:00Z',
-      });
-      mockGetShifuDraftMeta.mockResolvedValue({
-        updated_at: '2026-06-30T12:00:00Z',
-      });
+    const historyElements = [
+      {
+        element_type: 'interaction',
+        element_bid: 'history-1',
+        generated_block_bid: 'history-1',
+        content: 'history content',
+        like_status: 'none',
+        user_input: '',
+        is_marker: false,
+        is_new: false,
+        is_renderable: true,
+        is_speakable: false,
+      },
+    ];
 
-      const { result } = renderHook(
-        () =>
-          useChatLogicHook({
-            ...buildBaseParams(),
-            previewMode: true,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.showLessonUpdateNotice).toBe(true);
-      });
-      expect(mockGetShifuDraftMeta).toHaveBeenCalledWith({
-        shifu_bid: 'shifu-1',
-        outline_bid: 'lesson-1',
-      });
-    });
-
-    it('keeps the notice hidden when there is no learner history', async () => {
-      mockGetLessonStudyRecord.mockResolvedValue({
-        elements: [],
-        last_progress_updated_at: null,
-      });
-
-      const { result } = renderHook(
-        () =>
-          useChatLogicHook({
-            ...buildBaseParams(),
-            previewMode: true,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.showLessonUpdateNotice).toBe(false);
-      });
-    });
-
-    it('skips draft-meta loading when learner history has no progress timestamp', async () => {
-      mockGetLessonStudyRecord.mockResolvedValue({
-        elements: [
-          {
-            element_type: 'content',
-            element_bid: 'history-1',
-            generated_block_bid: 'history-1',
-            content: 'history content',
-            like_status: 'none',
-            user_input: '',
-            is_marker: false,
-            is_new: false,
-            is_renderable: true,
-            is_speakable: false,
-          },
-        ],
-        last_progress_updated_at: null,
-      });
-
-      const { result } = renderHook(
-        () =>
-          useChatLogicHook({
-            ...buildBaseParams(),
-            previewMode: true,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.showLessonUpdateNotice).toBe(false);
-      });
-      expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
-    });
-
-    it('shows the notice in published mode when the current lesson has a published update', async () => {
-      mockGetLessonStudyRecord.mockResolvedValue({
-        elements: [
-          {
-            element_type: 'content',
-            element_bid: 'history-1',
-            generated_block_bid: 'history-1',
-            content: 'history content',
-            like_status: 'none',
-            user_input: '',
-            is_marker: false,
-            is_new: false,
-            is_renderable: true,
-            is_speakable: false,
-          },
-        ],
-        last_progress_updated_at: '2026-06-30T10:00:00+08:00',
-      });
-
-      const { result } = renderHook(
-        () =>
-          useChatLogicHook({
-            ...buildBaseParams(),
-            previewMode: false,
-            lessonHasContentUpdate: true,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => {
-        expect(result.current.showLessonUpdateNotice).toBe(true);
-      });
-      expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
-    });
-
-    it('ignores stale preview update responses after lesson navigation', async () => {
-      const staleRecord = createDeferred<{
-        elements: Array<Record<string, unknown>>;
-        last_progress_updated_at: string;
-      }>();
-      mockGetLessonStudyRecord.mockImplementation(({ outline_bid }) => {
-        if (outline_bid === 'lesson-1') {
-          return staleRecord.promise;
-        }
-        return Promise.resolve({
-          elements: [],
+    it.each([false, true])(
+      'uses the content comparison regardless of timestamps in preview mode %s',
+      async previewMode => {
+        mockGetLessonStudyRecord.mockResolvedValue({
+          elements: historyElements,
           last_progress_updated_at: null,
+          has_content_update_for_current_user: true,
         });
-      });
-      mockGetShifuDraftMeta.mockResolvedValue({
-        updated_at: '2026-06-30T12:00:00Z',
-      });
-
-      const { result, rerender } = renderHook(
-        ({ outlineBid, lessonId }) =>
-          useChatLogicHook({
-            ...buildBaseParams(),
-            outlineBid,
-            lessonId,
-            previewMode: true,
-          }),
-        {
-          wrapper,
-          initialProps: { outlineBid: 'lesson-1', lessonId: 'lesson-1' },
-        },
-      );
-
-      rerender({ outlineBid: 'lesson-2', lessonId: 'lesson-2' });
-
-      await waitFor(() => {
-        expect(mockGetLessonStudyRecord).toHaveBeenCalledWith(
-          expect.objectContaining({ outline_bid: 'lesson-2' }),
+        const { result } = renderHook(
+          () => useChatLogicHook({ ...buildBaseParams(), previewMode }),
+          { wrapper },
         );
-      });
-
-      await act(async () => {
-        staleRecord.resolve({
-          elements: [
-            {
-              element_type: 'content',
-              element_bid: 'history-1',
-              generated_block_bid: 'history-1',
-              content: 'history content',
-              like_status: 'none',
-              user_input: '',
-              is_marker: false,
-              is_new: false,
-              is_renderable: true,
-              is_speakable: false,
-            },
-          ],
-          last_progress_updated_at: '2026-06-30T10:00:00Z',
+        await waitFor(() => {
+          expect(result.current.showLessonUpdateNotice).toBe(true);
         });
-        await staleRecord.promise;
-      });
+        expect(mockGetLessonStudyRecord).toHaveBeenCalledWith({
+          shifu_bid: 'shifu-1',
+          outline_bid: 'lesson-1',
+          preview_mode: previewMode,
+        });
+        expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
+      },
+    );
 
-      expect(result.current.showLessonUpdateNotice).toBe(false);
-    });
+    it.each([
+      [false, false],
+      [true, false],
+      [false, undefined],
+      [true, undefined],
+    ])(
+      'hides the notice for preview %s when the comparison is %s',
+      async (previewMode, hasContentUpdate) => {
+        mockGetLessonStudyRecord.mockResolvedValue({
+          elements: historyElements,
+          last_progress_updated_at: '2026-06-30T10:00:00Z',
+          ...(hasContentUpdate === undefined
+            ? {}
+            : { has_content_update_for_current_user: hasContentUpdate }),
+        });
+        mockGetShifuDraftMeta.mockResolvedValue({
+          updated_at: '2026-06-30T12:00:00Z',
+        });
+        const { result } = renderHook(
+          () => useChatLogicHook({ ...buildBaseParams(), previewMode }),
+          { wrapper },
+        );
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        expect(result.current.showLessonUpdateNotice).toBe(false);
+        expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([
+      [false, true],
+      [true, true],
+      [false, false],
+      [true, false],
+      [false, undefined],
+      [true, undefined],
+    ])(
+      'uses the records flag for empty history in preview %s with comparison %s',
+      async (previewMode, hasContentUpdate) => {
+        mockGetLessonStudyRecord.mockResolvedValue({
+          elements: [],
+          ...(hasContentUpdate === undefined
+            ? {}
+            : { has_content_update_for_current_user: hasContentUpdate }),
+        });
+        const { result } = renderHook(
+          () => useChatLogicHook({ ...buildBaseParams(), previewMode }),
+          { wrapper },
+        );
+        await waitFor(() => expect(result.current.isLoading).toBe(false));
+        expect(result.current.showLessonUpdateNotice).toBe(
+          hasContentUpdate === true,
+        );
+        expect(mockGetRunMessage).toHaveBeenCalledTimes(1);
+        expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([false, true])(
+      'ignores stale update responses after lesson navigation in preview mode %s',
+      async previewMode => {
+        const staleRecord = createDeferred<{
+          elements: Array<Record<string, unknown>>;
+          has_content_update_for_current_user: boolean;
+        }>();
+        mockGetLessonStudyRecord.mockImplementation(({ outline_bid }) => {
+          if (outline_bid === 'lesson-1') return staleRecord.promise;
+          return Promise.resolve({
+            elements: [],
+            has_content_update_for_current_user: false,
+          });
+        });
+        const { result, rerender } = renderHook(
+          ({ outlineBid, lessonId }) =>
+            useChatLogicHook({
+              ...buildBaseParams(),
+              outlineBid,
+              lessonId,
+              previewMode,
+            }),
+          {
+            wrapper,
+            initialProps: { outlineBid: 'lesson-1', lessonId: 'lesson-1' },
+          },
+        );
+        rerender({ outlineBid: 'lesson-2', lessonId: 'lesson-2' });
+        await waitFor(() => {
+          expect(mockGetLessonStudyRecord).toHaveBeenCalledWith(
+            expect.objectContaining({ outline_bid: 'lesson-2' }),
+          );
+        });
+        await act(async () => {
+          staleRecord.resolve({
+            elements: historyElements,
+            has_content_update_for_current_user: true,
+          });
+          await staleRecord.promise;
+        });
+        expect(result.current.showLessonUpdateNotice).toBe(false);
+        expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each([false, true])(
+      'ignores the previous scope response after switching preview from %s',
+      async initialPreviewMode => {
+        const staleRecord = createDeferred<{
+          elements: Array<Record<string, unknown>>;
+          has_content_update_for_current_user: boolean;
+        }>();
+        mockGetLessonStudyRecord.mockImplementation(({ preview_mode }) => {
+          if (preview_mode === initialPreviewMode) return staleRecord.promise;
+          return Promise.resolve({
+            elements: historyElements,
+            has_content_update_for_current_user: false,
+          });
+        });
+        const { result, rerender } = renderHook(
+          ({ previewMode }) =>
+            useChatLogicHook({ ...buildBaseParams(), previewMode }),
+          { wrapper, initialProps: { previewMode: initialPreviewMode } },
+        );
+        rerender({ previewMode: !initialPreviewMode });
+        await waitFor(() => {
+          expect(mockGetLessonStudyRecord).toHaveBeenCalledWith({
+            shifu_bid: 'shifu-1',
+            outline_bid: 'lesson-1',
+            preview_mode: !initialPreviewMode,
+          });
+        });
+        await act(async () => {
+          staleRecord.resolve({
+            elements: historyElements,
+            has_content_update_for_current_user: true,
+          });
+          await staleRecord.promise;
+        });
+        expect(result.current.showLessonUpdateNotice).toBe(false);
+      },
+    );
+
+    it.each([false, true])(
+      'clears the notice after the open lesson is reset in preview mode %s',
+      async previewMode => {
+        const courseState = globalThis.__chatHookCourseState__!;
+        courseState.resetedLessonId = null;
+        mockGetLessonStudyRecord
+          .mockResolvedValueOnce({
+            elements: historyElements,
+            has_content_update_for_current_user: true,
+          })
+          .mockResolvedValue({
+            elements: [],
+            has_content_update_for_current_user: false,
+          });
+        const params = { ...buildBaseParams(), previewMode };
+        const { result, rerender } = renderHook(
+          () => useChatLogicHook(params),
+          { wrapper },
+        );
+        await waitFor(() => {
+          expect(result.current.showLessonUpdateNotice).toBe(true);
+        });
+        try {
+          courseState.resetedLessonId = 'lesson-1';
+          await act(async () => {
+            await Promise.all(
+              [...globalThis.__chatHookCourseListeners__!].map(listener =>
+                listener('lesson-1'),
+              ),
+            );
+          });
+          rerender();
+          await waitFor(() => expect(result.current.isLoading).toBe(false));
+          expect(result.current.showLessonUpdateNotice).toBe(false);
+          expect(mockGetShifuDraftMeta).not.toHaveBeenCalled();
+        } finally {
+          courseState.resetedLessonId = null;
+        }
+      },
+    );
   });
 });

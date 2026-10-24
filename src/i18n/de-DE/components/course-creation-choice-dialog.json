@@ -1,0 +1,22 @@
+{
+  "__namespace__": "component.courseCreationChoiceDialog",
+  "aiDescription": "Verwandeln Sie Ihre Materialien und Ideen in einen Kurs in Ihrem KI-Assistenten.",
+  "aiExamples": "Zum Beispiel WorkBuddy, Doubao Work, Qwen Office oder Codex",
+  "aiPrompt": "Bitte suchen und installieren Sie den Skill zur Kurserstellung von AI Shifu (ai-shifu-course-creator). Falls er bereits installiert ist, teilen Sie mir bitte mit, dass ich mit der Kurserstellung beginnen kann.",
+  "aiTitle": "Mit KI einen Kurs erstellen",
+  "copiedAction": "Kopiert",
+  "copyAction": "Installationsanweisungen kopieren",
+  "copyFailed": "Kopieren fehlgeschlagen. Bitte versuchen Sie es erneut.",
+  "copyHint": "Senden Sie die Anweisung an Ihren KI-Assistenten. Wenn der Skill bereits installiert ist, können Sie diesen Schritt überspringen.",
+  "copySuccess": "Installationsanleitung kopiert",
+  "copySuccessDescription": "Öffnen Sie Ihren KI-Assistenten, fügen Sie die Anweisung ein und senden Sie sie ab.",
+  "createExample": "„Erstelle mit dem AI-Shifu-Kurserstellungs-Skill (ai-shifu-course-creator) einen Kurs über …“",
+  "createStep": "Sagen Sie dem Assistenten, was Sie unterrichten möchten",
+  "description": "Wählen Sie aus, wie Sie den Kurs erstellen möchten.",
+  "guideAction": "Das erste Mal? Lesen Sie den Leitfaden",
+  "installStep": "Installieren Sie den Skill zur Kurserstellung",
+  "manualAction": "Leeren Kurs erstellen",
+  "manualDescription": "Beginnen Sie hier mit der Bearbeitung eines leeren Kurses.",
+  "manualTitle": "Kurs manuell erstellen",
+  "title": "Kurs erstellen"
+}

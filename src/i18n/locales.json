@@ -5,8 +5,16 @@
       "label": "العربية",
       "rtl": true
     },
+    "de-DE": {
+      "label": "Deutsch",
+      "rtl": false
+    },
     "en-US": {
       "label": "English",
+      "rtl": false
+    },
+    "es-ES": {
+      "label": "Español (España)",
       "rtl": false
     },
     "fr-FR": {
@@ -17,6 +25,10 @@
       "label": "ไทย",
       "rtl": false
     },
+    "ur-PK": {
+      "label": "اردو",
+      "rtl": true
+    },
     "zh-CN": {
       "label": "中文",
       "rtl": false
@@ -26,6 +38,7 @@
     "common.core",
     "common.errors",
     "common.language",
+    "component.courseCreationChoiceDialog",
     "component.createShifuDialog",
     "component.header",
     "component.menus",
@@ -52,8 +65,6 @@
     "module.permission",
     "module.preview",
     "module.profileOnboarding",
-    "module.profiles",
-    "module.profilesManage",
     "module.referral",
     "module.settings",
     "module.shifu",
@@ -70,6 +81,7 @@
     "server.learn",
     "server.llm",
     "server.metering",
+    "server.modelGateway",
     "server.openapi",
     "server.order",
     "server.outline",

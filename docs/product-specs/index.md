@@ -4,23 +4,67 @@
 
 User-facing workflow and page behavior specifications live here.
 
-- [Dashboard Entry Page (v2) Technical Design](../product-specs/dashboard-entry-page.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+- [Account Session Analytics](../product-specs/account-session-analytics.md)
+  - Status: `implemented` | Owner: `frontend-backend` | Last reviewed: `2026-09-28` | Canonical: `true`
+- [Atomic Sibling Reorder](../product-specs/atomic-sibling-reorder.md)
+  - Status: `implemented` | Owner: `api` | Last reviewed: `2026-09-28` | Canonical: `true`
+- [积分通知中心需求文档](../product-specs/billing-credit-notifications.md)
+  - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
+- [Billing learning-time estimates](../product-specs/billing-learning-hours-estimate.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-21` | Canonical: `true`
+- [Course Memory Management](../product-specs/course-memory-management.md)
+  - Status: `implemented` | Owner: `learner` | Last reviewed: `2026-10-07` | Canonical: `true`
+- [Internal Course Temperature Settings](../product-specs/course-temperature-settings.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-08` | Canonical: `true`
+- [Dashboard Entry Page Contract](../product-specs/dashboard-entry-page.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-26` | Canonical: `true`
+- [Embedded Gemini Live Follow-Up Analytics](../product-specs/gemini-live-follow-up-analytics.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-16` | Canonical: `true`
+- [Language Selection Analytics](../product-specs/language-selection-analytics.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Learner Listen Playback and Timeline](../product-specs/learner-listen-playback.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-26` | Canonical: `true`
+- [Learner Memory Admission](../product-specs/learner-memory-admission.md)
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-07` | Canonical: `true`
+- [Lesson Content Update Recommendations](../product-specs/lesson-content-updates.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-12` | Canonical: `true`
+- [Lesson Memory Context](../product-specs/lesson-memory-context.md)
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-07` | Canonical: `true`
 - [MDFlow Element Backfill](../product-specs/mdflow-element-backfill.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
 - [Mobile 404 Follow-up: Sequencing Improvement Plan](../product-specs/mobile-404-sequencing-followup.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-04-17` | Canonical: `true`
+- [Notification Management Analytics](../product-specs/notification-management-analytics.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
 - [Operator Course Detail Page](../product-specs/operator-course-detail-page.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-13` | Canonical: `true`
+- [Operator Course Follow-Up Page](../product-specs/operator-course-follow-up-page.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Operator Course Users Section](../product-specs/operator-course-users.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Operator Order Management](../product-specs/operator-order-management.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Operator Promotions](../product-specs/operator-promotions.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
 - [Operator Role Design](../product-specs/operator-role.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`
 - [Operator User Management](../product-specs/operator-user-management.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-08` | Canonical: `true`
+- [Operator User Points](../product-specs/operator-user-points-columns.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Operator User Points Grant](../product-specs/operator-user-points-grant.md)
+  - Status: `needs-review` | Owner: `frontend` | Last reviewed: `` | Canonical: `true`
+- [Backend-owned outline learning permission default](../product-specs/outline-learning-permission-default.md)
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-11` | Canonical: `true`
 - [Password Login Feature Design](../product-specs/password-login-design.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+- [Profile onboarding startup](../product-specs/profile-onboarding-startup.md)
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-13` | Canonical: `true`
+- [Skill Usage Analytics](../product-specs/skill-usage-analytics.md)
+  - Status: `implemented` | Owner: `frontend-backend` | Last reviewed: `2026-10-23` | Canonical: `true`
 - [Teacher Analytics Dashboard (v1)](../product-specs/teacher-analytics-dashboard.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-08-16` | Canonical: `true`
 - [Operator Course Creator Transfer](../product-specs/transfer-course-creator.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-05-12` | Canonical: `true`
 - [Cook Web Umami Contract Remediation](../product-specs/web-umami-contract-remediation.md)
-  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-08-31` | Canonical: `true`
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-10` | Canonical: `true`

@@ -426,6 +426,28 @@ def enable_commands(app: Flask) -> None:
             message = f"Import failed: {e}"
             raise click.ClickException(message) from e
 
+    @console.group(name="agent")
+    def agent() -> None:
+        """Commands for the 2.0 lesson engine."""
+
+    @agent.command(name="check-model")
+    @click.argument("model")
+    def agent_check_model(model: str) -> None:
+        """Check whether MODEL can run a 2.0 lesson, by asking it to call a tool.
+
+        Run this before putting a course on the 2.0 allowlist. A model that cannot call tools
+        writes the question as prose and the learner never sees the controls to answer it.
+        """
+        from flaskr.service.learn.agent.capability import probe_model
+
+        result = probe_model(app, model)
+        if result.can_teach:
+            click.echo(click.style(f"OK  {result.model}: {result.detail}", fg="green"))
+            return
+        click.echo(click.style(f"NO  {result.model}: {result.detail}", fg="red"))
+        message = f"{model} cannot run a 2.0 lesson: {result.detail}"
+        raise click.ClickException(message)
+
     @console.command(name="update_demo_shifu")
     def update_demo_shifu_command() -> None:
         """Update demo shifu."""

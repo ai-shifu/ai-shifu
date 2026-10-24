@@ -1,5 +1,5 @@
 import type { LearningMode } from './learningModeOptions';
-import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 
 const MODE_QUERY_PARAM = 'mode';
 const LEGACY_LISTEN_QUERY_PARAM = 'listen';

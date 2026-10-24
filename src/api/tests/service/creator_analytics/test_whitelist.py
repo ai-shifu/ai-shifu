@@ -103,9 +103,10 @@ def test_shifu_scoped_tables_have_shifu_bid_column(table_key: str) -> None:
 
 
 def test_user_users_is_global_table() -> None:
-    """user_users has no shifu_bid column; gated by permission check instead."""
+    """user_users has no shifu_bid column and opts into learner row scope."""
     spec = WHITELIST["user_users"]
     assert spec.has_shifu_bid is False
+    assert spec.course_learner_scoped is True
     assert "shifu_bid" not in spec.model.__table__.c
 
 

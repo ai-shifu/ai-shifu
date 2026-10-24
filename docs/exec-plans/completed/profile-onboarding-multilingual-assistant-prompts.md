@@ -61,6 +61,10 @@ selection without changing the single-string learner or Redis contract. Old
 configurations remain untouched until an operator saves; old sessions retain
 their frozen scalar prompt.
 
+Follow-up for `es-ES` support: an explicit backfill command can now publish
+missing locale prompts before Spanish is exposed to learners. Deployment still
+does not run model generation automatically.
+
 Focused backend configuration, compiler, publication, and route coverage
 passed with 199 tests, and the profile-research runtime passed 80 tests.
 Frontend profile-onboarding coverage passed with 83 tests; TypeScript, ESLint,

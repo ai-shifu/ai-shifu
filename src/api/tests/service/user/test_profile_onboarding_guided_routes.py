@@ -276,7 +276,7 @@ def test_onboarding_mutations_do_not_commit_again_after_service_cleanup(
         msg = "route must not commit after the onboarding unit of work"
         raise RuntimeError(msg)
 
-    monkeypatch.setattr("flaskr.route.user.db.session.commit", fail_late_commit)
+    monkeypatch.setattr("flaskr.dao.db.session.commit", fail_late_commit)
 
     complete = test_client.post(
         "/api/user/profile-onboarding/complete",

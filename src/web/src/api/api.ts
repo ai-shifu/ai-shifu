@@ -20,7 +20,7 @@ const api = {
   verifyCaptcha: 'POST /user/captcha/verify',
   sendSmsCode: 'POST /user/send_sms_code',
   sendEmailCode: 'POST /user/send_email_code',
-  requireTmp: 'POST /user/require_tmp',
+  emailLogin: 'POST /user/login_email',
   smsLogin: 'POST /user/login_sms',
   deviceAuthPending: 'GET /user/device/pending',
   deviceAuthApprove: 'POST /user/device/approve',
@@ -84,10 +84,8 @@ const api = {
   // blocks api
   getBlocks: 'GET /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/blocks',
   saveBlocks: 'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/blocks',
-  addBlock: 'PUT /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/blocks',
   // block api end
 
-  getProfile: 'GET /user/get_profile',
   getProfileItemDefinitions: 'GET /profiles/get-profile-item-definitions',
   addProfileItem: 'POST /profiles/add-profile-item-quick',
   getUserInfo: 'GET /user/info',
@@ -95,13 +93,7 @@ const api = {
   updateChapterOrder: 'POST /shifu/update-chapter-order',
 
   getModelList: 'GET /llm/model-list',
-  getSystemPrompt: 'GET /llm/get-system-prompt',
-  debugPrompt: 'GET /llm/debug-prompt',
-
-  // resource api start
-  getVideoInfo: 'POST /shifu/get-video-info',
-  upfileByUrl: 'POST /shifu/url-upfile',
-  // resource api end
+  getCourseModelOptions: 'GET /llm/course-model-options',
 
   // TTS api
   askConfig: 'GET /shifu/ask/config',
@@ -109,10 +101,6 @@ const api = {
   ttsPreview: 'POST /shifu/tts/preview',
   ttsConfig: 'GET /shifu/tts/config',
   listMinimaxTtsVoices: 'GET /shifu/tts/minimax/voices',
-  getMinimaxTtsVoice: 'GET /shifu/tts/minimax/voices/{voice_bid}',
-  retryMinimaxTtsVoice: 'POST /shifu/tts/minimax/voices/{voice_bid}/retry',
-  deleteMinimaxTtsVoice: 'DELETE /shifu/tts/minimax/voices/{voice_bid}',
-  getMinimaxTtsCloneCost: 'GET /shifu/tts/minimax/voices/clone-cost',
   validateMinimaxTtsVoiceId: 'POST /shifu/tts/minimax/voices/validate-id',
   // admin order api
   getAdminOrders: 'GET /order/admin/orders',
@@ -186,6 +174,18 @@ const api = {
     'GET /shifu/admin/operations/promotions/referral-campaigns/{campaign_bid}/invitations',
   getAdminOperationUserDetail:
     'GET /shifu/admin/operations/users/{user_bid}/detail',
+  changeAdminOperationUserContact:
+    'POST /shifu/admin/operations/users/{user_bid}/contact',
+  getAdminOperationUserCancellationPreview:
+    'GET /shifu/admin/operations/users/{user_bid}/cancellation-preview',
+  transferAdminOperationUserPublishedCourses:
+    'POST /shifu/admin/operations/users/{user_bid}/transfer-published-courses',
+  cancelAdminOperationUserSubscriptionRenewals:
+    'POST /shifu/admin/operations/users/{user_bid}/cancel-subscription-renewals',
+  cancelAdminOperationUser:
+    'POST /shifu/admin/operations/users/{user_bid}/cancel',
+  getAdminOperationUserCancellationStatus:
+    'GET /shifu/admin/operations/users/{user_bid}/cancellations/{cancellation_bid}',
   getAdminOperationUserCredits:
     'GET /shifu/admin/operations/users/{user_bid}/credits',
   getAdminOperationUserCreditUsageDetail:
@@ -194,6 +194,8 @@ const api = {
     'GET /shifu/admin/operations/users/{user_bid}/credit-grant/bootstrap',
   grantAdminOperationUserCredits:
     'POST /shifu/admin/operations/users/{user_bid}/credits/grant',
+  deductAdminOperationUserCredits:
+    'POST /shifu/admin/operations/users/{user_bid}/credits/deduct',
   grantAdminOperationUserPackage:
     'POST /shifu/admin/operations/users/{user_bid}/packages/grant',
   getAdminOperationCreditNotifications:
@@ -212,6 +214,14 @@ const api = {
     'POST /shifu/admin/operations/credit-notifications/templates/sync',
   getAdminOperationCreditNotificationTemplates:
     'GET /shifu/admin/operations/credit-notifications/templates',
+  getAdminOperationCreditNotificationEmailTemplates:
+    'GET /shifu/admin/operations/credit-notifications/email-templates',
+  createAdminOperationCreditNotificationEmailTemplate:
+    'POST /shifu/admin/operations/credit-notifications/email-templates',
+  updateAdminOperationCreditNotificationEmailTemplate:
+    'PUT /shifu/admin/operations/credit-notifications/email-templates/{notification_template_bid}',
+  updateAdminOperationCreditNotificationEmailTemplateStatus:
+    'PUT /shifu/admin/operations/credit-notifications/email-templates/{notification_template_bid}/status',
   dryRunAdminOperationCreditNotifications:
     'POST /shifu/admin/operations/credit-notifications/dry-run',
   requeueAdminOperationCreditNotification:
@@ -265,7 +275,6 @@ const api = {
 
   saveProfile: 'POST /profiles/save-profile-item',
   deleteProfile: 'POST /profiles/delete-profile-item',
-  getProfileList: 'GET /profiles/get-profile-item-definitions',
   hideUnusedProfileItems: 'POST /profiles/hide-unused-profile-items',
   getProfileVariableUsage: 'GET /profiles/profile-variable-usage',
   updateProfileHiddenState: 'POST /profiles/update-profile-hidden-state',

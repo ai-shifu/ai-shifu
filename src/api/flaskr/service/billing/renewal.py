@@ -44,6 +44,7 @@ from .credit_notifications import (
     stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
 from .models import BillingOrder, BillingRenewalEvent, BillingSubscription
+from .payment_policy import is_manual_payment_provider
 from .preorders import (
     is_preorder_order as _is_preorder_order,
 )
@@ -824,11 +825,11 @@ def _execute_subscription_renewal(
 ) -> RenewalEventResult:
     # Must-persist step: the renewal order row and the event payload's
     # bill_order_bid link commit BEFORE the payment-provider sync below.
-    # sync_billing_order runs in its own app context/session (on MySQL a
-    # separate connection), so it can only see committed rows; and if the
-    # provider call crashes mid-flight, the retry/reconcile flows resolve
-    # this same order through the payload link (and ensure_* reloads it by
-    # cycle) instead of creating a second charge context.
+    # sync_billing_order joins this session but owns its own unit of work
+    # (it is called outside any block here), so it must find committed rows;
+    # and if the provider call crashes mid-flight, the retry/reconcile flows
+    # resolve this same order through the payload link (and ensure_* reloads
+    # it by cycle) instead of creating a second charge context.
     with unit_of_work():
         subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
         if subscription is None:
@@ -868,7 +869,10 @@ def _execute_subscription_renewal(
                 bill_order_bid=order.bill_order_bid,
             )
 
-        if order.payment_provider == "pingxx" and not order.provider_reference_id:
+        if (
+            is_manual_payment_provider(order.payment_provider)
+            and not order.provider_reference_id
+        ):
             _complete_renewal_event(event, now=now)
             return _result_from_event(
                 "queued_for_reconcile",
@@ -880,8 +884,8 @@ def _execute_subscription_renewal(
 
     # Provider sync stays OUTSIDE any unit of work: it wraps a non-idempotent
     # external payment call and (see NOTE in _sync_billing_renewal_order)
-    # commits its own session. Confirm claim ownership immediately before the
-    # cross-transaction side effect, so stale workers stop before syncing.
+    # owns its own unit of work. Confirm claim ownership immediately before
+    # the cross-transaction side effect, so stale workers stop before syncing.
     with unit_of_work():
         subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
         if subscription is None:
@@ -892,9 +896,9 @@ def _execute_subscription_renewal(
         _ensure_renewal_event_claim_current(event)
     result = _sync_billing_renewal_order(app, order=order, event=event)
     sync_status = str(result.status or "")
-    # The provider sync commits in its OWN session; `order` and `event` held
-    # here are now stale ORM instances. Expire them so anything uow #2 (or a
-    # future edit) reads is re-fetched instead of silently overwriting the
+    # The provider sync committed its own unit of work; `order` and `event`
+    # held here may be stale ORM instances. Expire them so anything uow #2 (or
+    # a future edit) reads is re-fetched instead of silently overwriting the
     # sync's writes with pre-sync values. Mirrors the exception path in
     # _sync_billing_renewal_order.
     db.session.expire_all()
@@ -1019,14 +1023,16 @@ def _sync_billing_renewal_order(
     order: BillingOrder,
     event: BillingRenewalEvent | None,
 ) -> RenewalEventResult:
-    # NOTE(uow cross-module leak): checkout.sync_billing_order pushes its own
-    # app context (separate Flask-SQLAlchemy session), performs non-idempotent
-    # payment-provider calls, and commits that session itself. It therefore
-    # must never be invoked inside this module's unit_of_work or under
-    # retry_on_deadlock. Migrating checkout.py is a later B4 sub-batch; do
-    # not "fix" the commit from here.
+    # NOTE: checkout.sync_billing_order joins the caller's app context and
+    # session, performs non-idempotent payment-provider calls, and owns its
+    # own unit of work. It therefore must never be invoked inside this
+    # module's unit_of_work (the sync would join it and commit the renewal's
+    # staged rows mid-flight) or under retry_on_deadlock.
     bill_order_bid = str(order.bill_order_bid or "")
-    if order.payment_provider == "pingxx" and not order.provider_reference_id:
+    if (
+        is_manual_payment_provider(order.payment_provider)
+        and not order.provider_reference_id
+    ):
         return RenewalEventResult(
             status="pending",
             bill_order_bid=bill_order_bid or None,

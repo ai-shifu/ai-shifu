@@ -39,7 +39,7 @@
   "userPrivacyPolicy": "سياسة خصوصية المستخدم",
   "virtualProductDesc": "ملاحظة:",
   "virtualProductPoint1": "1. يعني الشراء أنك قرأت ووافقت على<modelServiceAgreement>{modelServiceAgreement}</modelServiceAgreement> و<userPrivacyPolicy>{userPrivacyPolicy}</userPrivacyPolicy>.",
-  "virtualProductPoint2": "2. المنتج الذي اشتريته منتج افتراضي، ولا يمكن إلغاء الاشتراك فيه أو نقله بعد الشراء.",
+  "virtualProductPoint2": "2. المنتج الذي اشتريته افتراضي؛ لا يمكن استرداد قيمته أو نقله بعد الشراء.",
   "wechatJsapiHint": "سيبدأ الدفع عبر WeChat في جلسة WeChat الحالية.",
   "wechatJsapiPay": "الدفع عبر WeChat",
   "wechatJsapiUnavailable": "لا يمكن إكمال الدفع عبر WeChat إلا من داخل WeChat.",

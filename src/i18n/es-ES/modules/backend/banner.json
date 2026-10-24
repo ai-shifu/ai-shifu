@@ -1,0 +1,10 @@
+{
+  "__namespace__": "server.banner",
+  "__flat__": {
+    "bannerPopUpCancelText": "Seguir explorando",
+    "bannerPopUpConfirmText": "Desbloquear ahora",
+    "bannerPopUpContent": "Consigue preguntas de seguimiento ilimitadas y otras ventajas para aprender con tranquilidad.",
+    "bannerPopUpTitle": "Desbloquea todo el contenido cuando quieras",
+    "bannerTitle": "Desbloquear todo"
+  }
+}

@@ -27,7 +27,7 @@ import api from '@/api';
 import { debounce } from 'lodash';
 import { getBrowserTimeZone } from '@/lib/browser-timezone';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
-import { normalizeModelOptions } from './modelOptions';
+import { normalizeModelOptions } from '@/lib/modelOptions';
 import {
   createContext,
   ReactElement,
@@ -37,7 +37,6 @@ import {
   useCallback,
   useRef,
 } from 'react';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
 import {
   getStoredPreviewVariables,
   mapKeysToStoredVariables,
@@ -45,7 +44,7 @@ import {
   savePreviewVariables,
   StoredVariablesByScope,
 } from '@/components/lesson-preview/variableStorage';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   buildOutlineCreateAnalytics,
   OUTLINE_CREATE_EVENT,
@@ -485,14 +484,6 @@ export const ShifuProvider = ({
     }
   };
 
-  const loadProfileItemDefinations = async (shifuId: string) => {
-    const list = await api.getProfileItemDefinitions({
-      parent_id: shifuId,
-      type: 'all',
-    });
-    setProfileItemDefinations(list);
-  };
-
   const remapOutlineTree = (
     items: any,
     parentBid = '',
@@ -739,7 +730,6 @@ export const ShifuProvider = ({
       setChapters(list);
       buildOutlineTree(list);
       await refreshVariableUsage(shifuId);
-      // loadProfileItemDefinations(shifuId);
     } catch (error) {
       console.error(error);
       setError('Failed to load chapters');
@@ -865,7 +855,9 @@ export const ShifuProvider = ({
         index,
         name: settings.name,
         description: settings.name,
-        type: settings.learningPermission,
+        ...(settings.learningPermission && {
+          type: settings.learningPermission,
+        }),
         system_prompt: settings.systemPrompt,
         is_hidden: settings.isHidden,
         shifu_bid: shifuBid,
@@ -879,8 +871,8 @@ export const ShifuProvider = ({
         children: [],
         position: '',
         depth,
-        type: settings.learningPermission,
-        is_hidden: settings.isHidden,
+        type: created.type,
+        is_hidden: created.is_hidden,
       };
       parentNode.children = [...(parentNode.children || []), newOutline];
       setChapters([...chapters]);
@@ -924,7 +916,6 @@ export const ShifuProvider = ({
         index,
         name: settings.name,
         description: settings.name,
-        type: LEARNING_PERMISSION.GUEST,
         system_prompt: settings.systemPrompt,
         is_hidden: false,
         shifu_bid: shifuBid,
@@ -937,6 +928,8 @@ export const ShifuProvider = ({
         children: [],
         position: '',
         depth: 0,
+        type: created.type,
+        is_hidden: created.is_hidden,
       };
       setChapters([...chapters, newOutline]);
       setCataData({
@@ -1072,7 +1065,9 @@ export const ShifuProvider = ({
         index: insertIndex,
         name: settings.name,
         description: settings.name,
-        type: settings.learningPermission,
+        ...(settings.learningPermission && {
+          type: settings.learningPermission,
+        }),
         system_prompt: settings.systemPrompt,
         is_hidden: settings.isHidden,
         shifu_bid: shifuBid,
@@ -1087,8 +1082,8 @@ export const ShifuProvider = ({
         children: [],
         position: '',
         depth,
-        type: settings.learningPermission,
-        is_hidden: settings.isHidden,
+        type: created.type,
+        is_hidden: created.is_hidden,
       };
       const children = [...(parentNode.children || [])];
       children.splice(insertIndex, 0, newOutline);
@@ -1133,7 +1128,6 @@ export const ShifuProvider = ({
           index: index,
           name: data.name,
           description: data.name,
-          type: LEARNING_PERMISSION.GUEST,
           system_prompt: '',
           is_hidden: false,
           shifu_id: currentShifu?.bid || '',
@@ -1142,6 +1136,8 @@ export const ShifuProvider = ({
           id: newChapter.bid,
           bid: newChapter.bid,
           name: newChapter.name,
+          type: newChapter.type,
+          is_hidden: newChapter.is_hidden,
           position: '',
           children: [],
         });
@@ -1205,16 +1201,11 @@ export const ShifuProvider = ({
     const parentBid = data.parent_bid;
     try {
       if (isNew) {
-        const type =
-          data.bid === 'new_chapter'
-            ? LEARNING_PERMISSION.GUEST
-            : LEARNING_PERMISSION.TRIAL;
         const newUnit = await api.createOutline({
           parent_bid: data.parent_bid,
           index,
           name: data.name,
           description: data.name,
-          type: type,
           system_prompt: '',
           is_hidden: false,
           shifu_bid: currentShifu?.bid || '',
@@ -1224,6 +1215,8 @@ export const ShifuProvider = ({
           id: newUnit.bid,
           bid: newUnit.bid,
           name: newUnit.name,
+          type: newUnit.type,
+          is_hidden: newUnit.is_hidden,
           position: '',
           children: [],
         });
@@ -1286,7 +1279,6 @@ export const ShifuProvider = ({
         index: Math.max(0, index - 1),
         name: data.name,
         description: data.name,
-        type: LEARNING_PERMISSION.TRIAL,
         system_prompt: '',
         is_hidden: false,
         shifu_id: currentShifu?.bid || '',
@@ -1297,6 +1289,8 @@ export const ShifuProvider = ({
         parent_bid: parent.bid,
         bid: newUnit.bid,
         name: newUnit.name,
+        type: newUnit.type,
+        is_hidden: newUnit.is_hidden,
         position: '',
         children: [],
       });
@@ -1354,6 +1348,12 @@ export const ShifuProvider = ({
     node.position = outline.position;
     node.parent_bid = outline.parent_bid;
     node.bid = outline.bid;
+    if ('type' in outline) {
+      node.type = outline.type;
+    }
+    if ('is_hidden' in outline) {
+      node.is_hidden = outline.is_hidden;
+    }
     if (outline.children && outline.children.length > 0) {
       node.children = outline.children;
     }
@@ -1946,7 +1946,6 @@ export const ShifuProvider = ({
       children: [],
       depth: 0,
       position: '',
-      type: LEARNING_PERMISSION.GUEST,
       is_hidden: false,
     };
 
@@ -1989,7 +1988,6 @@ export const ShifuProvider = ({
         children: [],
         depth: (parentNode.depth || parent.depth || 0) + 1,
         position: '',
-        type: LEARNING_PERMISSION.GUEST,
         is_hidden: false,
       };
 

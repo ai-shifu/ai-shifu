@@ -1,0 +1,11 @@
+{
+  "__namespace__": "component.createShifuDialog",
+  "creating": "Erstellen...",
+  "descriptionLabel": "Kursbeschreibung",
+  "descriptionMaxLength": "Die Kursbeschreibung darf 500 Zeichen nicht überschreiten",
+  "descriptionPlaceholder": "Bitte geben Sie die Kursbeschreibung ein",
+  "nameLabel": "Kursbezeichnung",
+  "nameMaxLength": "Der Kursname darf höchstens {maxLength} Zeichen lang sein.",
+  "namePlaceholder": "Bitte geben Sie den Kursnamen ein",
+  "nameRequired": "Kursname kann nicht leer sein"
+}

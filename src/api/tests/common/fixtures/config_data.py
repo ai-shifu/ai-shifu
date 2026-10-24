@@ -111,14 +111,12 @@ FULL_TEST_ENV_VARS = {
         group="flask",
     ),
     # Multi-line description
-    "DEFAULT_LLM_MODEL": EnvVar(
-        name="DEFAULT_LLM_MODEL",
-        default="gpt-3.5-turbo",
-        description="""Default LLM model to use.
-Supported models:
-- OpenAI: gpt-4, gpt-3.5-turbo
-- Claude: claude-3-opus""",
-        group="llm",
+    "MULTILINE_TEST_VALUE": EnvVar(
+        name="MULTILINE_TEST_VALUE",
+        default="example",
+        description="""Example value for environment export.
+The description spans multiple lines.""",
+        group="flask",
     ),
     # Optional without default (handled by libraries)
     "SERVER_SOFTWARE": EnvVar(
@@ -168,6 +166,8 @@ DOCKER_ENV_CONFIG = {
     "REDIS_HOST": "ai-shifu-redis",
     "REDIS_PORT": "6379",
     "OPENAI_API_KEY": "sk-docker-test-key",
+    "LLM_MODEL_1_ID": "gpt-test",
+    "LLM_MODEL_1_NAME": "Test",
     "DEFAULT_LLM_TEMPERATURE": "0.5",
     "SWAGGER_ENABLED": "true",
 }
@@ -180,6 +180,8 @@ PRODUCTION_ENV_CONFIG = {
     "REDIS_HOST": "redis.production.internal",
     "REDIS_PORT": "6379",
     "OPENAI_API_KEY": "sk-prod-real-key",
+    "LLM_MODEL_1_ID": "gpt-test",
+    "LLM_MODEL_1_NAME": "Test",
     "DEFAULT_LLM_TEMPERATURE": "0.3",
     "SWAGGER_ENABLED": "false",
 }

@@ -7,6 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS } from './hooks/useCourseProfileOnboardingGate';
+import { WECHAT_OPENID_BINDING_TIMEOUT_MS } from './hooks/useWechatOpenIdBinding';
 import ChatPage from './page';
 
 const mockGetProfileOnboarding = jest.fn();
@@ -25,6 +26,7 @@ const mockUpdateLessonId = jest.fn();
 const mockUpdateChapterId = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockToast = jest.fn();
+let mockTitleLanguage: string | undefined;
 const openLearnerProfileLabel = 'open learner profile';
 const saveLearnerProfileLabel = 'save learner profile';
 const laterLabel = 'later';
@@ -35,10 +37,13 @@ const dismissOnboardingLabel = 'dismiss onboarding';
 interface MockChatMobileHeaderProps {
   lessonId?: string;
   lessonTitle?: string;
+  titleLanguage?: string;
 }
 
 interface MockChatUiProps {
   lessonId?: string;
+  titleLanguage?: string;
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
   runtimeReady?: boolean;
   lessonUpdate?: (value: {
     id: string;
@@ -73,7 +78,7 @@ type ResetChapterEventHandler = (
 ) => Promise<void>;
 
 const getResetChapterEventHandler = () => {
-  const { shifu: mockedShifu } = jest.requireMock('@/c-service/Shifu') as {
+  const { shifu: mockedShifu } = jest.requireMock('@/lib/shifu/Shifu') as {
     shifu: {
       events: {
         addEventListener: jest.Mock;
@@ -86,21 +91,31 @@ const getResetChapterEventHandler = () => {
 };
 
 const mockChatMobileHeader = jest.fn(
-  ({ lessonId, lessonTitle }: MockChatMobileHeaderProps) => (
+  ({ lessonId, lessonTitle, titleLanguage }: MockChatMobileHeaderProps) => (
     <div
       data-testid='mobile-header'
       data-lesson-id={lessonId}
       data-lesson-title={lessonTitle}
+      data-title-language={titleLanguage}
     />
   ),
 );
-const mockChatUi = jest.fn(({ lessonId, runtimeReady }: MockChatUiProps) => (
-  <div
-    data-testid='chat-ui'
-    data-lesson-id={lessonId}
-    data-runtime-ready={String(runtimeReady)}
-  />
-));
+const mockChatUi = jest.fn(
+  ({
+    lessonId,
+    followUpMode,
+    runtimeReady,
+    titleLanguage,
+  }: MockChatUiProps) => (
+    <div
+      data-testid='chat-ui'
+      data-lesson-id={lessonId}
+      data-follow-up-mode={followUpMode}
+      data-runtime-ready={String(runtimeReady)}
+      data-title-language={titleLanguage}
+    />
+  ),
+);
 const mockNavDrawer = jest.fn(({ onPersonalInfoClick }: MockNavDrawerProps) => (
   <button
     type='button'
@@ -218,7 +233,12 @@ const profileOnboardingStatus = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 let mockSelectedLessonId = 'lesson-1';
-let mockLessonTreeLessons = [
+let mockLessonTreeLessons: Array<{
+  id: string;
+  name: string;
+  status: string;
+  follow_up_mode?: 'text' | 'live_voice' | 'disabled';
+}> = [
   {
     id: 'lesson-1',
     name: 'Lesson title',
@@ -319,7 +339,7 @@ jest.mock('zustand/react/shallow', () => ({
   useShallow: (selector: unknown) => selector,
 }));
 
-jest.mock('@/c-constants/uiConstants', () => ({
+jest.mock('@/constants/uiConstants', () => ({
   FRAME_LAYOUT_MOBILE: 'mobile',
   LISTEN_MODE_VH_FALLBACK_CLASSNAME: 'listen-mode-vh-fallback',
   calcFrameLayout: () => 'desktop',
@@ -328,7 +348,7 @@ jest.mock('@/c-constants/uiConstants', () => ({
   wechatLogin: (...args: unknown[]) => mockWechatLogin(...args),
 }));
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   useEnvStore: Object.assign(
     (selector?: (state: typeof mockEnvStoreState) => unknown) =>
       selector ? selector(mockEnvStoreState) : undefined,
@@ -352,9 +372,6 @@ jest.mock('@/c-store', () => ({
   ),
   useSystemStore: (selector: (state: typeof mockSystemStoreState) => unknown) =>
     selector(mockSystemStoreState),
-}));
-
-jest.mock('@/store', () => ({
   useUserStore: Object.assign(
     (selector: (state: typeof mockUserStoreState) => unknown) =>
       selector(mockUserStoreState),
@@ -364,7 +381,7 @@ jest.mock('@/store', () => ({
   ),
 }));
 
-jest.mock('@/c-common/hooks/useDisclosure', () => ({
+jest.mock('@/hooks/useDisclosure', () => ({
   useDisclosure: () => ({
     open: true,
     onClose: jest.fn(),
@@ -372,13 +389,13 @@ jest.mock('@/c-common/hooks/useDisclosure', () => ({
   }),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),
 }));
 
-jest.mock('@/c-api/user', () => ({
+jest.mock('@/api/user', () => ({
   getProfileOnboarding: (...args: unknown[]) =>
     mockGetProfileOnboarding(...args),
   isProfileOnboardingStatus: (value: unknown) =>
@@ -392,7 +409,7 @@ jest.mock('@/c-api/user', () => ({
   updateWxcode: (...args: unknown[]) => mockUpdateWxcode(...args),
 }));
 
-jest.mock('@/c-service/Shifu', () => ({
+jest.mock('@/lib/shifu/Shifu', () => ({
   shifu: {
     EventTypes: {
       OPEN_LOGIN_MODAL: 'OPEN_LOGIN_MODAL',
@@ -409,6 +426,7 @@ jest.mock('./hooks/useLessonTree', () => ({
   useLessonTree: () => ({
     tree: {
       bannerInfo: null,
+      titleLanguage: mockTitleLanguage,
       catalogs: [
         {
           id: 'chapter-1',
@@ -491,6 +509,7 @@ describe('ChatPage profile onboarding gate', () => {
     mockInMiniProgram = false;
     sessionStorage.clear();
     mockUiLayoutStoreState.frameLayout = 'desktop';
+    mockTitleLanguage = undefined;
     mockSelectedLessonId = 'lesson-1';
     mockToast.mockReset();
     mockLessonTreeLessons = [
@@ -784,6 +803,40 @@ describe('ChatPage profile onboarding gate', () => {
 
     const chatUi = await screen.findByTestId('chat-ui');
     expect(chatUi).toHaveAttribute('data-lesson-id', 'lesson-new');
+  });
+
+  test('passes the guide title language to both learner header components', async () => {
+    mockUiLayoutStoreState.frameLayout = 'mobile';
+    mockTitleLanguage = 'en-US';
+
+    render(<ChatPage />);
+
+    expect(await screen.findByTestId('mobile-header')).toHaveAttribute(
+      'data-title-language',
+      'en-US',
+    );
+    expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+      'data-title-language',
+      'en-US',
+    );
+  });
+
+  test('preserves an unavailable Live follow-up mode without a text fallback', async () => {
+    mockLessonTreeLessons = [
+      {
+        id: 'lesson-1',
+        name: 'Live lesson',
+        status: 'not_started',
+        follow_up_mode: 'disabled',
+      },
+    ];
+
+    render(<ChatPage />);
+
+    expect(await screen.findByTestId('chat-ui')).toHaveAttribute(
+      'data-follow-up-mode',
+      'disabled',
+    );
   });
 
   test('keeps a retaken lesson in progress after reloading its reset tree state', async () => {
@@ -1516,16 +1569,226 @@ describe('ChatPage profile onboarding gate', () => {
       expect(mockWechatLogin).toHaveBeenCalledTimes(1);
     });
 
-    test('waits for the account profile before judging the openid', async () => {
+    test('waits for the account profile before starting Profile or judging the openid', async () => {
       mockSystemStoreState.wechatCode = '';
       mockInWechat = true;
       mockUserStoreState.userInfo = null;
 
-      render(<ChatPage />);
+      const { rerender } = render(<ChatPage />);
 
-      await waitFor(() => expect(mockGetProfileOnboarding).toHaveBeenCalled());
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
       expect(mockWechatLogin).not.toHaveBeenCalled();
       expect(mockUpdateWxcode).not.toHaveBeenCalled();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'false',
+      );
+
+      mockUserStoreState.userInfo = {
+        ...defaultMockUserInfo,
+        openid: 'o_existing',
+      };
+      rerender(<ChatPage />);
+      await waitFor(() =>
+        expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1),
+      );
+    });
+
+    test('starts Profile only after the exchange and account refresh both finish', async () => {
+      let resolveExchange!: (value: string) => void;
+      let resolveRefresh!: () => void;
+      mockUpdateWxcode.mockReturnValue(
+        new Promise<string>(resolve => {
+          resolveExchange = resolve;
+        }),
+      );
+      mockRefreshUserInfo.mockReturnValueOnce(
+        new Promise<void>(resolve => {
+          resolveRefresh = resolve;
+        }),
+      );
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockGetProfileOnboarding.mockResolvedValue(
+        profileOnboardingStatus({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
+
+      const { rerender } = renderInWechat();
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+      fireEvent.click(
+        screen.getByRole('button', { name: openLearnerProfileLabel }),
+      );
+      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'false',
+      );
+
+      await act(async () => {
+        resolveExchange('o_new');
+      });
+      expect(mockRefreshUserInfo).toHaveBeenCalledTimes(1);
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      await act(async () => {
+        resolveRefresh();
+      });
+
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
+      expect(
+        await screen.findByTestId('learner-profile-dialog'),
+      ).toHaveAttribute('data-auto-start-collection', 'true');
+      mockUserStoreState.userInfo = { ...defaultMockUserInfo, openid: 'o_new' };
+      rerender(<ChatPage />);
+      expect(mockUpdateWxcode).toHaveBeenCalledTimes(1);
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
+
+    test('releases learning after account-info timeout and waits to start Profile until identity is known', async () => {
+      jest.useFakeTimers();
+      mockInWechat = true;
+      mockUserStoreState.userInfo = null;
+      mockGetProfileOnboarding.mockResolvedValue(
+        profileOnboardingStatus({
+          should_show: true,
+          presentation: 'blocking',
+        }),
+      );
+      const { rerender } = render(<ChatPage />);
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(WECHAT_OPENID_BINDING_TIMEOUT_MS);
+      });
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'true',
+      );
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      fireEvent.click(
+        screen.getByRole('button', { name: openLearnerProfileLabel }),
+      );
+      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+
+      mockUserStoreState.userInfo = { ...defaultMockUserInfo, openid: '' };
+      await act(async () => {
+        rerender(<ChatPage />);
+      });
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('learner-profile-dialog')).toHaveAttribute(
+        'data-auto-start-collection',
+        'true',
+      );
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+      expect(mockUpdateWxcode).not.toHaveBeenCalled();
+    });
+
+    test('does not start Profile before an OAuth recovery navigation', async () => {
+      mockSystemStoreState.wechatCode = '';
+      renderInWechat();
+
+      expect(mockWechatLogin).toHaveBeenCalledTimes(1);
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('learner-profile-dialog')).toBeNull();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'false',
+      );
+    });
+
+    test('keeps teacher preview runtime ready during pending OpenID preparation', () => {
+      mockSystemStoreState.previewMode = true;
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockUpdateWxcode.mockReturnValue(new Promise(() => {}));
+
+      renderInWechat();
+
+      expect(mockUpdateWxcode).toHaveBeenCalledTimes(1);
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+      expect(screen.getByTestId('chat-ui')).toHaveAttribute(
+        'data-runtime-ready',
+        'true',
+      );
+    });
+
+    test.each([
+      {
+        browser: 'outside WeChat',
+        inWechat: false,
+        miniProgram: false,
+        wxcode: 'true',
+      },
+      {
+        browser: 'a mini program',
+        inWechat: true,
+        miniProgram: true,
+        wxcode: 'true',
+      },
+      {
+        browser: 'disabled WeChat code flow',
+        inWechat: true,
+        miniProgram: false,
+        wxcode: 'false',
+      },
+    ])(
+      'preserves Profile entry after account-info failure in $browser',
+      async options => {
+        mockInWechat = options.inWechat;
+        mockInMiniProgram = options.miniProgram;
+        mockEnvStoreState.enableWxcode = options.wxcode;
+        mockUserStoreState.userInfo = null;
+        render(<ChatPage />);
+
+        await waitFor(() =>
+          expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1),
+        );
+        fireEvent.click(
+          screen.getByRole('button', { name: openLearnerProfileLabel }),
+        );
+        expect(
+          screen.getByTestId('learner-profile-dialog'),
+        ).toBeInTheDocument();
+        expect(mockUpdateWxcode).not.toHaveBeenCalled();
+        expect(mockWechatLogin).not.toHaveBeenCalled();
+      },
+    );
+
+    test('releases Profile after a refresh failure without another OAuth navigation', async () => {
+      mockSystemStoreState.wechatCode = 'code-1';
+      mockUpdateWxcode.mockResolvedValue('o_new');
+      mockRefreshUserInfo.mockRejectedValueOnce(new Error('refresh failed'));
+      renderInWechat();
+
+      await waitFor(() =>
+        expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1),
+      );
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+    });
+
+    test('releases Profile after the deadline and ignores late OAuth fallback', async () => {
+      jest.useFakeTimers();
+      let resolveExchange!: (value: string) => void;
+      mockUpdateWxcode.mockReturnValue(
+        new Promise<string>(resolve => {
+          resolveExchange = resolve;
+        }),
+      );
+      mockSystemStoreState.wechatCode = 'code-1';
+      renderInWechat();
+      expect(mockGetProfileOnboarding).not.toHaveBeenCalled();
+
+      await act(async () => {
+        jest.advanceTimersByTime(WECHAT_OPENID_BINDING_TIMEOUT_MS);
+      });
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        resolveExchange('');
+      });
+      expect(mockWechatLogin).not.toHaveBeenCalled();
+      expect(mockGetProfileOnboarding).toHaveBeenCalledTimes(1);
     });
 
     test('stays out of the WeChat flow outside WeChat', async () => {

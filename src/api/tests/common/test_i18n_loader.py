@@ -56,6 +56,22 @@ def test_french_language_loads_shared_translations() -> None:
     assert t("module.chat.ask") == "Demander"
 
 
+def test_spanish_language_loads_shared_translations() -> None:
+    app = Flask(__name__)
+
+    load_translations(app)
+    set_language("es-ES")
+    assert t("module.chat.ask") == "Preguntar"
+
+
+def test_german_language_loads_shared_translations() -> None:
+    app = Flask(__name__)
+
+    load_translations(app)
+    set_language("de-DE")
+    assert t("module.chat.ask") == "Nachfragen"
+
+
 def test_arabic_and_thai_languages_load_shared_translations() -> None:
     app = Flask(__name__)
 
@@ -75,9 +91,12 @@ def test_locale_labels_follow_shared_metadata_order() -> None:
 
     assert get_locale_labels() == {
         "ar-SA": "العربية",
+        "de-DE": "Deutsch",
         "en-US": "English",
+        "es-ES": "Español (España)",
         "fr-FR": "Français",
         "th-TH": "ไทย",
+        "ur-PK": "اردو",
         "zh-CN": "中文",
     }
 
@@ -88,7 +107,7 @@ def test_language_fallback_to_default() -> None:
     load_translations(app)
 
     # Set an unsupported language and verify fallback to en-US
-    set_language("de-DE")
+    set_language("xx-XX")
     assert t("module.chat.ask") == "Ask"
 
 
@@ -124,3 +143,11 @@ def test_flat_section_namespace_loading() -> None:
         t("server.common.operationFailed")
         == "Erreur du service, veuillez réessayer plus tard"
     )
+
+
+def test_urdu_loads_frontend_and_backend_translations() -> None:
+    app = Flask(__name__)
+    load_translations(app)
+    set_language("ur-PK")
+    assert t("module.chat.ask") == "مزید پوچھیں"
+    assert t("server.user.userNotFound") == "صارف نہیں ملا"

@@ -8,16 +8,20 @@ import {
 } from '@testing-library/react';
 import AskBlock from './AskBlock';
 import { AppContext } from '../AppContext';
-import { SSE_OUTPUT_TYPE } from '@/c-api/studyV2';
+import { BLOCK_TYPE, SSE_OUTPUT_TYPE } from '@/api/studyV2';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { useAskStateStore } from './useAskStateStore';
+import { mockLiveVoiceController } from '@/components/live-follow-up/liveVoiceFollowUp.test-support';
+
+const mockTrackEvent = jest.fn();
+let mockLanguage = 'zh-CN';
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
     i18n: {
-      language: 'zh-CN',
-      resolvedLanguage: 'zh-CN',
+      language: mockLanguage,
+      resolvedLanguage: mockLanguage,
     },
   }),
 }));
@@ -26,24 +30,35 @@ jest.mock('i18next', () => ({
   t: (key: string) => key,
 }));
 
-jest.mock('@/c-utils/markdownUtils', () => ({
+// Production embeds locale metadata through Next config; Jest has no build env.
+jest.mock('@/lib/i18n-locales', () => ({
+  isRtlLocale: (locale: string) => ['ar-SA', 'ur-PK'].includes(locale),
+}));
+
+jest.mock('@/lib/markdownUtils', () => ({
   fixMarkdownStream: (_previous: string, delta: string) => delta,
 }));
 
 jest.mock('markdown-flow-ui/renderer', () => ({
   ContentRender: ({
     content,
+    locale,
+    lang,
     enableTypewriter,
     typewriterPacing,
     typingSpeed,
   }: {
     content: string;
+    locale?: string;
+    lang?: string;
     enableTypewriter?: boolean;
     typewriterPacing?: 'fixed' | 'content-aware';
     typingSpeed?: number;
   }) => (
     <div
       data-testid='follow-up-answer'
+      data-locale={locale}
+      lang={lang}
       data-typewriter={String(Boolean(enableTypewriter))}
       data-typewriter-pacing={typewriterPacing}
       data-typing-speed={typingSpeed}
@@ -52,19 +67,46 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     </div>
   ),
   MarkdownFlowInput: ({
+    disabled,
+    locale,
+    lang,
     value,
     onChange,
     onSend,
+    sendShortcut,
+    textareaClassName,
   }: {
+    disabled?: boolean;
+    locale?: string;
+    lang?: string;
     value: string;
     onChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
     onSend: () => void;
+    sendShortcut?: 'enter' | 'none';
+    textareaClassName?: string;
   }) => (
-    <div>
+    <div
+      data-testid='ask-input-wrapper'
+      data-locale={locale}
+      lang={lang}
+      data-send-shortcut={sendShortcut}
+    >
       <textarea
+        disabled={disabled}
         aria-label='ask-input'
+        className={textareaClassName}
         value={value}
         onChange={onChange}
+        onKeyDown={event => {
+          if (
+            sendShortcut === 'enter' &&
+            event.key === 'Enter' &&
+            !event.shiftKey &&
+            !event.nativeEvent.isComposing
+          ) {
+            onSend();
+          }
+        }}
       />
       <button onClick={onSend}>send</button>
     </div>
@@ -74,6 +116,10 @@ jest.mock('markdown-flow-ui/renderer', () => ({
 jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
   toastOnce: jest.fn(),
+}));
+
+jest.mock('@/hooks/useTracking', () => ({
+  useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
 jest.mock('next/image', () => {
@@ -87,14 +133,14 @@ jest.mock('next/image', () => {
   };
 });
 
-jest.mock('@/c-assets/newchat/light/icon_shifu.svg', () => ({
+jest.mock('@/assets/newchat/light/icon_shifu.svg', () => ({
   __esModule: true,
   default: '/icon_shifu.svg',
 }));
 
 let mockIsCurrentUserCourseOwner: boolean | null = false;
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (
     selector?: (state: {
       courseAvatar: string;
@@ -119,7 +165,7 @@ const mockSystemState: {
   learningMode: 'read',
 };
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector?: (state: typeof mockSystemState) => unknown) => {
     return selector ? selector(mockSystemState) : mockSystemState;
   },
@@ -128,7 +174,7 @@ jest.mock('@/c-store/useSystemStore', () => ({
 const mockCheckIsRunning = jest.fn();
 const mockGetRunMessage = jest.fn();
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   BLOCK_TYPE: {
     CONTENT: 'content',
     INTERACTION: 'interaction',
@@ -179,6 +225,338 @@ class MockRunSource {
 }
 
 describe('AskBlock', () => {
+  it('disables unready Live input while retaining its draft and history', () => {
+    const controller = mockLiveVoiceController();
+    const props = {
+      shifu_bid: 'course-1',
+      outline_bid: 'lesson-1',
+      element_bid: 'element-1',
+      isExpanded: true,
+      followUpMode: 'live_voice' as const,
+    };
+    const { rerender } = render(
+      <AskBlock
+        {...props}
+        liveVoice={controller}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Keep my draft' },
+    });
+    rerender(
+      <AskBlock
+        {...props}
+        liveVoice={{ ...controller, readiness: 'warming' }}
+      />,
+    );
+    expect(screen.getByRole('textbox')).toBeDisabled();
+    expect(screen.getByRole('textbox')).toHaveValue('Keep my draft');
+    expect(controller.sendText).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.map(([, payload]) => payload.state),
+    ).toEqual(['ready', 'warming']);
+    rerender(
+      <AskBlock
+        {...props}
+        liveVoice={controller}
+      />,
+    );
+    expect(screen.getByRole('textbox')).toBeEnabled();
+    expect(screen.getByRole('textbox')).toHaveValue('Keep my draft');
+    expect(mockTrackEvent).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { preview_mode: true },
+    { isExpanded: false },
+    { liveVoice: undefined },
+    { followUpMode: 'disabled' as const },
+  ])('does not count unexposed or excluded readiness (%j)', overrides => {
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        followUpMode='live_voice'
+        liveVoice={mockLiveVoiceController({ readiness: 'warming' })}
+        {...overrides}
+      />,
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  it('counts an active listen input as ready even while the service probe is warming', () => {
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        followUpMode='live_voice'
+        liveVoiceSurface='listen_player'
+        liveVoice={mockLiveVoiceController({
+          readiness: 'warming',
+          anchorElementBid: 'element-1',
+          state: 'listening',
+        })}
+      />,
+    );
+    expect(screen.getByRole('textbox')).toBeEnabled();
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'learner_voice_follow_up_readiness',
+      {
+        shifu_bid: 'course-1',
+        outline_bid: 'lesson-1',
+        learning_mode: 'listen',
+        surface: 'listen_player',
+        state: 'ready',
+        initial: true,
+      },
+    );
+  });
+
+  it.each([
+    { followUpMode: 'text' as const },
+    { followUpMode: 'live_voice' as const, readonlyHistory: true },
+    { followUpMode: 'live_voice' as const, printMode: true },
+  ])(
+    'does not probe ordinary or readonly follow-up surfaces (%j)',
+    overrides => {
+      const controller = mockLiveVoiceController();
+      render(
+        <AskBlock
+          shifu_bid='course-1'
+          outline_bid='lesson-1'
+          element_bid='element-1'
+          isExpanded
+          liveVoice={controller}
+          {...overrides}
+        />,
+      );
+      expect(controller.prepare).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['ar-SA', 'ur-PK'])(
+    'mirrors the in-input microphone with the existing Send action in %s',
+    language => {
+      mockLanguage = language;
+      render(
+        <AskBlock
+          shifu_bid='course-1'
+          outline_bid='lesson-1'
+          element_bid='element-1'
+          isExpanded
+          followUpMode='live_voice'
+          liveVoice={mockLiveVoiceController()}
+        />,
+      );
+      const composer = screen.getByTestId('ask-input-wrapper').parentElement;
+      expect(composer).toHaveAttribute('dir', 'rtl');
+      expect(composer).toContainElement(
+        screen.getByRole('button', {
+          name: 'module.chat.liveVoiceStartMicrophone',
+        }),
+      );
+    },
+  );
+
+  it('leaves the ordinary text input without a voice adornment', () => {
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+      />,
+    );
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
+    expect(screen.getByRole('textbox')).not.toHaveClass('liveTextarea');
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.chat.liveVoiceStartMicrophone',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('leaves unknown follow-up language unset with Spanish MarkdownFlow controls', () => {
+    mockLanguage = 'es-ES';
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        askList={[{ type: BLOCK_TYPE.ANSWER, content: 'English reply' }]}
+      />,
+    );
+
+    expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute(
+      'data-locale',
+      'es-ES',
+    );
+    expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute('lang', '');
+    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
+      'data-locale',
+      'es-ES',
+    );
+    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute('lang', '');
+  });
+
+  it.each([false, true])(
+    'uses the original input for Live without opening the microphone (mobile=%s)',
+    async mobileStyle => {
+      const liveVoice = mockLiveVoiceController();
+      render(
+        <AppContext.Provider value={{ mobileStyle } as any}>
+          <AskBlock
+            shifu_bid='course-1'
+            outline_bid='lesson-1'
+            element_bid='element-1'
+            isExpanded
+            followUpMode='live_voice'
+            liveVoice={liveVoice}
+          />
+        </AppContext.Provider>,
+      );
+      expect(screen.getAllByRole('textbox')).toHaveLength(1);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(liveVoice.start).not.toHaveBeenCalled();
+      expect(liveVoice.startMicrophone).not.toHaveBeenCalled();
+      expect(liveVoice.prepare).toHaveBeenCalledTimes(1);
+      const composer = screen.getByTestId('ask-input-wrapper').parentElement;
+      expect(composer).toHaveClass('liveInput');
+      expect(composer).toContainElement(
+        screen.getByRole('button', {
+          name: 'module.chat.liveVoiceStartMicrophone',
+        }),
+      );
+      expect(composer).toContainElement(
+        screen.getByRole('button', { name: 'send' }),
+      );
+      expect(screen.getByRole('textbox')).toHaveClass('liveTextarea');
+      fireEvent.change(screen.getByRole('textbox'), {
+        target: { value: 'Typed question' },
+      });
+      expect(liveVoice.stopMicrophone).toHaveBeenCalled();
+      if (mobileStyle)
+        fireEvent.click(screen.getByRole('button', { name: 'send' }));
+      else
+        fireEvent.keyDown(screen.getByRole('textbox'), {
+          key: 'Enter',
+          code: 'Enter',
+        });
+      await waitFor(() =>
+        expect(liveVoice.sendText).toHaveBeenCalledWith(
+          { anchorElementBid: 'element-1', surface: 'read_content' },
+          'Typed question',
+          mobileStyle ? 'button' : 'keyboard',
+        ),
+      );
+      expect(mockGetRunMessage).not.toHaveBeenCalled();
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'learner_voice_follow_up_readiness',
+        {
+          shifu_bid: 'course-1',
+          outline_bid: 'lesson-1',
+          learning_mode: 'read',
+          surface: 'read_content',
+          state: 'ready',
+          initial: true,
+        },
+      );
+      await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue(''));
+    },
+  );
+
+  it('retains the draft on failed Live delivery and never uses credit/SSE gating', async () => {
+    mockIsCurrentUserCourseOwner = null;
+    const liveVoice = mockLiveVoiceController({
+      sendText: jest.fn().mockResolvedValue(false),
+    });
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        followUpMode='live_voice'
+        liveVoice={liveVoice}
+      />,
+    );
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Keep this draft' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+    await waitFor(() => expect(liveVoice.sendText).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('textbox')).toHaveValue('Keep this draft');
+    expect(mockGetRunMessage).not.toHaveBeenCalled();
+  });
+
+  it('pauses only its own Live session when the original panel collapses', () => {
+    const liveVoice = mockLiveVoiceController({
+      anchorElementBid: 'element-1',
+      open: true,
+      state: 'listening',
+    });
+    const props = {
+      shifu_bid: 'course-1',
+      outline_bid: 'lesson-1',
+      element_bid: 'element-1',
+      followUpMode: 'live_voice' as const,
+      liveVoice,
+    };
+    const { rerender } = render(
+      <AskBlock
+        {...props}
+        isExpanded
+      />,
+    );
+    rerender(
+      <AskBlock
+        {...props}
+        isExpanded={false}
+      />,
+    );
+    expect(liveVoice.pause).toHaveBeenCalledTimes(1);
+    expect(liveVoice.close).not.toHaveBeenCalled();
+  });
+
+  it('renders Live history with the existing bubbles and no typewriter', () => {
+    render(
+      <AskBlock
+        shifu_bid='course-1'
+        outline_bid='lesson-1'
+        element_bid='element-1'
+        isExpanded
+        followUpMode='live_voice'
+        readonlyHistory
+        askList={[
+          {
+            type: 'ask',
+            content: 'Question',
+            element_bid: 'ask-1',
+            interaction_mode: 'live_voice',
+          },
+          {
+            type: 'answer',
+            content: 'Spoken answer',
+            element_bid: 'answer-1',
+            interaction_mode: 'live_voice',
+            shouldUseTypewriter: false,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Question')).toBeInTheDocument();
+    expect(screen.getByTestId('follow-up-answer')).toHaveAttribute(
+      'data-typewriter',
+      'false',
+    );
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
   let activeRun:
     | {
         source: MockRunSource;
@@ -192,6 +570,7 @@ describe('AskBlock', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLanguage = 'zh-CN';
     activeRun = undefined;
     mockSystemState.showLearningModeToggle = true;
     mockSystemState.learningMode = 'read';
@@ -219,6 +598,150 @@ describe('AskBlock', () => {
         return source;
       },
     );
+  });
+
+  it('tracks an accepted desktop Enter submission with a privacy-safe payload', async () => {
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: false,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'private question' },
+    });
+    fireEvent.keyDown(screen.getByLabelText('ask-input'), { key: 'Enter' });
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('learner_follow_up_submit', {
+      surface: 'learner_desktop',
+      submission_method: 'keyboard',
+    });
+    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('content');
+    expect(mockTrackEvent.mock.calls[0][1]).not.toHaveProperty('shifu_bid');
+  });
+
+  it('tracks an accepted mobile button submission and isolates tracking failures', async () => {
+    mockTrackEvent.mockImplementationOnce(() => {
+      throw new Error('tracking unavailable');
+    });
+
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={true}
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          askList={[]}
+        />
+      </AppContext.Provider>,
+    );
+
+    fireEvent.change(screen.getByLabelText('ask-input'), {
+      target: { value: 'private question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'send' }));
+
+    await waitFor(() => expect(activeRun).toBeDefined());
+    expect(mockTrackEvent).toHaveBeenCalledWith('learner_follow_up_submit', {
+      surface: 'learner_mobile',
+      submission_method: 'button',
+    });
+  });
+
+  it.each([
+    ['desktop', false, 'enter'],
+    ['mobile', true, 'none'],
+  ] as const)(
+    'uses the %s input shortcut policy',
+    (_surface, mobileStyle, expectedShortcut) => {
+      render(
+        <AppContext.Provider
+          value={{
+            isLoggedIn: false,
+            mobileStyle,
+            userInfo: null,
+            theme: 'light',
+            frameLayout: 0,
+          }}
+        >
+          <AskBlock
+            isExpanded={true}
+            shifu_bid='shifu-1'
+            outline_bid='lesson-1'
+            element_bid='block-1'
+            askList={[]}
+          />
+        </AppContext.Provider>,
+      );
+
+      expect(screen.getByTestId('ask-input-wrapper')).toHaveAttribute(
+        'data-send-shortcut',
+        expectedShortcut,
+      );
+    },
+  );
+
+  it('renders Live voice history inline on mobile without a text input or panel', () => {
+    const onToggleAskExpanded = jest.fn();
+    render(
+      <AppContext.Provider
+        value={{
+          isLoggedIn: false,
+          mobileStyle: true,
+          userInfo: null,
+          theme: 'light',
+          frameLayout: 0,
+        }}
+      >
+        <AskBlock
+          isExpanded={false}
+          readonlyHistory
+          shifu_bid='shifu-1'
+          outline_bid='lesson-1'
+          element_bid='block-1'
+          onToggleAskExpanded={onToggleAskExpanded}
+          askList={[
+            { type: BLOCK_TYPE.ASK, content: 'Transcribed question' },
+            { type: BLOCK_TYPE.ANSWER, content: 'Transcribed answer' },
+          ]}
+        />
+      </AppContext.Provider>,
+    );
+
+    expect(screen.getByText('Transcribed question')).toBeInTheDocument();
+    expect(screen.getByText('Transcribed answer')).toBeInTheDocument();
+    expect(screen.queryByLabelText('ask-input')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Close' }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Transcribed question'));
+    expect(onToggleAskExpanded).not.toHaveBeenCalled();
+    expect(document.body.style.overflow).toBe('');
   });
 
   it.each(['read', 'listen'] as const)(

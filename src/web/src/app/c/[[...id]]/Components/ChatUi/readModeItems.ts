@@ -1,4 +1,4 @@
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import type { AskMessage } from './askState';
 
 export const normalizeReadModeDisplayItem = (item: ChatContentItem) => {

@@ -170,7 +170,7 @@
         "averageScore": "Average Rating",
         "latestRatedAt": "Latest Rating",
         "ratingCount": "Ratings",
-        "scopeHint": "Review lesson ratings and creator-relevant feedback so you can spot satisfaction shifts and lessons that need refinement.",
+        "scopeHint": "Review learners’ lesson ratings and feedback to assess course satisfaction and identify content that needs improvement.",
         "userCount": "Learners Who Rated"
       },
       "table": {
@@ -185,7 +185,6 @@
       },
       "title": "Rating Data"
     },
-    "subtitle": "Basic course info, key metrics, and learner activity data are all powered by live reporting.",
     "title": "Course Detail"
   },
   "entry": {
@@ -205,11 +204,8 @@
       "orderAmount": "Order Amount",
       "orders": "Orders",
       "reset": "Reset",
-      "scopeNote": "Scope: Only data from courses you created and own is included. Collaborative courses are excluded.",
       "search": "Search",
       "searchPlaceholder": "Course ID / Course name",
-      "title": "Course List",
-      "totalCount": "Total: {count}",
       "viewCourse": "View Course",
       "viewOrders": "View Orders"
     }

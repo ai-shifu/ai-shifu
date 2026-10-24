@@ -6,6 +6,7 @@ import typing
 from enum import Enum
 
 from flasgger.base import BR_SANITIZER
+from pydantic import BaseModel
 
 swagger_config = {
     "openapi": "3.0.2",
@@ -155,16 +156,20 @@ def register_schema_to_swagger(cls: object) -> object:
     properties = {}
     required = []
     comments = parse_comments(cls)
+    model_fields = cls.model_fields if issubclass(cls, BaseModel) else {}
     for name, typ in cls.__annotations__.items():
         field_schema = get_field_schema(typ, description=comments.get(name, ""))
         properties[name] = field_schema
-        required.append(name)
+        field = model_fields.get(name)
+        if field is None or field.is_required():
+            required.append(name)
     schema = {
         "type": "object",
         "description": comments.get(cls.__name__, ""),
         "properties": properties,
-        "required": required,
     }
+    if required:
+        schema["required"] = required
     swagger_config["components"]["schemas"][cls.__name__] = schema
 
     return cls

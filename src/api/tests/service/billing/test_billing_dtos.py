@@ -41,6 +41,7 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
             subscription_bid="sub-1",
             product_bid="bill-product-plan-monthly",
             product_code="plan-monthly",
+            product_name_key="module.billing.catalog.plans.monthly.title",
             status="active",
             billing_provider="stripe",
             current_period_start_at="2026-04-01T00:00:00+00:00",
@@ -84,6 +85,9 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
 
     assert payload["wallet"]["available_credits"] == 12.5
     assert payload["subscription"]["status"] == "active"
+    assert payload["subscription"]["product_name_key"] == (
+        "module.billing.catalog.plans.monthly.title"
+    )
     assert payload["billing_alerts"][0]["action_payload"] == {"target": "topup"}
     assert payload["trial_offer"]["status"] == "granted"
     assert payload["trial_offer"]["product_code"] == "creator-plan-trial"
@@ -188,7 +192,6 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
 
 def test_runtime_config_dto_json_uses_public_aliases() -> None:
     dto = RuntimeConfigDTO(
-        default_llm_model="gpt-5.4",
         wechat_app_id="wechat-app-1",
         enable_wechat_code=True,
         billing_enabled=True,
@@ -211,20 +214,27 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         contact_us_url="https://ai-shifu.cn/contact.html",
         official_site_url="https://official.example.com",
         currency_symbol="¥",
+        default_course_price=0,
+        minimum_paid_course_price=0.01,
         legal_urls=RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
                 **{
                     "zh-CN": "/legal/agreement/zh",
                     "en-US": "/legal/agreement/en",
+                    "de-DE": "/legal/agreement/de",
+                    "es-ES": "/legal/agreement/es",
                     "fr-FR": "/legal/agreement/fr",
                     "ar-SA": "/legal/agreement/ar",
                     "th-TH": "/legal/agreement/th",
+                    "ur-PK": "",
                 }
             ),
             privacy=RuntimeLocalizedUrlDTO(
                 **{
                     "zh-CN": "/legal/privacy/zh",
                     "en-US": "/legal/privacy/en",
+                    "de-DE": "/legal/privacy/de",
+                    "es-ES": "/legal/privacy/es",
                     "fr-FR": "/legal/privacy/fr",
                     "ar-SA": "/legal/privacy/ar",
                     "th-TH": "/legal/privacy/th",
@@ -266,9 +276,12 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert payload["legalUrls"]["agreement"] == {
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
+        "de-DE": "/legal/agreement/de",
+        "es-ES": "/legal/agreement/es",
         "fr-FR": "/legal/agreement/fr",
         "ar-SA": "/legal/agreement/ar",
         "th-TH": "/legal/agreement/th",
+        "ur-PK": "",
     }
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 2
@@ -279,7 +292,6 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert dto.billing_enabled is True
     assert dto.official_site_url == "https://official.example.com"
     assert set(payload) == {
-        "defaultLlmModel",
         "wechatAppId",
         "enableWechatCode",
         "billingEnabled",
@@ -302,6 +314,8 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
         "contactUsUrl",
         "officialSiteUrl",
         "currencySymbol",
+        "defaultCoursePrice",
+        "minimumPaidCoursePrice",
         "legalUrls",
         "entitlements",
         "branding",

@@ -3,6 +3,7 @@
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 from sqlalchemy import (
+    JSON,
     TIMESTAMP,
     Column,
     Date,
@@ -227,6 +228,19 @@ class UserInfo(db.Model):
         nullable=True,
         comment="Timestamp when creator access was first activated",
     )
+    cancelled_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Account cancellation timestamp",
+    )
+    cancellation_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Account cancellation business identifier",
+    )
 
     updated_at = Column(
         DateTime,
@@ -234,6 +248,114 @@ class UserInfo(db.Model):
         default=now_utc,
         comment="Last update timestamp",
         onupdate=now_utc,
+    )
+
+
+class UserAccountCancellation(db.Model):
+    """Persist the authoritative audit record for a cancelled account."""
+
+    __tablename__ = "user_account_cancellations"
+    __table_args__ = (
+        UniqueConstraint(
+            "cancellation_bid",
+            name="uq_user_account_cancellations_cancellation_bid",
+        ),
+        UniqueConstraint(
+            "user_bid",
+            name="uq_user_account_cancellations_user_bid",
+        ),
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    cancellation_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Cancellation business identifier",
+    )
+    user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Cancelled user business identifier",
+    )
+    operator_user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Operator user business identifier",
+    )
+    actor_type = Column(
+        String(32),
+        nullable=False,
+        default="operator",
+        comment="Cancellation actor type",
+    )
+    reason = Column(Text, nullable=False, comment="Operator-provided audit reason")
+    status = Column(
+        String(32),
+        nullable=False,
+        default="completed",
+        index=True,
+        comment="Cancellation status",
+    )
+    attempt_count = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Background execution attempt count",
+    )
+    failure_code = Column(
+        String(64),
+        nullable=False,
+        default="",
+        server_default="",
+        comment="Bounded background execution failure code",
+    )
+    last_attempt_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Latest background execution attempt timestamp",
+    )
+    idempotency_key = Column(
+        String(128),
+        nullable=False,
+        default="",
+        unique=True,
+        comment="Cancellation request idempotency key",
+    )
+    retention_snapshot = Column(
+        JSON,
+        nullable=True,
+        comment="Privacy-safe cancellation decision snapshot",
+    )
+    requested_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Cancellation request timestamp",
+    )
+    completed_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Cancellation completion timestamp",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Creation timestamp",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        onupdate=now_utc,
+        comment="Last update timestamp",
     )
 
 

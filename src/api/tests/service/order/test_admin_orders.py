@@ -17,7 +17,9 @@ from flaskr.service.order.admin import (
     ORDER_SOURCE_OPEN_API,
     ORDER_SOURCE_USER_PURCHASE,
     _apply_order_source_filter,
+    _apply_payment_channel_filter,
     _load_matching_user_bids_for_keyword,
+    _resolve_order_display_payment_channel,
     _resolve_order_source,
     get_operator_order_detail,
     get_operator_order_overview,
@@ -56,6 +58,61 @@ class DummyShifu:
     def __init__(self) -> None:
         """Expose the fixed course title used by admin order tests."""
         self.title = "Demo Course"
+
+
+def test_free_order_legacy_default_uses_market_payment_channel() -> None:
+    order = DummyOrder()
+    order.paid_price = "0.00"
+    order.payment_channel = "pingxx"
+
+    with patch(
+        "flaskr.service.order.admin.resolve_market_payment_provider",
+        return_value="stripe",
+    ):
+        assert _resolve_order_display_payment_channel(order) == "stripe"
+
+
+def test_paid_order_keeps_recorded_payment_channel() -> None:
+    order = DummyOrder()
+    order.payment_channel = "pingxx"
+
+    with patch(
+        "flaskr.service.order.admin.resolve_market_payment_provider"
+    ) as resolver:
+        assert _resolve_order_display_payment_channel(order) == "pingxx"
+        resolver.assert_not_called()
+
+
+def test_stripe_filter_includes_legacy_free_pingxx_orders() -> None:
+    query = MagicMock()
+    query.filter.return_value = query
+
+    with patch(
+        "flaskr.service.order.admin.resolve_market_payment_provider",
+        return_value="stripe",
+    ):
+        _apply_payment_channel_filter(query, "stripe")
+
+    predicate = str(query.filter.call_args.args[0])
+    assert "payment_channel" in predicate
+    assert "paid_price" in predicate
+    assert " OR " in predicate
+
+
+def test_pingxx_filter_excludes_legacy_free_orders_on_stripe_market() -> None:
+    query = MagicMock()
+    query.filter.return_value = query
+
+    with patch(
+        "flaskr.service.order.admin.resolve_market_payment_provider",
+        return_value="stripe",
+    ):
+        _apply_payment_channel_filter(query, "pingxx")
+
+    predicates = query.filter.call_args.args
+    assert len(predicates) == 2
+    assert "payment_channel" in str(predicates[0])
+    assert "paid_price" in str(predicates[1])
 
 
 def _mock_operator(

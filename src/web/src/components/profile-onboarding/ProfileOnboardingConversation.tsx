@@ -6,7 +6,7 @@ import { ScrollToBottomControl } from 'markdown-flow-ui/scroll';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
-import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
 import { cn } from '@/lib/utils';
 import type {
@@ -187,9 +187,8 @@ export default function ProfileOnboardingConversation({
   const itemsRef = React.useRef(items);
   itemsRef.current = items;
 
-  const locale = resolveMarkdownFlowLocale(
-    i18n.resolvedLanguage ?? i18n.language,
-  );
+  const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const locale = resolveMarkdownFlowLocale(hostLanguage);
   const visibleErrorMessage = submissionLimitError
     ? t('module.profileOnboarding.guided.inputLimitError')
     : errorMessage;
@@ -337,6 +336,7 @@ export default function ProfileOnboardingConversation({
                 <StableProfileContentRender
                   key={item.elementBid}
                   locale={locale}
+                  lang=''
                   content={item.content}
                   userInput={item.userInput}
                   readonly={item.readonly}
@@ -360,6 +360,7 @@ export default function ProfileOnboardingConversation({
             ) : (
               <StableProfileContentRender
                 locale={locale}
+                lang=''
                 content=''
                 readonly
                 enableTypewriter={isDocumentVisible}

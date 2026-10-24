@@ -1,4 +1,4 @@
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import {
   buildVisiblePreviewItems,
   shouldEnablePreviewTypewriter,

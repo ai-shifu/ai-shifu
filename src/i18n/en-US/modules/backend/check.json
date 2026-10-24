@@ -1,6 +1,6 @@
 {
   "__namespace__": "server.check",
   "__flat__": {
-    "checkRiskControlReject": "please check the content"
+    "checkRiskControlReject": "The entered content is not allowed. Please review it."
   }
 }

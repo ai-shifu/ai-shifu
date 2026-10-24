@@ -3,9 +3,9 @@ import useSWR, { mutate as mutateSWRCache } from 'swr';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import api from '@/api';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
+import { useTracking } from '@/hooks/useTracking';
+import { useEnvStore } from '@/store';
+import { EnvStoreState } from '@/types/store';
 import { toast } from '@/hooks/useToast';
 import { useBillingPingxxPolling } from '@/hooks/useBillingPingxxPolling';
 import {
@@ -716,6 +716,7 @@ export function BillingOverviewTab({
                 paymentChannel: qrCode.channel,
                 billOrderBid: result.bill_order_bid,
               },
+              billingOrderBid: result.bill_order_bid,
               expiresInSeconds: result.expires_in_seconds,
               provider: result.provider,
               qrUrl: qrCode.url,
@@ -984,6 +985,7 @@ export function BillingOverviewTab({
       />
 
       <BillingPingxxQrDialog
+        billingOrderBid={pingxxCheckout?.billingOrderBid || ''}
         amountInMinor={pingxxCheckout?.amountInMinor || 0}
         currency={pingxxCheckout?.currency || 'CNY'}
         description={pingxxCheckout?.description || ''}

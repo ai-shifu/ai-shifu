@@ -15,7 +15,7 @@ import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { cn } from '@/lib/utils';
 import i18n from '@/i18n';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   buildLoginAttemptAnalytics,
   buildLoginResultAnalytics,
@@ -140,13 +140,11 @@ export function PasswordLogin({
         );
         onLoginSuccess();
       } else {
+        const failureCategory =
+          response.code === 1039 ? 'rate_limited' : 'credentials_rejected';
         trackEvent(
           'learner_login_result',
-          buildLoginResultAnalytics(
-            'password',
-            'failed',
-            'credentials_rejected',
-          ),
+          buildLoginResultAnalytics('password', 'failed', failureCategory),
         );
         toast({
           title: t('module.auth.failed'),

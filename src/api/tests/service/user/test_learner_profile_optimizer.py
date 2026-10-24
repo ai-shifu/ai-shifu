@@ -101,6 +101,7 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
         "语言风格：请使用亲切直接、简洁易懂的表达，少用术语。"
     )
     captured: dict = {}
+    monkeypatch.setitem(app.config, "LLM_MODEL_1_ID", "profile-model-one")
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
     monkeypatch.setattr(
         optimizer,
@@ -123,6 +124,7 @@ def test_optimize_returns_reviewable_draft_without_changing_business_state(
 
     assert result == {"optimized_learner_profile": optimized}
     assert after == before
+    assert captured["args"][3] == "profile-model-one"
     instruction, encoded_profile = captured["args"][4].split("\n", 1)
     assert "Apply the system transformation" in instruction
     assert json.loads(encoded_profile) == {"learner_profile": source}
@@ -388,13 +390,13 @@ def test_optimize_provider_unavailable_moderation_still_allows_llm(
     assert audit.text == source
 
 
-def test_optimize_missing_default_model_does_not_call_llm_or_change_state(
+def test_optimize_missing_model_one_does_not_call_llm_or_change_state(
     app: object, monkeypatch: object
 ) -> None:
     user_bid = "profile-optimize-missing-model"
     invoked = False
     monkeypatch.setattr(optimizer, "check_text_content", lambda *_args: True)
-    monkeypatch.setitem(app.config, "DEFAULT_LLM_MODEL", "")
+    monkeypatch.setitem(app.config, "LLM_MODEL_1_ID", "")
 
     def unexpected_invoke(*_args: object, **_kwargs: object) -> object:
         nonlocal invoked

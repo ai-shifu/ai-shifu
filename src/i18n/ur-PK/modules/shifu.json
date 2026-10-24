@@ -1,0 +1,61 @@
+{
+  "__namespace__": "module.shifu",
+  "creationArea": {
+    "descriptionPrefix": "متن ",
+    "descriptionSuffix": " فارمیٹ میں لکھیں تاکہ AI کو پڑھانے کی ہدایات ملیں۔",
+    "modeCode": "پیشہ ورانہ",
+    "modeText": "دوستانہ",
+    "title": "تدریسی پرامپٹ"
+  },
+  "history": {
+    "backToDocument": "دستاویز پر واپس جائیں۔",
+    "confirmDescription": "بحال کرنے کی تصدیق کے بعد موجودہ سبق کا پورا متن اس ورژن سے بدل جائے گا۔",
+    "confirmLoadFailed": "ورژن کا مواد لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "confirmTitle": "اس ورژن کو بحال کرنے کی تصدیق کریں۔",
+    "contentEmpty": "یہ ورژن خالی ہے۔",
+    "empty": "ابھی کوئی سابقہ ریکارڈ نہیں۔",
+    "loading": "لوڈ ہو رہا ہے…",
+    "restore": "اس ورژن کو بحال کریں۔",
+    "restoreLessonDeleted": "اس حصے کو دوسرے ایڈیٹرز نے حذف کر دیا ہے اور اسے بحال نہیں کیا جا سکتا۔ براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "restoring": "بازیاب ہو رہا ہے...",
+    "title": "تبدیلیوں کی تاریخ",
+    "unknownUser": "نامعلوم صارف"
+  },
+  "newChapter": "باب شامل کریں۔",
+  "previewArea": {
+    "action": "آزمائیں",
+    "close": "سیکھنے کی آزمائش سمیٹیں",
+    "copied": "ٹکڑا کاپی ہو گیا۔",
+    "copy": "حصہ کاپی کریں",
+    "copyTooltip": "اس حصے کو بائیں جانب تدریسی پرامپٹ میں چسپاں کریں۔ اگلی بار اسی سے سبق تیار ہوگا۔",
+    "description": "سیکھنے والے کے تجربے کو محسوس کریں اور ذاتی نوعیت کے کورسز بنانے کے لیے پرامپٹ کا اثر دیکھیں",
+    "disabled": "براہ کرم ڈیبگ کرنے سے پہلے مخصوص حصے منتخب کریں۔",
+    "empty": "بائیں جانب تدریسی پرامپٹ لکھیں، پھر “آزمائیں” پر کلک کر کے طالب علم کا تجربہ دیکھیں۔",
+    "loading": "سیکھنے کا سمولیشن تیار ہو رہا ہے...",
+    "open": "سیکھنے کی آزمائش کھولیں",
+    "systemVariableLabels": {
+      "accessibleName": "{label}（{name}）",
+      "background": "طالب علم کے پس منظر کی ترجیحات",
+      "input": "تازہ ترین ان پٹ",
+      "language": "تدریس کی زبان",
+      "nickname": "طالب علم کا عرفی نام"
+    },
+    "title": "سیکھنے کی آزمائش",
+    "variablesCollapse": "سمیٹیں",
+    "variablesDescription": "مختلف سیکھنے والے متغیرات کو مختلف اقدار دیں گے اور مختلف کورس کے اثرات حاصل کریں گے۔",
+    "variablesEmpty": "ابھی تک کوئی متغیر نہیں ہے۔",
+    "variablesExpand": "پھیلائیں",
+    "variablesHideSingleConfirmDesc": "\"{name}\" متغیر کو چھپائیں۔ چھپنے کے بعد، آپ اسے بحال کرنے کے لیے \"سب دکھائیں\" بٹن پر کلک کر سکتے ہیں۔",
+    "variablesHideSingleConfirmTitle": "متغیر چھپائیں",
+    "variablesHideUnused": "غیر استعمال شدہ چھپائیں۔",
+    "variablesHideUnusedConfirmDesc": "پورے کورس میں غیر استعمال شدہ خود ساختہ متغیرات کو چھپائیں۔ چھپنے کے بعد، آپ اس بٹن پر کلک کر کے انہیں ڈسپلے میں بحال کر سکتے ہیں۔",
+    "variablesHideUnusedConfirmTitle": "غیر استعمال شدہ خود ساختہ متغیرات کو چھپائیں۔",
+    "variablesHideUnusedTooltip": "کورسز میں غیر استعمال شدہ خود ساختہ متغیرات کو چھپائیں۔",
+    "variablesPlaceholder": "UNKNOWN",
+    "variablesRestoreHidden": "سب دکھائیں۔",
+    "variablesRestoreHiddenConfirmDesc": "کورس میں تمام متغیرات دکھاتا ہے۔ ڈسپلے کرنے کے بعد، آپ غیر استعمال شدہ خود ساختہ متغیرات کو چھپانے کے لیے اس بٹن پر کلک کر سکتے ہیں۔",
+    "variablesRestoreHiddenConfirmTitle": "تمام متغیرات دکھائیں۔",
+    "variablesRestoreHiddenTooltip": "کورس میں تمام متغیرات دکھائیں۔",
+    "variablesTitle": "متغیر"
+  }
+}

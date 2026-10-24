@@ -7,8 +7,12 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask
+from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.billing.ownership import resolve_usage_creator_bid
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
+from flaskr.service.shifu.models import DraftShifu
 from flaskr.service.shifu.tts_preview import build_tts_preview_response
 
 
@@ -28,11 +32,33 @@ def _split_hello(text: str, provider_name: str = "") -> list[str]:
     return ["hello"]
 
 
-def test_build_tts_preview_response_records_debug_usage_and_summary(
-    monkeypatch: object,
+@pytest.mark.parametrize("is_creator", [True, False])
+def test_tts_preview_route_records_billable_debug_usage_and_summary(
+    monkeypatch: object, test_client: object, is_creator: bool
 ) -> None:
-    app = Flask(__name__)
+    app = test_client.application
     captured: list[dict[str, object]] = []
+    with app.app_context(), unit_of_work():
+        DraftShifu.query.filter_by(shifu_bid="tts-preview-course").delete()
+        db.session.add(
+            DraftShifu(
+                shifu_bid="tts-preview-course", created_user_bid="tts-course-owner"
+            )
+        )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.route.shifu_permission_verification", lambda *_args: True
+    )
+    admissions = []
+    monkeypatch.setattr(
+        "flaskr.route.user.validate_user",
+        lambda _app, _token: SimpleNamespace(
+            user_id="preview-tts-user", language="en-US", is_creator=is_creator
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.route.admit_creator_usage",
+        lambda _app, **kwargs: admissions.append(kwargs),
+    )
 
     monkeypatch.setattr(
         "flaskr.service.shifu.tts_preview.validate_tts_settings_strict",
@@ -111,20 +137,32 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
         raising=False,
     )
 
-    with app.test_request_context("/api/shifu/tts/preview", method="POST"):
-        response = build_tts_preview_response(
-            {
-                "provider": "fake",
-                "voice_id": "voice-1",
-                "speed": 1.0,
-                "pitch": 0,
-                "text": "hello world",
-            },
-            request_user_id="creator-debug-tts-1",
-            request_user_is_creator=True,
-        )
-        body = "".join(response.response)
+    response = test_client.post(
+        "/api/shifu/tts/preview",
+        headers={"Token": "preview-token", "X-Internal-Request": "true"},
+        json={
+            "provider": "fake",
+            "voice_id": "voice-1",
+            "speed": 1.0,
+            "pitch": 0,
+            "text": "hello world",
+            "billable": 0,
+            "internal": True,
+            "request_user_is_creator": False,
+            "user_bid": "unrelated-user",
+            "creator_bid": "unrelated-owner",
+            "shifu_bid": "tts-preview-course",
+        },
+    )
+    body = response.get_data(as_text=True)
 
+    assert admissions == [
+        {
+            "creator_bid": "tts-course-owner",
+            "shifu_bid": "tts-preview-course",
+            "usage_scene": BILL_USAGE_SCENE_DEBUG,
+        }
+    ]
     assert response.mimetype == "text/event-stream"
     assert '"type": "audio_segment"' in body
     assert '"type": "audio_complete"' in body
@@ -135,7 +173,7 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
 
     for call in segment_calls:
         context = call["context"]
-        assert context.user_bid == "creator-debug-tts-1"
+        assert context.user_bid == "preview-tts-user"
         assert context.usage_scene == BILL_USAGE_SCENE_DEBUG
         assert context.billable == 1
         assert call["kwargs"]["record_level"] == 1
@@ -144,6 +182,9 @@ def test_build_tts_preview_response_records_debug_usage_and_summary(
         assert call["kwargs"]["total"] == 8
 
     assert summary_call["kwargs"]["usage_bid"] == "usage-parent-1"
+    assert summary_call["context"].billable == 1
+    assert summary_call["context"].shifu_bid == "tts-preview-course"
+    assert resolve_usage_creator_bid(app, summary_call["context"]) == "tts-course-owner"
     assert summary_call["kwargs"]["record_level"] == 0
     assert summary_call["kwargs"]["segment_count"] == 2
     assert summary_call["kwargs"]["word_count"] == 10
@@ -222,7 +263,7 @@ def test_build_tts_preview_response_normalizes_removed_fields(
                 "text": "hello",
             },
             request_user_id="creator-debug-tts-1",
-            request_user_is_creator=True,
+            shifu_bid="tts-preview-course",
         )
 
     assert captured["pitch"] == 0
@@ -285,7 +326,7 @@ def test_build_tts_preview_response_guards_minimax_custom_voice(
                 "text": "hello",
             },
             request_user_id="creator-debug-tts-1",
-            request_user_is_creator=True,
+            shifu_bid="tts-preview-course",
         )
 
     # The guard runs before any streaming/synthesis and blocks the request.
@@ -377,7 +418,7 @@ def test_preview_stream_close_invalidates_session(monkeypatch: object) -> None:
         response = build_tts_preview_response(
             {"provider": "fake", "voice_id": "voice-1", "text": "hello world"},
             request_user_id="creator-1",
-            request_user_is_creator=True,
+            shifu_bid="tts-preview-course",
         )
         stream = iter(response.response)
         next(stream)

@@ -2,7 +2,7 @@
 title: Operator User Management
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-04-17
+last_reviewed: 2026-09-08
 canonical: true
 ---
 
@@ -66,6 +66,61 @@ Primary source tables:
   - `identifier`
   - `state`
   - `deleted`
+- `user_account_cancellations`
+  - stable cancellation case and cancelled `user_bid`
+  - operator, required reason, status, and UTC timestamps
+  - privacy-safe retention snapshot and idempotency key
+
+## Account Cancellation Contract
+
+The first cancellation delivery is operator-only and intentionally has no
+learner or teacher self-service entry. Backend policy is exposed through four
+operator endpoints: preview, published-course batch transfer, subscription
+renewal cancellation, and final cancellation.
+
+- The preview is authoritative and versioned. Final cancellation rejects a
+  stale preview or any remaining blocker.
+- Operators cannot cancel themselves or another operator account.
+- Draft-only courses are retained with their original `created_user_bid` and
+  become frozen because a cancelled owner cannot authenticate. Published
+  courses must first be transferred; all matching draft revisions and
+  course-owned cloned voices move with them.
+- Active renewal is cancelled automatically by the operator workflow before
+  final confirmation. Unsettled payments remain a blocker.
+- Unused available credits are forfeited without refund. Financial and credit
+  ledger history remains pseudonymously attributable to the stable `user_bid`.
+- Final cancellation revokes sessions, disables and de-identifies credentials,
+  erases direct profile data and global profile variables, and marks the user
+  row deleted with a cancellation timestamp and case identifier.
+- A released phone or email can register a new account; it never reactivates
+  or reconnects to the cancelled account.
+- The default list remains active-only. `user_status=cancelled` selects
+  cancelled accounts, while detail responses expose the cancellation time,
+  reason, and responsible operator for audit.
+- User Management exposes cancellation as a destructive row action for
+  non-operator, active accounts. One preparation dialog collects the required
+  reason, displays the impact, transfers all published courses inline when
+  necessary, and cancels active subscription renewals before presenting one
+  compact final confirmation. The user detail page, rather than the routine
+  list columns, displays the cancellation audit fields.
+- The operator UI emits the additive `operator_user_cancellation_opened`,
+  `operator_user_cancellation_attempt`, and
+  `operator_user_cancellation_result` Umami events. Their allowlisted payload
+  contains only `surface=user_list` and, for the result, a `success|failed`
+  outcome. Cancellation reasons, account identifiers, contacts, names, URLs,
+  preview data, and raw errors are never tracked. A terminal result is dropped
+  when the tracking transport's identity changes after the attempt, preventing
+  an operator's result from being attributed to a replacement or guest identity.
+- User Management provides a separate credit-deduction row action. It accepts
+  positive values with at most two decimal places and requires final
+  confirmation. Active spendable paid credits are deducted first, then manually
+  granted credits; an insufficient eligible balance fails without a partial
+  deduction. Gift/reward and reserved credits are not eligible.
+- The deduction UI emits `operator_credit_deduction_attempt` and
+  `operator_credit_deduction_result`. The allowlist contains only
+  `surface=operator_user_management` plus `outcome=success|failed` on results;
+  no user, amount, balance, reason, note, request identifier or raw error is
+  collected.
 
 ## Backend Plan
 

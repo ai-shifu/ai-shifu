@@ -1,3 +1,8 @@
+---
+name: admin-filter-layout
+description: Use when changing admin filter layouts or consolidating filter controls into the shared AdminFilter component.
+---
+
 # Admin Filter Layout
 
 ## 触发场景

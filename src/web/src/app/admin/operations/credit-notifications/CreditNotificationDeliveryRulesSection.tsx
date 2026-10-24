@@ -21,6 +21,7 @@ import {
 import type { UpdatePolicy } from './useCreditNotificationConfigTabState';
 
 export type CreditNotificationDeliveryRulesSectionProps = {
+  contactMode: 'email' | 'phone';
   policy: AdminOperationCreditNotificationPolicy;
   updatePolicy: UpdatePolicy;
   getIntegerInputValue: (path: string, value: number) => string;
@@ -81,6 +82,7 @@ function RuleSummaryCard({
 }
 
 export function CreditNotificationDeliveryRulesSection({
+  contactMode,
   policy,
   updatePolicy,
   getIntegerInputValue,
@@ -93,8 +95,8 @@ export function CreditNotificationDeliveryRulesSection({
     'module.operationsCreditNotifications.config.deliveryRules.yes',
   );
   const no = t('module.operationsCreditNotifications.config.deliveryRules.no');
-  const summaries = useMemo(
-    () => [
+  const summaries = useMemo(() => {
+    const items = [
       {
         key: 'frequency',
         title: t(
@@ -103,13 +105,22 @@ export function CreditNotificationDeliveryRulesSection({
         active:
           policy.frequency.per_mobile_per_day > 0 ||
           policy.frequency.per_creator_per_type_per_day > 0,
-        summary: t(
-          'module.operationsCreditNotifications.config.deliveryRules.summaries.frequency',
-          {
-            perMobile: policy.frequency.per_mobile_per_day,
-            perCreatorType: policy.frequency.per_creator_per_type_per_day,
-          },
-        ),
+        summary:
+          contactMode === 'email'
+            ? t(
+                'module.operationsCreditNotifications.config.deliveryRules.summaries.frequencyEmail',
+                {
+                  perRecipient: policy.frequency.per_mobile_per_day,
+                  perCreatorType: policy.frequency.per_creator_per_type_per_day,
+                },
+              )
+            : t(
+                'module.operationsCreditNotifications.config.deliveryRules.summaries.frequency',
+                {
+                  perMobile: policy.frequency.per_mobile_per_day,
+                  perCreatorType: policy.frequency.per_creator_per_type_per_day,
+                },
+              ),
       },
       {
         key: 'quietHours',
@@ -131,6 +142,35 @@ export function CreditNotificationDeliveryRulesSection({
             ),
       },
       {
+        key: 'softlimit',
+        title: t(
+          'module.operationsCreditNotifications.config.sections.softlimit',
+        ),
+        active: policy.softlimit.enabled,
+        summary:
+          contactMode === 'email'
+            ? t(
+                'module.operationsCreditNotifications.config.deliveryRules.summaries.softlimitEmail',
+                {
+                  threshold: policy.softlimit.threshold.value,
+                  teacherAlert: policy.softlimit.teacher_page_alert ? yes : no,
+                  debugLock: policy.softlimit.disable_debug ? yes : no,
+                },
+              )
+            : t(
+                'module.operationsCreditNotifications.config.deliveryRules.summaries.softlimit',
+                {
+                  threshold: policy.softlimit.threshold.value,
+                  teacherAlert: policy.softlimit.teacher_page_alert ? yes : no,
+                  debugLock: policy.softlimit.disable_debug ? yes : no,
+                  sms: policy.softlimit.sms_enabled ? yes : no,
+                },
+              ),
+      },
+    ];
+
+    if (contactMode === 'phone') {
+      items.splice(2, 0, {
         key: 'budget',
         title: t('module.operationsCreditNotifications.config.sections.budget'),
         active:
@@ -143,26 +183,11 @@ export function CreditNotificationDeliveryRulesSection({
             dryRun: policy.budget.dry_run_required ? yes : no,
           },
         ),
-      },
-      {
-        key: 'softlimit',
-        title: t(
-          'module.operationsCreditNotifications.config.sections.softlimit',
-        ),
-        active: policy.softlimit.enabled,
-        summary: t(
-          'module.operationsCreditNotifications.config.deliveryRules.summaries.softlimit',
-          {
-            threshold: policy.softlimit.threshold.value,
-            teacherAlert: policy.softlimit.teacher_page_alert ? yes : no,
-            debugLock: policy.softlimit.disable_debug ? yes : no,
-            sms: policy.softlimit.sms_enabled ? yes : no,
-          },
-        ),
-      },
-    ],
-    [no, policy, t, yes],
-  );
+      });
+    }
+
+    return items;
+  }, [contactMode, no, policy, t, yes]);
 
   return (
     <>
@@ -171,7 +196,9 @@ export function CreditNotificationDeliveryRulesSection({
           'module.operationsCreditNotifications.config.sections.deliveryPolicy',
         )}
         description={t(
-          'module.operationsCreditNotifications.config.deliveryRules.description',
+          contactMode === 'email'
+            ? 'module.operationsCreditNotifications.config.deliveryRules.descriptionEmail'
+            : 'module.operationsCreditNotifications.config.deliveryRules.description',
         )}
         action={
           <Button
@@ -210,12 +237,15 @@ export function CreditNotificationDeliveryRulesSection({
             </DialogTitle>
             <DialogDescription>
               {t(
-                'module.operationsCreditNotifications.config.deliveryRules.dialogDescription',
+                contactMode === 'email'
+                  ? 'module.operationsCreditNotifications.config.deliveryRules.dialogDescriptionEmail'
+                  : 'module.operationsCreditNotifications.config.deliveryRules.dialogDescription',
               )}
             </DialogDescription>
           </DialogHeader>
           <div className='grid gap-4 xl:grid-cols-2'>
             <FrequencyCard
+              contactMode={contactMode}
               policy={policy}
               updatePolicy={updatePolicy}
               getIntegerInputValue={getIntegerInputValue}
@@ -226,14 +256,18 @@ export function CreditNotificationDeliveryRulesSection({
               policy={policy}
               updatePolicy={updatePolicy}
             />
-            <BudgetCard
-              policy={policy}
-              updatePolicy={updatePolicy}
-              getIntegerInputValue={getIntegerInputValue}
-              updateIntegerInput={updateIntegerInput}
-              finishIntegerInput={finishIntegerInput}
-            />
+            {contactMode === 'phone' ? (
+              <BudgetCard
+                contactMode={contactMode}
+                policy={policy}
+                updatePolicy={updatePolicy}
+                getIntegerInputValue={getIntegerInputValue}
+                updateIntegerInput={updateIntegerInput}
+                finishIntegerInput={finishIntegerInput}
+              />
+            ) : null}
             <SoftlimitCard
+              contactMode={contactMode}
               policy={policy}
               updatePolicy={updatePolicy}
             />

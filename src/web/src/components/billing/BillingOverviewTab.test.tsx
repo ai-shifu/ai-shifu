@@ -20,13 +20,19 @@ const mockEnvState = {
 };
 const mockTrackEvent = jest.fn();
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {
+      if (
+        key === 'module.billing.package.learningTime.value' ||
+        key === 'module.billing.package.learningTime.compactValue'
+      ) {
+        return `About ${options?.minutes} minutes`;
+      }
       if (options?.date) {
         return `${key}:${options.date}`;
       }
@@ -125,7 +131,7 @@ jest.mock('@/lib/billing', () => {
   };
 });
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
     selector(mockEnvState),
@@ -470,6 +476,96 @@ describe('BillingOverviewTab', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  test('uses the shared loading announcement while the catalog is pending', () => {
+    mockUseSWR.mockReturnValue({ data: undefined, isLoading: true });
+    const { rerender } = renderOverviewTab();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.billing.package.loading',
+    );
+
+    mockUseSWR.mockReturnValue({ data: CATALOG_RESPONSE, isLoading: false });
+    rerender(<BillingOverviewTab />);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('billing-plan-comparison-table'),
+    ).toBeInTheDocument();
+  });
+
+  test('shows the one-payment discount note only for discounted plans', () => {
+    const { rerender } = renderOverviewTab();
+    const note = 'module.billing.package.campaign.paymentOnly';
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+
+    const setCampaign = (benefitType: 'discount' | 'bonus') => {
+      mockUseSWR.mockReturnValue({
+        data: {
+          ...CATALOG_RESPONSE,
+          plans: CATALOG_RESPONSE.plans.map((plan, index) =>
+            index === 0
+              ? {
+                  ...plan,
+                  campaign: {
+                    campaign_bid: 'campaign-plan',
+                    benefit_type: benefitType,
+                    campaign_price_amount: 900,
+                    discount_amount: 90,
+                    bonus_credit_amount: 2,
+                  },
+                }
+              : plan,
+          ),
+        },
+        error: undefined,
+        isLoading: false,
+      });
+      rerender(<BillingOverviewTab />);
+    };
+
+    setCampaign('discount');
+    expect(
+      within(screen.getByTestId('billing-overview-footnote')).getByText(note),
+    ).toBeInTheDocument();
+    setCampaign('bonus');
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+  });
+
+  test('updates learning minutes when catalog credits change for the same plan', () => {
+    const { rerender } = renderOverviewTab();
+    const estimateTestId =
+      'billing-plan-card-bill-product-plan-monthly-pro-learning-hours';
+    expect(screen.getByTestId(estimateTestId)).toHaveTextContent(
+      'About 600 minutes',
+    );
+
+    mockUseSWR.mockReturnValue({
+      data: {
+        ...CATALOG_RESPONSE,
+        plans: CATALOG_RESPONSE.plans.map(plan =>
+          plan.product_code === 'creator-plan-monthly-pro'
+            ? { ...plan, credit_amount: 1000 }
+            : plan,
+        ),
+      },
+      error: undefined,
+      isLoading: false,
+    });
+    rerender(<BillingOverviewTab />);
+
+    expect(screen.getByTestId(estimateTestId)).toHaveTextContent(
+      'About 6,000 minutes',
+    );
+    expect(
+      within(screen.getByTestId('billing-overview-footnote')).getByText(
+        'module.billing.package.footnote.learningTime',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('billing-overview-footnote')).getByText(
+        'module.billing.package.footnote.validity',
+      ),
+    ).toBeInTheDocument();
   });
 
   test('renders monthly and yearly plans together in a single combined tab', async () => {
@@ -2094,7 +2190,7 @@ describe('BillingOverviewTab', () => {
       },
     });
     mockCheckoutBillingOrder.mockResolvedValue({
-      bill_order_bid: 'order-plan-pingxx-1',
+      bill_order_bid: 'order-plan-pingxx-replacement',
       provider: 'pingxx',
       payment_mode: 'subscription',
       status: 'pending',
@@ -2162,6 +2258,32 @@ describe('BillingOverviewTab', () => {
         channel: 'alipay_qr',
       });
     });
+    mockSyncBillingOrder.mockResolvedValueOnce({
+      bill_order_bid: 'order-plan-pingxx-replacement',
+      status: 'pending',
+    });
+    await act(async () => {
+      await user.click(
+        screen.getByRole('button', { name: 'module.pay.clickRefresh' }),
+      );
+    });
+    expect(mockSyncBillingOrder).toHaveBeenLastCalledWith({
+      bill_order_bid: 'order-plan-pingxx-replacement',
+    });
+    expect(mockCheckoutBillingOrder).toHaveBeenLastCalledWith({
+      bill_order_bid: 'order-plan-pingxx-replacement',
+      channel: 'alipay_qr',
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_billing_checkout_status',
+      expect.objectContaining({
+        bill_order_bid: 'order-plan-pingxx-replacement',
+        status: 'pending',
+      }),
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'https://pingxx.test/plan-alipay-qr',
+    );
   });
 
   test('keeps a QR dismissal non-terminal before the same order succeeds', async () => {

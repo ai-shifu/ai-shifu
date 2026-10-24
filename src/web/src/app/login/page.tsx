@@ -15,7 +15,7 @@ import { PhoneLogin } from '@/components/auth/PhoneLogin';
 import { EmailLogin } from '@/components/auth/EmailLogin';
 import { FeedbackForm } from '@/components/auth/FeedbackForm';
 import Image, { type StaticImageData } from 'next/image';
-import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
+import logoHorizontal from '@/assets/logos/ai-shifu-logo-horizontal.png';
 import LanguageSelect from '@/components/language-select';
 import { useTranslation } from 'react-i18next';
 import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
@@ -26,8 +26,8 @@ import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
-import { useEnvStore } from '@/c-store';
-import { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import { EnvStoreState } from '@/types/store';
 import {
   readReferralContext,
   saveReferralContext,
@@ -208,7 +208,9 @@ export default function AuthPage() {
     const preferred = userInfo?.language
       ? normalizeLanguage(userInfo.language)
       : null;
-    const nextLanguage = normalizeLanguage(preferred ?? browserLanguage);
+    const nextLanguage = normalizeLanguage(
+      preferred ?? (i18n.language || browserLanguage),
+    );
 
     if (!nextLanguage) {
       return;
@@ -300,16 +302,8 @@ export default function AuthPage() {
     document.title = t('module.auth.title');
   }, [language, ready, t]);
 
-  // useEffect(() => {
-  //   if (!isInitialized || !isLoggedIn) {
-  //     return;
-  //   }
-
-  // const target = resolveRedirectPath();
-  // if (window.location.pathname !== target) {
-  //   router.replace(target);
-  // }
-  // }, [isInitialized, isLoggedIn, resolveRedirectPath, router]);
+  // Successful login handlers own navigation. An automatic redirect here
+  // would race the login-page guest-session reset above.
 
   const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -376,7 +370,14 @@ export default function AuthPage() {
             />
           );
         case 'email':
-          return <EmailLogin onLoginSuccess={handleAuthSuccess} />;
+          return (
+            <EmailLogin
+              onLoginSuccess={handleAuthSuccess}
+              loginContext={loginContext}
+              courseId={courseIdFromRedirect || undefined}
+              referralMetadata={referralMetadata}
+            />
+          );
         case 'google':
           return (
             <div className='space-y-3'>
@@ -471,6 +472,7 @@ export default function AuthPage() {
             </h2>
             <div className='absolute top-0 right-0 z-10'>
               <LanguageSelect
+                analyticsSurface='login'
                 language={language}
                 onSetLanguage={handleManualLanguageChange}
                 variant='login'

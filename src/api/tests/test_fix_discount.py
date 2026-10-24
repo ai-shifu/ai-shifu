@@ -78,6 +78,69 @@ def test_use_coupon_code_applies_discount(app: object, monkeypatch: object) -> N
     assert sent["code"] == coupon_code
 
 
+def test_full_discount_coupon_attributes_free_order_to_stripe(
+    app: object, monkeypatch: object
+) -> None:
+    order_bid = "order-full-discount-stripe"
+    course_bid = "course-full-discount-stripe"
+    user_bid = "user-full-discount-stripe"
+    coupon_bid = "coupon-full-discount-stripe"
+    coupon_code = "FREE-STRIPE"
+
+    with app.app_context():
+        db.session.add(
+            Order(
+                order_bid=order_bid,
+                shifu_bid=course_bid,
+                user_bid=user_bid,
+                payable_price=Decimal("10.00"),
+                paid_price=Decimal("10.00"),
+            )
+        )
+        now = now_utc()
+        db.session.add(
+            Coupon(
+                coupon_bid=coupon_bid,
+                code=coupon_code,
+                discount_type=COUPON_TYPE_FIXED,
+                value=Decimal("10.00"),
+                start=now - timedelta(days=1),
+                end=now + timedelta(days=1),
+                channel="test",
+                filter="",
+                total_count=1,
+                used_count=0,
+                status=1,
+            )
+        )
+        db.session.commit()
+
+    monkeypatch.setattr(
+        "flaskr.service.order.payment_channel_resolution.get_config",
+        lambda key, default=None: (
+            "stripe" if key == "PAYMENT_CHANNELS_ENABLED" else default
+        ),
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.get_shifu_creator_bid", lambda *_args: "owner"
+    )
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.set_shifu_context", lambda *_args: None
+    )
+    monkeypatch.setattr("flaskr.service.order.funs.set_user_state", lambda *_args: None)
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.send_order_feishu", lambda *_args: None
+    )
+
+    result = use_coupon_code(app, user_bid, coupon_code, order_bid)
+
+    assert result is not None
+    assert result.payment_channel == "stripe"
+    with app.app_context():
+        refreshed = Order.query.filter_by(order_bid=order_bid).one()
+        assert refreshed.payment_channel == "stripe"
+
+
 def test_use_specific_all_courses_coupon_keeps_unbound_usage_course(
     app: object, monkeypatch: object
 ) -> None:

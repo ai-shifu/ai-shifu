@@ -1,4 +1,4 @@
-import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
+import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 
 type FeedbackPromptContentItem = {
   type?: string;

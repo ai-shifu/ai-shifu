@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+import pytest
 from flaskr.dao import db
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, get_shifu_info
 from flaskr.service.learn.models import LearnProgressRecord
@@ -105,7 +106,16 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app: object) -> None:
     assert live_dto.default_listen_mode_enabled is False
 
 
-def test_get_outline_item_tree_preview_mode(app: object) -> None:
+def test_get_outline_item_tree_preview_mode(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": (
+            "shifu-learn-1" if key == "DEMO_EN_SHIFU_BID" else default
+        ),
+    )
     with app.app_context():
         outline = DraftOutlineItem(
             outline_item_bid="outline-learn-1",
@@ -144,9 +154,227 @@ def test_get_outline_item_tree_preview_mode(app: object) -> None:
     assert result.outline_items[0].bid == "outline-learn-1"
     assert result.outline_items[0].is_paid is True
     assert result.outline_items[0].has_content_update_for_current_user is False
+    assert result.outline_items[0].follow_up_mode == "text"
+    assert result.title_language == "en-US"
+    assert result.__json__()["title_language"] == "en-US"
+    assert result.content_language == "en-US"
+    assert result.__json__()["content_language"] == "en-US"
 
 
-def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(
+def test_get_outline_item_tree_uses_course_model_with_outline_ask_status(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+
+    live_availability = {"enabled": True}
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.is_live_follow_up_model_available",
+        lambda model: live_availability["enabled"] and model == GEMINI_LIVE_MODEL_ID,
+    )
+
+    shifu_bid = "shifu-live-follow-up-tree"
+    with app.app_context():
+        course = DraftShifu(
+            shifu_bid=shifu_bid,
+            title="Live Follow-up Course",
+            description="Desc",
+            price=Decimal("1.00"),
+            llm="gpt-main",
+            ask_llm=GEMINI_LIVE_MODEL_ID,
+            ask_enabled_status=5103,
+        )
+        text_chapter = DraftOutlineItem(
+            outline_item_bid="chapter-text-follow-up",
+            shifu_bid=shifu_bid,
+            title="Text Chapter",
+            position="1",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5103,
+        )
+        inherited_lesson = DraftOutlineItem(
+            outline_item_bid="lesson-inherited-text-follow-up",
+            shifu_bid=shifu_bid,
+            title="Inherited Text Lesson",
+            position="1.1",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5101,
+        )
+        live_lesson = DraftOutlineItem(
+            outline_item_bid="lesson-live-follow-up",
+            shifu_bid=shifu_bid,
+            title="Live Lesson",
+            position="2",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5101,
+        )
+        disabled_lesson = DraftOutlineItem(
+            outline_item_bid="lesson-disabled-follow-up",
+            shifu_bid=shifu_bid,
+            title="Disabled Lesson",
+            position="3",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5102,
+        )
+        db.session.add_all(
+            [course, text_chapter, inherited_lesson, live_lesson, disabled_lesson]
+        )
+        db.session.commit()
+
+        struct = HistoryItem(
+            bid=shifu_bid,
+            id=0,
+            type="shifu",
+            children=[
+                HistoryItem(
+                    bid=text_chapter.outline_item_bid,
+                    id=text_chapter.id,
+                    type="outline",
+                    children=[
+                        HistoryItem(
+                            bid=inherited_lesson.outline_item_bid,
+                            id=inherited_lesson.id,
+                            type="outline",
+                            children=[],
+                        )
+                    ],
+                ),
+                HistoryItem(
+                    bid=live_lesson.outline_item_bid,
+                    id=live_lesson.id,
+                    type="outline",
+                    children=[],
+                ),
+                HistoryItem(
+                    bid=disabled_lesson.outline_item_bid,
+                    id=disabled_lesson.id,
+                    type="outline",
+                    children=[],
+                ),
+            ],
+        ).to_json()
+        db.session.add(
+            LogDraftStruct(
+                struct_bid="struct-live-follow-up-tree",
+                shifu_bid=shifu_bid,
+                struct=struct,
+            )
+        )
+        db.session.commit()
+
+    result = get_outline_item_tree(app, shifu_bid, "teacher-1", preview_mode=True)
+
+    assert result.outline_items[0].follow_up_mode == "live_voice"
+    assert result.outline_items[0].children[0].follow_up_mode == "live_voice"
+    assert result.outline_items[1].follow_up_mode == "live_voice"
+    assert result.outline_items[2].follow_up_mode == "disabled"
+    assert result.content_language is None
+    assert "content_language" not in result.__json__()
+
+    live_availability["enabled"] = False
+    unavailable_result = get_outline_item_tree(
+        app, shifu_bid, "teacher-1", preview_mode=True
+    )
+
+    assert unavailable_result.outline_items[0].follow_up_mode == "disabled"
+    assert unavailable_result.outline_items[1].follow_up_mode == "disabled"
+    assert unavailable_result.outline_items[2].follow_up_mode == "disabled"
+
+    live_availability["enabled"] = True
+    for unsupported_model in (
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ):
+        with app.app_context():
+            stored_course = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+            stored_course.ask_llm = unsupported_model
+            db.session.commit()
+
+        unsupported_result = get_outline_item_tree(
+            app, shifu_bid, "teacher-1", preview_mode=True
+        )
+        assert unsupported_result.outline_items[0].follow_up_mode == "disabled"
+        assert unsupported_result.outline_items[1].follow_up_mode == "disabled"
+        assert unsupported_result.outline_items[2].follow_up_mode == "disabled"
+
+    with app.app_context():
+        stored_course = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        stored_course.ask_llm = GEMINI_LIVE_MODEL_ID
+        stored_course.ask_enabled_status = 5102
+        db.session.commit()
+
+    course_disabled_result = get_outline_item_tree(
+        app, shifu_bid, "teacher-1", preview_mode=True
+    )
+
+    assert course_disabled_result.outline_items[0].follow_up_mode == "live_voice"
+    assert (
+        course_disabled_result.outline_items[0].children[0].follow_up_mode
+        == "live_voice"
+    )
+    assert course_disabled_result.outline_items[1].follow_up_mode == "disabled"
+    assert course_disabled_result.outline_items[2].follow_up_mode == "disabled"
+
+
+def test_get_outline_item_tree_never_infers_live_mode_from_primary_model(
+    app: object,
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+
+    shifu_bid = "shifu-invalid-live-primary-tree"
+    with app.app_context():
+        course = DraftShifu(
+            shifu_bid=shifu_bid,
+            title="Legacy invalid Live primary",
+            description="Desc",
+            price=Decimal("1.00"),
+            llm=GEMINI_LIVE_MODEL_ID,
+            ask_llm="",
+            ask_enabled_status=5103,
+        )
+        lesson = DraftOutlineItem(
+            outline_item_bid="legacy-live-primary-lesson",
+            shifu_bid=shifu_bid,
+            title="Lesson",
+            position="1",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5101,
+        )
+        db.session.add_all([course, lesson])
+        db.session.commit()
+        struct = HistoryItem(
+            bid=shifu_bid,
+            id=course.id,
+            type="shifu",
+            children=[
+                HistoryItem(
+                    bid=lesson.outline_item_bid,
+                    id=lesson.id,
+                    type="outline",
+                    children=[],
+                )
+            ],
+        ).to_json()
+        db.session.add(
+            LogDraftStruct(
+                struct_bid="struct-invalid-live-primary-tree",
+                shifu_bid=shifu_bid,
+                struct=struct,
+            )
+        )
+        db.session.commit()
+
+    result = get_outline_item_tree(app, shifu_bid, "teacher-1", preview_mode=True)
+
+    assert result.outline_items[0].follow_up_mode == "text"
+
+
+def test_get_outline_item_tree_does_not_infer_legacy_updates_from_timestamps(
     app: object,
 ) -> None:
     with app.app_context():
@@ -227,7 +455,7 @@ def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(
     assert result.outline_items
     assert result.outline_items[0].has_content_update_for_current_user is False
     assert (
-        result.outline_items[0].children[0].has_content_update_for_current_user is True
+        result.outline_items[0].children[0].has_content_update_for_current_user is False
     )
 
 
@@ -299,7 +527,7 @@ def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lesson
     assert result.outline_items[0].has_content_update_for_current_user is False
 
 
-def test_get_outline_item_tree_uses_normalized_published_effective_time(
+def test_get_outline_item_tree_does_not_infer_unknown_baselines_from_timezones(
     app: object,
 ) -> None:
     with app.app_context():
@@ -360,7 +588,7 @@ def test_get_outline_item_tree_uses_normalized_published_effective_time(
     )
 
     assert result.outline_items
-    assert result.outline_items[0].has_content_update_for_current_user is True
+    assert result.outline_items[0].has_content_update_for_current_user is False
 
 
 def test_get_outline_item_tree_ignores_published_copy_created_at_for_updates(

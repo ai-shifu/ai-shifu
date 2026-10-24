@@ -1,0 +1,23 @@
+{
+  "__namespace__": "module.chapterSetting",
+  "addLesson": "شامل کریں",
+  "chapterName": "باب کا نام",
+  "chapterNamePlaceholder": "براہ کرم باب کا نام درج کریں۔",
+  "chapterPrompt": "باب پرامپٹ",
+  "chapterPromptHint": "اس باب کے مواد کے لیے مخاطب، لہجہ اور ضروری احتیاطیں طے کریں۔",
+  "chapterSettingsTitle": "باب کی ترتیبات",
+  "free": "مفت",
+  "guest": "لاگ ان کرنے کی ضرورت نہیں ہے۔",
+  "hidden": "چھپائیں",
+  "isHidden": "مرئیت",
+  "learningPermission": "سیکھنے کی اجازت",
+  "lessonName": "سبق کا نام",
+  "lessonNamePlaceholder": "سبق کا نام درج کریں۔",
+  "lessonPrompt": "سبق کا پرامپٹ",
+  "lessonPromptHint": "اس سبق کے مواد کے لیے مخاطب، لہجہ اور ضروری احتیاطیں طے کریں۔",
+  "lessonPromptPlaceholder": "پرامپٹ لکھیں۔ یہ خانہ خالی ہو تو اس سبق کے لیے متعلقہ باب کا پرامپٹ استعمال ہوگا۔",
+  "lessonSettingsTitle": "سبق کی ترتیبات",
+  "paid": "بامعاوضہ",
+  "promptPlaceholder": "براہ کرم پرامپٹ درج کریں۔",
+  "visible": "نظر آنے والا"
+}

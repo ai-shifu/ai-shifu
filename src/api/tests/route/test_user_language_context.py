@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import flaskr.route.user as user_route
+import pytest
 from flask import Flask, jsonify
 from flaskr.i18n import clear_language, get_current_language
 from flaskr.route.user import register_user_handler
@@ -35,8 +36,14 @@ def test_authenticated_request_prefers_accept_language_for_runtime_context(
         clear_language()
 
 
+@pytest.mark.parametrize(
+    ("requested", "expected"),
+    [("zh-cn,zh;q=0.9", "zh-CN"), ("ur-IN,ur;q=0.9", "ur-PK"), ("UR_pk", "ur-PK")],
+)
 def test_authenticated_request_normalizes_accept_language_for_runtime_context(
     monkeypatch: object,
+    requested: str,
+    expected: str,
 ) -> None:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "test"
@@ -54,10 +61,10 @@ def test_authenticated_request_normalizes_accept_language_for_runtime_context(
     try:
         response = app.test_client().get(
             "/runtime-language",
-            headers={"Token": "token", "Accept-Language": "zh-cn,zh;q=0.9"},
+            headers={"Token": "token", "Accept-Language": requested},
         )
         assert response.status_code == 200
-        assert response.get_json() == {"language": "zh-CN"}
+        assert response.get_json() == {"language": expected}
     finally:
         clear_language()
 

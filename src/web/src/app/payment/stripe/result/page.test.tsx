@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import StripeResultPage from './page';
-import { getPaymentDetail, syncStripeCheckout } from '@/c-api/order';
+import { getPaymentDetail, syncStripeCheckout } from '@/api/order';
 
 const mockPush = jest.fn();
 const mockTrackEvent = jest.fn();
@@ -20,7 +20,7 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: mockT }),
 }));
 
-jest.mock('@/c-api/order', () => ({
+jest.mock('@/api/order', () => ({
   getPaymentDetail: jest.fn(),
   syncStripeCheckout: jest.fn(),
 }));
@@ -29,7 +29,7 @@ jest.mock('@/lib/stripe-storage', () => ({
   consumeStripeCheckoutSession: jest.fn(),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

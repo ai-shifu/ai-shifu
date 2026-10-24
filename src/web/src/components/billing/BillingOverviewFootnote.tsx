@@ -1,11 +1,17 @@
 import { useTranslation } from 'react-i18next';
 
-// Language-neutral typographic enumerators that anchor the footnote items to
+// Language-neutral typographic markers that anchor the footnote items to
 // the matching table rows. Not user-facing copy, so they stay out of i18n.
-const FOOTNOTE_ENUM_LEARNER = '①';
-const FOOTNOTE_ENUM_VALIDITY = '②';
+const FOOTNOTE_MARKER_LEARNING_TIME = '*';
+const FOOTNOTE_MARKER_VALIDITY = '**';
 
-export function BillingOverviewFootnote() {
+export function BillingOverviewFootnote({
+  hasDiscountCampaign = false,
+  showValidity = true,
+}: {
+  hasDiscountCampaign?: boolean;
+  showValidity?: boolean;
+}) {
   const { t } = useTranslation();
 
   return (
@@ -15,29 +21,29 @@ export function BillingOverviewFootnote() {
     >
       <ul className='space-y-3'>
         <li className='flex gap-2'>
-          <span className='shrink-0 font-medium'>{FOOTNOTE_ENUM_LEARNER}</span>
+          <span className='shrink-0 font-medium'>
+            <sup>{FOOTNOTE_MARKER_LEARNING_TIME}</sup>
+          </span>
           <div className='flex-1'>
-            {t('module.billing.package.footnote.learnerEstimateIntro')}
-            <ol className='mt-1 list-decimal space-y-1 pl-5'>
-              <li>
-                {t('module.billing.package.footnote.learnerEstimateScale')}
-              </li>
-              <li>
-                {t('module.billing.package.footnote.learnerEstimateMode')}
-              </li>
-              <li>
-                {t('module.billing.package.footnote.learnerEstimateModel')}
-              </li>
-            </ol>
+            {t('module.billing.package.footnote.learningTime')}
           </div>
         </li>
-        <li className='flex gap-2'>
-          <span className='shrink-0 font-medium'>{FOOTNOTE_ENUM_VALIDITY}</span>
-          <div className='flex-1'>
-            {t('module.billing.package.footnote.validity')}
-          </div>
-        </li>
+        {showValidity ? (
+          <li className='flex gap-2'>
+            <span className='shrink-0 font-medium'>
+              <sup>{FOOTNOTE_MARKER_VALIDITY}</sup>
+            </span>
+            <div className='flex-1'>
+              {t('module.billing.package.footnote.validity')}
+            </div>
+          </li>
+        ) : null}
       </ul>
+      {hasDiscountCampaign ? (
+        <p className='mt-3'>
+          {t('module.billing.package.campaign.paymentOnly')}
+        </p>
+      ) : null}
     </div>
   );
 }

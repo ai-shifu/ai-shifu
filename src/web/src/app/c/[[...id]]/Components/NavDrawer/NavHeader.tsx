@@ -5,10 +5,10 @@ import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 
-import LogoWithText from '@/c-components/logo/LogoWithText';
-import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
+import LogoWithText from '@/components/logo/LogoWithText';
+import { useTracking, EVENT_NAMES } from '@/hooks/useTracking';
 
-import imgExpand from '@/c-assets/newchat/light/icon16-expand.png';
+import imgExpand from '@/assets/newchat/light/icon16-expand.png';
 import { PanelLeft } from 'lucide-react';
 
 export const NavHeader = ({

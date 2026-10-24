@@ -15,7 +15,13 @@ export type AdminOperationUserItem = {
   mobile: string;
   email: string;
   nickname: string;
-  user_status: 'unregistered' | 'registered' | 'paid' | 'unknown' | LooseString;
+  user_status:
+    | 'unregistered'
+    | 'registered'
+    | 'paid'
+    | 'cancelled'
+    | 'unknown'
+    | LooseString;
   user_role:
     | 'regular'
     | 'creator'
@@ -48,6 +54,65 @@ export type AdminOperationUserItem = {
   last_learning_at: string;
   created_at: string;
   updated_at: string;
+  cancelled_at?: string | null;
+  cancellation_reason?: string;
+  cancellation_operator_user_bid?: string;
+  cancellation_operator_mobile?: string;
+  cancellation_operator_nickname?: string;
+};
+
+export type AccountCancellationIssue = { code: string; count: number };
+export type AdminOperationUserCancellationPreview = {
+  user: {
+    user_bid: string;
+    identifier: string;
+    masked_identifier: string;
+    nickname: string;
+    is_creator: boolean;
+    is_operator: boolean;
+  };
+  can_cancel: boolean;
+  blockers: AccountCancellationIssue[];
+  warnings: AccountCancellationIssue[];
+  draft_course_count: number;
+  published_courses: Array<{ shifu_bid: string; course_name: string }>;
+  subscription_renewal_count: number;
+  paid_packages: Array<{
+    product_bid: string;
+    product_code: string;
+    product_name_i18n_key: string;
+  }>;
+  paid_preorder_count: number;
+  preorder_packages: Array<{
+    product_bid: string;
+    product_code: string;
+    product_name_i18n_key: string;
+  }>;
+  renewing_packages: Array<{
+    product_bid: string;
+    product_code: string;
+    product_name_i18n_key: string;
+  }>;
+  unsettled_order_count: number;
+  available_credits: number;
+  reserved_credits: number;
+  active_session_count: number;
+  preview_version: string;
+};
+
+export type AdminOperationUserCancellationStatus = {
+  cancellation_bid: string;
+  user_bid: string;
+  status:
+    | 'pending'
+    | 'processing'
+    | 'retrying'
+    | 'completed'
+    | 'failed'
+    | LooseString;
+  failure_code: string;
+  attempt_count: number;
+  cancelled_at: string | null;
 };
 
 export type AdminOperationUserOverview = {
@@ -72,6 +137,19 @@ export type AdminOperationUserListResponse = {
 };
 
 export type AdminOperationUserDetailResponse = AdminOperationUserItem;
+
+export type AdminOperationUserContactChangeRequest = {
+  contact_type: 'phone' | 'email';
+  identifier: string;
+  reason: string;
+};
+
+export type AdminOperationUserContactChangeResponse = {
+  user_bid: string;
+  contact_type: 'phone' | 'email';
+  identifier: string;
+  revoked_sessions: number;
+};
 
 export type AdminOperationUserCreditSummary = {
   available_credits: string;
@@ -175,21 +253,54 @@ export type AdminOperationUserCreditUsageDetailResponse = {
 export type AdminOperationUserCreditGrantRequest = {
   request_id: string;
   amount: string;
-  grant_type?: string;
   grant_source: string;
-  validity_preset: string;
   note?: string;
-};
+} & (
+  | {
+      grant_type?: 'manual_credit';
+      validity_value: number;
+      validity_unit: 'day' | 'month' | 'year';
+    }
+  | {
+      grant_type: 'referral_reward';
+      validity_value?: never;
+      validity_unit?: never;
+    }
+);
 
 export type AdminOperationUserCreditGrantResponse = {
   user_bid: string;
   amount: string;
   grant_type: string;
   grant_source: string;
-  validity_preset: string;
+  validity_value?: number | null;
+  validity_unit?: 'day' | 'month' | 'year' | null;
   expires_at: string;
   wallet_bucket_bid: string;
   ledger_bid: string;
+  summary: AdminOperationUserCreditSummary;
+};
+
+export type AdminOperationUserCreditDeductionReason =
+  | 'incorrect_grant'
+  | 'account_correction'
+  | 'other';
+
+export type AdminOperationUserCreditDeductionRequest = {
+  request_id: string;
+  amount: string;
+  reason: AdminOperationUserCreditDeductionReason;
+  note?: string;
+};
+
+export type AdminOperationUserCreditDeductionResponse = {
+  status: 'deducted' | 'noop_existing' | LooseString;
+  user_bid: string;
+  amount: string;
+  reason: AdminOperationUserCreditDeductionReason;
+  note: string;
+  wallet_bucket_bids: string[];
+  ledger_bids: string[];
   summary: AdminOperationUserCreditSummary;
 };
 

@@ -2,13 +2,13 @@ import classNames from 'classnames';
 import styles from './CourseSection.module.scss';
 import { useCallback, useContext, type MouseEvent } from 'react';
 import { memo } from 'react';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
 import ResetChapterButton from './ResetChapterButton';
 import { AppContext } from '../AppContext';
 import { CircleCheck, CircleDotDashed } from 'lucide-react';
-import { LEARNING_PERMISSION, type LearningPermission } from '@/c-api/studyV2';
+import { LEARNING_PERMISSION, type LearningPermission } from '@/api/studyV2';
 import { useUserStore } from '@/store';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useCourseStore } from '@/store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import {
@@ -18,7 +18,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { useSystemStore } from '@/store/useSystemStore';
 
 type CourseSectionProps = {
   id: string;
@@ -29,13 +29,17 @@ type CourseSectionProps = {
   selected?: boolean;
   canLearning?: boolean;
   chapterId: string;
+  titleLanguage?: string;
   onSelect?: (params: { id: string }) => void;
   onTrySelect?: (params: { id: string }) => void;
 };
 
-const getCourseTitleLang = (title: string) => {
+const getCourseTitleLang = (title: string, interfaceLanguage?: string) => {
   const trimmed = title.trim();
-  if (!trimmed) {
+  const usesNonLatinScript = /^(zh|ar|th)(?:-|$)/i.test(
+    interfaceLanguage ?? '',
+  );
+  if (!trimmed || !usesNonLatinScript) {
     return undefined;
   }
   const containsLatin = /[A-Za-z]/.test(trimmed);
@@ -52,11 +56,13 @@ export const CourseSection = ({
   selected,
   canLearning = false,
   chapterId,
+  titleLanguage,
   onSelect,
   onTrySelect,
 }: CourseSectionProps) => {
-  const { t } = useTranslation();
-  const courseTitleLang = getCourseTitleLang(name);
+  const { t, i18n } = useTranslation();
+  const courseTitleLang =
+    titleLanguage ?? getCourseTitleLang(name, i18n?.language);
   const { mobileStyle } = useContext(AppContext);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const previewMode = useSystemStore(state => state.previewMode);

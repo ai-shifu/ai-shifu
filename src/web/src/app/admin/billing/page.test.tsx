@@ -54,11 +54,11 @@ jest.mock('@/hooks/useBillingData', () => ({
   useBillingOverview: jest.fn(),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
     selector(mockEnvState),

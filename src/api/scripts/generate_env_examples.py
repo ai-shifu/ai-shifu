@@ -38,7 +38,7 @@ def generate_env_examples() -> None:
 
     # Write full configuration
     with full_file.open("w", encoding="utf-8") as f:
-        f.write(full_content)
+        f.write(full_content.rstrip() + "\n")
     print(f"✅ Generated full configuration: {full_file}")
 
     # Print summary
@@ -75,8 +75,12 @@ def generate_env_examples() -> None:
     print(
         "  1. Copy docker/.env.example.full to docker/.env (or the root .env you prefer)"
     )
-    print("  2. Configure at least one LLM API key and other required secrets")
-    print("  3. Keep .env files out of version control")
+    print("  2. Configure a provider key and LLM_MODEL_1_ID")
+    print("     LLM_MODEL_1_NAME is optional; blank displays the configured model ID")
+    print(
+        "  3. Existing installs: follow INSTALL_MANUAL.md#upgrading-to-numbered-models"
+    )
+    print("  4. Keep .env files out of version control")
 
     print("\n✨ Environment configuration files generated successfully!")
 

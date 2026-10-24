@@ -1,0 +1,11 @@
+{
+  "__namespace__": "module.lesson",
+  "reset": {
+    "confirmContent": "Al restablecer la lección se borrarán sus datos de aprendizaje. ¿Quieres continuar?",
+    "confirmTitle": "Confirmar restablecimiento",
+    "title": "Restablecer"
+  },
+  "tooltip": {
+    "paidExclusive": "Acceso exclusivo de pago"
+  }
+}

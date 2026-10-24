@@ -1,5 +1,7 @@
 # Gemini TTS Provider
 
+> Lifecycle review, 2026-09-26: Completed original scope. The plan records both focused tests and credentialed US/China provider smoke for its original scope. Merge evidence: [#2751](https://github.com/ai-shifu/ai-shifu/pull/2751) (`8ce8c68a6`)
+
 ## Purpose / Big Picture
 
 Add Google Gemini as an application-side TTS provider so overseas deployments

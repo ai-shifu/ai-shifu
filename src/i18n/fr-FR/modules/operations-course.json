@@ -2,7 +2,7 @@
   "__namespace__": "module.operationsCourse",
   "actions": {
     "copyCourse": "Copier le cours",
-    "transferCreator": "Transférer le créateur"
+    "transferCreator": "Transférer la responsabilité du cours"
   },
   "copyCourseDialog": {
     "confirm": "Confirmer la copie",
@@ -38,7 +38,7 @@
     },
     "chapterType": {
       "chapter": "Chap.",
-      "lesson": "Sec."
+      "lesson": "Leçon"
     },
     "chapters": "Chapitres",
     "chaptersTable": {
@@ -229,7 +229,7 @@
         "detailAction": "Voir le détail",
         "empty": "Aucune donnée de suivi",
         "lesson": "Leçon",
-        "scopeHint": "Consultez les suivis des apprenants autour du contenu du cours pour repérer les points de blocage fréquents et les leçons à améliorer.",
+        "scopeHint": "Consultez les questions de suivi des apprenants sur le contenu du cours pour repérer les blocages fréquents et les leçons à améliorer.",
         "sourceMissing": "Sortie d’origine introuvable",
         "sourceResolved": "Sortie d’origine localisée",
         "title": "Liste des suivis",
@@ -243,7 +243,7 @@
     "learningPermission": {
       "free": "Gratuit",
       "guest": "Sans connexion",
-      "paid": "Payé",
+      "paid": "Payant",
       "unknown": "Inconnu"
     },
     "metrics": "Métriques",
@@ -265,8 +265,8 @@
       "creditUserCount": "Nombre d’utilisateurs ayant réellement dépensé des crédits dans ce cours.",
       "followUpCount": "Nombre de questions de suivi posées sur ce cours. Ouvrez pour les consulter.",
       "learnerCount": "Nombre d’utilisateurs qui ont commencé ou rejoint ce cours, utile pour estimer sa portée.",
-      "orderAmount": "Valeur des commandes calculée sur le montant dû, codes de réduction et activations inclus. Ce n’est pas le montant encaissé en espèces.",
-      "orderCount": "Commandes réussies générées par ce cours, y compris les commandes payées, avec code de réduction et les activations à 0.",
+      "orderAmount": "Valeur des commandes calculée sur le montant dû, codes d’échange et activations inclus. Ce montant ne correspond pas aux sommes réellement encaissées.",
+      "orderCount": "Commandes réussies générées par ce cours, y compris les commandes payées, avec code d’échange et les activations à 0.",
       "ratingScore": "Note moyenne donnée aux leçons, utile pour évaluer l’expérience d’apprentissage."
     },
     "orders": {
@@ -445,19 +445,19 @@
   "title": "Cours Gestion",
   "transferCreatorDialog": {
     "confirm": "Transférer",
-    "confirmDescription": "Transférer le créateur de {courseName} de {currentCreator} à {targetCreator}.",
-    "confirmTitle": "Confirmer Créateur Transfer",
+    "confirmDescription": "Transférer la responsabilité du cours « {courseName} » de {currentCreator} à {targetCreator}.",
+    "confirmTitle": "Confirmer le transfert de responsabilité du cours",
     "contactPlaceholderEmail": "Saisir l’e-mail du créateur cible",
     "contactPlaceholderPhone": "Saisir le mobile du créateur cible",
     "contactType": "Type de contact",
     "contactTypeEmail": "E-mail",
     "contactTypePhone": "Mobile",
-    "currentCreator": "Actuel Créateur",
+    "currentCreator": "Responsable actuel",
     "description": "Seul le créateur du cours change. Le contenu, la configuration et les autorisations partagées restent inchangés.",
     "identifier": "Créateur cible",
     "identifierRequired": "Veuillez saisir un contact de créateur cible valide",
     "sameCreator": "Le contact cible appartient déjà au créateur actuel",
-    "submitSuccess": "Créateur transferred",
-    "title": "Transfer Créateur"
+    "submitSuccess": "Responsabilité du cours transférée",
+    "title": "Transférer la responsabilité du cours"
   }
 }

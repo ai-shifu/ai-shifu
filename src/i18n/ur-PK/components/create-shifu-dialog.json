@@ -1,0 +1,11 @@
+{
+  "__namespace__": "component.createShifuDialog",
+  "creating": "تخلیق کر رہا ہے...",
+  "descriptionLabel": "کورس کا تعارف",
+  "descriptionMaxLength": "کورس کا تعارف 500 حروف سے زیادہ نہیں ہو سکتا",
+  "descriptionPlaceholder": "براہ کرم کورس کا تعارف درج کریں۔",
+  "nameLabel": "کورس کا نام",
+  "nameMaxLength": "کورس کا نام {maxLength} حروف سے زیادہ نہیں ہو سکتا",
+  "namePlaceholder": "براہ کرم کورس کا نام درج کریں۔",
+  "nameRequired": "کورس کا نام خالی نہیں ہو سکتا"
+}

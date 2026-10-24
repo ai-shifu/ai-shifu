@@ -15,9 +15,8 @@ import {
   FRAME_LAYOUT_MOBILE,
   inWechat,
   inMiniProgram,
-  wechatLogin,
-} from '@/c-constants/uiConstants';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+} from '@/constants/uiConstants';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
 import { EVENT_NAMES, events } from './events';
 
 import {
@@ -25,23 +24,21 @@ import {
   useCourseStore,
   useUiLayoutStore,
   useSystemStore,
-} from '@/c-store';
+} from '@/store';
 import { useUserStore } from '@/store';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
+import { useDisclosure } from '@/hooks/useDisclosure';
 import { useLessonTree, type LessonTreeLesson } from './hooks/useLessonTree';
 import {
   applyLessonSelection,
   resolveRequestedLessonId,
 } from './lessonNavigation';
-import { updateWxcode } from '@/c-api/user';
-import { shifu } from '@/c-service/Shifu';
-import type { EnvStoreState } from '@/c-types/store';
+import { shifu } from '@/lib/shifu/Shifu';
+import type { EnvStoreState } from '@/types/store';
 import {
   buildLoginRedirectPath,
   getLessonIdFromQuery,
-  removeParamFromUrl,
   replaceCurrentUrlWithLessonId,
-} from '@/c-utils/urlUtils';
+} from '@/lib/urlUtils';
 
 import { Skeleton } from '@/components/ui/Skeleton';
 import { AppContext } from './Components/AppContext';
@@ -58,9 +55,10 @@ import ChatMobileHeader from './Components/ChatMobileHeader';
 import MiniProgramPayGuide from './Components/Pay/MiniProgramPayGuide';
 import { isWechatCodeFlowEnabled } from './Components/Pay/wechatJsapi';
 import { useCourseProfileOnboardingGate } from './hooks/useCourseProfileOnboardingGate';
+import { useWechatOpenIdBinding } from './hooks/useWechatOpenIdBinding';
+import { useCourseWechatAuthorization } from './hooks/useCourseWechatAuthorization';
 import DebugConsoleOverlay from '@/components/debug/DebugConsoleOverlay';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
-import { debugWarn } from '@/c-utils/debugConsole';
 
 const PayModalM = dynamic(() => import('./Components/Pay/PayModalM'), {
   ssr: false,
@@ -117,44 +115,6 @@ const isEditableElementFocused = () => {
   return isEditableElement(document.activeElement);
 };
 
-const OPENID_REBIND_SESSION_KEY = 'wechat_openid_rebind_attempted';
-
-/**
- * Send the user through the WeChat code flow once per session to recover an
- * openid the account never got bound. The redirect target drops the spent
- * `code`/`state` so the fresh one does not stack onto them.
- */
-const requestWechatCodeForOpenIdRebind = () => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  const { appId } = useEnvStore.getState() as EnvStoreState;
-  if (!appId) {
-    return;
-  }
-  try {
-    if (sessionStorage.getItem(OPENID_REBIND_SESSION_KEY)) {
-      return;
-    }
-    sessionStorage.setItem(OPENID_REBIND_SESSION_KEY, '1');
-  } catch {
-    // Without session storage there is no way to bound the retries, so skip
-    // the redirect rather than risk looping through OAuth.
-    return;
-  }
-  wechatLogin({
-    appId,
-    redirectUrl: removeParamFromUrl(window.location.href, ['code', 'state']),
-  });
-};
-
-const requestWechatCodeForOpenIdRebindIfUnbound = (openId: string) => {
-  if (openId) {
-    return;
-  }
-  requestWechatCodeForOpenIdRebind();
-};
-
 export default function ChatPage() {
   const { t, i18n } = useTranslation();
 
@@ -182,6 +142,7 @@ export default function ChatPage() {
   const enableWxcode = useEnvStore(
     (state: EnvStoreState) => state.enableWxcode,
   );
+  const appId = useEnvStore((state: EnvStoreState) => state.appId);
   const wxcodeEnabled = isWechatCodeFlowEnabled(enableWxcode);
   // Trimmed to match the backend, which strips the value before deciding
   // whether it has one: a blank string must take the rebinding path here
@@ -190,71 +151,25 @@ export default function ChatPage() {
   // The account profile arrives after the login state does, and a not-yet-loaded
   // profile must not be read as "this account has no openid".
   const isUserProfileLoaded = Boolean(userInfo);
-  // Tracks which OAuth code this page already spent on a binding attempt, so a
-  // failed exchange is not retried in a loop with the same (single-use) code.
-  const attemptedWechatCodeRef = useRef('');
-
-  // WeChat JSAPI payment needs the openid of the WeChat account currently
-  // viewing the page. Every unspent code is handed to the backend, which only
-  // writes when the openid actually differs, so signing in from another WeChat
-  // account moves the binding over instead of paying with a stale openid. The
-  // code itself can be consumed elsewhere first (guest registration) or fail to
-  // exchange, and login drops it from the URL, which used to leave an account
-  // without any openid for good -- so when none is left and nothing is bound,
-  // fetch a fresh code once per session.
-  useEffect(() => {
-    if (!initialized) {
-      return;
-    }
-    if (!isLoggedIn || !isUserProfileLoaded) {
-      return;
-    }
-    if (!inWechat() || inMiniProgram() || !wxcodeEnabled) {
-      return;
-    }
-
-    const token = useUserStore.getState().getToken();
-    if (!token) {
-      return;
-    }
-
-    if (!wechatCode) {
-      requestWechatCodeForOpenIdRebindIfUnbound(wechatOpenId);
-      return;
-    }
-    if (attemptedWechatCodeRef.current === wechatCode) {
-      return;
-    }
-    attemptedWechatCodeRef.current = wechatCode;
-
-    void updateWxcode({ wxcode: wechatCode })
-      .then(openid => {
-        if (!openid) {
-          debugWarn('[lesson-page] WeChat OpenID binding returned no openid');
-          // The code is spent either way, and the ref stops this effect from
-          // trying again with it, so an unbound account would stay unbound for
-          // the rest of the session. Spend the one fresh code instead.
-          requestWechatCodeForOpenIdRebindIfUnbound(wechatOpenId);
-          return undefined;
-        }
-        if (openid === wechatOpenId) {
-          return undefined;
-        }
-        return refreshUserInfo();
-      })
-      .catch(err => {
-        debugWarn('[lesson-page] failed to update WeChat OpenID', err);
-        requestWechatCodeForOpenIdRebindIfUnbound(wechatOpenId);
-      });
-  }, [
-    initialized,
+  const requiresWechatAccount =
+    isLoggedIn && wxcodeEnabled && inWechat() && !inMiniProgram();
+  const wechatAuthorization = useCourseWechatAuthorization();
+  const wechatOpenIdReady = useWechatOpenIdBinding({
+    initialized:
+      initialized &&
+      wechatAuthorization.ready &&
+      !wechatAuthorization.preparationAbandoned,
     isLoggedIn,
-    isUserProfileLoaded,
+    userId: userInfo?.user_id || '',
+    token: useUserStore.getState().getToken() || '',
+    userProfileLoaded: isUserProfileLoaded,
+    openId: wechatOpenId,
+    code: wechatCode,
+    enabled: wxcodeEnabled,
+    appId: appId || '',
     refreshUserInfo,
-    wechatCode,
-    wechatOpenId,
-    wxcodeEnabled,
-  ]);
+    authorize: wechatAuthorization.authorize,
+  });
 
   // NOTE: User-related features should be organized into one module
   const gotoLogin = useCallback(() => {
@@ -487,6 +402,8 @@ export default function ChatPage() {
     dialogProps: learnerProfileDialogProps,
   } = useCourseProfileOnboardingGate({
     initialized,
+    startupReady: wechatAuthorization.ready && wechatOpenIdReady,
+    accountReady: !requiresWechatAccount || isUserProfileLoaded,
     isLoggedIn,
     previewMode,
     courseName,
@@ -575,19 +492,25 @@ export default function ChatPage() {
     return '';
   }, [resolvedLessonId, tree]);
 
-  const currentLessonHasContentUpdate = useMemo(() => {
+  const currentLessonFollowUpMode = useMemo(() => {
     if (!tree || !resolvedLessonId) {
-      return false;
+      return 'text' as const;
     }
     for (const catalog of tree.catalogs || []) {
       const lesson = (catalog.lessons || []).find(
         entry => entry.id === resolvedLessonId,
       );
       if (lesson) {
-        return Boolean(lesson.has_content_update_for_current_user);
+        if (lesson.follow_up_mode === 'live_voice') {
+          return 'live_voice' as const;
+        }
+        if (lesson.follow_up_mode === 'disabled') {
+          return 'disabled' as const;
+        }
+        return 'text' as const;
       }
     }
-    return false;
+    return 'text' as const;
   }, [resolvedLessonId, tree]);
 
   const onLessonSelect = ({ id }) => {
@@ -845,6 +768,7 @@ export default function ChatPage() {
             chapterId={chapterId}
             lessonId={resolvedLessonId}
             lessonTitle={currentLessonTitle}
+            titleLanguage={tree?.titleLanguage}
           />
         ) : null}
 
@@ -865,6 +789,7 @@ export default function ChatPage() {
 
         {initialized && navOpen ? (
           <NavDrawer
+            courseId={courseId}
             courseName={courseName}
             courseAvatar={courseAvatar}
             onLoginClick={() => {
@@ -886,8 +811,10 @@ export default function ChatPage() {
             lessonId={resolvedLessonId}
             chapterId={chapterId}
             lessonTitle={currentLessonTitle}
+            titleLanguage={tree?.titleLanguage}
+            contentLanguage={tree?.contentLanguage}
             lessonStatus={currentLessonStatus}
-            lessonHasContentUpdate={currentLessonHasContentUpdate}
+            followUpMode={currentLessonFollowUpMode}
             lessonUpdate={onLessonUpdate}
             onGoChapter={onGoChapter}
             onPurchased={onPurchased}

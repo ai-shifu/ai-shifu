@@ -60,13 +60,10 @@ jest.mock('@/lib/creditInsufficientToast', () => ({
   showCreditInsufficientToast: jest.fn(),
 }));
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (selector: (state: { billingEnabled: string }) => unknown) =>
     selector({ billingEnabled: 'true' }),
-}));
-
-jest.mock('@/store', () => ({
   useShifu: () => ({
     currentNode: mockCurrentNode,
     currentShifu: mockCurrentShifu,
@@ -79,7 +76,7 @@ jest.mock('@/store', () => ({
   ) => selector({ userInfo: mockUserInfo }),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),

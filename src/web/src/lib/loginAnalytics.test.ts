@@ -8,6 +8,9 @@ describe('login analytics payloads', () => {
     expect(buildLoginAttemptAnalytics('password')).toEqual({
       login_method: 'password',
     });
+    expect(buildLoginAttemptAnalytics('email')).toEqual({
+      login_method: 'email',
+    });
   });
 
   it('adds only a bounded failure category to failed results', () => {
@@ -21,6 +24,13 @@ describe('login analytics payloads', () => {
       login_method: 'sms',
       outcome: 'failed',
       failure_category: 'credentials_rejected',
+    });
+    expect(
+      buildLoginResultAnalytics('password', 'failed', 'rate_limited'),
+    ).toEqual({
+      login_method: 'password',
+      outcome: 'failed',
+      failure_category: 'rate_limited',
     });
   });
 });

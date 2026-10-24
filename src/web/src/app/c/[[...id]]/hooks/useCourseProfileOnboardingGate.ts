@@ -5,9 +5,9 @@ import {
   isProfileOnboardingStatus,
   skipProfileOnboarding,
   type ProfileOnboardingStatus,
-} from '@/c-api/user';
+} from '@/api/user';
 import type { LearnerProfileDialogProps } from '@/components/profile-onboarding/LearnerProfileDialog';
-import { debugWarn } from '@/c-utils/debugConsole';
+import { debugWarn } from '@/lib/debugConsole';
 import { toast } from '@/hooks/useToast';
 import {
   resolveLearnerErrorMessage,
@@ -22,6 +22,8 @@ export const PROFILE_ONBOARDING_ELIGIBILITY_TIMEOUT_MS = 10_000;
 
 type UseCourseProfileOnboardingGateParams = {
   initialized: boolean;
+  startupReady?: boolean;
+  accountReady?: boolean;
   isLoggedIn: boolean;
   previewMode: boolean;
   courseName: string;
@@ -31,6 +33,8 @@ type UseCourseProfileOnboardingGateParams = {
 
 export const useCourseProfileOnboardingGate = ({
   initialized,
+  startupReady = true,
+  accountReady = true,
   isLoggedIn,
   previewMode,
   courseName,
@@ -54,7 +58,9 @@ export const useCourseProfileOnboardingGate = ({
 
   const runtimeReady =
     initialized &&
-    (!isLoggedIn || previewMode || readyScope === learnerProfileScope);
+    (previewMode ||
+      (startupReady &&
+        (!isLoggedIn || !accountReady || readyScope === learnerProfileScope)));
 
   const release = useCallback(() => {
     eligibilityRef.current = 'complete';
@@ -104,10 +110,17 @@ export const useCourseProfileOnboardingGate = ({
     setSubmitting(false);
     setError('');
     setReadyScope(null);
-  }, [initialized, isLoggedIn, learnerProfileScope, previewMode]);
+  }, [
+    accountReady,
+    initialized,
+    isLoggedIn,
+    learnerProfileScope,
+    previewMode,
+    startupReady,
+  ]);
 
   useEffect(() => {
-    if (!initialized) {
+    if (!initialized || !startupReady || !accountReady) {
       eligibilityRef.current = 'idle';
       setReadyScope(null);
       return;
@@ -194,7 +207,15 @@ export const useCourseProfileOnboardingGate = ({
       requestSettled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [courseName, initialized, isLoggedIn, learnerProfileScope, previewMode]);
+  }, [
+    accountReady,
+    courseName,
+    initialized,
+    isLoggedIn,
+    learnerProfileScope,
+    previewMode,
+    startupReady,
+  ]);
 
   const defer = useCallback(
     async (sessionId?: string) => {
@@ -264,12 +285,13 @@ export const useCourseProfileOnboardingGate = ({
   }, [learnerProfileScope, notifyRefreshDelay, refreshUserInfo, release]);
 
   const openFromMenu = useCallback(() => {
+    if (!startupReady || !accountReady) return;
     setAutoStartCollection(false);
     setDialogOpen(true);
-  }, []);
+  }, [accountReady, startupReady]);
 
   const dialogProps = {
-    open: dialogOpen,
+    open: startupReady && accountReady && dialogOpen,
     autoStartCollection,
     exitPolicy:
       status?.presentation === 'blocking' ? 'blocking' : 'dismissible',

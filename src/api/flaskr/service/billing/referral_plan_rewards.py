@@ -6,15 +6,16 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Protocol
 
-from flask import Flask, has_app_context
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
     from datetime import datetime
+
+    from flask import Flask
 
     from .models import (
         BillingOrder,
@@ -71,14 +72,6 @@ class ReferralPlanRewardResult:
         }
 
 
-class _NullContext:
-    def __enter__(self) -> None:
-        return None
-
-    def __exit__(self, *_exc: object) -> bool | None:
-        return False
-
-
 class _BillingModelsModule(Protocol):
     BillingOrder: type[BillingOrder]
     BillingProduct: type[BillingProduct]
@@ -97,10 +90,6 @@ class _BillingConstantsModule(Protocol):
     BILLING_TRIAL_PRODUCT_BID: str
     BILLING_TRIAL_PRODUCT_CODE: str
     BILLING_TRIAL_PRODUCT_METADATA_PUBLIC_FLAG: str
-
-
-def _with_app_context(app: Flask) -> AbstractContextManager[None]:
-    return _NullContext() if has_app_context() else app.app_context()
 
 
 def _provider_reference(reward_bid: str) -> str:
@@ -478,7 +467,7 @@ def grant_referral_plan_reward(
     request: ReferralPlanRewardRequest,
 ) -> ReferralPlanRewardResult:
     """Grant one referral plan reward through billing order artifacts."""
-    with _with_app_context(app):
+    with app_context_scope(app), unit_of_work():
         consts = _billing_consts()
         models = _billing_models()
         normalized_reward_bid = _normalize_bid(request.reward_bid)
@@ -499,7 +488,7 @@ def grant_referral_plan_reward(
         )
         if existing_order is not None:
             _grant_paid_order_credits(app, existing_order)
-            db.session.commit()
+
             bucket_bid, ledger_bid = _load_bucket_and_ledger(existing_order)
             return ReferralPlanRewardResult(
                 inviter_user_bid=normalized_inviter_user_bid,
@@ -551,7 +540,7 @@ def grant_referral_plan_reward(
         db.session.flush()
 
         _grant_paid_order_credits(app, order)
-        db.session.commit()
+
         bucket_bid, ledger_bid = _load_bucket_and_ledger(order)
         return ReferralPlanRewardResult(
             inviter_user_bid=normalized_inviter_user_bid,

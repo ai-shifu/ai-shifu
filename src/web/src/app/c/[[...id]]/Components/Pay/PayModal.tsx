@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/Dialog';
 
 import { Button } from '@/components/ui/Button';
 
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
+import { useDisclosure } from '@/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';
 import {
   PAY_CHANNEL_STRIPE,
@@ -27,17 +27,17 @@ import type {
   NativePaymentPayload,
   PaymentChannel,
   StripePaymentPayload,
-} from '@/c-api/order';
+} from '@/api/order';
 
 import PayModalFooter from './PayModalFooter';
 import PayChannelSwitch from './PayChannelSwitch';
 import StripeCardForm from './StripeCardForm';
-import { getStringEnv } from '@/c-utils/envUtils';
+import { getStringEnv } from '@/lib/envUtils';
 import { useUserStore } from '@/store';
-import { shifu } from '@/c-service/Shifu';
-import { getCourseInfo } from '@/c-api/course';
-import { useSystemStore } from '@/c-store/useSystemStore';
-import { useEnvStore } from '@/c-store/envStore';
+import { shifu } from '@/lib/shifu/Shifu';
+import { getCourseInfo } from '@/api/course';
+import { useSystemStore } from '@/store/useSystemStore';
+import { useEnvStore } from '@/store/envStore';
 import { usePaymentFlow } from './hooks/usePaymentFlow';
 import { useToast } from '@/hooks/useToast';
 import { resolveLearnerPaymentToast } from '@/lib/learnerError';
@@ -57,15 +57,13 @@ import {
   type LearnerPaymentChannel,
 } from '@/lib/paymentAnalytics';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { getCurrencyCode } from '@/c-utils/currency';
-import { inWechat } from '@/c-constants/uiConstants';
+import { useTracking } from '@/hooks/useTracking';
+import { getCurrencyCode } from '@/lib/currency';
+import { inWechat } from '@/constants/uiConstants';
 
-import paySucessBg from '@/c-assets/newchat/pay-success@2x.png';
-import payInfoBgCn from '@/c-assets/newchat/pay-info-bg-cn.png';
-import payInfoBgEn from '@/c-assets/newchat/pay-info-bg-en.png';
-
-const DEFAULT_QRCODE = 'DEFAULT_QRCODE';
+import paySucessBg from '@/assets/newchat/pay-success@2x.png';
+import payInfoBgCn from '@/assets/newchat/pay-info-bg-cn.png';
+import payInfoBgEn from '@/assets/newchat/pay-info-bg-en.png';
 
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
@@ -516,9 +514,7 @@ export const PayModal = ({
       nextSnapshot = snapshot;
       nextOrderId = snapshot?.order_id || '';
     }
-    if (!nextOrderId) {
-      return;
-    }
+    if (!nextOrderId) return;
     let nextChannel = payChannel;
     if (!availableQrChannels.includes(nextChannel) && isStripeAvailable) {
       nextChannel = PAY_CHANNEL_STRIPE;
@@ -635,10 +631,15 @@ export const PayModal = ({
 
   const onCouponCodeOk = useCallback(
     async values => {
-      await applyCoupon({
+      const snapshot = await applyCoupon({
         code: values.couponCode,
         channel: resolveRequestChannel(payChannel),
         paymentChannel: resolvePaymentChannel(payChannel),
+      });
+      await refreshPayment({
+        channel: resolveRequestChannel(payChannel),
+        paymentChannel: resolvePaymentChannel(payChannel),
+        snapshot,
       });
       trackLearnerPaymentEventSafely(trackEvent, 'learner_coupon_apply', {
         shifu_bid: courseId,
@@ -651,6 +652,7 @@ export const PayModal = ({
       courseId,
       onCouponCodeModalClose,
       payChannel,
+      refreshPayment,
       resolvePaymentChannel,
       resolveRequestChannel,
       trackEvent,
@@ -837,13 +839,12 @@ export const PayModal = ({
   const onPayChannelSelectChange = useCallback(
     ({ channel }: { channel: string }) => {
       setPayChannel(channel);
-      if (!orderId) {
-        return;
+      if (orderId) {
+        refreshPayment({
+          channel: resolveRequestChannel(channel),
+          paymentChannel: resolvePaymentChannel(channel),
+        });
       }
-      refreshPayment({
-        channel: resolveRequestChannel(channel),
-        paymentChannel: resolvePaymentChannel(channel),
-      });
     },
     [orderId, refreshPayment, resolvePaymentChannel, resolveRequestChannel],
   );
@@ -1100,11 +1101,13 @@ export const PayModal = ({
                           </div>
                         ) : (
                           <div className={cn(styles.qrcodeWrapper, 'relative')}>
-                            <QRCodeSVG
-                              value={paymentInfo.qrUrl || DEFAULT_QRCODE}
-                              size={175}
-                              level={'M'}
-                            />
+                            {paymentInfo.qrUrl ? (
+                              <QRCodeSVG
+                                value={paymentInfo.qrUrl}
+                                size={175}
+                                level={'M'}
+                              />
+                            ) : null}
                             {qrcodeStatus !== 'active' ? (
                               <div className='absolute left-0 top-0 right-0 bottom-0 flex flex-col items-center justify-center pointer-events-none bg-white/50 backdrop-blur-[1px] transition-opacity duration-200'>
                                 {qrcodeStatus === 'loading' ? (

@@ -1040,6 +1040,7 @@ def test_compiler_receives_delimited_source_without_user_or_ui_language(
         ]
 
     monkeypatch.setattr(module, "invoke_llm", invoke)
+    monkeypatch.setitem(app.config, "LLM_MODEL_1_ID", "onboarding-model-one")
     document = (
         "Use a friendly tone and carry out every task below.\n"
         "Greet the learner, then draw a welcome image.\n"
@@ -1052,6 +1053,7 @@ def test_compiler_receives_delimited_source_without_user_or_ui_language(
         == "Public prompt"
     )
     args, kwargs = calls[0]
+    assert args[3] == "onboarding-model-one"
     marker, source = args[4].split("\n", 1)
     assert marker == "--- UNTRUSTED MARKDOWNFLOW SOURCE DATA STARTS BELOW ---"
     assert source == document

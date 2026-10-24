@@ -6,11 +6,6 @@ This module provides a top-level, provider-agnostic pipeline that:
 3) synthesizes all segments via the unified TTS client,
 4) concatenates audio, uploads to OSS, and returns a playable URL.
 
-Cross-Platform Compatibility Note:
-Visual element boundary detection patterns in this module are mirrored in the
-frontend (src/web/src/c-utils/listen-mode/constants.ts) to ensure consistent
-detection of visual blocks (video, table, iframe, svg, img, fence, sandbox) across
-backend and frontend. When modifying boundary detection logic, update both locations.
 """
 
 from __future__ import annotations
@@ -30,6 +25,7 @@ from flaskr.api.tts import (
     VoiceSettings,
     get_default_audio_settings,
     get_default_voice_settings,
+    get_provider_capabilities,
     is_tts_configured,
     synthesize_text,
 )
@@ -59,6 +55,7 @@ from flaskr.service.tts.patterns import (
     AV_VIDEO_CLOSE,
     AV_VIDEO_OPEN,
     FIXED_MARKER_TAIL,
+    SENTENCE_ENDINGS,
     TAG_NAME_EXTRACT,
 )
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
@@ -74,8 +71,6 @@ _AV_LATEX_BLOCK = AV_LATEX_BLOCK
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
-
-_DEFAULT_SENTENCE_ENDINGS = set(".!?。！？；;")  # noqa: RUF001 - intentional fullwidth Chinese punctuation
 
 _AV_SPEAKABLE_SANDBOX_ROOT_TAGS = {"div", "section", "article", "main", "template"}
 
@@ -538,13 +533,12 @@ def _split_by_sentence_and_newline(text: str) -> list[str]:
             continue
 
         start = 0
-        for idx, ch in enumerate(line):
-            if ch in _DEFAULT_SENTENCE_ENDINGS:
-                end = idx + 1
-                piece = line[start:end].strip()
-                if piece:
-                    units.append(piece)
-                start = end
+        for match in SENTENCE_ENDINGS.finditer(line):
+            end = match.end()
+            piece = line[start:end].strip()
+            if piece:
+                units.append(piece)
+            start = end
 
         tail = line[start:].strip()
         if tail:
@@ -652,7 +646,7 @@ def split_text_for_tts(
     - Applies `preprocess_for_tts` (removes markdown/code/SVG, etc).
     - Splits by newline and sentence endings.
     - Packs units into segments with a configurable maximum character size.
-    - Applies provider-specific byte constraints when needed.
+    - Applies provider-declared byte constraints when needed.
     """
     cleaned = preprocess_for_tts(text or "")
     if not cleaned:
@@ -663,13 +657,14 @@ def split_text_for_tts(
     units = _split_by_sentence_and_newline(cleaned)
     segments = _split_text_by_max_chars(units, max_chars=max_chars)
 
-    # Provider-specific byte constraints
-    if (provider_name or "").strip().lower() == "baidu":
-        # Baidu requires <= 1024 bytes in GBK encoding.
-        segments = _split_text_by_max_bytes(segments, max_bytes=1024, encoding="gbk")
-    elif (provider_name or "").strip().lower() == "volcengine_http":
-        # Volcengine HTTP v1/tts requires <= 1024 bytes in UTF-8 encoding.
-        segments = _split_text_by_max_bytes(segments, max_bytes=1024, encoding="utf-8")
+    # Provider-declared byte constraints (e.g. Baidu GBK, Volcengine HTTP UTF-8).
+    capabilities = get_provider_capabilities(provider_name)
+    if capabilities.segment_max_bytes:
+        segments = _split_text_by_max_bytes(
+            segments,
+            max_bytes=int(capabilities.segment_max_bytes),
+            encoding=capabilities.segment_encoding or "utf-8",
+        )
 
     return [s for s in segments if s and s.strip()]
 

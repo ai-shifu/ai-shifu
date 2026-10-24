@@ -1,5 +1,5 @@
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
-import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
+import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 import type { ProfileOnboardingStreamEvent } from '@/lib/profileOnboardingSse';
 
 export type ProfileOnboardingSessionInfo = {

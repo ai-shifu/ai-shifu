@@ -1,0 +1,463 @@
+{
+  "__namespace__": "module.operationsCourse",
+  "actions": {
+    "copyCourse": "Copiar curso",
+    "transferCreator": "Transferir responsable del curso"
+  },
+  "copyCourseDialog": {
+    "confirm": "Confirmar copia",
+    "confirmDescription": "Se copiará el último borrador de <strong>{courseName}</strong> para crear el curso <strong>{newCourseName}</strong>, del que será responsable <strong>{targetCreator}</strong>.",
+    "confirmTitle": "Confirmar copia del curso",
+    "contactPlaceholderEmail": "Introduce el correo electrónico del nuevo responsable",
+    "contactPlaceholderPhone": "Introduce el móvil del nuevo responsable",
+    "contactType": "Tipo de contacto",
+    "contactTypeEmail": "Correo electrónico",
+    "contactTypePhone": "Móvil",
+    "courseNameFallback": "Curso",
+    "courseNameSuffix": "-Copia",
+    "currentCreator": "Responsable actual",
+    "description": "Copia el último borrador para crear un nuevo curso en borrador a cargo de la persona indicada.",
+    "identifier": "Nuevo responsable",
+    "identifierRequired": "Introduce un dato de contacto válido del nuevo responsable",
+    "newCourseName": "Nombre del nuevo curso",
+    "submitSuccess": "Curso copiado correctamente",
+    "title": "Copiar curso"
+  },
+  "coursePromptDialog": {
+    "copy": "Copiar",
+    "copyFailed": "No se ha podido copiar el prompt del curso",
+    "copySuccess": "Prompt del curso copiado",
+    "empty": "No hay ningún prompt del curso",
+    "title": "Prompt del curso"
+  },
+  "detail": {
+    "basicInfo": "Información básica",
+    "boolean": {
+      "no": "No",
+      "yes": "Sí"
+    },
+    "chapterType": {
+      "chapter": "Cap.",
+      "lesson": "Lec."
+    },
+    "chapters": "Capítulos del curso",
+    "chaptersTable": {
+      "chapterId": "ID del capítulo",
+      "contentDetail": "Detalles del contenido",
+      "contentStatus": "Estado del contenido",
+      "detailAction": "Detalles",
+      "empty": "No hay datos de capítulos",
+      "followUpCount": "Preguntas de seguimiento",
+      "learningPermission": "Acceso",
+      "modifier": "Modificado por",
+      "name": "Nombre del capítulo",
+      "position": "Orden",
+      "ratingCount": "Número de valoraciones",
+      "ratingScore": "Valoración",
+      "type": "Tipo",
+      "updatedAt": "Fecha de actualización",
+      "visibility": "Visibilidad"
+    },
+    "contentDetailDialog": {
+      "copy": "Copiar",
+      "copyFailed": "No se ha podido copiar",
+      "copySuccess": "Detalles del contenido copiados",
+      "empty": "No hay contenido",
+      "sections": {
+        "content": "Contenido del curso",
+        "systemPrompt": "Prompt del sistema"
+      },
+      "sources": {
+        "chapter": "Origen: prompt del capítulo",
+        "course": "Origen: prompt del curso",
+        "lesson": "Origen: prompt de la lección"
+      },
+      "title": "Detalles del contenido"
+    },
+    "contentStatus": {
+      "empty": "Sin contenido",
+      "has": "Con contenido",
+      "unknown": "Desconocido"
+    },
+    "creditUsage": {
+      "count": "{count} registros",
+      "description": "Consulta los registros de consumo de créditos de este curso.",
+      "details": {
+        "collapse": "Contraer",
+        "durationMinutesSeconds": "{minutes} min {seconds} s",
+        "durationSeconds": "{seconds} s",
+        "empty": "No hay detalles de consumo",
+        "expand": "Expandir",
+        "openUsageDetails": "Ver {count} consumos detallados",
+        "table": {
+          "createdAt": "Fecha de consumo",
+          "credits": "Créditos consumidos",
+          "inputTokens": "Tokens de entrada",
+          "model": "Modelo",
+          "outputSummary": "Resumen de la salida",
+          "outputTokens": "Tokens de salida",
+          "ttsContent": "Contenido sintetizado",
+          "ttsDuration": "Duración del audio",
+          "ttsSegmentCount": "Segmentos",
+          "ttsWordCount": "Caracteres sintetizados"
+        },
+        "title": "Detalles del consumo de créditos"
+      },
+      "filters": {
+        "mode": "Modo de consumo",
+        "modeAll": "Todos",
+        "reset": "Restablecer",
+        "scene": "Tipo de consumo",
+        "sceneAll": "Todos",
+        "time": "Fecha",
+        "timePlaceholder": "Fecha de inicio ~ Fecha de fin",
+        "userKeyword": "Usuario",
+        "userKeywordPlaceholderEmail": "Correo electrónico / Apodo",
+        "userKeywordPlaceholderPhone": "Móvil / Apodo"
+      },
+      "modelSummary": {
+        "variants": "{count} variantes"
+      },
+      "modes": {
+        "ask": "Pregunta de seguimiento",
+        "learn": "Lectura",
+        "listen": "Escucha",
+        "mixed": "Mixto",
+        "unknown": "Modo desconocido"
+      },
+      "scenes": {
+        "debug": "Depuración",
+        "learning": "Aprendizaje",
+        "preview": "Vista previa",
+        "unknown": "Tipo desconocido"
+      },
+      "table": {
+        "chapter": "Capítulo",
+        "createdAt": "Última fecha de consumo",
+        "credits": "Total de créditos consumidos",
+        "empty": "No hay registros de consumo de créditos",
+        "lesson": "Lección",
+        "mode": "Modo de consumo",
+        "model": "Modelo",
+        "nickname": "Apodo",
+        "scene": "Tipo de consumo",
+        "usageCount": "Número de consumos"
+      },
+      "title": "Consumo de créditos"
+    },
+    "creditUsageTab": "Consumo de créditos",
+    "estimatedCreditCost": {
+      "classroom": "Aula",
+      "creditUnit": "créditos",
+      "description": "Estimación según el contenido, los modelos y los multiplicadores actuales. No incluye repeticiones, preguntas de seguimiento ni regeneraciones; consulta el consumo real en los movimientos de créditos.",
+      "disabled": "Desactivado",
+      "listen": "Escucha",
+      "llm": "LLM",
+      "read": "Lectura",
+      "title": "Consumo estimado del curso completo",
+      "tts": "TTS",
+      "unknownModel": "Modelo desconocido"
+    },
+    "fields": {
+      "courseId": "ID del curso",
+      "courseName": "Nombre del curso",
+      "createdAt": "Fecha de creación",
+      "creator": "Responsable del curso",
+      "status": "Estado",
+      "updatedAt": "Fecha de actualización"
+    },
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "Lee en este orden: salida original -> pregunta de seguimiento -> respuesta del sistema.",
+        "fields": {
+          "chapter": "Capítulo / Lección",
+          "currentAnswer": "Respuesta del sistema",
+          "currentFollowUp": "Pregunta de seguimiento",
+          "followUpTime": "Fecha de la pregunta",
+          "lesson": "Lección",
+          "nickname": "Apodo",
+          "sourceOutput": "Salida original",
+          "turnIndex": "Turno",
+          "user": "Usuario",
+          "userId": "ID de usuario"
+        },
+        "sections": {
+          "basicInfo": "Información básica",
+          "currentRecord": "Detalles de la pregunta de seguimiento",
+          "timeline": "Cronología del contexto"
+        },
+        "sourceUnavailable": "No se puede localizar la salida original correspondiente",
+        "timeline": {
+          "current": "Turno actual",
+          "student": "Estudiante",
+          "teacher": "Sistema"
+        },
+        "title": "Detalles de la pregunta de seguimiento"
+      },
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Buscar capítulo o lección",
+        "chapterKeywordPlaceholder": "Título del capítulo o la lección",
+        "followUpTime": "Fecha de la pregunta",
+        "lessonKeyword": "Buscar lección",
+        "lessonKeywordPlaceholder": "Título de la lección",
+        "reset": "Restablecer",
+        "resultCount": "{count, plural, one {# resultado} other {# resultados}}",
+        "search": "Buscar",
+        "sourceStatus": "Estado de la salida original",
+        "sourceStatusAll": "Todos los estados",
+        "sourceStatusMissing": "Salida original no localizada",
+        "sourceStatusResolved": "Salida original localizada",
+        "timePlaceholder": "Fecha de inicio ~ Fecha de fin",
+        "userKeyword": "Buscar usuario",
+        "userKeywordPlaceholder": "Móvil / Correo electrónico / Apodo",
+        "userKeywordPlaceholderEmail": "Correo electrónico / Apodo",
+        "userKeywordPlaceholderPhone": "Móvil / Apodo"
+      },
+      "openMetric": "Ver datos de preguntas de seguimiento",
+      "summary": {
+        "followUpCount": "Preguntas de seguimiento",
+        "latestFollowUpAt": "Última pregunta",
+        "lessonCount": "Lecciones relacionadas",
+        "userCount": "Usuarios que han preguntado"
+      },
+      "table": {
+        "action": "Acción",
+        "chapter": "Capítulo",
+        "content": "Contenido de la pregunta",
+        "createdAt": "Fecha de la pregunta",
+        "detailAction": "Ver detalles",
+        "empty": "No hay preguntas de seguimiento",
+        "lesson": "Lección",
+        "scopeHint": "Revisa las preguntas de los estudiantes sobre el curso para detectar dificultades frecuentes y lecciones que conviene mejorar.",
+        "sourceMissing": "Salida original no localizada",
+        "sourceResolved": "Salida original localizada",
+        "title": "Lista de preguntas de seguimiento",
+        "turnIndex": "Turno",
+        "user": "Usuario"
+      },
+      "title": "Datos de preguntas de seguimiento",
+      "turnIndex": "Turno {count}",
+      "turnIndexHelp": "Los turnos se ordenan por fecha de la pregunta dentro del mismo registro de aprendizaje."
+    },
+    "learningPermission": {
+      "free": "Gratis",
+      "guest": "Sin iniciar sesión",
+      "paid": "De pago",
+      "unknown": "Desconocido"
+    },
+    "metrics": "Resumen de datos",
+    "metricsLabels": {
+      "completedUserAvgCredits": "Consumo medio de créditos por alumno que termina",
+      "creditConsumedTotal": "Total de créditos consumidos",
+      "creditUsageCount": "Número de consumos de créditos",
+      "creditUserCount": "Usuarios que consumieron créditos",
+      "followUpCount": "Preguntas de seguimiento",
+      "learnerCount": "Número de estudiantes",
+      "orderAmount": "Importe de pedidos (incluidos códigos de canje)",
+      "orderCount": "Número de pedidos",
+      "ratingScore": "Valoración"
+    },
+    "metricsTooltips": {
+      "completedUserAvgCredits": "Media de créditos consumidos por quienes completaron el curso y tienen registros de consumo facturado.",
+      "creditConsumedTotal": "Total de créditos consumidos al usar este curso, incluidas las lecciones y las preguntas de seguimiento.",
+      "creditUsageCount": "Número de veces que este curso generó una deducción de créditos; indica la frecuencia de uso.",
+      "creditUserCount": "Número de usuarios que consumieron créditos en este curso.",
+      "followUpCount": "Número de preguntas de seguimiento sobre el contenido del curso. Haz clic para verlas.",
+      "learnerCount": "Número de usuarios que empezaron o se apuntaron al curso; indica su alcance.",
+      "orderAmount": "Importe de los pedidos según el total a pagar, incluidos los pedidos con códigos de canje y las activaciones. No equivale al dinero cobrado.",
+      "orderCount": "Pedidos completados de este curso, incluidos los de pago, los canjes y las activaciones gratuitas.",
+      "ratingScore": "Valoración media de las lecciones del curso; indica cómo ha sido la experiencia de aprendizaje."
+    },
+    "orders": {
+      "openMetric": "Ver datos de pedidos"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "Buscar capítulo o lección",
+        "chapterKeywordPlaceholder": "Título del capítulo o la lección",
+        "commentStatus": "Comentario",
+        "commentStatusAll": "Todos",
+        "commentStatusCommented": "Solo con comentario",
+        "lessonKeyword": "Buscar lección",
+        "lessonKeywordPlaceholder": "Título de la lección",
+        "mode": "Modo de aprendizaje",
+        "modeAll": "Todos los modos",
+        "ratingTime": "Fecha de valoración",
+        "reset": "Restablecer",
+        "resultCount": "{count, plural, one {# resultado} other {# resultados}}",
+        "score": "Valoración",
+        "scoreAll": "Todas las valoraciones",
+        "search": "Buscar",
+        "sortBy": "Ordenar",
+        "sortByLatest": "Más recientes primero",
+        "sortByLowScore": "Valoraciones más bajas primero",
+        "timePlaceholder": "Fecha de inicio ~ Fecha de fin",
+        "userKeyword": "Buscar usuario",
+        "userKeywordPlaceholderEmail": "Correo electrónico / Apodo",
+        "userKeywordPlaceholderPhone": "Móvil / Apodo"
+      },
+      "modes": {
+        "listen": "Escucha",
+        "read": "Lectura"
+      },
+      "openMetric": "Ver datos de valoraciones",
+      "scoreValue": "{count} puntos",
+      "summary": {
+        "averageScore": "Valoración media",
+        "latestRatedAt": "Última valoración",
+        "ratingCount": "Número de valoraciones",
+        "userCount": "Usuarios que han valorado"
+      },
+      "table": {
+        "chapter": "Capítulo",
+        "comment": "Comentario",
+        "empty": "No hay valoraciones",
+        "guestUser": "Visitante",
+        "lesson": "Lección",
+        "mode": "Modo de aprendizaje",
+        "ratedAt": "Fecha de valoración",
+        "score": "Valoración",
+        "title": "Lista de valoraciones",
+        "user": "Usuario"
+      },
+      "title": "Datos de valoraciones"
+    },
+    "title": "Detalles del curso",
+    "userLearningStatus": {
+      "completed": "Completado",
+      "learning": "En curso",
+      "notStarted": "Sin empezar"
+    },
+    "userRole": {
+      "creator": "Profesor",
+      "normal": "Usuario normal",
+      "operator": "Operador",
+      "student": "Estudiante"
+    },
+    "users": "Usuarios",
+    "usersCount": "{count} usuarios del curso",
+    "usersDescription": "Consulta el progreso de aprendizaje, el estado de pago y la actividad reciente de los usuarios del curso.",
+    "usersFilters": {
+      "all": "Todos",
+      "learningStatus": "Estado de aprendizaje",
+      "paymentPaid": "De pago",
+      "paymentStatus": "Estado de pago",
+      "paymentUnpaid": "Sin pagar",
+      "userKeyword": "Buscar usuario",
+      "userKeywordPlaceholder": "Móvil / Correo electrónico / Apodo",
+      "userKeywordPlaceholderEmail": "Correo electrónico / Apodo",
+      "userKeywordPlaceholderPhone": "Móvil / Apodo",
+      "userRole": "Rol del usuario"
+    },
+    "usersTable": {
+      "account": "Móvil / Correo electrónico",
+      "accountEmail": "Correo electrónico",
+      "accountPhone": "Móvil",
+      "action": "Acción",
+      "detailAction": "Detalles",
+      "empty": "No hay datos de usuarios",
+      "isPaid": "De pago",
+      "joinedAt": "Fecha de incorporación",
+      "lastLearnedAt": "Última actividad de aprendizaje",
+      "lastLoginAt": "Último inicio de sesión",
+      "learningProgress": "Progreso de aprendizaje",
+      "learningStatus": "Estado de aprendizaje",
+      "nickname": "Apodo",
+      "totalPaidAmount": "Importe total pagado",
+      "userId": "ID de usuario",
+      "userRole": "Rol del usuario"
+    },
+    "visibility": {
+      "hidden": "No se muestra",
+      "visible": "Se muestra"
+    }
+  },
+  "emptyList": "No hay cursos",
+  "filters": {
+    "courseId": "ID del curso",
+    "courseName": "Nombre del curso",
+    "courseQuery": "Curso",
+    "courseQueryPlaceholder": "ID / Nombre del curso",
+    "createdAt": "Fecha de creación",
+    "creator": "Responsable del curso",
+    "creatorEmailOrUserBid": "Correo electrónico del responsable del curso",
+    "creatorMobileOrUserBid": "Móvil del responsable del curso",
+    "endTime": "Fecha de fin",
+    "startTime": "Fecha de inicio",
+    "status": "Estado"
+  },
+  "messages": {
+    "copyCourseFailed": "No se ha podido copiar el curso. Inténtalo más tarde.",
+    "loadChapterDetailFailed": "No se han podido cargar los detalles del capítulo. Inténtalo más tarde.",
+    "loadCourseDetailFailed": "No se han podido cargar los detalles del curso. Inténtalo más tarde.",
+    "loadCourseUsersFailed": "No se han podido cargar los datos de usuarios del curso. Inténtalo más tarde.",
+    "loadCoursesFailed": "No se ha podido cargar la lista de cursos. Actualiza la página e inténtalo de nuevo.",
+    "loadCreditUsageDetailsFailed": "No se han podido cargar los detalles del consumo de créditos. Inténtalo más tarde.",
+    "loadCreditUsageFailed": "No se han podido cargar los datos de consumo de créditos. Inténtalo más tarde.",
+    "loadFollowUpDetailFailed": "No se han podido cargar los detalles de la pregunta de seguimiento. Inténtalo más tarde.",
+    "loadFollowUpsFailed": "No se han podido cargar los datos de preguntas de seguimiento. Actualiza la página e inténtalo de nuevo.",
+    "loadPromptDetailFailed": "No se ha podido cargar el prompt del curso. Inténtalo más tarde.",
+    "loadRatingsFailed": "No se han podido cargar los datos de valoraciones. Actualiza la página e inténtalo de nuevo.",
+    "transferCreatorFailed": "No se ha podido transferir la responsabilidad del curso. Inténtalo más tarde."
+  },
+  "overview": {
+    "activeFilter": "Filtro rápido",
+    "metrics": {
+      "createdLast7d": "Cursos nuevos (7 días)",
+      "draftCourses": "Cursos en borrador",
+      "learningActive30d": "Cursos con aprendizaje (30 días)",
+      "ordered30d": "Cursos con pedidos (30 días)",
+      "publishedCourses": "Cursos publicados",
+      "totalCourses": "Total de cursos"
+    },
+    "title": "Resumen de datos",
+    "tooltips": {
+      "createdLast7d": "Cursos creados en los últimos 7 días",
+      "draftCourses": "Cursos que nunca se han publicado",
+      "learningActive30d": "Cursos con actividad de aprendizaje en los últimos 30 días",
+      "ordered30d": "Cursos con pedidos en los últimos 30 días",
+      "publishedCourses": "Cursos publicados al menos una vez",
+      "totalCourses": "Número total de cursos"
+    }
+  },
+  "statusLabels": {
+    "published": "Publicado",
+    "unknown": "Desconocido",
+    "unpublished": "Sin publicar"
+  },
+  "table": {
+    "action": "Acción",
+    "courseId": "ID del curso",
+    "courseName": "Nombre del curso",
+    "coursePrompt": "Prompt del curso",
+    "createdAt": "Fecha de creación",
+    "creator": "Responsable del curso",
+    "detailAction": "Detalles",
+    "llmModel": "Modelo LLM",
+    "modifier": "Modificado por",
+    "price": "Precio",
+    "status": "Estado",
+    "ttsModel": "Modelo TTS",
+    "updatedAt": "Fecha de actualización"
+  },
+  "title": "Gestión de cursos",
+  "transferCreatorDialog": {
+    "confirm": "Transferir",
+    "confirmDescription": "Se transferirá la responsabilidad del curso «{courseName}» de {currentCreator} a {targetCreator}.",
+    "confirmTitle": "Confirmar transferencia del responsable del curso",
+    "contactPlaceholderEmail": "Introduce el correo electrónico del nuevo responsable",
+    "contactPlaceholderPhone": "Introduce el móvil del nuevo responsable",
+    "contactType": "Tipo de contacto",
+    "contactTypeEmail": "Correo electrónico",
+    "contactTypePhone": "Móvil",
+    "currentCreator": "Responsable actual",
+    "description": "Solo cambiará el responsable del curso. El contenido, la configuración y los permisos compartidos no se modificarán.",
+    "identifier": "Nuevo responsable",
+    "identifierRequired": "Introduce un dato de contacto válido del nuevo responsable",
+    "sameCreator": "El contacto indicado ya pertenece al responsable actual",
+    "submitSuccess": "Responsabilidad del curso transferida",
+    "title": "Transferir responsable del curso"
+  }
+}

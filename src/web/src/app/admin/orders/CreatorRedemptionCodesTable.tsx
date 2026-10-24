@@ -1,7 +1,7 @@
 'use client';
 
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import type { AdminPromotionCouponItem } from '@/app/admin/operations/operation-promotion-types';
 import {

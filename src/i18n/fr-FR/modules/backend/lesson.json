@@ -1,6 +1,3 @@
 {
-  "__namespace__": "server.outline",
-  "__flat__": {
-    "hasNotLesson": "Aucune leçon configurée"
-  }
+  "__namespace__": "server.outline"
 }

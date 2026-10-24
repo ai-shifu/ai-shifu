@@ -58,227 +58,163 @@ class _DTOBase(BaseModel):
 class AdminPromotionSummaryDTO(_DTOBase):
     """Represent the admin promotion summary API payload."""
 
-    total: int = Field(..., description="Total item count", required=False)
-    active: int = Field(..., description="Active item count", required=False)
-    usage_count: int = Field(..., description="Usage count", required=False)
-    latest_usage_at: datetime | None = Field(
-        ..., description="Latest usage time", required=False
-    )
-    covered_courses: int = Field(
-        ..., description="Covered course count", required=False
-    )
-    discount_amount: str = Field(..., description="Discount amount", required=False)
+    total: int = Field(..., description="Total item count")
+    active: int = Field(..., description="Active item count")
+    usage_count: int = Field(..., description="Usage count")
+    latest_usage_at: datetime | None = Field(..., description="Latest usage time")
+    covered_courses: int = Field(..., description="Covered course count")
+    discount_amount: str = Field(..., description="Discount amount")
 
 
 @register_schema_to_swagger
 class AdminPromotionCouponItemDTO(_DTOBase):
     """Represent the admin promotion coupon item API payload."""
 
-    coupon_bid: str = Field(..., description="Coupon batch identifier", required=False)
-    name: str = Field(..., description="Coupon batch name", required=False)
-    code: str = Field(..., description="Generic coupon code", required=False)
-    usage_type: int = Field(..., description="Coupon usage type", required=False)
-    usage_type_key: str = Field(
-        ..., description="Coupon usage type i18n key", required=False
-    )
-    discount_type: int = Field(..., description="Discount type", required=False)
-    discount_type_key: str = Field(
-        ..., description="Discount type i18n key", required=False
-    )
-    value: str = Field(..., description="Discount value", required=False)
-    scope_type: str = Field(..., description="Coupon scope type", required=False)
-    shifu_bid: str = Field(..., description="Course identifier", required=False)
-    course_name: str = Field(..., description="Course name", required=False)
-    start_at: datetime | None = Field(
-        ..., description="Coupon start time", required=False
-    )
-    end_at: datetime | None = Field(..., description="Coupon end time", required=False)
-    total_count: int = Field(..., description="Total count", required=False)
-    used_count: int = Field(..., description="Used count", required=False)
-    ops_states: list[str] = Field(
-        ..., description="Operator-facing operational states", required=False
-    )
-    computed_status: str = Field(..., description="Computed status", required=False)
-    computed_status_key: str = Field(
-        ..., description="Computed status i18n key", required=False
-    )
-    created_user_bid: str = Field(
-        ..., description="Creator user identifier", required=False
-    )
-    created_user_name: str = Field(..., description="Creator user name", required=False)
-    created_at: datetime | None = Field(..., description="Created time", required=False)
-    updated_at: datetime | None = Field(..., description="Updated time", required=False)
+    coupon_bid: str = Field(..., description="Coupon batch identifier")
+    name: str = Field(..., description="Coupon batch name")
+    code: str = Field(..., description="Generic coupon code")
+    usage_type: int = Field(..., description="Coupon usage type")
+    usage_type_key: str = Field(..., description="Coupon usage type i18n key")
+    discount_type: int = Field(..., description="Discount type")
+    discount_type_key: str = Field(..., description="Discount type i18n key")
+    value: str = Field(..., description="Discount value")
+    scope_type: str = Field(..., description="Coupon scope type")
+    shifu_bid: str = Field(..., description="Course identifier")
+    course_name: str = Field(..., description="Course name")
+    start_at: datetime | None = Field(..., description="Coupon start time")
+    end_at: datetime | None = Field(..., description="Coupon end time")
+    total_count: int = Field(..., description="Total count")
+    used_count: int = Field(..., description="Used count")
+    ops_states: list[str] = Field(..., description="Operator-facing operational states")
+    computed_status: str = Field(..., description="Computed status")
+    computed_status_key: str = Field(..., description="Computed status i18n key")
+    created_user_bid: str = Field(..., description="Creator user identifier")
+    created_user_name: str = Field(..., description="Creator user name")
+    created_at: datetime | None = Field(..., description="Created time")
+    updated_at: datetime | None = Field(..., description="Updated time")
 
 
 @register_schema_to_swagger
 class AdminPromotionCampaignItemDTO(_DTOBase):
     """Represent the admin promotion campaign item API payload."""
 
-    promo_bid: str = Field(..., description="Promotion identifier", required=False)
-    name: str = Field(..., description="Promotion name", required=False)
-    shifu_bid: str = Field(..., description="Course identifier", required=False)
-    course_name: str = Field(..., description="Course name", required=False)
-    apply_type: int = Field(..., description="Grant type", required=False)
-    discount_type: int = Field(..., description="Discount type", required=False)
-    discount_type_key: str = Field(
-        ..., description="Discount type i18n key", required=False
-    )
-    value: str = Field(..., description="Discount value", required=False)
-    channel: str = Field(..., description="Channel", required=False)
-    start_at: datetime | None = Field(..., description="Start time", required=False)
-    end_at: datetime | None = Field(..., description="End time", required=False)
-    computed_status: str = Field(..., description="Computed status", required=False)
-    computed_status_key: str = Field(
-        ..., description="Computed status i18n key", required=False
-    )
-    applied_order_count: int = Field(
-        ..., description="Applied order count", required=False
-    )
-    has_redemptions: bool = Field(
-        ..., description="Whether any redemption exists", required=False
-    )
-    total_discount_amount: str = Field(
-        ..., description="Total discount amount", required=False
-    )
-    created_user_bid: str = Field(
-        ..., description="Creator user identifier", required=False
-    )
-    created_user_name: str = Field(..., description="Creator user name", required=False)
-    created_at: datetime | None = Field(..., description="Created time", required=False)
-    updated_at: datetime | None = Field(..., description="Updated time", required=False)
+    promo_bid: str = Field(..., description="Promotion identifier")
+    name: str = Field(..., description="Promotion name")
+    shifu_bid: str = Field(..., description="Course identifier")
+    course_name: str = Field(..., description="Course name")
+    apply_type: int = Field(..., description="Grant type")
+    discount_type: int = Field(..., description="Discount type")
+    discount_type_key: str = Field(..., description="Discount type i18n key")
+    value: str = Field(..., description="Discount value")
+    channel: str = Field(..., description="Channel")
+    start_at: datetime | None = Field(..., description="Start time")
+    end_at: datetime | None = Field(..., description="End time")
+    computed_status: str = Field(..., description="Computed status")
+    computed_status_key: str = Field(..., description="Computed status i18n key")
+    applied_order_count: int = Field(..., description="Applied order count")
+    has_redemptions: bool = Field(..., description="Whether any redemption exists")
+    total_discount_amount: str = Field(..., description="Total discount amount")
+    created_user_bid: str = Field(..., description="Creator user identifier")
+    created_user_name: str = Field(..., description="Creator user name")
+    created_at: datetime | None = Field(..., description="Created time")
+    updated_at: datetime | None = Field(..., description="Updated time")
 
 
 @register_schema_to_swagger
 class AdminPromotionCouponUsageDTO(_DTOBase):
     """Represent the admin promotion coupon usage API payload."""
 
-    coupon_usage_bid: str = Field(
-        ..., description="Coupon usage identifier", required=False
-    )
-    code: str = Field(..., description="Coupon code", required=False)
-    status: int = Field(..., description="Coupon usage status", required=False)
-    status_key: str = Field(
-        ..., description="Coupon usage status i18n key", required=False
-    )
-    user_bid: str = Field(..., description="User identifier", required=False)
-    user_mobile: str = Field(..., description="User mobile", required=False)
-    user_email: str = Field(..., description="User email", required=False)
-    user_nickname: str = Field(..., description="User nickname", required=False)
-    shifu_bid: str = Field(..., description="Course identifier", required=False)
-    course_name: str = Field(..., description="Course name", required=False)
-    order_bid: str = Field(..., description="Order identifier", required=False)
-    order_status: int = Field(..., description="Order status", required=False)
-    order_status_key: str = Field(
-        ..., description="Order status i18n key", required=False
-    )
-    payable_price: str = Field(..., description="Payable price", required=False)
-    discount_amount: str = Field(..., description="Discount amount", required=False)
-    paid_price: str = Field(..., description="Paid price", required=False)
-    used_at: datetime | None = Field(..., description="Used time", required=False)
-    updated_at: datetime | None = Field(..., description="Updated time", required=False)
+    coupon_usage_bid: str = Field(..., description="Coupon usage identifier")
+    code: str = Field(..., description="Coupon code")
+    status: int = Field(..., description="Coupon usage status")
+    status_key: str = Field(..., description="Coupon usage status i18n key")
+    user_bid: str = Field(..., description="User identifier")
+    user_mobile: str = Field(..., description="User mobile")
+    user_email: str = Field(..., description="User email")
+    user_nickname: str = Field(..., description="User nickname")
+    shifu_bid: str = Field(..., description="Course identifier")
+    course_name: str = Field(..., description="Course name")
+    order_bid: str = Field(..., description="Order identifier")
+    order_status: int = Field(..., description="Order status")
+    order_status_key: str = Field(..., description="Order status i18n key")
+    payable_price: str = Field(..., description="Payable price")
+    discount_amount: str = Field(..., description="Discount amount")
+    paid_price: str = Field(..., description="Paid price")
+    used_at: datetime | None = Field(..., description="Used time")
+    updated_at: datetime | None = Field(..., description="Updated time")
 
 
 @register_schema_to_swagger
 class AdminPromotionCouponCodeDTO(_DTOBase):
     """Represent the admin promotion coupon code API payload."""
 
-    coupon_usage_bid: str = Field(
-        ..., description="Coupon usage identifier", required=False
-    )
-    code: str = Field(..., description="Coupon code", required=False)
-    status: int = Field(..., description="Coupon usage status", required=False)
-    status_key: str = Field(
-        ..., description="Coupon usage status i18n key", required=False
-    )
-    user_bid: str = Field(..., description="User identifier", required=False)
-    user_mobile: str = Field(..., description="User mobile", required=False)
-    user_email: str = Field(..., description="User email", required=False)
-    user_nickname: str = Field(..., description="User nickname", required=False)
-    order_bid: str = Field(..., description="Order identifier", required=False)
-    used_at: datetime | None = Field(..., description="Used time", required=False)
-    updated_at: datetime | None = Field(..., description="Updated time", required=False)
+    coupon_usage_bid: str = Field(..., description="Coupon usage identifier")
+    code: str = Field(..., description="Coupon code")
+    status: int = Field(..., description="Coupon usage status")
+    status_key: str = Field(..., description="Coupon usage status i18n key")
+    user_bid: str = Field(..., description="User identifier")
+    user_mobile: str = Field(..., description="User mobile")
+    user_email: str = Field(..., description="User email")
+    user_nickname: str = Field(..., description="User nickname")
+    order_bid: str = Field(..., description="Order identifier")
+    used_at: datetime | None = Field(..., description="Used time")
+    updated_at: datetime | None = Field(..., description="Updated time")
 
 
 @register_schema_to_swagger
 class AdminPromotionCampaignRedemptionDTO(_DTOBase):
     """Represent the admin promotion campaign redemption API payload."""
 
-    redemption_bid: str = Field(
-        ..., description="Promotion redemption identifier", required=False
-    )
-    user_bid: str = Field(..., description="User identifier", required=False)
-    user_mobile: str = Field(..., description="User mobile", required=False)
-    user_email: str = Field(..., description="User email", required=False)
-    user_nickname: str = Field(..., description="User nickname", required=False)
-    order_bid: str = Field(..., description="Order identifier", required=False)
-    order_status: int = Field(..., description="Order status", required=False)
-    order_status_key: str = Field(
-        ..., description="Order status i18n key", required=False
-    )
-    payable_price: str = Field(..., description="Payable price", required=False)
-    discount_amount: str = Field(..., description="Discount amount", required=False)
-    paid_price: str = Field(..., description="Paid price", required=False)
-    status: int = Field(..., description="Redemption status", required=False)
-    status_key: str = Field(
-        ..., description="Redemption status i18n key", required=False
-    )
-    applied_at: datetime | None = Field(..., description="Applied time", required=False)
-    updated_at: datetime | None = Field(..., description="Updated time", required=False)
+    redemption_bid: str = Field(..., description="Promotion redemption identifier")
+    user_bid: str = Field(..., description="User identifier")
+    user_mobile: str = Field(..., description="User mobile")
+    user_email: str = Field(..., description="User email")
+    user_nickname: str = Field(..., description="User nickname")
+    order_bid: str = Field(..., description="Order identifier")
+    order_status: int = Field(..., description="Order status")
+    order_status_key: str = Field(..., description="Order status i18n key")
+    payable_price: str = Field(..., description="Payable price")
+    discount_amount: str = Field(..., description="Discount amount")
+    paid_price: str = Field(..., description="Paid price")
+    status: int = Field(..., description="Redemption status")
+    status_key: str = Field(..., description="Redemption status i18n key")
+    applied_at: datetime | None = Field(..., description="Applied time")
+    updated_at: datetime | None = Field(..., description="Updated time")
 
 
 @register_schema_to_swagger
 class AdminPromotionCouponDetailDTO(_DTOBase):
     """Represent the admin promotion coupon detail API payload."""
 
-    coupon: AdminPromotionCouponItemDTO = Field(
-        ..., description="Coupon detail", required=False
-    )
-    created_user_bid: str = Field(
-        ..., description="Creator user identifier", required=False
-    )
-    created_user_name: str = Field(..., description="Creator user name", required=False)
-    updated_user_bid: str = Field(
-        ..., description="Updater user identifier", required=False
-    )
-    updated_user_name: str = Field(..., description="Updater user name", required=False)
-    remaining_count: int = Field(
-        ..., description="Remaining code count", required=False
-    )
-    latest_used_at: datetime | None = Field(
-        ..., description="Latest used time", required=False
-    )
+    coupon: AdminPromotionCouponItemDTO = Field(..., description="Coupon detail")
+    created_user_bid: str = Field(..., description="Creator user identifier")
+    created_user_name: str = Field(..., description="Creator user name")
+    updated_user_bid: str = Field(..., description="Updater user identifier")
+    updated_user_name: str = Field(..., description="Updater user name")
+    remaining_count: int = Field(..., description="Remaining code count")
+    latest_used_at: datetime | None = Field(..., description="Latest used time")
 
 
 @register_schema_to_swagger
 class AdminPromotionCampaignDetailDTO(_DTOBase):
     """Represent the admin promotion campaign detail API payload."""
 
-    campaign: AdminPromotionCampaignItemDTO = Field(
-        ..., description="Campaign detail", required=False
-    )
-    description: str = Field(..., description="Campaign description", required=False)
-    created_user_bid: str = Field(
-        ..., description="Creator user identifier", required=False
-    )
-    created_user_name: str = Field(..., description="Creator user name", required=False)
-    updated_user_bid: str = Field(
-        ..., description="Updater user identifier", required=False
-    )
-    updated_user_name: str = Field(..., description="Updater user name", required=False)
-    latest_applied_at: datetime | None = Field(
-        ..., description="Latest applied time", required=False
-    )
+    campaign: AdminPromotionCampaignItemDTO = Field(..., description="Campaign detail")
+    description: str = Field(..., description="Campaign description")
+    created_user_bid: str = Field(..., description="Creator user identifier")
+    created_user_name: str = Field(..., description="Creator user name")
+    updated_user_bid: str = Field(..., description="Updater user identifier")
+    updated_user_name: str = Field(..., description="Updater user name")
+    latest_applied_at: datetime | None = Field(..., description="Latest applied time")
 
 
 @register_schema_to_swagger
 class AdminPromotionListResponseDTO(_DTOBase):
     """Represent the admin promotion list response API payload."""
 
-    summary: AdminPromotionSummaryDTO = Field(
-        ..., description="Summary payload", required=False
-    )
-    page: int = Field(..., description="Current page", required=False)
-    page_size: int = Field(..., description="Page size", required=False)
-    total: int = Field(..., description="Total count", required=False)
-    page_count: int = Field(..., description="Page count", required=False)
-    items: list[dict] = Field(..., description="List items", required=False)
+    summary: AdminPromotionSummaryDTO = Field(..., description="Summary payload")
+    page: int = Field(..., description="Current page")
+    page_size: int = Field(..., description="Page size")
+    total: int = Field(..., description="Total count")
+    page_count: int = Field(..., description="Page count")
+    items: list[dict] = Field(..., description="List items")

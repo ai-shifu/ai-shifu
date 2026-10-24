@@ -46,7 +46,10 @@ describe('I18nDocumentAttributes direction context', () => {
 
   test.each([
     ['ar-SA', 'rtl'],
+    ['ur-PK', 'rtl'],
     ['en-US', 'ltr'],
+    ['de-DE', 'ltr'],
+    ['es-ES', 'ltr'],
     ['fr-FR', 'ltr'],
     ['th-TH', 'ltr'],
     ['zh-CN', 'ltr'],
@@ -108,7 +111,7 @@ describe('I18nDocumentAttributes direction context', () => {
     );
 
     await act(async () => {
-      await i18n.changeLanguage('ar-SA');
+      await i18n.changeLanguage('ur-PK');
     });
     const first = screen.getByRole('tab', { name: 'First' });
     const second = screen.getByRole('tab', { name: 'Second' });

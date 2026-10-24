@@ -341,6 +341,15 @@ def test_stripe_payment_checkout_keeps_wechat_pay_when_enabled(
     assert captured_session["payment_method_options"] == {
         "wechat_pay": {"client": "web"}
     }
+    assert captured_session["metadata"] == {
+        "order_bid": "bill-order-payment-methods",
+        "user_bid": "creator-1",
+        "shifu_bid": "",
+    }
+    assert (
+        captured_session["payment_intent_data"]["metadata"]
+        == (captured_session["metadata"])
+    )
 
 
 def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(

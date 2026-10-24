@@ -9,7 +9,12 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from flaskr.common import cache_provider
 from flaskr.common.public_urls import build_stripe_billing_result_url
-from flaskr.dao import db
+from flaskr.dao import db, uow
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.i18n import _ as translate
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.native_payment_status import (
@@ -18,6 +23,7 @@ from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_PAID,
     extract_native_trade_payload,
     extract_native_trade_status,
+    is_native_payment_payable,
     resolve_native_payment_state,
 )
 from flaskr.service.config import get_config
@@ -82,6 +88,7 @@ from .models import (
     BillingProduct,
     BillingProductProviderPrice,
     BillingSubscription,
+    CreditWallet,
 )
 from .paid_side_effects import (
     BillingPaidOrderSideEffects,
@@ -92,6 +99,7 @@ from .paid_side_effects import (
 from .paid_side_effects import (
     stage_billing_paid_order_side_effects as _stage_billing_paid_order_side_effects,
 )
+from .payment_policy import is_manual_payment_provider, manual_payments_are_compatible
 from .preorders import (
     CHECKOUT_ACTION_PREORDER,
     CHECKOUT_ACTION_UPGRADE_IMMEDIATE,
@@ -167,7 +175,7 @@ from .subscriptions import (
 from .subscriptions import (
     sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
 )
-from .wallets import grant_refund_return_credits
+from .wallets import persist_credit_wallet_snapshot, refresh_credit_wallet_snapshot
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -175,7 +183,6 @@ if TYPE_CHECKING:
 
     from flask import Flask
 
-_SELF_MANAGED_PREORDER_PROVIDERS = {"pingxx", "alipay", "wechatpay"}
 
 _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS = {
     BILLING_ORDER_STATUS_INIT: 0,
@@ -305,6 +312,11 @@ def _is_same_subscription_checkout_target(
     *,
     product_bid: str,
     order_type: int,
+    payment_provider: str,
+    channel: str,
+    currency: str,
+    payable_amount: int,
+    checkout_metadata: dict[str, object],
     provider_price_bid: str = "",
     campaign_bid: str = "",
     campaign_provider_discount_bid: str = "",
@@ -313,7 +325,26 @@ def _is_same_subscription_checkout_target(
         order.order_type or 0
     ) != int(order_type or 0):
         return False
+    if (
+        _normalize_bid(order.payment_provider) != _normalize_bid(payment_provider)
+        or _normalize_bid(order.channel) != _normalize_bid(channel)
+        or order.currency != currency
+        or int(order.payable_amount or 0) != payable_amount
+    ):
+        return False
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    for key in (
+        "checkout_type",
+        "preorder_order_bid",
+        "prepaid_offset_amount",
+        "current_product_bid",
+        "target_product_bid",
+        "preorder_effective_at",
+        "renewal_cycle_start_at",
+        "renewal_cycle_end_at",
+    ):
+        if metadata.get(key) != checkout_metadata.get(key):
+            return False
     if _normalize_bid(order.campaign_bid) != _normalize_bid(campaign_bid):
         return False
     if _normalize_bid(metadata.get("campaign_provider_discount_bid")) != _normalize_bid(
@@ -381,10 +412,11 @@ def _expire_pending_billing_order_if_due(
     *,
     now: datetime | None = None,
 ) -> bool:
-    if (
-        int(order.status or 0) != BILLING_ORDER_STATUS_PENDING
-        or not _is_subscription_checkout_order(order)
-        or not _is_billing_order_expired(order, now=now)
+    # Any order carrying an explicit deadline can time out; orders without
+    # one keep the legacy subscription-only behaviour through
+    # _resolve_effective_billing_order_expires_at.
+    if int(order.status or 0) != BILLING_ORDER_STATUS_PENDING or not (
+        _is_billing_order_expired(order, now=now)
     ):
         return False
     _mark_billing_order_invalidated(
@@ -488,7 +520,13 @@ def _load_active_pending_subscription_orders(
         BillingOrder.query.filter(
             BillingOrder.deleted == 0,
             BillingOrder.creator_bid == creator_bid,
-            BillingOrder.status == BILLING_ORDER_STATUS_PENDING,
+            BillingOrder.status.in_(
+                (
+                    BILLING_ORDER_STATUS_PENDING,
+                    BILLING_ORDER_STATUS_TIMEOUT,
+                    BILLING_ORDER_STATUS_FAILED,
+                )
+            ),
             BillingOrder.order_type.in_(_SUBSCRIPTION_CHECKOUT_ORDER_TYPES),
         )
         .order_by(BillingOrder.id.desc())
@@ -498,6 +536,10 @@ def _load_active_pending_subscription_orders(
         order
         for order in orders
         if _is_managed_pending_subscription_checkout_order(order)
+        or (
+            is_manual_payment_provider(order.payment_provider)
+            and order.provider_reference_id
+        )
     ]
 
 
@@ -507,6 +549,9 @@ def create_billing_subscription_checkout(
     payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
     """Create a subscription checkout order for the current creator."""
+    # Prepare and commit, call the provider, finalize: nested, neither unit of
+    # work would commit, so an outer rollback could orphan the charge.
+    require_transaction_owner("billing subscription checkout")
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
     checkout_action = _normalize_checkout_action(payload.get("action"))
@@ -515,7 +560,66 @@ def create_billing_subscription_checkout(
         default_pingxx_channel="alipay_qr",
     )
 
-    with app.app_context(), _subscription_checkout_lock(app, normalized_creator_bid):
+    # The lock spans both steps: the order row is created and committed under
+    # it, and only then is the provider called with no transaction open.
+    with (
+        app_context_scope(app),
+        _subscription_checkout_lock(app, normalized_creator_bid),
+    ):
+        closed_order_bids: set[str] = set()
+        while True:
+            try:
+                prepared = _prepare_subscription_checkout(
+                    app,
+                    normalized_creator_bid=normalized_creator_bid,
+                    product_bid=product_bid,
+                    checkout_action=checkout_action,
+                    payment_provider=payment_provider,
+                    channel=channel,
+                )
+                break
+            except _ManualPaymentNeedsClosureError as pending:
+                if pending.bill_order_bid in closed_order_bids:
+                    raise_error("server.order.orderStatusError")
+                closed_order_bids.add(pending.bill_order_bid)
+                _close_manual_payment_before_replacement(
+                    app,
+                    normalized_creator_bid,
+                    pending.bill_order_bid,
+                )
+        if isinstance(prepared, _ReopenExistingOrder):
+            prepared = _prepare_existing_billing_order_checkout(
+                app,
+                creator_bid=normalized_creator_bid,
+                bill_order_bid=prepared.bill_order_bid,
+                product_bid=prepared.product_bid,
+                requested_channel=prepared.requested_channel,
+            )
+        if isinstance(prepared, BillingCheckoutResultDTO):
+            return prepared
+        return _run_provider_checkout(app, prepared)
+
+
+@dataclass(frozen=True)
+class _ReopenExistingOrder:
+    """Hand the caller back to the reopen flow, which owns its own steps."""
+
+    bill_order_bid: str
+    product_bid: str
+    requested_channel: str
+
+
+def _prepare_subscription_checkout(
+    app: Flask,
+    *,
+    normalized_creator_bid: str,
+    product_bid: str,
+    checkout_action: str,
+    payment_provider: str,
+    channel: str,
+) -> BillingCheckoutResultDTO | _ProviderCheckoutRequest | _ReopenExistingOrder:
+    """Create the pending subscription order and describe the provider call."""
+    with unit_of_work():
         now = now_utc()
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_PLAN)
         provider_price_mapping: BillingProductProviderPrice | None = None
@@ -565,6 +669,16 @@ def create_billing_subscription_checkout(
                     payment_provider=payment_provider,
                 )
             elif checkout_action == CHECKOUT_ACTION_UPGRADE_IMMEDIATE:
+                if (
+                    current_product is not None
+                    and manual_payments_are_compatible(
+                        subscription.billing_provider, payment_provider
+                    )
+                    and current_product.currency != product.currency
+                ):
+                    raise_error(
+                        "server.billing.subscriptionPreorderProviderUnsupported"
+                    )
                 paid_preorder_order = (
                     active_preorder_order
                     if active_preorder_order is not None
@@ -580,9 +694,13 @@ def create_billing_subscription_checkout(
                         str(paid_preorder_order.payment_provider or "").strip().lower()
                     )
                     if (
-                        subscription_provider not in _SELF_MANAGED_PREORDER_PROVIDERS
-                        or payment_provider != subscription_provider
-                        or preorder_provider != subscription_provider
+                        not manual_payments_are_compatible(
+                            subscription_provider, payment_provider, preorder_provider
+                        )
+                        or paid_preorder_order.currency != product.currency
+                        or paid_preorder_order.creator_bid != subscription.creator_bid
+                        or paid_preorder_order.subscription_bid
+                        != subscription.subscription_bid
                     ):
                         raise_error(
                             "server.billing.subscriptionPreorderProviderUnsupported"
@@ -651,12 +769,33 @@ def create_billing_subscription_checkout(
             if campaign_provider_discount is not None
             else ""
         )
+        payable_amount = _resolve_checkout_payable_amount(
+            product=product,
+            applied_campaign=applied_campaign,
+            provider_price_mapping=provider_price_mapping,
+            campaign_provider_discount=campaign_provider_discount,
+            prepaid_offset_amount=prepaid_offset_amount,
+        )
+        currency = (
+            provider_price_mapping.currency.upper()
+            if provider_price_mapping
+            else product.currency
+        )
         reusable_order: BillingOrder | None = None
         duplicate_reusable_orders: list[BillingOrder] = []
         conflicting_pending_orders: list[BillingOrder] = []
         for pending_order in pending_orders:
+            if pending_order.status != BILLING_ORDER_STATUS_PENDING:
+                _prepare_pending_order_for_replacement(app, pending_order)
+                continue
             if _hydrate_legacy_billing_order_expires_at(pending_order):
                 db.session.add(pending_order)
+            if (
+                _is_billing_order_expired(pending_order, now=now)
+                and is_manual_payment_provider(pending_order.payment_provider)
+                and pending_order.provider_reference_id
+            ):
+                raise _ManualPaymentNeedsClosureError(pending_order.bill_order_bid)
             if _expire_pending_billing_order_if_due(pending_order, now=now):
                 db.session.add(pending_order)
                 continue
@@ -664,6 +803,11 @@ def create_billing_subscription_checkout(
                 pending_order,
                 product_bid=product.product_bid,
                 order_type=order_type,
+                payment_provider=payment_provider,
+                channel=channel,
+                currency=currency,
+                payable_amount=payable_amount,
+                checkout_metadata=order_metadata,
                 provider_price_bid=(
                     provider_price_mapping.provider_price_bid
                     if provider_price_mapping is not None
@@ -693,6 +837,16 @@ def create_billing_subscription_checkout(
             db.session.add(duplicate_order)
 
         if reusable_order is not None:
+            if current_subscription is None:
+                original_subscription = _load_subscription_by_bid(
+                    reusable_order.subscription_bid
+                )
+                if (
+                    original_subscription is None
+                    or original_subscription.creator_bid != normalized_creator_bid
+                ):
+                    raise_error("server.order.orderStatusError")
+                subscription = original_subscription
             for conflicting_order in conflicting_pending_orders:
                 _prepare_pending_order_for_replacement(app, conflicting_order)
                 _mark_billing_order_invalidated(
@@ -710,26 +864,16 @@ def create_billing_subscription_checkout(
 
             db.session.add(subscription)
             db.session.flush()
-            checkout_result = _reopen_existing_billing_order_checkout(
-                app,
-                creator_bid=normalized_creator_bid,
-                order=reusable_order,
-                product=product,
+            # The reopen flow owns its own units of work, so it has to run
+            # after this one commits.
+            return _ReopenExistingOrder(
+                bill_order_bid=reusable_order.bill_order_bid,
+                product_bid=product.product_bid,
                 requested_channel=channel,
             )
-            db.session.commit()
-            return checkout_result
 
         db.session.add(subscription)
         db.session.flush()
-
-        payable_amount = _resolve_checkout_payable_amount(
-            product=product,
-            applied_campaign=applied_campaign,
-            provider_price_mapping=provider_price_mapping,
-            campaign_provider_discount=campaign_provider_discount,
-            prepaid_offset_amount=prepaid_offset_amount,
-        )
 
         order_metadata_payload = {**order_metadata}
         if provider_price_mapping is not None:
@@ -793,7 +937,6 @@ def create_billing_subscription_checkout(
         db.session.add(order)
         db.session.flush()
 
-        paid_order_side_effects = BillingPaidOrderSideEffects()
         requires_stripe_subscription_checkout = bool(
             payment_provider == "stripe" and campaign_provider_discount is not None
         )
@@ -801,20 +944,25 @@ def create_billing_subscription_checkout(
             checkout_result, paid_order_side_effects = (
                 _complete_zero_amount_subscription_checkout(app, order)
             )
-        else:
-            checkout_result = _create_provider_checkout(
-                app,
-                creator_bid=normalized_creator_bid,
-                order=order,
-                product=product,
-                payment_provider=payment_provider,
-                payment_mode="subscription",
-                channel=channel,
-                provider_price_mapping=provider_price_mapping,
+            # Paid-order side effects (credit notifications, SMS, Feishu)
+            # dispatch only once this transaction is durable.
+            uow.on_commit(
+                lambda: _dispatch_billing_paid_order_side_effects(
+                    app, paid_order_side_effects
+                )
             )
-        db.session.commit()
-        _dispatch_billing_paid_order_side_effects(app, paid_order_side_effects)
-        return checkout_result
+            return checkout_result
+
+        return _build_provider_checkout_request(
+            app,
+            creator_bid=normalized_creator_bid,
+            order=order,
+            product=product,
+            payment_provider=payment_provider,
+            payment_mode="subscription",
+            channel=channel,
+            provider_price_mapping=provider_price_mapping,
+        )
 
 
 def create_billing_topup_checkout(
@@ -823,6 +971,7 @@ def create_billing_topup_checkout(
     payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
     """Create a one-time topup checkout order for the current creator."""
+    require_transaction_owner("billing top-up checkout")
     normalized_creator_bid = _normalize_bid(creator_bid)
     product_bid = _normalize_bid(payload.get("product_bid"))
     payment_provider, channel = _resolve_billing_payment_channel(
@@ -830,7 +979,27 @@ def create_billing_topup_checkout(
         default_pingxx_channel="alipay_qr",
     )
 
-    with app.app_context():
+    with app_context_scope(app):
+        prepared = _prepare_topup_checkout(
+            app,
+            normalized_creator_bid=normalized_creator_bid,
+            product_bid=product_bid,
+            payment_provider=payment_provider,
+            channel=channel,
+        )
+        return _run_provider_checkout(app, prepared)
+
+
+def _prepare_topup_checkout(
+    app: Flask,
+    *,
+    normalized_creator_bid: str,
+    product_bid: str,
+    payment_provider: str,
+    channel: str,
+) -> _ProviderCheckoutRequest:
+    """Create the pending top-up order and describe the provider call."""
+    with unit_of_work():
         product = _load_catalog_product(product_bid, BILLING_PRODUCT_TYPE_TOPUP)
         provider_price_mapping: BillingProductProviderPrice | None = None
         if payment_provider == "stripe":
@@ -891,6 +1060,10 @@ def create_billing_topup_checkout(
             channel=channel,
             provider_reference_id="",
             status=BILLING_ORDER_STATUS_PENDING,
+            # The row is committed before the provider call, so it needs a
+            # deadline: a provider failure would otherwise leave it pending
+            # forever, with nothing to time it out.
+            expires_at=_resolve_billing_order_expires_at(),
             metadata_json=_normalize_json_object(
                 order_metadata_payload
             ).to_metadata_json(),
@@ -908,7 +1081,7 @@ def create_billing_topup_checkout(
         db.session.add(order)
         db.session.flush()
 
-        checkout_result = _create_provider_checkout(
+        return _build_provider_checkout_request(
             app,
             creator_bid=normalized_creator_bid,
             order=order,
@@ -918,8 +1091,6 @@ def create_billing_topup_checkout(
             channel=channel,
             provider_price_mapping=provider_price_mapping,
         )
-        db.session.commit()
-        return checkout_result
 
 
 def create_billing_order_checkout(
@@ -928,93 +1099,335 @@ def create_billing_order_checkout(
     bill_order_bid: str,
     payload: dict[str, object],
 ) -> BillingCheckoutResultDTO:
-    """Create or refresh a Pingxx charge for one existing pending billing order."""
+    """Reopen a pending billing payment while preserving each attempt's identity."""
+    # An expiry detected below is committed in its own unit of work before the
+    # error is raised; nested, that write would roll back with the caller.
+    require_transaction_owner("billing order checkout", app)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     requested_channel = _normalize_bid(payload.get("channel"))
 
-    with app.app_context():
+    with (
+        app_context_scope(app),
+        _subscription_checkout_lock(app, normalized_creator_bid),
+    ):
         now = now_utc()
-        order = (
-            BillingOrder.query.filter(
-                BillingOrder.deleted == 0,
-                BillingOrder.creator_bid == normalized_creator_bid,
-                BillingOrder.bill_order_bid == normalized_order_bid,
+        # Step 1 - load and validate; an expiry detected here must be durable
+        # before the caller sees the error, so it gets its own unit of work.
+        with unit_of_work():
+            order = (
+                BillingOrder.query.filter(
+                    BillingOrder.deleted == 0,
+                    BillingOrder.creator_bid == normalized_creator_bid,
+                    BillingOrder.bill_order_bid == normalized_order_bid,
+                )
+                .order_by(BillingOrder.id.desc())
+                .first()
             )
-            .order_by(BillingOrder.id.desc())
-            .first()
-        )
-        if order is None:
-            raise_error("server.order.orderNotFound")
-        if _hydrate_legacy_billing_order_expires_at(order):
-            db.session.add(order)
-        if order.status != BILLING_ORDER_STATUS_PENDING:
-            raise_error("server.order.orderStatusError")
-        if _expire_pending_billing_order_if_due(order, now=now):
-            db.session.add(order)
-            db.session.commit()
+            if order is None:
+                raise_error("server.order.orderNotFound")
+            if _hydrate_legacy_billing_order_expires_at(order):
+                db.session.add(order)
+            if order.status != BILLING_ORDER_STATUS_PENDING:
+                raise_error("server.order.orderStatusError")
+            expired = _expire_pending_billing_order_if_due(order, now=now)
+            if expired:
+                db.session.add(order)
+        if expired:
             raise_error("server.order.orderPayExpired")
 
-        product = _load_billing_product_by_bid(order.product_bid)
-        if product is None:
-            raise_error("server.order.orderNotFound")
-
-        checkout_result = _reopen_existing_billing_order_checkout(
+        # Step 2 - reopen the provider checkout for the still-pending order;
+        # the reopen flow owns its own units of work around the provider call.
+        prepared = _prepare_existing_billing_order_checkout(
             app,
             creator_bid=normalized_creator_bid,
-            order=order,
-            product=product,
+            bill_order_bid=order.bill_order_bid,
+            product_bid=order.product_bid,
             requested_channel=requested_channel,
         )
-        db.session.commit()
-        return checkout_result
+        if isinstance(prepared, BillingCheckoutResultDTO):
+            return prepared
+        return _run_provider_checkout(app, prepared)
 
 
-def _reopen_existing_billing_order_checkout(
-    app: Flask,
-    *,
-    creator_bid: str,
-    order: BillingOrder,
-    product: BillingProduct,
-    requested_channel: str = "",
-) -> BillingCheckoutResultDTO:
-    provider_price_mapping: BillingProductProviderPrice | None = None
-    if _normalize_bid(order.payment_provider) == "stripe":
-        provider_price_mapping = _resolve_required_stripe_provider_price_mapping(
-            app,
-            product=product,
+def _load_billing_order_by_bid(bill_order_bid: str) -> BillingOrder | None:
+    return (
+        BillingOrder.query.filter(
+            BillingOrder.deleted == 0,
+            BillingOrder.bill_order_bid == bill_order_bid,
         )
-        order_metadata = (
-            order.metadata_json if isinstance(order.metadata_json, dict) else {}
-        )
-        if not _stored_provider_price_snapshot_matches_mapping(
-            order,
-            provider_price_mapping,
-            metadata=order_metadata,
-        ):
-            raise_error("server.order.orderStatusError")
-        stored_checkout_result = _build_stored_stripe_checkout_result(app, order)
-        if stored_checkout_result is not None:
-            return stored_checkout_result
-        _reconcile_stored_stripe_checkout_before_replacement(app, order)
-
-    order.channel = requested_channel or _normalize_bid(order.channel) or "alipay_qr"
-    return _create_provider_checkout(
-        app,
-        creator_bid=creator_bid,
-        order=order,
-        product=product,
-        payment_provider=order.payment_provider,
-        payment_mode=_resolve_billing_order_payment_mode(order),
-        channel=order.channel,
-        reused_existing_order=True,
-        provider_price_mapping=provider_price_mapping,
+        .order_by(BillingOrder.id.desc())
+        .first()
     )
 
 
+def _load_reopen_targets(
+    bill_order_bid: str, product_bid: str
+) -> tuple[BillingOrder, BillingProduct]:
+    order = _load_billing_order_by_bid(bill_order_bid)
+    if order is None:
+        raise_error("server.order.orderNotFound")
+    # A webhook or a sync can settle the order between the two units of work
+    # of the reopen flow; a settled order must not be reopened.
+    if int(order.status or 0) != BILLING_ORDER_STATUS_PENDING:
+        raise_error("server.order.orderStatusError")
+    product = _load_billing_product_by_bid(product_bid)
+    if product is None:
+        raise_error("server.order.orderNotFound")
+    return order, product
+
+
+def _prepare_existing_billing_order_checkout(
+    app: Flask,
+    *,
+    creator_bid: str,
+    bill_order_bid: str,
+    product_bid: str,
+    requested_channel: str = "",
+) -> BillingCheckoutResultDTO | _ProviderCheckoutRequest:
+    """Reopen a pending order: read, reconcile at the provider, build the request.
+
+    Provider reconciliation runs between persistence steps. A saved native QR
+    is reusable only while the provider confirms that its trade is payable.
+    """
+    pending_stripe_session_id = ""
+    saved_manual_checkout: BillingCheckoutResultDTO | None = None
+    manual_attempt_needs_replacement = False
+    with unit_of_work():
+        order, product = _load_reopen_targets(bill_order_bid, product_bid)
+        if (
+            is_manual_payment_provider(order.payment_provider)
+            and order.provider_reference_id
+        ):
+            metadata = (
+                order.metadata_json if isinstance(order.metadata_json, dict) else {}
+            )
+            extra = metadata.get("provider_extra") or {}
+            if (not requested_channel or requested_channel == order.channel) and (
+                extra.get("credential") or extra.get("jsapi_params")
+            ):
+                response = _build_checkout_response_payload(
+                    order,
+                    payment_provider=order.payment_provider,
+                    payment_mode=_resolve_billing_order_payment_mode(order),
+                    status="pending",
+                    reused_existing_order=True,
+                )
+                response["payment_payload"] = _build_manual_payment_payload(
+                    order.provider_reference_id,
+                    metadata.get("checkout") or {},
+                    extra,
+                )
+                saved_manual_checkout = BillingCheckoutResultDTO(**response)
+            manual_attempt_needs_replacement = True
+        if _normalize_bid(order.payment_provider) == "stripe":
+            provider_price_mapping = _resolve_required_stripe_provider_price_mapping(
+                app,
+                product=product,
+            )
+            order_metadata = (
+                order.metadata_json if isinstance(order.metadata_json, dict) else {}
+            )
+            if not _stored_provider_price_snapshot_matches_mapping(
+                order,
+                provider_price_mapping,
+                metadata=order_metadata,
+            ):
+                raise_error("server.order.orderStatusError")
+            stored_checkout_result = _build_stored_stripe_checkout_result(app, order)
+            if stored_checkout_result is not None:
+                return stored_checkout_result
+            pending_stripe_session_id = _stored_stripe_checkout_session_id(order)
+
+    if saved_manual_checkout is not None:
+        if saved_manual_checkout.provider == "pingxx":
+            return saved_manual_checkout
+        sync_billing_order(app, creator_bid, bill_order_bid, {})
+        with unit_of_work():
+            order = _load_billing_order_by_bid(bill_order_bid)
+            if order is None or order.status == BILLING_ORDER_STATUS_PAID:
+                raise_error("server.order.orderStatusError")
+            metadata = (
+                order.metadata_json if isinstance(order.metadata_json, dict) else {}
+            )
+            if (
+                order.status == BILLING_ORDER_STATUS_PENDING
+                and is_native_payment_payable(
+                    order.payment_provider,
+                    metadata.get("latest_provider_payload") or {},
+                )
+            ):
+                return saved_manual_checkout
+
+    if manual_attempt_needs_replacement:
+        _close_manual_payment_before_replacement(app, creator_bid, bill_order_bid)
+        with unit_of_work():
+            old_order = _load_billing_order_by_bid(bill_order_bid)
+            if old_order is None or old_order.status != BILLING_ORDER_STATUS_CANCELED:
+                raise_error("server.order.orderStatusError")
+            old_metadata = (
+                old_order.metadata_json
+                if isinstance(old_order.metadata_json, dict)
+                else {}
+            )
+            metadata = dict(old_metadata)
+            for key in (
+                "checkout",
+                "provider_extra",
+                "latest_provider_payload",
+                "latest_event_time",
+                "latest_source",
+                "latest_event_type",
+                "invalidated_reason",
+                "invalidated_at",
+            ):
+                metadata.pop(key, None)
+            metadata["replaces_bill_order_bid"] = old_order.bill_order_bid
+            replacement = BillingOrder(
+                bill_order_bid=generate_id(app),
+                creator_bid=old_order.creator_bid,
+                order_type=old_order.order_type,
+                product_bid=old_order.product_bid,
+                subscription_bid=old_order.subscription_bid,
+                currency=old_order.currency,
+                payable_amount=old_order.payable_amount,
+                paid_amount=0,
+                payment_provider=old_order.payment_provider,
+                channel=requested_channel or old_order.channel,
+                provider_reference_id="",
+                status=BILLING_ORDER_STATUS_PENDING,
+                expires_at=_resolve_billing_order_expires_at(now=now_utc()),
+                metadata_json=metadata,
+                campaign_bid=old_order.campaign_bid,
+                campaign_benefit_type=old_order.campaign_benefit_type,
+                campaign_discount_amount=old_order.campaign_discount_amount,
+                campaign_bonus_credit_amount=old_order.campaign_bonus_credit_amount,
+            )
+            old_order.metadata_json = {
+                **old_metadata,
+                "replaced_by_bill_order_bid": replacement.bill_order_bid,
+            }
+            db.session.add(replacement)
+            db.session.flush()
+            bill_order_bid = replacement.bill_order_bid
+
+    if pending_stripe_session_id:
+        _reconcile_stored_stripe_checkout_before_replacement(
+            app,
+            bill_order_bid=bill_order_bid,
+            checkout_session_id=pending_stripe_session_id,
+        )
+
+    with unit_of_work():
+        order, product = _load_reopen_targets(bill_order_bid, product_bid)
+        provider_price_mapping = (
+            _resolve_required_stripe_provider_price_mapping(app, product=product)
+            if _normalize_bid(order.payment_provider) == "stripe"
+            else None
+        )
+        order.channel = (
+            requested_channel or _normalize_bid(order.channel) or "alipay_qr"
+        )
+        return _build_provider_checkout_request(
+            app,
+            creator_bid=creator_bid,
+            order=order,
+            product=product,
+            payment_provider=order.payment_provider,
+            payment_mode=_resolve_billing_order_payment_mode(order),
+            channel=order.channel,
+            reused_existing_order=True,
+            provider_price_mapping=provider_price_mapping,
+        )
+
+
+class _ManualPaymentNeedsClosureError(Exception):
+    """Move provider I/O out of the checkout preparation transaction."""
+
+    def __init__(self, bill_order_bid: str) -> None:
+        super().__init__(bill_order_bid)
+        self.bill_order_bid = bill_order_bid
+
+
+def _record_confirmed_manual_payment_closure(order: BillingOrder) -> bool:
+    """Persist closure confirmed by the latest provider reconciliation."""
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    payload = metadata.get("latest_provider_payload") or {}
+    closed = (
+        bool((payload.get("charge") or {}).get("reversed"))
+        if order.payment_provider == "pingxx"
+        else resolve_native_payment_state(order.payment_provider, payload)
+        == NATIVE_PAYMENT_STATE_CANCELED
+    )
+    if not closed:
+        return False
+    # A timeout cannot become canceled through the generic status guard.
+    order.status = BILLING_ORDER_STATUS_CANCELED
+    order.updated_at = now_utc()
+    db.session.add(order)
+    return True
+
+
+def _close_manual_payment_before_replacement(
+    app: Flask,
+    creator_bid: str,
+    bill_order_bid: str,
+) -> None:
+    """Reconcile, close, and confirm an old attempt before allowing a new one."""
+    sync_billing_order(app, creator_bid, bill_order_bid, {})
+    with unit_of_work():
+        order = _load_billing_order_by_bid(bill_order_bid)
+        if order is None or order.creator_bid != creator_bid:
+            raise_error("server.order.orderNotFound")
+        if order.status == BILLING_ORDER_STATUS_PAID:
+            # Payment has already been applied durably; re-evaluate the plan on retry.
+            raise_error("server.order.orderStatusError")
+        if order.status == BILLING_ORDER_STATUS_CANCELED:
+            return
+        if _record_confirmed_manual_payment_closure(order):
+            return
+        provider_name = order.payment_provider
+        reference = order.provider_reference_id
+    result = get_payment_provider(provider_name).cancel_payment(
+        provider_reference=reference,
+        reference_type="charge" if provider_name == "pingxx" else "trade",
+        app=app,
+    )
+    if result.status != "cancelled":
+        raise_error("server.order.orderStatusError")
+    sync_billing_order(app, creator_bid, bill_order_bid, {})
+    with unit_of_work():
+        order = _load_billing_order_by_bid(bill_order_bid)
+        if (
+            order is None
+            or order.creator_bid != creator_bid
+            or order.status == BILLING_ORDER_STATUS_PAID
+        ):
+            raise_error("server.order.orderStatusError")
+        if not _record_confirmed_manual_payment_closure(order):
+            raise_error("server.order.orderStatusError")
+
+
 def _prepare_pending_order_for_replacement(app: Flask, order: BillingOrder) -> None:
-    if _normalize_bid(order.payment_provider) == "stripe":
-        _reconcile_stored_stripe_checkout_before_replacement(app, order)
+    """Expire the stale provider session of an order about to be replaced.
+
+    This one deliberately stays inside the caller's transaction: the session
+    has to be expired at the provider BEFORE the order is canceled locally.
+    Deferring it past the commit would leave a payable Stripe session pointing
+    at an order that no longer accepts payment.
+    """
+    if (
+        is_manual_payment_provider(order.payment_provider)
+        and order.provider_reference_id
+    ):
+        raise _ManualPaymentNeedsClosureError(order.bill_order_bid)
+    if _normalize_bid(order.payment_provider) != "stripe":
+        return
+    _reconcile_stored_stripe_checkout_before_replacement(
+        app,
+        bill_order_bid=order.bill_order_bid,
+        checkout_session_id=_stored_stripe_checkout_session_id(order),
+    )
 
 
 def _build_stored_stripe_checkout_result(
@@ -1065,21 +1478,32 @@ def _as_plain_dict(payload: object) -> dict[str, Any]:
     return {}
 
 
-def _reconcile_stored_stripe_checkout_before_replacement(
-    app: Flask,
-    order: BillingOrder,
-) -> None:
+def _stored_stripe_checkout_session_id(order: BillingOrder) -> str:
+    """Return the Stripe session stored on the order, if any."""
     metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
     checkout_payload = (
         metadata.get("checkout", {})
         if isinstance(metadata.get("checkout"), dict)
         else {}
     )
-    checkout_session_id = (
+    return (
         _normalize_bid(checkout_payload.get("id"))
         or _normalize_bid(order.provider_reference_id)
         or ""
     )
+
+
+def _reconcile_stored_stripe_checkout_before_replacement(
+    app: Flask,
+    *,
+    bill_order_bid: str,
+    checkout_session_id: str,
+) -> None:
+    """Expire the stale Stripe session. Runs with NO transaction open.
+
+    Takes plain values rather than the order row: it only talks to the
+    provider, so it must not hold a transaction open while it does.
+    """
     if not checkout_session_id:
         return
 
@@ -1095,7 +1519,7 @@ def _reconcile_stored_stripe_checkout_before_replacement(
         app.logger.warning(
             "Failed to retrieve Stripe checkout session %s before billing order %s replacement: %s",
             checkout_session_id,
-            order.bill_order_bid,
+            bill_order_bid,
             exc,
         )
         raise_error("server.order.orderStatusError")
@@ -1107,7 +1531,7 @@ def _reconcile_stored_stripe_checkout_before_replacement(
     if session_status == "complete" or payment_status == "paid":
         app.logger.warning(
             "Refusing to replace billing order %s checkout because Stripe session %s is already %s/%s",
-            order.bill_order_bid,
+            bill_order_bid,
             checkout_session_id,
             session_status,
             payment_status,
@@ -1116,7 +1540,7 @@ def _reconcile_stored_stripe_checkout_before_replacement(
     if session_status != "open":
         app.logger.warning(
             "Refusing to replace billing order %s checkout because Stripe session %s has unsafe status %s/%s",
-            order.bill_order_bid,
+            bill_order_bid,
             checkout_session_id,
             session_status,
             payment_status,
@@ -1132,7 +1556,7 @@ def _reconcile_stored_stripe_checkout_before_replacement(
         app.logger.warning(
             "Failed to expire Stripe checkout session %s before billing order %s replacement: %s",
             checkout_session_id,
-            order.bill_order_bid,
+            bill_order_bid,
             exc,
         )
         raise_error("server.order.orderStatusError")
@@ -1190,7 +1614,7 @@ def refund_billing_order(
     if refund_amount_value not in (None, ""):
         refund_amount = int(refund_amount_value)
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
@@ -1221,14 +1645,6 @@ def refund_billing_order(
             raise_error("server.order.orderStatusError")
 
         provider = get_payment_provider(order.payment_provider)
-        product = (
-            BillingProduct.query.filter(
-                BillingProduct.deleted == 0,
-                BillingProduct.product_bid == order.product_bid,
-            )
-            .order_by(BillingProduct.id.desc())
-            .first()
-        )
         refund_result = provider.refund_payment(
             request=PaymentRefundRequest(
                 order_bid=order.bill_order_bid,
@@ -1275,7 +1691,7 @@ def refund_billing_order(
                 subscription.cancel_at_period_end = 1
                 subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCELED
                 subscription.updated_at = now
-                subscription.metadata_json = _merge_provider_metadata(
+                merged_subscription_metadata = _merge_provider_metadata(
                     existing=subscription.metadata_json,
                     provider=order.payment_provider,
                     source="api_refund",
@@ -1283,26 +1699,29 @@ def refund_billing_order(
                     payload=refund_result.raw_response,
                     event_time=None,
                 )
+                subscription.metadata_json = _normalize_json_object(
+                    merged_subscription_metadata
+                ).to_metadata_json()
                 _sync_subscription_lifecycle_events(app, subscription)
                 db.session.add(subscription)
 
-        refund_credit_amount = _to_decimal(product.credit_amount if product else 0)
-        refund_reference_id = _normalize_bid(refund_result.provider_reference)
-        if refund_credit_amount > 0 and refund_reference_id:
-            grant_refund_return_credits(
-                app,
-                creator_bid=normalized_creator_bid,
-                amount=refund_credit_amount,
-                refund_bid=refund_reference_id,
-                metadata={
-                    "bill_order_bid": order.bill_order_bid,
-                    "product_bid": order.product_bid,
-                    "refund_reason": refund_reason,
-                },
-                effective_from=now,
-            )
+                wallet = (
+                    CreditWallet.query.filter(
+                        CreditWallet.deleted == 0,
+                        CreditWallet.creator_bid == normalized_creator_bid,
+                    )
+                    .order_by(CreditWallet.id.desc())
+                    .first()
+                )
+                if wallet is not None:
+                    refresh_credit_wallet_snapshot(wallet, snapshot_at=now)
+                    persist_credit_wallet_snapshot(
+                        wallet,
+                        available_credits=wallet.available_credits,
+                        reserved_credits=wallet.reserved_credits,
+                        updated_at=now,
+                    )
 
-        db.session.commit()
         return BillingRefundResultDTO(
             bill_order_bid=order.bill_order_bid,
             provider=order.payment_provider,
@@ -1318,6 +1737,10 @@ def sync_billing_order(
     payload: dict[str, object],
 ) -> BillingOrderSyncResultDTO:
     """Synchronize billing order payment status with the provider."""
+    # Non-idempotent provider calls plus a grant idempotency pre-check that
+    # must see committed state; renewal deliberately calls this outside its
+    # own units of work (see the NOTE in _sync_billing_renewal_order).
+    require_transaction_owner("billing order sync", app)
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_order_bid = _normalize_bid(bill_order_bid)
     session_id = _normalize_bid(payload.get("session_id"))
@@ -1325,7 +1748,11 @@ def sync_billing_order(
     # Hold a per-creator lock across the whole read-modify-commit so the grant
     # idempotency pre-check and the commit run in one critical section (see
     # _credit_ledger_lock).
-    with app.app_context(), _credit_ledger_lock(app, normalized_creator_bid):
+    with (
+        app_context_scope(app),
+        _credit_ledger_lock(app, normalized_creator_bid),
+        unit_of_work(),
+    ):
         order = (
             BillingOrder.query.filter(
                 BillingOrder.deleted == 0,
@@ -1338,22 +1765,12 @@ def sync_billing_order(
         if order is None:
             raise_error("server.order.orderNotFound")
 
-        if int(
-            order.status or 0
-        ) == BILLING_ORDER_STATUS_PENDING and _is_subscription_checkout_order(order):
-            if _hydrate_legacy_billing_order_expires_at(order):
-                db.session.add(order)
-            if order.payment_provider == "stripe":
-                order_update = _sync_stripe_order(app, order, session_id=session_id)
-            elif order.payment_provider == "pingxx":
-                order_update = _sync_pingxx_order(app, order)
-            elif order.payment_provider in {"alipay", "wechatpay"}:
-                order_update = _sync_native_order(app, order)
-            else:
-                raise_error("server.pay.payChannelNotSupport")
-            if _expire_pending_billing_order_if_due(order):
-                db.session.add(order)
-        elif order.payment_provider == "stripe":
+        if int(order.status or 0) == BILLING_ORDER_STATUS_PENDING and (
+            _hydrate_legacy_billing_order_expires_at(order)
+        ):
+            db.session.add(order)
+
+        if order.payment_provider == "stripe":
             order_update = _sync_stripe_order(app, order, session_id=session_id)
         elif order.payment_provider == "pingxx":
             order_update = _sync_pingxx_order(app, order)
@@ -1362,11 +1779,16 @@ def sync_billing_order(
         else:
             raise_error("server.pay.payChannelNotSupport")
 
+        # Applies to every order that is still pending and past its deadline,
+        # so a top-up whose provider call failed (no provider reference, so the
+        # sync leaves it pending) stops being picked up by every later scan.
+        if _expire_pending_billing_order_if_due(order):
+            db.session.add(order)
+
         order_update.stage_after_state_changes(app, order)
 
         db.session.add(order)
-        db.session.commit()
-        order_update.dispatch_after_commit(app)
+        uow.on_commit(lambda: order_update.dispatch_after_commit(app))
         return _build_billing_order_sync_result(order)
 
 
@@ -1730,9 +2152,9 @@ def _prepare_subscription_preorder_checkout_metadata(
     if payment_provider == "stripe":
         raise_error("server.billing.subscriptionPreorderProviderUnsupported")
     subscription_provider = str(subscription.billing_provider or "").strip().lower()
-    if (
-        subscription_provider not in _SELF_MANAGED_PREORDER_PROVIDERS
-        or payment_provider != subscription_provider
+    if not manual_payments_are_compatible(subscription_provider, payment_provider) or (
+        current_product is not None
+        and current_product.currency != target_product.currency
     ):
         raise_error("server.billing.subscriptionPreorderProviderUnsupported")
     if active_preorder_order is not None:
@@ -1815,7 +2237,24 @@ def _load_owned_subscription(
     return subscription
 
 
-def _create_provider_checkout(
+@dataclass(frozen=True)
+class _ProviderCheckoutRequest:
+    """Everything the provider call and the write-back need.
+
+    Built while the order row is still being created, carried across the
+    provider call as plain values so no ORM instance has to survive it.
+    """
+
+    bill_order_bid: str
+    payment_request: PaymentRequest
+    subject: str
+    payment_provider: str
+    payment_mode: str
+    reused_existing_order: bool
+    provider_price_metadata: dict[str, object]
+
+
+def _build_provider_checkout_request(
     app: Flask,
     *,
     creator_bid: str,
@@ -1826,8 +2265,8 @@ def _create_provider_checkout(
     channel: str,
     reused_existing_order: bool = False,
     provider_price_mapping: BillingProductProviderPrice | None = None,
-) -> BillingCheckoutResultDTO:
-    provider = get_payment_provider(payment_provider)
+) -> _ProviderCheckoutRequest:
+    """Describe the provider call; performs no provider I/O and no writes."""
     product_name = _resolve_checkout_product_name(product)
     subject = product_name
     metadata = {
@@ -1929,16 +2368,71 @@ def _create_provider_checkout(
         client_ip="127.0.0.1",
         extra=provider_options,
     )
-    if payment_mode == "subscription" and payment_provider == "stripe":
-        result = provider.create_subscription(
-            request=payment_request,
+    return _ProviderCheckoutRequest(
+        bill_order_bid=order.bill_order_bid,
+        payment_request=payment_request,
+        subject=subject,
+        payment_provider=payment_provider,
+        payment_mode=payment_mode,
+        reused_existing_order=reused_existing_order,
+        provider_price_metadata=(
+            _build_provider_price_order_metadata(provider_price_mapping)
+            if payment_provider == "stripe" and provider_price_mapping is not None
+            else {}
+        ),
+    )
+
+
+def _call_payment_provider(
+    app: Flask, request: _ProviderCheckoutRequest
+) -> PaymentCreationResult:
+    """Create the charge at the provider. Runs with NO transaction open.
+
+    The order row is already durable at this point, so a provider callback or
+    a reconcile that resolves the order by its bid always finds it, and a
+    failure here leaves a pending order the caller can retry instead of a
+    charge with no local row.
+    """
+    provider = get_payment_provider(request.payment_provider)
+    if request.payment_mode == "subscription" and request.payment_provider == "stripe":
+        return provider.create_subscription(
+            request=request.payment_request,
             app=app,
         )
-    else:
-        result = provider.create_payment(
-            request=payment_request,
-            app=app,
-        )
+    return provider.create_payment(
+        request=request.payment_request,
+        app=app,
+    )
+
+
+def _build_manual_payment_payload(
+    provider_reference: str,
+    raw_response: dict[str, Any],
+    extra: dict[str, Any],
+) -> dict[str, Any]:
+    """Keep persisted-credential reuse and new checkout responses identical."""
+    return _normalize_json_object(
+        {
+            "provider_reference_id": provider_reference,
+            "credential": extra.get("credential"),
+            "mode": extra.get("mode"),
+            "prepay_id": extra.get("prepay_id"),
+            "jsapi_params": extra.get("jsapi_params"),
+            "raw_response": raw_response,
+        }
+    ).to_metadata_json()
+
+
+def _persist_provider_checkout(
+    order: BillingOrder,
+    result: PaymentCreationResult,
+    request: _ProviderCheckoutRequest,
+) -> BillingCheckoutResultDTO:
+    """Write the provider outcome back to the order and build the response."""
+    payment_provider = request.payment_provider
+    payment_mode = request.payment_mode
+    subject = request.subject
+    reused_existing_order = request.reused_existing_order
 
     order.provider_reference_id = str(result.provider_reference or "")
     order.metadata_json = _normalize_json_object(
@@ -1948,11 +2442,7 @@ def _create_provider_checkout(
                 if isinstance(order.metadata_json, dict)
                 else {}
             ),
-            **(
-                _build_provider_price_order_metadata(provider_price_mapping)
-                if payment_provider == "stripe"
-                else {}
-            ),
+            **request.provider_price_metadata,
             "provider": payment_provider,
             "payment_mode": payment_mode,
             "checkout": result.raw_response,
@@ -1981,17 +2471,53 @@ def _create_provider_checkout(
         if result.checkout_session_id:
             response["checkout_session_id"] = result.checkout_session_id
     else:
-        response["payment_payload"] = _normalize_json_object(
-            {
-                "provider_reference_id": result.provider_reference,
-                "credential": result.extra.get("credential"),
-                "mode": result.extra.get("mode"),
-                "prepay_id": result.extra.get("prepay_id"),
-                "jsapi_params": result.extra.get("jsapi_params"),
-                "raw_response": result.raw_response,
-            }
-        ).to_metadata_json()
+        response["payment_payload"] = _build_manual_payment_payload(
+            result.provider_reference,
+            result.raw_response,
+            result.extra,
+        )
     return BillingCheckoutResultDTO(**response)
+
+
+def _run_provider_checkout(
+    app: Flask, request: _ProviderCheckoutRequest
+) -> BillingCheckoutResultDTO:
+    """Call the provider outside any transaction, then persist in a new one."""
+    result = _call_payment_provider(app, request)
+    with unit_of_work():
+        order = _load_billing_order_by_bid(request.bill_order_bid)
+        if order is None:
+            raise_error("server.order.orderNotFound")
+        if int(order.status or 0) == BILLING_ORDER_STATUS_PENDING:
+            return _persist_provider_checkout(order, result, request)
+
+        # A callback settled the order while the charge was being created.
+        # Keep the raw snapshot so the new charge stays reconcilable, but
+        # never point a settled order at it. The snapshot is written here and
+        # committed by this block; the error is raised only afterwards, so it
+        # cannot take the snapshot down with it.
+        _persist_billing_raw_snapshot_from_checkout(
+            order,
+            result,
+            subject=request.subject,
+            body=request.subject,
+            # The charge itself is pending, whatever became of the order.
+            raw_snapshot_status=_RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS[
+                BILLING_ORDER_STATUS_PENDING
+            ],
+        )
+        settled_status = int(order.status or 0)
+
+    app.logger.warning(
+        "Billing order %s left status %s while its %s charge %s was being "
+        "created; snapshot kept for reconciliation",
+        request.bill_order_bid,
+        settled_status,
+        request.payment_provider,
+        result.provider_reference,
+    )
+    raise_error("server.order.orderStatusError")
+    return None
 
 
 def _complete_zero_amount_subscription_checkout(
@@ -2141,11 +2667,19 @@ def _persist_billing_raw_snapshot_from_checkout(
     *,
     subject: str = "",
     body: str = "",
+    raw_snapshot_status: int | None = None,
 ) -> None:
+    """Record a provider attempt against the order.
+
+    ``raw_snapshot_status`` overrides the status the snapshot is stored with.
+    Pass it for an attempt whose outcome is not the order's: a charge created
+    after the order was settled elsewhere is itself still pending.
+    """
     if order.payment_provider == "stripe":
         _persist_billing_stripe_raw_snapshot(
             order,
             create_if_missing=True,
+            raw_snapshot_status=raw_snapshot_status,
             metadata=result.extra.get("metadata") or {},
             checkout_session_id=result.checkout_session_id or result.provider_reference,
             checkout_object=result.raw_response or {},
@@ -2162,6 +2696,7 @@ def _persist_billing_raw_snapshot_from_checkout(
         _persist_billing_pingxx_raw_snapshot(
             order,
             create_if_missing=True,
+            raw_snapshot_status=raw_snapshot_status,
             charge_id=str(result.provider_reference or ""),
             charge_object=charge,
             transaction_no=str(charge.get("order_no") or ""),
@@ -2182,6 +2717,7 @@ def _persist_billing_raw_snapshot_from_checkout(
         _persist_billing_native_raw_snapshot(
             order,
             create_if_missing=True,
+            raw_snapshot_status=raw_snapshot_status,
             provider_attempt_id=str(result.provider_reference or order.bill_order_bid),
             transaction_id="",
             raw_status="pending",
@@ -2199,6 +2735,7 @@ def _persist_billing_stripe_raw_snapshot(
     order: BillingOrder,
     *,
     create_if_missing: bool,
+    raw_snapshot_status: int | None = None,
     metadata: object | None = None,
     checkout_session_id: str = "",
     checkout_object: object | None = None,
@@ -2208,8 +2745,12 @@ def _persist_billing_stripe_raw_snapshot(
     receipt_url: str = "",
     payment_method: str = "",
 ) -> None:
-    raw_status = _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
-        int(order.status or BILLING_ORDER_STATUS_INIT), 0
+    raw_status = (
+        int(raw_snapshot_status)
+        if raw_snapshot_status is not None
+        else _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
+            int(order.status or BILLING_ORDER_STATUS_INIT), 0
+        )
     )
     existing = (
         billing_stripe_snapshot_query()
@@ -2242,6 +2783,7 @@ def _persist_billing_pingxx_raw_snapshot(
     order: BillingOrder,
     *,
     create_if_missing: bool,
+    raw_snapshot_status: int | None = None,
     charge_id: str = "",
     charge_object: object | None = None,
     transaction_no: str = "",
@@ -2252,8 +2794,12 @@ def _persist_billing_pingxx_raw_snapshot(
     client_ip: str = "",
     extra: object | None = None,
 ) -> None:
-    raw_status = _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
-        int(order.status or BILLING_ORDER_STATUS_INIT), 0
+    raw_status = (
+        int(raw_snapshot_status)
+        if raw_snapshot_status is not None
+        else _RAW_SNAPSHOT_STATUS_BY_BILLING_STATUS.get(
+            int(order.status or BILLING_ORDER_STATUS_INIT), 0
+        )
     )
     existing = (
         billing_pingxx_snapshot_query()
@@ -2465,6 +3011,7 @@ def _sync_stripe_order(
     session = sync_result.provider_payload.get("checkout_session", {}) or {}
     intent = sync_result.provider_payload.get("payment_intent") or None
     _validate_stripe_checkout_evidence(
+        app,
         order,
         expected_session_id=resolved_session_id,
         session=session,
@@ -2548,6 +3095,7 @@ def _sync_stripe_order(
 
 
 def _validate_stripe_checkout_evidence(
+    app: Flask,
     order: BillingOrder,
     *,
     expected_session_id: str,
@@ -2563,6 +3111,17 @@ def _validate_stripe_checkout_evidence(
         for payload in (session, intent or {})
         if isinstance(payload, dict)
     ]
+    for candidate in metadata_candidates:
+        if not isinstance(candidate, dict):
+            continue
+        for key, expected_value in (
+            ("bill_order_bid", order.bill_order_bid),
+            ("creator_bid", order.creator_bid),
+            ("product_bid", order.product_bid),
+        ):
+            actual_value = _normalize_bid(candidate.get(key))
+            if actual_value and actual_value != _normalize_bid(expected_value):
+                raise_error("server.order.orderStatusError")
     metadata = next(
         (
             candidate
@@ -2572,6 +3131,16 @@ def _validate_stripe_checkout_evidence(
         None,
     )
     if metadata is None:
+        # Stripe has attached nothing to match against. A payment-mode
+        # session has no PaymentIntent until the buyer starts paying, and
+        # sessions created before the provider began writing session metadata
+        # carry none at all.
+        if _is_unbound_unpaid_stripe_checkout(session, intent):
+            app.logger.warning(
+                "Accepted metadata-free unpaid Stripe Checkout Session for billing order: %s",
+                order.bill_order_bid,
+            )
+            return
         raise_error("server.order.orderStatusError")
 
     if _normalize_bid(metadata.get("bill_order_bid")) != order.bill_order_bid:
@@ -2583,6 +3152,26 @@ def _validate_stripe_checkout_evidence(
         actual_value = _normalize_bid(metadata.get(key))
         if actual_value and actual_value != _normalize_bid(expected_value):
             raise_error("server.order.orderStatusError")
+
+
+def _is_unbound_unpaid_stripe_checkout(
+    session: dict[str, object],
+    intent: dict[str, object] | None,
+) -> bool:
+    """Accept an unpaid Session that carries nothing to match the order against.
+
+    The session id has already been matched against the reference stored on
+    the order, and every identity key either payload does carry has already
+    been checked, so the only evidence still missing is proof of payment --
+    which an unpaid session cannot produce. Waiting for Stripe to expire the
+    session first would leave the order failing every scan for as long as
+    Stripe keeps the session open: 24 hours by default, against a local
+    deadline of 30 minutes.
+
+    Expiring the order is not final. A payment that lands afterwards still
+    moves it to paid through sync or webhook.
+    """
+    return not _is_stripe_checkout_paid(session, intent)
 
 
 def _resolve_billing_order_provider_reference_type(order: BillingOrder) -> str:
@@ -2688,6 +3277,8 @@ def _sync_pingxx_order(
     target_status = BILLING_ORDER_STATUS_PENDING
     if charge.get("paid") or charge.get("time_paid"):
         target_status = BILLING_ORDER_STATUS_PAID
+    elif charge.get("reversed"):
+        target_status = BILLING_ORDER_STATUS_CANCELED
 
     order_update = _apply_billing_order_provider_update(
         order,

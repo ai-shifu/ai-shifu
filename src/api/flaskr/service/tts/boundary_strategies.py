@@ -3,9 +3,6 @@
 Provides a strategy pattern for finding the end positions of different
 visual element types (fence, svg, iframe, video, table, sandbox, image).
 
-Cross-Platform Compatibility Note:
-These patterns mirror the frontend visual boundary detection in
-src/web/src/c-utils/listen-mode/visual-boundary-detector.ts
 """
 
 from __future__ import annotations

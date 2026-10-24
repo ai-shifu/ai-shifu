@@ -1,1 +1,1 @@
-export { default } from '@/c-components/ChatUi/LoadingBar';
+export { default } from '@/components/ChatUi/LoadingBar';

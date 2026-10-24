@@ -767,7 +767,8 @@ class TestAddConfig:
             )
             mock_config_class.assert_called_once()
             mock_db.session.add.assert_called_once()
-            mock_db.session.commit.assert_called_once()
+            # The unit of work commits through flaskr.dao, not this module.
+            mock_db.session.commit.assert_not_called()
             mock_redis.set.assert_called_once()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -818,7 +819,8 @@ class TestAddConfig:
             )
             mock_config_class.assert_called_once()
             mock_db.session.add.assert_called_once()
-            mock_db.session.commit.assert_called_once()
+            # The unit of work commits through flaskr.dao, not this module.
+            mock_db.session.commit.assert_not_called()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")
@@ -949,7 +951,8 @@ class TestAddConfig:
 
             assert result is True
             mock_db.session.add.assert_called_once()
-            mock_db.session.commit.assert_called_once()
+            # The unit of work commits through flaskr.dao, not this module.
+            mock_db.session.commit.assert_not_called()
             mock_get_config_from_common.assert_not_called()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -1012,7 +1015,8 @@ class TestUpdateConfig:
             assert mock_config_instance.is_encrypted is False
             assert mock_config_instance.remark == "new remark"
             assert mock_config_instance.updated_by == "system"
-            mock_db.session.commit.assert_called_once()
+            # The unit of work commits through flaskr.dao, not this module.
+            mock_db.session.commit.assert_not_called()
             mock_encrypt.assert_not_called()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
@@ -1205,7 +1209,8 @@ class TestUpdateConfig:
             result = update_config(app, "non_existent_key", "new_value")
             assert result is True
             mock_db.session.add.assert_called_once()
-            mock_db.session.commit.assert_called_once()
+            # The unit of work commits through flaskr.dao, not this module.
+            mock_db.session.commit.assert_not_called()
 
     @patch("flaskr.service.config.funcs.get_config_from_common")
     @patch("flaskr.service.config.funcs.redis")

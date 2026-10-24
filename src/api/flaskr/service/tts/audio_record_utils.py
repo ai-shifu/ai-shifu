@@ -61,12 +61,7 @@ def build_completed_audio_record(
     )
 
 
-def save_audio_record(
-    audio_record: LearnGeneratedAudio, *, commit: bool = True
-) -> None:
-    """Persist audio record."""
+def save_audio_record(audio_record: LearnGeneratedAudio) -> None:
+    """Stage the audio record; the caller's unit of work makes it durable."""
     db.session.add(audio_record)
-    if commit:
-        db.session.commit()
-    else:
-        db.session.flush()
+    db.session.flush()

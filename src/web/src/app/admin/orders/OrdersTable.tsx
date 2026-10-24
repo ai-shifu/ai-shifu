@@ -2,7 +2,7 @@
 
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
   ADMIN_TABLE_HEADER_CELL_CLASS,
@@ -10,7 +10,7 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
+} from '@/components/admin/adminTableStyles';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
 import type { OrderSummary } from '@/components/order/order-types';
 import { Button } from '@/components/ui/Button';

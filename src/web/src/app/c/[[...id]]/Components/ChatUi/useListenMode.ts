@@ -11,10 +11,10 @@ import {
   splitContentSegments,
   type RenderSegment,
 } from 'markdown-flow-ui/renderer';
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import type { AudioPlayerHandle } from '@/components/audio/AudioPlayer';
-import { type AudioSegment } from '@/c-utils/audio-utils';
-import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/c-api/studyV2';
+import { type AudioSegment } from '@/lib/audio-utils';
+import { LESSON_FEEDBACK_INTERACTION_MARKER } from '@/api/studyV2';
 import {
   buildSlidePageMapping,
   isListenModeAudioBackfillCandidate,

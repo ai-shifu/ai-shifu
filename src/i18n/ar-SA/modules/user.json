@@ -3,11 +3,6 @@
   "confirmLogoutContent": "هل تريد تأكيد تسجيل الخروج؟",
   "confirmLogoutTitle": "تأكيد تسجيل الخروج؟",
   "defaultUserName": "مستخدم مجهول",
-  "gender": {
-    "female": "أنثى",
-    "male": "ذكر",
-    "secret": "سري"
-  },
   "login": "تسجيل الدخول",
   "loginMainButton": "تسجيل الدخول / التسجيل",
   "logout": "تسجيل الخروج",

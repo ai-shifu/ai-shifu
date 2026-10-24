@@ -1,7 +1,6 @@
 # ruff: noqa: E402
 """Verify learning-context outline navigation and failure handling."""
 
-import asyncio
 import sys
 import threading
 import time
@@ -111,6 +110,7 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.service.learn.learner_profile_prompt import (
     LEARNER_PROFILE_PROMPT_MARKER,
 )
+from flaskr.service.learn.memory import MemorySnapshot
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -160,10 +160,6 @@ class _FakeLangfuseTrace:
 
     def update(self, **kwargs: object) -> None:
         self.updated = kwargs
-
-
-_HAS_COLLECT_ASYNC = hasattr(RunScriptContextV2, "_collect_async_generator")
-_HAS_RUN_ASYNC = hasattr(RunScriptContextV2, "_run_async_in_safe_context")
 
 
 class OutlinePathGuardTests(unittest.TestCase):
@@ -218,64 +214,6 @@ class OutlinePathGuardTests(unittest.TestCase):
             _find_outline_path_or_raise(root, "missing-outline")
 
         raise_error_mock.assert_called_once_with("server.shifu.lessonNotFoundInCourse")
-
-
-@unittest.skipIf(
-    not _HAS_COLLECT_ASYNC,
-    "_collect_async_generator helper removed in current architecture.",
-)
-class CollectAsyncGeneratorTests(unittest.TestCase):
-    """Verify collect async generator behavior."""
-
-    def test_without_running_loop(self) -> None:
-        ctx = _make_context()
-
-        async def sample() -> object:
-            yield "one"
-            yield "two"
-
-        result = ctx._collect_async_generator(sample)
-
-        assert result == ["one", "two"]
-
-    def test_inside_running_loop(self) -> None:
-        ctx = _make_context()
-
-        async def sample() -> object:
-            yield "alpha"
-
-        async def runner() -> None:
-            result = ctx._collect_async_generator(sample)
-            assert result == ["alpha"]
-
-        asyncio.run(runner())
-
-
-@unittest.skipIf(
-    not _HAS_RUN_ASYNC,
-    "_run_async_in_safe_context helper removed in current architecture.",
-)
-class RunAsyncInSafeContextTests(unittest.TestCase):
-    """Verify run async in safe context behavior."""
-
-    def test_without_running_loop(self) -> None:
-        ctx = _make_context()
-
-        async def sample() -> object:
-            return "result"
-
-        assert ctx._run_async_in_safe_context(sample) == "result"
-
-    def test_inside_running_loop(self) -> None:
-        ctx = _make_context()
-
-        async def sample() -> object:
-            return "loop"
-
-        async def runner() -> None:
-            assert ctx._run_async_in_safe_context(sample) == "loop"
-
-        asyncio.run(runner())
 
 
 class NextChapterInteractionTests(unittest.TestCase):
@@ -465,6 +403,8 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
                 return self
 
         class _OutlineModel:
+            id = _Column()
+            shifu_bid = _Column()
             outline_item_bid = _Column()
             hidden = _Column()
             title = _Column()
@@ -475,7 +415,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
                 return self
 
             def all(self) -> object:
-                return [("outline-1", False, "Outline 1")]
+                return [(1, "outline-1", False, "Outline 1")]
 
         class _FakeMarkdownFlow:
             def __init__(self, *args: object, **kwargs: object) -> None:
@@ -503,6 +443,7 @@ class RuntimeOutlineBlockCountTests(unittest.TestCase):
             status=LEARN_STATUS_IN_PROGRESS,
         )
         ctx._outline_model = _OutlineModel
+        ctx._shifu_model = MagicMock()
 
         with (
             patch.object(dao.db.session, "query", return_value=_FakeQuery()),
@@ -1274,40 +1215,168 @@ class RuntimeOutputLanguageTests(unittest.TestCase):
 class PreviewResolveLlmSettingsTests(unittest.TestCase):
     """Verify preview resolve LLM settings behavior."""
 
-    def test_falls_back_to_allowlist_when_persisted_model_not_allowed(self) -> None:
+    def test_prepares_model_metadata_without_routing_or_rewriting_selections(
+        self,
+    ) -> None:
         app = Flask("preview-llm-settings")
-        app.config.update(
-            DEFAULT_LLM_MODEL="",
-            DEFAULT_LLM_TEMPERATURE=0.3,
-        )
+        app.config.update(LLM_MODEL_1_ID="different-model", DEFAULT_LLM_TEMPERATURE=0.3)
+        config = {
+            "LLM_MODEL_1_NAME": "Daily",
+            "LLM_MODEL_1_ID": "test/default",
+            "LLM_MODEL_3_NAME": "Detailed",
+            "LLM_MODEL_3_ID": "test/advanced",
+            "LLM_MODEL_7_NAME": "Unconfigured",
+        }
         preview_ctx = RunScriptPreviewContextV2(app)
-        preview_request = PlaygroundPreviewRequest(block_index=0)
-        outline = types.SimpleNamespace(
-            llm="silicon/fishaudio/fish-speech-1.5",
-            llm_temperature=None,
-        )
-        shifu = types.SimpleNamespace(llm=None, llm_temperature=None)
-
+        cases = [
+            ("old-model", "1", "invalid_selection", None),
+            ("", "1", "missing_selection", None),
+            ("7", "1", "unconfigured_index", None),
+            ("3", "3", None, 0.8),
+        ]
         with (
             patch(
-                "flaskr.service.learn.context_v2.get_allowed_models",
-                return_value=["ark/deepseek-v3-2"],
+                "flaskr.api.llm.model_selection.get_config",
+                side_effect=lambda key, default=None: config.get(key, default),
             ),
             patch(
-                "flaskr.service.learn.context_v2.get_current_models",
-                return_value=[
-                    {"model": "ark/deepseek-v3-2", "display_name": "DeepSeek V3.2"}
-                ],
-            ),
+                "flaskr.api.llm.get_litellm_params_and_model",
+                side_effect=AssertionError("Preview setup must not route models"),
+            ) as route,
         ):
-            model, temperature = preview_ctx._resolve_llm_settings(
-                preview_request,
-                outline,
-                shifu,
+            for saved, index, reason, saved_temperature in cases:
+                with self.subTest(saved=saved):
+                    shifu = types.SimpleNamespace(
+                        llm=saved,
+                        llm_temperature=saved_temperature,
+                        id=23,
+                        __tablename__="draft_shifu",
+                    )
+                    model, temperature = preview_ctx._resolve_llm_settings(shifu)
+                    assert model == saved
+                    assert temperature == (
+                        0.3 if saved_temperature is None else saved_temperature
+                    )
+                    assert shifu.llm == saved
+                    metadata = preview_ctx._preview_model_selection_metadata
+                    assert metadata["model_selection_original"] == saved
+                    assert metadata["model_index"] == index
+                    assert "resolved_model" not in metadata
+                    assert metadata["model_selection_fallback"] is (reason is not None)
+                    assert metadata["model_selection_fallback_reason"] == reason
+                    assert metadata["model_selection_record_id"] == 23
+                    assert metadata["model_selection_table"] == "draft_shifu"
+            route.assert_not_called()
+
+
+@pytest.mark.no_mock_llm
+@pytest.mark.parametrize(
+    ("document", "provider_available"),
+    [
+        ("!===\nStatic preview content\n!===", False),
+        ("Generate preview content.", False),
+        ("Generate preview content.", True),
+    ],
+)
+def test_preview_resolves_models_only_when_content_calls_llm(
+    document: str, provider_available: bool
+) -> None:
+    """Real preview parsing keeps static content independent from provider routing."""
+    from flaskr.api import llm
+    from flaskr.service.common.models import ERROR_CODE, AppError
+
+    app = Flask("preview-model-resolution-timing")
+    preview_ctx = RunScriptPreviewContextV2(app)
+    course = types.SimpleNamespace(
+        llm="3", llm_temperature=0.2, id=23, __tablename__="draft_shifu"
+    )
+    config = {
+        "LLM_MODEL_1_ID": "test/default",
+        "LLM_MODEL_3_ID": "test/advanced",
+    }
+    is_static = document.startswith("!===")
+    preview_request = PlaygroundPreviewRequest(
+        block_index=0, content=document, context=[], visual_mode=False
+    )
+    chunk = types.SimpleNamespace(
+        id="preview-chunk",
+        choices=[
+            types.SimpleNamespace(
+                delta=types.SimpleNamespace(content="Generated preview content"),
+                finish_reason="stop",
+            )
+        ],
+        usage=None,
+    )
+    with (
+        patch.object(preview_ctx, "_get_outline_record", return_value=None),
+        patch.object(preview_ctx, "_get_shifu_record", return_value=course),
+        patch.object(preview_ctx, "_resolve_preview_variables", return_value={}),
+        patch.object(preview_ctx, "_resolve_document_prompt", return_value=""),
+        patch.object(context_v2_module, "_PreviewContextStore"),
+        patch.object(context_v2_module, "get_langfuse_client", return_value=None),
+        patch.object(
+            context_v2_module,
+            "create_trace_with_root_span",
+            return_value=(MagicMock(), MagicMock()),
+        ),
+        patch.object(context_v2_module, "chat_llm", wraps=llm.chat_llm) as chat,
+        patch.object(llm, "_iter_stream_with_precontent_retry", return_value=[chunk]),
+        patch.object(llm, "_prepare_litellm_request_kwargs", return_value={}),
+        patch.object(llm, "record_llm_usage") as usage,
+        patch(
+            "flaskr.api.llm.model_selection.get_config",
+            side_effect=lambda key, default=None: config.get(key, default),
+        ),
+        patch.object(
+            llm,
+            "get_litellm_params_and_model",
+            return_value=(
+                {"api_key": "test"} if provider_available else None,
+                "test/advanced",
+                "test",
+            ),
+        ) as route,
+    ):
+        stream = preview_ctx.stream_preview(
+            preview_request=preview_request,
+            shifu_bid="shifu-1",
+            outline_bid="outline-1",
+            user_bid="user-1",
+            session_id="preview-session-1",
+        )
+        if not is_static and not provider_available:
+            with pytest.raises(AppError) as error:
+                list(stream)
+            assert error.value.code == ERROR_CODE["server.llm.modelUnavailable"]
+        else:
+            messages = list(stream)
+            expected = "Static preview content" if is_static else "Generated preview"
+            assert any(
+                expected in getattr(message.content, "content_text", "")
+                for message in messages
             )
 
-        assert model == "ark/deepseek-v3-2"
-        assert temperature == 0.3
+        assert course.llm == "3"
+        if is_static:
+            route.assert_not_called()
+            chat.assert_not_called()
+            usage.assert_not_called()
+        else:
+            chat.assert_called_once()
+            assert chat.call_args.kwargs["model"] == "3"
+            assert {call.args[0] for call in route.call_args_list} == {"test/advanced"}
+            if not provider_available:
+                usage.assert_not_called()
+            else:
+                usage.assert_called_once()
+                assert usage.call_args.kwargs["model"] == "test/advanced"
+                metadata = usage.call_args.kwargs["extra"]
+                assert metadata["model_index"] == "3"
+                assert metadata["resolved_model"] == "test/advanced"
+                assert metadata["model_selection_original"] == "3"
+                assert metadata["model_selection_record_id"] == 23
+                assert metadata["model_selection_table"] == "draft_shifu"
 
 
 class PreviewResolveVariablesTests(unittest.TestCase):
@@ -1320,8 +1389,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
         with (
             patch(
-                "flaskr.service.learn.context_v2.get_user_profiles",
-                return_value={"sys_user_nickname": "017"},
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(variables={"sys_user_nickname": "017"}),
             ) as mock_fetch,
             patch(
                 "flaskr.service.learn.context_v2.get_current_language",
@@ -1349,8 +1418,10 @@ class PreviewResolveVariablesTests(unittest.TestCase):
 
         with (
             patch(
-                "flaskr.service.learn.context_v2.get_user_profiles",
-                return_value={"sys_user_language": "en-US", "language": "en-US"},
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(
+                    variables={"sys_user_language": "en-US", "language": "en-US"}
+                ),
             ),
             patch(
                 "flaskr.service.learn.context_v2.get_current_language",
@@ -1367,16 +1438,20 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         assert variables.get("language") == "zh-CN"
 
     def test_request_language_overrides_stale_profile_language(self) -> None:
+        """Keep the canonical preview language ahead of stored and legacy values."""
         app = Flask("preview-variables-request-language")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(
             block_index=0,
             variables={"sys_user_language": "en-US", "language": "zh-CN"},
         )
+        memory = MemorySnapshot(
+            variables={"sys_user_language": "en-US", "language": "en-US"}
+        )
 
         with patch(
-            "flaskr.service.learn.context_v2.get_user_profiles",
-            return_value={"sys_user_language": "en-US", "language": "en-US"},
+            "flaskr.service.learn.context_v2.load_memory",
+            return_value=memory,
         ):
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
@@ -1384,8 +1459,9 @@ class PreviewResolveVariablesTests(unittest.TestCase):
                 shifu_bid="shifu-1",
             )
 
-        assert variables.get("sys_user_language") == "zh-CN"
-        assert variables.get("language") == "zh-CN"
+        assert variables.get("sys_user_language") == "en-US"
+        assert variables.get("language") == "en-US"
+        assert memory.variables == {"sys_user_language": "en-US", "language": "en-US"}
 
     def test_keeps_existing_sys_user_language(self) -> None:
         app = Flask("preview-variables-existing")
@@ -1396,8 +1472,8 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         )
 
         with patch(
-            "flaskr.service.learn.context_v2.get_user_profiles",
-            return_value={"sys_user_nickname": "017"},
+            "flaskr.service.learn.context_v2.load_memory",
+            return_value=MemorySnapshot(variables={"sys_user_nickname": "017"}),
         ) as mock_fetch:
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
@@ -1408,6 +1484,53 @@ class PreviewResolveVariablesTests(unittest.TestCase):
         assert variables.get("sys_user_language") == "fr-FR"
         assert variables.get("language") == "fr-FR"
         mock_fetch.assert_called_once_with(app, "user-1", "shifu-1")
+
+
+class AskMemoryTests(unittest.TestCase):
+    """Keep Ask values scoped and independent of the memory snapshot."""
+
+    def test_ask_passes_projected_memory_and_keeps_commit_after_stream(self) -> None:
+        app = Flask("ask-memory")
+        ctx = _make_context()
+        ctx.app = app
+        ctx._last_position = -1
+        ctx._input = {"input": "Explain this"}
+        ctx._user_info = types.SimpleNamespace(user_id="user-ask")
+        ctx._outline_item_info = types.SimpleNamespace(
+            shifu_bid="course-ask", bid="outline-ask"
+        )
+        ctx._current_attend = types.SimpleNamespace(progress_record_bid="progress-ask")
+        ctx._trace_args = {}
+        ctx._trace = None
+        ctx._trace_root_span = None
+        ctx._preview_mode = False
+        ctx._run_recorder = MagicMock()
+        memory = MemorySnapshot(variables={"base_level": "beginner"})
+        event = object()
+
+        def answer(*_args: object, **kwargs: object) -> object:
+            assert kwargs["runtime_profiles"] == {"base_level": "beginner"}
+            kwargs["runtime_profiles"]["temporary"] = "request only"
+            yield event
+
+        with (
+            patch.object(context_v2_module, "load_memory", return_value=memory) as load,
+            patch.object(context_v2_module, "handle_input_ask", side_effect=answer),
+            patch.object(ctx, "_should_stream_tts", return_value=False),
+            patch.object(ctx, "get_system_prompt", return_value="Current course rules"),
+        ):
+            stream = ctx._phase_handle_ask_input(
+                app, types.SimpleNamespace(block_position=3)
+            )
+            assert next(stream) is event
+            ctx._recorder.commit_pending_step.assert_not_called()
+            assert list(stream) == []
+
+        load.assert_called_once_with(
+            app, "user-ask", "course-ask", reference_text="Current course rules"
+        )
+        assert memory.variables == {"base_level": "beginner"}
+        ctx._recorder.commit_pending_step.assert_called_once_with()
 
 
 class CoursePromptCompositionTests(unittest.TestCase):
@@ -1428,12 +1551,14 @@ class CoursePromptCompositionTests(unittest.TestCase):
 
         with patch(
             "flaskr.service.learn.context_v2._find_outline_path_or_raise",
-            return_value=[types.SimpleNamespace(id="outline-db-1", type="outline")],
+            return_value=[
+                types.SimpleNamespace(id="course-db-1", bid="course-1", type="shifu"),
+                types.SimpleNamespace(id="outline-db-1", type="outline"),
+            ],
         ):
             prompt = ctx.get_system_prompt("outline-1")
 
         assert prompt == "COURSE RULE"
-        ctx._shifu_model.query.filter.assert_not_called()
 
     def test_teaching_composes_prompt_after_loading_effective_profiles(self) -> None:
         class FakeColumn:
@@ -1518,8 +1643,12 @@ class CoursePromptCompositionTests(unittest.TestCase):
                 return_value=object(),
             ),
             patch(
-                "flaskr.service.learn.context_v2.get_user_profiles",
-                return_value=profiles,
+                "flaskr.service.learn.context_v2.load_memory",
+                return_value=MemorySnapshot(variables=profiles),
+            ) as load,
+            patch(
+                "flaskr.service.learn.context_v2.course_memory_deletion_state",
+                return_value=({}, frozenset()),
             ),
             patch(
                 "flaskr.service.learn.context_v2._resolve_runtime_language_context",
@@ -1541,6 +1670,12 @@ class CoursePromptCompositionTests(unittest.TestCase):
                 "COURSE RULE",
             )
 
+        load.assert_called_once_with(
+            app,
+            "user-1",
+            "shifu-1",
+            reference_text=(run_script_info.mdflow, "COURSE RULE"),
+        )
         assert state.system_prompt == CapturingMdflowContext.document_prompt
         assert "{{sys_user_nickname}}" not in state.system_prompt
         assert "{{sys_user_background}}" not in state.system_prompt
@@ -1635,11 +1770,13 @@ class CoursePromptCompositionTests(unittest.TestCase):
             },
         )
         with patch(
-            "flaskr.service.learn.context_v2.get_user_profiles",
-            return_value={
-                "sys_user_nickname": "",
-                "sys_user_background": "Database background",
-            },
+            "flaskr.service.learn.context_v2.load_memory",
+            return_value=MemorySnapshot(
+                variables={
+                    "sys_user_nickname": "",
+                    "sys_user_background": "Database background",
+                }
+            ),
         ):
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
@@ -1683,11 +1820,13 @@ class CoursePromptCompositionTests(unittest.TestCase):
             variables={"sys_user_nickname": ""},
         )
         with patch(
-            "flaskr.service.learn.context_v2.get_user_profiles",
-            return_value={
-                "sys_user_nickname": "Database learner",
-                "sys_user_background": "Database background",
-            },
+            "flaskr.service.learn.context_v2.load_memory",
+            return_value=MemorySnapshot(
+                variables={
+                    "sys_user_nickname": "Database learner",
+                    "sys_user_background": "Database background",
+                }
+            ),
         ):
             variables = preview_ctx._resolve_preview_variables(
                 preview_request=preview_request,
@@ -1720,7 +1859,9 @@ class PreviewRunLlmLoggingTests(unittest.TestCase):
         parent_observation = object()
         provider = RUNLLMProvider(
             app=app,
-            llm_settings=types.SimpleNamespace(model="gpt-test", temperature=0.6),
+            llm_settings=types.SimpleNamespace(
+                model="gpt-test", temperature=0.6, usage_metadata={}
+            ),
             trace=object(),
             parent_observation=parent_observation,
             trace_args={

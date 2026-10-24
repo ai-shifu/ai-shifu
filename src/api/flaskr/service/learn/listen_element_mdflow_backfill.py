@@ -79,6 +79,7 @@ except ImportError:
 
 
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.const import ROLE_TEACHER
 from flaskr.service.learn.learn_dtos import (
     ElementType,
@@ -617,22 +618,15 @@ def backfill_learn_generated_elements_for_progress(
 ) -> MdflowElementBackfillStats:
     """Backfill learn generated elements for progress."""
     progress_record = _load_progress_record(progress_record_bid)
-    try:
-        stats = _process_progress_record(
+    # One unit of work per progress record: a dry run discards the staged
+    # rows on exit, a failure rolls them back, a real run commits them.
+    with unit_of_work(discard=dry_run):
+        return _process_progress_record(
             app,
             progress_record,
             overwrite=overwrite,
             dry_run=dry_run,
         )
-        if dry_run:
-            db.session.rollback()
-        else:
-            db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
-    else:
-        return stats
 
 
 def backfill_learn_generated_elements_batch(

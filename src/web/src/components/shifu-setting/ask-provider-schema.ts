@@ -10,6 +10,7 @@ export type AskProviderSchemaField = {
 export type AskProviderJsonSchema = {
   properties?: Record<string, AskProviderSchemaField>;
   required?: string[];
+  additionalProperties?: boolean;
 };
 
 export type BuildAskProviderConfigParams = {
@@ -50,8 +51,16 @@ export const buildAskProviderConfigForSubmit = ({
   providerConfig,
   objectInputs = {},
 }: BuildAskProviderConfigParams): Record<string, unknown> => {
-  const result: Record<string, unknown> = {};
   const properties = schema?.properties || {};
+  const result: Record<string, unknown> =
+    schema?.additionalProperties === true
+      ? Object.fromEntries(
+          Object.entries(providerConfig).filter(
+            ([field]) =>
+              !Object.prototype.hasOwnProperty.call(properties, field),
+          ),
+        )
+      : {};
   const requiredFields = new Set(schema?.required || []);
 
   for (const [field, fieldSchema] of Object.entries(properties)) {

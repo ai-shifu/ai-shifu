@@ -8,12 +8,12 @@
  */
 
 interface EnvironmentConfig {
+  // Immutable Frontend Build Metadata
+  appVersion: string;
+  appBuildSha: string;
+
   // Core API Configuration
   apiBaseUrl: string;
-
-  // Content Configuration
-  defaultLlmModel: string;
-  currencySymbol: string;
 
   // WeChat Integration
   wechatAppId: string;
@@ -48,11 +48,32 @@ interface EnvironmentConfig {
   homeUrl: string;
   contactUsUrl: string;
   officialSiteUrl: string;
+  currencySymbol: string;
 
   // Legal Documents Configuration
   legalUrls: {
-    agreement: Record<'zh-CN' | 'en-US' | 'fr-FR' | 'ar-SA' | 'th-TH', string>;
-    privacy: Record<'zh-CN' | 'en-US' | 'fr-FR' | 'ar-SA' | 'th-TH', string>;
+    agreement: Record<
+      | 'zh-CN'
+      | 'en-US'
+      | 'de-DE'
+      | 'es-ES'
+      | 'fr-FR'
+      | 'ar-SA'
+      | 'th-TH'
+      | 'ur-PK',
+      string
+    >;
+    privacy: Record<
+      | 'zh-CN'
+      | 'en-US'
+      | 'de-DE'
+      | 'es-ES'
+      | 'fr-FR'
+      | 'ar-SA'
+      | 'th-TH'
+      | 'ur-PK',
+      string
+    >;
   };
 }
 
@@ -154,12 +175,14 @@ export async function getDynamicApiBaseUrl(): Promise<string> {
 }
 
 /**
- * Gets default LLM model
+ * Reads resolved runtime configuration without suspending a lifecycle callback.
+ * An empty base is ready (same origin); undefined means it has not loaded yet.
  */
-function getDefaultLlmModel(): string {
-  return (
-    getRuntimeEnv('DEFAULT_LLM_MODEL') || process.env.DEFAULT_LLM_MODEL || ''
-  );
+export function getCachedDynamicApiBaseUrl(): string | undefined {
+  if (typeof window === 'undefined') {
+    return getApiBaseUrl();
+  }
+  return configFetched ? cachedApiBaseUrl : undefined;
 }
 
 /**
@@ -342,16 +365,22 @@ function getLegalUrls(): {
   agreement: {
     'zh-CN': string;
     'en-US': string;
+    'de-DE': string;
+    'es-ES': string;
     'fr-FR': string;
     'ar-SA': string;
     'th-TH': string;
+    'ur-PK': string;
   };
   privacy: {
     'zh-CN': string;
     'en-US': string;
+    'de-DE': string;
+    'es-ES': string;
     'fr-FR': string;
     'ar-SA': string;
     'th-TH': string;
+    'ur-PK': string;
   };
 } {
   return {
@@ -363,6 +392,14 @@ function getLegalUrls(): {
       'en-US':
         getRuntimeEnv('LEGAL_AGREEMENT_URL_EN_US') ||
         process.env.LEGAL_AGREEMENT_URL_EN_US ||
+        '',
+      'de-DE':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_DE_DE') ||
+        process.env.LEGAL_AGREEMENT_URL_DE_DE ||
+        '',
+      'es-ES':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_ES_ES') ||
+        process.env.LEGAL_AGREEMENT_URL_ES_ES ||
         '',
       'fr-FR':
         getRuntimeEnv('LEGAL_AGREEMENT_URL_FR_FR') ||
@@ -376,6 +413,10 @@ function getLegalUrls(): {
         getRuntimeEnv('LEGAL_AGREEMENT_URL_TH_TH') ||
         process.env.LEGAL_AGREEMENT_URL_TH_TH ||
         '',
+      'ur-PK':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_UR_PK') ||
+        process.env.LEGAL_AGREEMENT_URL_UR_PK ||
+        '',
     },
     privacy: {
       'zh-CN':
@@ -385,6 +426,14 @@ function getLegalUrls(): {
       'en-US':
         getRuntimeEnv('LEGAL_PRIVACY_URL_EN_US') ||
         process.env.LEGAL_PRIVACY_URL_EN_US ||
+        '',
+      'de-DE':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_DE_DE') ||
+        process.env.LEGAL_PRIVACY_URL_DE_DE ||
+        '',
+      'es-ES':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_ES_ES') ||
+        process.env.LEGAL_PRIVACY_URL_ES_ES ||
         '',
       'fr-FR':
         getRuntimeEnv('LEGAL_PRIVACY_URL_FR_FR') ||
@@ -398,6 +447,10 @@ function getLegalUrls(): {
         getRuntimeEnv('LEGAL_PRIVACY_URL_TH_TH') ||
         process.env.LEGAL_PRIVACY_URL_TH_TH ||
         '',
+      'ur-PK':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_UR_PK') ||
+        process.env.LEGAL_PRIVACY_URL_UR_PK ||
+        '',
     },
   };
 }
@@ -406,11 +459,12 @@ function getLegalUrls(): {
  * Environment configuration instance with new organized structure
  */
 export const environment: EnvironmentConfig = {
+  // Next replaces these direct reads with constants from next.config.ts.
+  appVersion: process.env.NEXT_PUBLIC_APP_VERSION || '',
+  appBuildSha: process.env.NEXT_PUBLIC_APP_BUILD_SHA || '',
+
   // Core API Configuration
   apiBaseUrl: getApiBaseUrl(),
-
-  // Content Configuration
-  defaultLlmModel: getDefaultLlmModel(),
 
   // WeChat Integration
   wechatAppId: getWeChatAppId(),

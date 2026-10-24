@@ -1,8 +1,31 @@
 import {
+  buildAiCourseEntryAnalytics,
+  buildAiSkillInstallCopyResultAnalytics,
   buildCourseCreationAttemptAnalytics,
   buildCourseCreationCancelAnalytics,
   buildCourseCreationResultAnalytics,
 } from './courseCreationAnalytics';
+
+describe('AI course entry analytics', () => {
+  test('uses a bounded payload that can compare entry presentations', () => {
+    expect(buildAiCourseEntryAnalytics()).toEqual({
+      surface: 'admin_course_list',
+      presentation: 'creation_choice_modal',
+    });
+    expect(JSON.stringify(buildAiCourseEntryAnalytics())).not.toContain('url');
+  });
+
+  test('reports prompt copy outcomes without including the prompt', () => {
+    expect(buildAiSkillInstallCopyResultAnalytics('success')).toEqual({
+      surface: 'admin_course_list',
+      presentation: 'creation_choice_modal',
+      outcome: 'success',
+    });
+    expect(
+      JSON.stringify(buildAiSkillInstallCopyResultAnalytics('failed')),
+    ).not.toContain('prompt');
+  });
+});
 
 describe('courseCreationAnalytics', () => {
   test('builds bounded path payloads for attempts and cancellations', () => {

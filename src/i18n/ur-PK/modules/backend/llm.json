@@ -1,0 +1,10 @@
+{
+  "__namespace__": "server.llm",
+  "__flat__": {
+    "modelNotSupported": "ماڈل {model} تعاون یافتہ نہیں ہے۔",
+    "requestFailed": "ماڈل {model} کال ناکام ہوگئی: {message}",
+    "specifiedLlmNotConfigured": "ماڈل {model} کنفیگر نہیں ہے، براہ کرم .env میں متغیرات کو چیک کریں: {config_var}"
+  },
+  "modelSelectionNotConfigured": "ماڈل ابھی تک کنفیگر نہیں ہوا ہے، براہ کرم ایڈمنسٹریٹر سے رابطہ کریں۔",
+  "modelUnavailable": "یہ ماڈل عارضی طور پر دستیاب نہیں ہے، براہ کرم منتظم سے رابطہ کریں۔"
+}

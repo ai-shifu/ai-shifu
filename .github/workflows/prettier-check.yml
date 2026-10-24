@@ -4,11 +4,6 @@ on:
   pull_request:
     paths:
       - 'src/web/**'
-  push:
-    branches:
-      - main
-    paths:
-      - 'src/web/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -26,7 +21,7 @@ jobs:
       - name: Setup Node.js (match web frontend engines)
         uses: actions/setup-node@v4
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.4'
 
       - name: Install dependencies
         run: |

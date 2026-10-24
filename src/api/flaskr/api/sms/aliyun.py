@@ -26,11 +26,12 @@ def _body_value(
 
 
 def _log_provider_error(app: Flask, error: Exception) -> None:
-    error_message = getattr(error, "message", str(error))
-    error_data = getattr(error, "data", {}) or {}
-    app.logger.error(error_message)
-    app.logger.error(error_data.get("Recommend"))
-    UtilClient.assert_as_string(error_message)
+    error_type = type(error).__name__
+    app.logger.error(
+        "sms_event=aliyun_provider_exception error_type=%s",
+        error_type,
+    )
+    UtilClient.assert_as_string(error_type)
 
 
 def send_sms_ali(
@@ -92,14 +93,8 @@ def send_sms_ali(
                 # application failures that should page operations.
                 log_provider_failure = app.logger.warning
             log_provider_failure(
-                "Aliyun SMS send failed for mobile=%s template_code=%s code=%s "
-                "message=%s request_id=%s biz_id=%s",
-                mobile,
-                resolved_template_code,
+                "sms_event=aliyun_send_rejected code=%s",
                 response_code or "<empty>",
-                response_message or "<empty>",
-                _body_value(res, "request_id") or "<empty>",
-                _body_value(res, "biz_id") or "<empty>",
             )
             return None
     except Exception as error:

@@ -10,8 +10,11 @@ import i18n, { normalizeLanguage } from '@/i18n';
 const agreements = {
   'zh-CN': ZH_CN_Agreement,
   'en-US': EN_Agreement,
+  'de-DE': EN_Agreement,
+  'es-ES': EN_Agreement,
   'fr-FR': EN_Agreement,
   'ar-SA': EN_Agreement,
+  'ur-PK': EN_Agreement,
   'th-TH': EN_Agreement,
   en: EN_Agreement,
 };

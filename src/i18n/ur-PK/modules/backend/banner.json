@@ -1,0 +1,10 @@
+{
+  "__namespace__": "server.banner",
+  "__flat__": {
+    "bannerPopUpCancelText": "آئیے دوبارہ مطالعہ کریں۔",
+    "bannerPopUpConfirmText": "ابھی غیر مقفل کریں۔",
+    "bannerPopUpContent": "فوری طور پر لامحدود سوالات اور بہت سے دوسرے فوائد حاصل کریں، سیکھنے کو پریشانی سے پاک بنائیں",
+    "bannerPopUpTitle": "یہاں کسی بھی وقت تمام مواد کو غیر مقفل کریں۔",
+    "bannerTitle": "سب کو غیر مقفل کریں۔"
+  }
+}

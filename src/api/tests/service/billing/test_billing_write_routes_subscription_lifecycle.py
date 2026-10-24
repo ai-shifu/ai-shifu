@@ -177,7 +177,7 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             )
             assert expire_event.scheduled_at == subscription.current_period_end_at
 
-    def test_pending_pingxx_subscription_order_can_refresh_checkout(
+    def test_pending_pingxx_subscription_order_reuses_checkout_credential(
         self, billing_write_client: object
     ) -> None:
         client = billing_write_client["client"]
@@ -204,10 +204,14 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
         assert refreshed["data"]["payment_payload"]["credential"]["alipay_qr"] == (
             "https://pingxx.test/qr"
         )
-        assert len(billing_write_client["pingxx_requests"]) == 2
-        assert billing_write_client["pingxx_requests"][1]["order_bid"] == bill_order_bid
-        assert billing_write_client["pingxx_requests"][1]["subject"] == "月套餐·轻量版"
-        assert billing_write_client["pingxx_requests"][1]["body"] == "月套餐·轻量版"
+        assert refreshed["data"]["bill_order_bid"] == bill_order_bid
+        assert (
+            refreshed["data"]["payment_payload"] == checkout["data"]["payment_payload"]
+        )
+        assert len(billing_write_client["pingxx_requests"]) == 1
+        assert billing_write_client["pingxx_requests"][0]["order_bid"] == bill_order_bid
+        assert billing_write_client["pingxx_requests"][0]["subject"] == "月套餐·轻量版"
+        assert billing_write_client["pingxx_requests"][0]["body"] == "月套餐·轻量版"
 
     def test_subscription_checkout_reuses_same_pending_stripe_order_within_timeout(
         self, billing_write_client: object
@@ -1237,10 +1241,9 @@ class TestBillingWriteRoutesSubscriptionLifecycle:
             assert granted is True
             assert bucket.effective_from == paid_at
             assert bucket.effective_to == datetime(2026, 7, 4, 15, 59, 59)
-            assert order.metadata_json["applied_cycle_start_at"] == paid_at.isoformat()
-            assert (
-                order.metadata_json["applied_cycle_end_at"]
-                == datetime(2026, 7, 4, 15, 59, 59).isoformat()
+            assert order.metadata_json["applied_cycle_start_at"] == to_utc_iso(paid_at)
+            assert order.metadata_json["applied_cycle_end_at"] == to_utc_iso(
+                datetime(2026, 7, 4, 15, 59, 59)
             )
             assert subscription.status == BILLING_SUBSCRIPTION_STATUS_ACTIVE
             assert subscription.current_period_start_at == paid_at

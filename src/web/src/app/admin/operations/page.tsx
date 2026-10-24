@@ -9,11 +9,11 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/app/admin/components/adminTableStyles';
+import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/components/admin/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import {
   formatAdminDateRangeEndUtc,
@@ -29,13 +29,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import { useToast } from '@/hooks/useToast';
-import { copyText } from '@/c-utils/textutils';
+import { copyText } from '@/lib/textutils';
 import { ErrorWithCode } from '@/lib/request';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
-import { normalizeModelOptions } from '@/store/modelOptions';
+import { normalizeModelOptions } from '@/lib/modelOptions';
 import {
   normalizeTtsModelOptions,
   type TtsModelOption,

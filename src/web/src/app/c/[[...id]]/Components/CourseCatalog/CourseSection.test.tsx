@@ -1,13 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+import { LEARNING_PERMISSION } from '@/api/studyV2';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
 import { CourseSection } from './CourseSection';
 
 const mockUserState = { isLoggedIn: true };
 const mockSystemState = { previewMode: false };
 const mockOpenPayModal = jest.fn();
+const mockI18n = { language: 'zh-CN' };
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   LEARNING_PERMISSION: {
     NORMAL: 'normal',
     TRIAL: 'trial',
@@ -16,7 +17,7 @@ jest.mock('@/c-api/studyV2', () => ({
 }));
 
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({ t: (key: string) => key, i18n: mockI18n }),
 }));
 
 jest.mock('@/store', () => ({
@@ -24,12 +25,12 @@ jest.mock('@/store', () => ({
     selector(mockUserState),
 }));
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector: (state: typeof mockSystemState) => unknown) =>
     selector(mockSystemState),
 }));
 
-jest.mock('@/c-store/useCourseStore', () => ({
+jest.mock('@/store/useCourseStore', () => ({
   useCourseStore: (
     selector: (state: { openPayModal: typeof mockOpenPayModal }) => unknown,
   ) => selector({ openPayModal: mockOpenPayModal }),
@@ -37,7 +38,9 @@ jest.mock('@/c-store/useCourseStore', () => ({
 
 jest.mock('./ResetChapterButton', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({ lessonId }: { lessonId: string }) => (
+    <button aria-label={`Reset ${lessonId}`} />
+  ),
 }));
 
 describe('CourseSection navigation acceptance', () => {
@@ -45,7 +48,97 @@ describe('CourseSection navigation acceptance', () => {
     jest.clearAllMocks();
     mockUserState.isLoggedIn = true;
     mockSystemState.previewMode = false;
+    mockI18n.language = 'zh-CN';
   });
+
+  it('inherits Spanish for a Spanish lesson title', () => {
+    mockI18n.language = 'es-ES';
+
+    render(
+      <CourseSection
+        id='lesson-spanish'
+        name='Introducción al curso'
+        chapterId='chapter-1'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('Introducción al curso')).not.toHaveAttribute(
+      'lang',
+    );
+  });
+
+  it('uses English pronunciation for an English guide title in a Spanish interface', () => {
+    mockI18n.language = 'es-ES';
+
+    render(
+      <CourseSection
+        id='lesson-guide-en'
+        name='How to use this course'
+        chapterId='chapter-1'
+        titleLanguage='en-US'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('How to use this course')).toHaveAttribute(
+      'lang',
+      'en-US',
+    );
+  });
+
+  it('uses Chinese pronunciation for a Chinese guide title in a Spanish interface', () => {
+    mockI18n.language = 'es-ES';
+
+    render(
+      <CourseSection
+        id='lesson-guide-zh'
+        name='学习说明'
+        chapterId='chapter-1'
+        titleLanguage='zh-CN'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('学习说明')).toHaveAttribute('lang', 'zh-CN');
+  });
+
+  it('marks a Latin-only lesson title as English in a Chinese interface', () => {
+    render(
+      <CourseSection
+        id='lesson-english'
+        name='English lesson title'
+        chapterId='chapter-1'
+        type={LEARNING_PERMISSION.GUEST}
+      />,
+    );
+
+    expect(screen.getByText('English lesson title')).toHaveAttribute(
+      'lang',
+      'en',
+    );
+  });
+
+  it.each(['ar-SA', 'th-TH'])(
+    'marks a Latin-only lesson title as English in a %s interface',
+    language => {
+      mockI18n.language = language;
+
+      render(
+        <CourseSection
+          id='lesson-english'
+          name='English lesson title'
+          chapterId='chapter-1'
+          type={LEARNING_PERMISSION.GUEST}
+        />,
+      );
+
+      expect(screen.getByText('English lesson title')).toHaveAttribute(
+        'lang',
+        'en',
+      );
+    },
+  );
 
   it('reports navigation only after the lesson passes access guards', () => {
     const onTrySelect = jest.fn();
@@ -113,5 +206,65 @@ describe('CourseSection navigation acceptance', () => {
     });
     expect(onTrySelect).not.toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it.each([LESSON_STATUS_VALUE.PREPARE_LEARNING, LESSON_STATUS_VALUE.LOCKED])(
+    'does not offer reset for a %s lesson',
+    status => {
+      render(
+        <CourseSection
+          id='lesson-1'
+          name='Lesson title'
+          chapterId='chapter-1'
+          type={LEARNING_PERMISSION.GUEST}
+          status_value={status}
+        />,
+      );
+
+      expect(
+        screen.queryByRole('button', { name: 'Reset lesson-1' }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it('offers reset as soon as a lesson starts and keeps it after completion', () => {
+    const lessonProps = {
+      id: 'lesson-1',
+      name: 'Lesson title',
+      chapterId: 'chapter-1',
+      type: LEARNING_PERMISSION.GUEST,
+    };
+    const { rerender } = render(
+      <CourseSection
+        {...lessonProps}
+        status_value={LESSON_STATUS_VALUE.PREPARE_LEARNING}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Reset lesson-1' }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <CourseSection
+        {...lessonProps}
+        status_value={LESSON_STATUS_VALUE.LEARNING}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Reset lesson-1' }),
+    ).toBeInTheDocument();
+
+    rerender(
+      <CourseSection
+        {...lessonProps}
+        status_value={LESSON_STATUS_VALUE.COMPLETED}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Reset lesson-1' }),
+    ).toBeInTheDocument();
   });
 });

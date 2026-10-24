@@ -7,17 +7,7 @@ import React, {
 } from 'react';
 import Link from 'next/link';
 import { SSE } from 'sse.js';
-import {
-  Plus,
-  Minus,
-  Settings,
-  Volume2,
-  Loader2,
-  Square,
-  Mic,
-  RotateCw,
-  Trash2,
-} from 'lucide-react';
+import { Plus, Minus, Settings, Volume2, Loader2, Square } from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -30,17 +20,19 @@ import {
 import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
 import {
   DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+  resolveCourseCreditInsufficientAudience,
   isCreditInsufficientBusinessCode,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
 import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
-import { getResolvedBaseURL } from '@/c-utils/envUtils';
+import { getResolvedBaseURL } from '@/lib/envUtils';
 import { normalizeShifuDetail } from '@/lib/shifu-normalize';
+import { isAllowedCoursePrice } from '@/lib/coursePricePolicy';
 import {
   type AudioSegment,
   mergeAudioSegmentByUniqueKey,
   normalizeAudioSegmentPayload,
-} from '@/c-utils/audio-utils';
+} from '@/lib/audio-utils';
 import {
   Sheet,
   SheetContent,
@@ -83,10 +75,12 @@ import {
 import { useToast } from '@/hooks/useToast';
 
 import ModelList from '@/components/model-list';
-import { useEnvStore } from '@/c-store';
-import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+import CourseModelSelect from '@/components/model-list/CourseModelSelect';
+import type { ModelIndex } from '@/types/shifu';
+import { useEnvStore } from '@/store';
+import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
 import { useShifu, useUserStore } from '@/store';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import { useBillingOverview } from '@/hooks/useBillingData';
 import {
   AskProviderSchemaValidationError,
@@ -94,21 +88,17 @@ import {
 } from '@/components/shifu-setting/ask-provider-schema';
 import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
 import { buildShifuSettingSaveAnalytics } from '@/components/shifu-setting/shifuSettingAnalytics';
-import MiniMaxVoiceCloneDialog from '@/components/shifu-setting/MiniMaxVoiceCloneDialog';
 import {
   buildClonedVoiceListParams,
   buildMiniMaxVoiceOptions,
-  executeMiniMaxVoiceAction,
   getCustomVoiceIdValidator,
   isMiniMaxProvider,
   isValidMiniMaxCustomVoiceId,
-  loadMiniMaxVoiceRefreshData,
   providerSupportsClonedVoices,
   shouldPreserveCustomMiniMaxVoice,
   MINIMAX_PROVIDER,
-  type MiniMaxCloneCost,
-  type MiniMaxClonedVoice,
-} from '@/components/shifu-setting/minimax-voice-clone';
+  type RegisteredClonedVoice,
+} from '@/components/shifu-setting/cloned-voice-options';
 import {
   buildTtsModelOptionValue,
   filterTtsVoicesForModel,
@@ -127,23 +117,33 @@ import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
 } from '@/lib/onboardingTargets';
+import {
+  getFollowUpModelCatalog,
+  type FollowUpModelCatalogItem,
+} from '@/lib/liveVoiceFollowUp';
+
+const asModelIndex = (model: string | null | undefined): ModelIndex | null =>
+  model && /^[1-9]$/.test(model) ? (model as ModelIndex) : null;
 
 interface Shifu {
   description: string;
   bid: string;
   keywords: string[];
   model: string;
+  model_fallback?: boolean;
+  model_display_name?: string;
+  ask_model_fallback?: boolean;
+  ask_model_display_name?: string;
   name: string;
   preview_url: string;
   price: number;
   avatar: string;
   url: string;
-  temperature: number;
   system_prompt?: string;
   ask_enabled_status?: number;
   ask_model?: string;
-  ask_temperature?: number;
   ask_system_prompt?: string;
+  follow_up_mode?: 'text' | 'live_voice';
   ask_provider_config?: {
     provider?: string;
     mode?: string;
@@ -166,19 +166,20 @@ interface Shifu {
   use_learner_language?: boolean;
 }
 
-const MIN_SHIFU_PRICE = 0.5;
-const TEMPERATURE_MIN = 0;
-const TEMPERATURE_MAX = 2;
 const ASK_MODE_ENABLE = 5103;
 const ASK_PROVIDER_LLM = 'llm';
 const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
-const ASK_TEMPERATURE_MIN = 0;
-const ASK_TEMPERATURE_MAX = 2;
+const DEFAULT_LIVE_VOICE = 'Kore';
 const TTS_PREVIEW_CURRENT_TARGET = 'tts-current';
-type TtsPreviewOptions = {
-  voiceId?: string;
-  targetKey?: string;
-  demoAudioUrl?: string;
+
+type InitialAskConfiguration = {
+  model: string;
+  interactionMode: 'text' | 'live_voice';
+  providerConfig: {
+    provider: string;
+    mode: string;
+    config: Record<string, unknown>;
+  };
 };
 
 export default function ShifuSettingDialog({
@@ -199,27 +200,36 @@ export default function ShifuSettingDialog({
   const openedByOnboardingRef = useRef(false);
   const { t, i18n } = useTranslation();
   const currentLanguage = i18n.resolvedLanguage || i18n.language;
-  const { currentShifu, models } = useShifu();
+  const { currentShifu } = useShifu();
+  const currentUser = useUserStore(state => state.userInfo);
+  const currentUserId = currentUser?.user_bid || currentUser?.user_id || '';
+  const isCourseOwner = currentUser
+    ? Boolean(
+        currentShifu?.created_user_bid &&
+        currentShifu.created_user_bid === currentUserId,
+      )
+    : null;
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: true,
+    isCurrentUserCourseOwner: isCourseOwner,
+  });
   const { toast } = useToast();
-  const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const currencySymbol = useEnvStore(state => state.currencySymbol);
+  const minimumPaidCoursePrice = useEnvStore(
+    state => state.minimumPaidCoursePrice,
+  );
   const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
   const { data: billingOverview } = useBillingOverview();
   const debugAllowed =
-    !billingEnabled || billingOverview?.debug_allowed === true;
+    isCourseOwner !== null &&
+    (!isCourseOwner ||
+      !billingEnabled ||
+      billingOverview?.debug_allowed === true);
   const debugBlockedByCredits =
-    billingEnabled && billingOverview?.debug_allowed === false;
-  const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
-  const resolvedDefaultModel =
-    models.find(option => option.value === defaultLlmModel)?.label ||
-    defaultLlmModel;
-  const isCjk = /[\u4e00-\u9fff]/.test(baseSelectModelHint);
-  const defaultLlmModelSuffix = defaultLlmModel
-    ? isCjk
-      ? `（${resolvedDefaultModel}）`
-      : ` (${resolvedDefaultModel})`
-    : '';
-  const selectModelHint = `${baseSelectModelHint}${defaultLlmModelSuffix}`;
+    isCourseOwner === true &&
+    billingEnabled &&
+    billingOverview?.debug_allowed === false;
+  const selectModelHint = t('module.shifuSetting.modelOptions.hint');
   const [keywords, setKeywords] = useState(['AIGC']);
   const [shifuImage, setShifuImage] = useState<File | null>(null);
   const [imageError, setImageError] = useState('');
@@ -230,12 +240,39 @@ export default function ShifuSettingDialog({
   const { requestExclusive, releaseExclusive } = useExclusiveAudio();
   // Ask configuration state
   const [askModel, setAskModel] = useState('');
-  const [askTemperature, setAskTemperature] =
-    useState<number>(ASK_TEMPERATURE_MIN);
-  const [askTemperatureInput, setAskTemperatureInput] = useState<string>(
-    String(ASK_TEMPERATURE_MIN),
+  const [askModelIndex, setAskModelIndex] = useState<ModelIndex | null>(null);
+  const textModelIndexDraftRef = useRef<ModelIndex | null>('1');
+  const followUpModeRequestRef = useRef(0);
+  const [checkingTextMode, setCheckingTextMode] = useState(false);
+  const legacyTextModelRef = useRef('');
+  const modelEditVersionRef = useRef({ main: 0, followUp: 0 });
+  const modelSelectionRef = useRef({ main: '1', followUp: '1' });
+  const savedModelEditVersionRef = useRef({ main: 0, followUp: 0 });
+  const settingsSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const [modelSelectionRevision, setModelSelectionRevision] = useState(0);
+  const [mainModelFallback, setMainModelFallback] = useState(false);
+  const [followUpModelFallback, setFollowUpModelFallback] = useState(false);
+  const [mainModelDisplayName, setMainModelDisplayName] = useState('');
+  const [followUpModelDisplayName, setFollowUpModelDisplayName] = useState('');
+  const markModelEdited = useCallback(
+    (field: 'main' | 'followUp', value: string) => {
+      modelSelectionRef.current[field] = value;
+      modelEditVersionRef.current[field]++;
+      setModelSelectionRevision(previous => previous + 1);
+      if (field === 'main') setMainModelFallback(false);
+      else setFollowUpModelFallback(false);
+    },
+    [],
   );
+  const [followUpModels, setFollowUpModels] = useState<
+    FollowUpModelCatalogItem[]
+  >([]);
+  const initialAskConfigurationRef = useRef<InitialAskConfiguration | null>(
+    null,
+  );
+  const askProviderEditedRef = useRef(false);
   const [askProvider, setAskProvider] = useState(ASK_PROVIDER_LLM);
+  const [liveVoiceDraft, setLiveVoiceDraft] = useState(DEFAULT_LIVE_VOICE);
   const [askProviderConfig, setAskProviderConfig] = useState<
     Record<string, any>
   >({});
@@ -262,11 +299,8 @@ export default function ShifuSettingDialog({
   const [defaultListenModeEnabled, setDefaultListenModeEnabled] =
     useState(false);
   const [minimaxClonedVoices, setMinimaxClonedVoices] = useState<
-    MiniMaxClonedVoice[]
+    RegisteredClonedVoice[]
   >([]);
-  const [minimaxCloneCost, setMinimaxCloneCost] =
-    useState<MiniMaxCloneCost | null>(null);
-  const [minimaxCloneDialogOpen, setMinimaxCloneDialogOpen] = useState(false);
   const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
   const ttsProviderToastShownRef = useRef(false);
   const settingsRequestSeqRef = useRef(0);
@@ -279,6 +313,37 @@ export default function ShifuSettingDialog({
   const updateOpen = useCallback((nextOpen: boolean) => {
     setInternalOpen(nextOpen);
   }, []);
+
+  useEffect(() => {
+    followUpModeRequestRef.current++;
+    setCheckingTextMode(false);
+    return () => {
+      followUpModeRequestRef.current++;
+    };
+  }, [open, shifuId]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    let cancelled = false;
+    setFollowUpModels([]);
+    void getFollowUpModelCatalog()
+      .then(items => {
+        if (cancelled) {
+          return;
+        }
+        setFollowUpModels(Array.isArray(items) ? items : []);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFollowUpModels([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!openSignal) {
@@ -309,7 +374,6 @@ export default function ShifuSettingDialog({
   const ttsPreviewStreamRef = useRef<any>(null);
   const ttsPreviewAudioContextRef = useRef<AudioContext | null>(null);
   const ttsPreviewSourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const ttsPreviewHtmlAudioRef = useRef<HTMLAudioElement | null>(null);
   const ttsPreviewSegmentsRef = useRef<AudioSegment[]>([]);
   const ttsPreviewSegmentIndexRef = useRef(0);
   const ttsPreviewIsPlayingRef = useRef(false);
@@ -329,17 +393,6 @@ export default function ShifuSettingDialog({
     ttsPreviewWaitingRef.current = false;
     ttsPreviewSegmentsRef.current = [];
     ttsPreviewSegmentIndexRef.current = 0;
-
-    if (ttsPreviewHtmlAudioRef.current) {
-      const audio = ttsPreviewHtmlAudioRef.current;
-      audio.onplaying = null;
-      audio.onended = null;
-      audio.onerror = null;
-      audio.pause();
-      audio.removeAttribute('src');
-      audio.load();
-      ttsPreviewHtmlAudioRef.current = null;
-    }
 
     if (ttsPreviewSourceRef.current) {
       try {
@@ -504,36 +557,16 @@ export default function ShifuSettingDialog({
     providerSupportsClonedVoices(resolvedProvider);
 
   const refreshMinimaxVoiceData = useCallback(async () => {
-    if (!shifuId) return;
-    const result = await loadMiniMaxVoiceRefreshData({
-      fetchVoices: () =>
-        api.listMinimaxTtsVoices(
-          buildClonedVoiceListParams(resolvedProvider, shifuId),
-        ) as Promise<{
-          voices?: MiniMaxClonedVoice[];
-        }>,
-      // Clone-cost estimation only exists for the MiniMax self-serve flow;
-      // operator-registered voices (volcengine) are free for the teacher.
-      fetchCloneCost: () =>
-        isMiniMaxTtsProvider
-          ? (api.getMinimaxTtsCloneCost({
-              shifu_bid: shifuId,
-            }) as Promise<MiniMaxCloneCost>)
-          : Promise.resolve(null),
-    });
-    if (result.voices !== null) {
-      setMinimaxClonedVoices(result.voices);
+    if (!shifuId || !providerSupportsCloning) return;
+    try {
+      const result = (await api.listMinimaxTtsVoices(
+        buildClonedVoiceListParams(resolvedProvider, shifuId),
+      )) as { voices?: RegisteredClonedVoice[] };
+      setMinimaxClonedVoices(result?.voices || []);
+    } catch (error) {
+      console.error('Failed to refresh registered TTS voices:', error);
     }
-    if (result.cloneCost !== null) {
-      setMinimaxCloneCost(result.cloneCost);
-    }
-    if (result.errors.length > 0) {
-      console.error(
-        'Failed to refresh MiniMax voice clone data:',
-        result.errors,
-      );
-    }
-  }, [isMiniMaxTtsProvider, resolvedProvider, shifuId]);
+  }, [providerSupportsCloning, resolvedProvider, shifuId]);
   useEffect(() => {
     if (!ttsEnabled) return;
     const options = ttsConfig?.model_options || [];
@@ -568,61 +601,6 @@ export default function ShifuSettingDialog({
     [currentProviderConfig?.voices, ttsModel],
   );
 
-  const showMiniMaxVoiceActionError = useCallback(
-    (error: unknown) => {
-      toast({
-        title: t('common.core.actionFailed'),
-        description:
-          error instanceof Error
-            ? error.message
-            : t('common.core.unknownError'),
-        variant: 'destructive',
-      });
-    },
-    [t, toast],
-  );
-
-  const retryMiniMaxVoice = useCallback(
-    async (voiceBid: string) => {
-      await executeMiniMaxVoiceAction({
-        action: () =>
-          api.retryMinimaxTtsVoice({
-            voice_bid: voiceBid,
-          }),
-        onSuccess: refreshMinimaxVoiceData,
-        onError: showMiniMaxVoiceActionError,
-      });
-    },
-    [refreshMinimaxVoiceData, showMiniMaxVoiceActionError],
-  );
-
-  const deleteMiniMaxVoice = useCallback(
-    async (voice: MiniMaxClonedVoice) => {
-      await executeMiniMaxVoiceAction({
-        action: () =>
-          api.deleteMinimaxTtsVoice({
-            voice_bid: voice.voice_bid,
-          }),
-        onSuccess: () => {
-          if (ttsVoiceId === voice.voice_id) {
-            setTtsVoiceId(ttsVoiceOptions[0]?.value || '');
-          }
-          refreshMinimaxVoiceData();
-        },
-        onError: showMiniMaxVoiceActionError,
-      });
-    },
-    [
-      refreshMinimaxVoiceData,
-      showMiniMaxVoiceActionError,
-      ttsVoiceId,
-      ttsVoiceOptions,
-    ],
-  );
-
-  const supportsMiniMaxVoiceCloning =
-    isMiniMaxTtsProvider &&
-    currentProviderConfig?.supports_voice_cloning === true;
   const minimaxStatusLabels = useMemo(
     () => ({
       queued: t('module.shifuSetting.minimaxCloneStatus.queued'),
@@ -691,29 +669,6 @@ export default function ShifuSettingDialog({
     }
     refreshMinimaxVoiceData();
   }, [providerSupportsCloning, open, refreshMinimaxVoiceData, ttsEnabled]);
-
-  useEffect(() => {
-    if (!open || !providerSupportsCloning) {
-      return;
-    }
-    const hasPendingVoice = minimaxClonedVoices.some(voice =>
-      ['queued', 'processing', 'billing_pending'].includes(
-        String(voice.status || ''),
-      ),
-    );
-    if (!hasPendingVoice) {
-      return;
-    }
-    const timer = setInterval(() => {
-      refreshMinimaxVoiceData();
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [
-    providerSupportsCloning,
-    minimaxClonedVoices,
-    open,
-    refreshMinimaxVoiceData,
-  ]);
   const normalizeSpeed = useCallback(
     (value: number) => {
       const min = currentProviderConfig?.speed.min ?? 0.5;
@@ -742,7 +697,47 @@ export default function ShifuSettingDialog({
       value: item.provider,
       label: item.title || item.provider,
     })) || [];
+  // ModelList's empty-value Default alias inherits the effective model's
+  // disabled flag, so preserve that model as a valid round-trip target too.
+  const savedAskModel =
+    initialAskConfigurationRef.current?.model ||
+    (followUpModels.find(item => item.is_default) || followUpModels[0])?.model;
+  const followUpModelOptions = useMemo(
+    () =>
+      followUpModels.map(item => ({
+        value: item.model,
+        label: item.display_name,
+        creditMultiplier: item.credit_multiplier ?? null,
+        creditMultiplierLabel: item.credit_multiplier_label || '',
+        isDefault: item.is_default,
+        disabled:
+          !debugAllowed &&
+          item.interaction_mode !== 'live_voice' &&
+          item.model !== savedAskModel,
+      })),
+    [debugAllowed, followUpModels, savedAskModel],
+  );
+  const selectedFollowUpModel = followUpModels.find(
+    item => item.model === askModel,
+  );
+  const preservedAskConfiguration = initialAskConfigurationRef.current;
+  const isUncataloguedExistingAskModel = Boolean(
+    // The empty Default alias also needs its saved config while no catalog
+    // is available; absence of metadata must not erase provider settings.
+    (askModel || !followUpModels.length) &&
+    preservedAskConfiguration?.model === askModel &&
+    !selectedFollowUpModel,
+  );
+  const isLiveVoiceFollowUp =
+    !askModelIndex &&
+    (selectedFollowUpModel?.interaction_mode === 'live_voice' ||
+      (isUncataloguedExistingAskModel &&
+        preservedAskConfiguration?.interactionMode === 'live_voice'));
+  const selectedLiveVoice = liveVoiceDraft;
   const resolvedAskProvider = (() => {
+    if (isLiveVoiceFollowUp) {
+      return ASK_PROVIDER_LLM;
+    }
     const provider = (askProvider || '').trim().toLowerCase();
     if (!provider) {
       return askConfigMeta?.providers?.[0]?.provider || ASK_PROVIDER_LLM;
@@ -760,12 +755,20 @@ export default function ShifuSettingDialog({
       item => item.provider === resolvedAskProvider,
     ) || askConfigMeta?.providers?.[0];
   const askProviderFieldEntries = useMemo(
-    () => Object.entries(currentAskProviderMeta?.json_schema?.properties || {}),
-    [currentAskProviderMeta],
+    () =>
+      isLiveVoiceFollowUp
+        ? []
+        : Object.entries(currentAskProviderMeta?.json_schema?.properties || {}),
+    [currentAskProviderMeta, isLiveVoiceFollowUp],
   );
   const askProviderRequiredFields = useMemo(
-    () => new Set(currentAskProviderMeta?.json_schema?.required || []),
-    [currentAskProviderMeta],
+    () =>
+      new Set(
+        isLiveVoiceFollowUp
+          ? []
+          : currentAskProviderMeta?.json_schema?.required || [],
+      ),
+    [currentAskProviderMeta, isLiveVoiceFollowUp],
   );
   const getAskProviderDefaultConfig = useCallback(
     (provider: string) => {
@@ -780,11 +783,93 @@ export default function ShifuSettingDialog({
   );
   const handleAskProviderChange = useCallback(
     (value: string) => {
+      askProviderEditedRef.current = true;
       setAskProvider(value);
       setAskProviderConfig(getAskProviderDefaultConfig(value));
       setAskProviderObjectInputs({});
     },
     [getAskProviderDefaultConfig],
+  );
+
+  const handleAskModelChange = useCallback(
+    (value: string) => {
+      followUpModeRequestRef.current++;
+      setCheckingTextMode(false);
+      setAskModel(value);
+      const selectedModel = followUpModels.find(item => item.model === value);
+      const isLive = selectedModel?.interaction_mode === 'live_voice';
+      markModelEdited('followUp', isLive ? value : asModelIndex(value) || '1');
+      if (isLive) {
+        setAskModelIndex(null);
+        const allowedVoiceIds = new Set(
+          (selectedModel?.voices || []).map(voice => voice.voice_id),
+        );
+        setLiveVoiceDraft(previous =>
+          allowedVoiceIds.has(previous) ? previous : DEFAULT_LIVE_VOICE,
+        );
+      } else {
+        setAskModelIndex(asModelIndex(value) || '1');
+      }
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
+    },
+    [followUpModels, markModelEdited],
+  );
+
+  const handleFollowUpModeChange = useCallback(
+    async (mode: 'text' | 'live_voice') => {
+      if (currentShifu?.readonly) return;
+      const version = ++followUpModeRequestRef.current;
+      if (mode === 'live_voice') {
+        const live = followUpModels.find(
+          item => item.interaction_mode === 'live_voice',
+        );
+        if (live) handleAskModelChange(live.model);
+        return;
+      }
+      const model = legacyTextModelRef.current;
+      let modelIndex = textModelIndexDraftRef.current || '1';
+      if (modelIndex) {
+        setCheckingTextMode(true);
+        let available = false;
+        try {
+          const options = await api.getCourseModelOptions({});
+          if (Array.isArray(options)) {
+            const option = options.find(option => option.index === modelIndex);
+            // A removed slot follows the same fallback as saved course values.
+            if (!option) modelIndex = '1';
+            available = options.some(
+              option =>
+                option.index === modelIndex && option.available === true,
+            );
+          }
+        } catch {
+          // Keep the saved mode when availability cannot be confirmed.
+        }
+        if (version !== followUpModeRequestRef.current) return;
+        setCheckingTextMode(false);
+        if (!available) {
+          toast({
+            title: t('module.shifuSetting.modelOptions.unavailable'),
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      setAskModel(model);
+      setAskModelIndex(modelIndex);
+      markModelEdited('followUp', modelIndex);
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
+    },
+    [
+      currentShifu?.readonly,
+      followUpModels,
+      handleAskModelChange,
+      markModelEdited,
+      t,
+      toast,
+    ],
   );
 
   const applyMinimaxManualVoiceId = useCallback(() => {
@@ -815,29 +900,27 @@ export default function ShifuSettingDialog({
     setAskProviderObjectInputs({});
   }, [askConfigMeta, askProvider, getAskProviderDefaultConfig]);
 
-  const normalizeAskTemperature = useCallback((value: number) => {
-    const clamped = Math.min(
-      Math.max(value, ASK_TEMPERATURE_MIN),
-      ASK_TEMPERATURE_MAX,
-    );
-    return Number(clamped.toFixed(1));
-  }, []);
-
-  useEffect(() => {
-    if (askTemperature === null || Number.isNaN(askTemperature)) {
-      setAskTemperatureInput('');
-    } else {
-      setAskTemperatureInput(String(askTemperature));
-    }
-  }, [askTemperature]);
-
   const buildAskProviderConfigForSubmit = useCallback(() => {
+    if (isLiveVoiceFollowUp) {
+      return { live_voice: selectedLiveVoice };
+    }
     try {
-      return buildAskProviderConfigBySchema({
+      const config = buildAskProviderConfigBySchema({
         schema: currentAskProviderMeta?.json_schema,
         providerConfig: askProviderConfig as Record<string, unknown>,
         objectInputs: askProviderObjectInputs,
       });
+      const preservedLiveVoice =
+        typeof askProviderConfig.live_voice === 'string'
+          ? askProviderConfig.live_voice.trim()
+          : '';
+      if (preservedLiveVoice) {
+        return {
+          ...config,
+          live_voice: preservedLiveVoice,
+        };
+      }
+      return config;
     } catch (error) {
       if (error instanceof AskProviderSchemaValidationError) {
         const fieldSchema =
@@ -871,11 +954,14 @@ export default function ShifuSettingDialog({
 
       throw error;
     }
-  }, [askProviderConfig, askProviderObjectInputs, currentAskProviderMeta, t]);
-
-  const clampTemperature = useCallback((value: number) => {
-    return Math.min(Math.max(value, 0), 2);
-  }, []);
+  }, [
+    askProviderConfig,
+    askProviderObjectInputs,
+    currentAskProviderMeta,
+    isLiveVoiceFollowUp,
+    selectedLiveVoice,
+    t,
+  ]);
 
   // Sanitize and default selections when provider/config changes
   useEffect(() => {
@@ -966,20 +1052,8 @@ export default function ShifuSettingDialog({
       .max(20000, t('module.shifuSetting.shifuPromptMaxLength')),
     price: z
       .string()
-      .min(0.5, t('module.shifuSetting.shifuPriceEmpty'))
+      .min(1, t('module.shifuSetting.shifuPriceEmpty'))
       .regex(/^\d+(\.\d{1,2})?$/, t('module.shifuSetting.shifuPriceFormat')),
-    temperature: z
-      .string()
-      .regex(
-        /^\d+(\.\d{1,2})?$/,
-        t('module.shifuSetting.shifuTemperatureFormat'),
-      ),
-    temperature_min: z
-      .number()
-      .min(TEMPERATURE_MIN, t('module.shifuSetting.shifuTemperatureMin')),
-    temperature_max: z
-      .number()
-      .max(TEMPERATURE_MAX, t('module.shifuSetting.shifuTemperatureMax')),
   });
 
   const form = useForm({
@@ -990,7 +1064,6 @@ export default function ShifuSettingDialog({
       model: '',
       systemPrompt: '',
       price: '',
-      temperature: '',
     },
   });
   const isDirty = form.formState.isDirty;
@@ -1073,7 +1146,19 @@ export default function ShifuSettingDialog({
       needClose = true,
       saveType: 'auto' | 'manual' = 'manual',
     ) => {
+      const modelEditSnapshot = { ...modelEditVersionRef.current };
+      const modelSelectionSnapshot = { ...modelSelectionRef.current };
+      const settingsRequestSnapshot = settingsRequestSeqRef.current;
+      const previousSave = settingsSaveQueueRef.current;
+      let releaseSave!: () => void;
+      settingsSaveQueueRef.current = new Promise<void>(resolve => {
+        releaseSave = resolve;
+      });
       try {
+        // Preserve invocation order at the server as well as in local state.
+        // A slower earlier save must never overwrite a newer selection.
+        await previousSave;
+        if (settingsRequestSeqRef.current !== settingsRequestSnapshot) return;
         const providerForSubmit =
           resolvedProvider ||
           getDefaultTtsModelOption(ttsConfig?.model_options || [])?.provider ||
@@ -1084,10 +1169,22 @@ export default function ShifuSettingDialog({
           askConfigMeta?.default?.provider ||
           ASK_PROVIDER_LLM;
         const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
-        const askTemperatureForSubmit = normalizeAskTemperature(
-          Number(askTemperatureInput || askTemperature || 0),
+        const shouldPreserveExistingAskConfiguration = Boolean(
+          preservedAskConfiguration &&
+          !askProviderEditedRef.current &&
+          // Missing model/provider metadata must not discard a saved provider
+          // configuration when the teacher only changes unrelated settings.
+          (isUncataloguedExistingAskModel ||
+            (!isLiveVoiceFollowUp &&
+              !askConfigMeta?.providers?.some(
+                provider =>
+                  provider.provider ===
+                  preservedAskConfiguration.providerConfig.provider,
+              ))),
         );
-        const askConfigForSubmit = buildAskProviderConfigForSubmit();
+        const askConfigForSubmit = shouldPreserveExistingAskConfiguration
+          ? preservedAskConfiguration!.providerConfig.config
+          : buildAskProviderConfigForSubmit();
 
         if (ttsEnabled && !providerForSubmit) {
           if (!ttsProviderToastShownRef.current && saveType === 'manual') {
@@ -1101,23 +1198,35 @@ export default function ShifuSettingDialog({
           return;
         }
 
+        const includeMainModel =
+          modelEditSnapshot.main > savedModelEditVersionRef.current.main;
+        const includeFollowUpModel =
+          modelEditSnapshot.followUp >
+          savedModelEditVersionRef.current.followUp;
+        // Omit temperatures so hidden settings keep their saved values.
         const payload = {
           description: data.description,
           shifu_bid: shifuId,
           keywords: keywords,
-          model: data.model,
+          ...(includeMainModel
+            ? { model: asModelIndex(modelSelectionSnapshot.main) || '1' }
+            : {}),
           name: data.name,
           price: Number(data.price),
           avatar: uploadedImageUrl,
-          temperature: Number(data.temperature),
           system_prompt: data.systemPrompt,
           ask_enabled_status: ASK_MODE_ENABLE,
-          ask_model: askModel,
-          ask_temperature: askTemperatureForSubmit,
+          ...(includeFollowUpModel
+            ? { ask_model: modelSelectionSnapshot.followUp }
+            : {}),
           ask_system_prompt: '',
           ask_provider_config: {
-            provider: askProviderForSubmit,
-            mode: askModeForSubmit,
+            provider: shouldPreserveExistingAskConfiguration
+              ? preservedAskConfiguration!.providerConfig.provider
+              : askProviderForSubmit,
+            mode: shouldPreserveExistingAskConfiguration
+              ? preservedAskConfiguration!.providerConfig.mode
+              : askModeForSubmit,
             config: askConfigForSubmit,
           },
           // TTS Configuration
@@ -1134,23 +1243,82 @@ export default function ShifuSettingDialog({
           // Language Output Configuration
           use_learner_language: useLearnerLanguage,
         };
-        await api.saveShifuDetail({
-          ...payload,
-        });
-        trackEvent(
-          'creator_shifu_setting_save',
-          buildShifuSettingSaveAnalytics({
-            shifuBid: shifuId,
-            saveType,
-            ttsEnabled,
-            defaultListenModeEnabled,
-            useLearnerLanguage,
-          }),
-        );
+        const savedDetail = await api.saveShifuDetail({ ...payload });
+        const effectiveMainIndex =
+          asModelIndex(savedDetail?.model) || asModelIndex(data.model) || '1';
+        const effectiveFollowUpIndex =
+          asModelIndex(savedDetail?.ask_model) ||
+          asModelIndex(modelSelectionSnapshot.followUp);
+        const effectiveMainFallback =
+          savedDetail?.model_fallback ??
+          (includeMainModel ? false : mainModelFallback);
+        const effectiveFollowUpFallback =
+          savedDetail?.ask_model_fallback ??
+          (includeFollowUpModel ? false : followUpModelFallback);
+        if (settingsRequestSeqRef.current === settingsRequestSnapshot) {
+          if (includeMainModel)
+            savedModelEditVersionRef.current.main = Math.max(
+              savedModelEditVersionRef.current.main,
+              modelEditSnapshot.main,
+            );
+          if (includeFollowUpModel)
+            savedModelEditVersionRef.current.followUp = Math.max(
+              savedModelEditVersionRef.current.followUp,
+              modelEditSnapshot.followUp,
+            );
+          // Do not overwrite selections made while this save was in flight.
+          if (modelEditVersionRef.current.main === modelEditSnapshot.main) {
+            modelSelectionRef.current.main = effectiveMainIndex;
+            form.setValue('model', effectiveMainIndex);
+            setMainModelFallback(effectiveMainFallback);
+            if (savedDetail?.model_display_name)
+              setMainModelDisplayName(savedDetail.model_display_name);
+          }
+          if (
+            modelEditVersionRef.current.followUp === modelEditSnapshot.followUp
+          ) {
+            if (!isLiveVoiceFollowUp) {
+              modelSelectionRef.current.followUp =
+                effectiveFollowUpIndex || '1';
+              textModelIndexDraftRef.current = effectiveFollowUpIndex || '1';
+              setAskModelIndex(effectiveFollowUpIndex || '1');
+            }
+            setFollowUpModelFallback(effectiveFollowUpFallback);
+            if (savedDetail?.ask_model_display_name)
+              setFollowUpModelDisplayName(savedDetail.ask_model_display_name);
+          }
+        }
+        try {
+          void Promise.resolve(
+            trackEvent(
+              'creator_shifu_setting_save',
+              buildShifuSettingSaveAnalytics({
+                shifuBid: shifuId,
+                saveType,
+                ttsEnabled,
+                defaultListenModeEnabled,
+                useLearnerLanguage,
+                followUpMode: isLiveVoiceFollowUp ? 'live_voice' : 'text',
+                price: Number(data.price),
+                mainModelIndex: effectiveMainIndex,
+                followUpModelIndex: effectiveFollowUpIndex,
+                mainModelFallback: effectiveMainFallback,
+                followUpModelFallback: effectiveFollowUpFallback,
+              }),
+            ),
+          ).catch(() => {});
+        } catch {
+          // Analytics is best-effort and must never affect a successful save.
+        }
         if (onSave) {
           onSave();
         }
-        if (needClose) {
+        if (
+          needClose &&
+          settingsRequestSeqRef.current === settingsRequestSnapshot &&
+          modelEditVersionRef.current.main === modelEditSnapshot.main &&
+          modelEditVersionRef.current.followUp === modelEditSnapshot.followUp
+        ) {
           updateOpen(false);
         }
       } catch (error) {
@@ -1163,6 +1331,8 @@ export default function ShifuSettingDialog({
         if (currentShifu?.readonly) {
           updateOpen(false);
         }
+      } finally {
+        releaseSave();
       }
     },
     [
@@ -1180,12 +1350,14 @@ export default function ShifuSettingDialog({
       speedValue,
       defaultListenModeEnabled,
       useLearnerLanguage,
+      isLiveVoiceFollowUp,
+      isUncataloguedExistingAskModel,
+      preservedAskConfiguration,
       askConfigMeta,
-      askModel,
-      askTemperature,
-      askTemperatureInput,
+      mainModelFallback,
+      followUpModelFallback,
+      form,
       buildAskProviderConfigForSubmit,
-      normalizeAskTemperature,
       resolvedAskProvider,
       toast,
       t,
@@ -1193,12 +1365,19 @@ export default function ShifuSettingDialog({
     ],
   );
 
+  const latestOnSubmitRef = useRef(onSubmit);
+  latestOnSubmitRef.current = onSubmit;
+
   const init = async () => {
     const requestSeq = settingsRequestSeqRef.current + 1;
     settingsRequestSeqRef.current = requestSeq;
     const isActiveRequest = () => settingsRequestSeqRef.current === requestSeq;
 
     ttsProviderToastShownRef.current = false;
+    initialAskConfigurationRef.current = null;
+    askProviderEditedRef.current = false;
+    modelEditVersionRef.current = { main: 0, followUp: 0 };
+    savedModelEditVersionRef.current = { main: 0, followUp: 0 };
     setSettingsLoading(true);
     try {
       const result = normalizeShifuDetail(
@@ -1216,8 +1395,7 @@ export default function ShifuSettingDialog({
           name: result.name,
           description: result.description,
           price: (result.price ?? 0).toFixed(2),
-          model: result.model || '',
-          temperature: result.temperature + '',
+          model: asModelIndex(result.model) || '1',
           systemPrompt: result.system_prompt || '',
         });
         const rawAskProviderConfig =
@@ -1232,15 +1410,65 @@ export default function ShifuSettingDialog({
           !Array.isArray(rawAskProviderConfig.config)
             ? rawAskProviderConfig.config
             : {};
+        const normalizedInitialProvider = String(
+          rawAskProviderConfig.provider || ASK_PROVIDER_LLM,
+        ).toLowerCase();
+        const normalizedInitialMode = String(
+          rawAskProviderConfig.mode || ASK_PROVIDER_MODE_PROVIDER_ONLY,
+        ).toLowerCase();
+        const hasPersistedLiveVoiceContract =
+          normalizedInitialProvider === ASK_PROVIDER_LLM &&
+          normalizedInitialMode === ASK_PROVIDER_MODE_PROVIDER_ONLY &&
+          typeof rawAskProviderInnerConfig.live_voice === 'string' &&
+          Boolean(rawAskProviderInnerConfig.live_voice.trim());
+        initialAskConfigurationRef.current = {
+          model: result.ask_model || '',
+          interactionMode:
+            result.follow_up_mode === 'live_voice'
+              ? 'live_voice'
+              : result.follow_up_mode === 'text'
+                ? 'text'
+                : hasPersistedLiveVoiceContract
+                  ? 'live_voice'
+                  : 'text',
+          providerConfig: {
+            provider: normalizedInitialProvider,
+            mode: normalizedInitialMode,
+            config: { ...rawAskProviderInnerConfig },
+          },
+        };
+        setMainModelFallback(result.model_fallback === true);
+        setFollowUpModelFallback(result.ask_model_fallback === true);
+        setMainModelDisplayName(result.model_display_name || '');
+        setFollowUpModelDisplayName(result.ask_model_display_name || '');
+        modelSelectionRef.current = {
+          main: asModelIndex(result.model) || '1',
+          followUp:
+            initialAskConfigurationRef.current.interactionMode === 'live_voice'
+              ? result.ask_model || ''
+              : asModelIndex(result.ask_model) || '1',
+        };
         setAskModel(result.ask_model || '');
-        setAskTemperature(result.ask_temperature ?? ASK_TEMPERATURE_MIN);
-        setAskTemperatureInput(
-          String(result.ask_temperature ?? ASK_TEMPERATURE_MIN),
+        setAskModelIndex(
+          initialAskConfigurationRef.current.interactionMode === 'live_voice'
+            ? null
+            : asModelIndex(result.ask_model) || '1',
         );
+        textModelIndexDraftRef.current =
+          initialAskConfigurationRef.current.interactionMode === 'live_voice'
+            ? '1'
+            : asModelIndex(result.ask_model) || '1';
+        legacyTextModelRef.current =
+          initialAskConfigurationRef.current.interactionMode === 'live_voice'
+            ? ''
+            : result.ask_model || '';
         setAskProvider(
           (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
         );
         setAskProviderConfig(rawAskProviderInnerConfig);
+        setLiveVoiceDraft(
+          String(rawAskProviderInnerConfig.live_voice || DEFAULT_LIVE_VOICE),
+        );
         setAskProviderObjectInputs({});
         setAskPreviewLoading(false);
         setAskPreviewQuery('');
@@ -1284,210 +1512,170 @@ export default function ShifuSettingDialog({
     }
   };
 
-  const handleTtsPreview = useCallback(
-    async (options: TtsPreviewOptions = {}) => {
-      const targetKey = options.targetKey || TTS_PREVIEW_CURRENT_TARGET;
-      const demoAudioUrl = (options.demoAudioUrl || '').trim();
-      const previewVoiceId = (options.voiceId ?? ttsVoiceId ?? '').trim();
-      const sameTargetActive =
-        (ttsPreviewPlaying || ttsPreviewLoading) &&
-        ttsPreviewTarget === targetKey;
+  const handleTtsPreview = useCallback(() => {
+    const targetKey = TTS_PREVIEW_CURRENT_TARGET;
+    const previewVoiceId = (ttsVoiceId || '').trim();
+    const sameTargetActive =
+      (ttsPreviewPlaying || ttsPreviewLoading) &&
+      ttsPreviewTarget === targetKey;
 
-      if (sameTargetActive) {
-        stopTtsPreview();
-        return;
-      }
-      if (ttsPreviewPlaying || ttsPreviewLoading) {
-        stopTtsPreview();
-      }
+    if (sameTargetActive) {
+      stopTtsPreview();
+      return;
+    }
+    if (
+      !shifuId ||
+      currentShifu?.readonly ||
+      creditInsufficientAudience === null
+    ) {
+      return;
+    }
+    if (ttsPreviewPlaying || ttsPreviewLoading) {
+      stopTtsPreview();
+    }
 
-      if (debugBlockedByCredits && !demoAudioUrl) {
-        showCreditInsufficientToast({
-          audience: 'teacher',
-          code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
-        });
-        return;
-      }
-      if (!debugAllowed && !demoAudioUrl) {
-        return;
-      }
-
-      const sessionId = ttsPreviewSessionRef.current + 1;
-      ttsPreviewSessionRef.current = sessionId;
-      requestExclusive(stopTtsPreview);
-      setTtsPreviewTarget(targetKey);
-      setTtsPreviewLoading(true);
-      setTtsPreviewPlaying(true);
-      ttsPreviewIsPlayingRef.current = true;
-      ttsPreviewIsStreamingRef.current = !demoAudioUrl;
-      ttsPreviewWaitingRef.current = !demoAudioUrl;
-      ttsPreviewSegmentsRef.current = [];
-      ttsPreviewSegmentIndexRef.current = 0;
-      closeTtsPreviewStream();
-
-      if (demoAudioUrl) {
-        const audio = new Audio(demoAudioUrl);
-        ttsPreviewHtmlAudioRef.current = audio;
-        audio.onplaying = () => {
-          if (ttsPreviewSessionRef.current !== sessionId) {
-            return;
-          }
-          setTtsPreviewLoading(false);
-          setTtsPreviewPlaying(true);
-          ttsPreviewIsPlayingRef.current = true;
-        };
-        audio.onended = () => {
-          if (ttsPreviewSessionRef.current === sessionId) {
-            stopTtsPreview();
-          }
-        };
-        audio.onerror = () => {
-          if (ttsPreviewSessionRef.current !== sessionId) {
-            return;
-          }
-          toast({
-            title: t('module.shifuSetting.minimaxClonePreviewFailed'),
-            variant: 'destructive',
-          });
-          stopTtsPreview();
-        };
-
-        try {
-          await audio.play();
-          if (ttsPreviewSessionRef.current === sessionId) {
-            setTtsPreviewLoading(false);
-            setTtsPreviewPlaying(true);
-          }
-        } catch {
-          if (ttsPreviewSessionRef.current === sessionId) {
-            toast({
-              title: t('module.shifuSetting.minimaxClonePreviewFailed'),
-              variant: 'destructive',
-            });
-            stopTtsPreview();
-          }
-        }
-        return;
-      }
-
-      const baseUrl = getResolvedBaseURL();
-      const token = useUserStore.getState().getToken();
-      const traceHeaders = buildTraceHeaders({
-        'Content-Type': 'application/json',
-        ...(token
-          ? {
-              Authorization: `Bearer ${token}`,
-              Token: token,
-            }
-          : {}),
+    if (debugBlockedByCredits) {
+      showCreditInsufficientToast({
+        audience: creditInsufficientAudience,
+        code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
       });
-      const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
-        headers: traceHeaders.headers,
-        payload: JSON.stringify({
-          provider: resolvedProvider,
-          model: ttsModel || '',
-          voice_id: previewVoiceId,
-          speed: speedValue,
-          pitch: 0,
-          emotion: '',
-        }),
+      return;
+    }
+    if (!debugAllowed) {
+      return;
+    }
+
+    const sessionId = ttsPreviewSessionRef.current + 1;
+    ttsPreviewSessionRef.current = sessionId;
+    requestExclusive(stopTtsPreview);
+    setTtsPreviewTarget(targetKey);
+    setTtsPreviewLoading(true);
+    setTtsPreviewPlaying(true);
+    ttsPreviewIsPlayingRef.current = true;
+    ttsPreviewIsStreamingRef.current = true;
+    ttsPreviewWaitingRef.current = true;
+    ttsPreviewSegmentsRef.current = [];
+    ttsPreviewSegmentIndexRef.current = 0;
+    closeTtsPreviewStream();
+
+    const baseUrl = getResolvedBaseURL();
+    const token = useUserStore.getState().getToken();
+    const traceHeaders = buildTraceHeaders({
+      'Content-Type': 'application/json',
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+            Token: token,
+          }
+        : {}),
+    });
+    const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
+      headers: traceHeaders.headers,
+      payload: JSON.stringify({
+        shifu_bid: shifuId,
+        provider: resolvedProvider,
+        model: ttsModel || '',
+        voice_id: previewVoiceId,
+        speed: speedValue,
+        pitch: 0,
+        emotion: '',
+      }),
+      method: 'POST',
+    });
+
+    attachSseBusinessResponseFallback(source, {
+      requestToken: token,
+      meta: {
+        url: `${baseUrl}/api/shifu/tts/preview`,
         method: 'POST',
-      });
-
-      attachSseBusinessResponseFallback(source, {
         requestToken: token,
-        meta: {
-          url: `${baseUrl}/api/shifu/tts/preview`,
-          method: 'POST',
-          requestToken: token,
-          requestId: traceHeaders.requestId,
-          harnessRunId: traceHeaders.harnessRunId,
-          creditInsufficientAudience: 'teacher',
-        },
-        onHandled: () => {
-          if (ttsPreviewSessionRef.current === sessionId) {
-            stopTtsPreview();
-          }
-        },
-      });
-
-      source.addEventListener('message', event => {
-        const raw = event?.data;
-        if (!raw) return;
-        const payload = String(raw).trim();
-        if (!payload) return;
-
-        try {
-          const response = JSON.parse(payload);
-          if (ttsPreviewSessionRef.current !== sessionId) {
-            return;
-          }
-
-          if (response?.type === 'audio_segment') {
-            const segmentPayload = response.content ?? response.data;
-            if (!segmentPayload) return;
-            const mappedSegment = normalizeAudioSegmentPayload(segmentPayload);
-            if (!mappedSegment) {
-              return;
-            }
-
-            const updatedSegments = mergeAudioSegmentByUniqueKey(
-              'tts-preview',
-              ttsPreviewSegmentsRef.current,
-              mappedSegment,
-            );
-            if (updatedSegments !== ttsPreviewSegmentsRef.current) {
-              ttsPreviewSegmentsRef.current = updatedSegments;
-            }
-
-            if (ttsPreviewWaitingRef.current) {
-              playPreviewSegment(ttsPreviewSegmentIndexRef.current, sessionId);
-            }
-            return;
-          }
-
-          if (response?.type === 'audio_complete') {
-            ttsPreviewIsStreamingRef.current = false;
-            setTtsPreviewLoading(false);
-            closeTtsPreviewStream();
-            if (ttsPreviewSegmentsRef.current.length === 0) {
-              stopTtsPreview();
-            }
-          }
-        } catch (error) {
-          console.warn('TTS preview stream parse error:', error);
+        requestId: traceHeaders.requestId,
+        harnessRunId: traceHeaders.harnessRunId,
+        creditInsufficientAudience,
+      },
+      onHandled: () => {
+        if (ttsPreviewSessionRef.current === sessionId) {
+          stopTtsPreview();
         }
-      });
+      },
+    });
 
-      source.addEventListener('error', error => {
+    source.addEventListener('message', event => {
+      const raw = event?.data;
+      if (!raw) return;
+      const payload = String(raw).trim();
+      if (!payload) return;
+
+      try {
+        const response = JSON.parse(payload);
         if (ttsPreviewSessionRef.current !== sessionId) {
           return;
         }
-        console.error('TTS preview stream failed:', error);
-        stopTtsPreview();
-      });
 
-      source.stream();
-      ttsPreviewStreamRef.current = source;
-    },
-    [
-      resolvedProvider,
-      ttsModel,
-      ttsVoiceId,
-      speedValue,
-      ttsPreviewPlaying,
-      ttsPreviewLoading,
-      ttsPreviewTarget,
-      closeTtsPreviewStream,
-      playPreviewSegment,
-      requestExclusive,
-      stopTtsPreview,
-      debugAllowed,
-      debugBlockedByCredits,
-      t,
-      toast,
-    ],
-  );
+        if (response?.type === 'audio_segment') {
+          const segmentPayload = response.content ?? response.data;
+          if (!segmentPayload) return;
+          const mappedSegment = normalizeAudioSegmentPayload(segmentPayload);
+          if (!mappedSegment) {
+            return;
+          }
+
+          const updatedSegments = mergeAudioSegmentByUniqueKey(
+            'tts-preview',
+            ttsPreviewSegmentsRef.current,
+            mappedSegment,
+          );
+          if (updatedSegments !== ttsPreviewSegmentsRef.current) {
+            ttsPreviewSegmentsRef.current = updatedSegments;
+          }
+
+          if (ttsPreviewWaitingRef.current) {
+            playPreviewSegment(ttsPreviewSegmentIndexRef.current, sessionId);
+          }
+          return;
+        }
+
+        if (response?.type === 'audio_complete') {
+          ttsPreviewIsStreamingRef.current = false;
+          setTtsPreviewLoading(false);
+          closeTtsPreviewStream();
+          if (ttsPreviewSegmentsRef.current.length === 0) {
+            stopTtsPreview();
+          }
+        }
+      } catch (error) {
+        console.warn('TTS preview stream parse error:', error);
+      }
+    });
+
+    source.addEventListener('error', error => {
+      if (ttsPreviewSessionRef.current !== sessionId) {
+        return;
+      }
+      console.error('TTS preview stream failed:', error);
+      stopTtsPreview();
+    });
+
+    source.stream();
+    ttsPreviewStreamRef.current = source;
+  }, [
+    resolvedProvider,
+    shifuId,
+    currentShifu?.readonly,
+    creditInsufficientAudience,
+    ttsModel,
+    ttsVoiceId,
+    speedValue,
+    ttsPreviewPlaying,
+    ttsPreviewLoading,
+    ttsPreviewTarget,
+    closeTtsPreviewStream,
+    playPreviewSegment,
+    requestExclusive,
+    stopTtsPreview,
+    debugAllowed,
+    debugBlockedByCredits,
+  ]);
 
   // Cleanup TTS preview audio on unmount
   useEffect(() => {
@@ -1515,8 +1703,17 @@ export default function ShifuSettingDialog({
         }
         return false;
       }
+      // The optional catalog must not gate saving/closing. The loaded course
+      // configuration is preserved when its model is not in the catalog yet.
+      const settingsRequestSnapshot = settingsRequestSeqRef.current;
       const isNameValid = await form.trigger('name');
+      if (settingsRequestSeqRef.current !== settingsRequestSnapshot)
+        return false;
       const isPriceValid = await form.trigger('price');
+      // A newer callback may belong to another course. Cancel the old submit
+      // before reading its form values or applying its validation outcome.
+      if (settingsRequestSeqRef.current !== settingsRequestSnapshot)
+        return false;
       if (!isPriceValid) {
         if (needClose) {
           updateOpen(true);
@@ -1524,11 +1721,11 @@ export default function ShifuSettingDialog({
         return false;
       }
       const priceValue = parseFloat(form.getValues('price') || '0');
-      if (!Number.isNaN(priceValue) && priceValue < MIN_SHIFU_PRICE) {
+      if (!isAllowedCoursePrice(priceValue, minimumPaidCoursePrice)) {
         form.setError('price', {
           type: 'manual',
           message: t('server.shifu.shifuPriceTooLow', {
-            min_shifu_price: MIN_SHIFU_PRICE,
+            min_shifu_price: minimumPaidCoursePrice,
           }),
         });
         if (needClose) {
@@ -1542,24 +1739,37 @@ export default function ShifuSettingDialog({
         }
         return false;
       }
-      await onSubmit(form.getValues(), needClose, saveType);
+      await latestOnSubmitRef.current(form.getValues(), needClose, saveType);
       return true;
     },
-    [form, onSubmit, updateOpen, t, currentShifu?.readonly, settingsLoading],
+    [
+      currentShifu?.readonly,
+      form,
+      minimumPaidCoursePrice,
+      settingsLoading,
+      t,
+      updateOpen,
+    ],
   );
 
   useEffect(() => {
     if (!open) {
       return;
     }
-    if (!isDirty) {
+    if (
+      !isDirty &&
+      modelEditVersionRef.current.main ===
+        savedModelEditVersionRef.current.main &&
+      modelEditVersionRef.current.followUp ===
+        savedModelEditVersionRef.current.followUp
+    ) {
       return;
     }
     const timer = setTimeout(() => {
       submitForm(false, 'auto');
     }, 3000);
     return () => clearTimeout(timer);
-  }, [open, submitForm, isDirty]);
+  }, [open, submitForm, isDirty, modelSelectionRevision, onSubmit]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -1568,6 +1778,8 @@ export default function ShifuSettingDialog({
         return;
       }
       if (!nextOpen) {
+        followUpModeRequestRef.current++;
+        setCheckingTextMode(false);
         submitForm(true, 'manual');
         return;
       }
@@ -1576,35 +1788,18 @@ export default function ShifuSettingDialog({
     [isOnboardingOpen, submitForm, updateOpen],
   );
 
-  const adjustTemperature = (delta: number) => {
-    const currentValue = parseFloat(form.getValues('temperature') || '0');
-    const safeValue = Number.isNaN(currentValue) ? 0 : currentValue;
-    const nextValue = clampTemperature(
-      parseFloat((safeValue + delta).toFixed(1)),
-    );
-    form.setValue('temperature', nextValue.toFixed(1), {
-      shouldDirty: true,
-      shouldValidate: true,
-    });
-  };
-
-  const adjustAskTemperature = (delta: number) => {
-    const currentValue = Number(askTemperatureInput || askTemperature || 0);
-    const safeValue = Number.isNaN(currentValue) ? 0 : currentValue;
-    const nextValue = normalizeAskTemperature(
-      parseFloat((safeValue + delta).toFixed(1)),
-    );
-    setAskTemperature(nextValue);
-    setAskTemperatureInput(String(nextValue));
-  };
-
   const handleAskPreview = useCallback(async () => {
-    if (currentShifu?.readonly || askPreviewLoading) {
+    if (
+      !shifuId ||
+      creditInsufficientAudience === null ||
+      currentShifu?.readonly ||
+      askPreviewLoading
+    ) {
       return;
     }
     if (debugBlockedByCredits) {
       showCreditInsufficientToast({
-        audience: 'teacher',
+        audience: creditInsufficientAudience,
         code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
       });
       return;
@@ -1640,17 +1835,17 @@ export default function ShifuSettingDialog({
       askConfigMeta?.default?.provider ||
       ASK_PROVIDER_LLM;
     const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
-    const askTemperatureForSubmit = normalizeAskTemperature(
-      Number(askTemperatureInput || askTemperature || 0),
-    );
 
     setAskPreviewLoading(true);
     try {
       const response = (await api.askPreview(
         {
+          shifu_bid: shifuId,
           query,
-          ask_model: askModel,
-          ask_temperature: askTemperatureForSubmit,
+          ...(modelEditVersionRef.current.followUp !==
+          savedModelEditVersionRef.current.followUp
+            ? { ask_model: askModelIndex || askModel }
+            : {}),
           ask_system_prompt: '',
           ask_provider_config: {
             provider: askProviderForSubmit,
@@ -1658,7 +1853,7 @@ export default function ShifuSettingDialog({
             config: askConfigForSubmit,
           },
         },
-        { skipErrorToast: true },
+        { skipErrorToast: true, creditInsufficientAudience },
       )) as {
         answer?: string;
         provider?: string;
@@ -1677,7 +1872,7 @@ export default function ShifuSettingDialog({
       const businessCode = (error as ErrorWithCode | undefined)?.code;
       if (isCreditInsufficientBusinessCode(businessCode)) {
         showCreditInsufficientToast({
-          audience: 'teacher',
+          audience: creditInsufficientAudience,
           code: businessCode,
         });
       } else {
@@ -1696,15 +1891,15 @@ export default function ShifuSettingDialog({
   }, [
     askConfigMeta?.default?.provider,
     askModel,
+    askModelIndex,
     askPreviewLoading,
     askPreviewQuery,
-    askTemperature,
-    askTemperatureInput,
     buildAskProviderConfigForSubmit,
     currentShifu?.readonly,
+    shifuId,
+    creditInsufficientAudience,
     debugAllowed,
     debugBlockedByCredits,
-    normalizeAskTemperature,
     resolvedAskProvider,
     t,
     toast,
@@ -1745,9 +1940,18 @@ export default function ShifuSettingDialog({
           <div className='h-px w-full bg-border' />
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit(data =>
-                onSubmit(data, true, 'manual'),
-              )}
+              onSubmit={event => {
+                if (settingsLoading) {
+                  event.preventDefault();
+                  return;
+                }
+                const settingsRequestSnapshot = settingsRequestSeqRef.current;
+                return form.handleSubmit(data => {
+                  if (settingsRequestSeqRef.current !== settingsRequestSnapshot)
+                    return;
+                  return latestOnSubmitRef.current(data, true, 'manual');
+                })(event);
+              }}
               className='flex-1 flex flex-col overflow-hidden'
             >
               <div className='flex-1 overflow-y-auto px-6 pt-6'>
@@ -1885,73 +2089,22 @@ export default function ShifuSettingDialog({
                   render={({ field }) => (
                     <FormItem className='space-y-2 mb-4'>
                       <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('common.core.selectModel')}
+                        {t('module.shifuSetting.shifuModel')}
                       </FormLabel>
                       <p className='text-xs text-muted-foreground'>
                         {selectModelHint}
                       </p>
                       <FormControl>
-                        <ModelList
+                        <CourseModelSelect
                           disabled={currentShifu?.readonly}
-                          className='h-9'
-                          value={field.value ?? ''}
-                          onChange={field.onChange}
+                          value={asModelIndex(field.value)}
+                          displayName={mainModelDisplayName}
+                          onChange={index => {
+                            markModelEdited('main', index);
+                            field.onChange(index);
+                          }}
                         />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name='temperature'
-                  render={({ field }) => (
-                    <FormItem className='space-y-2 mb-4'>
-                      <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.shifuTemperature')}
-                      </FormLabel>
-                      <p className='text-xs text-muted-foreground'>
-                        {t('module.shifuSetting.temperatureHint')}
-                        <br />
-                        {t('module.shifuSetting.temperatureHint2')}
-                      </p>
-                      <div className='flex items-center gap-2'>
-                        <FormControl className='flex-1'>
-                          <Input
-                            {...field}
-                            value={field.value}
-                            onChange={field.onChange}
-                            disabled={currentShifu?.readonly}
-                            type='text'
-                            inputMode='decimal'
-                            placeholder={t('module.shifuSetting.number')}
-                            className='h-9'
-                          />
-                        </FormControl>
-                        {currentShifu?.readonly ? null : (
-                          <div className='flex items-center gap-2'>
-                            <Button
-                              type='button'
-                              variant='outline'
-                              size='icon'
-                              onClick={() => adjustTemperature(-0.1)}
-                              className='h-9 w-9'
-                            >
-                              <Minus className='h-4 w-4' />
-                            </Button>
-                            <Button
-                              type='button'
-                              variant='outline'
-                              size='icon'
-                              onClick={() => adjustTemperature(0.1)}
-                              className='h-9 w-9'
-                            >
-                              <Plus className='h-4 w-4' />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -2008,25 +2161,51 @@ export default function ShifuSettingDialog({
 
                 <div>
                   <AskSettingsSection
-                    readonly={currentShifu?.readonly || !debugAllowed}
+                    readonly={currentShifu?.readonly}
+                    textDebugAllowed={debugAllowed}
                     askProviderOptions={askProviderOptions}
                     resolvedAskProvider={resolvedAskProvider}
                     askProviderLlmValue={ASK_PROVIDER_LLM}
                     askModel={askModel}
-                    onAskModelChange={setAskModel}
-                    askTemperature={askTemperature}
-                    askTemperatureInput={askTemperatureInput}
-                    setAskTemperature={setAskTemperature}
-                    setAskTemperatureInput={setAskTemperatureInput}
-                    normalizeAskTemperature={normalizeAskTemperature}
-                    adjustAskTemperature={adjustAskTemperature}
+                    onAskModelChange={handleAskModelChange}
+                    askModelOptions={followUpModelOptions}
+                    askModelIndex={askModelIndex}
+                    modelDisplayName={followUpModelDisplayName}
+                    canRestoreText={
+                      initialAskConfigurationRef.current?.interactionMode ===
+                      'text'
+                    }
+                    checkingTextMode={checkingTextMode}
+                    onAskModelIndexChange={modelIndex => {
+                      followUpModeRequestRef.current++;
+                      setCheckingTextMode(false);
+                      setAskModelIndex(modelIndex);
+                      markModelEdited('followUp', modelIndex);
+                      textModelIndexDraftRef.current = modelIndex;
+                      setAskPreviewResult('');
+                      setAskPreviewMeta(null);
+                    }}
+                    liveAvailable={followUpModels.some(
+                      item => item.interaction_mode === 'live_voice',
+                    )}
+                    onFollowUpModeChange={handleFollowUpModeChange}
+                    isLiveVoiceFollowUp={isLiveVoiceFollowUp}
+                    liveVoices={selectedFollowUpModel?.voices || []}
+                    liveVoice={selectedLiveVoice}
+                    onLiveVoiceChange={setLiveVoiceDraft}
                     onAskProviderChange={handleAskProviderChange}
                     askProviderFieldEntries={askProviderFieldEntries}
                     askProviderRequiredFields={askProviderRequiredFields}
                     askProviderConfig={askProviderConfig}
-                    setAskProviderConfig={setAskProviderConfig}
+                    setAskProviderConfig={value => {
+                      askProviderEditedRef.current = true;
+                      setAskProviderConfig(value);
+                    }}
                     askProviderObjectInputs={askProviderObjectInputs}
-                    setAskProviderObjectInputs={setAskProviderObjectInputs}
+                    setAskProviderObjectInputs={value => {
+                      askProviderEditedRef.current = true;
+                      setAskProviderObjectInputs(value);
+                    }}
                     askPreviewLoading={askPreviewLoading}
                     askPreviewQuery={askPreviewQuery}
                     setAskPreviewQuery={setAskPreviewQuery}
@@ -2291,156 +2470,6 @@ export default function ShifuSettingDialog({
                               </Button>
                             </div>
                           )}
-
-                        {supportsMiniMaxVoiceCloning && (
-                          <div className='space-y-2 rounded-md border p-3'>
-                            <div className='flex items-center justify-between gap-2'>
-                              <div className='min-w-0'>
-                                <p className='text-sm font-medium'>
-                                  {t(
-                                    'module.shifuSetting.minimaxCloneSectionTitle',
-                                  )}
-                                </p>
-                                <p className='truncate text-xs text-muted-foreground'>
-                                  {minimaxCloneCost?.estimated_credits &&
-                                  minimaxCloneCost.estimated_credits !== '0'
-                                    ? t(
-                                        'module.shifuSetting.minimaxCloneCostCredits',
-                                        {
-                                          credits:
-                                            minimaxCloneCost.estimated_credits,
-                                        },
-                                      )
-                                    : t(
-                                        'module.shifuSetting.minimaxCloneCostFree',
-                                      )}
-                                </p>
-                              </div>
-                              <Button
-                                type='button'
-                                variant='outline'
-                                size='sm'
-                                onClick={() => setMinimaxCloneDialogOpen(true)}
-                                disabled={currentShifu?.readonly}
-                              >
-                                <Mic className='mr-2 h-4 w-4' />
-                                {t('module.shifuSetting.minimaxCloneCreate')}
-                              </Button>
-                            </div>
-
-                            {minimaxClonedVoices.length === 0 ? (
-                              <p className='text-xs text-muted-foreground'>
-                                {t('module.shifuSetting.minimaxCloneEmpty')}
-                              </p>
-                            ) : (
-                              <div className='space-y-2'>
-                                {minimaxClonedVoices.map(voice => {
-                                  const previewTarget = `clone:${voice.voice_bid}`;
-                                  const previewLoading =
-                                    ttsPreviewTarget === previewTarget &&
-                                    ttsPreviewLoading;
-                                  const previewPlaying =
-                                    ttsPreviewTarget === previewTarget &&
-                                    ttsPreviewPlaying;
-                                  const ready = voice.status === 'ready';
-                                  const canPreview =
-                                    ready &&
-                                    (debugAllowed ||
-                                      Boolean(
-                                        (
-                                          voice.minimax_demo_audio_url || ''
-                                        ).trim(),
-                                      ));
-
-                                  return (
-                                    <div
-                                      key={voice.voice_bid}
-                                      className='flex items-center justify-between gap-2 text-sm'
-                                    >
-                                      <div className='min-w-0'>
-                                        <p className='truncate'>
-                                          {formatMiniMaxClonedVoiceLabel(
-                                            voice.display_name ||
-                                              voice.voice_id,
-                                          )}
-                                        </p>
-                                        <p className='truncate text-xs text-muted-foreground'>
-                                          {voice.voice_id}
-                                        </p>
-                                      </div>
-                                      <div className='flex shrink-0 items-center gap-1'>
-                                        <Badge variant='secondary'>
-                                          {t(
-                                            `module.shifuSetting.minimaxCloneStatus.${voice.status}`,
-                                          )}
-                                        </Badge>
-                                        <Button
-                                          type='button'
-                                          variant='ghost'
-                                          size='icon'
-                                          className='h-7 w-7'
-                                          onClick={() =>
-                                            handleTtsPreview({
-                                              voiceId: voice.voice_id,
-                                              targetKey: previewTarget,
-                                              demoAudioUrl:
-                                                voice.minimax_demo_audio_url ||
-                                                '',
-                                            })
-                                          }
-                                          disabled={!canPreview}
-                                          title={
-                                            canPreview
-                                              ? t(
-                                                  'module.shifuSetting.minimaxClonePreview',
-                                                )
-                                              : t(
-                                                  'module.shifuSetting.minimaxClonePreviewUnavailable',
-                                                )
-                                          }
-                                        >
-                                          {previewLoading ? (
-                                            <Loader2 className='h-4 w-4 animate-spin' />
-                                          ) : previewPlaying ? (
-                                            <Square className='h-4 w-4' />
-                                          ) : (
-                                            <Volume2 className='h-4 w-4' />
-                                          )}
-                                        </Button>
-                                        {voice.status === 'failed' && (
-                                          <Button
-                                            type='button'
-                                            variant='ghost'
-                                            size='icon'
-                                            className='h-7 w-7'
-                                            onClick={() =>
-                                              retryMiniMaxVoice(voice.voice_bid)
-                                            }
-                                            disabled={currentShifu?.readonly}
-                                          >
-                                            <RotateCw className='h-4 w-4' />
-                                          </Button>
-                                        )}
-                                        <Button
-                                          type='button'
-                                          variant='ghost'
-                                          size='icon'
-                                          className='h-7 w-7'
-                                          onClick={() =>
-                                            deleteMiniMaxVoice(voice)
-                                          }
-                                          disabled={currentShifu?.readonly}
-                                        >
-                                          <Trash2 className='h-4 w-4' />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
 
                       {/* Speed Adjustment */}
@@ -2634,30 +2663,6 @@ export default function ShifuSettingDialog({
           </Form>
         </SheetContent>
       </Sheet>
-      <MiniMaxVoiceCloneDialog
-        open={minimaxCloneDialogOpen}
-        onOpenChange={setMinimaxCloneDialogOpen}
-        shifuId={shifuId}
-        cloneCost={minimaxCloneCost}
-        onRefreshCost={refreshMinimaxVoiceData}
-        onVoiceChange={voice => {
-          setMinimaxClonedVoices(prev => {
-            const next = prev.filter(
-              item => item.voice_bid !== voice.voice_bid,
-            );
-            return [voice, ...next];
-          });
-        }}
-        onVoiceReady={voice => {
-          setTtsVoiceId(voice.voice_id);
-          setMinimaxClonedVoices(prev => {
-            const next = prev.filter(
-              item => item.voice_bid !== voice.voice_bid,
-            );
-            return [voice, ...next];
-          });
-        }}
-      />
     </>
   );
 }

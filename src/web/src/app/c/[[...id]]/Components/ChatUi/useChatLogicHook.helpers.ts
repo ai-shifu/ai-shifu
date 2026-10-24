@@ -4,15 +4,15 @@ import {
   ELEMENT_TYPE,
   type ListenSlideData,
   type StudyRecordItem,
-} from '@/c-api/studyV2';
+} from '@/api/studyV2';
 import {
   getAudioSegmentDataListFromTracks,
   mergeAudioSegmentDataList,
   normalizeAudioSubtitleCues,
   sortAudioTracksByPosition,
   type AudioTrack,
-} from '@/c-utils/audio-utils';
-import { type ChatContentItem, ChatContentItemType } from '@/c-types/chatUi';
+} from '@/lib/audio-utils';
+import { type ChatContentItem, ChatContentItemType } from '@/types/chatUi';
 import {
   normalizeLegacyBlockCompatList,
   stripCustomButtonAfterContent,

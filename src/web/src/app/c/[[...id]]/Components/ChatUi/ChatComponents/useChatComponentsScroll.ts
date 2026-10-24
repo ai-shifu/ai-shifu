@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { smoothScroll } from '@/c-utils/smoothScroll';
+import { smoothScroll } from '@/lib/smoothScroll';
 
 const SCROLL_BOTTOM_THROTTLE = 50;
 

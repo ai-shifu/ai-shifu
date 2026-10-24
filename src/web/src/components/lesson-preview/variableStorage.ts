@@ -3,8 +3,8 @@
 import {
   readLocalStorageItem,
   writeLocalStorageItem,
-} from '@/c-utils/runtimeStorage';
-import { debugWarn } from '@/c-utils/debugConsole';
+} from '@/lib/runtimeStorage';
+import { debugWarn } from '@/lib/debugConsole';
 
 const STORAGE_PREFIX = 'lesson_preview_variables';
 const GLOBAL_STORAGE_KEY = STORAGE_PREFIX;

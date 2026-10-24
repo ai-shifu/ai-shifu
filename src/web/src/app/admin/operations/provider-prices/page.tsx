@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import Loading from '@/components/loading';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import { AdminBillingProviderPricesPanel } from './AdminBillingProviderPricesPanel';
 import useOperatorGuard from '../useOperatorGuard';
 

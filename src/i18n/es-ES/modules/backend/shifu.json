@@ -1,0 +1,31 @@
+{
+  "__namespace__": "server.shifu",
+  "__flat__": {
+    "copyCourseDemoNotAllowed": "No se pueden copiar los cursos de iniciación integrados.",
+    "copyCourseDraftNotFound": "Este curso no tiene ningún borrador reciente que se pueda copiar.",
+    "copyCourseTitleFallback": "Curso",
+    "copyCourseTitleSuffix": "-Copia",
+    "defaultChapterName": "Capítulo sin título",
+    "defaultLessonName": "Lección sin título",
+    "draftConflict": "Otro usuario ha actualizado el contenido del curso.",
+    "importFileInvalid": "El archivo importado no es válido.",
+    "noPermission": "No tienes permiso para realizar esta acción.",
+    "outlineItemNotFound": "No se ha encontrado la unidad del esquema.",
+    "outlineNameTooLong": "El nombre de la unidad del esquema es demasiado largo.",
+    "outlineStructureBroken": "La estructura del esquema del curso tiene un problema: algunas unidades ocupan la misma posición. Revísala e inténtalo de nuevo.",
+    "parentOutlineNotFound": "No se ha encontrado la unidad principal del esquema.",
+    "permissionContactLimit": "Los permisos compartidos admiten {count} usuarios como máximo.",
+    "shifuDescriptionTooLong": "La descripción del curso no puede superar los 500 caracteres.",
+    "shifuNameRequired": "Introduce el nombre del curso.",
+    "shifuNameTooLong": "El nombre del curso no puede superar los {max_length} caracteres.",
+    "shifuNotFound": "El curso no existe.",
+    "shifuPriceTooLow": "El precio del curso no puede ser inferior a {min_shifu_price} yuanes.",
+    "shifuStructNotFound": "No se ha encontrado la estructura del curso.",
+    "transferCreatorDemoNotAllowed": "No se puede cambiar el responsable de los cursos de iniciación integrados.",
+    "transferCreatorSameUser": "El usuario indicado ya es el responsable actual del curso.",
+    "transferCreatorTargetNotFound": "No se ha encontrado al nuevo responsable del curso.",
+    "ttsNotEnabled": "La síntesis de voz no está activada.",
+    "unitNameTooLong": "El nombre de la unidad es demasiado largo.",
+    "unitNotFound": "No se ha encontrado la unidad."
+  }
+}

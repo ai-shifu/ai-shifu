@@ -1,11 +1,13 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
+import { copyText } from '@/lib/textutils';
 
 import AdminPage from './page';
 
 const mockPush = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockToast = jest.fn();
 let mockCourseCreatorUrl: string | null = null;
 const mockT = (key: string) => key;
 const mockI18n = {
@@ -13,8 +15,12 @@ const mockI18n = {
 };
 const CLOSE_IMPORT_LABEL = 'close-import';
 const CLOSE_REDEMPTION_LABEL = 'close-redemption';
-const SUBMIT_COURSE_LABEL = 'submit-course';
-const CANCEL_COURSE_LABEL = 'cancel-course';
+const SUBMIT_COURSE_LABEL = 'component.courseCreationChoiceDialog.manualAction';
+const CANCEL_COURSE_LABEL = 'component.header.close';
+const CHOOSE_AI_COURSE_LABEL =
+  'component.courseCreationChoiceDialog.guideAction';
+const COPY_AI_COURSE_PROMPT_LABEL =
+  'component.courseCreationChoiceDialog.copyAction';
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -66,11 +72,11 @@ jest.mock('@/store', () => ({
 
 jest.mock('@/hooks/useToast', () => ({
   useToast: () => ({
-    toast: jest.fn(),
+    toast: mockToast,
   }),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),
@@ -82,18 +88,17 @@ jest.mock('@/hooks/useOnboarding', () => ({
   }),
 }));
 
-jest.mock('@/c-utils/urlUtils', () => ({
+jest.mock('@/lib/urlUtils', () => ({
   getCourseCreatorUrl: () => mockCourseCreatorUrl,
 }));
 
+jest.mock('@/lib/textutils', () => ({
+  copyText: jest.fn().mockResolvedValue(undefined),
+}));
+
 jest.mock('@/lib/onboardingTargets', () => ({
+  ...jest.requireActual('@/lib/onboardingTargets'),
   buildGuideCourseTargetId: () => undefined,
-  buildOnboardingTargetProps: () => ({}),
-  ONBOARDING_TARGET_IDS: {
-    courseCreationEntry: 'courseCreationEntry',
-    lobsterCreateEntry: 'lobsterCreateEntry',
-    blankCreateEntry: 'blankCreateEntry',
-  },
 }));
 
 jest.mock('@/lib/shifu-permissions', () => ({
@@ -213,39 +218,6 @@ jest.mock('@/components/ui/AlertDialog', () => ({
   ),
 }));
 
-jest.mock('@/components/create-shifu-dialog', () => ({
-  CreateShifuDialog: ({
-    open,
-    onOpenChange,
-    onSubmit,
-  }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    onSubmit: (values: Record<string, unknown>) => void;
-  }) =>
-    open ? (
-      <div data-testid='create-shifu-dialog'>
-        <button
-          type='button'
-          onClick={() =>
-            onSubmit({
-              name: 'Sensitive course name',
-              description: 'Sensitive course description',
-            })
-          }
-        >
-          {SUBMIT_COURSE_LABEL}
-        </button>
-        <button
-          type='button'
-          onClick={() => onOpenChange(false)}
-        >
-          {CANCEL_COURSE_LABEL}
-        </button>
-      </div>
-    ) : null,
-}));
-
 jest.mock('@/components/loading', () => ({
   __esModule: true,
   default: () => <div data-testid='loading-indicator' />,
@@ -333,6 +305,17 @@ jest.mock('./orders/CreatorRedemptionCodeDialog', () => ({
   ),
 }));
 
+const fillManualCourseForm = () => {
+  fireEvent.change(
+    screen.getByLabelText('component.createShifuDialog.nameLabel'),
+    { target: { value: 'Sensitive course name' } },
+  );
+  fireEvent.change(
+    screen.getByLabelText('component.createShifuDialog.descriptionLabel'),
+    { target: { value: 'Sensitive course description' } },
+  );
+};
+
 const mockEnsureAdminCreator = api.ensureAdminCreator as jest.Mock;
 const mockGetShifuList = api.getShifuList as jest.Mock;
 const mockCreateShifu = api.createShifu as jest.Mock;
@@ -343,6 +326,8 @@ describe('AdminPage', () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockTrackEvent.mockReset();
+    mockToast.mockReset();
+    (copyText as jest.Mock).mockReset().mockResolvedValue(undefined);
     mockCourseCreatorUrl = null;
     mockEnsureAdminCreator.mockReset();
     mockGetShifuList.mockReset();
@@ -392,11 +377,31 @@ describe('AdminPage', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
     );
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+    fillManualCourseForm();
 
     fireEvent.click(screen.getByRole('button', { name: SUBMIT_COURSE_LABEL }));
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      'creator_course_create_attempt',
-      { creation_path: 'manual' },
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_course_create_attempt',
+        { creation_path: 'manual' },
+      ),
+    );
+    expect(mockCreateShifu).toHaveBeenCalledWith({
+      name: 'Sensitive course name',
+      description: 'Sensitive course description',
+      avatar: '',
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_course_create_cancel',
+      expect.anything(),
+    );
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(
+        '/shifu/course-created-1?onboarding_source=manual_create',
+      ),
     );
 
     await waitFor(() =>
@@ -428,6 +433,7 @@ describe('AdminPage', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
     );
+    fillManualCourseForm();
     fireEvent.click(screen.getByRole('button', { name: SUBMIT_COURSE_LABEL }));
 
     await waitFor(() =>
@@ -443,6 +449,13 @@ describe('AdminPage', () => {
     expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
       'raw provider failure',
     );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('component.createShifuDialog.nameLabel'),
+    ).toHaveValue('Sensitive course name');
+    expect(
+      screen.getByLabelText('component.createShifuDialog.descriptionLabel'),
+    ).toHaveValue('Sensitive course description');
 
     fireEvent.click(screen.getByRole('button', { name: CANCEL_COURSE_LABEL }));
     expect(mockTrackEvent).toHaveBeenCalledWith(
@@ -451,23 +464,393 @@ describe('AdminPage', () => {
     );
   });
 
+  test('counts only engaged manual dismissals and resets engagement when reopened', async () => {
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    const openCreation = () =>
+      fireEvent.click(
+        screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+      );
+    const closeCreation = () =>
+      fireEvent.click(
+        screen.getByRole('button', { name: CANCEL_COURSE_LABEL }),
+      );
+    const cancellations = () =>
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_course_create_cancel',
+      );
+
+    openCreation();
+    closeCreation();
+    expect(cancellations()).toHaveLength(0);
+
+    openCreation();
+    fireEvent.click(
+      screen.getByRole('button', { name: COPY_AI_COURSE_PROMPT_LABEL }),
+    );
+    await screen.findByRole('button', {
+      name: 'component.courseCreationChoiceDialog.copiedAction',
+    });
+    closeCreation();
+    expect(cancellations()).toHaveLength(0);
+
+    openCreation();
+    fillManualCourseForm();
+    closeCreation();
+    expect(cancellations()).toEqual([
+      ['creator_course_create_cancel', { creation_path: 'manual' }],
+    ]);
+
+    openCreation();
+    expect(
+      screen.getByLabelText('component.createShifuDialog.nameLabel'),
+    ).toHaveValue('');
+    closeCreation();
+    expect(cancellations()).toHaveLength(1);
+
+    openCreation();
+    fireEvent.click(screen.getByRole('button', { name: SUBMIT_COURSE_LABEL }));
+    await screen.findByText('component.createShifuDialog.nameRequired');
+    expect(mockCreateShifu).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_course_create_attempt',
+      expect.anything(),
+    );
+    closeCreation();
+    expect(cancellations()).toHaveLength(2);
+  });
+
+  test('blocks pending manual dismissal and allows retry after a failed creation', async () => {
+    let rejectCreation!: (error: Error) => void;
+    mockCreateShifu.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectCreation = reject;
+        }),
+    );
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fillManualCourseForm();
+    fireEvent.click(screen.getByRole('button', { name: SUBMIT_COURSE_LABEL }));
+    await waitFor(() => expect(mockCreateShifu).toHaveBeenCalledTimes(1));
+    expect(
+      screen.getByRole('button', {
+        name: 'component.createShifuDialog.creating',
+      }),
+    ).toBeDisabled();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_course_create_cancel',
+      expect.anything(),
+    );
+
+    rejectCreation(new Error('request failed'));
+    const retry = await screen.findByRole('button', {
+      name: SUBMIT_COURSE_LABEL,
+    });
+    expect(retry).toBeEnabled();
+    fireEvent.click(retry);
+    await waitFor(() => expect(mockCreateShifu).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_course_create_attempt',
+      ),
+    ).toHaveLength(2);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_course_create_result',
+      ),
+    ).toEqual([
+      [
+        'creator_course_create_result',
+        {
+          creation_path: 'manual',
+          outcome: 'failed',
+          failure_category: 'request_failed',
+        },
+      ],
+      [
+        'creator_course_create_result',
+        {
+          creation_path: 'manual',
+          outcome: 'success',
+          shifu_bid: 'course-created-1',
+        },
+      ],
+    ]);
+  });
+
   test('tracks the AI course-creation handoff as its own path', async () => {
     mockCourseCreatorUrl = 'https://creator.example.test/new';
     render(<AdminPage />);
 
-    const link = await screen.findByRole('link', {
-      name: 'common.core.aiCourseCreator',
-    });
+    await screen.findByText('Course 1');
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      expect.anything(),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    const link = screen.getByRole('link', { name: CHOOSE_AI_COURSE_LABEL });
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_ai_course_entry_impression',
+        {
+          surface: 'admin_course_list',
+          presentation: 'creation_choice_modal',
+        },
+      ),
+    );
     fireEvent.click(link);
 
     expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_ai_course_entry_click',
+      {
+        surface: 'admin_course_list',
+        presentation: 'creation_choice_modal',
+      },
+    );
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
       'creator_course_create_attempt',
       { creation_path: 'ai_assistant' },
     );
-    expect(mockTrackEvent).toHaveBeenCalledWith(
-      'creator_course_create_result',
-      { creation_path: 'ai_assistant', outcome: 'success' },
+    const serializedCalls = JSON.stringify(mockTrackEvent.mock.calls);
+    expect(serializedCalls).not.toContain('creator.example.test');
+  });
+
+  test('tracks one AI entry impression per mounted visit across rerenders', async () => {
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    const { rerender } = render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
     );
+    await screen.findByRole('link', { name: CHOOSE_AI_COURSE_LABEL });
+    await waitFor(() =>
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([eventName]) => eventName === 'creator_ai_course_entry_impression',
+        ),
+      ).toHaveLength(1),
+    );
+
+    rerender(<AdminPage />);
+
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([eventName]) => eventName === 'creator_ai_course_entry_impression',
+      ),
+    ).toHaveLength(1);
+  });
+
+  test('tracks prompt copy attempt and terminal success without exposing prompt text', async () => {
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: COPY_AI_COURSE_PROMPT_LABEL }),
+    );
+
+    await waitFor(() => expect(copyText).toHaveBeenCalledTimes(1));
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_ai_skill_install_copy_attempt',
+      {
+        surface: 'admin_course_list',
+        presentation: 'creation_choice_modal',
+      },
+    );
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_ai_skill_install_copy_result',
+      {
+        surface: 'admin_course_list',
+        presentation: 'creation_choice_modal',
+        outcome: 'success',
+      },
+    );
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'component.courseCreationChoiceDialog.aiPrompt',
+    );
+  });
+
+  test('waits for clipboard settlement and never treats installation copy as course creation', async () => {
+    let finish!: () => void;
+    (copyText as jest.Mock).mockImplementationOnce(
+      () =>
+        new Promise<void>(resolve => {
+          finish = resolve;
+        }),
+    );
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: COPY_AI_COURSE_PROMPT_LABEL }),
+    );
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'creator_ai_skill_install_copy_attempt',
+      ),
+    ).toHaveLength(1);
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'creator_ai_skill_install_copy_result',
+      ),
+    ).toHaveLength(0);
+    finish();
+    await waitFor(() =>
+      expect(
+        mockTrackEvent.mock.calls.filter(
+          ([name]) => name === 'creator_ai_skill_install_copy_result',
+        ),
+      ).toHaveLength(1),
+    );
+    for (const retired of [
+      'creator_ai_course_prompt_copy_attempt',
+      'creator_ai_course_prompt_copy_result',
+      'creator_course_create_attempt',
+      'creator_course_create_result',
+    ]) {
+      expect(mockTrackEvent.mock.calls.some(([name]) => name === retired)).toBe(
+        false,
+      );
+    }
+    for (const [, payload] of mockTrackEvent.mock.calls) {
+      for (const field of [
+        'prompt',
+        'text',
+        'aiExamples',
+        'tools',
+        'url',
+        'error',
+      ])
+        expect(payload).not.toHaveProperty(field);
+    }
+  });
+
+  test('tracking failures do not prevent installation instruction copying', async () => {
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: COPY_AI_COURSE_PROMPT_LABEL }),
+    );
+    await waitFor(() => expect(copyText).toHaveBeenCalled());
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  test('reports a bounded prompt copy failure and keeps the choice dialog open', async () => {
+    (copyText as jest.Mock).mockRejectedValueOnce(
+      new Error('sensitive clipboard failure'),
+    );
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: COPY_AI_COURSE_PROMPT_LABEL }),
+    );
+
+    await waitFor(() =>
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_ai_skill_install_copy_result',
+        {
+          surface: 'admin_course_list',
+          presentation: 'creation_choice_modal',
+          outcome: 'failed',
+        },
+      ),
+    );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'sensitive clipboard failure',
+    );
+  });
+
+  test('tracks the in-product AI option even when the optional guide is unavailable', async () => {
+    render(<AdminPage />);
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      {
+        surface: 'admin_course_list',
+        presentation: 'creation_choice_modal',
+      },
+    );
+  });
+
+  test('does not expose or track the AI entry before admin access resolves', async () => {
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    mockEnsureAdminCreator.mockReturnValue(new Promise(() => {}));
+    render(<AdminPage />);
+
+    await waitFor(() => expect(mockEnsureAdminCreator).toHaveBeenCalled());
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    expect(
+      screen.queryByRole('link', { name: CHOOSE_AI_COURSE_LABEL }),
+    ).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      expect.anything(),
+    );
+  });
+
+  test('does not expose or track the AI entry when admin access fails', async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    mockEnsureAdminCreator.mockRejectedValue(new Error('permission denied'));
+    render(<AdminPage />);
+
+    await screen.findByText('permission denied');
+    expect(
+      screen.queryByRole('link', { name: CHOOSE_AI_COURSE_LABEL }),
+    ).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'creator_ai_course_entry_impression',
+      expect.anything(),
+    );
+    consoleErrorSpy.mockRestore();
+  });
+
+  test('keeps the AI entry usable when tracking is unavailable', async () => {
+    mockCourseCreatorUrl = 'https://creator.example.test/new';
+    mockTrackEvent.mockImplementation(() => {
+      throw new Error('tracking unavailable');
+    });
+    render(<AdminPage />);
+
+    await screen.findByText('Course 1');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
+    );
+    const link = screen.getByRole('link', { name: CHOOSE_AI_COURSE_LABEL });
+    expect(link).toHaveAttribute('href', 'https://creator.example.test/new');
+    expect(() => fireEvent.click(link)).not.toThrow();
   });
 
   test('keeps the manual create workflow usable when tracking throws', async () => {
@@ -480,6 +863,7 @@ describe('AdminPage', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'common.core.createBlankShifu' }),
     );
+    fillManualCourseForm();
     fireEvent.click(screen.getByRole('button', { name: SUBMIT_COURSE_LABEL }));
 
     await waitFor(() => expect(mockCreateShifu).toHaveBeenCalledTimes(1));

@@ -40,15 +40,16 @@
     transform: translate(-50%);
     width: 250px;
     top: auto;
-    bottom: 80px;
+    bottom: var(--account-menu-bottom-offset, 60px);
     left: 50%;
     z-index: 999;
   }
 
   .popUpWindowCollapse {
+    --account-menu-bottom-offset: 10px;
     width: 250px;
     top: auto;
-    bottom: 10px;
+    bottom: var(--account-menu-bottom-offset, 60px);
     left: 70px;
     z-index: 999;
   }
@@ -66,6 +67,10 @@
     );
     display: block;
     z-index: 20;
+
+    .popUpWindowCollapse {
+      --account-menu-bottom-offset: 60px;
+    }
 
     .navHeader {
       display: none;

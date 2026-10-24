@@ -14,12 +14,14 @@ const mockTranslate = (key: string) => `${mockTranslationPrefix}${key}`;
 const mockUsePathname = jest.fn(() => '/admin');
 const mockApplyCreatorBranding = jest.fn();
 const mockRefreshUserInfo = jest.fn();
+const mockFocusNavFooter = jest.fn();
 let mockSearchParamsValue = '';
 
 interface MockMainMenuModalProps {
   open: boolean;
   onClose?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onPersonalInfoClick: () => void;
+  onAboutCloseAutoFocus?: () => void;
   surface: 'learner' | 'admin';
 }
 
@@ -166,7 +168,7 @@ jest.mock('@/lib/initializeEnvData', () => ({
     mockApplyCreatorBranding(creatorBid),
 }));
 
-jest.mock('@/c-common/hooks/useDisclosure', () => {
+jest.mock('@/hooks/useDisclosure', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
     useDisclosure: () => {
@@ -190,14 +192,16 @@ const mockEnvState = {
   billingEnabled: 'true',
 };
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (
     selector: ((state: typeof mockEnvState) => unknown) | undefined,
   ) => selector?.(mockEnvState) ?? mockEnvState.logoWideUrl,
+  useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
+    selector(mockUserStoreState),
 }));
 
-jest.mock('@/c-store/envStore', () => ({
+jest.mock('@/store/envStore', () => ({
   __esModule: true,
   useEnvStore: (
     selector: ((state: typeof mockEnvState) => unknown) | undefined,
@@ -215,22 +219,7 @@ const mockUserStoreState = {
   refreshUserInfo: mockRefreshUserInfo,
 };
 
-jest.mock('@/store', () => ({
-  __esModule: true,
-  useUserStore: (selector: (state: typeof mockUserStoreState) => unknown) =>
-    selector(mockUserStoreState),
-  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
-    selector({
-      replayScenes: {
-        admin_home_onboarding: false,
-        course_editor_onboarding: false,
-      },
-      requestReplayAll: jest.fn(),
-      clearReplay: jest.fn(),
-    }),
-}));
-
-jest.mock('@/c-components/NavDrawer/NavFooter', () => ({
+jest.mock('@/components/NavDrawer/NavFooter', () => ({
   __esModule: true,
   default: React.forwardRef(function MockNavFooter(
     {
@@ -240,12 +229,15 @@ jest.mock('@/c-components/NavDrawer/NavFooter', () => ({
     },
     ref,
   ) {
-    void ref;
+    React.useImperativeHandle(ref, () => ({
+      containElement: () => false,
+      focus: mockFocusNavFooter,
+    }));
     return <button onClick={onClick}>{footerLabel}</button>;
   }),
 }));
 
-jest.mock('@/c-components/NavDrawer/MainMenuModal', () => ({
+jest.mock('@/components/NavDrawer/MainMenuModal', () => ({
   __esModule: true,
   default: (props: MockMainMenuModalProps) => mockMainMenuModal(props),
 }));
@@ -261,49 +253,10 @@ jest.mock('@/hooks/useBillingData', () => ({
   useBillingOverview: jest.fn(),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   __esModule: true,
   useTracking: () => ({
     trackEvent: jest.fn(),
-  }),
-}));
-
-jest.mock('@/hooks/useOnboarding', () => ({
-  __esModule: true,
-  useCreatorOnboardingStatus: () => ({
-    data: {
-      eligible: false,
-      user_segment: 'ineligible',
-      version: 'v1',
-      scenes: {
-        admin_home_onboarding: {
-          completed: true,
-          completed_at: null,
-          eligible: false,
-          variant: null,
-        },
-        course_editor_onboarding: {
-          completed: true,
-          completed_at: null,
-          eligible: false,
-          variant: null,
-        },
-      },
-      guide_course: {
-        bid: '',
-        title: '',
-        language: 'en-US',
-      },
-    },
-    mutate: jest.fn(),
-  }),
-  useOnboarding: () => ({
-    isOpen: false,
-    currentStep: null,
-    currentStepIndex: 0,
-    totalSteps: 0,
-    targetRect: null,
-    advance: jest.fn(),
   }),
 }));
 
@@ -333,6 +286,7 @@ describe('SidebarContent', () => {
     baseProps.onUserMenuClose.mockReset();
     baseProps.onPersonalInfoClick.mockReset();
     mockMainMenuModal.mockClear();
+    mockFocusNavFooter.mockClear();
   });
 
   test('auto expands the operations menu when the course submenu is active', () => {
@@ -462,6 +416,21 @@ describe('SidebarContent', () => {
 
     expect(baseProps.onUserMenuClose).toHaveBeenCalledTimes(1);
     expect(baseProps.onPersonalInfoClick).toHaveBeenCalledTimes(1);
+  });
+
+  test('returns About close autofocus to the persistent admin footer', () => {
+    render(
+      <SidebarContent
+        {...baseProps}
+        menuItems={buildAdminMenuItems({ t, isOperator: false })}
+        activePath='/admin'
+      />,
+    );
+
+    const menuProps = mockMainMenuModal.mock.calls.at(-1)?.[0];
+    expect(menuProps?.onAboutCloseAutoFocus).toEqual(expect.any(Function));
+    menuProps?.onAboutCloseAutoFocus?.();
+    expect(mockFocusNavFooter).toHaveBeenCalledTimes(1);
   });
 
   test('does not render operations submenu items for non-operators', () => {

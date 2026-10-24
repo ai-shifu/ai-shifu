@@ -15,7 +15,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
-import { CreateShifuDialog } from '@/components/create-shifu-dialog';
 import { useToast } from '@/hooks/useToast';
 import { useRouter } from 'next/navigation';
 import Loading from '@/components/loading';
@@ -27,21 +26,22 @@ import ShifuPermissionDialog from '@/components/shifu-setting/ShifuPermissionDia
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import CreatorRedemptionCodeDialog from './orders/CreatorRedemptionCodeDialog';
 import { useUserStore } from '@/store';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { getCourseCreatorUrl } from '@/c-utils/urlUtils';
+import { useTracking } from '@/hooks/useTracking';
+import { getCourseCreatorUrl } from '@/lib/urlUtils';
+import { copyText } from '@/lib/textutils';
 import { useCreatorOnboardingStatus } from '@/hooks/useOnboarding';
 import {
   canManageArchive as canManageArchiveForShifu,
   canManageOwnerCourseAction,
 } from '@/lib/shifu-permissions';
-import {
-  buildGuideCourseTargetId,
-  buildOnboardingTargetProps,
-  ONBOARDING_TARGET_IDS,
-} from '@/lib/onboardingTargets';
+import { buildGuideCourseTargetId } from '@/lib/onboardingTargets';
 import AdminTitle from './components/AdminTitle';
 import ShifuCard from './components/ShifuCard';
+import CourseCreationChoiceDialog from './components/CourseCreationChoiceDialog';
+import type { CreateShifuValues } from './components/CreateShifuForm';
 import {
+  buildAiCourseEntryAnalytics,
+  buildAiSkillInstallCopyResultAnalytics,
   buildCourseCreationAttemptAnalytics,
   buildCourseCreationCancelAnalytics,
   buildCourseCreationResultAnalytics,
@@ -79,7 +79,8 @@ const ScriptManagementPage = () => {
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [showCreateShifuModal, setShowCreateShifuModal] = useState(false);
+  const [courseCreationChoiceOpen, setCourseCreationChoiceOpen] =
+    useState(false);
   const [error, setError] = useState<{ message: string; code?: number } | null>(
     null,
   );
@@ -100,6 +101,7 @@ const ScriptManagementPage = () => {
   const loadingRef = useRef(false);
   const hasMoreRef = useRef(true);
   const listVersionRef = useRef(0);
+  const aiCourseEntryImpressionSentRef = useRef(false);
   const createRedirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -250,7 +252,28 @@ const ScriptManagementPage = () => {
     [trackEvent],
   );
 
-  const onCreateShifu = async (values: any) => {
+  useEffect(() => {
+    if (
+      !courseCreationChoiceOpen ||
+      !hasResolvedAdminSession ||
+      !adminReady ||
+      aiCourseEntryImpressionSentRef.current
+    ) {
+      return;
+    }
+    aiCourseEntryImpressionSentRef.current = true;
+    sendAnalytics(
+      COURSE_CREATION_EVENTS.AI_ENTRY_IMPRESSION,
+      buildAiCourseEntryAnalytics(),
+    );
+  }, [
+    adminReady,
+    courseCreationChoiceOpen,
+    hasResolvedAdminSession,
+    sendAnalytics,
+  ]);
+
+  const onCreateShifu = async (values: CreateShifuValues) => {
     sendAnalytics(
       COURSE_CREATION_EVENTS.ATTEMPT,
       buildCourseCreationAttemptAnalytics('manual'),
@@ -262,7 +285,7 @@ const ScriptManagementPage = () => {
         description: t('common.core.createSuccessDescription'),
         duration: CREATE_SUCCESS_TOAST_DURATION_MS,
       });
-      setShowCreateShifuModal(false);
+      setCourseCreationChoiceOpen(false);
       const resultPayload = buildCourseCreationResultAnalytics({
         creationPath: 'manual',
         outcome: 'success',
@@ -296,32 +319,54 @@ const ScriptManagementPage = () => {
     }
   };
 
-  const handleCreateShifuModal = () => {
-    setShowCreateShifuModal(true);
+  const handleCourseCreationChoice = () => {
+    if (!hasResolvedAdminSession || !adminReady) return;
+    setCourseCreationChoiceOpen(true);
   };
 
-  const handleCreateShifuOpenChange = (open: boolean) => {
-    if (!open && showCreateShifuModal) {
-      sendAnalytics(
-        COURSE_CREATION_EVENTS.CANCEL,
-        buildCourseCreationCancelAnalytics('manual'),
-      );
-    }
-    setShowCreateShifuModal(open);
+  const handleManualCreateCancel = () => {
+    sendAnalytics(
+      COURSE_CREATION_EVENTS.CANCEL,
+      buildCourseCreationCancelAnalytics('manual'),
+    );
   };
 
   const handleAiCourseCreatorClick = () => {
     sendAnalytics(
-      COURSE_CREATION_EVENTS.ATTEMPT,
-      buildCourseCreationAttemptAnalytics('ai_assistant'),
+      COURSE_CREATION_EVENTS.AI_ENTRY_CLICK,
+      buildAiCourseEntryAnalytics(),
     );
+  };
+
+  const handleAiCoursePromptCopy = async (prompt: string) => {
     sendAnalytics(
-      COURSE_CREATION_EVENTS.RESULT,
-      buildCourseCreationResultAnalytics({
-        creationPath: 'ai_assistant',
-        outcome: 'success',
-      }),
+      COURSE_CREATION_EVENTS.AI_SKILL_INSTALL_COPY_ATTEMPT,
+      buildAiCourseEntryAnalytics(),
     );
+    try {
+      await copyText(prompt);
+      sendAnalytics(
+        COURSE_CREATION_EVENTS.AI_SKILL_INSTALL_COPY_RESULT,
+        buildAiSkillInstallCopyResultAnalytics('success'),
+      );
+      toast({
+        title: t('component.courseCreationChoiceDialog.copySuccess'),
+        description: t(
+          'component.courseCreationChoiceDialog.copySuccessDescription',
+        ),
+      });
+      return true;
+    } catch {
+      sendAnalytics(
+        COURSE_CREATION_EVENTS.AI_SKILL_INSTALL_COPY_RESULT,
+        buildAiSkillInstallCopyResultAnalytics('failed'),
+      );
+      toast({
+        title: t('component.courseCreationChoiceDialog.copyFailed'),
+        variant: 'destructive',
+      });
+      return false;
+    }
   };
 
   const resetListAndFetch = useCallback(() => {
@@ -635,42 +680,27 @@ const ScriptManagementPage = () => {
               </TabsList>
             </Tabs>
             <div className='flex flex-col gap-3 sm:flex-row sm:items-center lg:justify-end'>
-              <div
-                className='flex flex-col gap-3 sm:flex-row sm:items-center'
-                {...buildOnboardingTargetProps(
-                  ONBOARDING_TARGET_IDS.courseCreationEntry,
-                )}
-              >
-                {courseCreatorUrl ? (
-                  <a
-                    href={courseCreatorUrl}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='text-xs text-muted-foreground underline hover:text-foreground'
-                    onClick={handleAiCourseCreatorClick}
-                    {...buildOnboardingTargetProps(
-                      ONBOARDING_TARGET_IDS.lobsterCreateEntry,
-                    )}
-                  >
-                    {t('common.core.aiCourseCreator')}
-                  </a>
-                ) : null}
+              <div className='flex flex-col gap-3 sm:flex-row sm:items-center'>
                 <Button
                   size='sm'
-                  onClick={handleCreateShifuModal}
-                  {...buildOnboardingTargetProps(
-                    ONBOARDING_TARGET_IDS.blankCreateEntry,
-                  )}
+                  onClick={handleCourseCreationChoice}
+                  disabled={!hasResolvedAdminSession || !adminReady}
                 >
                   {t('common.core.createBlankShifu')}
                 </Button>
               </div>
             </div>
           </div>
-          <CreateShifuDialog
-            open={showCreateShifuModal}
-            onOpenChange={handleCreateShifuOpenChange}
-            onSubmit={onCreateShifu}
+          <CourseCreationChoiceDialog
+            open={courseCreationChoiceOpen}
+            onOpenChange={setCourseCreationChoiceOpen}
+            courseCreatorUrl={
+              hasResolvedAdminSession && adminReady ? courseCreatorUrl : null
+            }
+            onAiCourseCreatorClick={handleAiCourseCreatorClick}
+            onAiCoursePromptCopy={handleAiCoursePromptCopy}
+            onManualCreate={onCreateShifu}
+            onManualCreateCancel={handleManualCreateCancel}
           />
           <div className='flex-1 overflow-auto'>
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>

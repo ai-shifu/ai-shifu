@@ -2,7 +2,7 @@
 
 from flask import Flask
 
-from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.dtos import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.order import init_buy_record
@@ -24,46 +24,49 @@ def import_user(
 ) -> None:
     """Import user and enable course."""
     app.logger.info("import_user: %s, %s", mobile, course_id)
-    with app.app_context():
+    with app_context_scope(app):
         normalized_mobile = normalize_phone_identifier(mobile)
         if not normalized_mobile:
             message = "Mobile must not be empty for import_user"
             raise RuntimeError(message)
 
-        # Ensure there is a canonical user bound to this phone number, and that
-        # the canonical record tracks the phone in ``user_identify`` together
-        # with the desired nickname and registered state.
-        defaults = {
-            "identify": normalized_mobile,
-            "nickname": user_nick_name or normalized_mobile,
-            "language": "en-US",
-            "state": USER_STATE_REGISTERED,
-        }
-        aggregate, _ = ensure_user_for_identifier(
-            app,
-            provider="phone",
-            identifier=normalized_mobile,
-            defaults=defaults,
-        )
+        # Step 1 - the account and its phone credential must exist before the
+        # order is created; ``init_buy_record`` owns its own retry-on-deadlock
+        # unit of work, so it stays outside this block instead of nesting.
+        with unit_of_work():
+            # Ensure there is a canonical user bound to this phone number, and
+            # that the canonical record tracks the phone in ``user_identify``
+            # together with the desired nickname and registered state.
+            defaults = {
+                "identify": normalized_mobile,
+                "nickname": user_nick_name or normalized_mobile,
+                "language": "en-US",
+                "state": USER_STATE_REGISTERED,
+            }
+            aggregate, _ = ensure_user_for_identifier(
+                app,
+                provider="phone",
+                identifier=normalized_mobile,
+                defaults=defaults,
+            )
 
-        if not aggregate:
-            message = "Failed to resolve user aggregate during import"
-            raise RuntimeError(message)
+            if not aggregate:
+                message = "Failed to resolve user aggregate during import"
+                raise RuntimeError(message)
 
-        user_id = aggregate.user_bid
+            user_id = aggregate.user_bid
 
-        # Hard-sync canonical entity with the latest phone and nickname to avoid
-        # any edge cases where the ensure helper might skip fields.
-        entity = get_user_entity_by_bid(user_id, include_deleted=True)
-        if entity:
-            updates = {"identify": normalized_mobile}
-            if user_nick_name:
-                updates["nickname"] = user_nick_name
-            if aggregate.state == USER_STATE_UNREGISTERED:
-                updates["state"] = USER_STATE_REGISTERED
-            update_user_entity_fields(entity, **updates)
+            # Hard-sync canonical entity with the latest phone and nickname to
+            # avoid any edge cases where the ensure helper might skip fields.
+            entity = get_user_entity_by_bid(user_id, include_deleted=True)
+            if entity:
+                updates = {"identify": normalized_mobile}
+                if user_nick_name:
+                    updates["nickname"] = user_nick_name
+                if aggregate.state == USER_STATE_UNREGISTERED:
+                    updates["state"] = USER_STATE_REGISTERED
+                update_user_entity_fields(entity, **updates)
 
-        if normalized_mobile:
             upsert_credential(
                 app,
                 user_bid=user_id,
@@ -74,6 +77,8 @@ def import_user(
                 metadata={"course_id": course_id},
                 verified=True,
             )
-        db.session.commit()
+
+        # Step 2 - the order and the coupon redemption own their own units of
+        # work (the redemption commits together with the SUCCESS flip).
         order = init_buy_record(app, user_id, course_id)
         use_coupon_code(app, user_id, discount_code, order.order_id)

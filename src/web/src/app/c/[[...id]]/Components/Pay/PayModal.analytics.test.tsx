@@ -106,7 +106,7 @@ jest.mock('@/components/ui/RadioGroup', () => ({
   ),
 }));
 
-jest.mock('@/c-components/m/MainButtonM', () => ({
+jest.mock('@/components/m/MainButtonM', () => ({
   __esModule: true,
   default: ({
     children,
@@ -158,7 +158,7 @@ jest.mock('./CouponCodeModal', () => ({
   ),
 }));
 
-jest.mock('@/c-components/m/SettingInputM', () => ({
+jest.mock('@/components/m/SettingInputM', () => ({
   SettingInputM: ({
     onChange,
     value,
@@ -279,7 +279,7 @@ jest.mock('./hooks/usePaymentFlow', () => ({
     mockUsePaymentFlow(options),
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
@@ -291,21 +291,21 @@ jest.mock('@/store', () => ({
     }),
 }));
 
-jest.mock('@/c-store/envStore', () => ({
+jest.mock('@/store/envStore', () => ({
   useEnvStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector(mockEnvState),
 }));
 
-jest.mock('@/c-store/useSystemStore', () => ({
+jest.mock('@/store/useSystemStore', () => ({
   useSystemStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({ previewMode: false }),
 }));
 
-jest.mock('@/c-utils/envUtils', () => ({
+jest.mock('@/lib/envUtils', () => ({
   getStringEnv: () => 'course-1',
 }));
 
-jest.mock('@/c-utils/currency', () => ({
+jest.mock('@/lib/currency', () => ({
   getCurrencyCode: (symbol: string) => {
     if (symbol === '¥') return 'CNY';
     if (symbol === '$') return 'USD';
@@ -317,7 +317,7 @@ jest.mock('@/i18n', () => ({
   normalizeLanguage: () => 'zh-CN',
 }));
 
-jest.mock('@/c-common/hooks/useDisclosure', () => {
+jest.mock('@/hooks/useDisclosure', () => {
   const actualReact = jest.requireActual('react') as typeof import('react');
 
   return {
@@ -332,7 +332,7 @@ jest.mock('@/c-common/hooks/useDisclosure', () => {
   };
 });
 
-jest.mock('@/c-common/hooks/useWechat', () => ({
+jest.mock('@/hooks/useWechat', () => ({
   useWechat: () => ({ payByJsApi: mockPayByJsApi }),
 }));
 
@@ -340,7 +340,7 @@ jest.mock('./wechatJsapi', () => ({
   isWechatJsapiAvailable: () => mockWechatJsapiAvailable,
 }));
 
-jest.mock('@/c-constants/uiConstants', () => ({
+jest.mock('@/constants/uiConstants', () => ({
   inWechat: () => false,
 }));
 
@@ -371,11 +371,11 @@ jest.mock('@/lib/stripe-storage', () => ({
   rememberStripeCheckoutSession: jest.fn(),
 }));
 
-jest.mock('@/c-api/course', () => ({
+jest.mock('@/api/course', () => ({
   getCourseInfo: jest.fn(),
 }));
 
-jest.mock('@/c-service/Shifu', () => ({
+jest.mock('@/lib/shifu/Shifu', () => ({
   shifu: { loginTools: { openLogin: jest.fn() } },
 }));
 
@@ -1143,7 +1143,7 @@ describe('learner payment modal analytics producers', () => {
     );
     await waitFor(() => {
       expect(eventCalls('learner_payment_attempt')).toHaveLength(1);
-      expect(mockRefreshPayment).toHaveBeenCalled();
+      expect(mockRefreshPayment).toHaveBeenCalledTimes(1);
     });
 
     mockRefreshPayment.mockResolvedValueOnce(null);
@@ -1180,6 +1180,11 @@ describe('learner payment modal analytics producers', () => {
         paymentChannel: 'pingxx',
       });
     });
+    expect(mockRefreshPayment).toHaveBeenLastCalledWith({
+      channel: 'wx_pub_qr',
+      paymentChannel: 'pingxx',
+      snapshot: pendingOrder,
+    });
     expect(eventCalls('learner_coupon_apply')).toEqual([
       ['learner_coupon_apply', { shifu_bid: 'course-1', outcome: 'success' }],
     ]);
@@ -1189,6 +1194,55 @@ describe('learner payment modal analytics producers', () => {
     expect(JSON.stringify(eventCalls('learner_coupon_apply'))).not.toContain(
       'desktop-sensitive-coupon',
     );
+  });
+
+  it('requests the desktop QR as soon as the cashier opens', async () => {
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      orderId: '',
+      paymentInfo: {
+        channel: '',
+        qrUrl: '',
+        paymentPayload: {},
+      },
+    };
+
+    render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    await waitFor(() => expect(mockInitializeOrder).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockRefreshPayment).toHaveBeenCalledTimes(1));
+    expect(mockRefreshPayment).toHaveBeenCalledWith({
+      channel: 'wx_pub_qr',
+      paymentChannel: 'pingxx',
+      snapshot: pendingOrder,
+    });
+    expect(screen.queryByText('module.pay.pay')).not.toBeInTheDocument();
+  });
+
+  it('never renders a placeholder QR when the provider URL is empty', () => {
+    mockPaymentFlowState = {
+      ...mockPaymentFlowState,
+      paymentInfo: {
+        channel: 'wx_pub_qr',
+        qrUrl: '',
+        paymentPayload: {},
+      },
+    };
+
+    render(
+      <PayModal
+        {...requiredModalProps}
+        open
+      />,
+    );
+
+    expect(screen.queryByTestId('qr-code')).not.toBeInTheDocument();
+    expect(screen.queryByText('DEFAULT_QRCODE')).not.toBeInTheDocument();
   });
 
   it('keeps desktop modal dismissal nonterminal for an unfinished attempt', async () => {
@@ -1518,6 +1572,11 @@ describe('learner payment modal analytics producers', () => {
         channel: 'alipay_qr',
         paymentChannel: 'pingxx',
       });
+    });
+    expect(mockRefreshPayment).toHaveBeenLastCalledWith({
+      channel: 'alipay_qr',
+      paymentChannel: 'pingxx',
+      snapshot: pendingOrder,
     });
     expect(eventCalls('learner_coupon_apply')).toEqual([
       ['learner_coupon_apply', { shifu_bid: 'course-1', outcome: 'success' }],

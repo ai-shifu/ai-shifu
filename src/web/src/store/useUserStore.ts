@@ -1,16 +1,16 @@
 import { create } from 'zustand';
-import { getUserInfo, registerTmp } from '@/c-api/user';
-import { tokenTool } from '@/c-service/storeUtil';
-import { genUuid } from '@/c-utils/common';
+import { getUserInfo, registerTmp } from '@/api/user';
+import { tokenTool } from '@/lib/shifu/storeUtil';
+import { genUuid } from '@/lib/common';
 import { subscribeWithSelector } from 'zustand/middleware';
 
-import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
-import { removeParamFromUrl } from '@/c-utils/urlUtils';
+import { debugError, debugInfo, debugWarn } from '@/lib/debugConsole';
+import { removeParamFromUrl } from '@/lib/urlUtils';
 import i18n from '@/i18n';
-import { UserStoreState } from '@/c-types/store';
+import { UserStoreState } from '@/types/store';
 import { clearProfileAssistantDrafts } from '@/lib/profileAssistantDraft';
 import { clearGoogleOAuthSession } from '@/lib/google-oauth-session';
-import { identifyUmamiUser } from '@/c-common/tools/tracking';
+import { identifyUmamiUser } from '@/lib/tracking';
 
 const GUEST_TEMP_ID_KEY = 'guest_temp_id';
 

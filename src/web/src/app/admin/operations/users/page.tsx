@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import api from '@/api';
-import AdminClearableInput from '@/app/admin/components/AdminClearableInput';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
@@ -23,7 +23,7 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/app/admin/components/adminTableStyles';
+} from '@/components/admin/adminTableStyles';
 import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
 import {
   formatAdminDateRangeEndUtc,
@@ -55,8 +55,8 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { useEnvStore } from '@/c-store';
-import type { EnvStoreState } from '@/c-types/store';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
 import { buildBillingSwrKey } from '@/lib/billing';
 import { resolveContactMode } from '@/lib/resolve-contact-mode';
@@ -65,7 +65,10 @@ import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes'
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
 import { formatOperatorUtcDateTime } from './dateTime';
 import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
+import UserCreditDeductionDialog from './UserCreditDeductionDialog';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
+import UserCancellationDialog from './UserCancellationDialog';
+import UserContactChangeDialog from './[user_bid]/UserContactChangeDialog';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationUserCourseItem,
@@ -326,6 +329,8 @@ const CourseListPreview = ({
  * t('module.operationsUser.table.updatedAt')
  * t('module.operationsUser.table.action')
  * t('module.operationsUser.actions.grantCredits')
+ * t('module.operationsUser.actions.deductCredits')
+ * t('module.operationsUser.actions.cancelAccount')
  * t('module.operationsUser.actions.moreForUser')
  * t('module.operationsUser.courseSummary.empty')
  * t('module.operationsUser.courseSummary.dialog.learningTitle')
@@ -337,6 +342,7 @@ const CourseListPreview = ({
  * t('module.operationsUser.statusLabels.unregistered')
  * t('module.operationsUser.statusLabels.registered')
  * t('module.operationsUser.statusLabels.paid')
+ * t('module.operationsUser.statusLabels.cancelled')
  * t('module.operationsUser.statusLabels.unknown')
  * t('module.operationsCourse.statusLabels.published')
  * t('module.operationsCourse.statusLabels.unpublished')
@@ -389,6 +395,12 @@ export default function AdminOperationUsersPage() {
     null,
   );
   const [grantDialogUser, setGrantDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [deductionDialogUser, setDeductionDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [cancellationDialogUser, setCancellationDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [contactChangeDialogUser, setContactChangeDialogUser] =
     useState<AdminOperationUserItem | null>(null);
   const [draftFilters, setDraftFilters] = useState<UserFilters>(() =>
     createDefaultFilters(),
@@ -790,6 +802,12 @@ export default function AdminOperationUsersPage() {
     void mutate(buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY));
   }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
 
+  const handleDeductionSuccess = useCallback(() => {
+    setDeductionDialogUser(null);
+    void fetchUsers(pageIndex, appliedFilters, quickFilter);
+    void mutate(buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY));
+  }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
+
   const renderResizeHandle = (key: ColumnKey) => (
     <span
       className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
@@ -813,6 +831,10 @@ export default function AdminOperationUsersPage() {
     {
       value: 'paid',
       label: resolveStatusLabel('paid'),
+    },
+    {
+      value: 'cancelled',
+      label: resolveStatusLabel('cancelled'),
     },
   ];
 
@@ -1487,12 +1509,44 @@ export default function AdminOperationUsersPage() {
                               )}
                               actions={[
                                 {
+                                  key: 'change-contact',
+                                  label: tOperationsUsers(
+                                    `contactChange.${contactType}.action`,
+                                  ),
+                                  disabled: user.user_status === 'cancelled',
+                                  onClick: () =>
+                                    setContactChangeDialogUser(user),
+                                },
+                                {
                                   key: 'grant-credits',
                                   label: tOperationsUsers(
                                     'actions.grantCredits',
                                   ),
                                   disabled: !canGrantBenefitsToUser(user),
                                   onClick: () => setGrantDialogUser(user),
+                                },
+                                {
+                                  key: 'deduct-credits',
+                                  label: tOperationsUsers(
+                                    'actions.deductCredits',
+                                  ),
+                                  disabled:
+                                    user.user_status === 'cancelled' ||
+                                    !canGrantBenefitsToUser(user) ||
+                                    Number(user.available_credits) <= 0,
+                                  onClick: () => setDeductionDialogUser(user),
+                                },
+                                {
+                                  key: 'cancel-account',
+                                  label: tOperationsUsers(
+                                    'actions.cancelAccount',
+                                  ),
+                                  disabled:
+                                    user.user_status === 'cancelled' ||
+                                    user.user_role === 'operator' ||
+                                    user.user_roles.includes('operator'),
+                                  onClick: () =>
+                                    setCancellationDialogUser(user),
                                 },
                               ]}
                             />
@@ -1643,6 +1697,44 @@ export default function AdminOperationUsersPage() {
               }
             }}
             onGranted={handleGrantSuccess}
+          />
+          <UserCreditDeductionDialog
+            open={Boolean(deductionDialogUser)}
+            user={deductionDialogUser}
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setDeductionDialogUser(null);
+            }}
+            onDeducted={handleDeductionSuccess}
+          />
+          <UserCancellationDialog
+            open={Boolean(cancellationDialogUser)}
+            user={cancellationDialogUser}
+            contactType={contactType}
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setCancellationDialogUser(null);
+            }}
+            onCancelled={() => {
+              setCancellationDialogUser(null);
+              void fetchUsers(pageIndex, appliedFilters, quickFilter);
+              void fetchUserOverview();
+            }}
+          />
+          <UserContactChangeDialog
+            open={Boolean(contactChangeDialogUser)}
+            userBid={contactChangeDialogUser?.user_bid || ''}
+            contactType={contactType}
+            currentIdentifier={
+              contactType === 'email'
+                ? contactChangeDialogUser?.email || ''
+                : contactChangeDialogUser?.mobile || ''
+            }
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setContactChangeDialogUser(null);
+            }}
+            onChanged={() => {
+              setContactChangeDialogUser(null);
+              void fetchUsers(pageIndex, appliedFilters, quickFilter);
+            }}
           />
         </div>
       </TooltipProvider>

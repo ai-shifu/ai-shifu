@@ -322,16 +322,22 @@ def test_get_celery_app_loads_flask_app_from_app_factory(
     fake_flask_app = Flask(__name__)
     fake_flask_app.config.update(CELERY_TASK_ALWAYS_EAGER=True)
 
+    def create_non_http_app(*, serving_http: bool = True) -> Flask:
+        assert serving_http is False
+        fake_flask_app.extensions["serving_http"] = serving_http
+        return fake_flask_app
+
     monkeypatch.setitem(
         sys.modules,
         "app",
-        types.SimpleNamespace(create_app=lambda: fake_flask_app),
+        types.SimpleNamespace(create_app=create_non_http_app),
     )
     monkeypatch.setattr(celery_app_module._celery_state, "app", None)
 
     celery_app = celery_app_module.get_celery_app()
 
     assert celery_app.flask_app is fake_flask_app
+    assert celery_app.flask_app.extensions["serving_http"] is False
 
 
 def test_create_celery_app_uses_default_billing_beat_crons() -> None:

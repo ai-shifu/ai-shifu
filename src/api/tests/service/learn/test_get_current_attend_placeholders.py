@@ -21,7 +21,7 @@ from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_NOT_STARTED
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_TRIAL
-from flaskr.service.shifu.models import PublishedOutlineItem
+from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 USER_BID = "user-attend-00000000000000000001"
@@ -59,8 +59,10 @@ def _build_struct() -> HistoryItem:
 
 
 def _seed_leaf_outline_row() -> None:
+    dao.db.session.add(PublishedShifu(id=1, shifu_bid=SHIFU_BID, deleted=0))
     dao.db.session.add(
         PublishedOutlineItem(
+            id=4,
             outline_item_bid=LEAF_BID,
             shifu_bid=SHIFU_BID,
             title="leaf lesson",
@@ -79,7 +81,9 @@ def _make_context(app: Flask) -> RunScriptContextV2:
     ctx._is_paid = True
     ctx._preview_mode = False
     ctx._outline_model = PublishedOutlineItem
+    ctx._shifu_model = PublishedShifu
     ctx._struct = _build_struct()
+    ctx._current_outline_item = None
     # _recorder is a lazy property that builds RunRecorder(self.app) on
     # first use, so setting ctx.app above is enough.
     return ctx
@@ -166,6 +170,7 @@ def test_direct_ancestor_call_stamps_own_bids(attend_app: object) -> None:
     _seed_leaf_outline_row()
     dao.db.session.add(
         PublishedOutlineItem(
+            id=3,
             outline_item_bid=UNIT_BID,
             shifu_bid=SHIFU_BID,
             title="unit",

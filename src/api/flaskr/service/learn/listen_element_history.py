@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any
 
+from flaskr.service.learn.agent.interaction_history import project_interaction_inputs
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import (
+    BlockType,
     ElementAudioDTO,
     ElementDTO,
     ElementPayloadDTO,
@@ -28,11 +31,17 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
-from flaskr.service.order.consts import LEARN_STATUS_RESET
+from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, LEARN_STATUS_RESET
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 from flaskr.util.datetime import to_utc_iso
 from sqlalchemy import and_, or_
+from sqlalchemy.orm import load_only
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -53,9 +62,13 @@ def _load_interaction_user_input_by_block_bid(
     if not interaction_block_bids:
         return {}
 
+    # Only an interaction block's generated content is the learner's answer. A 2.0 turn keeps its
+    # question in the content block that holds what the turn taught; read as an answer, that
+    # text pre-filled the question and was submitted as the learner's choice.
     interaction_blocks = (
         LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.generated_block_bid.in_(list(interaction_block_bids)),
+            LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
             LearnGeneratedBlock.deleted == 0,
             LearnGeneratedBlock.status == 1,
         )
@@ -67,7 +80,100 @@ def _load_interaction_user_input_by_block_bid(
         interaction_user_input_by_block_bid[
             interaction_block.generated_block_bid or ""
         ] = str(interaction_block.generated_content or "")
+    # MDF 2.0 stores submitted values on the following turn, together with the
+    # exact pending control. Scope the look-ahead to the same learner and attempt.
+    scopes = {
+        (row.user_bid, row.shifu_bid, row.outline_item_bid, row.progress_record_bid)
+        for row in rows
+        if row.generated_block_bid in interaction_block_bids and row.progress_record_bid
+    }
+    missing_progress = {
+        (row.user_bid, row.shifu_bid, row.outline_item_bid, row.generated_block_bid)
+        for row in rows
+        if row.generated_block_bid in interaction_block_bids
+        and not row.progress_record_bid
+    }
+    if missing_progress:
+        owned_blocks = LearnGeneratedBlock.query.filter(
+            or_(
+                *[
+                    and_(
+                        LearnGeneratedBlock.user_bid == user,
+                        LearnGeneratedBlock.shifu_bid == course,
+                        LearnGeneratedBlock.outline_item_bid == lesson,
+                        LearnGeneratedBlock.generated_block_bid == bid,
+                    )
+                    for user, course, lesson, bid in sorted(missing_progress)
+                ]
+            ),
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        ).options(
+            load_only(
+                LearnGeneratedBlock.user_bid,
+                LearnGeneratedBlock.shifu_bid,
+                LearnGeneratedBlock.outline_item_bid,
+                LearnGeneratedBlock.progress_record_bid,
+            )
+        )
+        scopes.update(
+            (
+                block.user_bid,
+                block.shifu_bid,
+                block.outline_item_bid,
+                block.progress_record_bid,
+            )
+            for block in owned_blocks
+            if block.progress_record_bid
+        )
+    if scopes:
+        turn_blocks = (
+            LearnGeneratedBlock.query.filter(
+                or_(
+                    *[
+                        and_(
+                            LearnGeneratedBlock.user_bid == user,
+                            LearnGeneratedBlock.shifu_bid == course,
+                            LearnGeneratedBlock.outline_item_bid == lesson,
+                            LearnGeneratedBlock.progress_record_bid == progress,
+                        )
+                        for user, course, lesson, progress in sorted(scopes)
+                    ]
+                ),
+                LearnGeneratedBlock.type.notin_(
+                    [BLOCK_TYPE_MDASK_VALUE, BLOCK_TYPE_MDANSWER_VALUE]
+                ),
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
+            )
+            .options(
+                load_only(
+                    LearnGeneratedBlock.generated_block_bid,
+                    LearnGeneratedBlock.user_bid,
+                    LearnGeneratedBlock.shifu_bid,
+                    LearnGeneratedBlock.outline_item_bid,
+                    LearnGeneratedBlock.progress_record_bid,
+                    LearnGeneratedBlock.block_content_conf,
+                    LearnGeneratedBlock.position,
+                )
+            )
+            .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
+            .all()
+        )
+        interaction_user_input_by_block_bid.update(
+            project_interaction_inputs(turn_blocks, rows)
+        )
     return interaction_user_input_by_block_bid
+
+
+def _historical_user_input(row: LearnGeneratedElement, inputs: dict[str, str]) -> str:
+    """Prefer the 2.0 interaction element; legacy answers belong to their own block."""
+    return inputs.get(
+        row.element_bid or "",
+        inputs.get(
+            row.target_element_bid or "", inputs.get(row.generated_block_bid or "", "")
+        ),
+    )
 
 
 def _load_progress_bid_by_generated_block_bid(
@@ -127,9 +233,8 @@ def _build_final_elements_from_rows(
             continue
         dto = _element_from_row(
             row,
-            interaction_user_input=interaction_user_input_by_block_bid.get(
-                row.generated_block_bid or "",
-                "",
+            interaction_user_input=_historical_user_input(
+                row, interaction_user_input_by_block_bid
             ),
         )
         if not dto.is_new and dto.target_element_bid:
@@ -146,9 +251,8 @@ def _build_final_elements_from_rows(
         events = [
             _event_from_row(
                 row,
-                interaction_user_input=interaction_user_input_by_block_bid.get(
-                    row.generated_block_bid or "",
-                    "",
+                interaction_user_input=_historical_user_input(
+                    row, interaction_user_input_by_block_bid
                 ),
             )
             for row in sorted_rows
@@ -590,8 +694,7 @@ def _merge_progress_elements(
         progress_bid = (
             row.progress_record_bid
             or progress_bid_by_generated_block_bid.get(
-                row.generated_block_bid or "",
-                "",
+                row.generated_block_bid or "", ""
             )
         )
         if not progress_bid:
@@ -706,7 +809,7 @@ def get_listen_element_record(
     user_bid: str,
     include_non_navigable: bool = False,
     build_record_from_legacy: Callable[[LegacyLearnRecord], LearnElementRecordDTO],
-    load_fallback_record: Callable[[], LegacyLearnRecord],
+    load_fallback_record: Callable[[str | None], LegacyLearnRecord],
     build_legacy_record_for_progress_fn: Callable[
         ..., LegacyLearnRecord
     ] = build_legacy_record_for_progress,
@@ -736,6 +839,9 @@ def get_listen_element_record(
             latest_progress_updated_at_dt = updated_at
     latest_progress_updated_at = to_utc_iso(latest_progress_updated_at_dt)
     progress_records = _dedupe_progress_records_by_block_position(progress_records)
+    latest_progress = max(
+        progress_records, key=lambda record: int(record.id or 0), default=None
+    )
     progress_record_bids = [
         pr.progress_record_bid for pr in progress_records if pr.progress_record_bid
     ]
@@ -760,13 +866,58 @@ def get_listen_element_record(
             build_legacy_record_for_progress_fn=build_legacy_record_for_progress_fn,
         )
         if collected_elements:
+            # Only the latest attempt can navigate. The legacy builder also checks the current
+            # outline, so a hidden or removed successor invalidates even a persisted control.
+            navigation_records = (
+                [
+                    record
+                    for record in load_fallback_record(
+                        latest_progress.progress_record_bid
+                    ).records
+                    if record.block_type == BlockType.INTERACTION
+                    and CONTEXT_INTERACTION_NEXT in record.content
+                ]
+                if latest_progress is not None
+                and latest_progress.status == LEARN_STATUS_COMPLETED
+                else []
+            )
+            valid_navigation_bids = {
+                record.generated_block_bid for record in navigation_records
+            }
+            has_current_navigation = False
+            current_elements: list[ElementDTO] = []
+            for element in collected_elements:
+                is_navigation = (
+                    element.element_type == ElementType.INTERACTION
+                    and CONTEXT_INTERACTION_NEXT in element.content
+                )
+                if not is_navigation:
+                    current_elements.append(element)
+                elif (
+                    element.generated_block_bid in valid_navigation_bids
+                    and not has_current_navigation
+                ):
+                    current_elements.append(element)
+                    has_current_navigation = True
+            if navigation_records and not has_current_navigation:
+                navigation = build_record_from_legacy(
+                    LegacyLearnRecord(records=navigation_records[:1])
+                )
+                current_elements.extend(
+                    _normalize_record_element(element)
+                    for element in navigation.elements
+                )
             return LearnElementRecordDTO(
-                elements=collected_elements,
+                elements=current_elements,
                 events=collected_events,
                 last_progress_updated_at=latest_progress_updated_at,
             )
 
-    built_record = build_record_from_legacy(load_fallback_record())
+    built_record = build_record_from_legacy(
+        load_fallback_record(
+            latest_progress.progress_record_bid if latest_progress is not None else None
+        )
+    )
     return LearnElementRecordDTO(
         elements=[
             _normalize_record_element(element) for element in built_record.elements

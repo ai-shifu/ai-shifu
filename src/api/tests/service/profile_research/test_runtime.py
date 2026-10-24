@@ -69,7 +69,7 @@ def _make_runtime(
 ) -> tuple[Flask, ProfileResearchRuntime, list[_FakeProvider]]:
     app = Flask("profile-research-tests")
     app.config.update(
-        DEFAULT_LLM_MODEL="gpt-test",
+        LLM_MODEL_1_ID="gpt-test",
         DEFAULT_LLM_TEMPERATURE=0.3,
         REDIS_KEY_PREFIX="test:",
     )
@@ -242,7 +242,7 @@ def test_run_rejects_oversized_user_input(user_input: object) -> None:
 def test_default_store_requires_shared_redis(monkeypatch: object) -> None:
     app = Flask("profile-research-shared-store")
     app.config.update(
-        DEFAULT_LLM_MODEL="gpt-test",
+        LLM_MODEL_1_ID="gpt-test",
         DEFAULT_LLM_TEMPERATURE=0.3,
         REDIS_KEY_PREFIX="test:",
     )
@@ -1083,7 +1083,7 @@ def test_session_snapshots_summary_and_model_settings() -> None:
         output_language="zh-CN",
     )
     stored = runtime.store.load(view["session_id"])
-    app.config.update(DEFAULT_LLM_MODEL="changed-model", DEFAULT_LLM_TEMPERATURE=1.7)
+    app.config.update(LLM_MODEL_1_ID="changed-model", DEFAULT_LLM_TEMPERATURE=1.7)
 
     assert stored.document == (f"{document}\n\n---\n\n{_profile_summary_prompt()}")
     assert stored.model == "gpt-test"

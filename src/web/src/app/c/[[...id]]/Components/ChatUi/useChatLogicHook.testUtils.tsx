@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppContext } from '../AppContext';
-import type { SSE_INPUT_TYPE } from '@/c-api/studyV2';
+import type { SSE_INPUT_TYPE } from '@/api/studyV2';
 import type { UseChatSessionParams } from './useChatLogicHook.types';
 
 type Listener = (event?: Event) => void;
@@ -69,7 +69,6 @@ export const buildBaseParams = (): UseChatSessionParams => ({
   shifuBid: 'shifu-1',
   outlineBid: 'lesson-1',
   lessonId: 'lesson-1',
-  lessonHasContentUpdate: false,
   trackEvent: jest.fn(),
   trackTrailProgress: jest.fn(),
   lessonUpdate: jest.fn(),

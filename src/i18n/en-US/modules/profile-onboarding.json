@@ -67,29 +67,30 @@
     "resultPlaceholder": "Paste your AI assistant’s answer here…",
     "title": "Ask your AI assistant to answer"
   },
-  "back": "Previous",
   "characterCount": "{count} / {max} characters",
   "characterCountOverLimit": "{count} characters entered; the limit is {max}. Shorten the text before saving.",
   "complete": "Confirm and save",
-  "completeCompact": "Save",
   "dialog": {
     "cancel": "Cancel",
     "cancelResearch": "Cancel collection",
     "close": "Close",
     "confirmTitle": "Confirm and save",
-    "description": "Share your background, goals, and language preferences so your AI teacher can connect course content more closely to your situation.",
+    "defer": {
+      "confirm": "Start learning",
+      "continueSetup": "Continue setup",
+      "description": "You can add your background and preferences later under “{entry}” in your personal menu.",
+      "title": "Set this up later?"
+    },
     "discard": "Discard changes",
     "discardDescription": "Anything you have not saved will be lost.",
     "discardTitle": "Discard these changes?",
     "dismissFailed": "Could not complete that action. Try again.",
-    "emptyProfile": "This introduction cannot be empty. Add a few details before saving.",
     "informationUsageEditable": "You can change this anytime in Personalization settings.",
     "informationUsagePurpose": "Used only to help your AI teacher adapt lesson content and teaching style.",
     "informationUsageSensitive": "Do not include sensitive details such as contact information, addresses, IDs, health information, or financial information.",
     "informationUsageTitle": "How is this information used?",
     "interactiveCollection": "Answer questions",
     "keepEditing": "Keep editing",
-    "later": "Maybe later",
     "legacyPrefill": {
       "style": "My preferred language style: {value}"
     },
@@ -98,7 +99,6 @@
     "manualFallback": "Automatic collection is unavailable right now. You can enter your introduction directly.",
     "nicknameLabel": "What should your AI teacher call you?",
     "nicknamePlaceholder": "For example: Alex",
-    "onboardingTitle": "Help your AI teacher understand you",
     "optimize": "Improve with AI",
     "optimizeEmptyHint": "Write a few lines, then let AI help improve them.",
     "optimizeEmptyResponse": "The AI returned no optimized content. Please try again.",
@@ -111,104 +111,10 @@
     "replaceResearchConfirm": "Answer again",
     "replaceResearchDescription": "Answering again will overwrite unsaved personalization settings. Continue?",
     "replaceResearchTitle": "Answer the questions again?",
-    "retention": {
-      "carouselLabel": "Personalized explanation examples",
-      "carouselRoleDescription": "carousel",
-      "continueSetup": "Finish setup",
-      "counter": "{current} / {total} · {topic}",
-      "defer": "Maybe later",
-      "description": "What you learn stays the same. AI adapts the course examples, terminology, and depth of explanation to your background.",
-      "exampleLead": "For example, the same question can be explained like this",
-      "manualAnnouncement": "Now showing {topic}, slide {current} of {total}",
-      "next": "Next explanation example",
-      "previous": "Previous explanation example",
-      "slideLabel": "{topic}, slide {current} of {total}",
-      "slideRoleDescription": "slide",
-      "slides": {
-        "blueSky": {
-          "audiences": {
-            "photographyEnthusiast": {
-              "body": "During the day, blue light scatters across the sky more easily than red light, so the scene appears blue through a lens. At sunset, blue light scatters away first, making the remaining reds and oranges stand out.",
-              "label": "For a photography enthusiast"
-            },
-            "physicsStudent": {
-              "body": "This is Rayleigh scattering, whose intensity is inversely proportional to the fourth power of wavelength. Together with the solar spectrum and the sensitivity of human vision, this makes the sky appear blue.",
-              "label": "For a physics student"
-            },
-            "primarySchoolStudent": {
-              "body": "Sunlight looks white, but it contains many colors. As it passes through the air, blue light is scattered in every direction more easily, so the sky looks blue wherever you look.",
-              "label": "For a primary school student"
-            }
-          },
-          "question": "Why is the sky blue?",
-          "topic": "Why the sky is blue"
-        },
-        "opportunityCost": {
-          "audiences": {
-            "entrepreneur": {
-              "body": "Opportunity cost is the value the best unchosen option could have created. If the team spends a week on feature A, it should also consider the value that delayed feature B might have created.",
-              "label": "For an entrepreneur"
-            },
-            "stayAtHomeParent": {
-              "body": "Time can only be used once, so opportunity cost is the best alternative you give up. If you spend two hours with your child this weekend, the cost may be the rest you needed most.",
-              "label": "For a stay-at-home parent"
-            },
-            "universityStudent": {
-              "body": "Opportunity cost is not the money you spend on a choice, but the best alternative you give up. If you study tonight, the cost may be missing the party you most wanted to attend.",
-              "label": "For a university student"
-            }
-          },
-          "question": "What is opportunity cost?",
-          "topic": "Opportunity cost"
-        },
-        "percentage": {
-          "audiences": {
-            "basketballFan": {
-              "body": "If you make 8 out of 10 shots, your shooting percentage is 80%. It means you make about 8 of every 10 shots on average.",
-              "label": "For a basketball fan"
-            },
-            "shopOwner": {
-              "body": "If 80 of 100 items sell, the sell-through rate is 80%. It helps you compare how quickly different products sell.",
-              "label": "For a shop owner"
-            },
-            "shopper": {
-              "body": "If an item is 20% off, you pay 80% of the original price. An item that originally cost $100 now costs $80.",
-              "label": "For a shopper"
-            }
-          },
-          "question": "What does 80% mean?",
-          "topic": "Percentages"
-        },
-        "warmUp": {
-          "audiences": {
-            "beginnerRunner": {
-              "body": "Starting at full pace suddenly raises your heart rate and muscle temperature. Walk briskly, then jog for a few minutes so your body can gradually match the intensity.",
-              "label": "For a beginner runner"
-            },
-            "danceTeacher": {
-              "body": "Warming up is not just about getting hot; it also activates joint mobility, stability, and movement control. Progress from small to large ranges of motion, and from basic patterns to combinations.",
-              "label": "For a dance teacher"
-            },
-            "officeWorker": {
-              "body": "After sitting all day, your muscles and joints are not ready for large movements right away. Mobilize your neck, shoulders, hips, and ankles first, then gradually increase the pace.",
-              "label": "For an office worker who sits all day"
-            }
-          },
-          "question": "Why should you warm up before exercising?",
-          "topic": "Why warming up matters"
-        }
-      },
-      "title": "Finish setup to make the course fit you better",
-      "trust": "Your information is used only to adapt explanations · Learn more"
-    },
     "retry": "Reload",
-    "save": "Save profile",
-    "saveAndContinue": "Save and continue",
     "saveChanges": "Save changes",
     "saveFailed": "Could not save your profile. Try again.",
     "saving": "Saving…",
-    "settingsDescription": "Share your background, goals, and language preferences so your AI teacher can connect course content more closely to your situation.",
-    "settingsTitle": "Introduce yourself to your AI teacher",
     "undoOptimize": "Undo",
     "unifiedDescription": "Help your AI teacher understand your background and preferences, so lessons feel more natural for you.",
     "unifiedTitle": "Personalization settings"
@@ -223,40 +129,10 @@
     "streamError": "The questions stopped unexpectedly. Try again."
   },
   "loadFailed": "Your personalization settings could not be loaded, so the course was opened. Please try again later.",
-  "next": "Next",
-  "profileLabel": "Your background and preferences",
   "profilePlaceholder": "For example: your work or study background, relevant experience, preferred explanation and slide styles, and current interests",
   "refreshPending": "Saved. The course is updating, so please refresh the page shortly.",
-  "review": {
-    "description": "Your AI teacher will use this to adapt how and what it teaches.",
-    "profileLabel": "About you",
-    "profilePlaceholder": "Add or change anything here",
-    "title": "Check it once"
-  },
-  "settings": {
-    "cancel": "Cancel",
-    "clear": "Remove these details",
-    "clearDescription": "After you remove this introduction, future courses will no longer use it and you will not be asked to fill it in automatically again.",
-    "clearFailed": "Could not remove these details. Try again.",
-    "clearSuccess": "Removed",
-    "clearTitle": "Remove these details?",
-    "confirmClear": "Remove details",
-    "description": "Courses use the background and preferences below to choose more familiar examples and explain things in a style you prefer. You can edit, remove, or update them at any time.",
-    "emptyProfile": "This introduction cannot be empty. To remove it, use Remove these details.",
-    "loadFailed": "Could not load these details. Try again later.",
-    "loading": "Loading…",
-    "regenerateSuccess": "Updated",
-    "retry": "Retry",
-    "save": "Save changes",
-    "saveFailed": "Could not save your changes. Try again.",
-    "saveSuccess": "Saved",
-    "title": "Make courses fit you better",
-    "updatedAt": "Last updated: {time}"
-  },
   "skip": "Maybe later",
   "skipping": "Please wait…",
-  "stepCounter": "Step {current} of {total}",
   "submitFailed": "We could not save your details. Your content is still here. Try again.",
-  "submitting": "Saving…",
   "title": "Let your AI teacher get to know you"
 }

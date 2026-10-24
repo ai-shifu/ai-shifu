@@ -7,39 +7,27 @@ in-flight DB exchanges. The guard patches only when the command line
 actually selects the gevent worker.
 """
 
-import pathlib
+import os
+import runpy
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+import pytest
 
 
-def _load_detector() -> object:
-    conf_path = pathlib.Path(__file__).resolve().parents[1] / "gunicorn.conf.py"
-    source = conf_path.read_text()
-    # Execute only the detector function, not the module (which would
-    # monkey-patch or set env flags as a side effect).
-    namespace = {}
-    marker = "def _gevent_worker_requested"
-    start = source.index(marker)
-    end = source.index("\nif _gevent_worker_requested", start)
-    exec(source[start:end], namespace)  # noqa: S102 - own config source
-    return namespace["_gevent_worker_requested"]
-
-
-def test_worker_class_detection() -> None:
-    detect = _load_detector()
-
-    assert detect(["gunicorn", "-k", "gevent", "app:app"]) is True
-    assert detect(["gunicorn", "--worker-class", "gevent"]) is True
-    assert detect(["gunicorn", "--worker-class=gevent"]) is True
-    assert detect(["gunicorn", "-kgevent"]) is True
-    assert detect(["gunicorn", "-k", "gunicorn.workers.ggevent.GeventWorker"]) is True
-    assert (
-        detect(["gunicorn", "--worker-class=gunicorn.workers.ggevent.GeventWorker"])
-        is True
-    )
-    assert detect(["gunicorn", "-k", "egg:gunicorn#gevent"]) is True
-
-    # The production command line - MUST NOT patch.
-    assert (
-        detect(
+@pytest.mark.parametrize(
+    ("argv", "should_patch"),
+    [
+        (["gunicorn", "-k", "gevent", "app:app"], True),
+        (["gunicorn", "--worker-class", "gevent"], True),
+        (["gunicorn", "--worker-class=gevent"], True),
+        (["gunicorn", "-kgevent"], True),
+        (["gunicorn", "-k", "gunicorn.workers.ggevent.GeventWorker"], True),
+        (["gunicorn", "--worker-class=gunicorn.workers.ggevent.GeventWorker"], True),
+        (["gunicorn", "-k", "egg:gunicorn#gevent"], True),
+        (
             [
                 "gunicorn",
                 "-k",
@@ -49,12 +37,38 @@ def test_worker_class_detection() -> None:
                 "-w",
                 "4",
                 "app:app",
-            ]
-        )
-        is False
+            ],
+            False,
+        ),
+        (["gunicorn", "--worker-class=gthread"], False),
+        (["gunicorn", "app:app"], False),
+        (["gunicorn", "-k"], False),
+    ],
+)
+def test_worker_class_controls_actual_preload_patching(
+    monkeypatch: pytest.MonkeyPatch, argv: list[str], should_patch: bool
+) -> None:
+    patch_all = Mock()
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setenv("AI_SHIFU_PRELOAD_MASTER", "0")
+    # Load the complete deployed source without patching this pytest process.
+    monkeypatch.setitem(
+        sys.modules,
+        "gevent",
+        SimpleNamespace(monkey=SimpleNamespace(patch_all=patch_all)),
     )
-    assert detect(["gunicorn", "--worker-class=gthread"]) is False
-    assert detect(["gunicorn", "app:app"]) is False
+
+    config = runpy.run_path(
+        str(Path(__file__).resolve().parents[1] / "gunicorn.conf.py")
+    )
+
+    if should_patch:
+        patch_all.assert_called_once_with()
+    else:
+        patch_all.assert_not_called()
+    assert os.environ["AI_SHIFU_PRELOAD_MASTER"] == "1"
+    assert config["preload_app"] is True
+    assert callable(config["post_fork"])
 
 
 def test_observer_skips_unpatched_processes(monkeypatch: object) -> None:

@@ -21,17 +21,17 @@ import NavFooter, { type NavFooterHandle } from './NavFooter';
 import CourseCatalogList from '../CourseCatalog/CourseCatalogList';
 
 import FeedbackModal from '../FeedbackModal/FeedbackModal';
-import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store/envStore';
+import { useTracking, EVENT_NAMES } from '@/hooks/useTracking';
+import { useEnvStore } from '@/store/envStore';
 import {
   FRAME_LAYOUT_PAD_INTENSIVE,
   FRAME_LAYOUT_MOBILE,
-} from '@/c-constants/uiConstants';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
+} from '@/constants/uiConstants';
+import { useDisclosure } from '@/hooks/useDisclosure';
 import MainMenuModal from './MainMenuModal';
 
 import { useUserStore } from '@/store';
-import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
+import { useUiLayoutStore } from '@/store/useUiLayoutStore';
 import type { LessonTree } from '../../hooks/useLessonTree';
 /**
  * Navigation display modes
@@ -68,6 +68,7 @@ const calcNavWidth = (frameLayout: number) => {
 const COLLAPSE_WIDTH = NAV_DRAWER_COLLAPSE_WIDTH;
 
 type NavDrawerProps = {
+  courseId?: string;
   courseName?: string;
   courseAvatar?: string;
   onLoginClick?: () => void;
@@ -80,6 +81,7 @@ type NavDrawerProps = {
 };
 
 const NavDrawer = ({
+  courseId,
   // showType = NAV_SHOW_TYPE_NORMAL,
   courseName = '',
   courseAvatar = '',
@@ -189,6 +191,7 @@ const NavDrawer = ({
                   hideCourseHeader
                   selectedLessonId={selectedLessonId}
                   catalogs={lessonTree?.catalogs || []}
+                  titleLanguage={lessonTree?.titleLanguage}
                   onChapterCollapse={onChapterCollapse}
                   onLessonSelect={onLessonSelect}
                   onTryLessonSelect={onTryLessonSelect}
@@ -204,7 +207,6 @@ const NavDrawer = ({
           ref={footerRef}
           isCollapse={isCollapse}
           onClick={onFooterClick}
-          isMenuOpen={mainModalOpen}
         />
         <MainMenuModal
           open={mainModalOpen}
@@ -212,7 +214,9 @@ const NavDrawer = ({
           className={popupWindowClassname()}
           mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE}
           onPersonalInfoClick={onPersonalInfoClick}
+          onAboutCloseAutoFocus={() => footerRef.current?.focus()}
           surface='learner'
+          courseId={courseId}
         />
         <FeedbackModal
           open={feedbackModalOpen}

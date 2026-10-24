@@ -117,6 +117,51 @@ class RunStateResolver:
     def _current_attend(self) -> LearnProgressRecord:
         return self._context._current_attend
 
+    def get_outline_metadata(
+        self, outline_bids: list[str]
+    ) -> dict[str, tuple[bool, str]]:
+        """Read transition visibility and titles from the run's outline version."""
+        if not outline_bids:
+            return {}
+        ctx = self._context
+        model = self._outline_model
+        filters = [model.outline_item_bid.in_(outline_bids)]
+        expected_ids = {}
+        if self._preview_mode:
+            filters.append(model.deleted == 0)
+        else:
+            if not ctx._shifu_model.query.filter(
+                ctx._shifu_model.shifu_bid == self._struct.bid,
+                ctx._shifu_model.deleted == 0,
+            ).first():
+                raise_error("server.shifu.shifuNotFound")
+            expected_ids = {bid: ctx._get_outline_row_id(bid) for bid in outline_bids}
+            if any(row_id is None for row_id in expected_ids.values()):
+                raise_error("server.shifu.outlineItemNotFound")
+            # Republish retires physical rows without changing a retained
+            # run's visibility, titles, or eligible next-lesson transitions.
+            filters.extend(
+                [
+                    model.id.in_(expected_ids.values()),
+                    model.shifu_bid == self._struct.bid,
+                ]
+            )
+        rows = (
+            db.session.query(
+                model.id, model.outline_item_bid, model.hidden, model.title
+            )
+            .filter(*filters)
+            .all()
+        )
+        metadata = {}
+        for row_id, bid, hidden, title in rows:
+            if not self._preview_mode and expected_ids.get(bid) != row_id:
+                raise_error("server.shifu.outlineItemNotFound")
+            metadata[bid] = (hidden, title)
+        if not self._preview_mode and set(metadata) != set(outline_bids):
+            raise_error("server.shifu.outlineItemNotFound")
+        return metadata
+
     # outline is a leaf when has block item as children
     # outline is a node when has outline item as children
     # outline is a leaf when has no children
@@ -198,23 +243,12 @@ class RunStateResolver:
             if item.children:
                 for child in item.children:
                     q.put(child)
-        outline_item_info_db: list[tuple[str, bool, str]] = (
-            db.session.query(
-                self._outline_model.outline_item_bid,
-                self._outline_model.hidden,
-                self._outline_model.title,
-            )
-            .filter(
-                self._outline_model.outline_item_bid.in_(outline_ids),
-                self._outline_model.deleted == 0,
-            )
-            .all()
-        )
+        outline_metadata = self.get_outline_metadata(outline_ids)
         outline_item_hidden_map: dict[str, bool] = {
-            bid: hidden for bid, hidden, _title in outline_item_info_db
+            bid: hidden for bid, (hidden, _title) in outline_metadata.items()
         }
         outline_item_title_map: dict[str, str] = {
-            bid: title for bid, _hidden, title in outline_item_info_db
+            bid: title for bid, (_hidden, title) in outline_metadata.items()
         }
 
         def _mark_sub_node_completed(

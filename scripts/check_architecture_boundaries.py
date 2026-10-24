@@ -181,7 +181,7 @@ def collect_frontend_violations(frontend_root: Path) -> list[Violation]:
                             remediation=(
                                 "Move reusable code into a shared layer such as "
                                 "src/components, src/hooks, src/store, src/lib, "
-                                "src/types, or an existing maintained c-* surface."
+                                "src/types, src/api, or src/constants."
                             ),
                         )
                     )

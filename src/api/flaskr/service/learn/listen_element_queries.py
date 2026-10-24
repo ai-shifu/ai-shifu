@@ -36,7 +36,7 @@ def find_follow_up_element_rows(
     progress_record_bid: str,
     anchor_element_bid: str,
 ) -> list[LearnGeneratedElement]:
-    """Find follow up element rows."""
+    """Read anchor sidecars in turn order, not run-local generation order."""
     if not progress_record_bid or not anchor_element_bid:
         return []
     rows = (
@@ -49,18 +49,33 @@ def find_follow_up_element_rows(
             LearnGeneratedElement.deleted == 0,
             LearnGeneratedElement.status == 1,
         )
-        .order_by(
-            LearnGeneratedElement.sequence_number.asc(),
-            LearnGeneratedElement.run_event_seq.asc(),
-            LearnGeneratedElement.id.asc(),
-        )
+        .order_by(LearnGeneratedElement.id.asc())
         .all()
     )
     matched_rows: list[LearnGeneratedElement] = []
+    payloads = {}
     for row in rows:
         payload = _deserialize_payload(row.payload or "")
         if (payload.anchor_element_bid or "") == anchor_element_bid:
             matched_rows.append(row)
+            payloads[row.id] = payload
+    ask_order = {
+        row.element_bid: row.id
+        for row in matched_rows
+        if row.element_type == ElementType.ASK.value
+    }
+    # Each new request restarts run-local counters. Bind answer snapshots to
+    # their original question so a late patch cannot move an old turn forward.
+    matched_rows.sort(
+        key=lambda row: (
+            ask_order.get(payloads[row.id].ask_element_bid, row.id)
+            if row.element_type == ElementType.ANSWER.value
+            else row.id,
+            row.sequence_number or 0,
+            row.run_event_seq or 0,
+            row.id,
+        )
+    )
     return matched_rows
 
 

@@ -4,30 +4,29 @@ import { useEffect, useRef, useState } from 'react';
 // import routes from './Router/index';
 // import { useRoutes } from 'react-router-dom';
 // import { ConfigProvider } from 'antd';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { useSystemStore } from '@/store/useSystemStore';
 import { useTranslation } from 'react-i18next';
-import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
+import { debugError, debugInfo, debugWarn } from '@/lib/debugConsole';
 
 import { useShallow } from 'zustand/react/shallow';
 import { useParams, useSearchParams } from 'next/navigation';
 
-import {
-  inWechat,
-  inMiniProgram,
-  wechatLogin,
-} from '@/c-constants/uiConstants';
-import { getCourseInfo } from '@/c-api/course';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { getCourseInfo } from '@/api/course';
+import { useTracking } from '@/hooks/useTracking';
 import {
   EnvStoreState,
   SystemStoreState,
   CourseStoreState,
   LearningMode,
-} from '@/c-types/store';
+} from '@/types/store';
 
-import { useEnvStore, useCourseStore } from '@/c-store';
+import { useEnvStore, useCourseStore } from '@/store';
 import { UserProvider } from '@/store/userProvider';
 import { useUserStore } from '@/store/useUserStore';
+import {
+  CourseWechatAuthorizationProvider,
+  useCourseWechatAuthorizationState,
+} from './hooks/useCourseWechatAuthorization';
 import {
   readLearningModeFromStorage,
   writeLearningModeToStorage,
@@ -106,7 +105,6 @@ export default function ChatLayout({
   const routeParams = useParams<{ id?: string[] }>();
   const searchParams = useSearchParams();
 
-  const [checkWxcode, setCheckWxcode] = useState<boolean>(false);
   const envDataInitialized = useEnvStore(
     (state: EnvStoreState) => state.runtimeConfigLoaded,
   );
@@ -144,6 +142,7 @@ export default function ChatLayout({
   const enableWxcode = useEnvStore(
     (state: EnvStoreState) => state.enableWxcode,
   );
+  const appId = useEnvStore((state: EnvStoreState) => state.appId);
 
   const {
     courseTtsEnabled,
@@ -180,6 +179,15 @@ export default function ChatLayout({
 
   // const [loading, setLoading] = useState<boolean>(true);
   const queryCode = searchParams?.get('code') || '';
+  const wechatAuthorization = useCourseWechatAuthorizationState({
+    runtimeConfigLoaded: envDataInitialized,
+    enabled:
+      typeof enableWxcode === 'string' && enableWxcode.toLowerCase() === 'true',
+    appId: appId || '',
+    queryCode,
+    wechatCode,
+    updateWechatCode,
+  });
   const queryCourseId = searchParams?.get('courseId') || '';
   const queryLessonId = searchParams?.get('lessonid') || '';
   const queryChannel = searchParams?.get('channel') || '';
@@ -247,43 +255,6 @@ export default function ChatLayout({
     updateChannel,
     updatePreviewMode,
     updateSkip,
-  ]);
-
-  useEffect(() => {
-    if (!envDataInitialized) return;
-    const wxcodeEnabled =
-      typeof enableWxcode === 'string' && enableWxcode.toLowerCase() === 'true';
-    if (!wxcodeEnabled || !inWechat() || inMiniProgram()) {
-      setCheckWxcode(true);
-      return;
-    }
-
-    const { appId } = useEnvStore.getState() as EnvStoreState;
-    const currCode = queryCode;
-
-    if (!appId) {
-      debugWarn('[lesson-layout] WeChat appId missing, skip OAuth redirect');
-      setCheckWxcode(true);
-      return;
-    }
-
-    if (!currCode) {
-      wechatLogin({
-        appId,
-      });
-      return;
-    }
-
-    if (currCode !== wechatCode) {
-      updateWechatCode(currCode);
-    }
-    setCheckWxcode(true);
-  }, [
-    queryCode,
-    updateWechatCode,
-    wechatCode,
-    envDataInitialized,
-    enableWxcode,
   ]);
 
   useEffect(() => {
@@ -713,13 +684,17 @@ export default function ChatLayout({
 
   useEffect(() => {
     if (!envDataInitialized) return;
-    if (!checkWxcode) return;
+    if (!wechatAuthorization.ready) return;
     initUser();
-  }, [envDataInitialized, checkWxcode, initUser]);
+  }, [envDataInitialized, wechatAuthorization.ready, initUser]);
 
   if (!queryStateReady) {
     return null;
   }
 
-  return <UserProvider>{children}</UserProvider>;
+  return (
+    <CourseWechatAuthorizationProvider value={wechatAuthorization}>
+      <UserProvider>{children}</UserProvider>
+    </CourseWechatAuthorizationProvider>
+  );
 }

@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type Reveal from 'reveal.js';
-import { ChatContentItemType, type ChatContentItem } from '@/c-types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import {
   buildListenAudioSequenceBid,
   resolveListenAudioSourceBid,
@@ -9,7 +9,7 @@ import {
   type AudioInteractionItem,
 } from './useListenMode';
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   LESSON_FEEDBACK_INTERACTION_MARKER: '%{{sys_lesson_feedback_score}}',
 }));
 

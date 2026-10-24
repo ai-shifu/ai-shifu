@@ -129,10 +129,6 @@ def golden_invoke_llm(*args: object, **kwargs: object) -> Iterator[FakeLLMRespon
     yield from golden_chat_llm(*args, **kwargs)
 
 
-def golden_get_allowed_models() -> list[str]:
-    return []
-
-
 def golden_get_current_models(_app: object) -> list[dict[str, str]]:
     return []
 
@@ -142,17 +138,21 @@ def golden_llm(monkeypatch: object) -> None:
     """Patch a deterministic fake LLM into every namespace the /run path uses."""
     import sys
 
+    # The seeded default selection represents a course after the Fast cleanup.
+    # Provider routing is covered separately; golden tests keep output deterministic.
+    monkeypatch.setattr(
+        "flaskr.api.llm.model_selection.resolve_model_slot",
+        lambda _selection: "gpt-test",
+    )
     targets = {
         "flaskr.api.llm": (
             ("chat_llm", golden_chat_llm),
             ("invoke_llm", golden_invoke_llm),
-            ("get_allowed_models", golden_get_allowed_models),
             ("get_current_models", golden_get_current_models),
         ),
         # context_v2 binds these names at import time.
         "flaskr.service.learn.context_v2": (
             ("chat_llm", golden_chat_llm),
-            ("get_allowed_models", golden_get_allowed_models),
             ("get_current_models", golden_get_current_models),
         ),
         # check_text binds invoke_llm at import time.
@@ -257,6 +257,7 @@ def golden_shifu(app: object) -> object:
             avatar_res_bid="",
             keywords="golden,regression",
             llm="gpt-test",
+            ask_llm="fast",
             llm_temperature=Decimal(0),
             llm_system_prompt="",
             price=Decimal(0),

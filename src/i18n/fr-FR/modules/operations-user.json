@@ -1,8 +1,105 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
+    "cancelAccount": "Résilier le compte",
+    "deductCredits": "Déduire des crédits",
     "grantCredits": "Attribuer crédits/forfait",
     "moreForUser": "Plus d’actions pour {user}"
+  },
+  "cancellation": {
+    "back": "Retour",
+    "blockers": {
+      "operator": "Ce compte possède des droits opérateur et ne peut pas être résilié actuellement.",
+      "paid_preorder_refund_required": "Ce compte a {count} précommandes payées en attente d’activation. Effectuez un remboursement manuel avant la résiliation.",
+      "published_course_transfer_required": "Transférez les {count} cours publiés de ce compte avant de continuer.",
+      "self": "Vous ne pouvez pas résilier le compte opérateur actuellement connecté.",
+      "title": "La résiliation ne peut pas continuer",
+      "unknown": "Des éléments restent à traiter. Actualisez la page ou contactez le support technique.",
+      "unsettled_payment": "Traitez les {count} commandes en attente avant de résilier ce compte."
+    },
+    "confirm": "Confirmer la résiliation",
+    "confirmDescription": "Le compte {user} sera définitivement supprimé. Vérifiez à nouveau le compte et le motif de suppression. Une fois la demande envoyée, cette action est irréversible.",
+    "confirmPaidPreorder": "Ce compte a {count} forfaits prépayés en attente d’activation. Confirmez que les remboursements manuels ou le traitement requis sont terminés.",
+    "confirmTitle": "Confirmer la résiliation",
+    "continue": "Résilier le compte",
+    "description": "Les cours, abonnements, crédits et sessions seront vérifiés.",
+    "errors": {
+      "blocked": "Des éléments restent à traiter",
+      "cancel": "Échec de la résiliation",
+      "executionFailed": "La tâche de résiliation a échoué. Veuillez réessayer.",
+      "load": "Impossible de charger les informations",
+      "prepare": "Échec de la préparation",
+      "processingTimeout": "La tâche est toujours en cours. Actualisez la liste des utilisateurs ultérieurement.",
+      "transfer": "Échec du transfert"
+    },
+    "irreversible": "Après la suppression, les informations d’identité du compte et les identifiants de connexion seront effacés, le solde de crédits sera remis à zéro et les sessions de connexion en cours prendront fin. Les historiques commerciaux et les données des cours seront conservés selon les règles applicables.",
+    "processing": "Résiliation en cours…",
+    "reasonCounter": "{count}/500",
+    "reasonHint": "Ce motif sera conservé dans le journal d’audit.",
+    "reasonLabel": "Motif de résiliation",
+    "reasonPlaceholder": "Saisissez un motif précis, par exemple « Résiliation demandée par l’utilisateur »",
+    "reasonTooShort": "Saisissez au moins 5 caractères.",
+    "summary": {
+      "accountLabel": "Compte utilisateur",
+      "courseCounts": "Brouillons {drafts} · Publiés {published}",
+      "coursesHint": "Les brouillons sont conservés et gelés ; les cours publiés doivent d’abord être transférés.",
+      "coursesLabel": "Cours",
+      "creditsExpireAtLabel": "Validité des crédits",
+      "creditsHint": "Le solde sera supprimé sans remboursement.",
+      "creditsLabel": "Solde de crédits",
+      "paidPackages": "Forfait payant :",
+      "preorders": "Forfait prépayé en attente :",
+      "subscriptions": "Abonnement renouvelé automatiquement :"
+    },
+    "title": "Résilier le compte",
+    "transfer": "Tout transférer",
+    "transferEmailPlaceholder": "E-mail du nouveau responsable",
+    "transferPhonePlaceholder": "Téléphone du nouveau responsable",
+    "transferRequired": "Transférez d’abord {count} cours publiés"
+  },
+  "contactChange": {
+    "back": "Revenir à la modification",
+    "cancel": "Annuler",
+    "confirm": "Confirmer le changement",
+    "email": {
+      "action": "Changer l’adresse e-mail",
+      "confirmDescription": "Vérifiez les informations de modification ci-dessous.",
+      "confirmTitle": "Confirmer la modification de l’adresse e-mail",
+      "currentLabel": "Adresse e-mail actuelle",
+      "description": "L’ancienne adresse e-mail sera dissociée et pourra servir à créer un nouveau compte. Les données existantes resteront inchangées.",
+      "newLabel": "Nouvelle adresse e-mail",
+      "newPlaceholder": "Saisissez la nouvelle adresse e-mail",
+      "sessionNotice": "Après cette modification, toutes les sessions seront révoquées. L’utilisateur devra se reconnecter avec la nouvelle adresse e-mail.",
+      "successDescription": "Toutes les sessions ont été révoquées. L’utilisateur doit se reconnecter avec la nouvelle adresse e-mail.",
+      "successTitle": "Adresse e-mail de l’utilisateur modifiée",
+      "title": "Changer l’adresse e-mail de l’utilisateur"
+    },
+    "errors": {
+      "emailInvalid": "Saisissez une adresse e-mail valide.",
+      "emailRequired": "Saisissez la nouvelle adresse e-mail.",
+      "emailUnchanged": "La nouvelle adresse e-mail est identique à l’adresse actuelle.",
+      "phoneInvalid": "Saisissez un numéro de téléphone valide à 11 chiffres.",
+      "phoneRequired": "Saisissez le nouveau numéro de téléphone.",
+      "phoneUnchanged": "Le nouveau numéro est identique au numéro actuel.",
+      "reasonRequired": "Indiquez la raison de ce changement.",
+      "submitFailed": "Le changement a échoué. Réessayez plus tard."
+    },
+    "phone": {
+      "action": "Changer le numéro de téléphone",
+      "confirmDescription": "Vérifiez les informations de modification ci-dessous.",
+      "confirmTitle": "Confirmer la modification du numéro",
+      "currentLabel": "Numéro actuel",
+      "description": "L’ancien numéro sera dissocié et pourra servir à créer un nouveau compte. Les données existantes resteront inchangées.",
+      "newLabel": "Nouveau numéro",
+      "newPlaceholder": "Saisissez le nouveau numéro",
+      "sessionNotice": "Après cette modification, toutes les sessions seront révoquées. L’utilisateur devra se reconnecter avec le nouveau numéro de téléphone.",
+      "successDescription": "Toutes les sessions ont été révoquées. L’utilisateur doit se reconnecter avec le nouveau numéro de téléphone.",
+      "successTitle": "Numéro de téléphone de l’utilisateur modifié",
+      "title": "Changer le numéro de l’utilisateur"
+    },
+    "reasonLabel": "Raison du changement",
+    "reasonPlaceholder": "Indiquez la raison de ce changement",
+    "submitting": "Envoi…"
   },
   "courseSummary": {
     "dialog": {
@@ -18,8 +115,38 @@
   "credits": {
     "longTerm": "Valide à long terme"
   },
+  "deductionDialog": {
+    "account": "Compte",
+    "amount": "Crédits à déduire",
+    "amountPlaceholder": "Saisissez un nombre positif avec 2 décimales maximum",
+    "back": "Retour",
+    "confirmButton": "Confirmer la déduction",
+    "confirmDescription": "Les crédits payants sont déduits en premier, puis les crédits attribués manuellement. Vérifiez avant de continuer.",
+    "confirmTitle": "Confirmer la déduction de crédits",
+    "continueButton": "Continuer",
+    "currentBalance": "Solde actuel de crédits",
+    "description": "Déduisez des crédits de ce compte. Les crédits cadeaux et récompenses sont exclus.",
+    "errors": {
+      "amount": "Saisissez un montant positif avec 2 décimales maximum.",
+      "submitFailed": "La déduction des crédits a échoué. Réessayez."
+    },
+    "note": "Note",
+    "notePlaceholder": "Note interne facultative",
+    "reason": "Motif",
+    "reasons": {
+      "account_correction": "Correction du compte",
+      "incorrect_grant": "Attribution incorrecte",
+      "other": "Autre"
+    },
+    "submitting": "Déduction en cours...",
+    "success": "Crédits déduits",
+    "title": "Déduire des crédits"
+  },
   "detail": {
     "basicInfo": "Informations de base",
+    "cancellationOperator": "Opérateur de résiliation",
+    "cancellationReason": "Motif de résiliation",
+    "cancelledAt": "Résilié le",
     "createdCourses": "Cours créés",
     "creditExpireAtHint": "Lorsque plusieurs périodes de validité existent, l’expiration la plus proche est affichée en premier.",
     "creditExpireAtHintAriaLabel": "Voir l’explication d’expiration des crédits",
@@ -219,6 +346,20 @@
       "validityPreset": "Validité"
     },
     "confirmTitle": "Confirmer l’attribution de crédits",
+    "customValidity": {
+      "actualExpiry": "Expiration réelle : {date}",
+      "estimatedExpiry": "Expiration estimée (confirmée à l’attribution)",
+      "hint": "Effet immédiat. Un jour dure 24 heures ; les mois et années suivent le calendrier, avec ajustement au dernier jour du mois si nécessaire.",
+      "invalid": "Saisissez une durée entière positive valide et choisissez jours, mois ou années.",
+      "summary": "Effet immédiat, valable {value} {unit}",
+      "unitLabel": "Unité de durée",
+      "units": {
+        "day": "jour(s)",
+        "month": "mois",
+        "year": "an(s)"
+      },
+      "valueLabel": "Durée"
+    },
     "description": "Utilisez cette fenêtre pour attribuer des crédits ou un forfait aux enseignants et opérateurs depuis les opérations.",
     "fields": {
       "amount": "Crédits",
@@ -247,9 +388,7 @@
       "note": "Optionnel. Indiquez la raison de cette attribution",
       "product": "Sélectionnez un forfait",
       "productLoading": "Chargement des forfaits…",
-      "referralRewardAmount": "Saisir les crédits de récompense",
-      "source": "Sélectionnez une source",
-      "validityPreset": "Sélectionnez une validité"
+      "referralRewardAmount": "Saisir les crédits de récompense"
     },
     "referralReward": {
       "bootstrapError": "Impossible de charger les données de récompense de parrainage. Veuillez réessayer plus tard.",
@@ -277,25 +416,14 @@
       "availableCredits": "Solde de crédits",
       "currentExpireAt": "Valide jusqu’au",
       "currentPackage": "Forfait actuel",
-      "nickname": "Pseudo",
-      "package": "Forfait"
+      "nickname": "Pseudo"
     },
     "title": "Attribuer crédits/forfait",
     "validation": {
       "amountRequired": "Saisissez un montant de crédits supérieur à 0",
       "productRequired": "Sélectionnez un forfait",
       "referralRewardAmountRequired": "Saisissez un nombre entier positif de crédits",
-      "sourceRequired": "Sélectionnez une source",
-      "validityPresetRequired": "Sélectionnez une validité"
-    },
-    "validityHint": "S’il n’existe aucun abonnement actif, la validité ne peut pas être définie sur « Aligner sur l’expiration de l’abonnement actuel ».",
-    "validityOptions": {
-      "alignSubscription": "Aligner sur l’expiration de l’abonnement actuel",
-      "oneDay": "1 jour après l’attribution",
-      "oneMonth": "1 mois après l’attribution",
-      "oneYear": "1 an après l’attribution",
-      "sevenDays": "7 jours après l’attribution",
-      "threeMonths": "3 mois après l’attribution"
+      "sourceRequired": "Sélectionnez une source"
     }
   },
   "loginMethodLabels": {
@@ -350,6 +478,7 @@
     "unknown": "Inconnu"
   },
   "statusLabels": {
+    "cancelled": "Résilié",
     "paid": "Payé",
     "registered": "Inscrit",
     "unknown": "Inconnu",

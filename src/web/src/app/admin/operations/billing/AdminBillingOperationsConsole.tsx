@@ -3,7 +3,7 @@
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import { AdminBillingEntitlementsTable } from '@/components/billing/AdminBillingEntitlementsTable';
 import { AdminBillingReportsPanel } from '@/components/billing/AdminBillingReportsPanel';

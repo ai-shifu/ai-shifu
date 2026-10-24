@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
 import { Maximize2 } from 'lucide-react';
-import { getDocumentFullscreenElement } from '@/c-utils/browserFullscreen';
+import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 import { LoadingDots } from '@/components/loading';
@@ -20,13 +20,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/Popover';
-import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
-import { resolveInteractionSubmission } from '@/c-utils/interaction-user-input';
-import { isLessonFeedbackInteractionContent } from '@/c-utils/lesson-feedback-interaction';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
+import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
+import { isLessonFeedbackInteractionContent } from '@/lib/lesson-feedback-interaction';
 import {
   isSystemInteractionContent,
   localizeSystemInteractionContent,
-} from '@/c-utils/system-interaction';
+} from '@/lib/system-interaction';
 import { type OnSendContentParams } from 'markdown-flow-ui/renderer';
 import {
   Slide,
@@ -37,6 +37,7 @@ import {
 } from 'markdown-flow-ui/slide';
 import { ChatContentItemType, type ChatContentItem } from './useChatLogicHook';
 import {
+  hasPlayableListenAudioForItem,
   resolveListenSlideAudioSource,
   resolveListenSlideElementType,
   resolveListenSlideSubtitleCues,
@@ -57,9 +58,15 @@ import {
   type ListenPlaybackSpeed,
   writeListenPlaybackSpeedToStorage,
 } from './listenPlaybackSpeed';
+import {
+  clearListenPlaybackCheckpoint,
+  readListenPlaybackCheckpoint,
+  writeListenPlaybackCheckpoint,
+} from './listenPlaybackCheckpoint';
+import { useTracking } from '@/hooks/useTracking';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
-import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
+import AskIcon from '@/assets/newchat/light/icon_ask.svg';
 import './ListenModeRenderer.scss';
 import { useListenContentData } from './useListenMode';
 import { buildAskListByAnchorElementBid } from './askState';
@@ -73,6 +80,8 @@ import {
 import { requestClassroomBrowserFullscreen } from '../learningModeUrl';
 import LearnerCourseShareButton from '../LearnerCourseShareButton';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import type { FollowUpPresentationMode } from './liveVoiceFollowUpMode';
+import type { LiveVoiceFollowUpController } from '@/components/live-follow-up/useLiveVoiceFollowUp';
 
 type ListenSlideElement = SlideElement & {
   blockBid?: string;
@@ -166,6 +175,9 @@ const shouldIgnoreClassroomPageShortcutEvent = (event: KeyboardEvent) => {
 };
 
 type ListenSlidePresentationVariant = 'listen' | 'classroom';
+const EMPTY_PENDING_AUDIO_BACKFILL_ELEMENT_BIDS: ReadonlySet<string> =
+  new Set();
+const trackedSlideTimelineExposureScopes = new Set<string>();
 
 interface ListenModeSlideRendererProps {
   items: ChatContentItem[];
@@ -173,7 +185,10 @@ interface ListenModeSlideRendererProps {
   chatRef: React.RefObject<HTMLDivElement>;
   variant?: ListenSlidePresentationVariant;
   isLoading?: boolean;
+  isGenerating?: boolean;
   sectionTitle?: string;
+  titleLanguage?: string;
+  contentLanguage?: string;
   courseName?: string;
   courseAvatar?: string;
   lessonId?: string;
@@ -189,7 +204,10 @@ interface ListenModeSlideRendererProps {
   onLessonFeedbackPromptStateChange?: (ready: boolean) => void;
   onMobileViewModeChange?: (viewMode: MobileViewMode) => void;
   pausePlaybackWhen?: boolean;
+  liveVoice?: LiveVoiceFollowUpController;
   disableInteractionEdits?: boolean;
+  followUpMode?: FollowUpPresentationMode;
+  pendingAudioBackfillElementBids?: ReadonlySet<string>;
 }
 
 interface ListenSlidePresentationProfile {
@@ -265,6 +283,7 @@ interface ListenSlideAskPlayerActionProps {
   onContextChange: (snapshot: PlayerCustomActionContextSnapshot) => void;
   disabled?: boolean;
   renderButton?: boolean;
+  onActivate?: (element?: ListenSlideElement) => void;
 }
 
 const ListenSlideAskPlayerAction = memo(
@@ -275,6 +294,7 @@ const ListenSlideAskPlayerAction = memo(
     onContextChange,
     disabled = false,
     renderButton = true,
+    onActivate,
   }: ListenSlideAskPlayerActionProps) => {
     const { currentElement, isActive, setActive, toggleActive } = context;
 
@@ -291,8 +311,13 @@ const ListenSlideAskPlayerAction = memo(
         return;
       }
 
+      if (onActivate) {
+        onActivate(currentElement as ListenSlideElement | undefined);
+        return;
+      }
+
       toggleActive();
-    }, [disabled, toggleActive]);
+    }, [currentElement, disabled, onActivate, toggleActive]);
 
     if (!renderButton) {
       return null;
@@ -727,7 +752,10 @@ const ListenModeSlideRenderer = ({
   chatRef,
   variant = 'listen',
   isLoading = false,
+  isGenerating = false,
   sectionTitle,
+  titleLanguage,
+  contentLanguage,
   courseName = '',
   courseAvatar = '',
   lessonId = '',
@@ -739,12 +767,15 @@ const ListenModeSlideRenderer = ({
   onLessonFeedbackPromptStateChange,
   onMobileViewModeChange,
   pausePlaybackWhen = false,
+  liveVoice,
   disableInteractionEdits = false,
+  followUpMode = 'text',
+  pendingAudioBackfillElementBids = EMPTY_PENDING_AUDIO_BACKFILL_ELEMENT_BIDS,
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
-  const markdownFlowLocale = resolveMarkdownFlowLocale(
-    i18n.resolvedLanguage ?? i18n.language,
-  );
+  const { trackEvent } = useTracking();
+  const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const markdownFlowLocale = resolveMarkdownFlowLocale(hostLanguage);
   const presentationProfile = resolveListenSlidePresentationProfile(variant);
   const {
     includeAudio,
@@ -789,6 +820,16 @@ const ListenModeSlideRenderer = ({
     isAudioPlaying: false,
     isAudioWaiting: false,
   });
+  const restoredPlaybackScopeRef = useRef('');
+  const trackedPlaybackRestoreScopeRef = useRef('');
+  const nextPlaybackRestoreRequestIdRef = useRef(0);
+  const [resolvedPlaybackRestoreScope, setResolvedPlaybackRestoreScope] =
+    useState('');
+  const [playbackRestoreRequest, setPlaybackRestoreRequest] = useState<{
+    audioKey: string;
+    id: number;
+    timeMs: number;
+  } | null>(null);
   const [hasSettledTailInteraction, setHasSettledTailInteraction] =
     useState(false);
   const [isMobileAskOpen, setIsMobileAskOpen] = useState(false);
@@ -988,9 +1029,203 @@ const ListenModeSlideRenderer = ({
     showLeadingTextPlaceholder,
     t,
   ]);
+
+  useEffect(() => {
+    const scopeKey = `${shifuBid}:${lessonId}`;
+    if (variant !== 'listen') {
+      restoredPlaybackScopeRef.current = '';
+      setPlaybackRestoreRequest(null);
+      setResolvedPlaybackRestoreScope('');
+      return;
+    }
+
+    if (!shifuBid || !lessonId) {
+      restoredPlaybackScopeRef.current = '';
+      setPlaybackRestoreRequest(null);
+      setResolvedPlaybackRestoreScope('');
+      return;
+    }
+
+    if (restoredPlaybackScopeRef.current === scopeKey) {
+      return;
+    }
+
+    restoredPlaybackScopeRef.current = scopeKey;
+    setResolvedPlaybackRestoreScope('');
+    setPlaybackRestoreRequest(null);
+    const checkpoint = readListenPlaybackCheckpoint({
+      courseId: shifuBid,
+      lessonId,
+    });
+    if (checkpoint) {
+      nextPlaybackRestoreRequestIdRef.current += 1;
+      setPlaybackRestoreRequest({
+        ...checkpoint,
+        id: nextPlaybackRestoreRequestIdRef.current,
+      });
+      if (!previewMode && trackedPlaybackRestoreScopeRef.current !== scopeKey) {
+        trackedPlaybackRestoreScopeRef.current = scopeKey;
+        void Promise.resolve(
+          trackEvent('learner_listen_resume_requested', {
+            shifu_bid: shifuBid,
+            surface: 'learner_listen',
+          }),
+        ).catch(() => {});
+      }
+    }
+    setResolvedPlaybackRestoreScope(scopeKey);
+  }, [lessonId, previewMode, shifuBid, trackEvent, variant]);
+
+  const playbackRestoreScopeKey = `${shifuBid}:${lessonId}`;
+  const playbackRestoreTargetState = useMemo(() => {
+    if (!playbackRestoreRequest) {
+      return { exists: false, isPlayable: false, isPendingBackfill: false };
+    }
+
+    const matchingItems = items.filter(
+      item => item.element_bid === playbackRestoreRequest.audioKey,
+    );
+
+    return {
+      exists: matchingItems.length > 0,
+      isPlayable: matchingItems.some(hasPlayableListenAudioForItem),
+      isPendingBackfill: pendingAudioBackfillElementBids.has(
+        playbackRestoreRequest.audioKey,
+      ),
+    };
+  }, [items, pendingAudioBackfillElementBids, playbackRestoreRequest]);
+  const isPlaybackRestoreReady =
+    variant !== 'listen' ||
+    (Boolean(shifuBid && lessonId) &&
+      resolvedPlaybackRestoreScope === playbackRestoreScopeKey &&
+      (!playbackRestoreRequest || playbackRestoreTargetState.isPlayable));
+
+  useEffect(() => {
+    if (
+      variant !== 'listen' ||
+      isLoading ||
+      !shifuBid ||
+      !lessonId ||
+      !playbackRestoreRequest
+    ) {
+      return;
+    }
+
+    // Returning from reading mode can restore the historical element before
+    // its audio backfill completes. The checkpoint is still valid in that
+    // state, so keep both the request and the startup gate until audio arrives.
+    if (playbackRestoreTargetState.isPlayable) {
+      return;
+    }
+
+    if (
+      playbackRestoreTargetState.exists &&
+      playbackRestoreTargetState.isPendingBackfill
+    ) {
+      return;
+    }
+
+    clearListenPlaybackCheckpoint({ courseId: shifuBid, lessonId });
+    setPlaybackRestoreRequest(currentRequest =>
+      currentRequest?.id === playbackRestoreRequest.id ? null : currentRequest,
+    );
+  }, [
+    isLoading,
+    lessonId,
+    playbackRestoreRequest,
+    playbackRestoreTargetState.exists,
+    playbackRestoreTargetState.isPlayable,
+    playbackRestoreTargetState.isPendingBackfill,
+    shifuBid,
+    variant,
+  ]);
+
+  const handlePlaybackCheckpoint = useCallback(
+    ({
+      audioKey,
+      isComplete,
+      timeMs,
+    }: {
+      audioKey: string;
+      isComplete: boolean;
+      timeMs: number;
+    }) => {
+      if (variant !== 'listen' || !shifuBid || !lessonId) {
+        return;
+      }
+
+      if (isComplete) {
+        clearListenPlaybackCheckpoint({ courseId: shifuBid, lessonId });
+        return;
+      }
+
+      writeListenPlaybackCheckpoint(
+        { courseId: shifuBid, lessonId },
+        { audioKey, timeMs },
+      );
+    },
+    [lessonId, shifuBid, variant],
+  );
   const markerStepCount = useMemo(
     () => elementList.filter(element => Boolean(element.is_marker)).length,
     [elementList],
+  );
+  const generatedTimelineStepCount = useMemo(
+    () =>
+      elementList.filter(
+        element =>
+          Boolean(element.is_marker) && element.blockBid !== 'empty-ppt',
+      ).length,
+    [elementList],
+  );
+  useEffect(() => {
+    if (
+      variant !== 'listen' ||
+      previewMode ||
+      generatedTimelineStepCount < 2 ||
+      !shifuBid ||
+      !lessonId
+    ) {
+      return;
+    }
+
+    const exposureScope = `${shifuBid}:${lessonId}`;
+    if (trackedSlideTimelineExposureScopes.has(exposureScope)) {
+      return;
+    }
+    trackedSlideTimelineExposureScopes.add(exposureScope);
+
+    void Promise.resolve(
+      trackEvent('learner_listen_slide_timeline_exposed', {
+        generated_step_count: generatedTimelineStepCount,
+        shifu_bid: shifuBid,
+        surface: 'learner_listen',
+      }),
+    ).catch(() => {});
+  }, [
+    generatedTimelineStepCount,
+    lessonId,
+    previewMode,
+    shifuBid,
+    trackEvent,
+    variant,
+  ]);
+  const handleSlideProgressNavigate = useCallback(
+    (_element: unknown, targetStepIndex: number) => {
+      if (variant !== 'listen' || previewMode || !shifuBid) {
+        return;
+      }
+
+      void Promise.resolve(
+        trackEvent('learner_listen_slide_navigate', {
+          generated_step_count: generatedTimelineStepCount,
+          shifu_bid: shifuBid,
+          surface: 'learner_listen',
+          target_step_index: targetStepIndex,
+        }),
+      ).catch(() => {});
+    },
+    [generatedTimelineStepCount, previewMode, shifuBid, trackEvent, variant],
   );
   const renderedElementList = useMemo(
     () =>
@@ -1097,6 +1332,39 @@ const ListenModeSlideRenderer = ({
     isMobileAskOpen || !mobileAskPanelElementBid
       ? resolvedAskElementBid
       : mobileAskPanelElementBid;
+  const renderedAskElementBid = mobileStyle
+    ? renderedMobileAskElementBid
+    : renderedPlayerCustomAskElementBid;
+  const isAskPanelOpen = mobileStyle
+    ? isMobileAskOpen
+    : playerCustomActionState.isActive;
+  const liveVoiceAnchor = liveVoice?.anchorElementBid;
+  const hasLiveVoiceSession =
+    Boolean(liveVoice?.paused) ||
+    (liveVoice !== undefined && liveVoice.state !== 'ended');
+  const closeLiveVoice = liveVoice?.close;
+  useLayoutEffect(() => {
+    // A collapsed panel retains its session, but a new slide must not inherit
+    // that anchor's attempt. End it before the new input can be submitted;
+    // the controller still owns credential expiry and admission guards.
+    if (
+      followUpMode === 'live_voice' &&
+      isAskPanelOpen &&
+      hasLiveVoiceSession &&
+      renderedAskElementBid &&
+      liveVoiceAnchor &&
+      liveVoiceAnchor !== renderedAskElementBid
+    ) {
+      closeLiveVoice?.();
+    }
+  }, [
+    closeLiveVoice,
+    followUpMode,
+    hasLiveVoiceSession,
+    isAskPanelOpen,
+    liveVoiceAnchor,
+    renderedAskElementBid,
+  ]);
   const resolveAskListByElementBid = useCallback(
     (elementBid: string) => {
       if (!elementBid) {
@@ -1137,6 +1405,7 @@ const ListenModeSlideRenderer = ({
     resolvedAskElementBid,
   ]);
   const isAskActionDisabled = currentAskTargetElement?.type === 'interaction';
+  const isFollowUpDisabled = followUpMode === 'disabled';
 
   const handleInteractionSend = useCallback(
     (content: OnSendContentParams, element?: SlideElement) => {
@@ -1850,6 +2119,10 @@ const ListenModeSlideRenderer = ({
         />
       );
 
+      if (isFollowUpDisabled) {
+        return playbackSpeedAction;
+      }
+
       if (mobileStyle) {
         return (
           <>
@@ -1883,6 +2156,7 @@ const ListenModeSlideRenderer = ({
       handleListenPlaybackSpeedChange,
       handlePlayerCustomActionContextChange,
       isAskActionDisabled,
+      isFollowUpDisabled,
       mobileStyle,
       playbackSpeed,
       t,
@@ -1890,7 +2164,10 @@ const ListenModeSlideRenderer = ({
   );
 
   const shouldRenderMobileAskEntry =
-    showMobileAskEntry && mobileStyle && !shouldRenderEmptyPpt;
+    showMobileAskEntry &&
+    !isFollowUpDisabled &&
+    mobileStyle &&
+    !shouldRenderEmptyPpt;
   const isMobileFullscreen = mobileViewMode === 'fullscreen';
   const fullscreenHeaderContent = useMemo(() => {
     if (!courseName && !sectionTitle) {
@@ -1910,12 +2187,18 @@ const ListenModeSlideRenderer = ({
           ) : null}
           <div className='flex min-w-0 flex-col justify-center'>
             {courseName ? (
-              <span className='truncate text-base font-bold leading-5 text-current'>
+              <span
+                className='truncate text-base font-bold leading-5 text-current'
+                lang={titleLanguage}
+              >
                 {courseName}
               </span>
             ) : null}
             {sectionTitle ? (
-              <span className='truncate text-xs leading-4 text-current opacity-80'>
+              <span
+                className='truncate text-xs leading-4 text-current opacity-80'
+                lang={titleLanguage}
+              >
                 {sectionTitle}
               </span>
             ) : null}
@@ -1930,7 +2213,7 @@ const ListenModeSlideRenderer = ({
         )}
       </div>
     );
-  }, [courseAvatar, courseName, previewMode, sectionTitle]);
+  }, [courseAvatar, courseName, previewMode, sectionTitle, titleLanguage]);
   const fullscreenHeader = useMemo(
     () => ({
       content: fullscreenHeaderContent,
@@ -2034,11 +2317,15 @@ const ListenModeSlideRenderer = ({
 
   const shouldRenderDesktopAskOverlay =
     showAskOverlays &&
+    !isFollowUpDisabled &&
     isDesktopAskPanelMounted &&
     !mobileStyle &&
     !shouldRenderEmptyPpt;
   const shouldRenderMobileAskPanel =
-    showAskOverlays && isMobileAskPanelMounted && !shouldRenderEmptyPpt;
+    showAskOverlays &&
+    !isFollowUpDisabled &&
+    isMobileAskPanelMounted &&
+    !shouldRenderEmptyPpt;
   const shouldRenderManualFullscreenButton =
     showManualFullscreenButton && !isClassroomFullscreenActive;
   const listenPlayerClassName =
@@ -2054,6 +2341,9 @@ const ListenModeSlideRenderer = ({
       <div className='slide-player__ask-card'>
         <div className='slide-player__ask-body'>
           <AskBlock
+            followUpMode={followUpMode}
+            liveVoice={liveVoice}
+            liveVoiceSurface='listen_player'
             askList={playerCustomAskList}
             className='listen-slide-ask-block'
             element_bid={renderedPlayerCustomAskElementBid}
@@ -2101,6 +2391,9 @@ const ListenModeSlideRenderer = ({
                   style={isMobileAskOpen ? undefined : { display: 'none' }}
                 >
                   <AskBlock
+                    followUpMode={followUpMode}
+                    liveVoice={liveVoice}
+                    liveVoiceSurface='listen_player'
                     askList={currentAskList}
                     className='listen-slide-ask-block'
                     element_bid={renderedMobileAskElementBid}
@@ -2122,6 +2415,9 @@ const ListenModeSlideRenderer = ({
                 style={isMobileAskOpen ? undefined : { display: 'none' }}
               >
                 <AskBlock
+                  followUpMode={followUpMode}
+                  liveVoice={liveVoice}
+                  liveVoiceSurface='listen_player'
                   askList={currentAskList}
                   className='listen-slide-ask-block'
                   element_bid={renderedMobileAskElementBid}
@@ -2146,6 +2442,8 @@ const ListenModeSlideRenderer = ({
             isMobileFullscreen && 'listen-slide-root--landscape',
           )}
           locale={markdownFlowLocale}
+          // Known guide output language is independent of its title and UI.
+          lang={contentLanguage ?? ''}
           elementList={renderedElementList}
           interactionTexts={{
             title: t('module.chat.listenInteractionHint'),
@@ -2154,6 +2452,8 @@ const ListenModeSlideRenderer = ({
             waitingForAudio: t('module.chat.thinking'),
           }}
           onPlayerVisibilityChange={onPlayerVisibilityChange}
+          onPlaybackCheckpoint={handlePlaybackCheckpoint}
+          onSlideProgressNavigate={handleSlideProgressNavigate}
           onStepChange={handleStepChange}
           interactionDefaultValueOptions={
             lessonFeedbackInteractionDefaultValueOptions
@@ -2162,6 +2462,7 @@ const ListenModeSlideRenderer = ({
           fullscreenHeader={fullscreenHeader}
           onSend={handleInteractionSend}
           onMobileViewModeChange={handleMobileViewModeChange}
+          playbackRestoreRequest={playbackRestoreRequest}
           playerClassName={cn(
             listenPlayerClassName,
             mobileStyle ? 'listen-slide-player-mobile' : '',
@@ -2169,7 +2470,9 @@ const ListenModeSlideRenderer = ({
           )}
           playerCustomActionPauseOnActive={pausePlayerCustomActionOnActive}
           playerCustomActions={enableCustomActions ? playerCustomActions : null}
-          playerEnabled={!shouldRenderEmptyPpt}
+          playerEnabled={!shouldRenderEmptyPpt && isPlaybackRestoreReady}
+          isSlideProgressGenerating={variant === 'listen' && isGenerating}
+          showSlideProgress={variant === 'listen'}
         />
         {shouldRenderManualFullscreenButton ? (
           <button

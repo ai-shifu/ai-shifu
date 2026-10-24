@@ -2,13 +2,47 @@
 
 This directory contains utility scripts for managing AI-Shifu configuration.
 
+## backfill_profile_onboarding_assistant_prompts.py
+
+Run this once when adding a new supported language to an installation with an
+existing profile-onboarding configuration. Use the upgraded API runtime, with its
+database and LLM settings available, before exposing the new locale in the learner UI.
+For a Docker Compose installation, run from the repository root:
+
+```bash
+cd docker
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py --locale ur-PK
+docker compose -f docker-compose.latest.yml exec -T ai-shifu-api python scripts/backfill_profile_onboarding_assistant_prompts.py --locale ur-PK --apply
+```
+
+For a source-checkout installation, run from the repository root instead:
+
+```bash
+cd src/api
+python scripts/backfill_profile_onboarding_assistant_prompts.py --locale ur-PK
+python scripts/backfill_profile_onboarding_assistant_prompts.py --locale ur-PK --apply
+```
+
+The first command previews the stored configuration without a model call or
+write. `--apply` localizes the saved master prompt and atomically fills missing
+registered locales, preserving existing translations. Omitting `--locale`
+continues to target Spanish for compatibility with older runbooks. It prints only a status
+and configuration revision plus the generated locale codes, never the prompt
+text. If an older map lacks languages besides Urdu, the existing save path
+fills those missing languages in the same run. `already_present` means a
+repeat run has nothing to do. `no_configuration` or `no_master_prompt` means
+there is no saved prompt to translate; configure the onboarding prompt through
+the operator UI if that feature is needed. A generation or concurrent-save
+failure leaves the previous configuration intact; retry after resolving it.
+Existing learner sessions retain their original frozen prompt.
+
 ## generate_env_examples.py
 
 Generates the environment configuration example file from the application's configuration definitions.
 
 ### Purpose
 
-This script automatically generates `.env.example.full`, which contains every environment variable with defaults and documentation. Copy it to `.env` and set at least one LLM API key before starting Docker.
+This script automatically generates `.env.example.full`, which contains every environment variable with defaults and documentation. Copy it to `.env`, configure a provider API key, and set `LLM_MODEL_1_ID` to a text model served by that provider before starting Docker. Only model 1's ID is required and has no default; IDs 2-9 are optional. Every model name is optional: omitted or blank names display the configured model ID. A name without an ID does not enable an option.
 
 ### Usage
 
@@ -44,30 +78,22 @@ Run this script when:
 
 ### Example Output
 
-The script provides helpful output:
+The script reports current variable counts and required settings. Its required-settings output includes:
 
 ```
-✅ Generated full configuration: .env.example.full
-
-📊 Summary:
-  - Total variables: 151
-  - Required variables: 2
-  - Optional variables: 149
-
 📌 Required variables that must be configured:
-  [AUTH]
-    - SECRET_KEY
-    - UNIVERSAL_VERIFICATION_CODE
-  [DATABASE]
-    - SQLALCHEMY_DATABASE_URI
+  [LLM]
+    - LLM_MODEL_1_ID
+      Routed text model for course model 1. Required; no default.
 ```
 
 ### Configuration Workflow
 
 1. Run the generation script.
 2. Copy `docker/.env.example.full` to `docker/.env`.
-3. Edit `.env` and configure at least one LLM API key plus any other secrets you need.
-4. Never commit `.env` to version control.
+3. Edit `.env` and configure a provider API key, required `LLM_MODEL_1_ID` and any other secrets you need. Names are optional; blank names display the configured IDs. The template intentionally leaves model mappings empty.
+4. For existing installations, complete [Upgrading to numbered models](../../../INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new API or workers.
+5. Never commit `.env` to version control.
 
 ## harness_diagnostics.py
 

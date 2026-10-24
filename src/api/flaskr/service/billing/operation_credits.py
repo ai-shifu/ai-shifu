@@ -7,9 +7,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
-from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
 from sqlalchemy import or_
@@ -20,9 +20,7 @@ from .bucket_categories import (
     load_billing_order_type_by_bid,
     wallet_bucket_requires_active_subscription,
 )
-from .charges import build_metric_charge
 from .consts import (
-    BILLING_METRIC_TTS_REQUEST_COUNT,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_LEDGER_ENTRY_TYPE_HOLD,
@@ -42,13 +40,15 @@ if TYPE_CHECKING:
 _ZERO = Decimal(0)
 
 
-@dataclass(slots=True, frozen=True)
-class OperationCreditEstimate:
-    """Estimate credits required for one metered operation."""
-
-    consumed_credits: Decimal
-    billing_metric: int = BILLING_METRIC_TTS_REQUEST_COUNT
-    status: str = "rated"
+def _lock_active_creator(creator_bid: str) -> None:
+    """Serialize reservation lifecycle changes with account cancellation."""
+    user = (
+        UserInfo.query.filter(UserInfo.user_bid == creator_bid)
+        .with_for_update()
+        .first()
+    )
+    if user is not None and user.deleted:
+        raise_error("server.user.accountAlreadyCancelled")
 
 
 @dataclass(slots=True, frozen=True)
@@ -85,33 +85,6 @@ class OperationCreditReleaseResult:
     amount: Decimal
 
 
-def estimate_voice_clone_operation_credits(app: Flask) -> OperationCreditEstimate:
-    """Estimate MiniMax voice-clone cost using only configured active rates."""
-    with app.app_context():
-        now = now_utc()
-        usage = BillUsageRecord(
-            usage_type=BILL_USAGE_TYPE_TTS,
-            usage_scene=BILL_USAGE_SCENE_PREVIEW,
-            provider="minimax",
-            model="voice_clone",
-        )
-        charge = build_metric_charge(
-            usage,
-            billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
-            raw_amount=1,
-            settlement_at=now,
-        )
-        if charge is None:
-            return OperationCreditEstimate(consumed_credits=_ZERO, status="no_rate")
-        return OperationCreditEstimate(
-            consumed_credits=billing_primitives.quantize_credit_amount(
-                charge.consumed_credits
-            ),
-            billing_metric=int(charge.billing_metric),
-            status="rated",
-        )
-
-
 def reserve_operation_credits(
     app: Flask,
     *,
@@ -134,7 +107,8 @@ def reserve_operation_credits(
             amount=_ZERO,
         )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
+        _lock_active_creator(normalized_creator_bid)
         idempotency_key = _reserve_idempotency_key(
             normalized_operation_type,
             normalized_operation_bid,
@@ -218,7 +192,6 @@ def reserve_operation_credits(
             metadata_json=ledger_metadata,
         )
         db.session.add(ledger)
-        db.session.commit()
         return OperationCreditReservationResult(
             status="reserved",
             reservation_bid=ledger_bid,
@@ -241,9 +214,10 @@ def capture_reserved_operation_credits(
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
     normalized_usage_bid = _require_bid(usage_bid, "usage_bid")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         hold = _load_hold(normalized_reservation_bid)
         creator_bid = str(hold.creator_bid or "")
+        _lock_active_creator(creator_bid)
         idempotency_key = _capture_idempotency_key(
             normalized_reservation_bid,
             normalized_usage_bid,
@@ -304,7 +278,6 @@ def capture_reserved_operation_credits(
             },
         )
         db.session.add(ledger)
-        db.session.commit()
         return OperationCreditCaptureResult(
             status="captured",
             reservation_bid=normalized_reservation_bid,
@@ -323,9 +296,10 @@ def release_reserved_operation_credits(
     """Release reserved operation credits."""
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         hold = _load_hold(normalized_reservation_bid)
         creator_bid = str(hold.creator_bid or "")
+        _lock_active_creator(creator_bid)
         if _reservation_has_capture(creator_bid, normalized_reservation_bid):
             return OperationCreditReleaseResult(
                 status="already_captured",
@@ -379,7 +353,6 @@ def release_reserved_operation_credits(
             },
         )
         db.session.add(ledger)
-        db.session.commit()
         return OperationCreditReleaseResult(
             status="released",
             reservation_bid=normalized_reservation_bid,

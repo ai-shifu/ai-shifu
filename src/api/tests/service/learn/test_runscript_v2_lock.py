@@ -1,5 +1,6 @@
 """Verify runscript v2 lock behavior."""
 
+import contextlib
 import json
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
@@ -16,6 +17,23 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
+
+
+@pytest.fixture(autouse=True)
+def _route_checkpoint_commit_to_patched_session(monkeypatch: object) -> None:
+    """Make the step checkpoint call ``runscript_v2.db.session.commit()``.
+
+    The checkpoint goes through ``unit_of_work()`` (which commits the real
+    scoped session); tests here observe commits on a patched
+    ``runscript_v2.db`` instead, so route the commit there.
+    """
+
+    @contextlib.contextmanager
+    def _fake_unit_of_work() -> Iterator[None]:
+        yield
+        runscript_v2.db.session.commit()
+
+    monkeypatch.setattr(runscript_v2, "unit_of_work", _fake_unit_of_work)
 
 
 @pytest.fixture(autouse=True)

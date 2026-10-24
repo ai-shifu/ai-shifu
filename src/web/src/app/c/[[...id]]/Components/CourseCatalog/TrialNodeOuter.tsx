@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import { shifu } from '@/c-service/Shifu';
+import { shifu } from '@/lib/shifu/Shifu';
 import styles from './TrialNodeOuter.module.scss';
 import { useTranslation } from 'react-i18next';
 import {

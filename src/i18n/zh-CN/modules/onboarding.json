@@ -1,21 +1,5 @@
 {
   "__namespace__": "module.onboarding",
-  "adminHome": {
-    "billingCard": {
-      "descriptionGeneric": "在这里查看可用积分，开通订阅或购买积分。",
-      "title": "积分和套餐"
-    },
-    "blankCourse": {
-      "description": "从这里创建一门新课程，再从零开始编辑内容。",
-      "title": "新建空白课程"
-    },
-    "lobsterCourse": {
-      "descriptionLink": "AI 助理（龙虾）智能建课",
-      "descriptionPrefix": "也可以使用",
-      "descriptionSuffix": "，并和其它 Skill 协作，根据你的资料和要求先生成一版可编辑的课程初稿。",
-      "title": "用 AI 助理（龙虾）生成课程初稿"
-    }
-  },
   "common": {
     "continue": "点击屏幕任意位置继续",
     "skip": "跳过"

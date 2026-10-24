@@ -9,7 +9,7 @@ import {
   syncPaymentOrder,
   type PayUrlRequest,
   type PaymentChannel,
-} from '@/c-api/order';
+} from '@/api/order';
 import { ORDER_STATUS } from '../constans';
 
 interface PriceItem {
@@ -89,6 +89,7 @@ export const usePaymentFlow = ({
 }: UsePaymentFlowOptions) => {
   const mountedRef = useRef(true);
   const nativeSyncLastAtRef = useRef(0);
+  const paymentRefreshSequenceRef = useRef(0);
   useEffect(() => {
     return () => {
       mountedRef.current = false;
@@ -129,10 +130,7 @@ export const usePaymentFlow = ({
       setPriceItems(
         snapshot.price_item?.filter(item => item?.is_discount) || [],
       );
-      const valueToPayNumber = Number(snapshot.value_to_pay);
-      const isFreeOrder =
-        !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
-      if (snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS || isFreeOrder) {
+      if (snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
         setIsCompleted(true);
         setPollingActive(false);
         onOrderPaid?.();
@@ -164,6 +162,7 @@ export const usePaymentFlow = ({
     setIsTimeout(false);
     setCountDownMs(MAX_TIMEOUT);
     setPaymentInfo(defaultPaymentInfo);
+    paymentRefreshSequenceRef.current += 1;
     nativeSyncLastAtRef.current = 0;
     try {
       const snapshot = await initOrderUniform();
@@ -188,6 +187,7 @@ export const usePaymentFlow = ({
   const refreshPayment = useCallback(
     async ({ channel, paymentChannel, snapshot }: PaymentActionParams) => {
       if (!orderIdRef.current) return null;
+      const refreshSequence = ++paymentRefreshSequenceRef.current;
       setIsLoading(true);
       try {
         const current =
@@ -195,18 +195,16 @@ export const usePaymentFlow = ({
           ((await queryOrder({
             orderId: orderIdRef.current,
           })) as OrderSnapshot | null);
-        if (!mountedRef.current || !current) {
-          return current;
+        if (
+          !mountedRef.current ||
+          refreshSequence !== paymentRefreshSequenceRef.current ||
+          !current
+        ) {
+          return null;
         }
         updateFromOrder(current);
         const currentSnapshot = current;
-        const valueToPayNumber = Number(currentSnapshot.value_to_pay);
-        const isFreeOrder =
-          !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
-        if (
-          currentSnapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS ||
-          isFreeOrder
-        ) {
+        if (currentSnapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
           return current;
         }
         const payload = await getPayUrl({
@@ -214,8 +212,12 @@ export const usePaymentFlow = ({
           orderId: orderIdRef.current,
           paymentChannel,
         } as PayUrlRequest);
-        if (!mountedRef.current || !payload) {
-          return payload;
+        if (
+          !mountedRef.current ||
+          refreshSequence !== paymentRefreshSequenceRef.current ||
+          !payload
+        ) {
+          return null;
         }
         setPaymentInfo({
           channel: payload.channel,
@@ -236,7 +238,10 @@ export const usePaymentFlow = ({
         }
         return payload;
       } finally {
-        if (mountedRef.current) {
+        if (
+          mountedRef.current &&
+          refreshSequence === paymentRefreshSequenceRef.current
+        ) {
           setIsLoading(false);
         }
       }
@@ -245,7 +250,7 @@ export const usePaymentFlow = ({
   );
 
   const applyCoupon = useCallback(
-    async ({ code, channel, paymentChannel }: PaymentCouponParams) => {
+    async ({ code }: PaymentCouponParams) => {
       if (!orderIdRef.current) return null;
       const resp = await applyDiscountCode({
         orderId: orderIdRef.current,
@@ -256,19 +261,9 @@ export const usePaymentFlow = ({
       }
       setCouponCode(code);
       updateFromOrder(resp as OrderSnapshot);
-      if (
-        resp.status === ORDER_STATUS.BUY_STATUS_INIT ||
-        resp.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID
-      ) {
-        await refreshPayment({
-          channel,
-          paymentChannel,
-          snapshot: resp as OrderSnapshot,
-        });
-      }
       return resp;
     },
-    [refreshPayment, updateFromOrder],
+    [updateFromOrder],
   );
 
   useInterval(

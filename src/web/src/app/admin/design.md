@@ -217,8 +217,8 @@ src/app/admin/components/AdminFilter.tsx
 后台所有表格优先使用：
 
 ```text
-src/app/admin/components/AdminTableShell.tsx
-src/app/admin/components/adminTableStyles.ts
+src/components/admin/AdminTableShell.tsx
+src/components/admin/adminTableStyles.ts
 src/components/ui/Table.tsx
 ```
 
@@ -316,7 +316,7 @@ loading 态需要保持底部分页和说明时，传入 `showFooterWhenLoading`
 底层使用：
 
 ```text
-src/app/admin/components/AdminPagination.tsx
+src/components/admin/AdminPagination.tsx
 ```
 
 规则：
@@ -448,7 +448,7 @@ src/app/admin/components/AdminCountCard.tsx
 - 行高：`20px`
 - 单行省略
 
-### 8.5 课程描述
+### 8.5 课程简介
 
 - 距离头像 / 标题行：`16px`
 - 颜色：`rgba(10, 10, 10, 0.65)`
@@ -548,9 +548,7 @@ admin 页面以桌面工作台为主，但仍需保持窄屏基本可用。
 
 新增或修改 admin 页面文案时，必须同步：
 
-- `src/i18n/zh-CN/...`
-- `src/i18n/en-US/...`
-- `src/i18n/fr-FR/...`
+- `src/i18n/locales.json` 所列每种语言下的对应 JSON 文件
 - `src/web/src/types/i18n-keys.d.ts`
 
 新增 i18n key 后运行：
@@ -584,11 +582,11 @@ npm run i18n:keys
 ```text
 src/app/admin/components/AdminTitle.tsx
 src/app/admin/components/AdminFilter.tsx
-src/app/admin/components/AdminTableShell.tsx
+src/components/admin/AdminTableShell.tsx
 src/app/admin/components/AdminCountCard.tsx
-src/app/admin/components/AdminPagination.tsx
+src/components/admin/AdminPagination.tsx
 src/app/admin/components/AdminTooltipText.tsx
-src/app/admin/components/adminTableStyles.ts
+src/components/admin/adminTableStyles.ts
 ```
 
 除非有明确业务原因，不应在具体页面重新实现上述组件已覆盖的布局和视觉能力。

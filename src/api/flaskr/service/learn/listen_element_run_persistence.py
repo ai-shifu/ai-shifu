@@ -156,6 +156,14 @@ class ListenElementRunPersistenceMixin:
             return
         snapshots.pop(base_element_bid, None)
 
+    def finalized_element_identities(self) -> list[tuple[str, str]]:
+        """Expose final snapshot identities, including text persisted without a live patch."""
+        return [
+            (element.generated_block_bid, element_bid)
+            for element_bid, element in self._latest_element_snapshots.items()
+            if element.is_final and element.generated_block_bid and element_bid
+        ]
+
     def _load_block_meta(self, generated_block_bid: str) -> BlockMeta:
         if generated_block_bid in self._block_meta_cache:
             return self._block_meta_cache[generated_block_bid]

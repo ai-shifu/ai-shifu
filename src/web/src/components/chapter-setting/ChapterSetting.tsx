@@ -9,14 +9,15 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
 import api from '@/api';
-import { LEARNING_PERMISSION, LearningPermission } from '@/c-api/studyV2';
+import { LEARNING_PERMISSION, LearningPermission } from '@/api/studyV2';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
+import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
+import type { LessonCreationSettings } from '@/types/shifu';
 import Image from 'next/image';
 import guestIcon from './icons/svg-guest.svg';
 import trialIcon from './icons/svg-trial.svg';
@@ -32,16 +33,11 @@ type ChapterSettingsDialogProps = {
   onOpenChange?: (open: boolean) => void;
   variant?: 'chapter' | 'lesson';
   footerActionLabel?: string;
-  onFooterAction?: (data: {
-    learningPermission: LearningPermission;
-    isHidden: boolean;
-    systemPrompt: string;
-    name: string;
-  }) => void;
+  onFooterAction?: (data: LessonCreationSettings) => void;
   onDeleteRequest?: () => void;
   deleteButtonLabel?: string;
   onChange?: (data: {
-    learningPermission: LearningPermission;
+    learningPermission?: LearningPermission;
     isHidden: boolean;
     name: string;
     variant: 'chapter' | 'lesson';
@@ -65,7 +61,7 @@ const ChapterSettingsDialog = ({
   const { trackEvent } = useTracking();
   const { t } = useTranslation();
   const [learningPermission, setLearningPermission] =
-    useState<LearningPermission>(LEARNING_PERMISSION.TRIAL);
+    useState<LearningPermission>();
   const [systemPrompt, setSystemPrompt] = useState('');
   const [hideChapter, setHideChapter] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -75,17 +71,16 @@ const ChapterSettingsDialog = ({
     title: string;
     systemPrompt: string;
     hideChapter: boolean;
-    learningPermission: LearningPermission;
+    learningPermission?: LearningPermission;
   }>({
     title: '',
     systemPrompt: '',
     hideChapter: false,
-    learningPermission: LEARNING_PERMISSION.TRIAL,
   });
 
   const fetchOutlineInfo = useCallback(async () => {
     if (!outlineBid) {
-      setLearningPermission(LEARNING_PERMISSION.TRIAL);
+      setLearningPermission(undefined);
       setSystemPrompt('');
       setHideChapter(false);
       setIsDirty(false);
@@ -94,7 +89,6 @@ const ChapterSettingsDialog = ({
         title: '',
         systemPrompt: '',
         hideChapter: false,
-        learningPermission: LEARNING_PERMISSION.TRIAL,
       };
       return;
     }
@@ -108,8 +102,9 @@ const ChapterSettingsDialog = ({
         return;
       }
 
-      const normalizedLearningPermission =
-        (result.type as LearningPermission) || LEARNING_PERMISSION.TRIAL;
+      const normalizedLearningPermission = result.type as
+        | LearningPermission
+        | undefined;
       const normalizedSystemPrompt = result.system_prompt ?? '';
       const normalizedHidden = result.is_hidden ?? false;
       const normalizedTitle = result.name ?? '';
@@ -166,7 +161,7 @@ const ChapterSettingsDialog = ({
         }
 
         const trimmedTitle = title.trim();
-        if (!trimmedTitle) {
+        if (!trimmedTitle || (isLesson && !learningPermission)) {
           return;
         }
         if (!hasFormChanges(trimmedTitle)) {
@@ -177,6 +172,12 @@ const ChapterSettingsDialog = ({
           return;
         }
 
+        const promptChange =
+          initialValuesRef.current.systemPrompt === systemPrompt
+            ? 'unchanged'
+            : systemPrompt.trim()
+              ? 'updated'
+              : 'cleared';
         const payload: Record<string, unknown> = {
           outline_bid: outlineBid,
           shifu_bid: currentShifu?.bid,
@@ -188,7 +189,7 @@ const ChapterSettingsDialog = ({
           | 'creator_outline_setting_save'
           | 'creator_outline_prompt_save' = 'creator_outline_setting_save';
 
-        if (isLesson) {
+        if (isLesson && learningPermission) {
           const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
           const requiresLogin =
             learningPermission !== LEARNING_PERMISSION.GUEST;
@@ -219,27 +220,29 @@ const ChapterSettingsDialog = ({
           variant,
         });
 
-        if (isLesson) {
-          trackEvent(
-            eventName,
-            buildLessonSettingSaveAnalytics({
-              outlineBid,
-              shifuBid: currentShifu?.bid,
-              saveType,
-              variant,
-              learningPermission,
-              hideChapter,
-            }),
+        const analytics =
+          isLesson && learningPermission
+            ? buildLessonSettingSaveAnalytics({
+                outlineBid,
+                shifuBid: currentShifu?.bid,
+                saveType,
+                promptChange,
+                variant,
+                learningPermission,
+                hideChapter,
+              })
+            : buildOutlinePromptSaveAnalytics({
+                outlineBid,
+                shifuBid: currentShifu?.bid,
+                saveType,
+                promptChange,
+              });
+        try {
+          void Promise.resolve(trackEvent(eventName, analytics)).catch(
+            () => {},
           );
-        } else {
-          trackEvent(
-            eventName,
-            buildOutlinePromptSaveAnalytics({
-              outlineBid,
-              shifuBid: currentShifu?.bid,
-              saveType,
-            }),
-          );
+        } catch {
+          // Analytics is best-effort and must never affect a successful save.
         }
         setIsDirty(false);
         if (needClose) {
@@ -357,7 +360,7 @@ const ChapterSettingsDialog = ({
                   </div>
                   <RadioGroup
                     disabled={currentShifu?.readonly}
-                    value={learningPermission}
+                    value={learningPermission ?? ''}
                     onValueChange={value => {
                       setLearningPermission(value as LearningPermission);
                       setIsDirty(true);
@@ -467,38 +470,40 @@ const ChapterSettingsDialog = ({
                 </div>
               )}
 
-              <div className='space-y-2'>
-                <div className='text-sm font-medium text-foreground'>
-                  {isChapter
-                    ? t('module.chapterSetting.chapterPrompt')
-                    : t('module.chapterSetting.lessonPrompt')}
+              {systemPrompt.trim().length > 0 && (
+                <div className='space-y-2'>
+                  <div className='text-sm font-medium text-foreground'>
+                    {isChapter
+                      ? t('module.chapterSetting.chapterPrompt')
+                      : t('module.chapterSetting.lessonPrompt')}
+                  </div>
+                  <div className='text-xs text-muted-foreground'>
+                    {isChapter
+                      ? t('module.chapterSetting.chapterPromptHint')
+                      : t('module.chapterSetting.lessonPromptHint')}
+                  </div>
+                  <Textarea
+                    value={systemPrompt}
+                    onChange={event => {
+                      setSystemPrompt(event.target.value);
+                      setIsDirty(true);
+                    }}
+                    disabled={currentShifu?.readonly}
+                    maxLength={20000}
+                    minRows={3}
+                    maxRows={30}
+                    placeholder={
+                      isChapter
+                        ? t('module.chapterSetting.promptPlaceholder')
+                        : t('module.chapterSetting.lessonPromptPlaceholder')
+                    }
+                    className='min-h-[220px]'
+                  />
+                  {/* <div className='text-xs text-muted-foreground text-right'>
+                    {systemPrompt.length}/10000
+                  </div> */}
                 </div>
-                <div className='text-xs text-muted-foreground'>
-                  {isChapter
-                    ? t('module.chapterSetting.chapterPromptHint')
-                    : t('module.chapterSetting.lessonPromptHint')}
-                </div>
-                <Textarea
-                  value={systemPrompt}
-                  onChange={event => {
-                    setSystemPrompt(event.target.value);
-                    setIsDirty(true);
-                  }}
-                  disabled={currentShifu?.readonly}
-                  maxLength={20000}
-                  minRows={3}
-                  maxRows={30}
-                  placeholder={
-                    isChapter
-                      ? t('module.chapterSetting.promptPlaceholder')
-                      : t('module.chapterSetting.lessonPromptPlaceholder')
-                  }
-                  className='min-h-[220px]'
-                />
-                {/* <div className='text-xs text-muted-foreground text-right'>
-                  {systemPrompt.length}/10000
-                </div> */}
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -520,7 +525,7 @@ const ChapterSettingsDialog = ({
                 type='button'
                 onClick={() =>
                   onFooterAction({
-                    learningPermission,
+                    ...(learningPermission && { learningPermission }),
                     isHidden: hideChapter,
                     systemPrompt,
                     name: title.trim(),

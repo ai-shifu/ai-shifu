@@ -6,6 +6,11 @@ from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.service.common.models import raise_param_error
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
@@ -181,7 +186,6 @@ def _load_existing_referral_reward_result(
             (existing_entry.metadata_json or {}).get("grant_source")
             or REFERRAL_REWARD_GRANT_SOURCE
         ),
-        validity_preset=REFERRAL_REWARD_VALIDITY_PRESET,
         expires_at=existing_entry.expires_at,
         wallet_bucket_bid=str(existing_entry.wallet_bucket_bid or "").strip(),
         ledger_bid=str(existing_entry.ledger_bid or "").strip(),
@@ -201,7 +205,10 @@ def grant_referral_reward_credits_to_user(
     grant_channel: str = "operator_user_management",
 ) -> ManualCreditGrantResult:
     """Grant referral reward credits and extend the referral reward pool."""
-    with app.app_context():
+    # Same idempotency contract as the manual grant: the IntegrityError must
+    # surface here, not at a caller's commit.
+    require_transaction_owner("referral reward credit grant", app)
+    with app_context_scope(app):
         normalized_user_bid = _normalize_bid(user_bid)
         normalized_operator_user_bid = _normalize_bid(operator_user_bid)
         normalized_request_id = _normalize_bid(request_id)
@@ -226,6 +233,44 @@ def grant_referral_reward_credits_to_user(
         if existing_result is not None:
             return existing_result
 
+        try:
+            return _grant_referral_reward_credits_once(
+                app,
+                user_bid=normalized_user_bid,
+                operator_user_bid=normalized_operator_user_bid,
+                note=normalized_note,
+                grant_channel=grant_channel,
+                granted_amount=granted_amount,
+                granted_at=granted_at,
+                ledger_key=ledger_key,
+            )
+        except IntegrityError:
+            # A concurrent grant with the same request id won; the unit of
+            # work rolled ours back, so answer with the winner's result.
+            existing_result = _load_existing_referral_reward_result(
+                creator_bid=normalized_user_bid,
+                ledger_key=ledger_key,
+            )
+            if existing_result is not None:
+                return existing_result
+            raise
+
+
+def _grant_referral_reward_credits_once(
+    app: Flask,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    note: str,
+    grant_channel: str,
+    granted_amount: Decimal,
+    granted_at: datetime,
+    ledger_key: str,
+) -> ManualCreditGrantResult:
+    normalized_user_bid = user_bid
+    normalized_operator_user_bid = operator_user_bid
+    normalized_note = note
+    with unit_of_work():
         _expire_credit_wallet_buckets_in_session(
             app,
             creator_bid=normalized_user_bid,
@@ -348,22 +393,12 @@ def grant_referral_reward_credits_to_user(
             updated_at=granted_at,
         )
         db.session.add(ledger_entry)
-        try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
-            existing_result = _load_existing_referral_reward_result(
-                creator_bid=normalized_user_bid,
-                ledger_key=ledger_key,
-            )
-            if existing_result is not None:
-                return existing_result
-            raise
-
+        db.session.flush()
+        # Joins this unit of work; the enqueue is deferred to its commit.
         stage_credit_granted_notification(
             app,
             ledger_bid=ledger_entry.ledger_bid,
-            commit=True,
+            commit=False,
             enqueue=True,
         )
         return ManualCreditGrantResult(
@@ -371,7 +406,6 @@ def grant_referral_reward_credits_to_user(
             user_bid=normalized_user_bid,
             amount=_credit_decimal_to_number(granted_amount),
             grant_source=REFERRAL_REWARD_GRANT_SOURCE,
-            validity_preset=REFERRAL_REWARD_VALIDITY_PRESET,
             expires_at=new_effective_to,
             wallet_bucket_bid=str(bucket.wallet_bucket_bid or "").strip(),
             ledger_bid=str(ledger_entry.ledger_bid or "").strip(),

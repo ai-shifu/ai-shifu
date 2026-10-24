@@ -4,8 +4,15 @@ import json
 from collections.abc import Generator
 from typing import Any
 
-import requests
 from flask import Flask
+from flaskr.common.safe_outbound import (
+    OutboundDeadlineExceededError,
+    OutboundRedirectError,
+    OutboundResponseTooLargeError,
+    UnsafeOutboundUrlError,
+)
+from urllib3.exceptions import HTTPError
+from urllib3.exceptions import TimeoutError as UrllibTimeoutError
 
 from .base import (
     AskProviderChunk,
@@ -14,7 +21,7 @@ from .base import (
     AskProviderRuntime,
     AskProviderTimeoutError,
 )
-from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
+from .common import extract_text, safe_provider_client
 from .consts import ASK_PROVIDER_COZE_WORKFLOW
 
 DEFAULT_COZE_WORKFLOW_BASE_URL = "https://api.coze.cn"
@@ -160,21 +167,24 @@ def _extract_workflow_text(response_payload: dict[str, object]) -> str:
     return text.strip()
 
 
-def _build_workflow_error_message(response_payload: dict[str, object]) -> str:
-    code = response_payload.get("code")
-    message = (
-        str(
-            response_payload.get("msg") or response_payload.get("message") or ""
-        ).strip()
-        or "unknown error"
-    )
-    detail = response_payload.get("detail")
-    logid = ""
-    if isinstance(detail, dict):
-        logid = str(detail.get("logid") or "").strip()
-    if logid:
-        return f"coze_workflow error [{code}]: {message} (logid: {logid})"
-    return f"coze_workflow error [{code}]: {message}"
+def _build_workflow_context(user_query: str, messages: list[dict[str, object]]) -> str:
+    """Serialize exact valid host messages into an explicitly declared String input."""
+    contextual_messages: list[dict[str, str]] = []
+    for item in messages:
+        if not isinstance(item, dict):
+            continue
+        role, content = item.get("role"), item.get("content")
+        if (
+            isinstance(role, str)
+            and role in {"system", "user", "assistant"}
+            and isinstance(content, str)
+            and content.strip()
+        ):
+            contextual_messages.append({"role": role, "content": content})
+    current = {"role": "user", "content": user_query}
+    if contextual_messages and contextual_messages[-1] == current:
+        contextual_messages.pop()
+    return json.dumps({"messages": [*contextual_messages, current]}, ensure_ascii=False)
 
 
 class CozeWorkflowAskProviderAdapter:
@@ -192,7 +202,7 @@ class CozeWorkflowAskProviderAdapter:
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
         """Stream answer chunks from the configured provider."""
-        _ = (app, user_id, messages, runtime)
+        _ = (user_id, runtime)
         config = provider_config.get("config") or {}
         if not isinstance(config, dict):
             config = {}
@@ -208,6 +218,18 @@ class CozeWorkflowAskProviderAdapter:
         parameters = config.get("parameters")
         payload_parameters = dict(parameters) if isinstance(parameters, dict) else {}
         payload_parameters[query_key] = user_query
+        raw_context_key = config.get("context_key")
+        if raw_context_key is not None and not isinstance(raw_context_key, str):
+            message = "coze_workflow context_key must be a string"
+            raise AskProviderConfigError(message)
+        context_key = (raw_context_key or "").strip()
+        if context_key == query_key:
+            message = "coze_workflow context_key must differ from query_key"
+            raise AskProviderConfigError(message)
+        if context_key:
+            payload_parameters[context_key] = _build_workflow_context(
+                user_query, messages
+            )
 
         payload: dict[str, Any] = {
             "workflow_id": workflow_id,
@@ -225,26 +247,48 @@ class CozeWorkflowAskProviderAdapter:
         url = base_url.rstrip("/") + WORKFLOW_PATH
 
         try:
-            response = requests.post(
+            client = safe_provider_client(
+                app, trusted_origins_config="COZE_WORKFLOW_TRUSTED_ORIGINS"
+            )
+        except ValueError as exc:
+            message = "COZE_WORKFLOW_TRUSTED_ORIGINS contains an invalid origin"
+            raise AskProviderConfigError(message) from exc
+        try:
+            response = client.request(
+                "POST",
                 url,
                 headers=headers,
-                json=payload,
-                timeout=(5, provider_timeout_seconds()),
+                body=json.dumps(payload).encode("utf-8"),
             )
-        except requests.Timeout as exc:
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
             error_message = "coze_workflow request timeout"
             raise AskProviderTimeoutError(error_message) from exc
-        except requests.RequestException as exc:
-            message = f"coze_workflow request failed: {exc}"
+        except (
+            HTTPError,
+            OutboundRedirectError,
+            OutboundResponseTooLargeError,
+            UnsafeOutboundUrlError,
+        ) as exc:
+            message = "coze_workflow request was rejected or failed"
             raise AskProviderError(message) from exc
 
-        response = raise_for_provider_response(response, self.provider)
-
         try:
-            response_payload = response.json()
-        except ValueError as exc:
+            with response:
+                if not 200 <= response.status < 300:
+                    message = (
+                        f"coze_workflow request failed with status {response.status}"
+                    )
+                    raise AskProviderError(message)
+                response_payload = json.loads(response.content)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             error_message = "coze_workflow response is not valid json"
             raise AskProviderError(error_message) from exc
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            error_message = "coze_workflow request timeout"
+            raise AskProviderTimeoutError(error_message) from exc
+        except (HTTPError, OutboundResponseTooLargeError) as exc:
+            message = "coze_workflow response was rejected or failed"
+            raise AskProviderError(message) from exc
 
         if not isinstance(response_payload, dict):
             error_message = "coze_workflow response has invalid payload"
@@ -252,7 +296,8 @@ class CozeWorkflowAskProviderAdapter:
 
         response_code = response_payload.get("code")
         if response_code not in (0, "0"):
-            raise AskProviderError(_build_workflow_error_message(response_payload))
+            message = "coze_workflow returned an error response"
+            raise AskProviderError(message)
 
         text = _extract_workflow_text(response_payload)
         if not text:

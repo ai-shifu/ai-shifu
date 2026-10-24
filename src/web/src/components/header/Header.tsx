@@ -17,7 +17,6 @@ import {
   Copy,
   Headphones,
   History,
-  Link2,
   Presentation,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -25,7 +24,7 @@ import Preivew from '@/components/preview';
 import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
 import s from './header.module.scss';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useTracking } from '@/hooks/useTracking';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,7 +38,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/useToast';
-import type { LearningMode } from '@/c-types/store';
+import type { LearningMode } from '@/types/store';
 import { cn } from '@/lib/utils';
 import {
   buildCourseLearningUrl,
@@ -53,7 +52,7 @@ import {
   formatLessonRelativeTime,
   parseLessonHistoryDate,
 } from '@/lib/lesson-history-time';
-import { CourseShareButton } from '@/components/course-share';
+import { CourseShareMenu } from '@/components/course-share';
 import { normalizeCourseShareUrl } from '@/lib/courseShare';
 
 const publishModeIcons: Record<LearningMode, LucideIcon> = {
@@ -493,7 +492,8 @@ const Header = ({
       <div className='flex flex-row items-center'>
         <Preivew targetId={previewTargetId} />
         {currentShifu?.bid ? (
-          <CourseShareButton
+          <CourseShareMenu
+            key={currentShifu.bid}
             courseTitle={currentShifu.name || ''}
             courseDescription={currentShifu.description}
             shifuBid={currentShifu.bid}
@@ -562,7 +562,7 @@ const Header = ({
                         void copyLearningModeUrl(mode);
                       }}
                     >
-                      <Link2 className='h-3.5 w-3.5' />
+                      <Copy className='h-3.5 w-3.5' />
                     </button>
                   );
                   const rowContent = (

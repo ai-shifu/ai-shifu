@@ -1,4 +1,5 @@
 import React from 'react';
+import type { LearningPermission } from '@/api/studyV2';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 const mockSaveMdflow = jest.fn();
@@ -17,7 +18,7 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),
@@ -27,7 +28,7 @@ jest.mock('@/lib/browser-timezone', () => ({
   getBrowserTimeZone: jest.fn(() => 'Asia/Shanghai'),
 }));
 
-jest.mock('@/c-api/studyV2', () => ({
+jest.mock('@/api/studyV2', () => ({
   LEARNING_PERMISSION: {
     GUEST: 'guest',
     TRIAL: 'trial',
@@ -201,10 +202,11 @@ describe('useShifu outline-create analytics producers', () => {
   const prepareCreatorPath = async (
     path: (typeof creatorPaths)[number],
     result: { current: ReturnType<typeof useShifu> },
+    learningPermission?: LearningPermission,
   ) => {
     const settings = {
       name: 'Private outline name',
-      learningPermission: 'trial',
+      ...(learningPermission && { learningPermission }),
       isHidden: false,
       systemPrompt: 'Private system prompt',
     } as const;
@@ -278,6 +280,8 @@ describe('useShifu outline-create analytics producers', () => {
       const createdOutline = createDeferred<{
         bid: string;
         name: string;
+        type: LearningPermission;
+        is_hidden: boolean;
       }>();
       mockCreateOutline.mockReturnValue(createdOutline.promise);
       const { result } = renderHook(() => useShifu(), { wrapper });
@@ -293,16 +297,28 @@ describe('useShifu outline-create analytics producers', () => {
       });
 
       expect(mockCreateOutline).toHaveBeenCalledTimes(1);
+      expect(mockCreateOutline.mock.calls[0][0]).not.toHaveProperty('type');
       expect(mockTrackEvent).not.toHaveBeenCalled();
 
       await act(async () => {
         createdOutline.resolve({
           bid: 'server-outline-1',
           name: 'Private outline name',
+          type: 'normal',
+          is_hidden: true,
         });
         await operation;
       });
 
+      expect(result.current.cataData['server-outline-1']).toEqual(
+        expect.objectContaining({ type: 'normal', is_hidden: true }),
+      );
+      const createdNode = result.current.chapters
+        .flatMap(chapter => [chapter, ...(chapter.children || [])])
+        .find(outline => outline.bid === 'server-outline-1');
+      expect(createdNode).toEqual(
+        expect.objectContaining({ type: 'normal', is_hidden: true }),
+      );
       expect(mockTrackEvent).toHaveBeenCalledTimes(1);
       expect(mockTrackEvent).toHaveBeenCalledWith('creator_outline_create', {
         shifu_bid: 'course-1',
@@ -351,4 +367,96 @@ describe('useShifu outline-create analytics producers', () => {
       expect(consoleErrorSpy).toHaveBeenCalled();
     },
   );
+  it.each(
+    (['addSubOutline', 'addSiblingOutline'] as const).flatMap(path =>
+      (['guest', 'trial', 'normal'] as const).map(permission => ({
+        path,
+        permission,
+      })),
+    ),
+  )(
+    'preserves an explicit $permission selection in $path',
+    async ({ path, permission }) => {
+      mockCreateOutline.mockResolvedValue({
+        bid: 'server-outline-1',
+        name: 'Private outline name',
+        type: permission,
+        is_hidden: false,
+      });
+      const { result } = renderHook(() => useShifu(), { wrapper });
+      await act(async () => {
+        await result.current.actions.loadShifu('course-1');
+      });
+      const { invoke } = await prepareCreatorPath(path, result, permission);
+
+      await act(async () => {
+        await invoke();
+      });
+
+      expect(mockCreateOutline).toHaveBeenCalledWith(
+        expect.objectContaining({ type: permission }),
+      );
+      expect(result.current.cataData['server-outline-1'].type).toBe(permission);
+    },
+  );
+
+  it('keeps new chapter and lesson placeholders without an assigned permission', () => {
+    const { result } = renderHook(() => useShifu(), { wrapper });
+    act(() => result.current.actions.insertPlaceholderChapter());
+    expect(result.current.chapters[0]).not.toHaveProperty('type');
+    expect(result.current.cataData.new_chapter).not.toHaveProperty('type');
+
+    const chapter = {
+      id: 'chapter-1',
+      bid: 'chapter-1',
+      children: [],
+      depth: 0,
+    };
+    act(() => result.current.actions.setChapters([chapter]));
+    act(() => result.current.actions.insertPlaceholderLesson(chapter));
+    expect(result.current.chapters[0].children?.[0]).not.toHaveProperty('type');
+    expect(result.current.cataData.new_lesson).not.toHaveProperty('type');
+  });
+  it('lets the backend default a legacy sibling creation and uses its returned settings', async () => {
+    mockCreateOutline.mockResolvedValue({
+      bid: 'server-outline-1',
+      name: 'Private outline name',
+      type: 'trial',
+      is_hidden: true,
+    });
+    const { result } = renderHook(() => useShifu(), { wrapper });
+    await act(async () => {
+      await result.current.actions.loadShifu('course-1');
+    });
+    const placeholder = {
+      id: 'new_chapter',
+      bid: 'new_chapter',
+      name: 'Private outline name',
+      parent_bid: 'chapter-1',
+      children: [],
+      depth: 1,
+    };
+    const chapter = {
+      id: 'chapter-1',
+      bid: 'chapter-1',
+      children: [placeholder],
+      depth: 0,
+    };
+    act(() => result.current.actions.setChapters([chapter]));
+    await act(async () => {
+      await result.current.actions.createSiblingUnit(placeholder);
+    });
+
+    expect(mockCreateOutline.mock.calls[0][0]).not.toHaveProperty('type');
+    expect(result.current.chapters[0].children?.[0]).toEqual(
+      expect.objectContaining({
+        bid: 'server-outline-1',
+        type: 'trial',
+        is_hidden: true,
+      }),
+    );
+    expect(result.current.cataData['server-outline-1']).toEqual(
+      expect.objectContaining({ type: 'trial', is_hidden: true }),
+    );
+  });
 });

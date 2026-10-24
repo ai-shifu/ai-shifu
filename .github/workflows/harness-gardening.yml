@@ -22,12 +22,17 @@ jobs:
           python-version: "3.11"
 
       - name: Regenerate knowledge docs
+        id: knowledge
         run: python scripts/build_repo_knowledge_index.py
 
       - name: Run gardening checks
         id: gardening
         continue-on-error: true
         run: python scripts/run_harness_gardening.py --fail-on-drift
+
+      - name: Summarize harness health
+        if: always() && steps.knowledge.outcome == 'success'
+        run: cat docs/generated/harness-health.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload gardening summary
         if: always()

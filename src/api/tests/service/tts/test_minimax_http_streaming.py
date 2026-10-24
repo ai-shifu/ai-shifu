@@ -934,10 +934,12 @@ def test_streaming_tts_minimax_http_stream_offsets_live_cues_by_emitted_audio(
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.MinimaxTTSProvider", _FakeMinimaxProvider
     )
+    from flaskr.service.tts.request_scoped_streams import MinimaxHttpStreamStrategy
+
     monkeypatch.setattr(
-        StreamingTTSProcessor,
+        MinimaxHttpStreamStrategy,
         "_split_minimax_http_stream_text",
-        lambda _self, _text: ["First sentence.", "Second sentence."],
+        lambda _self, _processor, _text: ["First sentence.", "Second sentence."],
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.export_audio_range_best_effort",

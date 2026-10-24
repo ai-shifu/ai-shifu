@@ -2,8 +2,8 @@ import type { ChatContentItem } from './useChatLogicHook';
 import type {
   StudyRecordAudioPayload,
   StudyRecordPayload,
-} from '@/c-api/studyV2';
-import { stripDisallowedSubtitleTrailingPunctuation } from '@/c-utils/subtitleUtils';
+} from '@/api/studyV2';
+import { stripDisallowedSubtitleTrailingPunctuation } from '@/lib/subtitleUtils';
 import type { ElementSubtitleCue } from 'markdown-flow-ui/slide';
 import {
   getAudioSegmentDataListFromTracks,
@@ -12,7 +12,7 @@ import {
   mergeAudioSegmentDataList,
   type AudioSegment,
   type AudioTrack,
-} from '@/c-utils/audio-utils';
+} from '@/lib/audio-utils';
 
 const MARKDOWN_VIDEO_IFRAME_PATTERN =
   /<iframe\b[^>]*\bdata-tag\s*=\s*(["'])video\1[^>]*>[\s\S]*?<\/iframe>/i;
@@ -400,6 +400,31 @@ export const getMissingListenModeAudioBlockBids = (
   });
 
   return missingBids;
+};
+
+export const getPendingListenModeAudioBackfillElementBids = (
+  items: ChatContentItem[],
+  failedRequestBids: ReadonlySet<string> = new Set(),
+) => {
+  const pendingRequestBids = new Set(
+    getMissingListenModeAudioBlockBids(items).filter(
+      requestBid => !failedRequestBids.has(requestBid),
+    ),
+  );
+
+  return new Set(
+    items.flatMap(item => {
+      if (!isListenModeAudioBackfillCandidate(item)) {
+        return [];
+      }
+
+      const requestBid = resolveListenModeAudioBackfillRequestBid(item);
+      const elementBid = item.element_bid?.trim();
+      return requestBid && elementBid && pendingRequestBids.has(requestBid)
+        ? [elementBid]
+        : [];
+    }),
+  );
 };
 
 export const resolveListenModeTtsReadyElementBids = (

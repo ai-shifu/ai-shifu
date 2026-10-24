@@ -92,6 +92,8 @@ class TestEnvironmentVariableInterpolation:
             "mysql://${DB_USER}:${DB_PASS}@${DB_HOST}:3306/test?charset=utf8mb4",
         )
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
@@ -110,6 +112,8 @@ class TestEnvironmentVariableInterpolation:
             "SQLALCHEMY_DATABASE_URI", "mysql://user:pass@${MISSING_HOST}:3306/test"
         )
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
@@ -128,6 +132,8 @@ class TestConfigurationValidation:
         """Test that missing all LLM API keys fails validation."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         # Don't set any LLM keys
 
@@ -143,6 +149,8 @@ class TestConfigurationValidation:
         """Test that having at least one LLM key succeeds."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
 
         # Test with different LLM keys
@@ -151,7 +159,6 @@ class TestConfigurationValidation:
             "ERNIE_API_KEY",
             "ARK_API_KEY",
             "SILICON_API_KEY",
-            "GLM_API_KEY",
             "GEMINI_API_KEY",
             "DEEPSEEK_API_KEY",
             "QWEN_API_KEY",
@@ -177,6 +184,8 @@ class TestConfigurationValidation:
         """Test that invalid type conversion falls back to default."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "invalid-port")  # Invalid integer
@@ -204,14 +213,22 @@ class TestConfigurationExport:
         assert "SECRET_KEY=" in output
         assert "# (REQUIRED - must be set)" in output
 
-        # Verify multi-line descriptions are formatted correctly
+        # Verify a remaining multi-line description is formatted correctly.
         lines = output.split("\n")
         for i, line in enumerate(lines):
-            if "DEFAULT_LLM_MODEL=" in line:
-                # Check that multi-line description appears before
+            if "SQLALCHEMY_DATABASE_URI=" in line:
                 assert any(
-                    "Supported models:" in lines[j] for j in range(max(0, i - 10), i)
+                    "MySQL database connection URI" in lines[j]
+                    for j in range(max(0, i - 10), i)
                 )
+                assert any(
+                    "Example: mysql://username:password" in lines[j]
+                    for j in range(max(0, i - 10), i)
+                )
+                break
+        else:
+            pytest.fail("SQLALCHEMY_DATABASE_URI missing from exported example")
+        assert "DEFAULT_LLM_MODEL=" not in output
 
     def test_export_groups_secrets(self) -> None:
         """Test that export properly handles secret values."""
@@ -236,6 +253,8 @@ class TestConfigurationCaching:
         """Test that caching improves performance."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -263,6 +282,8 @@ class TestConfigurationCaching:
         """Test that cache is cleared when values are updated."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_HOST", "original")
@@ -344,6 +365,8 @@ class TestErrorHandling:
         """Test that validation errors provide details."""
         monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "test-db")
         monkeypatch.setenv("SECRET_KEY", "test-key")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("UNIVERSAL_VERIFICATION_CODE", "123456")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
         monkeypatch.setenv("REDIS_PORT", "99999")  # Invalid port

@@ -8,8 +8,8 @@ import api from '@/api';
 import AdminFilter, {
   type AdminFilterItem,
 } from '@/app/admin/components/AdminFilter';
-import { AdminPagination } from '@/app/admin/components/AdminPagination';
-import AdminTableShell from '@/app/admin/components/AdminTableShell';
+import { AdminPagination } from '@/components/admin/AdminPagination';
+import AdminTableShell from '@/components/admin/AdminTableShell';
 import AdminTitle from '@/app/admin/components/AdminTitle';
 import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
@@ -17,7 +17,7 @@ import {
   createSelectFilterItem,
   createTextFilterItem,
 } from '@/app/admin/components/adminFilterFieldBuilders';
-import { useEnvStore } from '@/c-store';
+import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Badge } from '@/components/ui/Badge';

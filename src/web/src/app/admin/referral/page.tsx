@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/Table';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
-import { copyText } from '@/c-utils/textutils';
+import { copyText } from '@/lib/textutils';
 import { formatBillingCredits } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
 import {

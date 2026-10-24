@@ -151,6 +151,7 @@ class BillingSubscriptionDTO(BillingBaseDTO):
     subscription_bid: str
     product_bid: str
     product_code: str
+    product_name_key: str = ""
     status: str
     billing_provider: str
     current_period_start_at: datetime | None = None
@@ -501,7 +502,6 @@ class AdminBillingSubscriptionDTO(BillingSubscriptionDTO):
     creator_mobile: str = ""
     creator_email: str = ""
     creator_nickname: str = ""
-    product_name_key: str = ""
     next_product_code: str = ""
     next_product_name_key: str = ""
     wallet: BillingWalletSnapshotDTO
@@ -856,9 +856,12 @@ class RuntimeLocalizedUrlDTO(BillingBaseDTO):
 
     zh_cn: str = Field(alias="zh-CN")
     en_us: str = Field(alias="en-US")
+    de_de: str = Field(alias="de-DE")
+    es_es: str = Field(alias="es-ES")
     fr_fr: str = Field(alias="fr-FR")
     ar_sa: str = Field(alias="ar-SA")
     th_th: str = Field(alias="th-TH")
+    ur_pk: str = Field(default="", alias="ur-PK")
 
 
 class RuntimeLegalUrlsDTO(BillingBaseDTO):
@@ -905,7 +908,6 @@ class RuntimeBillingContextDTO(BillingBaseDTO):
 class RuntimeConfigDTO(BillingBaseDTO):
     """Represent the runtime config API payload."""
 
-    default_llm_model: str = Field(alias="defaultLlmModel")
     wechat_app_id: str = Field(alias="wechatAppId")
     enable_wechat_code: bool = Field(alias="enableWechatCode")
     billing_enabled: bool = Field(alias="billingEnabled")
@@ -928,6 +930,10 @@ class RuntimeConfigDTO(BillingBaseDTO):
     contact_us_url: str = Field(alias="contactUsUrl")
     official_site_url: str = Field(alias="officialSiteUrl")
     currency_symbol: str = Field(alias="currencySymbol")
+    default_course_price: float = Field(default=0.5, alias="defaultCoursePrice")
+    minimum_paid_course_price: float = Field(
+        default=0.5, alias="minimumPaidCoursePrice"
+    )
     legal_urls: RuntimeLegalUrlsDTO = Field(alias="legalUrls")
     entitlements: RuntimeBillingEntitlementsDTO
     branding: RuntimeBillingBrandingDTO

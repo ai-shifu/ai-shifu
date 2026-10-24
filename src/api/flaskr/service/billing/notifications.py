@@ -9,6 +9,11 @@ from typing import TYPE_CHECKING
 from flaskr.api.doc.feishu import send_notify
 from flaskr.api.sms.aliyun import send_sms_ali
 from flaskr.dao import db
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.i18n import _ as translate
 from flaskr.i18n import get_current_language, set_language
 from flaskr.service.user.models import UserConversion
@@ -342,11 +347,12 @@ def _resolve_notification_order(
     )
 
 
-def _resolve_notification_product_name(
+def resolve_notification_product_name(
     order: BillingOrder,
     *,
     language: str,
 ) -> str:
+    """Return the localized product name used in purchase notifications."""
     product = (
         BillingProduct.query.filter(
             BillingProduct.deleted == 0,
@@ -647,11 +653,14 @@ def deliver_billing_paid_feishu(
     bill_order_bid: str,
 ) -> dict[str, object]:
     """Send one billing paid Feishu notification if the order is pending."""
+    # claim -> provider -> finalize: the claim must be committed before the
+    # provider call, which only holds when this call owns the transaction.
+    require_transaction_owner("billing paid Feishu delivery", app)
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_feishu_result("invalid_bill_order_bid")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         order = _resolve_notification_order(normalized_bill_order_bid)
         if order is None:
             return _build_feishu_result(
@@ -682,7 +691,6 @@ def deliver_billing_paid_feishu(
                 error_message="Billing order is not a paid subscription or topup.",
             )
             db.session.add(order)
-            db.session.commit()
             return _build_feishu_result(
                 "skipped_unsupported",
                 bill_order_bid=order.bill_order_bid,
@@ -705,7 +713,6 @@ def deliver_billing_paid_feishu(
                 error_message="Creator aggregate is missing.",
             )
             db.session.add(order)
-            db.session.commit()
             return _build_feishu_result(
                 "skipped_missing_user",
                 bill_order_bid=order.bill_order_bid,
@@ -714,7 +721,7 @@ def deliver_billing_paid_feishu(
             )
 
         product = _load_notification_product(order)
-        product_name = _resolve_notification_product_name(order, language="zh-CN")
+        product_name = resolve_notification_product_name(order, language="zh-CN")
         title, msgs = _build_billing_paid_feishu_message(
             app,
             order,
@@ -728,12 +735,11 @@ def deliver_billing_paid_feishu(
         payload["updated_at"] = to_utc_iso(now)
         _write_notification_payload_by_key(order, _BILLING_PAID_FEISHU_KEY, payload)
         db.session.add(order)
-        db.session.commit()
 
     response = None
     provider_error_message = ""
     try:
-        with app.app_context():
+        with app_context_scope(app):
             response = send_notify(app, title, msgs)
     except Exception as exc:
         provider_error_message = str(exc)
@@ -742,7 +748,7 @@ def deliver_billing_paid_feishu(
             normalized_bill_order_bid,
         )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         order = _resolve_notification_order(normalized_bill_order_bid)
         if order is None:
             return _build_feishu_result(
@@ -758,7 +764,6 @@ def deliver_billing_paid_feishu(
                 now=now,
             )
             db.session.add(order)
-            db.session.commit()
             return _build_feishu_result(
                 "sent",
                 bill_order_bid=order.bill_order_bid,
@@ -778,7 +783,6 @@ def deliver_billing_paid_feishu(
             error_message=error_message,
         )
         db.session.add(order)
-        db.session.commit()
         return _build_feishu_result(
             "failed_provider",
             bill_order_bid=order.bill_order_bid,
@@ -794,11 +798,13 @@ def deliver_subscription_purchase_sms(
     bill_order_bid: str,
 ) -> dict[str, object]:
     """Send one subscription purchase SMS if the billing order is pending."""
+    # claim -> provider -> finalize, as above.
+    require_transaction_owner("subscription purchase SMS delivery", app)
     normalized_bill_order_bid = _normalize_bid(bill_order_bid)
     if not normalized_bill_order_bid:
         return _build_result("invalid_bill_order_bid")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         order = _resolve_notification_order(normalized_bill_order_bid)
         if order is None:
             return _build_result(
@@ -819,7 +825,7 @@ def deliver_subscription_purchase_sms(
         aggregate = load_user_aggregate(order.creator_bid)
         mobile = _normalize_bid(getattr(aggregate, "mobile", ""))
         language = _normalize_bid(getattr(aggregate, "user_language", ""))
-        product_name = _resolve_notification_product_name(order, language=language)
+        product_name = resolve_notification_product_name(order, language=language)
         date_text = _resolve_notification_date_text(app, order)
         now = now_utc()
 
@@ -832,7 +838,6 @@ def deliver_subscription_purchase_sms(
                 error_message="Creator mobile is empty.",
             )
             db.session.add(order)
-            db.session.commit()
             return _build_result(
                 "skipped_no_mobile",
                 bill_order_bid=order.bill_order_bid,
@@ -850,7 +855,6 @@ def deliver_subscription_purchase_sms(
                 error_message="Subscription expiry date could not be resolved.",
             )
             db.session.add(order)
-            db.session.commit()
             return _build_result(
                 "failed_missing_date",
                 bill_order_bid=order.bill_order_bid,
@@ -865,7 +869,6 @@ def deliver_subscription_purchase_sms(
         payload["updated_at"] = to_utc_iso(now)
         _write_notification_payload(order, payload)
         db.session.add(order)
-        db.session.commit()
 
     response = None
     provider_error_message = ""
@@ -886,7 +889,7 @@ def deliver_subscription_purchase_sms(
             normalized_bill_order_bid,
         )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         order = _resolve_notification_order(normalized_bill_order_bid)
         if order is None:
             return _build_result(
@@ -901,7 +904,6 @@ def deliver_subscription_purchase_sms(
         if response is not None:
             _finalize_notification(order, status="sent", now=now)
             db.session.add(order)
-            db.session.commit()
             return _build_result(
                 "sent",
                 bill_order_bid=order.bill_order_bid,
@@ -923,7 +925,6 @@ def deliver_subscription_purchase_sms(
             error_message=error_message,
         )
         db.session.add(order)
-        db.session.commit()
         return _build_result(
             "failed_provider",
             bill_order_bid=order.bill_order_bid,

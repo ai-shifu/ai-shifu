@@ -1,0 +1,23 @@
+{
+  "__namespace__": "module.chapterSetting",
+  "addLesson": "Añadir lección",
+  "chapterName": "Nombre del capítulo",
+  "chapterNamePlaceholder": "Introduce el nombre del capítulo",
+  "chapterPrompt": "Instrucciones del capítulo",
+  "chapterPromptHint": "Define cómo generar el contenido del capítulo, a quién va dirigido, el tono y los límites",
+  "chapterSettingsTitle": "Ajustes del capítulo",
+  "free": "Gratis",
+  "guest": "Sin iniciar sesión",
+  "hidden": "Oculto",
+  "isHidden": "Visibilidad",
+  "learningPermission": "Acceso al aprendizaje",
+  "lessonName": "Nombre de la lección",
+  "lessonNamePlaceholder": "Introduce el nombre de la lección",
+  "lessonPrompt": "Instrucciones de la lección",
+  "lessonPromptHint": "Define cómo generar el contenido de la lección, a quién va dirigido, el tono y los límites",
+  "lessonPromptPlaceholder": "Introduce las instrucciones. Si las dejas vacías, el contenido de la lección se generará siguiendo las instrucciones del capítulo",
+  "lessonSettingsTitle": "Ajustes de la lección",
+  "paid": "De pago",
+  "promptPlaceholder": "Introduce las instrucciones",
+  "visible": "Visible"
+}

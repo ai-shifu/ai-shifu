@@ -1,4 +1,5 @@
 import type { ModelOption } from '@/types/shifu';
+import { normalizeModelOptionMetadata } from '@/lib/modelOptions';
 
 export const TTS_DEFAULT_MODEL_TOKEN = 'default';
 
@@ -69,23 +70,12 @@ export const normalizeTtsModelOptions = (list: any): TtsModelOption[] => {
         buildTtsModelOptionValue(provider, model);
       const label = String(item.label || value).trim() || value;
       if (!provider || !value) return null;
-      const rawMultiplier = item.credit_multiplier ?? item.creditMultiplier;
-      const parsedMultiplier = Number(rawMultiplier);
-      const creditMultiplier =
-        Number.isFinite(parsedMultiplier) && parsedMultiplier > 0
-          ? Math.ceil(parsedMultiplier)
-          : null;
-      const creditMultiplierLabel = String(
-        item.credit_multiplier_label || item.creditMultiplierLabel || '',
-      ).trim();
       return {
         value,
         label,
         provider,
         model,
-        creditMultiplier,
-        creditMultiplierLabel,
-        isDefault: Boolean(item.is_default ?? item.isDefault),
+        ...normalizeModelOptionMetadata(item),
       };
     })
     .filter((item): item is TtsModelOption => Boolean(item));

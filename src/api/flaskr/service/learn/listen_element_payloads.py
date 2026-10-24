@@ -46,6 +46,8 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
         payload_dict = json.loads(raw_payload)
     except Exception:
         return ElementPayloadDTO()
+    if not isinstance(payload_dict, dict):
+        return ElementPayloadDTO()
     audio_dict = payload_dict.get("audio")
     audio = None
     if isinstance(audio_dict, dict):
@@ -85,6 +87,18 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
     asks = payload_dict.get("asks")
     if not isinstance(asks, list):
         asks = None
+    interaction_mode = payload_dict.get("interaction_mode")
+    if interaction_mode not in {"text", "live_voice"}:
+        interaction_mode = None
+    live_session_bid = payload_dict.get("live_session_bid")
+    if live_session_bid is not None:
+        live_session_bid = str(live_session_bid or "")
+    live_turn_index = payload_dict.get("live_turn_index")
+    if not isinstance(live_turn_index, int) or isinstance(live_turn_index, bool):
+        live_turn_index = None
+    interrupted = payload_dict.get("interrupted")
+    if not isinstance(interrupted, bool):
+        interrupted = None
     return ElementPayloadDTO(
         audio=audio,
         previous_visuals=visuals,
@@ -93,6 +107,10 @@ def _deserialize_payload(raw_payload: str) -> ElementPayloadDTO:
         user_input=user_input,
         diff_payload=diff_payload,
         asks=asks,
+        interaction_mode=interaction_mode,
+        live_session_bid=live_session_bid,
+        live_turn_index=live_turn_index,
+        interrupted=interrupted,
     )
 
 

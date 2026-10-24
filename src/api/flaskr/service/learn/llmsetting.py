@@ -1,6 +1,6 @@
 """Resolve LLM settings for learning sessions."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LLMSettings(BaseModel):
@@ -8,6 +8,7 @@ class LLMSettings(BaseModel):
 
     model: str
     temperature: float
+    usage_metadata: dict = Field(default_factory=dict)
 
     def __str__(self) -> str:
         """Return a concise model and temperature description."""

@@ -60,6 +60,7 @@ from flaskr.service.billing.tasks import (
 )
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
@@ -1040,6 +1041,174 @@ def test_sync_billing_order_expires_reference_less_pingxx_order(
             bill_order_bid="bill-order-refless-pingxx-expire"
         ).one()
         assert int(order.status) == BILLING_ORDER_STATUS_TIMEOUT
+
+
+def test_sync_billing_order_expires_legacy_stripe_session_without_metadata(
+    billing_task_integration_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.billing import checkout as checkout_mod
+    from flaskr.service.billing.checkout import sync_billing_order
+
+    order_bid = "bill-order-legacy-stripe-expired"
+    session_id = "cs_legacy-stripe-expired"
+    now = now_utc()
+    with billing_task_integration_app.app_context():
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid=order_bid,
+                creator_bid="creator-legacy-stripe-expired",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-legacy-stripe-expired",
+                currency="CNY",
+                payable_amount=990,
+                paid_amount=0,
+                payment_provider="stripe",
+                provider_reference_id=session_id,
+                status=BILLING_ORDER_STATUS_PENDING,
+                expires_at=now - timedelta(minutes=1),
+                metadata_json={"provider_reference_type": "checkout_session"},
+                created_at=now - timedelta(minutes=30),
+                updated_at=now - timedelta(minutes=30),
+            )
+        )
+        dao.db.session.commit()
+
+    class _StripeProvider:
+        def sync_reference(self, **_kwargs: object) -> PaymentNotificationResult:
+            return PaymentNotificationResult(
+                order_bid="",
+                status="manual_sync",
+                provider_payload={
+                    "checkout_session": {
+                        "id": session_id,
+                        "status": "expired",
+                        "payment_status": "unpaid",
+                        "metadata": {},
+                    },
+                    "payment_intent": {},
+                },
+            )
+
+    monkeypatch.setattr(
+        checkout_mod,
+        "get_payment_provider",
+        lambda provider_name: (
+            _StripeProvider()
+            if provider_name == "stripe"
+            else pytest.fail(f"unexpected provider: {provider_name}")
+        ),
+    )
+
+    result = sync_billing_order(
+        billing_task_integration_app,
+        "creator-legacy-stripe-expired",
+        order_bid,
+        {},
+    )
+
+    assert result.status == "timeout"
+    with billing_task_integration_app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid=order_bid).one()
+        assert int(order.status) == BILLING_ORDER_STATUS_TIMEOUT
+
+
+@pytest.mark.parametrize(
+    ("expected_session_id", "session"),
+    [
+        (
+            "cs_guard",
+            {
+                "id": "cs_guard",
+                "status": "expired",
+                "payment_status": "paid",
+                "metadata": {},
+            },
+        ),
+        (
+            "cs_guard",
+            {
+                "id": "cs_other",
+                "status": "expired",
+                "payment_status": "unpaid",
+                "metadata": {},
+            },
+        ),
+        (
+            "cs_guard",
+            {
+                "id": "cs_guard",
+                "status": "expired",
+                "payment_status": "unpaid",
+                "metadata": {"bill_order_bid": "bill-order-other"},
+            },
+        ),
+    ],
+)
+def test_legacy_stripe_timeout_compatibility_remains_fail_closed(
+    expected_session_id: str,
+    session: dict[str, object],
+) -> None:
+    from flaskr.service.billing.checkout import _validate_stripe_checkout_evidence
+    from flaskr.service.common.models import AppError
+
+    order = BillingOrder(
+        bill_order_bid="bill-order-guard",
+        creator_bid="creator-guard",
+        product_bid="product-guard",
+    )
+
+    app = Flask(__name__)
+    with pytest.raises(AppError):
+        _validate_stripe_checkout_evidence(
+            app,
+            order,
+            expected_session_id=expected_session_id,
+            session=session,
+            intent=None,
+        )
+
+
+@pytest.mark.parametrize("metadata_owner", ["session", "intent"])
+@pytest.mark.parametrize(
+    ("metadata_key", "foreign_value"),
+    [
+        ("creator_bid", "creator-other"),
+        ("product_bid", "product-other"),
+    ],
+)
+def test_legacy_stripe_timeout_rejects_partial_foreign_metadata(
+    metadata_owner: str,
+    metadata_key: str,
+    foreign_value: str,
+) -> None:
+    from flaskr.service.billing.checkout import _validate_stripe_checkout_evidence
+    from flaskr.service.common.models import AppError
+
+    session: dict[str, object] = {
+        "id": "cs_partial-foreign",
+        "status": "expired",
+        "payment_status": "unpaid",
+        "metadata": {},
+    }
+    intent: dict[str, object] = {"metadata": {}}
+    target = session if metadata_owner == "session" else intent
+    target["metadata"] = {metadata_key: foreign_value}
+    order = BillingOrder(
+        bill_order_bid="bill-order-partial-foreign",
+        creator_bid="creator-owner",
+        product_bid="product-owner",
+    )
+
+    with pytest.raises(AppError):
+        _validate_stripe_checkout_evidence(
+            Flask(__name__),
+            order,
+            expected_session_id="cs_partial-foreign",
+            session=session,
+            intent=intent,
+        )
 
 
 def test_sync_billing_order_runs_under_per_creator_credit_ledger_lock(

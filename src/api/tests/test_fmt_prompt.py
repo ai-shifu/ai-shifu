@@ -1,13 +1,18 @@
 """Verify prompt variables resolve without mutating learner profiles."""
 
+import pytest
+from flaskr.service.learn.memory import MemorySnapshot
+
 
 def test_fmt_prompt_replaces_known_variables(app: object, monkeypatch: object) -> None:
     from flaskr.service.learn import utils_v2
 
     monkeypatch.setattr(
         utils_v2,
-        "get_user_profiles",
-        lambda _app, _user_id, _course_id: {"nickname": "Alice"},
+        "load_memory",
+        lambda _app, _user_id, _course_id: MemorySnapshot(
+            variables={"nickname": "Alice"}
+        ),
     )
 
     with app.app_context():
@@ -21,8 +26,10 @@ def test_fmt_prompt_keeps_unknown_variables(app: object, monkeypatch: object) ->
 
     monkeypatch.setattr(
         utils_v2,
-        "get_user_profiles",
-        lambda _app, _user_id, _course_id: {"nickname": "Alice"},
+        "load_memory",
+        lambda _app, _user_id, _course_id: MemorySnapshot(
+            variables={"nickname": "Alice"}
+        ),
     )
 
     with app.app_context():
@@ -38,8 +45,8 @@ def test_fmt_prompt_uses_input_when_template_empty(
 
     monkeypatch.setattr(
         utils_v2,
-        "get_user_profiles",
-        lambda _app, _user_id, _course_id: {},
+        "load_memory",
+        lambda _app, _user_id, _course_id: MemorySnapshot(variables={}),
     )
 
     with app.app_context():
@@ -61,8 +68,8 @@ def test_fmt_prompt_prefers_request_overrides_without_mutating_profiles(
     }
     monkeypatch.setattr(
         utils_v2,
-        "get_user_profiles",
-        lambda _app, _user_id, _course_id: stored_profiles,
+        "load_memory",
+        lambda _app, _user_id, _course_id: MemorySnapshot(variables=stored_profiles),
     )
 
     with app.app_context():
@@ -83,3 +90,26 @@ def test_fmt_prompt_prefers_request_overrides_without_mutating_profiles(
         "language": "zh-CN",
         "sys_user_language": "zh-CN",
     }
+
+
+@pytest.mark.parametrize("resolved_profiles", [{}, {"nickname": "Request learner"}])
+def test_fmt_prompt_reuses_resolved_values_including_empty_values(
+    app: object, monkeypatch: object, resolved_profiles: dict[str, str]
+) -> None:
+    """Do not reload stored memory when the caller already resolved the view."""
+    from flaskr.service.learn import utils_v2
+
+    monkeypatch.setattr(
+        utils_v2,
+        "load_memory",
+        lambda *_args: pytest.fail("Resolved values must not trigger another read"),
+    )
+    with app.app_context():
+        result = utils_v2.get_fmt_prompt(
+            app,
+            "user-1",
+            "course-1",
+            "Hello {nickname}",
+            resolved_profiles=resolved_profiles,
+        )
+    assert result == "Hello " + resolved_profiles.get("nickname", "{nickname}")

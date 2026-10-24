@@ -53,10 +53,10 @@ def _build_tts_preview_usage_metadata(
 def build_tts_preview_response(
     json_data: dict | None,
     *,
+    shifu_bid: str,
     request_user_id: str = "",
-    request_user_is_creator: bool = False,
 ) -> Response:
-    """Build TTS preview response."""
+    """Build billable TTS preview response after the caller passes admission."""
     app = current_app._get_current_object()
     payload = json_data or {}
     provider_name = (payload.get("provider") or "").strip().lower()
@@ -112,13 +112,12 @@ def build_tts_preview_response(
     safe_audio_settings = replace(audio_settings, format="mp3")
     audio_bid = uuid.uuid4().hex
     cleaned_text = preprocess_for_tts(text or "")
-    runtime_billable = 1 if request_user_is_creator else 0
     usage_context = UsageContext(
         user_bid=str(request_user_id or "").strip(),
-        shifu_bid="",
+        shifu_bid=shifu_bid,
         audio_bid=audio_bid,
         usage_scene=BILL_USAGE_SCENE_DEBUG,
-        billable=runtime_billable,
+        billable=1,
     )
     parent_usage_bid = generate_id(app)
     usage_metadata = _build_tts_preview_usage_metadata(

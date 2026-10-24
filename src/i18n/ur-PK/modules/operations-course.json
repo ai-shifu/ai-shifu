@@ -1,0 +1,463 @@
+{
+  "__namespace__": "module.operationsCourse",
+  "actions": {
+    "copyCourse": "کورس کاپی کریں۔",
+    "transferCreator": "کورس کا ذمہ دار بدلیں"
+  },
+  "copyCourseDialog": {
+    "confirm": "کاپی کی تصدیق کریں۔",
+    "confirmDescription": "کورس <strong>{courseName}</strong> کا تازہ ترین مسودہ کاپی ہوگا۔ نئے مسودے کے کورس <strong>{newCourseName}</strong> کی ذمہ داری <strong>{targetCreator}</strong> کو دی جائے گی۔",
+    "confirmTitle": "کورس کاپی کرنے کی تصدیق کریں۔",
+    "contactPlaceholderEmail": "نئے ذمہ دار کا ای میل درج کریں۔",
+    "contactPlaceholderPhone": "نئے ذمہ دار کا موبائل نمبر درج کریں۔",
+    "contactType": "رابطے کی قسم",
+    "contactTypeEmail": "ای میل",
+    "contactTypePhone": "موبائل فون نمبر",
+    "courseNameFallback": "کورس",
+    "courseNameSuffix": "-کاپی",
+    "currentCreator": "موجودہ ذمہ دار",
+    "description": "اس کورس کا تازہ ترین مسودہ کاپی کریں۔ نئے مسودے کے کورس کی ذمہ داری منتخب شخص کو دی جائے گی۔",
+    "identifier": "نیا ذمہ دار",
+    "identifierRequired": "نئے ذمہ دار کی درست رابطہ معلومات درج کریں۔",
+    "newCourseName": "نئے کورس کا نام",
+    "submitSuccess": "کورس کاپی کامیاب",
+    "title": "کورس کاپی کریں۔"
+  },
+  "coursePromptDialog": {
+    "copy": "کاپی کریں",
+    "copyFailed": "کورس کے پرامپٹ کاپی کرنے میں ناکام",
+    "copySuccess": "کورس کا پرامپٹ کاپی کر دیا گیا۔",
+    "empty": "ابھی تک کوئی کورس پرامپٹ نہیں۔",
+    "title": "کورس پرامپٹ"
+  },
+  "detail": {
+    "basicInfo": "بنیادی معلومات",
+    "boolean": {
+      "no": "نہیں",
+      "yes": "ہاں"
+    },
+    "chapterType": {
+      "chapter": "باب",
+      "lesson": "سبق"
+    },
+    "chapters": "کورس کا باب",
+    "chaptersTable": {
+      "chapterId": "باب ID",
+      "contentDetail": "مواد کی تفصیلات",
+      "contentStatus": "مواد کی حیثیت",
+      "detailAction": "تفصیلات",
+      "empty": "ابھی تک کوئی باب ڈیٹا نہیں ہے۔",
+      "followUpCount": "ضمنی سوالات کی تعداد",
+      "learningPermission": "سیکھنے کی اجازت",
+      "modifier": "ترمیم کرنے والا",
+      "name": "باب کا نام",
+      "position": "سیریل نمبر",
+      "ratingCount": "درجہ بندی کی تعداد",
+      "ratingScore": "درجہ بندی",
+      "type": "قسم",
+      "updatedAt": "اپ ڈیٹ کا وقت",
+      "visibility": "مرئیت"
+    },
+    "contentDetailDialog": {
+      "copy": "کاپی کریں",
+      "copyFailed": "کاپی ناکام ہو گئی۔",
+      "copySuccess": "کاپی شدہ مواد کی تفصیلات",
+      "empty": "ابھی تک کوئی مواد نہیں ہے۔",
+      "sections": {
+        "content": "کورس کا مواد",
+        "systemPrompt": "سسٹم پرامپٹ"
+      },
+      "sources": {
+        "chapter": "ماخذ: باب پرامپٹ",
+        "course": "ماخذ: کورس پرامپٹ",
+        "lesson": "ماخذ: سبق کا پرامپٹ"
+      },
+      "title": "مواد کی تفصیلات"
+    },
+    "contentStatus": {
+      "empty": "کوئی نہیں",
+      "has": "جی ہاں",
+      "unknown": "نامعلوم"
+    },
+    "creditUsage": {
+      "count": "{count} ریکارڈز",
+      "description": "اس کورس کا کریڈٹ کھپت کا ریکارڈ دیکھیں۔",
+      "details": {
+        "collapse": "سمیٹیں",
+        "durationMinutesSeconds": "{minutes} منٹ {seconds} سیکنڈ",
+        "durationSeconds": "{seconds} سیکنڈ",
+        "empty": "ابھی تک کھپت کی کوئی تفصیلات نہیں ہیں۔",
+        "expand": "پھیلائیں",
+        "openUsageDetails": "{count} اوقات کے لیے کھپت کی تفصیلات دیکھیں",
+        "table": {
+          "createdAt": "کریڈٹس کے استعمال کا وقت",
+          "credits": "استعمال شدہ کریڈٹس",
+          "inputTokens": "ان پٹ ٹوکن",
+          "model": "ماڈل",
+          "outputSummary": "آؤٹ پٹ کا خلاصہ",
+          "outputTokens": "آؤٹ پٹ ٹوکن",
+          "ttsContent": "مصنوعی مواد",
+          "ttsDuration": "آڈیو کا دورانیہ",
+          "ttsSegmentCount": "حصوں کی تعداد",
+          "ttsWordCount": "جامع حروف کی گنتی"
+        },
+        "title": "کریڈٹس کی کھپت کی تفصیلات"
+      },
+      "filters": {
+        "mode": "کھپت کا منظر",
+        "modeAll": "سب",
+        "reset": "ری سیٹ کریں",
+        "scene": "کھپت کی قسم",
+        "sceneAll": "سب",
+        "time": "وقت",
+        "timePlaceholder": "وقت آغاز ~ اختتامی وقت",
+        "userKeyword": "صارف",
+        "userKeywordPlaceholderEmail": "ای میل/ عرفیت",
+        "userKeywordPlaceholderPhone": "موبائل فون نمبر/ عرفیت"
+      },
+      "modelSummary": {
+        "variants": "{count} اقسام شامل ہیں"
+      },
+      "modes": {
+        "ask": "مزید پوچھیں",
+        "learn": "پڑھیں",
+        "listen": "سنیں",
+        "mixed": "مکس",
+        "unknown": "نامعلوم منظر"
+      },
+      "scenes": {
+        "debug": "ڈیبگنگ",
+        "learning": "سیکھیں",
+        "preview": "پیش نظارہ",
+        "unknown": "نامعلوم قسم"
+      },
+      "table": {
+        "chapter": "باب",
+        "createdAt": "کریڈٹس کے آخری استعمال کا وقت",
+        "credits": "استعمال شدہ کل کریڈٹس",
+        "empty": "ابھی تک کریڈٹس کی کھپت کا کوئی ریکارڈ نہیں ہے۔",
+        "lesson": "سبق",
+        "mode": "کھپت کا منظر",
+        "model": "ماڈل",
+        "nickname": "عرفی نام",
+        "scene": "کھپت کی قسم",
+        "usageCount": "کھپت کے اوقات"
+      },
+      "title": "کریڈٹس کی کھپت"
+    },
+    "creditUsageTab": "کریڈٹس کی کھپت",
+    "estimatedCreditCost": {
+      "classroom": "کلاس روم",
+      "creditUnit": "کریڈٹس",
+      "description": "موجودہ مواد، ماڈل اور شرح کے عامل کی بنیاد پر تخمینہ ہے۔ دوبارہ پڑھنے، مزید سوالوں یا نیا جواب بنانے کے اضافی اخراجات شامل نہیں۔ اصل استعمال کریڈٹ تفصیلات میں دیکھیں۔",
+      "disabled": "آن نہیں ہوا۔",
+      "listen": "سنیں",
+      "llm": "LLM",
+      "read": "پڑھیں",
+      "title": "پورے کورس کے لیے تخمینی لاگت",
+      "tts": "TTS",
+      "unknownModel": "نامعلوم ماڈل"
+    },
+    "fields": {
+      "courseId": "کورس ID",
+      "courseName": "کورس کا نام",
+      "createdAt": "تخلیق کا وقت",
+      "creator": "کورس کے ذمہ دار",
+      "status": "حالت",
+      "updatedAt": "اپ ڈیٹ کا وقت"
+    },
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "اس ترتیب میں پڑھیں: وہ اصل جواب جس پر ضمنی سوال کیا گیا -> موجودہ ضمنی سوال -> نظام کا موجودہ جواب",
+        "fields": {
+          "chapter": "باب",
+          "currentAnswer": "نظام کا موجودہ جواب",
+          "currentFollowUp": "موجودہ ضمنی سوال",
+          "followUpTime": "ضمنی سوال کا وقت",
+          "lesson": "سبق",
+          "nickname": "عرفی نام",
+          "sourceOutput": "وہ اصل جواب جس پر ضمنی سوال کیا گیا",
+          "turnIndex": "ضمنی سوال نمبر",
+          "user": "صارف",
+          "userId": "یوزر آئی ڈی"
+        },
+        "sections": {
+          "basicInfo": "بنیادی معلومات",
+          "currentRecord": "موجودہ ضمنی سوال کی تفصیلات",
+          "timeline": "متعلقہ ٹائم لائن"
+        },
+        "sourceUnavailable": "متعلقہ اصل آؤٹ پٹ اس وقت نہیں مل سکتا۔",
+        "timeline": {
+          "current": "موجودہ دور",
+          "student": "طالب علم",
+          "teacher": "نظام"
+        },
+        "title": "ضمنی سوال کی تفصیلات"
+      },
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "باب/سیکشن کی تلاش",
+        "chapterKeywordPlaceholder": "باب/سیکشن کا عنوان",
+        "followUpTime": "ضمنی سوال کا وقت",
+        "lessonKeyword": "سیکشن کی تلاش",
+        "lessonKeywordPlaceholder": "سیکشن کا عنوان",
+        "reset": "ری سیٹ کریں",
+        "resultCount": "کل {count} اندراجات",
+        "search": "استفسار",
+        "sourceStatus": "اصل جواب کی شناخت",
+        "sourceStatusAll": "تمام حالتیں",
+        "sourceStatusMissing": "اصل جواب نہیں ملا",
+        "sourceStatusResolved": "اصل جواب مل گیا",
+        "timePlaceholder": "وقت آغاز ~ اختتامی وقت",
+        "userKeyword": "صارف کی تلاش",
+        "userKeywordPlaceholder": "موبائل فون نمبر/ای میل/عرفی نام",
+        "userKeywordPlaceholderEmail": "ای میل/ عرفیت",
+        "userKeywordPlaceholderPhone": "موبائل فون نمبر/ عرفیت"
+      },
+      "openMetric": "ضمنی سوالات کا ڈیٹا دیکھیں",
+      "summary": {
+        "followUpCount": "ضمنی سوالات کی کل تعداد",
+        "latestFollowUpAt": "آخری ضمنی سوال کا وقت",
+        "lessonCount": "شامل حصوں کی تعداد",
+        "userCount": "ضمنی سوال پوچھنے والے صارفین کی تعداد"
+      },
+      "table": {
+        "action": "کارروائیاں",
+        "chapter": "باب",
+        "content": "ضمنی سوال کا متن",
+        "createdAt": "ضمنی سوال کا وقت",
+        "detailAction": "تفصیلات دیکھیں",
+        "empty": "ابھی ضمنی سوالات کا کوئی ڈیٹا نہیں ہے۔",
+        "lesson": "سبق",
+        "scopeHint": "طلباء کی طرف سے کورس کے مواد کے بارے میں اٹھائے گئے سوالات کو چیک کریں تاکہ ہائی فریکوئنسی کے پھنسے ہوئے پوائنٹس اور سیکشنز کا تعین کرنے میں مدد ملے جن کو اصلاح کی ضرورت ہے۔",
+        "sourceMissing": "اصل جواب نہیں ملا",
+        "sourceResolved": "اصل جواب مل گیا",
+        "title": "ضمنی سوالات کی فہرست",
+        "turnIndex": "ضمنی سوال نمبر",
+        "user": "صارف"
+      },
+      "title": "ضمنی سوالات کا ڈیٹا",
+      "turnIndex": "ضمنی سوال نمبر {count}",
+      "turnIndexHelp": "ایک ہی سیکھنے کے ریکارڈ میں ضمنی سوالات کو ان کے وقت کے مطابق ترتیب دے کر نمبر دیا جاتا ہے۔"
+    },
+    "learningPermission": {
+      "free": "مفت",
+      "guest": "لاگ ان کرنے کی ضرورت نہیں ہے۔",
+      "paid": "بامعاوضہ",
+      "unknown": "نامعلوم"
+    },
+    "metrics": "ڈیٹا کا جائزہ",
+    "metricsLabels": {
+      "completedUserAvgCredits": "کورس مکمل کرنے والے صارفین کی اوسط کریڈٹ کی کھپت",
+      "creditConsumedTotal": "استعمال شدہ کل کریڈٹس",
+      "creditUsageCount": "کریڈٹس کٹنے کی تعداد",
+      "creditUserCount": "کریڈٹس استعمال کرنے والے صارفین کی تعداد",
+      "followUpCount": "ضمنی سوالات کی تعداد",
+      "learnerCount": "طلباء کی تعداد",
+      "orderAmount": "آرڈر کی رقم (بشمول ریڈیمپشن کوڈ)",
+      "orderCount": "آرڈرز کی تعداد",
+      "ratingScore": "درجہ بندی"
+    },
+    "metricsTooltips": {
+      "completedUserAvgCredits": "کورس مکمل کرنے والے اور بلنگ کریڈٹس کا ریکارڈ رکھنے والے ہر صارف کے استعمال کردہ کریڈٹس کی اوسط تعداد۔",
+      "creditConsumedTotal": "اس کورس کا استعمال کرتے ہوئے پڑھائی، سوال پوچھنے وغیرہ کے دوران جمع شدہ کریڈٹس۔",
+      "creditUsageCount": "اس کورس سے شروع ہونے والی کریڈٹس کٹوتیوں کی تعداد استعمال کی فریکوئنسی دیکھنے کے لیے استعمال کی جاتی ہے۔",
+      "creditUserCount": "اس کورس میں کتنے صارفین نے اصل میں کریڈٹس خرچ کیے ہیں۔",
+      "followUpCount": "صارفین نے کورس کے مواد کے بارے میں کتنی بار سوالات کیے ہیں؟ مخصوص سوالات دیکھنے کے لیے کلک کریں۔",
+      "learnerCount": "کتنے صارفین نے اس کورس کو سیکھنا یا اس میں شامل ہونا شروع کیا ہے اس کا استعمال کورس کی پہنچ کی پیمائش کے لیے کیا جاتا ہے۔",
+      "orderAmount": "اس کورس میں حساب کی گئی آرڈر کی رقم قابل ادائیگی رقم پر مبنی ہے، بشمول ریڈیمپشن کوڈز اور ایکٹیویشن آرڈرز، اور موصول ہونے والی نقد رقم کے برابر نہیں ہے۔",
+      "orderCount": "اس کورس نے کتنے کامیاب آرڈرز جنریٹ کیے ہیں، بشمول ادائیگی، ریڈیمپشن کوڈز اور 0 یوآن ایکٹیویشن آرڈرز؟",
+      "ratingScore": "کورس کے ابواب کو صارفین جو اوسط درجہ بندی دیتے ہیں اسے سیکھنے کے مجموعی تجربے کو دیکھنے کے لیے استعمال کیا جاتا ہے۔"
+    },
+    "orders": {
+      "openMetric": "آرڈر کا ڈیٹا دیکھیں"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "باب/سیکشن کی تلاش",
+        "chapterKeywordPlaceholder": "باب/سیکشن کا عنوان",
+        "commentStatus": "تبصرے",
+        "commentStatusAll": "سب",
+        "commentStatusCommented": "صرف تبصرے دیکھیں",
+        "lessonKeyword": "سیکشن کی تلاش",
+        "lessonKeywordPlaceholder": "سیکشن کا عنوان",
+        "mode": "سیکھنے کا موڈ",
+        "modeAll": "تمام موڈز",
+        "ratingTime": "درجہ بندی کا وقت",
+        "reset": "ری سیٹ کریں",
+        "resultCount": "کل {count} اندراجات",
+        "score": "درجہ بندی",
+        "scoreAll": "تمام ریٹنگز",
+        "search": "استفسار",
+        "sortBy": "ترتیب دیں",
+        "sortByLatest": "تازہ ترین پہلے",
+        "sortByLowScore": "پہلے کم سکور",
+        "timePlaceholder": "وقت آغاز ~ اختتامی وقت",
+        "userKeyword": "صارف کی تلاش",
+        "userKeywordPlaceholderEmail": "ای میل/ عرفیت",
+        "userKeywordPlaceholderPhone": "موبائل فون نمبر/ عرفیت"
+      },
+      "modes": {
+        "listen": "سنیں",
+        "read": "پڑھیں"
+      },
+      "openMetric": "درجہ بندی کا ڈیٹا دیکھیں",
+      "scoreValue": "{count} پوائنٹس",
+      "summary": {
+        "averageScore": "اوسط درجہ بندی",
+        "latestRatedAt": "آخری درجہ بندی کا وقت",
+        "ratingCount": "درجہ بندی کی تعداد",
+        "userCount": "درجہ بندی کرنے والے صارفین کی تعداد"
+      },
+      "table": {
+        "chapter": "باب",
+        "comment": "تبصرے",
+        "empty": "ابھی تک کوئی درجہ بندی کا ڈیٹا نہیں ہے۔",
+        "guestUser": "مہمان صارف",
+        "lesson": "سبق",
+        "mode": "سیکھنے کا موڈ",
+        "ratedAt": "درجہ بندی کا وقت",
+        "score": "درجہ بندی",
+        "title": "ریٹنگز کی فہرست",
+        "user": "صارف"
+      },
+      "title": "درجہ بندی کا ڈیٹا"
+    },
+    "title": "کورس کی تفصیلات",
+    "userLearningStatus": {
+      "completed": "مکمل",
+      "learning": "پڑھائی",
+      "notStarted": "شروع نہیں ہوا۔"
+    },
+    "userRole": {
+      "creator": "استاد",
+      "normal": "عام صارف",
+      "operator": "آپریٹر",
+      "student": "طالب علم"
+    },
+    "users": "صارف کا ڈیٹا",
+    "usersCount": "کل {count} کورس کے صارفین",
+    "usersDescription": "سیکھنے کی پیشرفت، ادائیگی کی حیثیت اور کورس سے متعلق صارفین کے حالیہ فعال وقت کو چیک کریں۔",
+    "usersFilters": {
+      "all": "سب",
+      "learningStatus": "سیکھنے کی حیثیت",
+      "paymentPaid": "ادا کیا",
+      "paymentStatus": "ادائیگی کی حیثیت",
+      "paymentUnpaid": "بلا معاوضہ",
+      "userKeyword": "صارف کی تلاش",
+      "userKeywordPlaceholder": "موبائل فون نمبر/ای میل/عرفی نام",
+      "userKeywordPlaceholderEmail": "ای میل/ عرفیت",
+      "userKeywordPlaceholderPhone": "موبائل فون نمبر/ عرفیت",
+      "userRole": "صارف کا کردار"
+    },
+    "usersTable": {
+      "account": "موبائل فون نمبر/ای میل",
+      "accountEmail": "ای میل",
+      "accountPhone": "موبائل فون نمبر",
+      "action": "کارروائیاں",
+      "detailAction": "تفصیلات",
+      "empty": "ابھی تک کوئی صارف ڈیٹا نہیں ہے۔",
+      "isPaid": "ادائیگی کی حیثیت",
+      "joinedAt": "کورس میں شامل ہونے کا وقت",
+      "lastLearnedAt": "حالیہ مطالعہ کا وقت",
+      "lastLoginAt": "آخری لاگ ان کا وقت",
+      "learningProgress": "سیکھنے کی ترقی",
+      "learningStatus": "سیکھنے کی حیثیت",
+      "nickname": "عرفی نام",
+      "totalPaidAmount": "جمع شدہ ادائیگی کی رقم",
+      "userId": "یوزر آئی ڈی",
+      "userRole": "صارف کا کردار"
+    },
+    "visibility": {
+      "hidden": "چھپائیں",
+      "visible": "دکھائیں"
+    }
+  },
+  "emptyList": "ابھی تک کوئی کورسز نہیں ہیں۔",
+  "filters": {
+    "courseId": "کورس ID",
+    "courseName": "کورس کا نام",
+    "courseQuery": "کورس",
+    "courseQueryPlaceholder": "کورس ID/کورس کا نام",
+    "createdAt": "تخلیق کا وقت",
+    "creator": "کورس کا ذمہ دار",
+    "creatorEmailOrUserBid": "کورس کے ذمہ دار کا ای میل",
+    "creatorMobileOrUserBid": "کورس کے ذمہ دار کا موبائل نمبر",
+    "endTime": "اختتامی تاریخ",
+    "startTime": "شروع کی تاریخ",
+    "status": "حالت"
+  },
+  "messages": {
+    "copyCourseFailed": "کورس کاپی کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadChapterDetailFailed": "باب کی تفصیلات لوڈ کرنے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadCourseDetailFailed": "کورس کی تفصیلات لوڈ ہونے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadCourseUsersFailed": "کورس صارف کا ڈیٹا لوڈ کرنا ناکام ہو گیا، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadCoursesFailed": "کورس کی فہرست لوڈ کرنا ناکام ہو گیا، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "loadCreditUsageDetailsFailed": "کریڈٹ کی کھپت کی تفصیلات لوڈ ہونے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadCreditUsageFailed": "کریڈٹ کی کھپت کا ڈیٹا لوڈ ہونے میں ناکام، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadFollowUpDetailFailed": "ضمنی سوال کی تفصیلات لوڈ نہیں ہو سکیں، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadFollowUpsFailed": "ضمنی سوالات کا ڈیٹا لوڈ نہیں ہو سکا، براہ کرم صفحہ ریفریش کر کے دوبارہ کوشش کریں۔",
+    "loadPromptDetailFailed": "کورس پرامپٹ لوڈ ہونے میں ناکام رہے، براہ کرم بعد میں دوبارہ کوشش کریں۔",
+    "loadRatingsFailed": "درجہ بندی کا ڈیٹا لوڈ کرنے میں ناکام، براہ کرم ریفریش کریں اور دوبارہ کوشش کریں۔",
+    "transferCreatorFailed": "کورس کی ذمہ داری منتقل نہیں ہو سکی، براہ کرم بعد میں دوبارہ کوشش کریں۔"
+  },
+  "overview": {
+    "activeFilter": "فوری فلٹر",
+    "metrics": {
+      "createdLast7d": "پچھلے 7 دنوں میں نئے کورسز شامل کیے گئے۔",
+      "draftCourses": "ڈرافٹ کورس",
+      "learningActive30d": "پچھلے 30 دنوں میں مطالعہ کے کورسز ہیں۔",
+      "ordered30d": "پچھلے 30 دنوں میں آرڈر کیے گئے کورسز",
+      "publishedCourses": "شائع شدہ کورس",
+      "totalCourses": "کورسز کی کل تعداد"
+    },
+    "title": "ڈیٹا کا جائزہ",
+    "tooltips": {
+      "createdLast7d": "پچھلے 7 دنوں میں نئے کورسز کی تعداد",
+      "draftCourses": "کورسز کی تعداد کبھی شائع نہیں ہوئی۔",
+      "learningActive30d": "پچھلے 30 دنوں میں مطالعاتی کورسز کی تعداد",
+      "ordered30d": "پچھلے 30 دنوں میں بیچے گئے کورسز کی تعداد",
+      "publishedCourses": "کم از کم ایک بار شائع ہونے والے کورسز کی تعداد",
+      "totalCourses": "کورسز کی کل تعداد"
+    }
+  },
+  "statusLabels": {
+    "published": "شائع شدہ",
+    "unknown": "نامعلوم",
+    "unpublished": "غیر مطبوعہ"
+  },
+  "table": {
+    "action": "کارروائیاں",
+    "courseId": "کورس ID",
+    "courseName": "کورس کا نام",
+    "coursePrompt": "کورس پرامپٹ",
+    "createdAt": "تخلیق کا وقت",
+    "creator": "کورس کا ذمہ دار",
+    "detailAction": "تفصیلات",
+    "llmModel": "ایل ایل ایم ماڈل",
+    "modifier": "ترمیم کرنے والا",
+    "price": "قیمت",
+    "status": "حالت",
+    "ttsModel": "ٹی ٹی ایس ماڈل",
+    "updatedAt": "اپ ڈیٹ کا وقت"
+  },
+  "title": "کورس کا انتظام",
+  "transferCreatorDialog": {
+    "confirm": "منتقلی کی تصدیق کریں۔",
+    "confirmDescription": "کورس “{courseName}” کی ذمہ داری {currentCreator} سے {targetCreator} کو منتقل ہوگی۔",
+    "confirmTitle": "کورس کا ذمہ دار بدلنے کی تصدیق کریں",
+    "contactPlaceholderEmail": "نئے ذمہ دار کا ای میل درج کریں۔",
+    "contactPlaceholderPhone": "نئے ذمہ دار کا موبائل نمبر درج کریں۔",
+    "contactType": "رابطے کی قسم",
+    "contactTypeEmail": "ای میل",
+    "contactTypePhone": "موبائل فون نمبر",
+    "currentCreator": "موجودہ ذمہ دار",
+    "description": "صرف کورس کا ذمہ دار بدلے گا۔ کورس کا مواد، ترتیبات اور اشتراک کی اجازتیں وہی رہیں گی۔",
+    "identifier": "نیا ذمہ دار",
+    "identifierRequired": "نئے ذمہ دار کی درست رابطہ معلومات درج کریں۔",
+    "sameCreator": "ٹارگٹ رابطہ کی معلومات پہلے سے ہی موجودہ انچارج شخص سے تعلق رکھتی ہے۔",
+    "submitSuccess": "کورس کی ذمہ داری منتقل ہو گئی ہے۔",
+    "title": "کورس کا ذمہ دار بدلیں"
+  }
+}

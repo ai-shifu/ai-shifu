@@ -58,6 +58,7 @@ def test_localizer_uses_shared_locale_registry_and_one_llm_call(
 
     monkeypatch.setattr(module, "get_locale_labels", LOCALE_LABELS.copy)
     monkeypatch.setattr(module, "invoke_llm", invoke)
+    monkeypatch.setitem(app.config, "LLM_MODEL_1_ID", "onboarding-model-one")
 
     result = module.localize_profile_onboarding_assistant_prompt(
         app, f" \n{master_prompt}\n "
@@ -66,6 +67,7 @@ def test_localizer_uses_shared_locale_registry_and_one_llm_call(
     assert result == LOCALIZED_PROMPTS
     assert len(calls) == 1
     args, kwargs = calls[0]
+    assert args[3] == "onboarding-model-one"
     assert json.loads(args[4]) == {
         "assistant_prompt": master_prompt,
         "target_locales": LOCALE_LABELS,

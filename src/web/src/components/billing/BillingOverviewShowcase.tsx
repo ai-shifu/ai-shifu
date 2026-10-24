@@ -21,6 +21,7 @@ import { TopupCard } from './BillingOverviewCards';
 import type { ShowcaseTab } from './BillingOverviewCards';
 import { BillingOverviewFootnote } from './BillingOverviewFootnote';
 import { BillingPlanComparisonTable } from './BillingPlanComparisonTable';
+import styles from './BillingPlanComparisonTable.module.scss';
 
 type BillingOverviewShowcaseProps = {
   checkoutLoadingKey: string;
@@ -122,15 +123,15 @@ export function BillingOverviewShowcase({
           onValueChange={value => onShowcaseTabChange(value as ShowcaseTab)}
           value={showcaseTab}
         >
-          <TabsList className='h-[var(--height-h-9,36px)] rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]'>
+          <TabsList className={styles.showcaseTabsList}>
             <TabsTrigger
-              className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
+              className={styles.showcaseTabsTrigger}
               value='plans'
             >
               {t('module.billing.package.intervalTabs.plans')}
             </TabsTrigger>
             <TabsTrigger
-              className='h-full rounded-[var(--border-radius-rounded-md,8px)] border border-transparent px-6 py-[var(--spacing-1,4px)] text-center text-[length:var(--text-sm-font-size,14px)] font-[var(--font-weight-medium,500)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-foreground,#0A0A0A)] data-[state=active]:border-[var(--custom-dark-input,rgba(255,255,255,0.00))] data-[state=active]:bg-[var(--custom-background-dark-input-30,#FFF)] data-[state=active]:shadow-[var(--shadow-sm-1-offset-x,0)_var(--shadow-sm-1-offset-y,1px)_var(--shadow-sm-1-blur-radius,3px)_var(--shadow-sm-1-spread-radius,0)_var(--shadow-sm-1-color,rgba(0,0,0,0.10)),var(--shadow-sm-2-offset-x,0)_var(--shadow-sm-2-offset-y,1px)_var(--shadow-sm-2-blur-radius,2px)_var(--shadow-sm-2-spread-radius,-1px)_var(--shadow-sm-2-color,rgba(0,0,0,0.10))]'
+              className={styles.showcaseTabsTrigger}
               value='topup'
             >
               {t('module.billing.package.intervalTabs.topup')}
@@ -140,10 +141,23 @@ export function BillingOverviewShowcase({
       </div>
 
       {isLoading ? (
-        <div className='grid gap-6 xl:grid-cols-3'>
-          <Skeleton className='h-[620px] rounded-[34px]' />
-          <Skeleton className='h-[620px] rounded-[34px]' />
-          <Skeleton className='h-[620px] rounded-[34px]' />
+        <div
+          className='grid gap-6 xl:grid-cols-3'
+          role='status'
+        >
+          <span className='sr-only'>{t('module.billing.package.loading')}</span>
+          <Skeleton
+            className='h-[620px] rounded-[34px]'
+            aria-hidden='true'
+          />
+          <Skeleton
+            className='h-[620px] rounded-[34px]'
+            aria-hidden='true'
+          />
+          <Skeleton
+            className='h-[620px] rounded-[34px]'
+            aria-hidden='true'
+          />
         </div>
       ) : showcaseTab === 'topup' ? (
         <div className='space-y-6'>
@@ -238,7 +252,11 @@ export function BillingOverviewShowcase({
             wechatpayAvailable={wechatpayAvailable}
             onSelectPlanCheckout={onSelectPlanCheckout}
           />
-          <BillingOverviewFootnote />
+          <BillingOverviewFootnote
+            hasDiscountCampaign={paidPlans.some(
+              hasBillingProductDiscountCampaign,
+            )}
+          />
         </div>
       )}
     </>

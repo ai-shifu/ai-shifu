@@ -177,13 +177,28 @@ jest.mock('react-rnd', () => ({
   Rnd: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 jest.mock('@/hooks/useToast', () => ({ toast: jest.fn() }));
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   useEnvStore: jest.fn(() => 'https://example.com'),
+  __esModule: true,
+  useShifu: () => mockShifuState,
+  useUserStore: Object.assign(
+    (selector: (state: typeof mockUserStoreState) => unknown) =>
+      selector(mockUserStoreState),
+    { getState: () => mockUserStoreState },
+  ),
+  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      replayScenes: {
+        course_editor_onboarding: false,
+      },
+      requestReplayAll: jest.fn(),
+      clearReplay: jest.fn(),
+    }),
 }));
-jest.mock('@/c-common/hooks/useTracking', () => ({
+jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
-jest.mock('@/c-utils/urlUtils', () => ({
+jest.mock('@/lib/urlUtils', () => ({
   buildUrlWithLessonId: jest.fn((url: string, lessonId: string) =>
     lessonId ? `${url}?lessonid=${lessonId}` : url,
   ),
@@ -352,25 +367,6 @@ const mockUserStoreState: {
   getToken: () => mockUserToken,
   refreshUserInfo: mockRefreshUserInfo,
 };
-
-jest.mock('@/store', () => ({
-  __esModule: true,
-  useShifu: () => mockShifuState,
-  useUserStore: Object.assign(
-    (selector: (state: typeof mockUserStoreState) => unknown) =>
-      selector(mockUserStoreState),
-    { getState: () => mockUserStoreState },
-  ),
-  useOnboardingReplayStore: (selector: (state: unknown) => unknown) =>
-    selector({
-      replayScenes: {
-        admin_home_onboarding: false,
-        course_editor_onboarding: false,
-      },
-      requestReplayAll: jest.fn(),
-      clearReplay: jest.fn(),
-    }),
-}));
 
 describe('ShifuEdit draft conflict checks', () => {
   const setLessonNode = () => {
@@ -942,6 +938,34 @@ describe('ShifuEdit draft conflict checks', () => {
       mockI18nState.language = originalLanguage;
     }
   });
+
+  test.each(['es-ES', 'ur-PK'])(
+    'leaves unknown authored language unset with %s editor controls',
+    async language => {
+      setLessonNode();
+      const mockI18nState = getMockI18nState();
+      const originalResolvedLanguage = mockI18nState.resolvedLanguage;
+      const originalLanguage = mockI18nState.language;
+
+      try {
+        mockI18nState.resolvedLanguage = language;
+        mockI18nState.language = language;
+
+        render(<ScriptEditor id='shifu-1' />);
+
+        await waitFor(() => {
+          expect(mockMarkdownFlowEditor).toHaveBeenCalled();
+        });
+
+        expect(mockMarkdownFlowEditor.mock.calls.at(-1)?.[0]).toEqual(
+          expect.objectContaining({ locale: language, lang: '' }),
+        );
+      } finally {
+        mockI18nState.resolvedLanguage = originalResolvedLanguage;
+        mockI18nState.language = originalLanguage;
+      }
+    },
+  );
 
   test('renders the history entry as a same-window link for the current lesson', async () => {
     setLessonNode();

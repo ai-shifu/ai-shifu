@@ -11,8 +11,12 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.learn_funcs import get_learn_record
+from flaskr.service.learn.learn_funcs import (
+    get_current_lesson_outline,
+    get_learn_record,
+)
 from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
+from flaskr.service.learn.lesson_content_updates import load_lesson_content_states
 from flaskr.service.learn.listen_element_history import (
     get_listen_element_record as _get_listen_element_record,
 )
@@ -31,10 +35,17 @@ from flaskr.service.learn.listen_element_run_sidecar import (
 from flaskr.service.learn.listen_element_run_stream import (
     ListenElementRunStreamMixin,
 )
+from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.learn.type_state_machine import (
     TypeInput,
     TypeStateMachine,
 )
+from flaskr.service.order.consts import (
+    LEARN_STATUS_COMPLETED,
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_RESET,
+)
+from flaskr.service.shifu.models import PublishedOutlineItem
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -68,6 +79,7 @@ class ListenElementRunAdapter(
         outline_bid: str,
         user_bid: str,
         run_session_bid: str | None = None,
+        persist_only_final: bool = False,
     ) -> None:
         """Initialize a legacy listen-mode adaptation run and ordering state.
 
@@ -80,6 +92,17 @@ class ListenElementRunAdapter(
         self.outline_bid = outline_bid
         self.user_bid = user_bid
         self.run_session_bid = run_session_bid or uuid.uuid4().hex
+        # Whether a streaming element is written on every update or only once it is final.
+        #
+        # 1.0 writes each update as a new row holding the whole text so far, retiring the previous
+        # one -- a snapshot trail nothing ever reads back, since every read path filters on
+        # status == 1. It is affordable there because a script block is small. A 2.0 turn is a
+        # whole lesson segment: one measured turn of 13KB produced 6394 rows and 35MB of retired
+        # snapshots, against 4 rows and 21KB that the learner can actually see.
+        #
+        # Deferring costs the mid-stream snapshot, which only a learner refreshing during
+        # generation would have seen, and which the session restores anyway.
+        self.persist_only_final = persist_only_final
         self._run_event_seq = 0
         self._sequence_number = 0
         self._state_machine = TypeStateMachine()
@@ -93,6 +116,11 @@ class ListenElementRunAdapter(
         self._ask_element_bid_by_block_bid: dict[str, str] = {}
         self._answer_element_bid_by_block_bid: dict[str, str] = {}
         self._latest_element_snapshots: dict[str, object] = {}
+
+    def finalize_pending_blocks(self) -> Iterable[RunElementSSEMessageDTO]:
+        """Save already shown content without emitting a successful run boundary."""
+        for block_id in list(self._block_states):
+            yield from self._finalize_block(block_id)
 
     def process(
         self, events: Iterable[RunMarkdownFlowDTO]
@@ -181,7 +209,26 @@ def get_listen_element_record(
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
     """Return listen element record."""
-    return _get_listen_element_record(
+    from flaskr.service.learn.agent.routing import uses_agent_engine
+
+    agent_enabled = uses_agent_engine(shifu_bid)
+    if preview_mode and agent_enabled:
+        from flaskr.service.learn.agent.preview_history import (
+            get_preview_record,
+            uses_preview_session_history,
+        )
+
+        if uses_preview_session_history(
+            app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+        ):
+            return get_preview_record(
+                app,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                include_non_navigable=include_non_navigable,
+            )
+    record = _get_listen_element_record(
         app=app,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
@@ -191,11 +238,58 @@ def get_listen_element_record(
         build_record_from_legacy=lambda legacy_record: (
             build_listen_elements_from_legacy_record(app, legacy_record)
         ),
-        load_fallback_record=lambda: get_learn_record(
+        load_fallback_record=lambda progress_record_bid: get_learn_record(
             app,
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             user_bid=user_bid,
             preview_mode=preview_mode,
+            progress_record_bid=progress_record_bid,
         ),
     )
+    if agent_enabled and not preview_mode:
+        progress = (
+            LearnProgressRecord.query.with_entities(LearnProgressRecord.status)
+            .filter(
+                LearnProgressRecord.user_bid == user_bid,
+                LearnProgressRecord.shifu_bid == shifu_bid,
+                LearnProgressRecord.outline_item_bid == outline_bid,
+                LearnProgressRecord.deleted == 0,
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+            )
+            .order_by(LearnProgressRecord.id.desc())
+            .first()
+        )
+        if progress and progress.status in (
+            LEARN_STATUS_IN_PROGRESS,
+            LEARN_STATUS_COMPLETED,
+        ):
+            current = get_current_lesson_outline(
+                shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=False
+            )
+            visible = (
+                PublishedOutlineItem.query.with_entities(PublishedOutlineItem.id)
+                .filter_by(
+                    id=current.id,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_bid,
+                    deleted=0,
+                    hidden=0,
+                )
+                .first()
+                if current
+                else None
+            )
+            states = load_lesson_content_states(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                preview_mode=False,
+                outline_revisions={outline_bid: current.content_revision}
+                if visible
+                else {},
+            )
+            state = states.get(outline_bid)
+            record.has_content_update_for_current_user = bool(
+                state and state.has_content_update
+            )
+    return record

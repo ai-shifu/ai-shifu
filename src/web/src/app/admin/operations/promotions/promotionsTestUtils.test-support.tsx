@@ -89,7 +89,7 @@ jest.mock('@/hooks/useToast', () => ({
     mockToast({ ...options, description, variant: 'destructive' }),
 }));
 
-jest.mock('@/c-store', () => ({
+jest.mock('@/store', () => ({
   __esModule: true,
   useEnvStore: (selector: (state: typeof mockEnvState) => unknown) =>
     selector(mockEnvState),

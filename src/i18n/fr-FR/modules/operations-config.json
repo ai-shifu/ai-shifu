@@ -81,8 +81,8 @@
     "unconfigured": "Tarif non défini"
   },
   "tabs": {
-    "llm": "Consommation LLM",
-    "tts": "Consommation TTS"
+    "llm": "Multiplicateurs de consommation LLM",
+    "tts": "Multiplicateurs de consommation TTS"
   },
   "title": "Gestion des tarifs"
 }

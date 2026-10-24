@@ -1,0 +1,206 @@
+:root {
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #182537;
+  background: #f1f4f8;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+header {
+  padding: 36px 28px 24px;
+}
+h1 {
+  margin: 8px 0 12px;
+  font-size: 30px;
+  letter-spacing: -0.04em;
+}
+p {
+  line-height: 1.6;
+}
+.eyebrow {
+  font-size: 11px;
+  color: #536a85;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+}
+.counts {
+  color: #536a85;
+  font-size: 13px;
+}
+main {
+  padding: 0 20px 32px;
+}
+table {
+  border-collapse: separate;
+  border-spacing: 8px 0;
+  table-layout: fixed;
+  width: 100%;
+  min-width: 1440px;
+}
+th,
+td {
+  text-align: left;
+  vertical-align: top;
+}
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 18px 16px;
+  background: #182537;
+  color: white;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+small {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.7;
+  margin-top: 8px;
+}
+.case th {
+  padding: 28px 8px 14px;
+  font-size: 18px;
+}
+.case small {
+  margin-left: 38px;
+}
+.number {
+  color: #637b99;
+  font-size: 13px;
+  margin-right: 12px;
+  font-variant-numeric: tabular-nums;
+}
+td {
+  padding: 12px;
+  background: white;
+  border: 1px solid #dce4ee;
+  border-radius: 0 0 12px 12px;
+}
+figure {
+  margin: 0 0 18px;
+}
+.zoom {
+  border: 0;
+  padding: 0;
+  width: 100%;
+  background: #f1f4f8;
+  cursor: zoom-in;
+}
+img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+figcaption,
+.metrics {
+  font-size: 11px;
+  color: #64748b;
+  margin: 7px 0 12px;
+}
+.failure {
+  color: #9a4b0a;
+  background: #fff4e7;
+  border-radius: 8px;
+  padding: 16px;
+}
+details {
+  font-size: 12px;
+  font-weight: 400;
+  margin: 12px 0 0 38px;
+  max-width: 1000px;
+}
+summary {
+  cursor: pointer;
+  color: #456384;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  background: white;
+  max-height: 360px;
+  overflow: auto;
+  font: inherit;
+  line-height: 1.6;
+}
+dialog {
+  width: min(95vw, 1600px);
+  max-height: 95vh;
+  border: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #eef2f6;
+}
+dialog::backdrop {
+  background: #101a2cd9;
+}
+.close {
+  display: block;
+  margin: 0 0 12px auto;
+  cursor: pointer;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #182537;
+  color: white;
+}
+
+[hidden] {
+  display: none !important;
+}
+.model-code {
+  display: inline-block;
+  font-size: 22px;
+  font-weight: 700;
+}
+.model-name {
+  display: block;
+  margin-top: 10px;
+}
+.performance {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 0 12px;
+  margin: 0 0 12px;
+  border-bottom: 1px solid #e4ebf3;
+  font-variant-numeric: tabular-nums;
+}
+.performance dt {
+  color: #64748b;
+  font-size: 11px;
+}
+.performance dd {
+  margin: 5px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+footer {
+  padding: 32px 28px 48px;
+  text-align: center;
+}
+footer p {
+  color: #64748b;
+  font-size: 12px;
+  max-width: 900px;
+  margin: 0 auto 20px;
+}
+#reveal-models {
+  padding: 14px 30px;
+  border: 0;
+  border-radius: 8px;
+  background: #182537;
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+#reveal-models:disabled {
+  background: #4b6477;
+  cursor: default;
+}

@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from flaskr.dao import db
+from flaskr.dao import uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_CANCELED,
     NATIVE_PAYMENT_STATE_FAILED,
@@ -208,7 +209,7 @@ def apply_billing_stripe_notification(
         or metadata.get("order_bid")
     )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         order = _load_billing_order_for_stripe_event(
             bill_order_bid=bill_order_bid,
             data_object=data_object,
@@ -385,8 +386,7 @@ def apply_billing_stripe_notification(
 
         order_update.stage_after_state_changes(app, order)
 
-        db.session.commit()
-        order_update.dispatch_after_commit(app)
+        uow.on_commit(lambda: order_update.dispatch_after_commit(app))
         return BillingWebhookResult(
             status=response_status,
             event_type=event_type,
@@ -406,7 +406,7 @@ def handle_billing_pingxx_webhook(
     charge_id = _normalize_bid(charge.get("id"))
     order_no = _normalize_bid(charge.get("order_no"))
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         order = _load_billing_order_for_pingxx_event(
             charge_id=charge_id,
             order_no=order_no,
@@ -469,8 +469,7 @@ def handle_billing_pingxx_webhook(
                 )
 
         order_update.stage_after_state_changes(app, order)
-        db.session.commit()
-        order_update.dispatch_after_commit(app)
+        uow.on_commit(lambda: order_update.dispatch_after_commit(app))
         return BillingWebhookResult(
             status="paid"
             if target_status == BILLING_ORDER_STATUS_PAID
@@ -529,7 +528,7 @@ def apply_billing_native_notification(
     provider_payload = notification.provider_payload or {}
     trade_payload = extract_native_trade_payload(provider_payload)
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         order = _load_billing_order_for_native_event(
             provider=normalized_provider,
             provider_attempt_id=provider_attempt_id,
@@ -590,8 +589,7 @@ def apply_billing_native_notification(
                 )
 
         order_update.stage_after_state_changes(app, order)
-        db.session.commit()
-        order_update.dispatch_after_commit(app)
+        uow.on_commit(lambda: order_update.dispatch_after_commit(app))
         return BillingWebhookResult(
             status="paid"
             if target_status == BILLING_ORDER_STATUS_PAID

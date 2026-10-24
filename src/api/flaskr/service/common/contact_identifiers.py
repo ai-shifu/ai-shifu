@@ -59,6 +59,19 @@ def resolve_enabled_contact_types() -> set[str]:
     return contact_types or {CONTACT_TYPE_PHONE}
 
 
+def resolve_primary_contact_type() -> str:
+    """Return the deployment's operator-facing primary contact type."""
+    allowed_types = resolve_enabled_contact_types()
+    if len(allowed_types) == 1:
+        return next(iter(allowed_types))
+    default_method = (
+        str(get_config("DEFAULT_LOGIN_METHOD", "phone") or "").strip().lower()
+    )
+    if default_method == CONTACT_TYPE_EMAIL:
+        return CONTACT_TYPE_EMAIL
+    return CONTACT_TYPE_PHONE
+
+
 def resolve_contact_type(identifier: str, *, allowed: set[str] | None = None) -> str:
     """Infer whether an identifier should be treated as a phone or an email.
 

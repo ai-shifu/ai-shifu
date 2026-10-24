@@ -16,6 +16,9 @@ validation.
 - `src/i18n/`: Shared translation inventory consumed by backend and frontend.
 - `docker/`: Local dev, latest-image, and pinned-release runtime packaging.
 - `scripts/`: Repository maintenance, generation, and validation scripts.
+- `scripts/markdownflow-arena/`: Manually invoked local slide comparisons, with their own
+  dependencies and tests; calls existing runtime components without application
+  startup or source changes.
 - `.github/`: CI, release automation, issue templates, and Copilot
   compatibility instructions.
 
@@ -30,8 +33,11 @@ validation.
 - `docs/exec-plans/active/`: current complex work tracked as living ExecPlans
 - `docs/exec-plans/completed/`: archived execution plans
 - `docs/generated/`: generated knowledge indexes and inventories
-- `docs/generated/harness-health.md`: generated summary of harness assets and
-  boundary baseline state
+- `docs/generated/harness-health.md`: optional, ignored snapshot of harness
+  assets and boundary baseline state; regenerate locally with
+  `python scripts/build_repo_knowledge_index.py --health-only` or read the
+  current CI run summary and artifact. See
+  [harness health snapshots](docs/README.md#harness-health-snapshots).
 
 ## Runtime Flow
 
@@ -49,8 +55,10 @@ validation.
   `layout.tsx`, and `route.ts`.
 - Shared request transport and business-code handling live in
   `src/web/src/lib/request.ts` and `src/web/src/lib/api.ts`.
-- Legacy `c-*` paths remain active compatibility surfaces and must still be
-  treated as maintained code.
+- Learner and teacher code shares responsibility-based source directories:
+  `api`, `assets`, `components`, `constants`, `hooks`, `lib`, `store`, and `types`.
+- Shared analytics uses `hooks/useTracking.ts` and `lib/tracking.ts`; course
+  orchestration helpers live in `lib/shifu`.
 
 ## Harness Model
 

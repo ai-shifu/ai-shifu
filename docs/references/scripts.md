@@ -4,6 +4,19 @@ This repository includes a small set of scripts focused on internationalization 
 
 - scripts/check_translation_usage.py
   - Scans the backend (Flask) and web frontend to find all translation key usages and ensures they exist in shared JSON under `src/i18n/`.
+  - Excludes generated TypeScript declarations and test files from runtime usage.
+  - Recognizes key constants, dotted relative keys in namespaced or typed forwarded
+    translator arguments, dynamic key templates, and shared backend namespace
+    aliases. Conditional arguments and forwarded literal-union key contracts are
+    included; unrelated dotted strings and translation options are excluded.
+    Dynamic templates, including multiline interpolations, conservatively retain
+    defined keys matching their fixed segments.
+  - Existing messages listed in the backend runtime error-code registry are
+    retained as compatibility contracts even without a current literal caller.
+  - Persisted configuration can supply arbitrary keys; inspect those consumers
+    before deleting a reported candidate. This checker reports usage and does not
+    edit translation files.
+  - Regression tests: `python -m unittest discover -s scripts -p 'test_translation_usage.py'`.
   - Options:
     - `--fail-on-unused`: exit non‑zero if there are defined keys that are not referenced anywhere (helps keep JSON clean).
   - Resilient to legacy allowlist paths and treats missing allowlists as empty.
@@ -32,6 +45,11 @@ This repository includes a small set of scripts focused on internationalization 
 
 - scripts/check_backend_hardcoded_cn.py
   - Fails if Chinese (CJK) characters are found hardcoded in backend Python. All user‑facing text must use i18n keys.
+
+- scripts/check_uow_commit_sites.py
+  - Ratchet for the backend unit-of-work migration (`src/api/flaskr/dao/uow.py`): counts `db.session.commit()` call sites under `src/api/flaskr/` outside `dao/` and compares them with `docs/generated/uow-commit-baseline.json`.
+  - Fails when any file gains call sites, and also when sites disappear without shrinking the baseline; run with `--update` after a migration so the baseline only ratchets down.
+  - Runs in lefthook pre-commit and in the `Static Checks` workflow; the migration plan lives in `docs/exec-plans/completed/uow-commit-site-migration.md`.
 
 Notes
 - Legacy allowlists for unused/missing translations have been removed; CI enforces clean state by default.

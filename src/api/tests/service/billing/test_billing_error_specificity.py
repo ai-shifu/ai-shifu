@@ -13,7 +13,6 @@ import pytest
 from flaskr.service.billing.credit_notifications import save_credit_notification_policy
 from flaskr.service.billing.manual_credit_grants import (
     MANUAL_CREDIT_GRANT_SOURCE_REWARD,
-    MANUAL_CREDIT_VALIDITY_1D,
     grant_manual_credits_to_user,
 )
 from flaskr.service.billing.manual_plan_grants import grant_manual_plan_to_user
@@ -90,7 +89,8 @@ def test_manual_credit_grant_failure_returns_specific_error(
             request_id="request-credit-failed",
             amount="10",
             grant_source=MANUAL_CREDIT_GRANT_SOURCE_REWARD,
-            validity_preset=MANUAL_CREDIT_VALIDITY_1D,
+            validity_value=1,
+            validity_unit="day",
             display_name="Manual credit",
         )
 

@@ -60,6 +60,7 @@ from flaskr.service.order.consts import (
 from flaskr.service.order.models import Order
 from flaskr.service.shifu import admin as admin_module
 from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserCreditDeductionRequestDTO,
     AdminOperationUserCreditGrantRequestDTO,
     AdminOperationUserListDTO,
     AdminOperationUserOverviewDTO,
@@ -68,6 +69,7 @@ from flaskr.service.shifu.admin_dtos import (
 )
 from flaskr.service.shifu.admin_operations import user_credits as user_credits_module
 from flaskr.service.shifu.admin_operations.user_credits import (
+    deduct_operator_user_credits,
     get_operator_user_credit_usage_detail,
     get_operator_user_credits,
     get_operator_user_grant_bootstrap,
@@ -2838,6 +2840,101 @@ def test_get_operator_user_credits_serializes_ledger_time_using_app_timezone(
     assert result.items[0].expires_at == datetime(2026, 4, 29, 16, 29, 9)
 
 
+def test_deduct_operator_user_credits_accepts_two_decimal_places_and_refreshes_summary(
+    app: object,
+) -> None:
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-deduction-target",
+            identify="credits-deduction-target@example.com",
+            nickname="Credits Deduction Target",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-deduction-target@example.com")],
+        )
+        grant_operator_user_credits(
+            app,
+            user_bid="credits-deduction-target",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserCreditGrantRequestDTO(
+                request_id="deduction-seed-grant",
+                amount="2.50",
+                grant_source="compensation",
+                validity_value=7,
+                validity_unit="day",
+            ),
+        )
+
+        result = deduct_operator_user_credits(
+            app,
+            user_bid="credits-deduction-target",
+            operator_user_bid="operator-1",
+            payload=AdminOperationUserCreditDeductionRequestDTO(
+                request_id="deduction-request-1",
+                amount="1.25",
+                reason="account_correction",
+                note="verified correction",
+            ),
+        )
+
+    assert result.status == "deducted"
+    assert result.amount == "1.25"
+    assert result.reason == "account_correction"
+    assert result.note == "verified correction"
+    assert result.summary.available_credits == "1.25"
+    assert len(result.wallet_bucket_bids) == 1
+    assert len(result.ledger_bids) == 1
+
+
+def test_deduct_operator_user_credits_rejects_amount_beyond_billing_precision(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="credits-deduction-precision-target",
+            identify="credits-deduction-precision-target@example.com",
+            nickname="Credits Deduction Precision Target",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 4, 20, 9, 0, 0),
+            updated_at=datetime(2026, 4, 20, 10, 0, 0),
+            providers=[("email", "credits-deduction-precision-target@example.com")],
+        )
+
+        original_quantize = user_credits_module._quantize_credit_amount
+
+        def quantize_with_one_digit(
+            value: object,
+            *,
+            precision: int | None = None,
+        ) -> Decimal:
+            if precision is not None:
+                return original_quantize(value, precision=precision)
+            return Decimal(str(value)).quantize(Decimal("0.1"))
+
+        monkeypatch.setattr(
+            user_credits_module,
+            "_quantize_credit_amount",
+            quantize_with_one_digit,
+        )
+        with pytest.raises(AppError):
+            deduct_operator_user_credits(
+                app,
+                user_bid="credits-deduction-precision-target",
+                operator_user_bid="operator-1",
+                payload=AdminOperationUserCreditDeductionRequestDTO(
+                    request_id="deduction-precision-request",
+                    amount="1.25",
+                    reason="account_correction",
+                ),
+            )
+
+
 def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
     app: object,
 ) -> None:
@@ -2862,7 +2959,8 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
                 request_id="grant-request-1",
                 amount="5",
                 grant_source="compensation",
-                validity_preset="7d",
+                validity_value=7,
+                validity_unit="day",
                 display_name="模型扣费补偿",
                 note="ops support",
             ),
@@ -2887,7 +2985,8 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
     assert result.amount == "5"
     assert result.grant_type == "manual_credit"
     assert result.grant_source == "compensation"
-    assert result.validity_preset == "7d"
+    assert result.validity_value == 7
+    assert result.validity_unit == "day"
     assert result.expires_at is not None
     assert result.display_name == "模型扣费补偿"
     assert result.note == "ops support"
@@ -2898,7 +2997,9 @@ def test_grant_operator_user_credits_creates_manual_grant_bucket_and_summary(
     assert bucket is not None
     assert bucket.source_type == CREDIT_SOURCE_TYPE_MANUAL
     assert bucket.metadata_json["grant_source"] == "compensation"
-    assert bucket.metadata_json["validity_preset"] == "7d"
+    assert bucket.metadata_json["validity_value"] == 7
+    assert bucket.metadata_json["validity_unit"] == "day"
+    assert "validity_preset" not in bucket.metadata_json
     assert "display_name" not in bucket.metadata_json
     assert "note" not in bucket.metadata_json
     assert ledger is not None
@@ -2931,7 +3032,8 @@ def test_grant_operator_user_credits_is_idempotent_for_repeated_request_id(
             request_id="grant-request-idempotent",
             amount="5",
             grant_source="reward",
-            validity_preset="1d",
+            validity_value=1,
+            validity_unit="day",
             note="retry-safe",
         )
         first_result = grant_operator_user_credits(
@@ -2999,7 +3101,6 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
                 amount="1000",
                 grant_type="referral_reward",
                 grant_source="reward",
-                validity_preset="1m",
                 note="first referral",
             ),
         )
@@ -3012,7 +3113,6 @@ def test_grant_operator_user_referral_reward_stacks_bucket_and_expiry(
                 amount="800",
                 grant_type="referral_reward",
                 grant_source="reward",
-                validity_preset="1m",
                 note="second referral",
             ),
         )
@@ -3117,7 +3217,6 @@ def test_grant_operator_user_referral_reward_extends_empty_active_bucket(
                 amount="1000",
                 grant_type="referral_reward",
                 grant_source="reward",
-                validity_preset="1m",
                 note="extend empty active bucket",
             ),
         )
@@ -3156,7 +3255,6 @@ def test_grant_operator_user_referral_reward_is_idempotent_for_repeated_request_
             amount="1000",
             grant_type="referral_reward",
             grant_source="reward",
-            validity_preset="1m",
             note="retry-safe referral",
         )
         first_result = grant_operator_user_credits(
@@ -3216,7 +3314,6 @@ def test_grant_operator_user_referral_reward_rejects_non_integer_amount(
                     amount="1000.5",
                     grant_type="referral_reward",
                     grant_source="reward",
-                    validity_preset="1m",
                 ),
             )
 
@@ -3246,7 +3343,8 @@ def test_grant_operator_user_credits_accepts_legacy_manual_grant_type(
                 amount="5",
                 grant_type="manual_grant",
                 grant_source="reward",
-                validity_preset="1d",
+                validity_value=1,
+                validity_unit="day",
                 note="legacy type",
             ),
         )
@@ -3279,7 +3377,8 @@ def test_grant_operator_user_credits_rejects_unknown_grant_type(app: object) -> 
                     amount="5",
                     grant_type="unknown_type",
                     grant_source="reward",
-                    validity_preset="1d",
+                    validity_value=1,
+                    validity_unit="day",
                     note="invalid type",
                 ),
             )
@@ -3313,7 +3412,8 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
             request_id="grant-request-idempotent-persisted",
             amount="5",
             grant_source="reward",
-            validity_preset="1d",
+            validity_value=1,
+            validity_unit="day",
             display_name="first display",
             note="first grant",
         )
@@ -3321,7 +3421,8 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
             request_id="grant-request-idempotent-persisted",
             amount="9",
             grant_source="compensation",
-            validity_preset="7d",
+            validity_value=7,
+            validity_unit="day",
             display_name="second display",
             note="second grant",
         )
@@ -3342,7 +3443,8 @@ def test_grant_operator_user_credits_returns_persisted_payload_for_reused_reques
     assert second_result.wallet_bucket_bid == first_result.wallet_bucket_bid
     assert second_result.amount == "5"
     assert second_result.grant_source == "reward"
-    assert second_result.validity_preset == "1d"
+    assert second_result.validity_value == 1
+    assert second_result.validity_unit == "day"
     assert second_result.expires_at == first_result.expires_at
     assert second_result.display_name == "first display"
     assert second_result.note == "first grant"
@@ -3370,7 +3472,8 @@ def test_grant_operator_user_credits_rejects_regular_user_targets(app: object) -
                     request_id="grant-request-regular",
                     amount="5",
                     grant_source="reward",
-                    validity_preset="1d",
+                    validity_value=1,
+                    validity_unit="day",
                     note="unsupported target",
                 ),
             )
@@ -4130,6 +4233,10 @@ def test_admin_operation_users_route_returns_filtered_payload(
             "last_learning_at": None,
             "created_at": _z(datetime(2026, 4, 6, 8, 0, 0)),
             "updated_at": _z(datetime(2026, 4, 6, 12, 0, 0)),
+            "cancelled_at": None,
+            "cancellation_operator_user_bid": "",
+            "cancellation_operator_mobile": "",
+            "cancellation_operator_nickname": "",
         }
     ]
 
@@ -4217,6 +4324,11 @@ def test_admin_operation_user_detail_route_returns_payload(
         "last_learning_at": None,
         "created_at": _z(datetime(2026, 4, 10, 8, 0, 0)),
         "updated_at": _z(datetime(2026, 4, 10, 12, 0, 0)),
+        "cancelled_at": None,
+        "cancellation_reason": "",
+        "cancellation_operator_user_bid": "",
+        "cancellation_operator_mobile": "",
+        "cancellation_operator_nickname": "",
     }
 
 
@@ -4419,10 +4531,19 @@ def test_admin_operation_user_credits_route_rejects_inverted_time_range(
     assert payload["message"] == "Params Error start_time"
 
 
+@pytest.mark.parametrize(
+    "validity",
+    [
+        {"validity_value": 1, "validity_unit": "day"},
+        {"validity_value": 15, "validity_unit": "day"},
+        {"validity_value": 6, "validity_unit": "month"},
+    ],
+)
 def test_admin_operation_user_credit_grant_route_returns_payload(
     app: object,
     test_client: object,
     monkeypatch: object,
+    validity: dict[str, object],
 ) -> None:
     _mock_operator(monkeypatch)
 
@@ -4445,7 +4566,7 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
             "request_id": "route-grant-request-1",
             "amount": "3",
             "grant_source": "reward",
-            "validity_preset": "1d",
+            **validity,
             "note": "route check",
         },
         headers={"Token": "test-token"},
@@ -4457,7 +4578,9 @@ def test_admin_operation_user_credit_grant_route_returns_payload(
     assert payload["data"]["user_bid"] == "user-credit-grant-route"
     assert payload["data"]["amount"] == "3"
     assert payload["data"]["grant_source"] == "reward"
-    assert payload["data"]["validity_preset"] == "1d"
+    assert "validity_preset" not in payload["data"]
+    assert payload["data"]["validity_value"] == validity.get("validity_value")
+    assert payload["data"]["validity_unit"] == validity.get("validity_unit")
     assert payload["data"]["expires_at"].endswith("Z")
     assert payload["data"]["ledger_bid"]
     assert payload["data"]["wallet_bucket_bid"]
@@ -4650,7 +4773,8 @@ def test_admin_operation_user_credit_grant_route_requires_operator(
             "request_id": "route-grant-request-denied",
             "amount": "3",
             "grant_source": "reward",
-            "validity_preset": "1d",
+            "validity_value": 1,
+            "validity_unit": "day",
             "note": "route check",
         },
         headers={"Token": "test-token"},
@@ -4965,3 +5089,74 @@ def test_contact_map_skips_user_query_when_users_argument_is_empty(
     assert result["user-1"]["mobile"] == "13800000000"
     assert result["user-1"]["login_methods"] == ["phone"]
     assert result["user-2"] == {"mobile": "", "email": "", "login_methods": []}
+
+
+@pytest.mark.parametrize(
+    "validity",
+    [
+        {},
+        {"validity_value": 1.5, "validity_unit": "day"},
+        {"validity_value": True, "validity_unit": "day"},
+        {"validity_value": 0, "validity_unit": "day"},
+        {"validity_value": 15},
+        {"validity_unit": "day"},
+        {"validity_value": None, "validity_unit": "day"},
+        {"validity_value": 15, "validity_unit": None},
+        {"validity_value": 15, "validity_unit": "week"},
+        {"validity_preset": "1m"},
+        *[
+            {
+                "validity_preset": preset,
+                "validity_value": 15,
+                "validity_unit": "day",
+            }
+            for preset in ("align_subscription", "1d", "7d", "1m", "3m", "1y", "custom")
+        ],
+        {
+            "validity_value": 15,
+            "validity_unit": "day",
+            "grant_type": "referral_reward",
+        },
+        {"validity_value": None, "grant_type": "referral_reward"},
+        {"validity_unit": None, "grant_type": "referral_reward"},
+    ],
+)
+def test_credit_grant_route_rejects_invalid_or_obsolete_payload_without_writes(
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+    validity: dict[str, object],
+) -> None:
+    _mock_operator(monkeypatch)
+    with app.app_context():
+        _seed_user(
+            app,
+            user_bid="custom-invalid",
+            identify="custom-invalid@example.com",
+            nickname="Test",
+            state=USER_STATE_PAID,
+            is_creator=True,
+            created_at=datetime(2026, 1, 1),
+            updated_at=datetime(2026, 1, 1),
+            providers=[("email", "custom-invalid@example.com")],
+        )
+    response = test_client.post(
+        "/api/shifu/admin/operations/users/custom-invalid/credits/grant",
+        json={
+            "request_id": "invalid-custom",
+            "amount": "10",
+            "grant_source": "reward",
+            **validity,
+        },
+        headers={"Token": "test-token"},
+    )
+    assert response.get_json()["code"] == ERROR_CODE["server.common.paramsError"]
+    with app.app_context():
+        assert CreditWallet.query.filter_by(creator_bid="custom-invalid").count() == 0
+        assert (
+            CreditLedgerEntry.query.filter_by(creator_bid="custom-invalid").count() == 0
+        )
+        assert (
+            CreditWalletBucket.query.filter_by(creator_bid="custom-invalid").count()
+            == 0
+        )

@@ -9,9 +9,16 @@ from flaskr.dao import db
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
 from flaskr.service.user.onboarding import _serialize_datetime
-from flaskr.service.user.utils import generate_token
+from flaskr.service.user.utils import generate_token as generate_uncommitted_token
 from flaskr.util.datetime import now_utc
 from sqlalchemy.exc import IntegrityError
+
+
+def generate_token(app: object, user_bid: str) -> str:
+    """Issue the durable session expected by the following HTTP request."""
+    token = generate_uncommitted_token(app, user_bid)
+    db.session.commit()
+    return token
 
 
 def _create_user(

@@ -63,9 +63,5 @@ def fake_chat_llm(
         )
 
 
-def fake_get_allowed_models() -> list[str]:
-    return []
-
-
 def fake_get_current_models(_app: object) -> list[dict[str, str]]:
     return []

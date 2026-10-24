@@ -6,32 +6,29 @@ import React, {
   useEffect,
 } from 'react';
 import { cn } from '@/lib/utils';
-import { lessonFeedbackInteractionDefaultValueOptions } from '@/c-utils/lesson-feedback-interaction-defaults';
+import { lessonFeedbackInteractionDefaultValueOptions } from '@/lib/lesson-feedback-interaction-defaults';
 import { useTranslation } from 'react-i18next';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
-import {
-  getRunMessage,
-  SSE_INPUT_TYPE,
-  SSE_OUTPUT_TYPE,
-} from '@/c-api/studyV2';
-import { fixMarkdownStream } from '@/c-utils/markdownUtils';
+import { getRunMessage, SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/api/studyV2';
+import { fixMarkdownStream } from '@/lib/markdownUtils';
 import LoadingBar from './LoadingBar';
 import StreamingLoadingDotsBar from './StreamingLoadingDotsBar';
 import styles from './AskBlock.module.scss';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { AppContext } from '../AppContext';
-import { BLOCK_TYPE } from '@/c-api/studyV2';
+import { BLOCK_TYPE } from '@/api/studyV2';
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useCourseStore } from '@/store/useCourseStore';
 import {
   EMPTY_ASK_MESSAGE_LIST,
   normalizeAskMessageList,
   type AskMessage,
 } from './askState';
 import { useAskStateStore } from './useAskStateStore';
-import { CHAT_TYPEWRITER_SPEED_MS } from '@/c-constants/uiConstants';
+import { CHAT_TYPEWRITER_SPEED_MS } from '@/constants/uiConstants';
 import { resolveMarkdownFlowLocale } from '@/lib/markdown-flow-locale';
+import { isRtlLocale } from '@/lib/i18n-locales';
 import {
   AI_SERVICE_ERROR_TOAST_DEDUPE_MS,
   AI_SERVICE_ERROR_TOAST_DURATION_MS,
@@ -43,12 +40,30 @@ import {
   resolveCourseCreditInsufficientAudience,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
+import { useTracking } from '@/hooks/useTracking';
+import { useLiveReadinessAnalytics } from '@/components/live-follow-up/useLiveReadinessAnalytics';
+import {
+  LiveVoiceFollowUpControls,
+  LiveVoiceFollowUpMicrophoneButton,
+} from '@/components/live-follow-up/LiveVoiceFollowUpControls';
+import type {
+  LiveVoiceFollowUpController,
+  LiveVoiceFollowUpTarget,
+} from '@/components/live-follow-up/useLiveVoiceFollowUp';
 export type { AskMessage } from './askState';
 
+type FollowUpSubmissionMethod = 'button' | 'keyboard';
+
+const FOLLOW_UP_SUBMIT_EVENT = 'learner_follow_up_submit';
+
 export interface AskBlockProps {
+  followUpMode?: 'text' | 'live_voice' | 'disabled';
+  liveVoice?: LiveVoiceFollowUpController;
+  liveVoiceSurface?: LiveVoiceFollowUpTarget['surface'];
   askList?: AskMessage[];
   className?: string;
   isExpanded?: boolean;
+  readonlyHistory?: boolean;
   printMode?: boolean;
   forceDesktopSlidePanel?: boolean;
   shifu_bid: string;
@@ -63,9 +78,13 @@ export interface AskBlockProps {
  * Follow-up area component that contains the Q&A list and custom input box with streaming support
  */
 export default function AskBlock({
+  followUpMode = 'text',
+  liveVoice,
+  liveVoiceSurface = 'read_content',
   askList = [],
   className,
   isExpanded = undefined,
+  readonlyHistory = false,
   printMode = false,
   forceDesktopSlidePanel = false,
   shifu_bid,
@@ -75,10 +94,18 @@ export default function AskBlock({
   onToggleAskExpanded,
 }: AskBlockProps) {
   const { t, i18n } = useTranslation();
-  const markdownFlowLocale = resolveMarkdownFlowLocale(
-    i18n.resolvedLanguage ?? i18n.language,
-  );
+  const isLive = followUpMode === 'live_voice';
+  const liveTarget: LiveVoiceFollowUpTarget = {
+    anchorElementBid: element_bid,
+    surface: preview_mode ? 'teacher_preview' : liveVoiceSurface,
+  };
+  const liveRef = useRef(liveVoice);
+  liveRef.current = liveVoice;
+  const liveSubmissionRef = useRef(false);
+  const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const markdownFlowLocale = resolveMarkdownFlowLocale(hostLanguage);
   const { mobileStyle } = useContext(AppContext);
+  const { trackEvent } = useTracking();
   const courseAvatar = useCourseStore(state => state.courseAvatar);
   const isCurrentUserCourseOwner = useCourseStore(
     state => state.isCurrentUserCourseOwner,
@@ -115,6 +142,7 @@ export default function AskBlock({
   const currentContentRef = useRef<string>('');
   const currentAnswerElementBidRef = useRef<string>('');
   const isStreamingRef = useRef(false);
+  const pendingSubmissionMethodRef = useRef<FollowUpSubmissionMethod>('button');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMobileDialog, setShowMobileDialog] = useState(hasDisplayMessages);
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
@@ -123,9 +151,36 @@ export default function AskBlock({
   const isDesktopSlideAskBlock = Boolean(isSlideAskBlock) && !mobileStyle;
   const isLandscapeSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && forceDesktopSlidePanel;
-  const expanded = isExpanded ?? (!mobileStyle && hasDisplayMessages);
+  const expanded = readonlyHistory
+    ? hasDisplayMessages
+    : (isExpanded ?? (!mobileStyle && hasDisplayMessages));
   const expandedRef = useRef(expanded);
   const previousExpandedRef = useRef(expanded);
+  useLiveReadinessAnalytics({
+    enabled:
+      isLive && !!liveVoice && expanded && !printMode && !readonlyHistory,
+    previewMode: preview_mode,
+    shifuBid: shifu_bid,
+    outlineBid: outline_bid,
+    anchorElementBid: element_bid,
+    surface: liveTarget.surface,
+    state:
+      liveVoice?.anchorElementBid === element_bid && liveVoice.state !== 'ended'
+        ? 'ready'
+        : (liveVoice?.readiness ?? 'checking'),
+  });
+  useEffect(() => {
+    if (isLive && expanded && !printMode && !readonlyHistory)
+      liveRef.current?.prepare();
+  }, [isLive, expanded, printMode, readonlyHistory, outline_bid, element_bid]);
+  useEffect(() => {
+    if (!isLive || !expanded) return;
+    return () => {
+      const controller = liveRef.current;
+      if (controller?.anchorElementBid === element_bid && controller.open)
+        controller.pause();
+    };
+  }, [element_bid, expanded, isLive]);
   const shouldForceSlideMobileDialog =
     Boolean(isSlideAskBlock) && mobileStyle && expanded;
   const shouldShowMobileDialog =
@@ -228,7 +283,38 @@ export default function AskBlock({
   );
 
   const handleSendCustomQuestion = useCallback(async () => {
+    const submissionMethod = pendingSubmissionMethodRef.current;
+    pendingSubmissionMethodRef.current = 'button';
     const question = inputValue.trim();
+    if (followUpMode === 'disabled') return;
+    if (isLive) {
+      if (!question || !liveVoice || liveSubmissionRef.current) return;
+      if (question.length > 8000) {
+        toast({ title: t('module.chat.liveVoiceTextTooLong') });
+        return;
+      }
+      liveSubmissionRef.current = true;
+      setShowMobileDialog(true);
+      try {
+        const sent = await liveVoice.sendText(
+          {
+            anchorElementBid: element_bid,
+            surface: preview_mode ? 'teacher_preview' : liveVoiceSurface,
+          },
+          question,
+          submissionMethod,
+        );
+        if (sent) {
+          setInputValue(current =>
+            current.trim() === question ? '' : current,
+          );
+          dismissAskInputFocus();
+        }
+      } finally {
+        liveSubmissionRef.current = false;
+      }
+      return;
+    }
     if (creditInsufficientAudience === null) {
       return;
     }
@@ -240,6 +326,13 @@ export default function AskBlock({
     if (!question) {
       return;
     }
+
+    try {
+      void trackEvent(FOLLOW_UP_SUBMIT_EVENT, {
+        surface: mobileStyle ? 'learner_mobile' : 'learner_desktop',
+        submission_method: submissionMethod,
+      });
+    } catch {}
 
     // Close any previous SSE connection
     sseRef.current?.close();
@@ -457,12 +550,36 @@ export default function AskBlock({
     setAskList,
     updateStreamingAnswerMessage,
     t,
+    mobileStyle,
+    trackEvent,
+    followUpMode,
+    isLive,
+    liveVoice,
+    liveVoiceSurface,
   ]);
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      pendingSubmissionMethodRef.current = 'button';
+      if (isLive) liveVoice?.stopMicrophone();
       setInputValue(e.target.value);
     },
-    [],
+    [isLive, liveVoice],
+  );
+  const handleInputKeyDownCapture = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (
+        mobileStyle ||
+        event.key !== 'Enter' ||
+        event.shiftKey ||
+        event.nativeEvent.isComposing ||
+        event.keyCode === 229
+      ) {
+        return;
+      }
+
+      pendingSubmissionMethodRef.current = 'keyboard';
+    },
+    [mobileStyle],
   );
 
   // Decide which messages to display
@@ -473,6 +590,7 @@ export default function AskBlock({
       : displayList.slice(0, 1);
   const hasAskAnswerMessages = messagesToShow.length > 0;
   const shouldRenderMobileDialog =
+    !readonlyHistory &&
     mobileStyle &&
     shouldShowMobileDialog &&
     (hasAskAnswerMessages || shouldForceSlideMobileDialog);
@@ -618,10 +736,12 @@ export default function AskBlock({
   }, [expanded, isDesktopSlideAskBlock, messagesToShow]);
 
   const handleClose = useCallback(() => {
+    if (isLive && liveRef.current?.anchorElementBid === element_bid)
+      liveRef.current.pause();
     setIsFullscreen(false);
     // onClose?.();
     onToggleAskExpanded?.(element_bid);
-  }, [onToggleAskExpanded, element_bid]);
+  }, [onToggleAskExpanded, element_bid, isLive]);
 
   const handleToggleFullscreen = useCallback(() => {
     setIsFullscreen(prev => !prev);
@@ -692,6 +812,7 @@ export default function AskBlock({
           const messageRenderKey = `${message.type}-${message.element_bid || index}`;
           const shouldEnableMessageTypewriter =
             !printMode &&
+            !readonlyHistory &&
             message.type === BLOCK_TYPE.ANSWER &&
             message.shouldUseTypewriter === true;
           // if (message.type === BLOCK_TYPE.ANSWER) {
@@ -728,6 +849,7 @@ export default function AskBlock({
                 >
                   <ContentRender
                     locale={markdownFlowLocale}
+                    lang=''
                     content={message.content}
                     customRenderBar={
                       message.isStreaming
@@ -759,7 +881,12 @@ export default function AskBlock({
   };
 
   const renderInput = (extraClass?: string) => {
-    if (printMode || !expanded) {
+    if (
+      readonlyHistory ||
+      printMode ||
+      !expanded ||
+      followUpMode === 'disabled'
+    ) {
       return null;
     }
 
@@ -767,18 +894,50 @@ export default function AskBlock({
       <div
         className={cn(extraClass)}
         ref={inputWrapperRef}
+        onKeyDownCapture={handleInputKeyDownCapture}
       >
-        <MarkdownFlowInput
-          locale={markdownFlowLocale}
-          placeholder={t('module.chat.askContent')}
-          value={inputValue}
-          onChange={handleInputChange}
-          onSend={handleSendCustomQuestion}
-          className={cn(
-            styles.inputGroup,
-            isStreamingRef.current ? styles.isSending : '',
-          )}
-        />
+        <div
+          className={isLive && liveVoice ? styles.liveInput : undefined}
+          dir={isRtlLocale(hostLanguage) ? 'rtl' : 'ltr'}
+        >
+          <MarkdownFlowInput
+            disabled={
+              isLive &&
+              liveVoice?.readiness !== 'ready' &&
+              !(
+                liveVoice?.anchorElementBid === element_bid &&
+                liveVoice.state !== 'ended'
+              )
+            }
+            locale={markdownFlowLocale}
+            lang=''
+            placeholder={t('module.chat.askContent')}
+            value={inputValue}
+            onChange={handleInputChange}
+            onSend={handleSendCustomQuestion}
+            sendShortcut={mobileStyle ? 'none' : 'enter'}
+            className={cn(
+              styles.inputGroup,
+              isStreamingRef.current ? styles.isSending : '',
+            )}
+            textareaClassName={
+              isLive && liveVoice ? styles.liveTextarea : undefined
+            }
+          />
+          {isLive && liveVoice ? (
+            <LiveVoiceFollowUpMicrophoneButton
+              controller={liveVoice}
+              target={liveTarget}
+              className={styles.liveMicrophone}
+            />
+          ) : null}
+        </div>
+        {isLive && liveVoice ? (
+          <LiveVoiceFollowUpControls
+            controller={liveVoice}
+            target={liveTarget}
+          />
+        ) : null}
       </div>
     );
   };

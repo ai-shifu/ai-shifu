@@ -10,6 +10,7 @@ import jwt
 from authlib.integrations.requests_client import OAuth2Session
 from flask import current_app, request
 from flaskr.common.public_urls import build_google_oauth_callback_url
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.profile.api import merge_learner_profile_for_sign_in
@@ -31,7 +32,6 @@ from flaskr.service.user.repository import (
     get_user_entity_by_bid,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
-    transactional_session,
     update_user_entity_fields,
     upsert_credential,
 )
@@ -224,7 +224,7 @@ class GoogleAuthProvider(AuthProvider):
             state=state,
             **create_url_kwargs,
         )
-        current_app.logger.info("Google OAuth begin state=%s", state)
+        current_app.logger.info("auth_event=google_oauth_started")
         return {"authorization_url": authorization_url, "state": state}
 
     def handle_oauth_callback(
@@ -239,7 +239,7 @@ class GoogleAuthProvider(AuthProvider):
             )
             raise_error("server.user.googleOAuthStateInvalid")
 
-        current_app.logger.info("Google OAuth callback state=%s", request.state)
+        current_app.logger.info("auth_event=google_oauth_callback_received")
         state_payload = _decode_state(app, request.state)
         if not state_payload:
             raise_error("server.user.googleOAuthStateInvalid")
@@ -294,7 +294,7 @@ class GoogleAuthProvider(AuthProvider):
         created_user = False
         credential_record = None
 
-        with transactional_session():
+        with unit_of_work():
             if credential:
                 aggregate = load_user_aggregate(credential.user_bid)
 

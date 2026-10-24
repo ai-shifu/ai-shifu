@@ -10,7 +10,6 @@ import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.service.billing.consts import (
-    BILLING_METRIC_TTS_REQUEST_COUNT,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -18,22 +17,15 @@ from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_LEDGER_ENTRY_TYPE_HOLD,
     CREDIT_LEDGER_ENTRY_TYPE_RELEASE,
-    CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_SOURCE_TYPE_TOPUP,
-    CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
     BillingSubscription,
     CreditLedgerEntry,
-    CreditUsageRate,
     CreditWallet,
     CreditWalletBucket,
 )
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_TYPE_TTS,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -92,54 +84,6 @@ def _seed_wallet(creator_bid: str, amount: str = "10.0000000000") -> None:
     dao.db.session.add_all([wallet, bucket])
 
 
-def _seed_voice_clone_rate(credits_per_unit: str = "3.0000000000") -> None:
-    dao.db.session.add(
-        CreditUsageRate(
-            rate_bid="rate-minimax-voice-clone-preview",
-            usage_type=BILL_USAGE_TYPE_TTS,
-            provider="minimax",
-            model="voice_clone",
-            usage_scene=BILL_USAGE_SCENE_PREVIEW,
-            billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
-            unit_size=1,
-            credits_per_unit=Decimal(credits_per_unit),
-            rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
-            effective_from=datetime(2026, 1, 1, 0, 0, 0),
-            effective_to=None,
-            status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
-        )
-    )
-
-
-def test_estimate_voice_clone_cost_uses_configured_rate(
-    operation_credit_app: Flask,
-) -> None:
-    from flaskr.service.billing.operation_credits import (
-        estimate_voice_clone_operation_credits,
-    )
-
-    with operation_credit_app.app_context():
-        _seed_voice_clone_rate("2.5000000000")
-        dao.db.session.commit()
-
-    result = estimate_voice_clone_operation_credits(operation_credit_app)
-
-    assert result.consumed_credits == Decimal("2.5000000000")
-    assert result.billing_metric == BILLING_METRIC_TTS_REQUEST_COUNT
-
-
-def test_estimate_voice_clone_cost_is_zero_without_configured_rate(
-    operation_credit_app: Flask,
-) -> None:
-    from flaskr.service.billing.operation_credits import (
-        estimate_voice_clone_operation_credits,
-    )
-
-    result = estimate_voice_clone_operation_credits(operation_credit_app)
-
-    assert result.consumed_credits == Decimal(0)
-
-
 def test_reserve_capture_and_release_operation_credits_are_idempotent(
     operation_credit_app: Flask,
 ) -> None:
@@ -157,17 +101,17 @@ def test_reserve_capture_and_release_operation_credits_are_idempotent(
         operation_credit_app,
         creator_bid="creator-operation",
         amount=Decimal("3.0000000000"),
-        operation_type="voice_clone",
-        operation_bid="voice-bid-1",
-        metadata={"voice_id": "AiShifu_voice_1"},
+        operation_type="credit_test",
+        operation_bid="operation-bid-1",
+        metadata={"voice_id": "voice-id-test"},
     )
     repeated_reservation = reserve_operation_credits(
         operation_credit_app,
         creator_bid="creator-operation",
         amount=Decimal("3.0000000000"),
-        operation_type="voice_clone",
-        operation_bid="voice-bid-1",
-        metadata={"voice_id": "AiShifu_voice_1"},
+        operation_type="credit_test",
+        operation_bid="operation-bid-1",
+        metadata={"voice_id": "voice-id-test"},
     )
 
     assert repeated_reservation.reservation_bid == reservation.reservation_bid
@@ -190,13 +134,13 @@ def test_reserve_capture_and_release_operation_credits_are_idempotent(
     capture = capture_reserved_operation_credits(
         operation_credit_app,
         reservation_bid=reservation.reservation_bid,
-        usage_bid="usage-voice-clone-1",
+        usage_bid="usage-operation-1",
         metadata={"status": "ready"},
     )
     repeated_capture = capture_reserved_operation_credits(
         operation_credit_app,
         reservation_bid=reservation.reservation_bid,
-        usage_bid="usage-voice-clone-1",
+        usage_bid="usage-operation-1",
         metadata={"status": "ready"},
     )
 
@@ -248,8 +192,8 @@ def test_release_restores_reserved_credits(operation_credit_app: Flask) -> None:
         operation_credit_app,
         creator_bid="creator-release",
         amount=Decimal("2.0000000000"),
-        operation_type="voice_clone",
-        operation_bid="voice-bid-release",
+        operation_type="credit_test",
+        operation_bid="operation-bid-release",
         metadata={},
     )
     release = release_reserved_operation_credits(
@@ -296,8 +240,8 @@ def test_reserve_operation_credits_rejects_insufficient_balance(
             operation_credit_app,
             creator_bid="creator-insufficient",
             amount=Decimal("2.0000000000"),
-            operation_type="voice_clone",
-            operation_bid="voice-bid-insufficient",
+            operation_type="credit_test",
+            operation_bid="operation-bid-insufficient",
             metadata={},
         )
 
@@ -360,8 +304,8 @@ def test_reserve_operation_credits_freezes_topup_without_active_subscription(
             operation_credit_app,
             creator_bid=creator_bid,
             amount=Decimal("1.0000000000"),
-            operation_type="voice_clone",
-            operation_bid="voice-bid-frozen-topup",
+            operation_type="credit_test",
+            operation_bid="operation-bid-frozen-topup",
             metadata={},
         )
 
@@ -391,8 +335,8 @@ def test_reserve_operation_credits_freezes_topup_without_active_subscription(
         operation_credit_app,
         creator_bid=creator_bid,
         amount=Decimal("1.0000000000"),
-        operation_type="voice_clone",
-        operation_bid="voice-bid-frozen-topup",
+        operation_type="credit_test",
+        operation_bid="operation-bid-frozen-topup",
         metadata={},
     )
 
@@ -470,8 +414,8 @@ def test_reserve_operation_credits_rejects_topup_after_consumption_window(
             operation_credit_app,
             creator_bid=creator_bid,
             amount=Decimal("1.0000000000"),
-            operation_type="voice_clone",
-            operation_bid="voice-bid-expired-topup-window",
+            operation_type="credit_test",
+            operation_bid="operation-bid-expired-topup-window",
             metadata={},
         )
 
@@ -534,8 +478,8 @@ def test_operation_credit_mutations_request_wallet_and_bucket_locks(
         operation_credit_app,
         creator_bid="creator-locks",
         amount=Decimal("3.0000000000"),
-        operation_type="voice_clone",
-        operation_bid="voice-bid-locks",
+        operation_type="credit_test",
+        operation_bid="operation-bid-locks",
         metadata={},
     )
     capture_reserved_operation_credits(
@@ -553,8 +497,8 @@ def test_operation_credit_mutations_request_wallet_and_bucket_locks(
         operation_credit_app,
         creator_bid="creator-locks-release",
         amount=Decimal("2.0000000000"),
-        operation_type="voice_clone",
-        operation_bid="voice-bid-locks-release",
+        operation_type="credit_test",
+        operation_bid="operation-bid-locks-release",
         metadata={},
     )
     release_reserved_operation_credits(

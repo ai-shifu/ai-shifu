@@ -17,7 +17,7 @@
   "lessonPromptHint": "Définissez la génération de contenu de la leçon, le public, le ton et les garde-fous",
   "lessonPromptPlaceholder": "Veuillez saisir le prompt. Si ce champ est vide, la génération du contenu de la leçon sera contrainte par le prompt du chapitre.",
   "lessonSettingsTitle": "Paramètres de la leçon",
-  "paid": "Payé",
+  "paid": "Payant",
   "promptPlaceholder": "Veuillez saisir le prompt",
   "visible": "Visible"
 }

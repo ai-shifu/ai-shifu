@@ -16,7 +16,6 @@ import {
   hasBillingProductDiscountCampaign,
   resolveBillingProductPayableAmount,
   resolveBillingProductTitle,
-  resolveBillingProductDescription,
 } from '@/lib/billing';
 import type {
   BillingPlan,
@@ -26,19 +25,17 @@ import type {
   BillingTrialOffer,
 } from '@/types/billing';
 import { cn } from '@/lib/utils';
-import {
-  getFreeFeatureData,
-  getPlanFeatureData,
-  getPlanScaleKeys,
-} from './BillingOverviewCards';
+import { formatBillingLearningTime } from '@/lib/billingLearningTime';
+import { getFreeFeatureData, getPlanFeatureData } from './BillingOverviewCards';
 import styles from './BillingPlanComparisonTable.module.scss';
 
-// Language-neutral typographic enumerators that anchor each metric row label
+// Language-neutral typographic markers that anchor each metric row label
 // to the matching footnote item. Not user-facing copy, so they stay out of
 // i18n.
-const ROW_ENUM_LEARNER = '①';
-const ROW_ENUM_VALIDITY = '②';
+const ROW_MARKER_LEARNING_TIME = '*';
+const ROW_MARKER_VALIDITY = '**';
 const SAME_PLAN_RENEWAL_LIMIT_TOLERANCE_MS = 24 * 60 * 60 * 1000;
+const MIN_PLAN_COLUMN_WIDTH_PX = 180;
 
 type FeatureRow = {
   i18nKey: string;
@@ -160,7 +157,6 @@ type ColumnDescriptor = {
   key: string;
   testId: string;
   title: string;
-  description: string;
   badgeLabel?: string;
   campaignLabel?: string;
   originalPriceLabel?: string;
@@ -169,7 +165,7 @@ type ColumnDescriptor = {
   creditAmount: string;
   featured: boolean;
   validityShort: string;
-  studentLabel?: string;
+  learningTimeLabel: string;
   features: boolean[];
   action: ColumnAction;
 };
@@ -318,9 +314,6 @@ export function BillingPlanComparisonTable({
 
   if (renderFreeColumn) {
     const trialFeatureSet = new Set(trialFeatureKeys);
-    const trialScale = getPlanScaleKeys(
-      trialOffer?.product_code || 'creator-plan-trial',
-    );
     columns.push({
       key: 'free',
       testId: 'billing-plan-card-free',
@@ -328,11 +321,6 @@ export function BillingPlanComparisonTable({
         t,
         trialOffer,
         t('module.billing.package.free.title'),
-      ),
-      description: resolveBillingProductDescription(
-        t,
-        trialOffer,
-        t('module.billing.package.free.description'),
       ),
       priceLabel:
         trialOffer && trialOffer.currency
@@ -352,7 +340,11 @@ export function BillingPlanComparisonTable({
             days: trialOffer.valid_days,
           })
         : emptyValue,
-      studentLabel: trialScale ? t(trialScale.students) : undefined,
+      learningTimeLabel: formatBillingLearningTime(
+        t,
+        trialOffer?.credit_amount || 0,
+        i18n.language,
+      ),
       features: featureRows.map(
         row => row.unlockIndex === -1 || trialFeatureSet.has(row.i18nKey),
       ),
@@ -478,7 +470,6 @@ export function BillingPlanComparisonTable({
     const checkoutKey = actionProvider
       ? `plan:${actionProvider}:${plan.product_bid}:${action || 'subscription'}`
       : null;
-    const planScale = getPlanScaleKeys(plan.product_code);
     const badgeKey = plan.status_badge_key;
     const showCurrentSubscriptionState =
       hasActiveSubscription && !hasPendingPreorder && !action && isCurrentPlan;
@@ -492,7 +483,6 @@ export function BillingPlanComparisonTable({
       key: plan.product_bid,
       testId: `billing-plan-card-${plan.product_bid}`,
       title: resolveBillingProductTitle(t, plan),
-      description: resolveBillingProductDescription(t, plan),
       badgeLabel: badgeKey ? t(badgeKey) : undefined,
       campaignLabel: hasDiscountCampaign
         ? t('module.billing.package.campaign.discountBadge')
@@ -515,7 +505,11 @@ export function BillingPlanComparisonTable({
       }),
       featured: isCurrentPlan,
       validityShort: resolvePlanValidityShort(t, plan),
-      studentLabel: planScale ? t(planScale.students) : undefined,
+      learningTimeLabel: formatBillingLearningTime(
+        t,
+        plan.credit_amount,
+        i18n.language,
+      ),
       features: featureRows.map(
         row => row.unlockIndex === -1 || idx >= row.unlockIndex,
       ),
@@ -584,7 +578,10 @@ export function BillingPlanComparisonTable({
       className={styles.tableWrapper}
       data-testid='billing-plan-comparison-table'
     >
-      <table className={styles.table}>
+      <table
+        className={styles.table}
+        style={{ minWidth: columns.length * MIN_PLAN_COLUMN_WIDTH_PX }}
+      >
         <colgroup>
           {columns.map(col => (
             <col
@@ -673,16 +670,6 @@ export function BillingPlanComparisonTable({
           </tr>
         </thead>
         <tbody>
-          <tr className={styles.scenarioRow}>
-            {columns.map(col => (
-              <td
-                key={col.key}
-                className={cn(col.featured && styles.featuredColumn)}
-              >
-                <div className={styles.scenarioText}>{col.description}</div>
-              </td>
-            ))}
-          </tr>
           <tr className={styles.dataRow}>
             {columns.map(col => (
               <td
@@ -690,11 +677,16 @@ export function BillingPlanComparisonTable({
                 className={cn(col.featured && styles.featuredColumn)}
               >
                 <div className={styles.cellLabel}>
-                  {t('module.billing.package.table.studentsRowLabel')}
-                  <span className='ml-1 font-medium'>{ROW_ENUM_LEARNER}</span>
+                  {t('module.billing.package.learningTime.label')}
+                  <sup className='ml-1 font-medium'>
+                    {ROW_MARKER_LEARNING_TIME}
+                  </sup>
                 </div>
-                <div className={styles.cellValue}>
-                  {col.studentLabel || emptyValue}
+                <div
+                  className={styles.cellValue}
+                  data-testid={`${col.testId}-learning-hours`}
+                >
+                  {col.learningTimeLabel}
                 </div>
               </td>
             ))}
@@ -707,7 +699,7 @@ export function BillingPlanComparisonTable({
               >
                 <div className={styles.cellLabel}>
                   {t('module.billing.package.table.validityRowLabel')}
-                  <span className='ml-1 font-medium'>{ROW_ENUM_VALIDITY}</span>
+                  <sup className='ml-1 font-medium'>{ROW_MARKER_VALIDITY}</sup>
                 </div>
                 <div className={styles.cellValue}>
                   <span>{col.validityShort || emptyValue}</span>

@@ -185,7 +185,6 @@
       },
       "title": "评分数据"
     },
-    "subtitle": "课程基础信息、核心指标和学员学习数据均为实时统计。",
     "title": "课程详情"
   },
   "entry": {
@@ -205,11 +204,8 @@
       "orderAmount": "订单金额",
       "orders": "订单数",
       "reset": "重置",
-      "scopeNote": "统计范围说明：仅统计您本人创建并拥有的课程数据；协作课程的数据不包含在内。",
       "search": "查询",
       "searchPlaceholder": "课程ID / 课程名称",
-      "title": "课程列表",
-      "totalCount": "共 {count}",
       "viewCourse": "查看课程",
       "viewOrders": "查看订单"
     }

@@ -1,4 +1,4 @@
-import { buildCoursePageUrl } from '@/c-utils/urlUtils';
+import { buildCoursePageUrl } from '@/lib/urlUtils';
 
 export type CourseShareMethod = 'native' | 'clipboard';
 export type CourseShareOutcome = 'success' | 'cancelled' | 'failed';
@@ -147,6 +147,16 @@ export const buildCourseShareContent = ({
     url,
   }),
 });
+
+/** Quote complete course material with a fence its own backticks cannot close. */
+export const fenceCoursePosterMaterial = (material: string): string => {
+  let fenceLength = 3;
+  for (const run of material.match(/`+/g) ?? []) {
+    fenceLength = Math.max(fenceLength, run.length + 1);
+  }
+  const fence = '`'.repeat(fenceLength);
+  return `${fence}text\n${material}\n${fence}`;
+};
 
 const resolveNavigator = (environment?: CourseShareEnvironment) => {
   if (environment && 'navigator' in environment) {

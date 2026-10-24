@@ -13,9 +13,11 @@ from urllib.parse import urlencode
 import requests
 
 from flaskr.api.tts.base import (
+    REQUEST_SCOPED_STREAM_MINIMAX_HTTP,
     AudioSettings,
     BaseTTSProvider,
     ParamRange,
+    ProviderCapabilities,
     ProviderConfig,
     TTSResult,
     VoiceSettings,
@@ -314,6 +316,13 @@ def _extract_minimax_subtitles(message: dict[str, object]) -> list[dict[str, obj
 class MinimaxTTSProvider(BaseTTSProvider):
     """TTS provider using Minimax API."""
 
+    capabilities = ProviderCapabilities(
+        requires_model=True,
+        skip_non_speakable_text=True,
+        auto_detectable=True,
+        request_scoped_stream=REQUEST_SCOPED_STREAM_MINIMAX_HTTP,
+    )
+
     @property
     def provider_name(self) -> str:
         """Return the provider's stable configuration name."""
@@ -494,54 +503,68 @@ class MinimaxTTSProvider(BaseTTSProvider):
             stream=True,
             timeout=(10, 90),
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
 
-        for raw_line in response.iter_lines(decode_unicode=True):
-            line = str(raw_line or "").strip()
-            if not line:
-                continue
-            if line.startswith("data:"):
-                line = line[5:].strip()
-            if line == "[DONE]":
-                break
+            for raw_line in response.iter_lines(decode_unicode=True):
+                line = str(raw_line or "").strip()
+                if not line:
+                    continue
+                if line.startswith("data:"):
+                    line = line[5:].strip()
+                if line == "[DONE]":
+                    break
 
-            try:
-                message = json.loads(line)
-            except json.JSONDecodeError as exc:
-                error_message = "Invalid MiniMax HTTP streaming JSON response"
-                raise ValueError(error_message) from exc
+                try:
+                    message = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    error_message = "Invalid MiniMax HTTP streaming JSON response"
+                    raise ValueError(error_message) from exc
 
-            _ensure_minimax_base_resp(message, "MiniMax HTTP streaming error")
-            data = message.get("data") or {}
-            extra_info = message.get("extra_info") or {}
-            audio_hex = data.get("audio") or ""
-            try:
-                audio_data = bytes.fromhex(audio_hex) if audio_hex else b""
-            except ValueError as exc:
-                error_message = "Invalid MiniMax HTTP streaming audio hex"
-                raise ValueError(error_message) from exc
+                _ensure_minimax_base_resp(message, "MiniMax HTTP streaming error")
+                data = message.get("data") or {}
+                extra_info = message.get("extra_info") or {}
+                audio_hex = data.get("audio") or ""
+                try:
+                    audio_data = bytes.fromhex(audio_hex) if audio_hex else b""
+                except ValueError as exc:
+                    error_message = "Invalid MiniMax HTTP streaming audio hex"
+                    raise ValueError(error_message) from exc
 
-            status = int(data.get("status") or 0)
-            is_final = status == 2 or bool(extra_info) or bool(message.get("is_final"))
-            subtitles = _extract_minimax_subtitles(message)
-            yield MinimaxHTTPStreamChunk(
-                audio_data=audio_data,
-                is_final=is_final,
-                duration_ms=int(extra_info.get("audio_length") or 0),
-                sample_rate=int(
-                    extra_info.get("audio_sample_rate")
-                    or audio_settings.sample_rate
-                    or 24000
-                ),
-                format=str(
-                    extra_info.get("audio_format") or audio_settings.format or "mp3"
-                ),
-                word_count=int(extra_info.get("word_count") or 0),
-                usage_characters=int(extra_info.get("usage_characters") or 0),
-                subtitles=subtitles,
-                extra_info=extra_info,
-                trace_id=str(message.get("trace_id") or ""),
-            )
+                status = int(data.get("status") or 0)
+                is_final = (
+                    status == 2 or bool(extra_info) or bool(message.get("is_final"))
+                )
+                subtitles = _extract_minimax_subtitles(message)
+                yield MinimaxHTTPStreamChunk(
+                    audio_data=audio_data,
+                    is_final=is_final,
+                    duration_ms=int(extra_info.get("audio_length") or 0),
+                    sample_rate=int(
+                        extra_info.get("audio_sample_rate")
+                        or audio_settings.sample_rate
+                        or 24000
+                    ),
+                    format=str(
+                        extra_info.get("audio_format") or audio_settings.format or "mp3"
+                    ),
+                    word_count=int(extra_info.get("word_count") or 0),
+                    usage_characters=int(extra_info.get("usage_characters") or 0),
+                    subtitles=subtitles,
+                    extra_info=extra_info,
+                    trace_id=str(message.get("trace_id") or ""),
+                )
+        finally:
+            close = getattr(response, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    # Cleanup must preserve completed audio and the original error.
+                    logger.warning(
+                        "Failed to close MiniMax TTS streaming response",
+                        exc_info=True,
+                    )
 
     def _call_api(
         self,
@@ -648,13 +671,7 @@ class MinimaxTTSProvider(BaseTTSProvider):
             models=MINIMAX_MODELS,
             voices=MINIMAX_VOICES,
             emotions=MINIMAX_EMOTIONS,
-            # Voice cloning is now an operations-managed flow: operators clone
-            # on the MiniMax console and register the voice via the admin
-            # backend, then assign it to a teacher. Teachers can no longer
-            # self-clone or paste raw voice ids, so both entry points are
-            # hidden in the course editor. Assigned voices still surface in the
-            # voice dropdown because that list is fetched independently of these
-            # flags.
+            # Custom voices are created outside AI-Shifu and registered by an
+            # operator; assigned voices are loaded by the settings UI.
             supports_custom_voice_id=False,
-            supports_voice_cloning=False,
         )

@@ -145,7 +145,7 @@ def test_send_sms_code_ali_handles_client_error(monkeypatch: object) -> None:
     result = sms_aliyun.send_sms_code_ali(app, "13800000000", "123456")
 
     assert result is None
-    assert captured["assert_message"] == "boom"
+    assert captured["assert_message"] == "DummyError"
 
 
 def test_send_sms_ali_returns_none_when_provider_response_is_not_ok(
@@ -235,9 +235,10 @@ def test_send_sms_ali_logs_recipient_throttle_as_warning(
     assert any(
         record.levelno == logging.WARNING
         and "isv.BUSINESS_LIMIT_CONTROL" in record.getMessage()
-        and provider_message in record.getMessage()
         for record in caplog.records
     )
+    assert provider_message not in caplog.text
+    assert "13800000000" not in caplog.text
     assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
 
 

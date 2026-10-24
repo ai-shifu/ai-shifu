@@ -3,10 +3,14 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/lib/utils';
 import { stopActiveLessonStream } from '@/app/c/[[...id]]/events';
-import { shifu } from '@/c-service/Shifu';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { shifu } from '@/lib/shifu/Shifu';
+import { useCourseStore } from '@/store/useCourseStore';
+import { useEnvStore } from '@/store/envStore';
+import { useSystemStore } from '@/store/useSystemStore';
 import { fail } from '@/hooks/useToast';
 import { useSingleFlight } from '@/hooks/useSingleFlight';
+import { useTracking } from '@/hooks/useTracking';
+import { startLessonUpdateRetakeTracking } from './lessonUpdateRetakeTracking';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +37,9 @@ export const LessonUpdateNotice = ({
   compact = false,
 }: LessonUpdateNoticeProps) => {
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
+  const shifuBid = useEnvStore(state => state.courseId);
+  const previewMode = useSystemStore(state => state.previewMode);
   const { resetChapter, resettingLessonId, updateLessonId } = useCourseStore(
     useShallow(state => ({
       resetChapter: state.resetChapter,
@@ -46,10 +53,16 @@ export const LessonUpdateNotice = ({
   const [showRetakeConfirm, setShowRetakeConfirm] = useState(false);
 
   const handleRetakeCurrentLesson = useSingleFlight(async () => {
-    if (!resolvedLessonId) {
+    if (!resolvedLessonId.trim() || isRetakingCurrentLesson) {
       return false;
     }
 
+    const finishTracking = startLessonUpdateRetakeTracking({
+      shifuBid,
+      outlineBid: resolvedLessonId,
+      previewMode,
+      trackEvent,
+    });
     try {
       stopActiveLessonStream(resolvedLessonId);
       await resetChapter(resolvedLessonId);
@@ -59,8 +72,10 @@ export const LessonUpdateNotice = ({
         lesson_id: resolvedLessonId,
         chapter_name: lessonTitle,
       });
+      finishTracking?.('success');
       return true;
     } catch (error) {
+      finishTracking?.('failed');
       fail(
         (error as Error).message || t('module.backend.common.operationFailed'),
       );
@@ -69,7 +84,7 @@ export const LessonUpdateNotice = ({
   });
 
   const handleRetakeButtonClick = useCallback(() => {
-    if (!resolvedLessonId || isRetakingCurrentLesson) {
+    if (!resolvedLessonId.trim() || isRetakingCurrentLesson) {
       return;
     }
 

@@ -6,12 +6,12 @@
 import { useEffect } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
-import { useEnvStore } from '@/c-store/envStore';
+import { useEnvStore } from '@/store/envStore';
 import { environment } from '@/config/environment';
 import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
 
 import './layout.css';
-import '@/c-utils/pollyfill';
+import '@/lib/pollyfill';
 
 export default function ChatLayout({
   children,

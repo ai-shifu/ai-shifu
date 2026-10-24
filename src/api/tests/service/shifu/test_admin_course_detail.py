@@ -105,6 +105,26 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
+def _configure_default_model_route(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Credit estimates resolve legacy course choices through configured model one."""
+    _ = app  # Initialize provider configuration before installing the test route.
+    from flaskr.api import llm
+
+    monkeypatch.setitem(
+        llm.PROVIDER_STATES,
+        "openai",
+        llm.ProviderState(
+            enabled=True,
+            params={"api_key": "test-key"},
+            models=["gpt-test"],
+        ),
+    )
+    monkeypatch.setitem(llm.MODEL_ALIAS_MAP, "gpt-test", ("openai", "gpt-test"))
+
+
+@pytest.fixture(autouse=True)
 def _pin_app_timezone_to_utc(app: object) -> object:
     original_tz = app.config.get("TZ")
     app.config["TZ"] = "UTC"
@@ -743,12 +763,8 @@ def _seed_outline(
             position=position,
             hidden=hidden,
             type=item_type,
-            llm="",
-            llm_temperature=0,
             llm_system_prompt=llm_system_prompt,
             ask_enabled_status=0,
-            ask_llm="",
-            ask_llm_temperature=0,
             ask_llm_system_prompt="",
             content=content,
             deleted=0,
@@ -1667,12 +1683,8 @@ def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline
                 position="1",
                 hidden=0,
                 type=UNIT_TYPE_VALUE_GUEST,
-                llm="",
-                llm_temperature=0,
                 llm_system_prompt="",
                 ask_enabled_status=0,
-                ask_llm="",
-                ask_llm_temperature=0,
                 ask_llm_system_prompt="",
                 content="",
                 deleted=0,
@@ -1691,12 +1703,8 @@ def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline
                 position="1",
                 hidden=0,
                 type=UNIT_TYPE_VALUE_GUEST,
-                llm="",
-                llm_temperature=0,
                 llm_system_prompt="",
                 ask_enabled_status=0,
-                ask_llm="",
-                ask_llm_temperature=0,
                 ask_llm_system_prompt="",
                 content="",
                 deleted=1,

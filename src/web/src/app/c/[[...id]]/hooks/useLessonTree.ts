@@ -1,15 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { produce } from 'immer';
-import { getLessonTree } from '@/c-api/lesson';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
-import { useTracking } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store/envStore';
-import { useSystemStore } from '@/c-store/useSystemStore';
-import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import { getLessonTree } from '@/api/lesson';
+import { LESSON_STATUS_VALUE } from '@/constants/courseConstants';
+import { useTracking } from '@/hooks/useTracking';
+import { useEnvStore } from '@/store/envStore';
+import { useSystemStore } from '@/store/useSystemStore';
+import { LEARNING_PERMISSION } from '@/api/studyV2';
 import { useUserStore } from '@/store';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useCourseStore } from '@/store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
-import { debugError, debugInfo, debugWarn } from '@/c-utils/debugConsole';
+import { debugError, debugInfo, debugWarn } from '@/lib/debugConsole';
 import {
   buildLessonNavigationAnalytics,
   LESSON_NAVIGATION_EVENT,
@@ -23,6 +23,7 @@ type LessonTreeApiLesson = {
   type: string;
   is_paid: boolean;
   has_content_update_for_current_user?: boolean;
+  follow_up_mode?: 'text' | 'live_voice' | 'disabled';
 };
 
 type LessonTreeApiCatalog = {
@@ -37,6 +38,8 @@ type LessonTreeApiCatalog = {
 type LessonTreeApiResponse = {
   outline_items?: LessonTreeApiCatalog[];
   banner_info?: unknown;
+  title_language?: string;
+  content_language?: string;
 };
 
 export type LessonTreeLesson = {
@@ -46,6 +49,7 @@ export type LessonTreeLesson = {
   type: string;
   is_paid: boolean;
   has_content_update_for_current_user?: boolean;
+  follow_up_mode: 'text' | 'live_voice' | 'disabled';
   status_value: string;
   canLearning: boolean;
   user_input?: string;
@@ -64,6 +68,8 @@ export type LessonTreeCatalog = {
 
 export type LessonTreeData = {
   bannerInfo?: unknown;
+  titleLanguage?: string;
+  contentLanguage?: string;
   catalogs: LessonTreeCatalog[];
 };
 
@@ -257,6 +263,11 @@ export const useLessonTree = () => {
               is_paid: c.is_paid,
               has_content_update_for_current_user:
                 c.has_content_update_for_current_user,
+              follow_up_mode:
+                c.follow_up_mode === 'live_voice' ||
+                c.follow_up_mode === 'disabled'
+                  ? c.follow_up_mode
+                  : 'text',
               status_value: c.status, // TODO: DELETE status_value
               canLearning: checkChapterCanLearning({ status_value: c.status }),
             };
@@ -278,6 +289,8 @@ export const useLessonTree = () => {
       const newTree: LessonTreeData = {
         catalogs,
         bannerInfo: treeData.banner_info,
+        titleLanguage: treeData.title_language,
+        contentLanguage: treeData.content_language,
       };
 
       debugInfo('[lesson-tree] request success', {

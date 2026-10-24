@@ -141,10 +141,6 @@ jest.mock('@/store', () => ({
       isInitialized: true,
       isGuest: false,
     }),
-}));
-
-jest.mock('@/c-store', () => ({
-  __esModule: true,
   useEnvStore: (
     selector: (state: {
       currencySymbol: string;

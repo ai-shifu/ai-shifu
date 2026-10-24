@@ -44,7 +44,6 @@ from flaskr.service.billing.checkout import (
     create_billing_order_checkout,
     create_billing_subscription_checkout,
     create_billing_topup_checkout,
-    refund_billing_order,
     sync_billing_order,
 )
 from flaskr.service.billing.customization import (
@@ -288,18 +287,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
             )
         )
 
-    @app.route(path_prefix + "/orders/<bill_order_bid>/refund", methods=["POST"])
-    def billing_order_refund_api(bill_order_bid: str) -> str:
-        _require_billing_access(app)
-        return make_common_response(
-            refund_billing_order(
-                app,
-                _get_creator_bid(),
-                bill_order_bid,
-                request.get_json(silent=True) or {},
-            )
-        )
-
     @app.route(path_prefix + "/subscriptions/checkout", methods=["POST"])
     def billing_subscription_checkout_api() -> str:
         _require_billing_access(app)
@@ -514,7 +501,6 @@ def register_billing_routes(app: Flask, path_prefix: str = "/api/billing") -> No
                     }
                     and key in payload
                 },
-                commit=False,
             )
             clear_admin_creator_customization_draft(
                 app,

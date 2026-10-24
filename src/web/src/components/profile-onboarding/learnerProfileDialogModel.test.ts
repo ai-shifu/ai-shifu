@@ -76,7 +76,7 @@ describe('learnerProfileDialogModel', () => {
     });
   });
 
-  it('resets account-scoped form, request, and retention state together', () => {
+  it('resets account-scoped form, request, and defer state together', () => {
     const previousAccount = learnerProfileDialogReducer(
       initialLearnerProfileDialogState,
       {
@@ -91,19 +91,9 @@ describe('learnerProfileDialogModel', () => {
         collectionStatus: 'running',
         collectionRunInFlight: true,
         activeCollectionSessionId: 'session-previous',
-        confirmation: 'defer-retention',
+        submissionStatus: 'deferring',
         deferError: 'Skip unavailable',
         externalDeferErrorVisible: true,
-        retentionAnalyticsContext: {
-          source: 'guided',
-          presentation: 'blocking',
-          phase: 'collect',
-        },
-        continuedRetentionAnalyticsContext: {
-          source: 'guided',
-          presentation: 'blocking',
-          phase: 'save',
-        },
       },
     });
 
