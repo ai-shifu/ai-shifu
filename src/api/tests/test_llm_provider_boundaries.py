@@ -39,7 +39,6 @@ def test_numbered_model_slots_do_not_read_retired_allowlist_sources(
     values = legacy | {"LLM_MODEL_1_NAME": "Daily", "LLM_MODEL_1_ID": "test/daily"}
     reader = Mock(side_effect=lambda key, default=None: values.get(key, default))
     monkeypatch.setattr(model_selection, "get_config", reader)
-    monkeypatch.setattr(model_selection, "has_config_override", lambda _key: False)
     assert model_selection.get_configured_model_slots() == [
         {"index": "1", "display_name": "Daily", "model": "test/daily"}
     ]
