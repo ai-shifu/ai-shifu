@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import ShifuSettingDialog from './ShifuSetting';
 import { SSE } from 'sse.js';
+import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
 
 const mockTtsConfig = jest.fn();
 const mockListMinimaxTtsVoices = jest.fn();
@@ -231,6 +232,44 @@ describe('ShifuSettingDialog analytics producer', () => {
       use_learner_language: true,
     });
   });
+
+  it.each([
+    ['name', '', 'shifuNameEmpty', 'Valid course name'],
+    [
+      'name',
+      'a'.repeat(TITLE_MAX_LENGTH + 1),
+      'shifuNameMaxLength',
+      'Valid course name',
+    ],
+    ['description', 'a'.repeat(501), 'shifuDescriptionMaxLength', ''],
+    ['systemPrompt', 'a'.repeat(20001), 'shifuPromptMaxLength', ''],
+    ['price', '', 'shifuPriceEmpty', '1.23'],
+    ['price', 'not-a-price', 'shifuPriceFormat', '1.23'],
+    ['price', '1.234', 'shifuPriceFormat', '1.23'],
+  ])(
+    'shows the %s validation error and saves after correction',
+    async (fieldName, invalidValue, message, correctedValue) => {
+      const { onSave } = renderOpenSettings();
+      const name = await screen.findByDisplayValue('Private course name');
+      const form = name.closest('form')!;
+      const field = form.querySelector(`[name="${fieldName}"]`)!;
+
+      // Bypass native input limits to exercise the resolver's own boundaries.
+      fireEvent.change(field, { target: { value: invalidValue } });
+      fireEvent.submit(form);
+      expect(
+        await screen.findByText(`module.shifuSetting.${message}`),
+      ).toBeInTheDocument();
+      expect(field).toHaveAttribute('aria-invalid', 'true');
+      expect(mockSaveShifuDetail).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
+
+      fireEvent.change(field, { target: { value: correctedValue } });
+      fireEvent.submit(form);
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    },
+  );
 
   it.each(['close', 'submit'])(
     'hides temperature controls and omits them when saving through %s',
