@@ -70,6 +70,7 @@ def checkpoint_of(session: Session) -> dict[str, Any]:
         "messages": len(session.messages),
         "memory": state["memory"],
         "answer_hashes": state.get("answer_hashes", {}),
+        "memory_generations": state.get("memory_generations", {}),
         "pending": state["pending"],
         "answers": state["answers"],
         "request_inputs": state.get("request_inputs", []),
@@ -108,6 +109,12 @@ def restore(session: Session, checkpoint: dict[str, Any]) -> None:
     session.messages = restored.messages
     session.memory = restored.memory
     session.answer_hashes = restored.answer_hashes
+    # Restored memory reflects the deletions seen when the checkpoint was taken, so later
+    # deletions are refreshed again. Older checkpoints refresh every deleted-once key.
+    session.memory_generations = {
+        str(key): int(value)
+        for key, value in (checkpoint.get("memory_generations") or {}).items()
+    }
     session.pending = restored.pending
     session.answers = restored.answers
     session.request_inputs = restored.request_inputs

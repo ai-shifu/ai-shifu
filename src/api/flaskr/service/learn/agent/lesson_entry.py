@@ -21,7 +21,7 @@ from flaskr.api.langfuse import (
 )
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.dao.uow import app_context_scope
-from flaskr.service.common.models import raise_error
+from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.agent.engine.engine import Engine
 from flaskr.service.learn.agent.gateway_model import GatewayModel
 from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
@@ -57,6 +57,10 @@ if TYPE_CHECKING:
     from flask import Flask
     from flaskr.service.learn.agent.debug_session import DebugSessionStore
     from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
+
+
+class DiscardedTurnError(AppError):
+    """A failed turn whose save a concurrent reset rejected; nothing it showed may be kept."""
 
 
 class LessonNotTeachable(Exception):  # noqa: N818 - an outcome, not a failure
@@ -441,9 +445,17 @@ def agent_lesson_events(
                 # already saved the usable session, but the legacy stream has no error DTO;
                 # raising here lets the outer SSE layer show the failure instead of
                 # silently ending a lesson that remains in progress.
-                if outcome.error_code == "input_budget_exceeded":
-                    raise_error("server.learn.agentInputBudgetExceeded")
-                raise_error("server.common.unknownError")
+                key = (
+                    "server.learn.agentInputBudgetExceeded"
+                    if outcome.error_code == "input_budget_exceeded"
+                    else "server.common.unknownError"
+                )
+                try:
+                    raise_error(key)
+                except AppError as error:
+                    if not outcome.discarded:
+                        raise
+                    raise DiscardedTurnError(error.message, error.code) from None
             # A turn that ran out of content with the lesson not over is followed by the next,
             # as the host's own "continue": the learner's input and the rewind belonged to the
             # first turn only. The browser is not asked to do this. It never sees the boundary

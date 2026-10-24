@@ -320,9 +320,18 @@ def _load_or_start(
             discard_course_references(stored, teaching_brief=teaching_brief)
             if debug_store is None:
                 refresh_nickname(stored, user_memory)
-                refresh_deleted_memory(
-                    stored, frozenset(generations), current=user_memory
+                # Deletion generations are permanent, so a key deleted once keeps one.
+                # Refresh only deletions this session has not seen yet: an answer given
+                # after a deletion must stay, while one given before it must go, even
+                # when a later answer elsewhere has the same value.
+                refreshed = frozenset(
+                    key
+                    for key, generation in generations.items()
+                    if key in deleted
+                    or stored.memory_generations.get(key) != generation
                 )
+                refresh_deleted_memory(stored, refreshed, current=user_memory)
+                stored.memory_generations = dict(generations)
                 # Named answers are durable course values. Retain the answered marker,
                 # but do not let its old session copy shadow another lesson's update.
                 for key in (
@@ -357,6 +366,7 @@ def _load_or_start(
         bundle = ScriptBundle(script=script, constraints=teaching_brief or None)
         session = await engine.new_session(bundle, user_id=user_bid, listen_mode=False)
         session.user_memory = dict(user_memory)
+        session.memory_generations = dict(generations)
         return session
 
     return make_session, bool(stored is not None and stored.finished)
@@ -1060,7 +1070,7 @@ def _stream_turn(
                         preview_question_ids=[p.tool_call_id for p in session.pending],
                     )
                 if not kept:
-                    return TurnOutcome(reason=None, taught=False)
+                    return TurnOutcome(reason=None, taught=False, discarded=True)
                 persisted = True
                 pending_memory = []
             if not event.text:
@@ -1266,11 +1276,12 @@ def _stream_turn(
         # synthesis already submitted carries on with nowhere to go.
         yield from voice.finish()
     session = session_holder.get("session")
+    discarded = False
     if not persisted and session is not None:
         if debug_store is not None:
             debug_store.save(session)
         else:
-            _persist(
+            discarded = not _persist(
                 app,
                 session,
                 memory=pending_memory,
@@ -1293,6 +1304,7 @@ def _stream_turn(
         reason=session_holder.get("reason"),
         taught=bool("".join(taught).strip()),
         error_code=error_code,
+        discarded=discarded,
     )
 
 
@@ -1302,12 +1314,13 @@ class TurnOutcome:
 
     `reason` is the engine's: "interaction" (waiting on the learner), "finished", "end" (out of
     content for this turn, the lesson not over), or None when the turn died. `taught` says whether
-    the turn put any text in front of the learner.
+    the turn put any text in front of the learner. `discarded` says a reset rejected its save.
     """
 
     reason: str | None
     taught: bool
     error_code: str | None = None
+    discarded: bool = False
 
 
 class _TurnDiscardedError(Exception):
