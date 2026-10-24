@@ -59,7 +59,7 @@ export default function CreateShifuForm({
       .optional(),
     avatar: z.string().default(''),
   });
-  const form = useForm<CreateShifuValues>({
+  const form = useForm<z.input<typeof formSchema>, unknown, CreateShifuValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { name: '', description: '', avatar: '' },
   });
