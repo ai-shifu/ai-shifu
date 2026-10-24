@@ -21,6 +21,7 @@ from flaskr.api.tts import (
     is_tts_configured,
     synthesize_text,
 )
+from flaskr.dao import retry_on_deadlock
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common import raise_error, raise_error_with_args
@@ -52,6 +53,15 @@ from flaskr.service.learn.lesson_content_updates import load_lesson_content_stat
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
     is_lesson_feedback_interaction,
+)
+from flaskr.service.learn.lesson_reset_limit import (
+    count_lesson_resets,
+    find_reset_receipt,
+    get_lesson_reset_limit,
+    is_lesson_reset_exempt,
+    normalize_reset_request_id,
+    record_lesson_reset,
+    require_reset_lesson,
 )
 from flaskr.service.learn.listen_element_matching import (
     get_speakable_text_elements,
@@ -767,6 +777,7 @@ def get_learn_record(
         )
 
 
+@retry_on_deadlock()
 def reset_learn_record(
     app: Flask,
     shifu_bid: str,
@@ -774,10 +785,46 @@ def reset_learn_record(
     user_bid: str,
     *,
     preview_mode: bool = False,
+    reset_request_id: str | None = None,
 ) -> bool:
-    """Reset learner progress, or only the explicitly selected draft preview."""
+    """Reset learner progress, or only the explicitly selected draft preview.
+
+    An effective reset is recorded in ``learn_lesson_reset_records`` inside the same
+    transaction; ordinary learners are refused once their recorded resets for this lesson
+    reach ``LESSON_RESET_LIMIT``. Nothing is written or counted for an empty reset.
+
+    The whole transaction is retried on a MySQL deadlock: the locking quota count takes
+    a gap lock on the ledger index, and two first-ever resets whose empty ranges share a
+    gap can each block the other's insert. MySQL rolls one back; rerunning it from the
+    top re-reads every receipt and lock, so a retry cannot double-apply anything.
+    """
     with app_context_scope(app), unit_of_work():
+        from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
         from flaskr.service.learn.agent.routing import uses_agent_engine
+
+        limit = get_lesson_reset_limit()
+        limited = (
+            limit > 0
+            and not preview_mode
+            and not is_lesson_reset_exempt(app, user_bid, shifu_bid)
+        )
+        if limited:
+            require_reset_lesson(shifu_bid, outline_bid)
+        # A retry of a reset that already landed must not clear the learning the
+        # learner has started since, nor spend a second use. This holds for exempt
+        # and unlimited resets too, so every effective reset keeps its receipt.
+        request_id = normalize_reset_request_id(reset_request_id)
+        receipt = find_reset_receipt(user_bid, request_id)
+        if receipt is not None:
+            if (
+                receipt.shifu_bid == shifu_bid
+                and receipt.outline_item_bid == outline_bid
+                and bool(receipt.preview_mode) == preview_mode
+            ):
+                return True
+            # Same trace id reused for another lesson: not a retry, and the receipt
+            # column is unique per user, so this reset is recorded without one.
+            request_id = None
 
         if preview_mode and uses_agent_engine(shifu_bid):
             from flaskr.service.learn.agent.preview_history import (
@@ -791,12 +838,33 @@ def reset_learn_record(
             if uses_preview_session_history(
                 app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
             ):
+                preview_session = (
+                    LearnAgentSession.query.filter(
+                        LearnAgentSession.user_bid == user_bid,
+                        LearnAgentSession.shifu_bid == shifu_bid,
+                        LearnAgentSession.outline_item_bid == outline_bid,
+                        LearnAgentSession.deleted == 0,
+                        LearnAgentSession.active_key
+                        == active_key_for(user_bid, outline_bid, preview_mode=True),
+                    )
+                    .with_for_update()
+                    .first()
+                )
                 stage_agent_session_discard(
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
                     outline_item_bid=outline_bid,
                     preview_mode=True,
                 )
+                if preview_session is not None:
+                    record_lesson_reset(
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=True,
+                        counted=False,
+                        request_id=request_id,
+                    )
                 return True
         progress_records = (
             LearnProgressRecord.query.filter(
@@ -810,21 +878,67 @@ def reset_learn_record(
             # Without this the two interleave: the turn sees a live lesson, this finds no session
             # to discard, and the turn inserts one afterwards -- returning the conversation the
             # learner just cleared. Taking the lock makes one of them go first, either way.
+            .order_by(LearnProgressRecord.id.desc())
             .with_for_update()
             .all()
         )
+        # Only the published-scope session says whether a learner has something to reset;
+        # a leftover draft preview session must not spend a learner's allowance.
+        live_session = (
+            LearnAgentSession.query.filter(
+                LearnAgentSession.user_bid == user_bid,
+                LearnAgentSession.shifu_bid == shifu_bid,
+                LearnAgentSession.outline_item_bid == outline_bid,
+                LearnAgentSession.deleted == 0,
+                LearnAgentSession.active_key
+                == active_key_for(user_bid, outline_bid, preview_mode=preview_mode),
+            )
+            .with_for_update()
+            .first()
+        )
+        effective = bool(progress_records) or live_session is not None
+        # Opening a 1.0 lesson inserts NOT_STARTED placeholders before anything is generated.
+        # Retiring only placeholders costs nothing, so it is recorded but never charged.
+        has_learning = live_session is not None or any(
+            record.status != LEARN_STATUS_NOT_STARTED for record in progress_records
+        )
+        charged = limited and has_learning
+        # Two concurrent resets serialize on the row locks above and the second usually finds
+        # nothing live. It can still see learning that started after the first one committed,
+        # so the admission count must be a locking read: a plain count would reuse this
+        # transaction's REPEATABLE READ snapshot and miss the row the first reset just wrote.
+        if (
+            charged
+            and count_lesson_resets(user_bid, shifu_bid, outline_bid, for_update=True)
+            >= limit
+        ):
+            raise_error("server.learn.resetLimitReached")
         for progress_record in progress_records:
             progress_record.status = LEARN_STATUS_RESET
         # A 2.0 lesson keeps its conversation in its own table, which resetting the progress
         # records does not touch. Left behind, the next run resumes a session that may hold
         # `finished=True` -- it would report the lesson complete immediately and never start it
         # again, which also breaks taking a course back off the allowlist as a way out.
+        # A learner's reset retires only the published scope so an author's draft preview of
+        # the same lesson survives; an explicit preview reset retires only the draft.
         stage_agent_session_discard(
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_item_bid=outline_bid,
             preview_mode=preview_mode,
         )
+        if effective:
+            record_lesson_reset(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=(
+                    progress_records[0].progress_record_bid if progress_records else ""
+                ),
+                preview_mode=preview_mode,
+                counted=charged,
+                request_id=request_id,
+            )
         return True
 
 

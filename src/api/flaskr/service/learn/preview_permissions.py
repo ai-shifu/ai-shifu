@@ -135,7 +135,8 @@ def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
     return None
 
 
-def _has_preview_permission(app: Flask, user_bid: str, shifu_bid: str) -> bool:
+def has_shifu_staff_permission(app: Flask, user_bid: str, shifu_bid: str) -> bool:
+    """Return whether the user owns the course or holds any active collaboration."""
     with app.app_context():
         creator_bid = _get_shifu_creator_bid(app, shifu_bid)
         if creator_bid and creator_bid == user_bid:
@@ -169,7 +170,7 @@ def require_shifu_preview_permission(app: Flask, user_bid: str, shifu_bid: str) 
     if not creator_bid:
         raise_error("server.shifu.shifuNotFound")
 
-    if _has_preview_permission(app, normalized_user_bid, normalized_shifu_bid):
+    if has_shifu_staff_permission(app, normalized_user_bid, normalized_shifu_bid):
         return
 
     raise_error("server.shifu.noPermission")
