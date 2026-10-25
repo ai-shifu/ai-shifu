@@ -1117,7 +1117,7 @@ describe('ShifuEdit draft conflict checks', () => {
     ).toBeUndefined();
   });
 
-  test('retains legacy editor controls and suggestions for a 1.0 preview', async () => {
+  test('keeps legacy insertion mode without removed variable editor props', async () => {
     setLessonNode();
     mockShifuState.previewEngineVersion = '1.0';
     mockShifuState.questions = ['name'];
@@ -1129,11 +1129,12 @@ describe('ShifuEdit draft conflict checks', () => {
       expect(mockMarkdownFlowEditor.mock.lastCall?.[0]).toEqual(
         expect.objectContaining({
           questionMode: false,
-          variables: [{ name: 'name' }],
-          systemVariables: [{ name: 'sys_user_nickname', label: 'Nickname' }],
         }),
       );
     });
+    const editorProps = mockMarkdownFlowEditor.mock.lastCall?.[0];
+    expect(editorProps).not.toHaveProperty('variables');
+    expect(editorProps).not.toHaveProperty('systemVariables');
   });
 
   test('passes French locale through to MarkdownFlow editor', async () => {

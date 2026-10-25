@@ -58,8 +58,8 @@ The application PR is open with its reviewed implementation. Expanded service
 and stream-reference checks pass, including the corrected provisional-reference
 streaming boundary and follow-up question admission. Local repository checks
 remain the commit gate; the development dependency intentionally blocks a main
-merge until the editor formal release is available. The app uses
-0.3.2-dev.2 for reproducible branch validation; replace it with the formal editor
+merge until the editor formal release is available. The app uses a verified
+editor development build for reproducible branch validation; replace it with the formal editor
 release after human review of PR #261. The main release-pin gate is retained.
 
 ## Context and Orientation
@@ -143,3 +143,19 @@ The reviewer feedback about 1.0 preview values is handled only by restoring a
 compatibility boundary introduced by this PR. No 1.0 SDK or execution behavior
 is migrated. Native visibility actions are removed rather than introducing a
 new storage or course-wide usage contract.
+
+## Rebase Follow-up: 2026-10-25 UTC
+
+- [x] Rebased the application branch onto `ee125ce17`, preserving main's
+  PostCSS/Immutable security pins and installed editor export regressions.
+- [x] Kept main's removed variable-list editor props absent. Native question
+  insertion remains conditional on the existing 2.0 selector; legacy runtime
+  and preview memory behavior remain unchanged. The 149 focused preview/editor
+  tests pass after conflict resolution.
+- [ ] Consume a verified development build of the rebased editor so the
+  application retains both the new editor baseline and native question hints.
+- [ ] Verify and update both existing PR branches without merging main.
+
+The old `0.3.2-dev.2` dependency-only commit is superseded by the newer editor
+baseline and its rebased development build. It must not downgrade main's 0.3.3
+API and package-loading fixes. Lockfile conflict resolution uses npm generation.

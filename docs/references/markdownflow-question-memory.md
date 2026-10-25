@@ -55,6 +55,10 @@ The parse response includes `engine_version`. Native 2.0 returns `questions`;
 values. The editor enables question mode only for 2.0. This compatibility shape
 does not change the 1.0 execution engine.
 
+The upstream 0.3.3 editor baseline already removed variable authoring controls.
+Do not restore ignored variable-list props when selecting the legacy insertion
+mode. Preview memory and legacy visibility remain application-owned behavior.
+
 Every active native question marker is validated before saving or parsing a
 lesson or publishing a Profile document. Blank or internally control-bearing
 question text is an input error, not an unnamed answer. Controls that omit the

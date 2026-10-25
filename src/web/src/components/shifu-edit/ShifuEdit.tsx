@@ -1886,16 +1886,6 @@ const ScriptEditor = ({
                   ) : (
                     <MarkdownFlowEditor
                       questionMode={previewEngineVersion === '2.0'}
-                      variables={
-                        previewEngineVersion === '1.0'
-                          ? questionsList
-                          : undefined
-                      }
-                      systemVariables={
-                        previewEngineVersion === '1.0'
-                          ? systemMemoryList
-                          : undefined
-                      }
                       key={editorScopeKey}
                       locale={resolveMarkdownFlowLocale(
                         i18n.resolvedLanguage ?? i18n.language,
