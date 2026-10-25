@@ -152,9 +152,15 @@ new storage or course-wide usage contract.
   insertion remains conditional on the existing 2.0 selector; legacy runtime
   and preview memory behavior remain unchanged. The 149 focused preview/editor
   tests pass after conflict resolution.
-- [ ] Consume a verified development build of the rebased editor so the
-  application retains both the new editor baseline and native question hints.
-- [ ] Verify and update both existing PR branches without merging main.
+- [x] Consumed verified npm `0.3.4-dev.1` through the existing bump workflow
+  (`d75e4eaf0`), retaining both the new editor baseline and native question hints.
+  Official package integrity and ESM/CJS sources match the rebased editor.
+- [x] Fresh official-registry installation passes 225 application tests,
+  including the real ESM/CJS editor imports, plus TypeScript and lint. The
+  rebased native engine passes all 2,629 offline tests with the CI-pinned SDK.
+- [x] Updated both existing PR branches with explicit force-with-lease checks.
+  The application contains main `ee125ce17`; editor PR #261 contains main
+  `70fedef` and its final reviewed head is `be0d803`. Neither main was merged.
 
 The old `0.3.2-dev.2` dependency-only commit is superseded by the newer editor
 baseline and its rebased development build. It must not downgrade main's 0.3.3
