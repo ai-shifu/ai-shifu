@@ -588,7 +588,7 @@ def storage_scope(app: object) -> object:
         row = PublishedOutlineItem(
             shifu_bid=course,
             outline_item_bid=outline,
-            content="Collect %{{practice_code}}.\n```md\n%{{example}}\n```",
+            content="?[%{{practice_code}}...Your practice code?]\n```md\n?[%{{example}}...Example]\n```",
             title="Lesson",
             position="1",
         )
@@ -634,7 +634,7 @@ def test_policy_uses_retained_course_bound_main_script(
                 PublishedOutlineItem(
                     shifu_bid=scope.course,
                     outline_item_bid=scope.outline,
-                    content="Collect %{{future}}.",
+                    content="?[%{{future}}...A future answer]",
                     title="New lesson",
                     position="1",
                 )
@@ -888,7 +888,7 @@ def test_retired_published_script_keeps_its_own_memory_permission(
                 PublishedOutlineItem(
                     shifu_bid=scope.course,
                     outline_item_bid=scope.outline,
-                    content="Collect %{{newly_declared}}.",
+                    content="?[%{{newly_declared}}...A new question]",
                     title="Republished lesson",
                     position="1",
                 )
@@ -1230,3 +1230,71 @@ def test_busy_worker_answers_follow_ups_without_memory_tools(
     notice = _notice(received[0])
     assert "say plainly that it was not saved this time" in notice
     assert "already been shown" not in notice
+
+
+def test_native_follow_up_uses_exact_question_text_as_the_memory_key() -> None:
+    """A punctuation-bearing authored question reaches both instructions and writes."""
+    question = 'Which [practice] code | "path" do you use?'
+    patch = FollowUpMemoryPatch()
+    checker = AsyncMock(return_value=False)
+    calls = []
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        from pydantic_ai.messages import SystemPromptPart
+
+        calls.append(messages)
+        if any(isinstance(part, ToolReturnPart) for part in messages[-1].parts):
+            yield "Your practice code is remembered."
+            return
+        instructions = "\n".join(
+            [
+                message.instructions or ""
+                for message in messages
+                if isinstance(message, ModelRequest)
+            ]
+            + [
+                part.content
+                for message in messages
+                for part in message.parts
+                if isinstance(part, SystemPromptPart)
+            ]
+        )
+        assert "main script's authored questions" in instructions
+        assert "exact question text is the answer-memory key" in instructions
+        assert json.dumps([question]) in instructions
+        assert "declared variable" not in instructions
+        yield {
+            0: DeltaToolCall(
+                name="remember",
+                tool_call_id="question-fact",
+                json_args=json.dumps(
+                    {"key": question, "value": "7319", "request": None}
+                ),
+            )
+        }
+
+    run = FollowUpMemoryRun(
+        FunctionModel(stream_function=stream),
+        patch=patch,
+        current_input="My practice code is 7319.",
+        declared_keys=frozenset({question}),
+        snapshot={},
+        deleted_keys=frozenset(),
+        generations={},
+        reserved_keys=frozenset(),
+        request_check=checker,
+        preview=False,
+    )
+    chunks = list(
+        run.stream([{"role": "user", "content": "My practice code is 7319."}])
+    )
+    assert (
+        "".join(chunk.result for chunk in chunks) == "Your practice code is remembered."
+    )
+    assert [(entry.key, entry.value) for entry in patch.variables] == [
+        (question, "7319")
+    ]
+    assert len(calls) == 2
+    checker.assert_not_awaited()

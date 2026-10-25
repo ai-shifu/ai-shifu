@@ -430,14 +430,14 @@ class FollowUpMemoryRun:
                 + _QUOTATION_POLICY
                 + " "
                 "Use remember when this current learner input asks to save a fact, "
-                "or supplies a fact for a main-script-declared variable. Only the "
-                "following main-script keys are declared: "
+                "or answers one of the main script's authored questions. The exact "
+                "question text is the answer-memory key. Those question texts are: "
                 + json.dumps(sorted(self.declared_keys))
                 + ". This is not a complete allowlist: undeclared current-course "
                 "facts CAN be saved when the current learner explicitly asks, after "
                 "independent tool admission. Saving such a fact is a supported "
                 "follow-up action even when it is not a question about course content. "
-                "Do not refuse solely because a key is undeclared. Try remember "
+                "Do not refuse solely because a key is not listed. Try remember "
                 "and use its result to determine whether the fact was accepted. "
                 "Plain-text or Markdown answer-format rules apply only to visible "
                 "answer text; they never prohibit calling the available remember tool. "

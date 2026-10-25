@@ -397,6 +397,12 @@ class InteractionSyntaxFilter:
             for opening, _, _ in provisional_markers:
                 at = max(0, len(prefix) + opening)
                 characters[at : at + 2] = "\x00" * 2
+            # A currently valid reference or HTML prefix can become plain text
+            # when its line continues. Defer its possible controls before the
+            # provisional literal mask releases them as irreversible narration.
+            for at in range(max(0, start), len(source) - 1):
+                if source.startswith(_OPEN, at):
+                    characters[at] = "?"
             scanned = "".join(characters)
         if container_fences:
             characters = list(scanned)

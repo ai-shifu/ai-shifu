@@ -1609,10 +1609,10 @@ def test_dify_transports_shared_course_memory_to_outbound_query(
     dify_app: object, monkeypatch: object
 ) -> None:
     """Verify the actual adapter serializes the shared context, beyond builder-only claims."""
+    from flaskr.common import markdownflow as runtime_selection
     from flaskr.service.learn import follow_up_context
-    from flaskr.service.learn.agent import routing
 
-    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(runtime_selection, "get_config", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(
         follow_up_context, "load_follow_up_history", lambda **_kwargs: []
     )

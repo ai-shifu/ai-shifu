@@ -498,10 +498,10 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
     app: object, monkeypatch: object
 ) -> None:
     """Pass retrieved knowledge and stored course notes through the real LLM factory."""
+    from flaskr.common import markdownflow as runtime_selection
     from flaskr.service.learn import handle_input_ask as module
-    from flaskr.service.learn.agent import routing
 
-    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(runtime_selection, "get_config", lambda *_args, **_kwargs: True)
 
     ask_provider_config = {
         "provider": "get_biji_knowledge",
@@ -581,14 +581,14 @@ def test_handle_input_ask_provider_response_skips_llm(
     app: object, monkeypatch: object
 ) -> None:
     """Preserve successful provider streaming without logging the memory context."""
+    from flaskr.common import markdownflow as runtime_selection
     from flaskr.service.learn import handle_input_ask as module
-    from flaskr.service.learn.agent import routing
 
     logged = []
     monkeypatch.setattr(
         app.logger, "info", lambda *args, **kwargs: logged.append((args, kwargs))
     )
-    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(runtime_selection, "get_config", lambda *_args, **_kwargs: True)
 
     ask_provider_config = {
         "provider": "coze",

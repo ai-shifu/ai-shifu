@@ -291,9 +291,11 @@ def test_ask_stream_stays_silent_and_commits_only_after_complete_delivery(
     create_tts = Mock()
     monkeypatch.setattr(context, "_try_create_tts_processor", create_tts)
     monkeypatch.setattr(context, "get_system_prompt", lambda _bid: "Course rules")
-    from flaskr.service.learn.agent import routing
+    from flaskr.common import markdownflow as runtime_selection
 
-    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: agent_memory)
+    monkeypatch.setattr(
+        runtime_selection, "get_config", lambda *_args, **_kwargs: agent_memory
+    )
     memory_loader = Mock(
         return_value=SimpleNamespace(as_variables=lambda: {"name": "learner"})
     )

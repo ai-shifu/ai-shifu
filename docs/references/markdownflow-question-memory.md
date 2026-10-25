@@ -25,6 +25,10 @@ oversized questions are rejected, never shortened. Questions are not programming
 variable definition or an alternative normalized identifier. Repeated identical
 questions address the same memory key; different text addresses different keys.
 
+Only the leading `%{{...}}` in a control binds an answer. The existing option
+delimiters, escapes and brace grouping remain compatible with the browser
+renderer; grouping inside an option never reads or writes memory.
+
 A control without `%{{...}}` can collect an answer without retaining it under a
 question key. Confirm controls never write an answer. Existing answer validation,
 read-only memory restrictions and host persistence authorization still apply.

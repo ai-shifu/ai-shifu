@@ -25,6 +25,8 @@ The canonical contract is [Question Memory](../../references/markdownflow-questi
 - [x] 2026-10-25 10:13 UTC: Integrated exact editor development pin and generated lockfile; application type checking, lint and 230 focused frontend tests pass.
 - [x] 2026-10-25 10:16 UTC: Preserved legacy draft definition creation behind the unchanged runtime selector; routing/authoring/UOW checks pass 70 tests, including rollback.
 - [x] 2026-10-25 10:17 UTC: Full repository pre-commit checks pass; application PR prepared on `sunner/markdownflow-question-memory`.
+- [x] 2026-10-25 10:24 UTC: Application [PR #3181](https://github.com/ai-shifu/ai-shifu/pull/3181) is open; the release-pin gate correctly rejects the development package.
+- [x] 2026-10-25 10:27 UTC: Expanded checks pass: 3,391 native/stream tests and 3,170 remaining learn/shifu service tests (96 existing skips). Corrected provisional reference deferral and question-only follow-up permission fixtures.
 - [ ] Human editor dependency merge/formal release, followed by a release-only application pin before any main merge.
 
 ## Surprises & Discoveries
@@ -52,7 +54,11 @@ MarkdownFlow 1.0, so attempted changes to that SDK and its host paths are withdr
 ## Outcomes & Retrospective
 
 Native question-memory implementation and editor integration are complete.
-All local verification gates pass and the change is prepared for review. The app uses
+The application PR is open with its reviewed implementation. Expanded service
+and stream-reference checks pass, including the corrected provisional-reference
+streaming boundary and follow-up question admission. Local repository checks
+remain the commit gate; the development dependency intentionally blocks a main
+merge until the editor formal release is available. The app uses
 0.3.2-dev.1 for reproducible branch validation; replace it with the formal editor
 release after human review of PR #261. The main release-pin gate is retained.
 
