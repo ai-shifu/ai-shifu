@@ -31,13 +31,19 @@ describe('installed MarkdownFlow editor integration', () => {
           }
           globalThis.requestAnimationFrame = dom.window.requestAnimationFrame.bind(dom.window);
           globalThis.cancelAnimationFrame = dom.window.cancelAnimationFrame.bind(dom.window);
+          // JSDOM omits Range geometry used when CodeMirror measures edited selections.
+          const emptyRect = dom.window.document.createElement('span').getBoundingClientRect();
+          dom.window.Range.prototype.getClientRects ??= () => [];
+          dom.window.Range.prototype.getBoundingClientRect ??= () => emptyRect;
 
           (async () => {
-            const { cleanup, render } = require('@testing-library/react');
+            const { act, cleanup, render, waitFor } = require('@testing-library/react');
             try {
               const { MarkdownFlowEditor } = process.argv[1] === 'esm'
                 ? await import('markdown-flow-ui/editor')
                 : require('markdown-flow-ui/editor');
+              const updates = [];
+              let editorApi;
               const props = {
                 content: '# Course\n\nHello {{ learner }}\n\n?[%{{ choice }}A|B]',
                 editMode: 'quickEdit',
@@ -45,7 +51,8 @@ describe('installed MarkdownFlow editor integration', () => {
                 lang: '',
                 disabled: false,
                 uploadProps: { action: '/api/shifu/upfile' },
-                onChange: () => {},
+                onChange: value => updates.push(value),
+                onReady: api => { editorApi = api; },
               };
               const { container, getByRole, rerender } = render(
                 React.createElement(MarkdownFlowEditor, props),
@@ -63,6 +70,20 @@ describe('installed MarkdownFlow editor integration', () => {
               }));
               assert.ok(editorText()?.includes('Updated {{ learner }}'));
               assert.ok(editorText()?.includes('?[%{{ choice }}Yes|No]'));
+              await waitFor(() => assert.equal(
+                editorApi?.getContent(),
+                'Updated {{ learner }}\n\n?[%{{ choice }}Yes|No]',
+              ));
+              updates.length = 0;
+              await act(async () => {
+                editorApi.insertTextAtCursor(' {{ edited }}');
+              });
+              await waitFor(() => {
+                assert.ok(updates.length > 0);
+                assert.equal(updates.at(-1), editorApi.getContent());
+                assert.ok(updates.at(-1).includes('{{ edited }}'));
+              });
+              assert.ok(editorText()?.includes('{{ edited }}'));
               console.log('Installed editor preserves course authoring integration');
             } finally {
               cleanup();
