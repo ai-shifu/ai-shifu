@@ -98,3 +98,24 @@ def test_prior_answers_do_not_prefill_a_question_being_asked_again() -> None:
     assert "stale goal" not in prompt
     assert '"Nickname?": "Lin"' in prompt
     assert f"<script>\n{source}\n</script>" in prompt
+
+
+@pytest.mark.parametrize("raw", ["", "   ", "What\nnow?", "bad\x00key", "bad\u0085key"])
+def test_authoring_scan_keeps_invalid_question_markers_for_validation(raw: str) -> None:
+    from markdownflow.engine.script import authored_question_markers
+
+    source = "?[%{{" + raw + "}} Yes|No]"
+    markers = list(authored_question_markers(source))
+    assert len(markers) == 1
+    assert markers[0].raw_name == raw
+    assert markers[0].name is None
+    assert collected_questions(source) == frozenset()
+
+
+def test_authoring_scan_distinguishes_no_key_and_inactive_marker_examples() -> None:
+    from markdownflow.engine.script import authored_question_markers
+
+    source = "?[Yes|No]\n```\n?[%{{ }} Yes|No]\n```\n<!-- ?[%{{bad\x00key}} Yes|No] -->"
+    assert list(authored_question_markers(source)) == []
+    valid = list(authored_question_markers("?[%{{ \n Why  now? \n }} Yes|No]"))
+    assert [marker.name for marker in valid] == ["Why  now?"]

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .marker_context import analyze_marker_context, marker_syntax_source
-from .questions import QUESTION_SOURCE, find_interaction_spans, normalize_question
+from .questions import QUESTION_SOURCE, find_interaction_spans, read_question_marker
 
 # Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
 V1_SYNTAX_RE = re.compile(
@@ -38,7 +38,9 @@ _QUESTION = re.compile(r"^\s*" + QUESTION_SOURCE)
 
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
+
+    from .questions import QuestionMarker
 
 
 @dataclass(frozen=True)
@@ -124,20 +126,31 @@ def _strip_fences(text: str) -> str:
     return tokens.sub(lambda match: markers[match.group(0)], "\n".join(out))
 
 
-def collected_questions(text: str) -> frozenset[str]:
-    """Return memory questions declared at the start of actual authored controls.
+def authored_question_markers(text: str) -> Iterator[QuestionMarker]:
+    """Read every leading marker in active controls, including invalid question text.
 
-    Standalone brace text, examples, links and code do not declare questions.
-    The document scanner keeps punctuation inside question text opaque.
+    Callers validating authored content must distinguish an invalid marker from
+    a control that deliberately has no memory question. Literal examples do not
+    declare either kind of answer binding.
     """
     context = analyze_marker_context(text, fence_indent=3)
+    for start, end in find_interaction_spans(
+        text, syntax_source=marker_syntax_source(text, context)
+    ):
+        body_start = start + 2
+        if match := _QUESTION.match(text[body_start : end - 1]):
+            # The capture starts immediately after the opening brace pair.
+            opening = body_start + match.start(1) - 2
+            if marker := read_question_marker(text, opening):
+                yield marker
+
+
+def collected_questions(text: str) -> frozenset[str]:
+    """Return valid exact question keys; authoring validation also checks invalid markers."""
     return frozenset(
-        question
-        for start, end in find_interaction_spans(
-            text, syntax_source=marker_syntax_source(text, context)
-        )
-        if (match := _QUESTION.match(text[start + 2 : end - 1]))
-        if (question := normalize_question(match.group(1))) is not None
+        marker.name
+        for marker in authored_question_markers(text)
+        if marker.name is not None
     )
 
 

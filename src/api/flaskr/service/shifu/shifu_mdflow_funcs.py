@@ -8,8 +8,9 @@ from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.common.markdownflow import uses_agent_engine
 from flaskr.dao import db, retry_on_deadlock, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.i18n import _
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from flaskr.service.common import raise_error
+from flaskr.service.common import raise_error, raise_param_error
 from flaskr.service.profile.profile_manage import (
     add_profile_item_quick_internal,
     get_profile_item_definition_list,
@@ -31,14 +32,17 @@ from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
 from markdownflow.engine.questions import MAX_QUESTION_LENGTH
-from markdownflow.engine.script import collected_questions
+from markdownflow.engine.script import authored_question_markers
 
 
 def _validated_questions(source: str) -> list[str]:
     """Keep complete question keys within durable memory storage's existing bound."""
-    questions = sorted(collected_questions(source))
+    markers = list(authored_question_markers(source))
+    if any(marker.name is None for marker in markers):
+        raise_param_error(_("server.profile.questionInvalid"))
+    questions = sorted({marker.name for marker in markers if marker.name is not None})
     if any(len(question) > MAX_QUESTION_LENGTH for question in questions):
-        raise_error("server.profile.questionTooLong")
+        raise_param_error(_("server.profile.questionTooLong"))
     return questions
 
 

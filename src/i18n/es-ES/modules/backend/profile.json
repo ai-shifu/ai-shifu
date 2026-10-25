@@ -28,6 +28,7 @@
     "profileOnboardingPromptGenerationFailed": "No se ha podido generar el prompt de respuesta. La configuración no se ha publicado y tus datos siguen aquí. Inténtalo de nuevo.",
     "profileTypeInvalid": "El tipo de variable no es válido.",
     "profileTypeRequired": "Debes seleccionar un tipo de variable.",
+    "questionInvalid": "El texto de la pregunta no puede estar vacío ni contener caracteres de control o }}.",
     "questionTooLong": "El texto de la pregunta es la clave de memoria y no puede superar los 255 caracteres.",
     "sex": "Sexo",
     "sexFemale": "Mujer",

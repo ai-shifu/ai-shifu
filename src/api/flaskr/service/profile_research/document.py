@@ -21,7 +21,7 @@ from markdownflow.engine.marker_context import (
     marker_syntax_source,
 )
 from markdownflow.engine.questions import find_interaction_spans
-from markdownflow.engine.script import collected_questions
+from markdownflow.engine.script import authored_question_markers, collected_questions
 from markdownflow.engine.tools import _script_questions
 
 
@@ -38,6 +38,9 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
         raise ProfileResearchValidationError(msg)
     if len(document) > MAX_DOCUMENT_CODEPOINTS:
         msg = "document is too long"
+        raise ProfileResearchValidationError(msg)
+    if any(marker.name is None for marker in authored_question_markers(document)):
+        msg = "interaction question text is invalid"
         raise ProfileResearchValidationError(msg)
     authored_questions = _script_questions(document)
     context = analyze_marker_context(document, fence_indent=3)

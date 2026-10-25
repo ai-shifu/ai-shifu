@@ -1,10 +1,11 @@
 """Verify MarkdownFlow parsing and history compatibility."""
 
 from datetime import datetime, timedelta
+from uuid import uuid4
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.shifu_history_manager import (
@@ -818,3 +819,47 @@ def test_legacy_parse_retains_source_and_saved_definition_keys(
     assert "saved_only" in payload["variables"]
     assert payload["variables"].count("name") == 1
     assert "questions" not in payload
+
+
+@pytest.mark.parametrize("raw", ["", "   ", "What\nnow?", "bad\x00key", "bad\u0085key"])
+def test_native_authoring_rejects_invalid_question_bindings_without_saving(
+    app: object, monkeypatch: pytest.MonkeyPatch, raw: str
+) -> None:
+    monkeypatch.setattr("flaskr.common.config.Config._instance", None)
+    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", "true")
+    identity = uuid4().hex
+    course, outline = (
+        f"invalid-question-{identity}",
+        f"invalid-question-lesson-{identity}",
+    )
+    revision = _add_outline_version(app, course, outline, "Original", "teacher", 0)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
+        lambda *_args: None,
+    )
+    source = "?[%{{" + raw + "}} Yes|No]"
+    with pytest.raises(AppError) as saved:
+        save_shifu_mdflow(
+            app, "teacher", course, outline, source, base_revision=revision
+        )
+    assert saved.value.code == ERROR_CODE["server.common.paramsError"]
+    assert get_shifu_mdflow(app, course, outline) == "Original"
+    assert get_shifu_draft_revision(app, course, outline) == revision
+    with pytest.raises(AppError):
+        parse_shifu_mdflow(app, course, outline, data=source)
+
+
+def test_native_authoring_keeps_unnamed_controls_and_literal_invalid_examples(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("flaskr.common.config.Config._instance", None)
+    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", "true")
+    course, outline = "literal-invalid-question", "literal-invalid-lesson"
+    revision = _add_outline_version(app, course, outline, "Original", "teacher", 0)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
+        lambda *_args: None,
+    )
+    source = "?[Yes|No]\n\n```\n?[%{{ }} Yes|No]\n```\n\n?[%{{ \n Your  goal? \n }}...Answer]"
+    save_shifu_mdflow(app, "teacher", course, outline, source, base_revision=revision)
+    assert parse_shifu_mdflow(app, course, outline).questions == ["Your  goal?"]

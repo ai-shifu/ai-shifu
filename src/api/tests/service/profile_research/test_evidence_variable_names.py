@@ -193,3 +193,16 @@ def test_native_question_spans_determine_profile_block_counts_and_limits(
         assert metadata["block_count"] == count + 1
         assert metadata["interaction_block_count"] == count
         assert metadata["content_block_count"] == 1
+
+
+@pytest.mark.parametrize("raw", ["", "   ", "What\nnow?", "bad\x00key", "bad\u0085key"])
+def test_profile_rejects_invalid_authored_question_bindings(raw: str) -> None:
+    from flaskr.service.profile_research.document import (
+        validate_profile_research_document,
+    )
+    from flaskr.service.profile_research.session import ProfileResearchValidationError
+
+    with pytest.raises(
+        ProfileResearchValidationError, match="question text is invalid"
+    ):
+        validate_profile_research_document("?[%{{" + raw + "}} Yes|No]")
