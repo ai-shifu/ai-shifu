@@ -134,7 +134,7 @@
     "mermaid": "$mermaid",
     "remark-flow": "1.4.1",
     "next": {
-      "postcss": "8.5.10"
+      "postcss": "8.5.27"
     },
     "diff": "5.2.2",
     "immutable": "5.1.8",
