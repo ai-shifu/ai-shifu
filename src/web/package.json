@@ -68,7 +68,7 @@
     "js-yaml": "4.3.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
-    "markdown-flow-ui": "0.3.3",
+    "markdown-flow-ui": "0.3.4-dev.1",
     "mermaid": "11.16.1",
     "next": "15.5.28",
     "qrcode.react": "^4.2.0",
