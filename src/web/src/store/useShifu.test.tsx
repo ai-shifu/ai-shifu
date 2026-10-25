@@ -10,6 +10,8 @@ const mockTrackEvent = jest.fn();
 const mockParseMdflow = jest.fn();
 const mockGetProfileItemDefinitions = jest.fn();
 const mockGetProfileVariableUsage = jest.fn();
+const mockHideUnusedProfileItems = jest.fn();
+const mockUpdateProfileHiddenState = jest.fn();
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -23,6 +25,10 @@ jest.mock('@/api', () => ({
       mockGetProfileItemDefinitions(...args),
     getProfileVariableUsage: (...args: unknown[]) =>
       mockGetProfileVariableUsage(...args),
+    hideUnusedProfileItems: (...args: unknown[]) =>
+      mockHideUnusedProfileItems(...args),
+    updateProfileHiddenState: (...args: unknown[]) =>
+      mockUpdateProfileHiddenState(...args),
   },
 }));
 
@@ -186,6 +192,103 @@ describe('useShifu draft meta handling', () => {
       expect.any(Error),
     );
     consoleErrorSpy.mockRestore();
+  });
+});
+
+describe('question preview visibility', () => {
+  const course = 'native-visibility-course';
+  const question = 'What motivates you?';
+  const legacyHiddenStorage = `hidden_profile_variables:${course}`;
+  const legacyModeStorage = `hidden_profile_variables_mode:${course}`;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    window.localStorage.clear();
+    mockGetProfileItemDefinitions.mockResolvedValue([
+      { profile_scope: 'user', profile_key: question, is_hidden: true },
+    ]);
+    mockGetProfileVariableUsage.mockResolvedValue({ unused_keys: [question] });
+  });
+
+  it('keeps native questions visible without reading or changing legacy visibility', async () => {
+    mockParseMdflow.mockResolvedValue({
+      engine_version: '2.0',
+      questions: [question],
+      blocks_count: 1,
+    });
+    window.localStorage.setItem(
+      legacyHiddenStorage,
+      JSON.stringify([question]),
+    );
+    window.localStorage.setItem(legacyModeStorage, '1');
+    const { result } = renderHook(() => useShifu(), { wrapper });
+    let parsed:
+      | Awaited<ReturnType<typeof result.current.actions.previewParse>>
+      | undefined;
+    await act(async () => {
+      parsed = await result.current.actions.previewParse(
+        `?[%{{${question}}} A|B]`,
+        course,
+        'native-visibility-lesson',
+      );
+    });
+    expect(parsed?.memory).toHaveProperty(question);
+    expect(parsed?.engineVersion).toBe('2.0');
+    expect(result.current.hiddenQuestions).toEqual([]);
+    expect(result.current.unusedQuestions).toEqual([]);
+    expect(result.current.hideUnusedMode).toBe(false);
+    await act(async () => {
+      await result.current.actions.hideUnusedQuestions(course);
+      await result.current.actions.hideQuestionByKey(course, question);
+      await result.current.actions.restoreHiddenQuestions(course);
+      await result.current.actions.unhideQuestionsByKeys(course, [question]);
+      await result.current.actions.syncHiddenQuestionsToUsage(course, {
+        unusedKeys: [question],
+        hiddenKeys: [question],
+      });
+      await result.current.actions.refreshQuestionUsage(course);
+      await result.current.actions.refreshProfileDefinitions(course, {
+        forceRefresh: true,
+      });
+    });
+    expect(mockGetProfileVariableUsage).not.toHaveBeenCalled();
+    expect(mockHideUnusedProfileItems).not.toHaveBeenCalled();
+    expect(mockUpdateProfileHiddenState).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(legacyHiddenStorage)).toBe(
+      JSON.stringify([question]),
+    );
+    expect(window.localStorage.getItem(legacyModeStorage)).toBe('1');
+  });
+
+  it('retains legacy visibility persistence and restore operations', async () => {
+    mockParseMdflow.mockResolvedValue({
+      engine_version: '1.0',
+      variables: [question],
+    });
+    mockUpdateProfileHiddenState.mockResolvedValue([
+      { profile_scope: 'user', profile_key: question, is_hidden: false },
+    ]);
+    const { result } = renderHook(() => useShifu(), { wrapper });
+    await act(async () => {
+      await result.current.actions.previewParse(
+        'Legacy content',
+        course,
+        'legacy-lesson',
+      );
+    });
+    expect(result.current.hiddenQuestions).toEqual([question]);
+    expect(mockGetProfileVariableUsage).toHaveBeenCalledWith({
+      parent_id: course,
+    });
+    await act(async () => {
+      await result.current.actions.restoreHiddenQuestions(course);
+    });
+    expect(mockUpdateProfileHiddenState).toHaveBeenCalledWith({
+      parent_id: course,
+      profile_keys: [question],
+      hidden: false,
+    });
+    expect(result.current.hiddenQuestions).toEqual([]);
   });
 });
 

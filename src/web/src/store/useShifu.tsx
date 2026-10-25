@@ -1522,8 +1522,13 @@ export const ShifuProvider = ({
         )
         .map((item: ProfileItem) => item.profile_key) || [];
 
-    setHiddenQuestions(hiddenQuestionKeys);
-    if (shifuId) {
+    const nativePreview = shifuId
+      ? previewEngineVersionsRef.current[shifuId] === '2.0'
+      : false;
+    setHiddenQuestions(nativePreview ? [] : hiddenQuestionKeys);
+    if (nativePreview) {
+      setHideUnusedMode(false);
+    } else if (shifuId) {
       writeHiddenToStorage(shifuId, hiddenQuestionKeys);
       const storedMode = readHideModeFromStorage(shifuId);
       setHideUnusedMode(storedMode ?? false);
@@ -1546,6 +1551,7 @@ export const ShifuProvider = ({
 
   const refreshProfileDefinitions = useCallback(
     async (shifuId: string, options?: { forceRefresh?: boolean }) => {
+      const nativePreview = previewEngineVersionsRef.current[shifuId] === '2.0';
       const cached = profileDefinitionCacheRef.current[shifuId];
       const now = Date.now();
       if (
@@ -1556,11 +1562,11 @@ export const ShifuProvider = ({
         applyProfileDefinitionList(cached.list, shifuId, {
           updateCache: false,
         });
-        setUnusedQuestions(cached.unusedKeys || []);
-        return cached;
+        setUnusedQuestions(nativePreview ? [] : cached.unusedKeys || []);
+        return nativePreview ? { ...cached, unusedKeys: [] } : cached;
       }
       const storedHidden = readHiddenFromStorage(shifuId);
-      if (!cached && storedHidden.length > 0) {
+      if (!nativePreview && !cached && storedHidden.length > 0) {
         setHiddenQuestions(storedHidden);
       }
       try {
@@ -1569,7 +1575,9 @@ export const ShifuProvider = ({
             parent_id: shifuId,
             type: 'all',
           }),
-          api.getProfileVariableUsage({ parent_id: shifuId }),
+          nativePreview
+            ? Promise.resolve(undefined)
+            : api.getProfileVariableUsage({ parent_id: shifuId }),
         ]);
         const { systemMemoryKeys } =
           applyProfileDefinitionList(list || [], shifuId) || {};
@@ -1599,6 +1607,10 @@ export const ShifuProvider = ({
   );
 
   const refreshQuestionUsage = useCallback(async (shifuId: string) => {
+    if (previewEngineVersionsRef.current[shifuId] === '2.0') {
+      setUnusedQuestions([]);
+      return { used_keys: [], unused_keys: [] };
+    }
     try {
       const usage = await api.getProfileVariableUsage({
         parent_id: shifuId,
@@ -1678,14 +1690,11 @@ export const ShifuProvider = ({
     systemMemoryKeys: string[];
     allQuestionKeys?: string[];
     unusedKeys?: string[];
+    engineVersion?: '1.0' | '2.0';
   }> => {
     try {
       const resolvedShifuId = shifuId || currentShifu?.bid || '';
       const resolvedOutlineId = outlineId || currentNode?.bid || '';
-      const { systemMemoryKeys, unusedKeys } =
-        (await refreshProfileDefinitions(resolvedShifuId, {
-          forceRefresh: true,
-        })) || {};
       const result = await api.parseMdflow({
         shifu_bid: resolvedShifuId,
         outline_bid: resolvedOutlineId,
@@ -1696,6 +1705,11 @@ export const ShifuProvider = ({
         resolvedShifuId,
         resolvedOutlineId,
       );
+      const engineVersion = previewEngineVersionsRef.current[resolvedShifuId];
+      const { systemMemoryKeys, unusedKeys } =
+        (await refreshProfileDefinitions(resolvedShifuId, {
+          forceRefresh: true,
+        })) || {};
       const resolvedSystemKeys =
         systemMemoryKeys && systemMemoryKeys.length
           ? systemMemoryKeys
@@ -1714,6 +1728,7 @@ export const ShifuProvider = ({
         systemMemoryKeys: resolvedSystemKeys,
         allQuestionKeys: questionKeys,
         unusedKeys,
+        engineVersion,
       };
     } catch (error) {
       console.error(error);
@@ -1722,6 +1737,7 @@ export const ShifuProvider = ({
   };
 
   const hideUnusedQuestions = async (shifuId: string) => {
+    if (previewEngineVersionsRef.current[shifuId] === '2.0') return;
     try {
       const list = await api.hideUnusedProfileItems({
         parent_id: shifuId,
@@ -1745,6 +1761,7 @@ export const ShifuProvider = ({
   };
 
   const hideQuestionByKey = async (shifuId: string, key: string) => {
+    if (previewEngineVersionsRef.current[shifuId] === '2.0') return;
     if (!key) return;
     try {
       const list = await api.updateProfileHiddenState({
@@ -1768,6 +1785,7 @@ export const ShifuProvider = ({
   };
 
   const restoreHiddenQuestions = async (shifuId: string) => {
+    if (previewEngineVersionsRef.current[shifuId] === '2.0') return;
     try {
       if (!hiddenQuestions.length) {
         setHideUnusedMode(false);
@@ -1804,6 +1822,7 @@ export const ShifuProvider = ({
       shifuId: string,
       options?: { unusedKeys?: string[]; hiddenKeys?: string[] },
     ) => {
+      if (previewEngineVersionsRef.current[shifuId] === '2.0') return;
       if (!shifuId || !hideUnusedMode) {
         return;
       }
@@ -2133,6 +2152,7 @@ export const ShifuProvider = ({
       hideQuestionByKey,
       syncHiddenQuestionsToUsage,
       unhideQuestionsByKeys: async (shifuId: string, keys: string[]) => {
+        if (previewEngineVersionsRef.current[shifuId] === '2.0') return;
         if (!keys.length) return;
         try {
           const list = await api.updateProfileHiddenState({

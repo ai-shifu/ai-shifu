@@ -16,6 +16,7 @@ const mockMarkdownFlowEditor = jest.fn();
 const mockLessonPreview = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockUsePreviewChat = jest.fn();
+const mockStartPreview = jest.fn();
 const mockRefreshUserInfo = jest.fn();
 let mockUserToken = 'token';
 
@@ -241,7 +242,7 @@ jest.mock('@/components/lesson-preview/usePreviewChat', () => ({
       items: [],
       isLoading: false,
       error: null,
-      startPreview: jest.fn(),
+      startPreview: mockStartPreview,
       stopPreview: jest.fn(),
       resetPreview: jest.fn(),
       onRefresh: jest.fn(),
@@ -321,7 +322,7 @@ const mockShifuState = {
   previewEngineVersion: '2.0' as '1.0' | '2.0',
   systemMemory: [] as Record<string, string>[],
   hiddenQuestions: [] as string[],
-  unusedQuestions: [],
+  unusedQuestions: [] as string[],
   hideUnusedMode: false,
   currentShifu: {
     bid: 'shifu-1',
@@ -381,6 +382,7 @@ describe('ShifuEdit draft conflict checks', () => {
     mockLessonPreview.mockReset();
     mockTrackEvent.mockReset();
     mockUsePreviewChat.mockReset();
+    mockStartPreview.mockReset();
     mockRefreshUserInfo.mockReset();
     mockUserToken = 'token';
     mockUserStoreState.isInitialized = true;
@@ -426,6 +428,8 @@ describe('ShifuEdit draft conflict checks', () => {
     mockShifuState.previewEngineVersion = '2.0';
     mockShifuState.systemMemory = [];
     mockShifuState.hiddenQuestions = [];
+    mockShifuState.unusedQuestions = [];
+    mockShifuState.hideUnusedMode = false;
     mockUserStoreState.userInfo = {
       user_bid: 'user-1',
       user_id: 'user-1',
@@ -541,9 +545,10 @@ describe('ShifuEdit draft conflict checks', () => {
     'a}',
     'outer{{inner',
   ])(
-    'recognizes and unhides the authored memory key %s in preview',
+    'recognizes and unhides the legacy authored memory key %s in preview',
     async key => {
       setLessonNode();
+      mockShifuState.previewEngineVersion = '1.0';
       mockShifuState.mdflow = `?[%{{ ${key} }} 男 | 女 | 秘密]`;
       mockShifuState.questions = [key];
       mockShifuState.hiddenQuestions = [key];
@@ -582,9 +587,10 @@ describe('ShifuEdit draft conflict checks', () => {
     'Text <span title="{{">\n?[%{{ q }} A|B]',
     '\\{{ example ?[%{{ q }} A|B]',
   ])(
-    'unhides a preview key after a literal marker example: %s',
+    'unhides a legacy preview key after a literal marker example: %s',
     async source => {
       setLessonNode();
+      mockShifuState.previewEngineVersion = '1.0';
       mockShifuState.mdflow = source;
       mockShifuState.questions = ['q'];
       mockShifuState.hiddenQuestions = ['q'];
@@ -614,6 +620,67 @@ describe('ShifuEdit draft conflict checks', () => {
       });
     },
   );
+
+  test('keeps native question memory visible without legacy visibility controls', async () => {
+    const question = 'What motivates you?';
+    setLessonNode();
+    mockShifuState.mdflow = `?[%{{${question}}} A|B]`;
+    mockShifuState.questions = [question];
+    mockShifuState.hiddenQuestions = [question];
+    mockShifuState.unusedQuestions = [question];
+    mockShifuState.hideUnusedMode = true;
+    baseActions.previewParse.mockResolvedValue({
+      memory: { [question]: 'Learn something useful' },
+      blocksCount: 1,
+      systemMemoryKeys: [],
+      allQuestionKeys: [question],
+      unusedKeys: [],
+      engineVersion: '2.0',
+    });
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(
+      screen.getByText('module.shifu.previewArea.action').closest('button')!,
+    );
+    await waitFor(() => {
+      expect(mockLessonPreview.mock.lastCall?.[0].memory).toHaveProperty(
+        question,
+      );
+    });
+    const props = mockLessonPreview.mock.lastCall?.[0];
+    expect(props.hiddenMemoryKeys).not.toContain(question);
+    expect(props.hiddenMemoryKeys).toContain('sys_user_style');
+    expect(props.customMemoryKeys).toBeUndefined();
+    expect(props.unusedMemoryKeys).toBeUndefined();
+    expect(props.onHideMemory).toBeUndefined();
+    expect(props.onHideOrRestore).toBeUndefined();
+    expect(props.actionType).toBeUndefined();
+    expect(baseActions.syncHiddenQuestionsToUsage).not.toHaveBeenCalled();
+    expect(baseActions.unhideQuestionsByKeys).not.toHaveBeenCalled();
+    expect(baseActions.refreshProfileDefinitions).not.toHaveBeenCalled();
+  });
+
+  test('uses the parsed runtime before applying a previous legacy hide mode', async () => {
+    const question = 'What motivates you?';
+    setLessonNode();
+    mockShifuState.previewEngineVersion = '1.0';
+    mockShifuState.hiddenQuestions = [question];
+    mockShifuState.hideUnusedMode = true;
+    baseActions.previewParse.mockResolvedValue({
+      memory: { [question]: 'Learn something useful' },
+      blocksCount: 1,
+      systemMemoryKeys: [],
+      allQuestionKeys: [question],
+      unusedKeys: [],
+      engineVersion: '2.0',
+    });
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(
+      screen.getByText('module.shifu.previewArea.action').closest('button')!,
+    );
+    await waitFor(() => expect(mockStartPreview).toHaveBeenCalled());
+    expect(baseActions.syncHiddenQuestionsToUsage).not.toHaveBeenCalled();
+    expect(baseActions.unhideQuestionsByKeys).not.toHaveBeenCalled();
+  });
 
   test('keeps lesson preview disabled while the user profile is unresolved', () => {
     setLessonNode();

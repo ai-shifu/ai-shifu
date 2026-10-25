@@ -1043,15 +1043,18 @@ const ScriptEditor = ({
         systemMemoryKeys,
         allQuestionKeys,
         unusedKeys,
+        engineVersion: parsedEngineVersion,
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
 
-      if (hideUnusedMode) {
+      const legacyPreview =
+        (parsedEngineVersion ?? previewEngineVersion) === '1.0';
+      if (legacyPreview && hideUnusedMode) {
         // In "hide unused" mode, refresh hidden list from full-course usage.
         await actions.syncHiddenQuestionsToUsage(targetShifu, { unusedKeys });
         if (outlineChanged()) {
           return;
         }
-      } else {
+      } else if (legacyPreview) {
         // Auto-unhide only the hidden questions that are actually used in current prompts (use parsed keys)
         const parsedQuestionKeys =
           allQuestionKeys || Object.keys(parsedMemoryMap || {});
@@ -1316,8 +1319,13 @@ const ScriptEditor = ({
 
   const previewHiddenQuestionKeys = useMemo(
     () =>
-      Array.from(new Set([...hiddenQuestions, ...HIDDEN_SYSTEM_MEMORY_KEYS])),
-    [hiddenQuestions],
+      Array.from(
+        new Set([
+          ...(previewEngineVersion === '1.0' ? hiddenQuestions : []),
+          ...HIDDEN_SYSTEM_MEMORY_KEYS,
+        ]),
+      ),
+    [hiddenQuestions, previewEngineVersion],
   );
 
   const visibleSystemQuestionKeys = useMemo(
@@ -1334,11 +1342,17 @@ const ScriptEditor = ({
 
   // Course-level visible questions (system + custom, excluding hidden)
   const courseVisibleQuestionKeys = useMemo(() => {
-    const customVisible = (questions || []).filter(
-      key => !hiddenQuestions.includes(key),
-    );
+    const customVisible =
+      previewEngineVersion === '2.0'
+        ? questions || []
+        : (questions || []).filter(key => !hiddenQuestions.includes(key));
     return [...visibleSystemQuestionKeys, ...customVisible];
-  }, [hiddenQuestions, questions, visibleSystemQuestionKeys]);
+  }, [
+    hiddenQuestions,
+    previewEngineVersion,
+    questions,
+    visibleSystemQuestionKeys,
+  ]);
 
   // Preview questions: start from parsed questions and fill missing course-visible keys with empty values
   const mergedPreviewMemory = useMemo(() => {
@@ -1932,15 +1946,31 @@ const ScriptEditor = ({
                       : undefined
                   }
                   reGenerateConfirm={reGenerateConfirm}
-                  customMemoryKeys={questions}
-                  unusedMemoryKeys={unusedVisibleQuestions}
-                  onHideMemory={handleHideSingleQuestion}
-                  onHideOrRestore={
-                    hideRestoreActionType === 'hide'
-                      ? handleHideUnusedQuestions
-                      : handleRestoreHiddenQuestions
+                  customMemoryKeys={
+                    previewEngineVersion === '1.0' ? questions : undefined
                   }
-                  actionType={hideRestoreActionType}
+                  unusedMemoryKeys={
+                    previewEngineVersion === '1.0'
+                      ? unusedVisibleQuestions
+                      : undefined
+                  }
+                  onHideMemory={
+                    previewEngineVersion === '1.0'
+                      ? handleHideSingleQuestion
+                      : undefined
+                  }
+                  onHideOrRestore={
+                    previewEngineVersion === '1.0'
+                      ? hideRestoreActionType === 'hide'
+                        ? handleHideUnusedQuestions
+                        : handleRestoreHiddenQuestions
+                      : undefined
+                  }
+                  actionType={
+                    previewEngineVersion === '1.0'
+                      ? hideRestoreActionType
+                      : undefined
+                  }
                   actionDisabled={hideRestoreActionDisabled}
                   showGenerateBtn={Boolean(
                     currentShifu && !currentShifu.readonly,

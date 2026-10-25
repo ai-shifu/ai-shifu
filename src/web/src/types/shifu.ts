@@ -317,6 +317,7 @@ export interface ShifuActions {
     systemMemoryKeys: string[];
     allQuestionKeys?: string[];
     unusedKeys?: string[];
+    engineVersion?: '1.0' | '2.0';
   }>;
   hideUnusedQuestions: (shifuId: string) => Promise<void>;
   restoreHiddenQuestions: (shifuId: string) => Promise<void>;
