@@ -110,14 +110,14 @@ async def test_last_pending_named_answer_is_retained_after_finish() -> None:
         calls += 1
         if calls == 1:
             yield {
-                0: _call("interact", type="text", prompt="Your goal?", variable="goal"),
+                0: _call("interact", type="text", prompt="Your goal?", question="goal"),
                 1: _call("finish", summary="done"),
             }
         else:
             yield ""
 
     engine = Engine(FunctionModel(stream_function=model))
-    session = await engine.new_session("Ask for %{{goal}} as the final step.")
+    session = await engine.new_session("?[%{{goal}} ...Your goal]")
     first = [event async for event in engine.run_turn(session)]
     assert first[-1].reason == "interaction"
     session = Session.loads(session.dumps())

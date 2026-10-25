@@ -25,10 +25,20 @@ _API_ROOT = Path(__file__).resolve().parents[2]
 _LEGACY_SESSION = Path(__file__).parent / "fixtures" / "legacy_session.json"
 
 
-def test_bundled_prompts_keep_the_old_engine_bytes() -> None:
+def test_bundled_prompts_change_only_for_the_question_contract() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
+    question_hashes = {
+        "answer_review": "8d576266ffb50bc4233836a614647d783602c2c7ed6d7c9416fe5d5d1182638d",
+        "feedback_contract": "c2ff1f430b29498a2cec96a3a0b349ab7f6a9f788699cc6c85dab902f21343fa",
+        "memory_policy": "80a141d8c03c942b333884bc9b91296f7afc39ecdf7981cd95112b2b388f94ea",
+        "memory_unrestricted": "beadeaf631a8e48715aabaac68032bf1ea585e1b47ce743d4cafdb4504e3a7f2",
+        "system": "63ea8d1511a4664544c8b18d5316d164ec5fdde8b8f98d94a2b2a335f45c21d9",
+        "v1_syntax": "58afbecfd4b976000b48415de4baab019f81c49a8c0aa6a3ba815e4aa001d653",
+    }
+    assert question_hashes.keys() <= hashes.keys()
+    hashes.update(question_hashes)
     for name, expected in hashes.items():
         assert hashlib.sha256(load_prompt(name).encode("utf-8")).hexdigest() == expected
 
@@ -117,13 +127,11 @@ async def test_legacy_package_session_resumes_its_remaining_pending_answer() -> 
     state = json.loads(payload)
     session = Session.loads(payload)
     assert session.memory_generations == {}
-    # Pydantic AI 2.53 serializes these new defaults while reading the unchanged
-    # legacy fixture. Keep every historical field in the exact comparison below.
-    for message in state["messages"]:
-        if message["kind"] == "response":
-            message["workspace_ref"] = None
-            message["usage"]["audio_seconds"] = 0.0
-    assert session.to_dict() == {**state, "memory_generations": {}}
+    expected = {**state, "memory_generations": {}}
+    expected["initial_memory"] = expected.pop("initial_variables")
+    for pending in expected["pending"]:
+        pending["spec"]["question"] = pending["spec"].pop("variable")
+    assert session.to_dict() == expected
     assert session.answers == {"legacy-role": "Learner wrote: Data analyst"}
     assert [item.tool_call_id for item in session.pending] == ["legacy-goal"]
     assert session.answered_memory_keys() == {"role"}

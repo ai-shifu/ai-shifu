@@ -28,6 +28,7 @@
     "profileOnboardingPromptGenerationFailed": "Der KI-Antwortprompt konnte nicht erstellt werden. Die Konfiguration wurde nicht veröffentlicht. Ihre Eingaben sind erhalten geblieben; bitte versuchen Sie es erneut.",
     "profileTypeInvalid": "Ungültiger Variablentyp",
     "profileTypeRequired": "Variablentyp ist erforderlich",
+    "questionTooLong": "Der Fragetext dient als Speicherschlüssel und darf höchstens 255 Zeichen enthalten.",
     "sex": "Geschlecht",
     "sexFemale": "Weiblich",
     "sexMale": "Männlich",

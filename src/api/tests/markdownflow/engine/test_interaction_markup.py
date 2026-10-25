@@ -30,7 +30,7 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 pytestmark = pytest.mark.anyio
 
-MARKUP = '<interact type="text" prompt="Explain program control" variable="answer" />'
+MARKUP = '<interact type="text" prompt="Explain program control" question="answer" />'
 PAIRED_MARKUP = MARKUP.removesuffix(" />") + "></interact>"
 PAIRED_NAVIGATION = (
     '<interact type="single" prompt="Continue" options="[{"display":"Next"}]">'
@@ -40,7 +40,7 @@ SPEC = {
     "type": "text",
     "prompt": "Explain program control",
     "placeholder": "Your answer",
-    "variable": "answer",
+    "question": "answer",
 }
 
 

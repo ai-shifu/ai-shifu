@@ -108,8 +108,8 @@ def _fake_questionnaire_model(
         if question:
             kind = f"{kind}_or_text" if buttons else "text"
         spec = {"type": kind, "prompt": question, "options": buttons}
-        if parsed.get("variable"):
-            spec["variable"] = parsed["variable"]
+        if parsed.get("question"):
+            spec["question"] = parsed["question"]
         yield {
             0: DeltaToolCall(
                 name="interact",
@@ -213,7 +213,7 @@ def test_validation_uses_markdownflow_public_parser() -> None:
         "block_count": 2,
         "interaction_block_count": 1,
         "content_block_count": 1,
-        "variables": ["arbitrary_identity"],
+        "questions": ["arbitrary_identity"],
     }
     assert (
         validate_profile_research_document("Only native questionnaire instructions")[
@@ -228,7 +228,7 @@ def test_validation_rejects_interaction_variable_longer_than_runtime_input_key()
 ):
     variable_name = "x" * 257
 
-    with pytest.raises(ProfileResearchValidationError, match="variable name"):
+    with pytest.raises(ProfileResearchValidationError, match="interaction question"):
         validate_profile_research_document(f"?[%{{{{{variable_name}}}}}...请回答]")
 
 
@@ -985,7 +985,7 @@ def _import_answers(
 def test_assistant_import_uses_private_summary_and_preserves_manual_answers() -> None:
     app, runtime, view, providers = _assistant_runtime()
     original = runtime.store.load(view["session_id"])
-    original.variables = {"sys_user_nickname": "Manual", "occupation": "Teacher"}
+    original.memory = {"sys_user_nickname": "Manual", "occupation": "Teacher"}
     original.context = [
         {
             "role": "assistant",
@@ -1004,11 +1004,11 @@ def test_assistant_import_uses_private_summary_and_preserves_manual_answers() ->
     assert final["profile_draft"] == "I work as a teacher."
     assert final["next_turn_index"] == 1
     stored = runtime.store.load(view["session_id"])
-    assert stored.variables == original.variables
+    assert stored.memory == original.memory
     assert stored.context[: len(original.context)] == original.context
     assert len(providers) == 2
     extraction_input = json.loads(providers[0].messages[0][1]["content"])
-    assert extraction_input["manual_variables"] == original.variables
+    assert extraction_input["manual_memory"] == original.memory
     assert extraction_input["questionnaire"] == view["assistant_prompt"]
     assert "I work as a teacher." in str(providers[1].messages)
     assert "Use only information the user personally provided" in str(

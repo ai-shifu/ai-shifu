@@ -7,6 +7,9 @@ const mockGetShifuDraftMeta = jest.fn();
 const mockGetShifuDetail = jest.fn();
 const mockCreateOutline = jest.fn();
 const mockTrackEvent = jest.fn();
+const mockParseMdflow = jest.fn();
+const mockGetProfileItemDefinitions = jest.fn();
+const mockGetProfileVariableUsage = jest.fn();
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -15,6 +18,11 @@ jest.mock('@/api', () => ({
     getShifuDraftMeta: (...args: unknown[]) => mockGetShifuDraftMeta(...args),
     getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
     createOutline: (...args: unknown[]) => mockCreateOutline(...args),
+    parseMdflow: (...args: unknown[]) => mockParseMdflow(...args),
+    getProfileItemDefinitions: (...args: unknown[]) =>
+      mockGetProfileItemDefinitions(...args),
+    getProfileVariableUsage: (...args: unknown[]) =>
+      mockGetProfileVariableUsage(...args),
   },
 }));
 
@@ -58,6 +66,10 @@ describe('useShifu draft meta handling', () => {
     mockGetShifuDetail.mockReset();
     mockCreateOutline.mockReset();
     mockTrackEvent.mockReset();
+    mockParseMdflow.mockReset();
+    mockGetProfileItemDefinitions.mockReset();
+    mockGetProfileVariableUsage.mockReset();
+    window.localStorage.clear();
   });
 
   it('loads draft meta without browser timezone', async () => {
@@ -458,5 +470,50 @@ describe('useShifu outline-create analytics producers', () => {
     expect(result.current.cataData['server-outline-1']).toEqual(
       expect.objectContaining({ type: 'trial', is_hidden: true }),
     );
+  });
+});
+
+describe('question memory discovery', () => {
+  it('uses authored questions without requiring saved profile definitions and retains preview answers', async () => {
+    const question = 'Which [path] | level//hint...?';
+    mockParseMdflow.mockResolvedValue({
+      questions: [question],
+      blocks_count: 1,
+    });
+    mockGetProfileItemDefinitions.mockResolvedValue([
+      {
+        profile_scope: 'system',
+        profile_key: 'sys_user_nickname',
+        profile_remark: 'Nickname',
+      },
+      { profile_scope: 'user', profile_key: 'obsolete_template' },
+    ]);
+    mockGetProfileVariableUsage.mockResolvedValue({ unused_keys: [] });
+    window.localStorage.setItem(
+      'lesson_preview_variables:shifu-1',
+      JSON.stringify({ [question]: 'Advanced' }),
+    );
+    window.localStorage.setItem(
+      'lesson_preview_variables',
+      JSON.stringify({ sys_user_nickname: 'Ada' }),
+    );
+    const { result } = renderHook(() => useShifu(), { wrapper });
+    let parsed:
+      | Awaited<ReturnType<typeof result.current.actions.previewParse>>
+      | undefined;
+    await act(async () => {
+      parsed = await result.current.actions.previewParse(
+        `?[%{{ ${question} }} A | B]`,
+        'shifu-1',
+        'lesson-1',
+      );
+    });
+    expect(result.current.questions).toEqual([question]);
+    expect(parsed?.memory).toEqual({
+      [question]: 'Advanced',
+      sys_user_nickname: 'Ada',
+    });
+    expect(parsed?.allQuestionKeys).toEqual([question]);
+    expect(parsed?.memory).not.toHaveProperty('obsolete_template');
   });
 });

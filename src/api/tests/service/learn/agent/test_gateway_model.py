@@ -304,7 +304,7 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
         "type": "single",
         "prompt": "How do you feel?",
         "options": [{"display": "Good", "value": "good"}],
-        "variable": "feeling",
+        "question": "feeling",
     }
     seen: list[list[dict]] = []
     turns = {"n": 0}
@@ -342,7 +342,7 @@ async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
     requests = [e for e in first if isinstance(e, InteractionRequest)]
     assert requests, [type(e).__name__ for e in first]
     request = requests[0]
-    assert request.spec.variable == "feeling"
+    assert request.spec.question == "feeling"
     assert isinstance(first[-1], TurnDone)
     assert first[-1].reason == "interaction"
 

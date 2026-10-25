@@ -35,7 +35,7 @@ def test_invalid_cache_payload_fails_closed_without_refresh(raw: object) -> None
         {"schema_version": 0},
         {"schema_version": "invalid"},
         {"last_events": 1},
-        {"variables": []},
+        {"memory": []},
         {"context": {}},
         {"turn_index": "invalid"},
         {"last_expected_turn_index": "invalid"},
@@ -56,6 +56,7 @@ def test_cache_normalizes_legacy_variables_and_filters_invalid_context_messages(
     _app, runtime, _providers = _make_runtime()
     view = _start_test_session(runtime)
     payload = runtime.store.load(view["session_id"]).to_cache_payload()
+    payload.pop("memory")
     payload.update(
         variables={1: 2, "answers": [3, False], "empty": None},
         context=[
@@ -67,12 +68,14 @@ def test_cache_normalizes_legacy_variables_and_filters_invalid_context_messages(
         last_events=None,
     )
     restored = sessions._ProfileResearchSession.from_cache_payload(payload)
-    assert restored.variables == {"1": "2", "answers": ["3", "False"]}
+    assert restored.memory == {"1": "2", "answers": ["3", "False"]}
+    assert "variables" not in restored.to_cache_payload()
+    assert restored.to_cache_payload()["memory"] == restored.memory
     assert restored.context == [
         {"role": "assistant", "content": "Question", USER_ANSWER_CONTEXT_KEY: "7"}
     ]
     assert restored.last_events == []
-    assert sessions._normalize_session_variables(None) == {}
+    assert sessions._normalize_session_memory(None) == {}
     assert sessions._normalize_session_context(None) == []
 
 
@@ -289,7 +292,7 @@ def test_assistant_import_rejects_oversized_collected_nickname_without_staging_a
 ):
     app, runtime, view, providers = _assistant_runtime()
     session = runtime.store.load(view["session_id"])
-    session.variables["sys_user_nickname"] = "x" * 1000
+    session.memory["sys_user_nickname"] = "x" * 1000
     runtime.store.save(session)
     before = session.to_cache_payload()
     with (

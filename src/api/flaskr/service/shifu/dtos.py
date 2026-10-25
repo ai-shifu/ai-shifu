@@ -499,16 +499,16 @@ class ReorderOutlineSiblingsDto:
 class MdflowDTOParseResult(BaseModel):
     """Represent the MarkdownFlow DTO parse result API payload."""
 
-    variables: list[str] = Field(..., description="variables")
+    questions: list[str] = Field(..., description="questions")
     blocks_count: int = Field(..., description="blocks count")
 
-    def __init__(self, variables: list[str], blocks_count: int) -> None:
-        """Capture parsed MarkdownFlow variables and block count."""
-        super().__init__(variables=variables, blocks_count=blocks_count)
+    def __init__(self, questions: list[str], blocks_count: int) -> None:
+        """Capture parsed MarkdownFlow questions and block count."""
+        super().__init__(questions=questions, blocks_count=blocks_count)
 
     def __json__(self) -> dict:
         """Return parsed MarkdownFlow metadata as JSON-compatible data."""
         return {
-            "variables": self.variables,
+            "questions": self.questions,
             "blocks_count": self.blocks_count,
         }

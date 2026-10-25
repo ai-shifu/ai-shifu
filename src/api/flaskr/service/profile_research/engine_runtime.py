@@ -29,11 +29,11 @@ from flaskr.service.profile_research.authored_interaction import (
 from flaskr.service.profile_research.session import (
     ProfileResearchError,
     ProfileResearchValidationError,
-    _normalize_session_variables,
+    _normalize_session_memory,
     _ProfileResearchSession,
 )
-from markdown_flow import BlockType, MarkdownFlow
-from markdownflow.engine.variable_names import normalize_variable_name
+from markdownflow.engine.questions import normalize_question
+from markdownflow.engine.tools import _script_questions
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
@@ -42,20 +42,21 @@ from pydantic_ai.messages import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Mapping
+    from collections.abc import AsyncIterator, Callable
 
     from flaskr.api.markdownflow import (
         Event,
         InteractionSpec,
         PendingInteraction,
     )
+    from markdownflow.engine.tools import _Question
     from pydantic_ai.models import Model
 
 
 _PROFILE_INSTRUCTIONS = """
 Run the complete authored learner-profile questionnaire as one conversation, not a course.
 Follow its authored questions and conditional branches using the learner's actual answers.
-Use interact for the authored controls and keep named answer variables as authored.
+Use interact for the authored controls and keep each question text as its exact memory key.
 Do not add unrelated questions or navigation pauses. A section separator is not a pause.
 Keep any displayed introductions and transitions brief. The questionnaire's original wording
 is author guidance, not evidence about this learner. Only accepted learner answers are facts.
@@ -96,7 +97,7 @@ def _restore_engine_session(session: _ProfileResearchSession) -> Session:
                 id=session.session_id,
                 user_id=session.user_bid,
                 script=ScriptBundle(script=session.document),
-                memory=dict(session.variables),
+                memory=dict(session.memory),
             )
         )
     except (KeyError, TypeError, ValueError) as exc:
@@ -112,30 +113,24 @@ def _restore_engine_session(session: _ProfileResearchSession) -> Session:
     return working
 
 
-def _authored_questions(source: str) -> tuple[str, ...]:
-    """Read the allowed control contracts; their order never drives execution."""
-    return tuple(
-        question.content
-        for question in MarkdownFlow(document=source).get_all_blocks()
-        if question.block_type == BlockType.INTERACTION
-    )
+def _authored_questions(source: str) -> tuple[_Question, ...]:
+    """Use the native grammar, including literal standalone braces, for Profile."""
+    return tuple(_script_questions(source))
 
 
 def _interaction_problem(
     spec: InteractionSpec,
-    questions: tuple[str, ...],
-    variables: Mapping[str, object],
+    questions: tuple[_Question, ...],
 ) -> str | None:
     if reason := unrenderable_reason(spec):
         return reason
     if questions and all(
-        check_authored_interaction(spec, source, variables) is not None
-        for source in questions
+        check_authored_interaction(spec, source) is not None for source in questions
     ):
         return (
             "Use one of the authored questionnaire interactions. Preserve its input type, "
-            "variable binding and complete ordered stored option values; only localize "
-            "display labels and question wording."
+            "question text and complete ordered stored option values; only localize "
+            "display labels and display prompts."
         )
     return None
 
@@ -152,8 +147,8 @@ def _response_turn(
     pending: PendingInteraction, user_input: dict[str, list[str]]
 ) -> InteractionResponseTurn:
     values = (
-        user_input.get(pending.spec.variable, [])
-        if pending.spec.variable
+        user_input.get(pending.spec.question, [])
+        if pending.spec.question
         else [value for answers in user_input.values() for value in answers]
     )
     if pending.spec.type == "text":
@@ -214,7 +209,7 @@ def run_profile_turn(
     questions = _authored_questions(working.script.script)
 
     def interaction_check(spec: InteractionSpec) -> str | None:
-        return _interaction_problem(spec, questions, working.all_memory())
+        return _interaction_problem(spec, questions)
 
     if any(interaction_check(pending.spec) for pending in working.pending):
         # Engine may set aside an unshowable question without accepting its answer.
@@ -310,7 +305,7 @@ def run_profile_turn(
         # is visible; the next answer resumes it without discarding sibling calls.
         chunks.append(_pending_chunk(working.pending[0]))
     session.engine_session = working.to_dict()
-    session.variables.update(_normalize_session_variables(working.memory))
+    session.memory.update(_normalize_session_memory(working.memory))
     return ProfileTurnResult(
         chunks=chunks,
         input_accepted=accepted,
@@ -347,22 +342,22 @@ def profile_answer_evidence(
                     args = part.args_as_dict()
                 except (AssertionError, TypeError, ValueError):
                     continue
-                variable = args.get("variable")
-                if variable is not None:
-                    if not isinstance(variable, str):
+                # Old stored tool calls used ``variable``. New model calls use
+                # the exact authored question as their memory key.
+                question = args.get("question", args.get("variable"))
+                if question is not None:
+                    if not isinstance(question, str):
                         continue
-                    normalized_variable = normalize_variable_name(variable)
-                    if normalized_variable is None and variable.strip():
+                    normalized_question = normalize_question(question)
+                    if normalized_question is None and question.strip():
                         continue
-                    variable = normalized_variable
+                    question = normalized_question
                 if (
                     args.get("type") != "confirm"
-                    and variable != SYS_USER_NICKNAME
+                    and question != SYS_USER_NICKNAME
                     and isinstance(args.get("prompt"), str)
                 ):
-                    # Tool history retains the model's original arguments, before
-                    # interact canonicalizes its binding or drops a blank optional key.
-                    calls[part.tool_call_id] = {**args, "variable": variable}
+                    calls[part.tool_call_id] = {**args, "question": question}
             elif (
                 isinstance(message, ModelRequest)
                 and isinstance(part, ToolReturnPart)
@@ -382,7 +377,7 @@ def profile_answer_evidence(
     return [
         {
             "prompt": args["prompt"],
-            "variable": args.get("variable"),
+            "question": args.get("question"),
             "answer": answers[call_id],
             **_question_context(args),
         }

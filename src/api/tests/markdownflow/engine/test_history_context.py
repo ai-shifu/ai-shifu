@@ -208,7 +208,7 @@ async def test_real_engine_reloads_answers_retries_and_fresh_recall_without_rewr
                 0: DeltaToolCall(
                     name="interact",
                     tool_call_id="q",
-                    json_args='{"type":"text","prompt":"Your answer?","variable":"answer"}',
+                    json_args='{"type":"text","prompt":"Your answer?","question":"answer"}',
                 )
             }
         elif last.tool_name == "interact":
@@ -408,7 +408,7 @@ async def test_engine_revalidates_stale_read_and_clears_notice_after_current_too
         user_memory={"goal": "profile-old"},
         memory={"goal": "new"},
         messages=original,
-        initial_variables={},
+        initial_memory={},
         turn=1,
     )
     engine = CheckingEngine(

@@ -213,7 +213,7 @@ const PROFILE_ONBOARDING_BUSY_ERROR_CODE = 4013;
 const RETRYABLE_HTTP_STATUSES = new Set([408, 429]);
 export const SESSION_NOT_FOUND_RUNTIME_ERROR_CODE =
   'transient_markdownflow_session_not_found';
-const PROFILE_ONBOARDING_MAX_INPUT_KEY_CODEPOINTS = 256;
+const PROFILE_ONBOARDING_MAX_INPUT_KEY_CODEPOINTS = 255;
 const PROFILE_ONBOARDING_MAX_INPUT_VALUES = 100;
 const PROFILE_ONBOARDING_MAX_INPUT_VALUE_CODEPOINTS = 4_000;
 const PROFILE_ONBOARDING_MAX_INPUT_TOTAL_CODEPOINTS = 10_000;
@@ -243,13 +243,12 @@ export const isRetryableSessionCreateError = (error: unknown) => {
 };
 
 export const isProfileOnboardingSubmissionWithinLimits = (
-  variableName: string,
+  question: string,
   values: string[],
 ) => {
   if (
-    !variableName ||
-    countCodePoints(variableName) >
-      PROFILE_ONBOARDING_MAX_INPUT_KEY_CODEPOINTS ||
+    !question ||
+    countCodePoints(question) > PROFILE_ONBOARDING_MAX_INPUT_KEY_CODEPOINTS ||
     !values.length ||
     values.length > PROFILE_ONBOARDING_MAX_INPUT_VALUES
   ) {

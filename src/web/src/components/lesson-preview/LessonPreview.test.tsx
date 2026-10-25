@@ -6,7 +6,7 @@ import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 
 const mockPush = jest.fn();
 const mockCopyText = jest.fn();
-const mockVariableList = jest.fn();
+const mockMemoryList = jest.fn();
 
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -149,10 +149,10 @@ jest.mock('@/components/audio/AudioPlayer', () => ({
   AudioPlayer: () => null,
 }));
 
-jest.mock('./VariableList', () => ({
+jest.mock('./MemoryList', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
-    mockVariableList(props);
+    mockMemoryList(props);
     return null;
   },
 }));
@@ -161,36 +161,36 @@ describe('LessonPreview billing action', () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockCopyText.mockReset();
-    mockVariableList.mockReset();
+    mockMemoryList.mockReset();
   });
 
-  test('filters hidden variables and forwards visible system variable keys', () => {
+  test('filters hidden memory and forwards visible system memory keys', () => {
     render(
       <LessonPreview
         loading
         items={[]}
-        variables={{
+        memory={{
           sys_user_nickname: 'Learner',
           sys_user_style: 'Concise',
           custom_topic: 'Testing',
         }}
-        hiddenVariableKeys={['sys_user_style']}
-        systemVariableKeys={['sys_user_nickname']}
-        customVariableKeys={['custom_topic']}
+        hiddenMemoryKeys={['sys_user_style']}
+        systemMemoryKeys={['sys_user_nickname']}
+        customMemoryKeys={['custom_topic']}
         shifuBid='shifu-1'
         onRefresh={jest.fn()}
         onSend={jest.fn()}
       />,
     );
 
-    expect(mockVariableList).toHaveBeenLastCalledWith(
+    expect(mockMemoryList).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        variables: {
+        memory: {
           sys_user_nickname: 'Learner',
           custom_topic: 'Testing',
         },
-        systemVariableKeys: ['sys_user_nickname'],
-        customVariableKeys: ['custom_topic'],
+        systemMemoryKeys: ['sys_user_nickname'],
+        customMemoryKeys: ['custom_topic'],
       }),
     );
   });

@@ -122,7 +122,7 @@ def read_angle_autolink(text: str, start: int, *, partial: bool = False) -> int 
         if uri:
             if uri_body:
                 # Native Markdown normalization admits NUL as a replacement character;
-                # source offsets and raw variable text remain untouched.
+                # source offsets and raw question text remain untouched.
                 uri = (
                     character != "<"
                     and (ord(character) > 32 or character == "\x00")
@@ -389,7 +389,7 @@ class BlockSpan:
 
 
 class DocumentBlocks:
-    """Read the block boundaries needed by variable document scanners."""
+    """Read the block boundaries needed by question document scanners."""
 
     def __init__(self, text: str, html: Pattern[str]) -> None:
         """Index once using the caller's existing native HTML grammar."""
@@ -438,7 +438,7 @@ class DocumentBlocks:
     def html_token_end(
         self, index: int, start: int, *, final: bool = True
     ) -> int | None:
-        """Read a native HTML token without changing original variable text."""
+        """Read a native HTML token without changing original question text."""
         key = (start, final)
         if key in self._html_token_ends:
             return self._html_token_ends[key]

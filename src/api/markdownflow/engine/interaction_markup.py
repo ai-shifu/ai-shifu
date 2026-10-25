@@ -31,7 +31,7 @@ class InteractionMarkupFilter:
     Recognition is deliberately limited to complete single-line tags, including
     empty paired tags, at a Markdown line start. Inline examples, four-space code
     and fenced blocks are untouched.
-    No attributes are parsed into interactions, variables or memory writes.
+    No attributes are parsed into interactions, questions or memory writes.
     """
 
     def __init__(self, literals: frozenset[str] = frozenset()) -> None:

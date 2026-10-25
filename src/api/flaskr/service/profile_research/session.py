@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.common.cache_provider import CacheLock, CacheProvider, redis_cache
 from markdown_flow import USER_ANSWER_CONTEXT_KEY
+from markdownflow.engine.questions import MAX_QUESTION_LENGTH
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -30,7 +31,7 @@ SESSION_SCHEMA_VERSION = 3
 _READABLE_SESSION_SCHEMA_VERSIONS = frozenset({SESSION_SCHEMA_VERSION})
 MAX_DOCUMENT_CODEPOINTS = 100_000
 MAX_BLOCK_COUNT = 100
-MAX_INPUT_KEY_CODEPOINTS = 256
+MAX_INPUT_KEY_CODEPOINTS = MAX_QUESTION_LENGTH
 MAX_INPUT_KEY_COUNT = 100
 MAX_INPUT_VALUES_PER_KEY = 100
 MAX_INPUT_VALUE_COUNT = 100
@@ -89,20 +90,20 @@ def _hold_profile_research_lock(
             lock.release()
 
 
-def _normalize_session_variables(raw: object) -> dict[str, str | list[str]]:
+def _normalize_session_memory(raw: object) -> dict[str, str | list[str]]:
     if raw is None:
         return {}
     if not isinstance(raw, Mapping):
-        msg = "invalid session variables"
+        msg = "invalid session memory"
         raise ProfileResearchSessionNotFound(msg)
-    variables: dict[str, str | list[str]] = {}
+    memory: dict[str, str | list[str]] = {}
     for raw_key, raw_value in raw.items():
         key = str(raw_key)
         if isinstance(raw_value, list):
-            variables[key] = [str(value) for value in raw_value]
+            memory[key] = [str(value) for value in raw_value]
         elif raw_value is not None:
-            variables[key] = str(raw_value)
-    return variables
+            memory[key] = str(raw_value)
+    return memory
 
 
 def _normalize_session_context(raw: object) -> list[dict[str, str]]:
@@ -192,7 +193,7 @@ class _ProfileResearchSession:
     config_revision: int
     turn_index: int = 0
     assistant_prompt: str = ""
-    variables: dict[str, str | list[str]] = field(default_factory=dict)
+    memory: dict[str, str | list[str]] = field(default_factory=dict)
     context: list[dict[str, str]] = field(default_factory=list)
     awaiting_input: bool = False
     done: bool = False
@@ -220,7 +221,7 @@ class _ProfileResearchSession:
             "output_language": self.output_language,
             "config_revision": self.config_revision,
             "turn_index": self.turn_index,
-            "variables": self.variables,
+            "memory": self.memory,
             "context": self.context,
             "awaiting_input": self.awaiting_input,
             "done": self.done,
@@ -275,7 +276,9 @@ class _ProfileResearchSession:
                 output_language=str(payload.get("output_language") or ""),
                 config_revision=int(payload.get("config_revision") or 0),
                 turn_index=int(payload["turn_index"]),
-                variables=_normalize_session_variables(payload.get("variables")),
+                memory=_normalize_session_memory(
+                    payload.get("memory", payload.get("variables"))
+                ),
                 context=_normalize_session_context(payload.get("context")),
                 awaiting_input=bool(payload.get("awaiting_input", False)),
                 done=bool(payload.get("done", False)),

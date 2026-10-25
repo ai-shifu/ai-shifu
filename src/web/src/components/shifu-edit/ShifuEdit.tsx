@@ -10,7 +10,8 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
-import { extractVariableNames } from 'remark-flow';
+// Compatibility metadata for the existing analytics consumer; never used for memory writes.
+import { extractVariableNames as extractLegacyAnalyticsKeys } from 'remark-flow';
 import { Rnd } from 'react-rnd';
 import { useTranslation } from 'react-i18next';
 import {
@@ -83,10 +84,7 @@ const MarkdownFlowEditor = dynamic(
   },
 );
 
-const HIDDEN_SYSTEM_VARIABLE_KEYS = new Set([
-  'sys_user_style',
-  'sys_user_input',
-]);
+const HIDDEN_SYSTEM_MEMORY_KEYS = new Set(['sys_user_style', 'sys_user_input']);
 
 const OUTLINE_DEFAULT_WIDTH = 256;
 const OUTLINE_COLLAPSED_WIDTH = 60;
@@ -101,7 +99,7 @@ const DEFAULT_EDITOR_TRIGGER_SOURCE = 'editor_entry';
 const CREATED_COURSE_ONBOARDING_DELAY_MS = 900;
 const PROFILE_RECOVERY_INITIAL_DELAY_MS = 1000;
 const PROFILE_RECOVERY_MAX_DELAY_MS = 10000;
-// Analytics classification only; variable-name validation belongs to the shared grammar.
+// Analytics classification only; question-name validation belongs to the shared grammar.
 const LEGACY_VARIABLE_IDENTIFIER_FOR_ANALYTICS = /^[\p{L}\p{N}_]+$/u;
 
 export const resolveEditorOnboardingTriggerSource = (
@@ -166,8 +164,6 @@ const ScriptEditor = ({
   const historyRequestIdRef = useRef(0);
   const historyDetailRequestIdRef = useRef(0);
   const selectedHistoryVersionIdRef = useRef<number | null>(null);
-  const [recentVariables, setRecentVariables] = useState<string[]>([]);
-  const seenVariableNamesRef = useRef<Set<string>>(new Set());
   const currentNodeBidRef = useRef<string | null>(null); // Keep latest node bid while async preview is pending
   const currentLessonBidRef = useRef<string | null>(null);
   const {
@@ -175,10 +171,10 @@ const ScriptEditor = ({
     chapters,
     actions,
     isLoading,
-    variables,
-    systemVariables,
-    hiddenVariables,
-    unusedVariables,
+    questions,
+    systemMemory,
+    hiddenQuestions,
+    unusedQuestions,
     hideUnusedMode,
     currentShifu,
     currentNode,
@@ -209,9 +205,9 @@ const ScriptEditor = ({
     resetPreview,
     onRefresh,
     onSend,
-    persistVariables,
-    onVariableChange,
-    variables: previewVariables,
+    persistMemory,
+    onMemoryChange,
+    memory: previewMemory,
     requestAudioForBlock: requestPreviewAudioForBlock,
     reGenerateConfirm,
   } = usePreviewChat({ creditInsufficientAudience });
@@ -947,31 +943,31 @@ const ScriptEditor = ({
     setIsPreviewPanelOpen(prev => !prev);
   };
 
-  const handleHideUnusedVariables = useCallback(async () => {
+  const handleHideUnusedQuestions = useCallback(async () => {
     if (!currentShifu?.bid) return;
     try {
-      await actions.hideUnusedVariables(currentShifu.bid);
+      await actions.hideUnusedQuestions(currentShifu.bid);
     } catch (error) {
-      console.error('Failed to hide unused variables', error);
+      console.error('Failed to hide unused questions', error);
     }
   }, [actions, currentShifu?.bid]);
 
-  const handleRestoreHiddenVariables = useCallback(async () => {
+  const handleRestoreHiddenQuestions = useCallback(async () => {
     if (!currentShifu?.bid) return;
     try {
-      await actions.restoreHiddenVariables(currentShifu.bid);
+      await actions.restoreHiddenQuestions(currentShifu.bid);
     } catch (error) {
-      console.error('Failed to restore hidden variables', error);
+      console.error('Failed to restore hidden questions', error);
     }
   }, [actions, currentShifu?.bid]);
 
-  const handleHideSingleVariable = useCallback(
+  const handleHideSingleQuestion = useCallback(
     async (name: string) => {
       if (!currentShifu?.bid) return;
       try {
-        await actions.hideVariableByKey(currentShifu.bid, name);
+        await actions.hideQuestionByKey(currentShifu.bid, name);
       } catch (error) {
-        console.error('Failed to hide variable', error);
+        console.error('Failed to hide question', error);
       }
     },
     [actions, currentShifu?.bid],
@@ -1021,7 +1017,7 @@ const ScriptEditor = ({
     trackEvent('creator_lesson_preview_click', {
       shifu_bid: targetShifu,
       outline_bid: targetOutline,
-      has_text_variable_keys: extractVariableNames(targetMdflow).some(
+      has_text_variable_keys: extractLegacyAnalyticsKeys(targetMdflow).some(
         name => !LEGACY_VARIABLE_IDENTIFIER_FOR_ANALYTICS.test(name),
       ),
     });
@@ -1041,60 +1037,58 @@ const ScriptEditor = ({
         }
       }
       const {
-        variables: parsedVariablesMap,
+        memory: parsedMemoryMap,
         blocksCount,
-        systemVariableKeys,
-        allVariableKeys,
+        systemMemoryKeys,
+        allQuestionKeys,
         unusedKeys,
       } = await actions.previewParse(targetMdflow, targetShifu, targetOutline);
 
       if (hideUnusedMode) {
         // In "hide unused" mode, refresh hidden list from full-course usage.
-        await actions.syncHiddenVariablesToUsage(targetShifu, { unusedKeys });
+        await actions.syncHiddenQuestionsToUsage(targetShifu, { unusedKeys });
         if (outlineChanged()) {
           return;
         }
       } else {
-        // Auto-unhide only the hidden variables that are actually used in current prompts (use parsed keys)
-        const parsedVariableKeys =
-          allVariableKeys || Object.keys(parsedVariablesMap || {});
-        const mdflowVariableNames = new Set(extractVariableNames(targetMdflow));
-        const usedHiddenKeys = hiddenVariables.filter(
-          key =>
-            parsedVariableKeys.includes(key) && mdflowVariableNames.has(key),
+        // Auto-unhide only the hidden questions that are actually used in current prompts (use parsed keys)
+        const parsedQuestionKeys =
+          allQuestionKeys || Object.keys(parsedMemoryMap || {});
+        const usedHiddenKeys = hiddenQuestions.filter(key =>
+          parsedQuestionKeys.includes(key),
         );
         if (usedHiddenKeys.length) {
           try {
-            await actions.unhideVariablesByKeys(targetShifu, usedHiddenKeys);
+            await actions.unhideQuestionsByKeys(targetShifu, usedHiddenKeys);
             if (outlineChanged()) {
               return;
             }
             // refresh local visible/hidden lists to reflect the change
             await actions.refreshProfileDefinitions(targetShifu);
           } catch (unhideError) {
-            console.error('Failed to auto-unhide variables:', unhideError);
+            console.error('Failed to auto-unhide questions:', unhideError);
           }
         }
       }
       if (outlineChanged()) {
         return;
       }
-      const previewVariablesMap = {
-        ...parsedVariablesMap,
-        ...previewVariables,
+      const previewMemoryMap = {
+        ...parsedMemoryMap,
+        ...previewMemory,
       };
-      persistVariables({
+      persistMemory({
         shifuBid: targetShifu,
-        systemVariableKeys,
-        variables: previewVariablesMap,
+        systemMemoryKeys,
+        memory: previewMemoryMap,
       });
       void startPreview({
         shifuBid: targetShifu,
         outlineBid: targetOutline,
         mdflow: targetMdflow,
-        variables: previewVariablesMap,
+        memory: previewMemoryMap,
         max_block_count: blocksCount,
-        systemVariableKeys,
+        systemMemoryKeys,
       });
     } catch (error) {
       console.error(error);
@@ -1293,121 +1287,86 @@ const ScriptEditor = ({
     void loadSelectedHistoryVersionDetail();
   }, [isHistoryPage, loadSelectedHistoryVersionDetail]);
 
-  const mdflowVariableNames = useMemo(
-    () => extractVariableNames(mdflow),
-    [mdflow],
-  );
-
-  const resolvedPreviewVariables = useMemo(() => {
-    const candidates = [previewVariables, previewItems[0]?.variables];
+  const resolvedPreviewMemory = useMemo(() => {
+    const candidates = [previewMemory, previewItems[0]?.memory];
     for (const candidate of candidates) {
       if (candidate && Object.keys(candidate).length) {
         return candidate;
       }
     }
     return undefined;
-  }, [previewItems, previewVariables]);
-  useEffect(() => {
-    const previousSeen = seenVariableNamesRef.current;
-    const currentSet = new Set<string>();
-    const newNames: string[] = [];
-    mdflowVariableNames.forEach(name => {
-      if (!name) {
-        return;
-      }
-      currentSet.add(name);
-      if (!previousSeen.has(name)) {
-        newNames.push(name);
-      }
-    });
-    seenVariableNamesRef.current = currentSet;
-    const currentNamesSet = new Set(mdflowVariableNames);
-    if (!newNames.length) {
-      setRecentVariables(prev =>
-        prev.filter(name => currentNamesSet.has(name)),
-      );
-      return;
-    }
-    setRecentVariables(prev => {
-      const filteredPrev = prev.filter(
-        name => !newNames.includes(name) && currentNamesSet.has(name),
-      );
-      return [...newNames, ...filteredPrev];
-    });
-  }, [mdflowVariableNames]);
+  }, [previewItems, previewMemory]);
 
-  const variablesList = useMemo(() => {
-    return (variables || []).map(name => ({ name }));
-  }, [variables]);
+  const questionsList = useMemo(() => {
+    return (questions || []).map(name => ({ name }));
+  }, [questions]);
 
-  const systemVariablesList = useMemo(() => {
-    return systemVariables
+  const systemMemoryList = useMemo(() => {
+    return systemMemory
       .filter(
-        (variable: Record<string, string>) =>
-          !HIDDEN_SYSTEM_VARIABLE_KEYS.has(variable.name),
+        (question: Record<string, string>) =>
+          !HIDDEN_SYSTEM_MEMORY_KEYS.has(question.name),
       )
-      .map((variable: Record<string, string>) => ({
-        name: variable.name,
-        label: variable.label,
+      .map((question: Record<string, string>) => ({
+        name: question.name,
+        label: question.label,
       }));
-  }, [systemVariables]);
+  }, [systemMemory]);
 
-  const previewHiddenVariableKeys = useMemo(
+  const previewHiddenQuestionKeys = useMemo(
     () =>
-      Array.from(new Set([...hiddenVariables, ...HIDDEN_SYSTEM_VARIABLE_KEYS])),
-    [hiddenVariables],
+      Array.from(new Set([...hiddenQuestions, ...HIDDEN_SYSTEM_MEMORY_KEYS])),
+    [hiddenQuestions],
   );
 
-  const visibleSystemVariableKeys = useMemo(
-    () => systemVariablesList.map(variable => variable.name),
-    [systemVariablesList],
+  const visibleSystemQuestionKeys = useMemo(
+    () => systemMemoryList.map(question => question.name),
+    [systemMemoryList],
   );
 
-  const variableOrder = useMemo(() => {
+  const questionOrder = useMemo(() => {
     return [
-      ...visibleSystemVariableKeys,
-      ...variablesList.map(variable => variable.name),
+      ...visibleSystemQuestionKeys,
+      ...questionsList.map(question => question.name),
     ];
-  }, [variablesList, visibleSystemVariableKeys]);
+  }, [questionsList, visibleSystemQuestionKeys]);
 
-  // Course-level visible variables (system + custom, excluding hidden)
-  const courseVisibleVariableKeys = useMemo(() => {
-    const customVisible = (variables || []).filter(
-      key => !hiddenVariables.includes(key),
+  // Course-level visible questions (system + custom, excluding hidden)
+  const courseVisibleQuestionKeys = useMemo(() => {
+    const customVisible = (questions || []).filter(
+      key => !hiddenQuestions.includes(key),
     );
-    return [...visibleSystemVariableKeys, ...customVisible];
-  }, [hiddenVariables, variables, visibleSystemVariableKeys]);
+    return [...visibleSystemQuestionKeys, ...customVisible];
+  }, [hiddenQuestions, questions, visibleSystemQuestionKeys]);
 
-  // Preview variables: start from parsed variables and fill missing course-visible keys with empty values
-  const mergedPreviewVariables = useMemo(() => {
-    const base = resolvedPreviewVariables
-      ? { ...resolvedPreviewVariables }
-      : {};
-    courseVisibleVariableKeys.forEach(key => {
+  // Preview questions: start from parsed questions and fill missing course-visible keys with empty values
+  const mergedPreviewMemory = useMemo(() => {
+    const base = resolvedPreviewMemory ? { ...resolvedPreviewMemory } : {};
+    courseVisibleQuestionKeys.forEach(key => {
       if (!(key in base)) {
         base[key] = '';
       }
     });
     return base;
-  }, [courseVisibleVariableKeys, resolvedPreviewVariables]);
+  }, [courseVisibleQuestionKeys, resolvedPreviewMemory]);
 
-  const unusedVisibleVariables = useMemo(() => {
-    const hiddenSet = new Set(hiddenVariables);
-    return (unusedVariables || []).filter(key => !hiddenSet.has(key));
-  }, [hiddenVariables, unusedVariables]);
+  const unusedVisibleQuestions = useMemo(() => {
+    const hiddenSet = new Set(hiddenQuestions);
+    return (unusedQuestions || []).filter(key => !hiddenSet.has(key));
+  }, [hiddenQuestions, unusedQuestions]);
 
-  const hasUnusedVisibleVariables = unusedVisibleVariables.length > 0;
+  const hasUnusedVisibleQuestions = unusedVisibleQuestions.length > 0;
 
-  const hasHiddenVariables = hiddenVariables.length > 0;
-  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleVariables
+  const hasHiddenQuestions = hiddenQuestions.length > 0;
+  const hideRestoreActionType: 'hide' | 'restore' = hasUnusedVisibleQuestions
     ? 'hide'
-    : hasHiddenVariables
+    : hasHiddenQuestions
       ? 'restore'
       : 'hide';
   const hideRestoreActionDisabled =
     hideRestoreActionType === 'hide'
-      ? !hasUnusedVisibleVariables
-      : !hasHiddenVariables;
+      ? !hasUnusedVisibleQuestions
+      : !hasHiddenQuestions;
 
   const onChangeMdflow = (value: string) => {
     commitMdflowChange(value);
@@ -1907,6 +1866,7 @@ const ScriptEditor = ({
                     </div>
                   ) : (
                     <MarkdownFlowEditor
+                      questionMode
                       key={editorScopeKey}
                       locale={resolveMarkdownFlowLocale(
                         i18n.resolvedLanguage ?? i18n.language,
@@ -1947,27 +1907,27 @@ const ScriptEditor = ({
                   errorMessage={previewError || undefined}
                   items={previewItems}
                   creditInsufficientAudience={creditInsufficientAudience}
-                  variables={mergedPreviewVariables}
-                  hiddenVariableKeys={previewHiddenVariableKeys}
+                  memory={mergedPreviewMemory}
+                  hiddenMemoryKeys={previewHiddenQuestionKeys}
                   shifuBid={currentShifu?.bid || ''}
                   onRefresh={onRefresh}
                   onSend={onSend}
-                  onVariableChange={onVariableChange}
-                  variableOrder={variableOrder}
-                  systemVariableKeys={visibleSystemVariableKeys}
+                  onMemoryChange={onMemoryChange}
+                  memoryOrder={questionOrder}
+                  systemMemoryKeys={visibleSystemQuestionKeys}
                   onRequestAudioForBlock={
                     currentShifu?.tts_enabled
                       ? requestPreviewAudioForBlock
                       : undefined
                   }
                   reGenerateConfirm={reGenerateConfirm}
-                  customVariableKeys={variables}
-                  unusedVariableKeys={unusedVisibleVariables}
-                  onHideVariable={handleHideSingleVariable}
+                  customMemoryKeys={questions}
+                  unusedMemoryKeys={unusedVisibleQuestions}
+                  onHideMemory={handleHideSingleQuestion}
                   onHideOrRestore={
                     hideRestoreActionType === 'hide'
-                      ? handleHideUnusedVariables
-                      : handleRestoreHiddenVariables
+                      ? handleHideUnusedQuestions
+                      : handleRestoreHiddenQuestions
                   }
                   actionType={hideRestoreActionType}
                   actionDisabled={hideRestoreActionDisabled}

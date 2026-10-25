@@ -47,7 +47,7 @@ SCRIPT = (
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("compaction", [False, True])
 @pytest.mark.parametrize("retry_saved_answer", [False, True])
-@pytest.mark.parametrize("normalized_case", ["exact", "variable", "hint", "both"])
+@pytest.mark.parametrize("normalized_case", ["exact", "question", "hint", "both"])
 @pytest.mark.parametrize("direction_rule", ["single", "multiple", "unspecified"])
 async def test_sdk_receives_exact_local_author_rule_without_persisting_projection(
     reload: bool,
@@ -79,8 +79,8 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
                 "prompt": "Explain techniques.",
                 "placeholder": "Techniques and effects",
             }
-            if normalized_case in ("variable", "both"):
-                spec["variable"] = "model_invented_key"
+            if normalized_case in ("question", "both"):
+                spec["question"] = "model_invented_key"
             if normalized_case in ("hint", "both"):
                 spec["prompt"] = "Techniques and effects"
                 spec.pop("placeholder")
@@ -164,7 +164,7 @@ async def test_sdk_receives_exact_local_author_rule_without_persisting_projectio
     )
     session = await engine.new_session(script)
     await _events(engine.run_turn(session))
-    assert session.pending[0].spec.variable is None
+    assert session.pending[0].spec.question is None
     assert session.pending[0].spec.placeholder == "Techniques and effects"
     if retry_saved_answer:
         session.answers[session.pending[0].tool_call_id] = "Learner wrote: " + original
@@ -228,7 +228,6 @@ def test_code_and_comments_do_not_create_duplicate_anchors(wrapper: str) -> None
         SCRIPT.replace("?[...Earlier answer]", "Inline ?[...Earlier answer]"),
         SCRIPT.replace("?[...Earlier answer]", "?[A |\nB]"),
         SCRIPT.replace("### Acceptance\n", "### Acceptance\n" + "\u00e9" * 5000),
-        SCRIPT.replace("Require RISC", "Require {{current_requirement}} and RISC"),
         "<!--\n" + SCRIPT,
     ],
 )
@@ -252,11 +251,11 @@ def test_navigation_is_not_an_answer_context_anchor() -> None:
         (frozenset(), SCRIPT + SECTION, False),
     ],
 )
-def test_only_host_rejected_variables_can_be_ignored_for_matching(
+def test_only_host_rejected_questions_can_be_ignored_for_matching(
     memory_keys: frozenset[str] | None, script: str, expected: bool
 ) -> None:
-    """Keep unrestricted, declared and ambiguous variable bindings conservative."""
-    spec = _spec().model_copy(update={"variable": "model_invented_key"})
+    """Keep unrestricted, declared and ambiguous question bindings conservative."""
+    spec = _spec().model_copy(update={"question": "model_invented_key"})
     messages = [
         ModelRequest(parts=[UserPromptPart(script)]),
         ModelResponse(
@@ -360,7 +359,6 @@ async def test_later_answer_sdk_keeps_enclosing_rules_with_local_hint(
     "parent",
     [
         pytest.param("x" * 8192, id="oversized"),
-        pytest.param("Keep {{learner_fact}} in view.", id="variable"),
     ],
 )
 def test_unprojectable_parent_does_not_present_a_local_only_rule(parent: str) -> None:
@@ -574,3 +572,19 @@ async def test_interrupted_teaching_keeps_answer_without_current_reference(
         and "# Current authored feedback scope" in (m.instructions or "")
         for m in session.messages
     )
+
+
+def test_brace_text_is_literal_authored_evidence_in_sections_and_ancestors() -> None:
+    """A former substitution spelling no longer makes an exact author scope unsafe."""
+    parent = "Keep {{learner_fact}} as literal authored text."
+    script = (
+        parent
+        + "\n\n"
+        + SCRIPT.replace("Require RISC", "Require {{current_requirement}} and RISC")
+    )
+    messages = [
+        ModelResponse(parts=[ToolCallPart("interact", _spec().model_dump(), "current")])
+    ]
+    reference = json.loads(authored_answer_reference(messages, script, {"current"}))
+    assert "Require {{current_requirement}} and RISC" in reference["text"]
+    assert any(parent in preamble for preamble in reference["ancestor_preambles"])

@@ -28,6 +28,7 @@
     "profileOnboardingPromptGenerationFailed": "تعذّر إنشاء تعليمات المساعد. لم تُنشر الإعدادات وما زال النص الذي أدخلته محفوظًا. حاول مرة أخرى.",
     "profileTypeInvalid": "نوع المتغير غير صحيح",
     "profileTypeRequired": "يجب اختيار نوع المتغير",
+    "questionTooLong": "يُستخدم نص السؤال كمفتاح للذاكرة، ويجب ألا يتجاوز 255 حرفًا.",
     "sex": "الجنس",
     "sexFemale": "أنثى",
     "sexMale": "ذكر",

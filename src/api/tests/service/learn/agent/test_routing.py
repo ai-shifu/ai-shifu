@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from flaskr.common import config
+from flaskr.common import markdownflow as runtime_selection
 from flaskr.service.learn.agent import routing
 
 
@@ -14,7 +15,7 @@ from flaskr.service.learn.agent import routing
 def test_enabled_deployment_routes_every_identified_course(
     monkeypatch: pytest.MonkeyPatch, raw: object
 ) -> None:
-    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: raw)
+    monkeypatch.setattr(runtime_selection, "get_config", lambda *_args, **_kwargs: raw)
     for course in ("previously-listed", "never-listed", " newly-created "):
         assert routing.uses_agent_engine(course) is True
 
@@ -26,7 +27,7 @@ def test_enabled_deployment_routes_every_identified_course(
 def test_disabled_or_malformed_values_keep_every_course_on_legacy(
     monkeypatch: pytest.MonkeyPatch, raw: object
 ) -> None:
-    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: raw)
+    monkeypatch.setattr(runtime_selection, "get_config", lambda *_args, **_kwargs: raw)
     assert routing.uses_agent_engine("previously-listed") is False
     assert routing.uses_agent_engine("never-listed") is False
 
@@ -35,11 +36,12 @@ def test_disabled_or_malformed_values_keep_every_course_on_legacy(
 def test_missing_course_identifier_stays_on_legacy(
     monkeypatch: pytest.MonkeyPatch, course: object
 ) -> None:
-    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(runtime_selection, "get_config", lambda *_args, **_kwargs: True)
     assert routing.uses_agent_engine(course) is False
 
 
 def test_routing_reads_only_the_environment_registry() -> None:
+    assert routing.uses_agent_engine is runtime_selection.uses_agent_engine
     assert routing.get_config is config.get_config
     assert routing.V2_ENABLED_CONFIG_KEY == "FLOW_ENGINE_V2_ENABLED"
     registered = config.ENV_VARS[routing.V2_ENABLED_CONFIG_KEY]

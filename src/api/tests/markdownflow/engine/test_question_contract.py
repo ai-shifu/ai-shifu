@@ -9,29 +9,27 @@ import pytest
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import render_interaction
 from markdown_flow import InteractionParser, MarkdownFlow
-from markdown_flow.parser.variable import replace_variables_in_text
 from markdownflow.engine import (
     Engine,
     ErrorEvent,
     InteractionResponseTurn,
     MemoryUpdated,
     Session,
-    collected_names,
+    collected_questions,
     marker_context,
-    substitute_variables,
 )
 from markdownflow.engine.events import InteractionRequest
 from markdownflow.engine.interaction import InteractionSpec, Option
 from markdownflow.engine.marker_context import analyze_marker_context
+from markdownflow.engine.questions import (
+    find_question_markers,
+    format_question,
+    format_question_marker,
+    normalize_question,
+    read_question_marker,
+)
 from markdownflow.engine.script import final_preserved_line
 from markdownflow.engine.tools import _script_questions
-from markdownflow.engine.variable_names import (
-    find_variable_markers,
-    format_variable_assignment,
-    format_variable_reference,
-    normalize_variable_name,
-    read_variable_marker,
-)
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
@@ -46,7 +44,7 @@ QUESTION_KEYS = (
     "gender_(self)",
     "学习目标_😀？",
     "name",
-    "中文变量",
+    "中文问题",
     "\ufeffgender?",
     "gender?\ufeff",
     "\ufeff",
@@ -83,16 +81,11 @@ def test_existing_question_keys_agree_across_parser_boundaries(
         (choice, choice) for choice in CHOICES
     ]
     assert MarkdownFlow(authored).extract_variables() == [key]
-    assert collected_names(authored) == frozenset({key})
-
-    reference = format_variable_reference(key)
-    assert replace_variables_in_text(reference, {key: "女"}, add_quotes=False) == "女"
-    assert substitute_variables(reference, {key: "女"}) == "女"
-    assert substitute_variables(authored, {key: "女"}) == authored
+    assert collected_questions(authored) == frozenset({key})
 
     questions = _script_questions(authored)
     assert len(questions) == 1
-    assert questions[0].variable == key
+    assert questions[0].question == key
     assert [choice.strip() for choice in questions[0].choices] == list(CHOICES)
     assert not questions[0].text
 
@@ -106,7 +99,7 @@ def test_existing_question_keys_agree_across_parser_boundaries(
         type="single",
         prompt="Choose one",
         options=[Option(display=choice) for choice in CHOICES],
-        variable=key,
+        question=key,
     )
     rendered = render_interaction(spec)
     assert rendered == _question(key)
@@ -134,7 +127,7 @@ async def test_named_question_answer_survives_session_and_wire_round_trips(
                         {
                             "type": "single",
                             "prompt": "Choose one",
-                            "variable": f"\u0085{key}\u001f",
+                            "question": f"\u0085{key}\u001f",
                             "options": [{"display": choice} for choice in CHOICES],
                         }
                     ),
@@ -154,12 +147,12 @@ async def test_named_question_answer_survives_session_and_wire_round_trips(
     first = [event async for event in engine.run_turn(session)]
     assert not [event for event in first if isinstance(event, ErrorEvent)]
     request = next(event for event in first if isinstance(event, InteractionRequest))
-    assert request.spec.variable == key
+    assert request.spec.question == key
     assert render_interaction(request.spec) == _question(key)
     assert first[-1].reason == "interaction"
 
     session = Session.loads(session.dumps())
-    assert session.pending[0].spec.variable == key
+    assert session.pending[0].spec.question == key
     second = [
         event
         async for event in engine.run_turn(
@@ -175,7 +168,6 @@ async def test_named_question_answer_survives_session_and_wire_round_trips(
     assert second[-1].reason == "finished"
     restored = Session.loads(session.dumps())
     assert restored.memory == {key: "女"}
-    assert substitute_variables(format_variable_reference(key), restored.memory) == "女"
 
 
 @pytest.mark.parametrize(
@@ -194,26 +186,23 @@ def test_engine_does_not_declare_keys_with_internal_controls(
     key: str,
 ) -> None:
     """Controls inside a normalized key cannot become a stored learner fact."""
-    assert collected_names(_question(key)) == frozenset()
-    reference = f"{{{{{key}}}}}"
-    assert substitute_variables(reference, {key: "女"}) == reference
+    assert collected_questions(_question(key)) == frozenset()
 
 
 CONTRACT = json.loads(
-    (Path(__file__).parent / "fixtures/variable-name-contract.json").read_text()
+    (Path(__file__).parent / "fixtures/question-memory-contract.json").read_text()
 )
 
 
 @pytest.mark.parametrize("case", CONTRACT["normalization"])
 def test_shared_normalization_corpus(case: dict) -> None:
-    assert normalize_variable_name(case["raw"]) == case["name"]
-    formatted = format_variable_reference(case["raw"])
+    assert normalize_question(case["raw"]) == case["name"]
+    formatted = format_question_marker(case["raw"])
     assert (formatted is None) == (case["name"] is None)
     if formatted is not None:
-        marker = read_variable_marker(formatted)
+        marker = read_question_marker(formatted)
         assert marker is not None
         assert marker.name == case["name"]
-        assert substitute_variables(formatted, {case["name"]: "answer"}) == "answer"
 
 
 @pytest.mark.parametrize("case", CONTRACT["extraction"])
@@ -222,7 +211,7 @@ def test_shared_non_recursive_marker_corpus(case: dict) -> None:
         list(
             dict.fromkeys(
                 marker.name
-                for marker in find_variable_markers(case["source"])
+                for marker in find_question_markers(case["source"])
                 if marker.name is not None
             )
         )
@@ -237,9 +226,9 @@ def test_shared_interaction_corpus(case: dict) -> None:
     assert parsed["variable"] == case["name"]
     questions = _script_questions(case["source"])
     assert len(questions) == 1
-    assert questions[0].variable == case["name"]
-    assert collected_names(case["source"]) == frozenset({case["name"]})
-    assert format_variable_assignment(case["name"]) in case["source"]
+    assert questions[0].question == case["name"]
+    assert collected_questions(case["source"]) == frozenset({case["name"]})
+    assert format_question(case["name"]) in case["source"]
 
 
 @pytest.mark.parametrize("padding", ["\u0085", "\u001c", "\u001d", "\u001e", "\u001f"])
@@ -247,7 +236,7 @@ def test_assignment_extraction_trims_python_only_whitespace(padding: str) -> Non
     """Python padding includes controls absent from JavaScript's whitespace set."""
     key = "你的性别是？"
     authored = _question(key, padding)
-    assert collected_names(authored) == frozenset({key})
+    assert collected_questions(authored) == frozenset({key})
     assert InteractionParser().parse(authored)["variable"] == key
     assert MarkdownFlow(authored).extract_variables() == [key]
 
@@ -256,20 +245,7 @@ def test_marker_names_are_opaque_to_markdown_and_invalid_outer_markers_are_not_r
     None
 ):
     source = "%{{\n```\n}}"
-    assert collected_names(source) == frozenset({"```"})
-    assert substitute_variables("{{\n```\n}}", {"```": "value"}) == "value"
-    assert (
-        substitute_variables(
-            "{{ a===b===c }}", {"a===b===c": "value"}, unavailable=True
-        )
-        == "value"
-    )
-    assert (
-        substitute_variables(
-            "{{bad\n{{inner}} {{valid}}", {"inner": "wrong", "valid": "right"}
-        )
-        == "{{bad\n{{inner}} right"
-    )
+    assert collected_questions(source) == frozenset()
 
 
 @pytest.mark.parametrize("case", CONTRACT["boundary_cases"])
@@ -278,13 +254,13 @@ def test_shared_atomic_interaction_boundary_corpus(case: dict) -> None:
     questions = _script_questions(source)
     assert len(questions) == case["interaction_count"]
     if questions:
-        assert questions[0].variable == case["name"]
-        assert not questions[0].text
+        assert questions[0].question == case["name"]
+        assert questions[0].text == case.get("text", False)
     for cut in range(len(source) + 1):
         syntax = InteractionSyntaxFilter()
         shown = syntax.feed(source[:cut]) + syntax.feed(source[cut:]) + syntax.flush()
         assert len(syntax.spans) == case["interaction_count"]
-        assert shown == ("" if case["interaction_count"] else source)
+        assert shown == case.get("shown", "" if case["interaction_count"] else source)
 
 
 def test_multiline_marker_padding_keeps_one_trimmed_key_across_host_boundaries() -> (
@@ -293,17 +269,15 @@ def test_multiline_marker_padding_keeps_one_trimmed_key_across_host_boundaries()
     reference = "{{\n name \n}}"
     assignment = "%" + reference
     source = "?[" + assignment + " 男 | 女 | 秘密]"
-    assert collected_names(assignment) == frozenset({"name"})
-    assert substitute_variables(reference, {"name": "女"}) == "女"
-    assert substitute_variables(assignment, {"name": "女"}) == assignment
+    assert collected_questions(assignment) == frozenset()
     assert MarkdownFlow(source).extract_variables() == ["name"]
     assert len(MarkdownFlow(source).get_all_blocks()) == 1
     assert InteractionParser().parse(source)["variable"] == "name"
-    assert _script_questions(source)[0].variable == "name"
+    assert _script_questions(source)[0].question == "name"
     spec = InteractionSpec(
         type="single",
         prompt="Choose one",
-        variable="name",
+        question="name",
         options=[Option(display=value) for value in CHOICES],
     )
     assert InteractionParser().parse(render_interaction(spec))["variable"] == "name"
@@ -324,13 +298,13 @@ def test_multiline_marker_padding_keeps_one_trimmed_key_across_host_boundaries()
         "{{\n```key\n",  # An unclosed marker claims the remaining tail.
     ],
 )
-def test_streaming_fences_inside_opaque_markers_have_no_markdown_meaning(
+def test_standalone_braces_do_not_hide_native_fence_openers(
     prefix: str,
 ) -> None:
     question = "?[甲 | 乙]"
     source = prefix + question
-    expected = [] if "}}" not in prefix else [question]
-    shown = source if not expected else prefix
+    expected = []
+    shown = source
     chunks = [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]
@@ -357,16 +331,16 @@ def test_markers_in_existing_code_fences_do_not_hide_the_real_closing_fence(
 
 
 @pytest.mark.parametrize("key", ["```key", "~~~key", "===The end==="])
-def test_opaque_marker_contents_do_not_hide_or_duplicate_the_final_preserved_line(
+def test_standalone_braces_do_not_hide_fences_or_duplicate_preserved_lines(
     key: str,
 ) -> None:
     source = "{{\n" + key + "\n}}\n===The end==="
-    assert final_preserved_line(source) == "The end"
+    assert final_preserved_line(source) is None
 
 
 def test_final_preserved_line_restores_marker_contents_and_keeps_uniqueness() -> None:
     line = "===Result: {{\n a===b===c\n}}==="
-    assert final_preserved_line(line) == "Result: {{\n a===b===c\n}}"
+    assert final_preserved_line(line) is None
     assert final_preserved_line(line + "\n" + line) is None
 
 
@@ -377,7 +351,7 @@ def test_final_preserved_line_ignores_code_and_unclosed_marker_tails(
     source = fence + "\n{{ never closed\n===The end===\n" + fence
     assert final_preserved_line(source) is None
     assert final_preserved_line(source + "\n===The end===") == "The end"
-    assert final_preserved_line("{{ never closed\n===The end===") is None
+    assert final_preserved_line("{{ never closed\n===The end===") == "The end"
 
 
 @pytest.mark.parametrize(
@@ -389,11 +363,10 @@ def test_final_preserved_line_ignores_code_and_unclosed_marker_tails(
         ("`prefix\n{{`\n", True),
         ("\\{{\n", True),
         ("\\\\\\{{\n", True),
-        ("{{\n", False),
-        ("\\\\{{\n", False),
-        ("`unmatched {{\n", False),
-        ("\\`{{\n", False),
-        ("{{ key\\{{?[inner] }}\n", True),
+        ("{{\n", True),
+        ("\\\\{{\n", True),
+        ("`unmatched {{\n", True),
+        ("\\`{{\n", True),
     ],
 )
 def test_code_and_escaped_marker_examples_do_not_claim_external_structures(
@@ -433,16 +406,18 @@ def test_unmatched_inline_code_cannot_pair_across_a_paragraph_or_fence(
 ) -> None:
     """A later tick cannot turn an active outer marker into a code example."""
     source = f"Show {ticks}{{{{{boundary}{ticks} then ?[%{{{{ q }}}} A|B]"
-    assert collected_names(source) == frozenset()
-    assert substitute_variables(source, {"q": "wrong"}) == source
-    assert _script_questions(source) == []
+    assert collected_questions(source) == frozenset({"q"})
+    assert [question.question for question in _script_questions(source)] == ["q"]
     chunks = [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]
     for stream in chunks:
         syntax = InteractionSyntaxFilter()
-        assert "".join(syntax.feed(part) for part in stream) + syntax.flush() == source
-        assert syntax.spans == []
+        assert (
+            "".join(syntax.feed(part) for part in stream) + syntax.flush()
+            == source[: source.rfind("?[")]
+        )
+        assert syntax.spans == [source[source.rfind("?[") :]]
 
 
 @pytest.mark.parametrize("case", CONTRACT["document_context_cases"])
@@ -458,10 +433,10 @@ def test_document_literal_boundaries_preserve_collection_and_external_interactio
         )
         == case["names"]
     )
-    assert collected_names(source) == frozenset(case["collected"])
+    assert collected_questions(source) == frozenset(case["collected"])
     questions = _script_questions(source)
     assert len(questions) == case["interaction_count"]
-    assert questions[0].variable == case["name"]
+    assert questions[0].question == case["name"]
     assert [choice.strip() for choice in questions[0].choices] == case["buttons"]
 
     question_start = source.rfind("?[")
@@ -477,25 +452,20 @@ def test_document_literal_boundaries_preserve_collection_and_external_interactio
         )
         assert syntax.spans == [question]
 
-    references = " ".join(format_variable_reference(name) for name in case["names"])
-    values = {name: f"value-{index}" for index, name in enumerate(case["names"])}
-    assert substitute_variables(source + "\n" + references, values).endswith(
-        "\n" + " ".join(values.values())
-    )
-
 
 @pytest.mark.parametrize(
-    ("source", "expected"),
+    "source",
     [
-        ("Show `{{ q }}` then {{ q }}", "Show `value` then value"),
-        ('<span title="{{ q }}"> {{ q }}', '<span title="value"> value'),
-        ("Show \\{{ q }} then {{ q }}", "Show \\{{ q }} then value"),
+        "Show `{{ q }}` then {{ q }}",
+        '<span title="{{ q }}"> {{ q }}',
+        "Show \\{{ q }} then {{ q }}",
     ],
 )
-def test_literal_references_keep_old_substitution_and_escaped_openers_stay_literal(
-    source: str, expected: str
-) -> None:
-    assert substitute_variables(source, {"q": "value"}) == expected
+def test_brace_text_is_literal_in_prompts(source: str) -> None:
+    from markdownflow.engine import ScriptBundle, render_first_prompt
+
+    prompt = render_first_prompt(ScriptBundle(script=source), {"q": "value"})
+    assert f"<script>\n{source}\n</script>" in prompt
 
 
 @pytest.mark.parametrize(
@@ -515,7 +485,7 @@ def test_unclosed_html_candidates_do_not_repeatedly_scan_the_document_tail(
         marker_context, "_INLINE_HTML", wraps=marker_context._INLINE_HTML
     ) as native_html:
         context = analyze_marker_context(source)
-    assert [marker.name for marker in context.markers] == ["q"]
+    assert context.markers == []
     # Bound failed native work rather than asserting machine-dependent timings.
     assert native_html.match.call_count <= 1
 
@@ -528,5 +498,5 @@ def test_html_tail_preflight_preserves_complete_native_literals(html: str) -> No
     source = "Text " + html + " {{ outside }}"
     context = analyze_marker_context(source)
     assert context.literals == [(5, 5 + len(html))]
-    expected = ["q", "outside"] if "{{ q }}" in html else ["outside"]
+    expected = []
     assert [marker.name for marker in context.markers] == expected

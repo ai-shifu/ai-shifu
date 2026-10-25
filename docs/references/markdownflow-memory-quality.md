@@ -141,15 +141,14 @@ Markdown ancestors are copied alongside the local section, before their first
 child heading or interaction. This keeps a later question's local hint near the
 applicable parent instructions without copying sibling exercises. It does not
 interpret precedence or infer an aspect count. The combined source remains at
-most 8 KiB; no grade is selected and the script does not advance. If ancestor
-context contains substitution syntax or the combined source exceeds this bound,
+most 8 KiB; no grade is selected and the script does not advance. If the combined source exceeds this bound,
 the reference retains only its answer binding and a full-script notice, with
 null local text and no preambles. A local-only copy must not imply complete scope.
-Ambiguous hints, non-standalone/multiline controls,
-variable-containing sections and oversized sections retain the full script
+Ambiguous hints, non-standalone/multiline controls
+and oversized sections retain the full script
 without a focused copy. Code/comment examples do not locate an interaction.
 Matching first applies the host's existing interaction normalization to a copy
-of the original tool arguments: unadmitted variable names are ignored only under
+of the original tool arguments: unadmitted question keys are ignored only under
 the declared-key policy, and exact authored input hints are restored by the same
 normalizer used for displayed controls. The raw call and answer stay unchanged.
 Unrestricted memory hosts and admitted-but-mismatched bindings retain conservative
@@ -242,7 +241,7 @@ new field, or with an old null/missing count, can still resume their original
 answer; existing history is preserved.
 
 The call defers the same normalized text input with an empty prompt and its
-original placeholder and eligible variable. Eligibility follows that normalized
+original placeholder and eligible question key. Eligibility follows that normalized
 text control; both browser `values` and portable-host `text` transports, including
 saved-answer recovery, provide actual evidence without their formatting prefixes. Mixed free prose, additional
 tool calls, forged sources and unexecuted interaction markup reject the whole
@@ -1136,7 +1135,7 @@ that acceptance item or authorize 1.0 deletion.
 
 The same missing-hint correction applies to narrated interaction spans emitted
 without a typed tool call. Add only an escaped localized hint; require parsed
-options, variable and selection semantics to remain identical, and leave existing
+options, question key and selection semantics to remain identical, and leave existing
 hints/choice-only spans byte-for-byte unchanged. SDK whitespace preservation means
 text as received by the engine; the browser's existing trim/deduplication contract
 is unchanged. Blank browser input is already removed before `_turn_input`, so it

@@ -1,4 +1,4 @@
-"""Stream settled raw names without retaining or repeatedly copying their body."""
+"""Stream ordinary brace text without reviving retired memory substitution grammar."""
 
 import pytest
 from flaskr.service.learn.agent import interaction_syntax
@@ -43,8 +43,8 @@ def test_genuinely_unfinished_raw_name_emits_with_bounded_work_and_storage(
     assert syntax.spans == [QUESTION]
 
 
-@pytest.mark.parametrize("body", ["`", "$", "~", "?", "{", "}x"])
-def test_owned_raw_name_does_not_buffer_native_delimiter_runs(body: str) -> None:
+@pytest.mark.parametrize("body", ["x", "?", "{", "}x"])
+def test_ordinary_brace_text_does_not_buffer_plain_text(body: str) -> None:
     source = "{{" + body * 2048
     syntax = InteractionSyntaxFilter()
     pieces: list[str] = []
@@ -57,22 +57,25 @@ def test_owned_raw_name_does_not_buffer_native_delimiter_runs(body: str) -> None
 
 
 @pytest.mark.parametrize(
-    "body",
+    ("body", "inner_control"),
     [
-        "nested {{?[A|B] end",
-        "\n```\n?[A|B]\n``` end",
-        "\n<div>\n?[A|B]\n</div> end",
-        "`?[A|B]` $?[C|D]$ end",
-        "value\\}x end",
+        ("nested {{?[A|B] end", True),
+        ("\n```\n?[A|B]\n```\nend", False),
+        ("\n<div>\n?[A|B]\n</div>\n\nend", False),
+        ("`?[A|B]` $?[C|D]$ end", False),
+        ("value\\}x end", False),
     ],
 )
 @pytest.mark.parametrize("closing", ["", "}}", "}}" + QUESTION])
-def test_streamed_raw_name_keeps_opaque_body_and_first_closing_pair(
-    body: str, closing: str
+def test_standalone_braces_preserve_native_controls_and_literal_regions(
+    body: str, inner_control: bool, closing: str
 ) -> None:
     source = "{{" + body + closing
     expected = source.removesuffix(QUESTION) if closing.endswith(QUESTION) else source
     spans = [QUESTION] if closing.endswith(QUESTION) else []
+    if inner_control:
+        expected = expected.replace("?[A|B]", "", 1)
+        spans.insert(0, "?[A|B]")
     for chunks in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]:
@@ -82,18 +85,18 @@ def test_streamed_raw_name_keeps_opaque_body_and_first_closing_pair(
 
 
 @pytest.mark.parametrize("run", ["`", "``", "$", "$$"])
-def test_unfinished_inline_literal_keeps_raw_marker_ownership_provisional(
+def test_ordinary_braces_inside_inline_literals_remain_literal(
     run: str,
 ) -> None:
     inner = "?[A|B]"
     source = "Text " + run + "{{" + inner + " value" + run + " outside"
-    expected = source.replace(inner, "")
+    expected = source
     for chunks in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in chunks) + syntax.flush()
-        assert (shown, syntax.spans) == (expected, [inner]), chunks
+        assert (shown, syntax.spans) == (expected, []), chunks
 
 
 @pytest.mark.parametrize("suffix", ["", "suffix"])
@@ -130,19 +133,19 @@ def test_closed_raw_name_restores_native_code_and_fence_boundaries(
         assert (shown, syntax.spans) == (prefix, [QUESTION]), chunks
 
 
-def test_unfinished_raw_name_flush_keeps_the_original_escape_boundary() -> None:
+def test_unfinished_plain_braces_keep_the_actual_escape_boundary() -> None:
     for prefix in ("", "Prose "):
         source = prefix + "{{unfinished\\"
         syntax = InteractionSyntaxFilter()
         assert syntax.feed(source) + syntax.flush() == source
-        assert syntax.feed(QUESTION) + syntax.flush() == ""
-        assert syntax.spans == [QUESTION]
+        assert syntax.feed(QUESTION) + syntax.flush() == QUESTION
+        assert syntax.spans == []
 
 
-def test_unfinished_raw_name_flush_keeps_the_original_indent_boundary() -> None:
+def test_unfinished_plain_braces_keep_the_actual_indent_boundary() -> None:
     for prefix in ("", "Prose "):
         source = prefix + "{{unfinished\n    "
         syntax = InteractionSyntaxFilter()
         assert syntax.feed(source) + syntax.flush() == source
-        assert syntax.feed(QUESTION) + syntax.flush() == ""
-        assert syntax.spans == [QUESTION]
+        assert syntax.feed(QUESTION) + syntax.flush() == QUESTION
+        assert syntax.spans == []

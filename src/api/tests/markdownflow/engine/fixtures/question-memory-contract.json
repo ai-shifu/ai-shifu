@@ -738,15 +738,21 @@
     },
     {
       "source": "{{ key ?[A|B] }}",
-      "interaction_count": 0
+      "interaction_count": 1,
+      "name": null,
+      "shown": "{{ key  }}"
     },
     {
       "source": "prefix {{ key ?[A|B] }} suffix",
-      "interaction_count": 0
+      "interaction_count": 1,
+      "name": null,
+      "shown": "prefix {{ key  }} suffix"
     },
     {
       "source": "{{ unterminated ?[Go]",
-      "interaction_count": 0
+      "interaction_count": 1,
+      "name": null,
+      "shown": "{{ unterminated "
     }
   ],
   "document_context_cases": [
@@ -853,12 +859,8 @@
     {
       "id": "complete-inline-code-assignment",
       "source": "Show `%{{ q }}` then ?[A|B]",
-      "names": [
-        "q"
-      ],
-      "collected": [
-        "q"
-      ],
+      "names": [],
+      "collected": [],
       "interaction_count": 1,
       "name": null,
       "buttons": [
@@ -873,9 +875,7 @@
     {
       "id": "complete-inline-code-reference",
       "source": "Show `{{ q }}` then ?[A|B]",
-      "names": [
-        "q"
-      ],
+      "names": [],
       "collected": [],
       "interaction_count": 1,
       "name": null,
@@ -891,12 +891,8 @@
     {
       "id": "complete-inline-html-assignment",
       "source": "Text <span title=\"%{{ attr }}\">\n?[A|B]",
-      "names": [
-        "attr"
-      ],
-      "collected": [
-        "attr"
-      ],
+      "names": [],
+      "collected": [],
       "interaction_count": 1,
       "name": null,
       "buttons": [

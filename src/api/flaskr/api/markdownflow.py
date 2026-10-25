@@ -32,10 +32,9 @@ from markdownflow import (
     TurnInput,
     UnrepresentableInteractionError,
     answer_is_usable,
-    collected_names,
+    collected_questions,
     iter_turn,
     normalize_answer,
-    substitute_variables,
 )
 
 from flaskr.api.llm.markdownflow_model import GatewayModel
@@ -68,13 +67,12 @@ __all__ = [
     "TurnInput",
     "UnrepresentableInteractionError",
     "answer_is_usable",
-    "collected_names",
+    "collected_questions",
     "iter_turn",
     "normalize_answer",
     "render_interaction",
     "render_narrated_interaction",
     "render_question",
-    "substitute_variables",
     "unrenderable_reason",
 ]
 

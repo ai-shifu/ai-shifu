@@ -58,7 +58,7 @@ a new learner submission can answer it anew under the existing write policy.
 Instructions ask for relevant missing facts only and treat returned values as data, never
 as author instructions or write authorization. Tool returns stay in model/session history,
 not classroom text. Recall does not change initial 32768-character memory projection,
-exact script substitutions, persistence, usage limits or the
+literal script assembly, persistence, usage limits or the
 [256 KiB complete model input budget](markdownflow-input-budget.md).
 Repeated tool results still consume that total budget. This increment provides exact-key
 retrieval, not semantic search, historical conversation compression or automatic recovery
@@ -66,27 +66,18 @@ from oversized overall inputs. Shared writes and independent teaching-quality ac
 remain separate work.
 
 
-## Unavailable authored values
+## Questions and literal authored text
 
-For script/brief reads outside fenced code, an absent, null or empty-string
-learner value is represented in the initial host prompt by
-`<unavailable_learner_value name="..." />`, with an escaped name. It is metadata,
-not a learner fact or display text. The syntax guidance also covers unresolved
-read templates in older host prompts: use the author's missing-evidence wording,
-or omit that personal claim, including inside generated visuals. Do not invent
-values, expose internal names or add an unauthored interaction to obtain them.
+The [question-memory contract](markdownflow-question-memory.md) defines authored
+questions and exact memory keys. Standalone brace text remains literal even when
+the same key exists in memory; there is no script or brief substitution path.
+An absent key remains unknown. Use the author's missing-evidence wording or omit
+unsupported personal claims, and use `recall` for needed authorized answers.
 
-Existing complete values, including zero and false, keep exact substitution even
-when omitted from the bounded memory block. Names collected in this lesson still
-wait for its actual answer; earlier stored answers cannot prefill them. Missing notation in authored verbatim syntax examples and fenced
-code/templates/CSS/JavaScript remains literal source content; known personalization
-in verbatim text retains its existing substitution behavior. This does not rewrite
-generated code or classroom output after generation.
-
-Nickname and deletion refresh match each known host section independently in
-both historical and current formats, then use the current rendering. Unrecognized
-history, later learner requests, tool returns and already displayed teaching stay
-unchanged. No memory placeholder is persisted as a profile value; course scope,
-recall/write permissions and all input/request/retry limits remain unchanged.
-Native SDK tests establish input/policy delivery only; actual-model and sim checks
-must separately verify learner-visible behavior.
+Nickname and deletion refresh replace recognized host memory envelopes from the
+current snapshot while retaining original authored documents. Later learner
+requests, tool returns and displayed teaching remain unchanged. Old pending
+interactions preserve their historical key through the compatibility reader.
+Scope, recall/write permissions and input/request/retry limits are unchanged.
+Native SDK tests establish input/policy delivery; actual-model teaching quality
+requires separate acceptance.

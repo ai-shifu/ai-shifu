@@ -61,7 +61,7 @@ class _Session:
         self.memory: dict = {}
         self.answer_hashes: dict = {}
         self.answers: dict = {}
-        self.initial_variables: dict | None = None
+        self.initial_memory: dict | None = None
 
     def all_memory(self) -> dict:
         """Expose the merged snapshot used by host-owned reference refresh."""
@@ -597,7 +597,7 @@ def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn() -> Non
                     type="single",
                     prompt="pick",
                     options=[Option(display="A\nB")],
-                    variable="v",
+                    question="v",
                 ),
             ),
             TurnDone(reason="end"),
@@ -1513,7 +1513,7 @@ def test_no_lesson_text_escapes_a_listening_turn_unpaged(
                     type="single",
                     prompt="Which of these do you agree with?",
                     options=[Option(display="Yes"), Option(display="No")],
-                    variable="v",
+                    question="v",
                 ),
             ),
             TurnDone(reason="end"),
@@ -2020,7 +2020,7 @@ def test_the_closing_sentence_comes_before_the_question_it_leads_to(
                     type="single",
                     prompt="",
                     options=[Option(display="Yes"), Option(display="No")],
-                    variable="v",
+                    question="v",
                 ),
             ),
             TurnDone(reason="end"),
@@ -2769,7 +2769,7 @@ def test_a_question_typed_alongside_a_real_one_is_dropped() -> None:
                         Option(display="甲", value="甲"),
                         Option(display="乙", value="乙"),
                     ],
-                    variable="对照组",
+                    question="对照组",
                 ),
             ),
             TurnDone(reason="interaction"),

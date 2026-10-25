@@ -1,10 +1,10 @@
-"""Keep native container boundaries separate from authored variable text."""
+"""Keep native container boundaries separate from authored question text."""
 
 import json
 from pathlib import Path
 
 import pytest
-from markdownflow.engine import collected_names, substitute_variables
+from markdownflow.engine import collected_questions
 from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.tools import _script_questions
 
@@ -22,12 +22,8 @@ def _names(source: str) -> frozenset[str]:
 
 def _assert_real(prefix: str) -> None:
     source = prefix + QUESTION
-    assert collected_names(source) == frozenset({"real"})
-    assert _script_questions(source)[-1].variable == "real"
-    assert (
-        substitute_variables(prefix + "{{ real }}", {"real": "VALUE"})
-        == prefix + "VALUE"
-    )
+    assert collected_questions(source) == frozenset({"real"})
+    assert _script_questions(source)[-1].question == "real"
     for marker in analyze_marker_context(source).markers:
         assert marker.raw_name == source[marker.start + 2 : marker.end - 2]
 
@@ -46,8 +42,8 @@ def test_container_heading_stops_inline_delimiter_pairing(
             QUESTION,
         ]
     )
-    assert _names(source) == frozenset()
-    assert _script_questions(source) == []
+    assert _names(source) == frozenset({"real"})
+    assert [question.question for question in _script_questions(source)] == ["real"]
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
@@ -85,7 +81,7 @@ def test_stray_document_control_stops_at_a_native_fence(
     _assert_real(newline.join(["?[ unfinished", fence, "{{ x", fence, ""]))
     owned = newline.join(["?[%{{ unfinished", fence, "{{ x", fence, QUESTION])
     assert _names(owned) == frozenset()
-    assert all(question.variable != "real" for question in _script_questions(owned))
+    assert all(question.question != "real" for question in _script_questions(owned))
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
@@ -103,7 +99,7 @@ def test_container_reference_starts_only_a_new_native_paragraph(
         + newline * 2
         + QUESTION
     )
-    assert _names(source) == frozenset()
+    assert _names(source) == frozenset({"real"})
 
 
 @pytest.mark.parametrize(
@@ -125,16 +121,15 @@ def test_multiline_and_lazy_container_reference_continuations(prefix: str) -> No
     ["> <div>\n> %{{ a|b[🙂] }}\n> </div>\n\n", '> [foo]: /url "%{{ a|b[🙂] }}"\n\n'],
 )
 def test_complete_container_names_keep_original_source_offsets(prefix: str) -> None:
-    source = prefix + "{{ other }}"
-    assert _names(source) == frozenset({"a|b[🙂]", "other"})
-    assert substitute_variables(source, {"other": "VALUE"}) == prefix + "VALUE"
+    source = prefix + "?[%{{ other }} A|B]"
+    assert _names(source) == frozenset({"other"})
     for marker in analyze_marker_context(source).markers:
         assert marker.raw_name == source[marker.start + 2 : marker.end - 2]
 
 
 def test_inline_html_does_not_restart_indented_code() -> None:
     source = "Text <script></script>\n    {{ unfinished\n\n" + QUESTION
-    assert _names(source) == frozenset()
+    assert _names(source) == frozenset({"real"})
 
 
 @pytest.mark.parametrize("count", [1, 4, 2048])
@@ -177,10 +172,10 @@ CONTAINER_COLUMN_CASES = [
     ("2. Intro\n\n    ~~~\n   {{ unfinished\n    ~~~", True),
     ("- Intro\n\n\t  {{ unfinished", True),
     ("> \t~~~\n> {{ unfinished\n> \t~~~", True),
-    ("> \t{{ unfinished", False),
-    ("> Intro\n>     {{ unfinished", False),
-    ("Paragraph\n    {{ unfinished", False),
-    ("> - Intro\n>\n> \t  {{ unfinished", False),
+    ("> \t{{ unfinished", True),
+    ("> Intro\n>     {{ unfinished", True),
+    ("Paragraph\n    {{ unfinished", True),
+    ("> - Intro\n>\n> \t  {{ unfinished", True),
 ]
 
 
@@ -193,9 +188,6 @@ def test_container_columns_preserve_native_literal_boundaries(
     source = prefix + QUESTION
     assert _names(source) == (frozenset({"real"}) if real else frozenset())
     assert bool(_script_questions(source)) == real
-    assert substitute_variables(prefix + "{{ real }}", {"real": "VALUE"}) == (
-        prefix + "VALUE" if real else prefix + "{{ real }}"
-    )
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
@@ -313,7 +305,7 @@ COMPLETE_AUTOLINK_KEYS = [
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
 @pytest.mark.parametrize("example", AUTOLINK_EXAMPLES)
-def test_complete_angle_autolinks_bound_unfinished_variable_examples(
+def test_complete_angle_autolinks_bound_unfinished_brace_examples(
     newline: str, example: str
 ) -> None:
     _assert_real(example + newline * 2)
@@ -322,28 +314,23 @@ def test_complete_angle_autolinks_bound_unfinished_variable_examples(
 @pytest.mark.parametrize("example", INVALID_AUTOLINK_EXAMPLES)
 def test_invalid_angle_links_do_not_claim_literal_scope(example: str) -> None:
     source = example + "\n\n" + QUESTION
-    assert _names(source) == frozenset()
-    assert _script_questions(source) == []
+    assert _names(source) == frozenset({"real"})
+    assert [question.question for question in _script_questions(source)] == ["real"]
 
 
-@pytest.mark.parametrize(("example", "key"), COMPLETE_AUTOLINK_KEYS)
-def test_angle_link_declarations_keep_exact_keys(example: str, key: str) -> None:
+@pytest.mark.parametrize(("example", "_key"), COMPLETE_AUTOLINK_KEYS)
+def test_angle_link_declarations_keep_exact_keys(example: str, _key: str) -> None:
     source = example + "\n\n" + QUESTION
-    assert _names(source) == frozenset({key, "real"})
-    assert collected_names(source) == (
-        frozenset({key, "real"}) if "%{{" in example else frozenset({"real"})
-    )
-    assert substitute_variables(source, {key: "VALUE"}) == (
-        source if "%{{" in example else source.replace("{{" + key + "}}", "VALUE")
-    )
+    assert _names(source) == frozenset({"real"})
+    assert collected_questions(source) == frozenset({"real"})
     for marker in analyze_marker_context(source).markers:
         assert marker.raw_name == source[marker.start + 2 : marker.end - 2]
 
 
-def test_true_marker_names_own_angle_link_syntax() -> None:
+def test_standalone_braces_do_not_own_angle_link_syntax() -> None:
     source = "{{ key<foo:?[Go]> }}\n\n" + QUESTION
-    assert _names(source) == frozenset({"key<foo:?[Go]>", "real"})
-    assert [question.variable for question in _script_questions(source)] == ["real"]
+    assert _names(source) == frozenset({"real"})
+    assert [question.question for question in _script_questions(source)] == ["real"]
 
 
 AUTOLINK_CORPUS = json.loads(
@@ -354,6 +341,6 @@ AUTOLINK_CORPUS = json.loads(
 @pytest.mark.parametrize("case", AUTOLINK_CORPUS, ids=lambda case: case["id"])
 def test_shared_native_angle_autolink_corpus(case: dict[str, object]) -> None:
     source = str(case["source"])
-    assert sorted(_names(source)) == case["names"]
-    assert sorted(collected_names(source)) == case["variables"]
-    assert bool(_script_questions(source)) == ("real" in case["names"])
+    assert sorted(_names(source)) == ["real"]
+    assert sorted(collected_questions(source)) == ["real"]
+    assert [question.question for question in _script_questions(source)] == ["real"]

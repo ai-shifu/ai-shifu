@@ -25,7 +25,7 @@ def test_the_first_message_s_sections_are_not_written_back() -> None:
 
 
 def test_remember_is_the_only_way_to_store_and_answers_are_stored_already() -> None:
-    """The leaked note recorded an answer `interact` had already stored under its variable."""
+    """The leaked note recorded an answer `interact` had already stored under its question."""
     rule = _rule(4)
     assert "Calling `remember` is the only way to store anything" in rule
     assert "already stored" in rule
@@ -39,11 +39,11 @@ def test_the_first_message_uses_the_section_names_the_rule_gives() -> None:
         assert tag in script_source
 
 
-def test_the_notation_says_a_variable_is_collected_by_interact_not_remember() -> None:
-    """The system prompt says an `interact` variable is already stored; the notation must agree."""
+def test_the_notation_collects_question_answers_with_interact() -> None:
+    """The system prompt says an `interact` question is already stored; the notation must agree."""
     notation = (_PROMPTS / "v1_syntax.md").read_text()
-    assert "as the `variable` of the `interact` call" in notation
-    assert "do not `remember` it as well" in notation
+    assert 'interact(question="What is your goal?", ...)' in notation
+    assert "do not `remember` it again" in notation
     assert "call `remember` with that name as the key" not in notation
 
 

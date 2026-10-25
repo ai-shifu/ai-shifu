@@ -8,10 +8,7 @@ from typing import TYPE_CHECKING
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
 from flaskr.service.profile.api import is_course_reference
 from markdownflow.engine.memory_context import parse_initial_memory_prompt
-from markdownflow.engine.script import (
-    render_first_prompt,
-    substitution_names,
-)
+from markdownflow.engine.script import render_first_prompt
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
@@ -22,11 +19,7 @@ def discard_course_references(
     session: Session, *, teaching_brief: str | None = None
 ) -> None:
     """Clear old aliases/substitutions; keep original classroom answers and later history."""
-    names = (
-        set(session.all_memory())
-        | set(session.initial_variables or {})
-        | substitution_names(session.script)
-    )
+    names = set(session.all_memory()) | set(session.initial_memory or {})
     unparsed_prompt = None
     for index, message in enumerate(session.messages):
         if not isinstance(message, ModelRequest):
@@ -45,10 +38,10 @@ def discard_course_references(
             break
     keys = frozenset(key for key in names if is_course_reference(key))
     refresh_deleted_memory(session, keys, constraints=teaching_brief)
-    if session.initial_variables is not None:
-        session.initial_variables = {
+    if session.initial_memory is not None:
+        session.initial_memory = {
             key: value
-            for key, value in session.initial_variables.items()
+            for key, value in session.initial_memory.items()
             if not is_course_reference(key)
         }
     if unparsed_prompt is not None:
@@ -56,7 +49,7 @@ def discard_course_references(
         # Rebuild only the engine-owned initial prompt, never later learner history.
         index, part_index = unparsed_prompt
         message = session.messages[index]
-        values = {**session.all_memory(), **(session.initial_variables or {})}
+        values = {**session.all_memory(), **(session.initial_memory or {})}
         bundle = (
             replace(session.script, constraints=teaching_brief)
             if teaching_brief is not None

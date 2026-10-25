@@ -145,12 +145,12 @@ describe('usePreviewChat helpers and business error rendering', () => {
           outlineBid: 'lesson-1',
           mdflow: 'old prompt',
           block_index: 1,
-          variables: { oldVar: 'old' },
+          memory: { oldVar: 'old' },
           user_input: { oldVar: ['old'] },
         },
         latestMdflow: 'new prompt',
         blockIndex: 3,
-        variables: { answer: '42' },
+        memory: { answer: '42' },
         userInput: { answer: ['42'] },
       }),
     ).toEqual({
@@ -158,7 +158,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
       outlineBid: 'lesson-1',
       mdflow: 'new prompt',
       block_index: 3,
-      variables: { answer: '42' },
+      memory: { answer: '42' },
       user_input: { answer: ['42'] },
     });
   });
@@ -370,7 +370,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
           shifuBid: 'course',
           outlineBid: 'lesson',
           mdflow: 'Draft',
-          variables: {
+          memory: {
             sys_user_language: 'zh-CN',
             language: 'zh-CN',
             nickname: 'Ada',
@@ -380,10 +380,10 @@ describe('usePreviewChat helpers and business error rendering', () => {
       act(finish);
       for (const language of ['en-US', 'fr-FR', '']) {
         act(() => {
-          result.current.onVariableChange(key, language);
-          result.current.onVariableChange('answer', 'old answer');
+          result.current.onMemoryChange(key, language);
+          result.current.onMemoryChange('answer', 'old answer');
         });
-        expect(result.current.variables).toMatchObject({
+        expect(result.current.memory).toMatchObject({
           sys_user_language: language,
           language,
         });
@@ -416,7 +416,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         shifuBid: 'course',
         outlineBid: 'lesson',
         mdflow: 'Draft',
-        variables: { sys_user_language: '' },
+        memory: { sys_user_language: '' },
       }),
     );
     act(() => {
@@ -426,15 +426,15 @@ describe('usePreviewChat helpers and business error rendering', () => {
       source.listeners.message?.({
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
-      result.current.onVariableChange('sys_user_language', 'fr-FR');
+      result.current.onMemoryChange('sys_user_language', 'fr-FR');
     });
-    expect(result.current.variables).toEqual({ sys_user_language: 'fr-FR' });
+    expect(result.current.memory).toEqual({ sys_user_language: 'fr-FR' });
     await act(async () => result.current.onRefresh('question'));
     const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
     expect(request.variables).toEqual({ sys_user_language: 'fr-FR' });
   });
 
-  test('lets a restarted 2.0 debug session answer a question with a saved variable', async () => {
+  test('lets a restarted 2.0 debug session answer a question with a saved memory', async () => {
     jest.useFakeTimers();
     mockParseToRemarkFormat.mockImplementation((content: string) => ({
       variableName: content.includes('multiAnswer') ? 'multiAnswer' : 'answer',
@@ -458,7 +458,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'Ask for an answer',
-        variables: { answer: 'old choice', multiAnswer: 'old choice' },
+        memory: { answer: 'old choice', multiAnswer: 'old choice' },
         max_block_count: 3,
       }),
     );
@@ -487,8 +487,8 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(
       result.current.items.find(item => item.element_bid === 'question-1'),
     ).toMatchObject({ user_input: '' });
-    expect(result.current.variables.answer).toBeUndefined();
-    expect(result.current.variables.multiAnswer).toBe('old choice');
+    expect(result.current.memory.answer).toBeUndefined();
+    expect(result.current.memory.multiAnswer).toBe('old choice');
 
     await act(async () =>
       result.current.onSend(
@@ -505,8 +505,8 @@ describe('usePreviewChat helpers and business error rendering', () => {
     );
     expect(answerRequest.debug_session_id).toBe(firstRequest.debug_session_id);
     expect(answerRequest.user_input).toEqual({ answer: ['new choice'] });
-    expect(result.current.variables['  answer  ']).toBeUndefined();
-    expect(result.current.variables.answer).toBe('new choice');
+    expect(result.current.memory['  answer  ']).toBeUndefined();
+    expect(result.current.memory.answer).toBe('new choice');
     expect(answerRequest.block_index).toBe(0);
 
     act(() => {
@@ -528,7 +528,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
     });
-    expect(result.current.variables.multiAnswer).toBeUndefined();
+    expect(result.current.memory.multiAnswer).toBeUndefined();
     expect(
       result.current.items.find(item => item.element_bid === 'question-2'),
     ).toMatchObject({ user_input: '' });
@@ -592,7 +592,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
       shifuBid: 'shifu-1',
       outlineBid: 'lesson-1',
       mdflow: 'Original draft',
-      variables: { learnerName: 'Ada' },
+      memory: { learnerName: 'Ada' },
       max_block_count: 3,
     };
 
@@ -605,13 +605,13 @@ describe('usePreviewChat helpers and business error rendering', () => {
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
     });
-    act(() => result.current.onVariableChange('answer', 'old choice'));
+    act(() => result.current.onMemoryChange('answer', 'old choice'));
     await act(async () =>
       result.current.startPreview({
         ...params,
         mdflow: 'Edited draft',
         block_index: 1,
-        variables: { learnerName: 'Ada', answer: 'old choice' },
+        memory: { learnerName: 'Ada', answer: 'old choice' },
         user_input: { answer: ['old choice'] },
       }),
     );
@@ -643,7 +643,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'Original draft',
-        variables: { learnerName: 'Ada' },
+        memory: { learnerName: 'Ada' },
       }),
     );
     act(() => {
@@ -653,7 +653,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
       sources[0].listeners.message?.({
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
-      result.current.onVariableChange('answer', 'old choice');
+      result.current.onMemoryChange('answer', 'old choice');
     });
     mockGetCurrentMdflow.mockReturnValue('Edited draft');
     await act(async () => {
@@ -679,7 +679,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
       jest.advanceTimersByTime(1000);
-      result.current.onVariableChange('answer', 'new choice');
+      result.current.onMemoryChange('answer', 'new choice');
     });
     expect(SSE).toHaveBeenCalledTimes(2);
     await act(async () => result.current.onRefresh('question'));
@@ -700,14 +700,14 @@ describe('usePreviewChat helpers and business error rendering', () => {
         },
         latestMdflow: 'new prompt',
         blockIndex: 2,
-        variables: {},
+        memory: {},
       }),
     ).toEqual({
       shifuBid: 'shifu-1',
       outlineBid: 'lesson-1',
       mdflow: 'new prompt',
       block_index: 2,
-      variables: {},
+      memory: {},
     });
   });
 
@@ -1153,7 +1153,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'prompt',
-        variables: { answer: 'saved answer' },
+        memory: { answer: 'saved answer' },
       });
     });
 
@@ -1197,7 +1197,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'old prompt',
-        variables: { answer: 'saved answer' },
+        memory: { answer: 'saved answer' },
       });
     });
 
@@ -1216,7 +1216,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         shifuBid: 'shifu-1',
         outlineBid: 'lesson-1',
         mdflow: 'new prompt',
-        variables: {},
+        memory: {},
       });
     });
     act(() => {
@@ -1500,7 +1500,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     },
   );
 
-  test('keeps batched variable edits consistent with the next request in StrictMode', async () => {
+  test('keeps batched memory edits consistent with the next request in StrictMode', async () => {
     const source = buildMockSseSource();
     (SSE as jest.Mock).mockReturnValue(source);
     const { result } = renderHook(
@@ -1512,7 +1512,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
         shifuBid: 'course',
         outlineBid: 'lesson',
         mdflow: 'Draft',
-        variables: { sys_user_language: 'en-US', nickname: 'Ada' },
+        memory: { sys_user_language: 'en-US', nickname: 'Ada' },
       }),
     );
     act(() => {
@@ -1529,10 +1529,10 @@ describe('usePreviewChat helpers and business error rendering', () => {
       source.listeners.message?.({
         data: JSON.stringify({ type: 'done', is_terminal: true }),
       });
-      result.current.onVariableChange('sys_user_language', 'fr-FR');
-      result.current.onVariableChange('nickname', 'Alex');
+      result.current.onMemoryChange('sys_user_language', 'fr-FR');
+      result.current.onMemoryChange('nickname', 'Alex');
     });
-    expect(result.current.variables).toEqual({
+    expect(result.current.memory).toEqual({
       sys_user_language: 'fr-FR',
       nickname: 'Alex',
     });

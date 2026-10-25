@@ -86,7 +86,7 @@ def test_existing_session_results_establish_named_answer_acceptance(
         script=ScriptBundle(script="Ask %{{goal}}."), memory={"goal": "A"}
     )
     session.messages = [
-        ModelResponse(parts=[ToolCallPart("interact", {"variable": "goal"}, "q")])
+        ModelResponse(parts=[ToolCallPart("interact", {"question": "goal"}, "q")])
     ]
     if pending:
         session.answers = {"q": "Learner wrote: A"}
@@ -112,7 +112,7 @@ def test_unaccepted_session_records_never_unlock_a_named_question(kind: str) -> 
     session = Session(
         script=ScriptBundle(script="Ask %{{goal}}."), memory={"goal": "A"}
     )
-    call = ModelResponse(parts=[ToolCallPart("interact", {"variable": "goal"}, "q")])
+    call = ModelResponse(parts=[ToolCallPart("interact", {"question": "goal"}, "q")])
     if kind != "seed":
         session.messages = [call]
         session.messages.append(
@@ -172,7 +172,7 @@ def test_legacy_remember_results_identify_the_current_answer_owner(
         script=ScriptBundle(script="Ask %{{goal}}."), memory={"goal": current}
     )
     session.messages = [
-        ModelResponse(parts=[ToolCallPart("interact", {"variable": "goal"}, "q")]),
+        ModelResponse(parts=[ToolCallPart("interact", {"question": "goal"}, "q")]),
         ModelRequest(parts=[ToolReturnPart("interact", "Learner wrote: A", "q")]),
         ModelResponse(
             parts=[
@@ -234,3 +234,38 @@ def test_a_confirm_stored_with_the_mark_is_believed() -> None:
     }
     session = Session.from_dict(stored)
     assert session.pending[0].spec.labelled_by_engine is False
+
+
+def test_legacy_pending_question_restores_without_serializing_retired_fields() -> None:
+    """Open questions and their exact answer keys survive the terminology migration."""
+    question = 'What is your goal? [choose] "quoted"'
+    state = Session(script=ScriptBundle(script="Teach the next step.")).to_dict()
+    state.pop("initial_memory")
+    state["initial_variables"] = {"earlier": "value"}
+    state["pending"] = [
+        {
+            "tool_call_id": "old-question",
+            "spec": {"type": "text", "prompt": "Tell me", "variable": question},
+        }
+    ]
+    restored = Session.from_dict(state)
+    assert restored.pending[0].spec.question == question
+    assert restored.initial_memory == {"earlier": "value"}
+    serialized = restored.to_dict()
+    assert "initial_variables" not in serialized
+    assert "variable" not in serialized["pending"][0]["spec"]
+    assert serialized["pending"][0]["spec"]["question"] == question
+
+
+def test_legacy_answer_evidence_still_recovers_question_ownership() -> None:
+    """Migration reads the old tool field without changing recorded model history."""
+    session = Session(script=ScriptBundle(script="Teach."), memory={"Goal?": "A"})
+    session.messages = [
+        ModelResponse(parts=[ToolCallPart("interact", {"variable": "Goal?"}, "old")]),
+        ModelRequest(parts=[ToolReturnPart("interact", "Learner wrote: A", "old")]),
+    ]
+    state = session.to_dict()
+    state.pop("answer_hashes")
+    restored = Session.from_dict(state)
+    assert restored.answered_memory_keys() == {"Goal?"}
+    assert restored.messages[0].parts[0].args_as_dict() == {"variable": "Goal?"}

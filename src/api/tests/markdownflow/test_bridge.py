@@ -201,7 +201,7 @@ def test_a_real_engine_turn_runs_through_the_bridge() -> None:
         "type": "single",
         "prompt": "How do you feel?",
         "options": [{"display": "Good", "value": "good"}],
-        "variable": "feeling",
+        "question": "feeling",
     }
 
     async def model(
@@ -230,7 +230,7 @@ def test_a_real_engine_turn_runs_through_the_bridge() -> None:
     assert "ContentDelta" in kinds
     assert any(isinstance(e, ContentDelta) and "Hello" in e.text for e in events)
     request = next(e for e in events if isinstance(e, InteractionRequest))
-    assert request.spec.variable == "feeling"
+    assert request.spec.question == "feeling"
     assert isinstance(events[-1], TurnDone)
     assert events[-1].reason == "interaction"
 

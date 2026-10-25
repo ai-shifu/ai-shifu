@@ -32,7 +32,7 @@ def test_invalid_cached_native_state_is_rejected_without_provider_or_cache_mutat
         calls.append(messages)
         yield {
             0: _interact(
-                variable="role",
+                question="role",
                 kind="single",
                 prompt="Your role?",
                 options=[{"display": "Teacher", "value": "teacher"}],
@@ -40,7 +40,7 @@ def test_invalid_cached_native_state_is_rejected_without_provider_or_cache_mutat
         }
 
     _app, runtime, _factories = _runtime(script)
-    view = _start(runtime, "Collect %{{role}}.")
+    view = _start(runtime, "?[%{{role}}Teacher//teacher]")
     _run(runtime, view)
     payload = runtime.store.load(view["session_id"]).to_cache_payload()
     if corruption == "unrenderable":

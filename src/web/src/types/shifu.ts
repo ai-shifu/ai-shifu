@@ -1,6 +1,6 @@
 export type ModelIndex = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
-import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
+import type { PreviewMemoryMap } from '@/components/lesson-preview/memoryStorage';
 import type { LearningPermission } from '@/api/studyV2';
 
 export type BlockType =
@@ -161,10 +161,10 @@ export interface ShifuState {
   currentNode: Outline | null;
   models: ModelOption[];
   mdflow: string;
-  variables: string[];
-  hiddenVariables: string[];
-  systemVariables: Record<string, string>[];
-  unusedVariables: string[];
+  questions: string[];
+  hiddenQuestions: string[];
+  systemMemory: Record<string, string>[];
+  unusedQuestions: string[];
   hideUnusedMode: boolean;
   baseRevision: number | null;
   latestDraftMeta: DraftMeta | null;
@@ -311,29 +311,29 @@ export interface ShifuActions {
     shifuId: string,
     outlineId: string,
   ) => Promise<{
-    variables: PreviewVariablesMap;
+    memory: PreviewMemoryMap;
     blocksCount: number;
-    systemVariableKeys: string[];
-    allVariableKeys?: string[];
+    systemMemoryKeys: string[];
+    allQuestionKeys?: string[];
     unusedKeys?: string[];
   }>;
-  hideUnusedVariables: (shifuId: string) => Promise<void>;
-  restoreHiddenVariables: (shifuId: string) => Promise<void>;
-  hideVariableByKey: (shifuId: string, key: string) => Promise<void>;
-  unhideVariablesByKeys: (shifuId: string, keys: string[]) => Promise<void>;
+  hideUnusedQuestions: (shifuId: string) => Promise<void>;
+  restoreHiddenQuestions: (shifuId: string) => Promise<void>;
+  hideQuestionByKey: (shifuId: string, key: string) => Promise<void>;
+  unhideQuestionsByKeys: (shifuId: string, keys: string[]) => Promise<void>;
   refreshProfileDefinitions: (
     shifuId: string,
     options?: { forceRefresh?: boolean },
   ) => Promise<{
     list: ProfileItem[];
-    systemVariableKeys: string[];
+    systemMemoryKeys: string[];
     unusedKeys?: string[];
   }>;
-  refreshVariableUsage: (shifuId: string) => Promise<{
+  refreshQuestionUsage: (shifuId: string) => Promise<{
     used_keys?: string[];
     unused_keys?: string[];
   } | null>;
-  syncHiddenVariablesToUsage: (
+  syncHiddenQuestionsToUsage: (
     shifuId: string,
     options?: { unusedKeys?: string[]; hiddenKeys?: string[] },
   ) => Promise<void>;

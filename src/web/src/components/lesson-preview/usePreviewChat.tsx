@@ -52,7 +52,7 @@ import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/hooks/useTracking';
-import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
+import { PreviewMemoryMap, savePreviewMemory } from './memoryStorage';
 import {
   buildPreviewInteractionUserInput,
   resolvePreviewGeneratedBlockBid,
@@ -74,10 +74,10 @@ interface StartPreviewParams {
   outlineBid?: string;
   mdflow?: string;
   user_input?: Record<string, unknown>;
-  variables?: Record<string, unknown>;
+  memory?: Record<string, unknown>;
   block_index?: number;
   max_block_count?: number;
-  systemVariableKeys?: string[];
+  systemMemoryKeys?: string[];
   visual_mode?: boolean;
 }
 
@@ -104,20 +104,20 @@ export const buildInteractionContinuationPreviewParams = ({
   currentParams,
   latestMdflow,
   blockIndex,
-  variables,
+  memory,
   userInput,
 }: {
   currentParams: StartPreviewParams;
   latestMdflow: string;
   blockIndex: number;
-  variables: PreviewVariablesMap;
+  memory: PreviewMemoryMap;
   userInput?: Record<string, string[]>;
 }): StartPreviewParams => {
   const nextParams: StartPreviewParams = {
     ...currentParams,
     mdflow: latestMdflow,
     block_index: blockIndex,
-    variables,
+    memory,
   };
 
   if (userInput) {
@@ -331,13 +331,13 @@ const resolveElementIndex = (
     : undefined;
 };
 
-const buildVariablesSnapshot = (
-  variables?: Record<string, unknown>,
-): PreviewVariablesMap => {
-  if (!variables) {
+const buildMemorySnapshot = (
+  memory?: Record<string, unknown>,
+): PreviewMemoryMap => {
+  if (!memory) {
     return {};
   }
-  return Object.entries(variables).reduce<PreviewVariablesMap>((acc, entry) => {
+  return Object.entries(memory).reduce<PreviewMemoryMap>((acc, entry) => {
     const [key, value] = entry;
     if (value === undefined || value === null) {
       acc[key] = '';
@@ -529,7 +529,7 @@ export function usePreviewChat({
   const currentContentIdRef = useRef<string | null>(null);
   const currentStreamingElementBidRef = useRef<string | null>(null);
   const sseParams = useRef<StartPreviewParams>({});
-  const initialVariablesRef = useRef<Record<string, unknown> | null>(null);
+  const initialMemoryRef = useRef<Record<string, unknown> | null>(null);
   const sseRef = useRef<PreviewSseSource | null>(null);
   const ttsSseRef = useRef<Record<string, PreviewSseSource>>({});
   const ttsCancelRef = useRef<Record<string, () => void>>({});
@@ -543,8 +543,7 @@ export function usePreviewChat({
   const isStreamingRef = useRef(false);
   const previewFailedRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
-  const [variablesSnapshot, setVariablesSnapshot] =
-    useState<PreviewVariablesMap>({});
+  const [memorySnapshot, setMemorySnapshot] = useState<PreviewMemoryMap>({});
   const interactionParserRef = useRef(createInteractionParser());
   const autoSubmittedBlocksRef = useRef<Set<string>>(new Set());
   const freshAgentInteractionBidsRef = useRef<Set<string>>(new Set());
@@ -616,7 +615,7 @@ export function usePreviewChat({
     [],
   );
 
-  const handleVariableChange = useCallback((name: string, value: string) => {
+  const handleMemoryChange = useCallback((name: string, value: string) => {
     if (!name) {
       return;
     }
@@ -624,51 +623,47 @@ export function usePreviewChat({
     const otherLanguageKey =
       name === 'language' ? 'sys_user_language' : 'language';
     const update = { [name]: value };
-    if (isLanguage && otherLanguageKey in (sseParams.current.variables || {})) {
+    if (isLanguage && otherLanguageKey in (sseParams.current.memory || {})) {
       update[otherLanguageKey] = value;
     }
-    if (initialVariablesRef.current && isLanguage) {
+    if (initialMemoryRef.current && isLanguage) {
       // Language is a preview setting, not an answer to discard on restart.
-      initialVariablesRef.current = {
-        ...initialVariablesRef.current,
+      initialMemoryRef.current = {
+        ...initialMemoryRef.current,
         ...update,
       };
     }
-    const mergedVariables = {
-      ...(sseParams.current.variables || {}),
+    const mergedMemory = {
+      ...(sseParams.current.memory || {}),
       ...update,
     };
-    sseParams.current.variables = mergedVariables;
-    setVariablesSnapshot(buildVariablesSnapshot(mergedVariables));
+    sseParams.current.memory = mergedMemory;
+    setMemorySnapshot(buildMemorySnapshot(mergedMemory));
   }, []);
 
-  const persistVariables = useCallback(
+  const persistMemory = useCallback(
     ({
       shifuBid,
-      systemVariableKeys,
-      variables,
+      systemMemoryKeys,
+      memory,
     }: {
       shifuBid?: string;
-      systemVariableKeys?: string[];
-      variables?: PreviewVariablesMap;
+      systemMemoryKeys?: string[];
+      memory?: PreviewMemoryMap;
     }) => {
-      const resolvedVariables =
-        variables ||
-        (sseParams.current.variables as PreviewVariablesMap) ||
-        variablesSnapshot;
+      const resolvedMemory =
+        memory ||
+        (sseParams.current.memory as PreviewMemoryMap) ||
+        memorySnapshot;
       const resolvedShifuBid = shifuBid || sseParams.current.shifuBid;
       const resolvedSystemKeys =
-        systemVariableKeys || sseParams.current.systemVariableKeys || [];
+        systemMemoryKeys || sseParams.current.systemMemoryKeys || [];
       if (!resolvedShifuBid) {
         return;
       }
-      savePreviewVariables(
-        resolvedShifuBid,
-        resolvedVariables,
-        resolvedSystemKeys,
-      );
+      savePreviewMemory(resolvedShifuBid, resolvedMemory, resolvedSystemKeys);
     },
-    [variablesSnapshot],
+    [memorySnapshot],
   );
 
   const parseInteractionBlock = useCallback(
@@ -901,8 +896,8 @@ export function usePreviewChat({
     submittedInteractionBlockBidRef.current = null;
     autoSubmittedBlocksRef.current.clear();
     freshAgentInteractionBidsRef.current.clear();
-    setVariablesSnapshot({});
-    initialVariablesRef.current = null;
+    setMemorySnapshot({});
+    initialMemoryRef.current = null;
     debugSessionIdRef.current = newDebugSessionId();
     agentPreviewRef.current = false;
     trackedEngineSessionIdRef.current = null;
@@ -918,15 +913,15 @@ export function usePreviewChat({
         return;
       }
       freshAgentInteractionBidsRef.current.add(itemBid);
-      const currentVariables = (sseParams.current.variables ||
-        {}) as PreviewVariablesMap;
-      if (!(variableName in currentVariables)) {
+      const currentMemory = (sseParams.current.memory ||
+        {}) as PreviewMemoryMap;
+      if (!(variableName in currentMemory)) {
         return;
       }
-      const nextVariables = { ...currentVariables };
-      delete nextVariables[variableName];
-      sseParams.current.variables = nextVariables;
-      setVariablesSnapshot(buildVariablesSnapshot(nextVariables));
+      const nextMemory = { ...currentMemory };
+      delete nextMemory[variableName];
+      sseParams.current.memory = nextMemory;
+      setMemorySnapshot(buildMemorySnapshot(nextMemory));
     },
     [],
   );
@@ -1124,10 +1119,10 @@ export function usePreviewChat({
       if (isInteractionElement) {
         clearFreshAgentInteractionAnswer(itemBid, variableName);
       }
-      const currentVariables = (sseParams.current.variables ||
-        {}) as PreviewVariablesMap;
+      const currentMemory = (sseParams.current.memory ||
+        {}) as PreviewMemoryMap;
       const rawValue =
-        variableName && currentVariables ? currentVariables[variableName] : '';
+        variableName && currentMemory ? currentMemory[variableName] : '';
       const autoParams =
         !agentPreviewRef.current && rawValue && interactionInfo
           ? buildAutoSendParams(interactionInfo, rawValue)
@@ -1299,11 +1294,11 @@ export function usePreviewChat({
           if (interactionBlockBid) {
             clearFreshAgentInteractionAnswer(interactionBlockBid, variableName);
           }
-          const currentVariables = (sseParams.current.variables ||
-            {}) as PreviewVariablesMap;
+          const currentMemory = (sseParams.current.memory ||
+            {}) as PreviewMemoryMap;
           const rawValue =
-            variableName && currentVariables
-              ? currentVariables[variableName]
+            variableName && currentMemory
+              ? currentMemory[variableName]
               : undefined;
           const autoParams =
             !agentPreviewRef.current && rawValue && interactionInfo
@@ -1513,9 +1508,9 @@ export function usePreviewChat({
       mdflow,
       block_index,
       user_input,
-      variables,
+      memory,
       max_block_count,
-      systemVariableKeys,
+      systemMemoryKeys,
       visual_mode = false,
     }: StartPreviewParams) => {
       if (creditInsufficientAudience === null) {
@@ -1533,13 +1528,13 @@ export function usePreviewChat({
       if (agentPreviewRef.current && mdflow !== sseParams.current.mdflow) {
         // An answer to an edited question belongs to the old script. Start the
         // new draft from its beginning with a new debug session instead.
-        variables = { ...(initialVariablesRef.current || {}) };
+        memory = { ...(initialMemoryRef.current || {}) };
         resetPreview();
         normalizedUserInput = undefined;
         block_index = 0;
       }
-      if (initialVariablesRef.current === null) {
-        initialVariablesRef.current = { ...(variables || {}) };
+      if (initialMemoryRef.current === null) {
+        initialMemoryRef.current = { ...(memory || {}) };
       }
       if (!debugSessionIdRef.current) {
         debugSessionIdRef.current = newDebugSessionId();
@@ -1550,9 +1545,9 @@ export function usePreviewChat({
         outlineBid,
         mdflow,
         block_index,
-        variables,
+        memory,
         max_block_count,
-        systemVariableKeys,
+        systemMemoryKeys,
         visual_mode,
       };
       const {
@@ -1560,13 +1555,13 @@ export function usePreviewChat({
         outlineBid: finalOutlineBid,
         mdflow: finalMdflow,
         block_index: finalBlockIndex = 0,
-        variables: finalVariables = {},
+        memory: finalMemory = {},
         max_block_count: finalMaxBlockCount,
         visual_mode: finalVisualMode = false,
       } = mergedParams;
       previewFailedRef.current = false;
       sseParams.current = mergedParams;
-      setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
+      setMemorySnapshot(buildMemorySnapshot(finalMemory));
       if (!normalizedUserInput) {
         submittedInteractionBlockBidRef.current = null;
       }
@@ -1624,7 +1619,8 @@ export function usePreviewChat({
         const payload: Record<string, unknown> = {
           block_index: finalBlockIndex,
           content: finalMdflow,
-          variables: finalVariables,
+          // Existing preview HTTP transport; these are question-keyed memory answers.
+          variables: finalMemory,
           visual_mode: finalVisualMode,
           ...(debugSessionIdRef.current
             ? { debug_session_id: debugSessionIdRef.current }
@@ -1771,12 +1767,12 @@ export function usePreviewChat({
 
   const restartAgentPreview = useCallback(() => {
     const currentParams = { ...sseParams.current };
-    const initialVariables = { ...(initialVariablesRef.current || {}) };
+    const initialMemory = { ...(initialMemoryRef.current || {}) };
     resetPreview();
     void startPreview({
       ...currentParams,
       mdflow: resolveLatestMdflow(),
-      variables: initialVariables,
+      memory: initialMemory,
       block_index: 0,
       user_input: undefined,
     });
@@ -1791,11 +1787,11 @@ export function usePreviewChat({
       let needChangeItemIndex = newList.findIndex(item =>
         item.content?.includes(params.variableName || ''),
       );
-      const sameVariableValueItems =
+      const sameMemoryValueItems =
         newList.filter(item =>
           item.content?.includes(params.variableName || ''),
         ) || [];
-      if (sameVariableValueItems.length > 1) {
+      if (sameMemoryValueItems.length > 1) {
         needChangeItemIndex = newList.findIndex(item =>
           matchPreviewItemBid(item, blockBid),
         );
@@ -1885,13 +1881,13 @@ export function usePreviewChat({
       }
 
       const { variableName } = content;
-      const normalizedVariableName =
+      const normalizedMemoryName =
         normalizeVariableName(variableName ?? '') || '';
-      const hasVariableName = Boolean(normalizedVariableName);
+      const hasMemoryName = Boolean(normalizedMemoryName);
       const listUpdateContent =
-        variableName === normalizedVariableName
+        variableName === normalizedMemoryName
           ? content
-          : { ...content, variableName: normalizedVariableName };
+          : { ...content, variableName: normalizedMemoryName };
 
       let isReGenerate = false;
       const currentList = contentListRef.current.slice();
@@ -1937,24 +1933,24 @@ export function usePreviewChat({
 
       submittedInteractionBlockBidRef.current = blockBid;
 
-      if (hasVariableName) {
-        const nextVariables: PreviewVariablesMap = {
-          ...(sseParams.current.variables as PreviewVariablesMap),
-          [normalizedVariableName]: nextValue,
+      if (hasMemoryName) {
+        const nextMemory: PreviewMemoryMap = {
+          ...(sseParams.current.memory as PreviewMemoryMap),
+          [normalizedMemoryName]: nextValue,
         };
-        sseParams.current.variables = nextVariables;
-        setVariablesSnapshot(buildVariablesSnapshot(nextVariables));
-        savePreviewVariables(
+        sseParams.current.memory = nextMemory;
+        setMemorySnapshot(buildMemorySnapshot(nextMemory));
+        savePreviewMemory(
           sseParams.current.shifuBid,
-          { [normalizedVariableName]: nextValue },
-          sseParams.current.systemVariableKeys || [],
+          { [normalizedMemoryName]: nextValue },
+          sseParams.current.systemMemoryKeys || [],
         );
       }
 
-      const requestVariables: PreviewVariablesMap =
-        (sseParams.current.variables as PreviewVariablesMap) || {};
+      const requestMemory: PreviewMemoryMap =
+        (sseParams.current.memory as PreviewMemoryMap) || {};
       const userInputPayload = buildPreviewInteractionUserInput(
-        normalizedVariableName,
+        normalizedMemoryName,
         values,
       );
 
@@ -1984,7 +1980,7 @@ export function usePreviewChat({
               targetGeneratedBlockBid,
               sseParams.current.block_index ?? 0,
             ),
-        variables: requestVariables,
+        memory: requestMemory,
         userInput: userInputPayload,
       });
       startPreview(nextParams);
@@ -2099,9 +2095,9 @@ export function usePreviewChat({
       if (!variableName) {
         return;
       }
-      const currentVariables = (sseParams.current.variables ||
-        {}) as PreviewVariablesMap;
-      const rawValue = currentVariables[variableName];
+      const currentMemory = (sseParams.current.memory ||
+        {}) as PreviewMemoryMap;
+      const rawValue = currentMemory[variableName];
       if (!rawValue) {
         return;
       }
@@ -2392,9 +2388,9 @@ export function usePreviewChat({
     resetPreview,
     onSend,
     onRefresh,
-    persistVariables,
-    onVariableChange: handleVariableChange,
-    variables: variablesSnapshot,
+    persistMemory,
+    onMemoryChange: handleMemoryChange,
+    memory: memorySnapshot,
     requestAudioForBlock,
     reGenerateConfirm: {
       open: showRegenerateConfirm,

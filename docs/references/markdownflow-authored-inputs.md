@@ -8,7 +8,8 @@ canonical: true
 
 # MarkdownFlow Authored Input Hints
 
-In `?[%{{path}} First | Second | ...Describe your project]`, the trailing
+The [question-memory contract](markdownflow-question-memory.md) defines memory keys.
+In `?[%{{Which path?}} First | Second | ...Describe your project]`, the trailing
 `...Describe your project` declares a text-input placeholder. It is not an
 additional selectable answer. MarkdownFlow 2.0 occasionally emits that hint
 both as an option and as the placeholder of its `interact` tool call.
@@ -16,7 +17,7 @@ both as an option and as the placeholder of its `interact` tool call.
 Before deferring an interaction, the engine removes such an extra option only
 when the main lesson script uniquely identifies the intended controls:
 
-- The variable must match, including an absent variable.
+- The question text must match, including an absent question key.
 - After removing hint-only options, every remaining display and stored value
   must match the author's choices in the same order.
 - The generated placeholder must be absent or equal to the author's decoded
@@ -32,7 +33,7 @@ when the main lesson script uniquely identifies the intended controls:
 
 Question examples inside fenced or indented code, HTML comments, and Markdown links do not
 authorize a repair. Teaching briefs and extra documents do not define the
-lesson's controls. Dynamic questions, different variables, reordered or changed
+lesson's controls. Dynamic questions, different question keys, reordered or changed
 choices, different placeholders, and independently valued real buttons are
 unchanged. This is a narrow notation correction, not a general restriction on
 adaptive questions or a reinterpretation of arbitrary model text.

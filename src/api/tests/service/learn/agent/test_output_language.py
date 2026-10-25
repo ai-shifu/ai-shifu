@@ -124,7 +124,7 @@ def test_resumed_and_retaken_requests_use_current_language_without_losing_answer
                         "options": [
                             {"display": "Translated display", "value": "stable-value"}
                         ],
-                        "variable": "goal",
+                        "question": "goal",
                     }
                 ),
             )

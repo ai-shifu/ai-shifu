@@ -226,7 +226,7 @@ def test_same_named_control_keeps_each_historical_answer(
     classroom: str, reused_call_id: bool
 ) -> None:
     spec = InteractionSpec(
-        type="text", prompt="Question", variable="answer", placeholder="Answer"
+        type="text", prompt="Question", question="answer", placeholder="Answer"
     )
     first = _block(classroom, classroom + "-first", 0)
     _control(classroom, first, render_interaction(spec))

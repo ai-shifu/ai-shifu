@@ -49,15 +49,15 @@ def _session(document: str) -> _ProfileResearchSession:
 
 def _question(
     call_id: str,
-    variable: str | None,
+    question: str | None,
     *,
     kind: str = "text",
     prompt: str = "Your answer?",
     options: list[dict[str, str]] | None = None,
 ) -> DeltaToolCall:
     args: dict[str, Any] = {"type": kind, "prompt": prompt}
-    if variable is not None:
-        args["variable"] = variable
+    if question is not None:
+        args["question"] = question
     if options:
         args["options"] = options
     return DeltaToolCall(
@@ -150,11 +150,11 @@ def test_complete_source_and_history_survive_sequential_questions_and_finish() -
     assert last.finished
     assert last.input_accepted
     assert last.reason == "finished"
-    assert session.variables == {"role": "teacher", "learners": "Adults"}
+    assert session.memory == {"role": "teacher", "learners": "Adults"}
     assert profile_answer_evidence(session) == [
         {
             "prompt": "Your role?",
-            "variable": "role",
+            "question": "role",
             "answer": "Learner chose: teacher",
             "question_context": {
                 "is_learner_fact": False,
@@ -166,7 +166,7 @@ def test_complete_source_and_history_survive_sequential_questions_and_finish() -
         },
         {
             "prompt": "Who do you teach?",
-            "variable": "learners",
+            "question": "learners",
             "answer": "Learner wrote: Adults",
         },
     ]
@@ -213,7 +213,7 @@ def test_multiple_pending_keep_native_answers_and_exclude_confirm_and_nickname()
     assert calls == 1
     assert session.engine_session["answers"] == {"goal": "Learner wrote: Learn Python"}
     assert profile_answer_evidence(session) == [
-        {"prompt": "Goal?", "variable": "goal", "answer": "Learner wrote: Learn Python"}
+        {"prompt": "Goal?", "question": "goal", "answer": "Learner wrote: Learn Python"}
     ]
     session = _ProfileResearchSession.from_cache_payload(session.to_cache_payload())
     run_profile_turn(session, {SYS_USER_NICKNAME: ["Pat"]}, model)
@@ -224,7 +224,7 @@ def test_multiple_pending_keep_native_answers_and_exclude_confirm_and_nickname()
     assert len(profile_answer_evidence(session)) == 1
     final = run_profile_turn(session, {"pace": ["Slow"]}, model)
     assert final.finished
-    assert [item["variable"] for item in profile_answer_evidence(session)] == [
+    assert [item["question"] for item in profile_answer_evidence(session)] == [
         "goal",
         "pace",
     ]
@@ -265,7 +265,7 @@ def test_named_binding_rejects_wrong_key_and_ignores_extraneous_values() -> None
     assert rejected.chunks[-1].interaction_id == "role"
     assert calls == 1
     assert session.engine_session == original
-    assert session.variables == {}
+    assert session.memory == {}
     assert profile_answer_evidence(session) == []
     run_profile_turn(session, {}, model)
     assert calls == 1
@@ -274,7 +274,7 @@ def test_named_binding_rejects_wrong_key_and_ignores_extraneous_values() -> None
     )
     assert accepted.input_accepted
     assert accepted.finished
-    assert session.variables == {"role": "teacher"}
+    assert session.memory == {"role": "teacher"}
     assert "Engineer" not in profile_answer_evidence(session)[0]["answer"]
 
 
@@ -309,7 +309,7 @@ def test_mixed_answers_preserve_option_and_free_text(kind: str) -> None:
     )
     assert result.input_accepted
     assert result.finished
-    assert session.variables["background"] == "teacher; I mentor adults"
+    assert session.memory["background"] == "teacher; I mentor adults"
     assert "I mentor adults" in profile_answer_evidence(session)[0]["answer"]
 
 
@@ -429,15 +429,13 @@ def test_changed_static_option_is_retried_without_publishing_the_rejected_respon
     assert "parent" not in result.chunks[-1].interaction
     assert "Enseignant//teacher" in result.chunks[-1].interaction
     assert "REJECTED" not in json.dumps(session.engine_session["messages"])
-    assert session.variables == {}
+    assert session.memory == {}
 
 
 def test_natural_questionnaire_uses_native_controls_without_a_static_question_set() -> (
     None
 ):
-    session = _session(
-        "Ask about %{{goal}} using a single choice of writing or speaking, then finish."
-    )
+    session = _session("?[%{{goal}}Writing//writing|Speaking//speaking]")
 
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
         if _returns(messages, "finish"):
@@ -463,14 +461,12 @@ def test_natural_questionnaire_uses_native_controls_without_a_static_question_se
     assert first.chunks[-1].interaction_id == "natural-goal"
     final = run_profile_turn(session, {"goal": ["writing"]}, model)
     assert final.finished
-    assert session.variables == {"goal": "writing"}
+    assert session.memory == {"goal": "writing"}
 
 
-def test_static_option_substitution_uses_native_memory_and_not_extra_host_state() -> (
-    None
-):
+def test_static_option_braces_stay_literal_despite_memory_values() -> None:
     session = _session("?[%{{role}}Primary//{{primary}}|Other//other]")
-    session.variables["primary"] = "teacher"
+    session.memory["primary"] = "teacher"
 
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
         if _returns(messages, "finish"):
@@ -485,7 +481,7 @@ def test_static_option_substitution_uses_native_memory_and_not_extra_host_state(
                     "role",
                     kind="single",
                     options=[
-                        {"display": "Primary", "value": "teacher"},
+                        {"display": "Primary", "value": "{{primary}}"},
                         {"display": "Other", "value": "other"},
                     ],
                 )
@@ -493,11 +489,11 @@ def test_static_option_substitution_uses_native_memory_and_not_extra_host_state(
 
     model = FunctionModel(stream_function=script)
     run_profile_turn(session, {}, model)
-    session.variables["primary"] = "untrusted-host-value"
-    result = run_profile_turn(session, {"role": ["teacher"]}, model)
+    session.memory["primary"] = "untrusted-host-value"
+    result = run_profile_turn(session, {"role": ["{{primary}}"]}, model)
     assert result.input_accepted
-    assert session.variables["role"] == "teacher"
-    assert session.variables["primary"] == "teacher"
+    assert session.memory["role"] == "{{primary}}"
+    assert session.memory["primary"] == "teacher"
 
 
 def test_rich_output_keeps_structured_elements_and_no_private_summary_is_requested() -> (
@@ -648,7 +644,7 @@ def test_private_summary_receives_selected_machine_value_and_question_option_mea
     assert evidence == [
         {
             "prompt": "你的身份？",
-            "variable": "role",
+            "question": "role",
             "answer": "Learner chose: role_1",
             "question_context": {
                 "is_learner_fact": False,

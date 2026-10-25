@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
+import type { PreviewMemoryMap } from '@/components/lesson-preview/memoryStorage';
 import type {
   AudioSegmentData,
   BlockType,
@@ -39,7 +39,7 @@ export interface ChatContentItem {
   ask_list?: ChatContentItem[];
   isAskExpanded?: boolean;
   generateTime?: number;
-  variables?: PreviewVariablesMap;
+  memory?: PreviewMemoryMap;
   audioUrl?: string;
   audioTracks?: AudioTrack[];
   isAudioStreaming?: boolean;

@@ -15,7 +15,12 @@ from flaskr.service.profile_research.runtime import (
     ProfileResearchSessionNotFound,
     _ProfileResearchSessionStore,
 )
-from pydantic_ai.messages import ModelMessage, ModelRequest, ToolReturnPart
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ToolReturnPart,
+    UserPromptPart,
+)
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
 StreamChunks = AsyncIterator[str | dict[int, DeltaToolCall]]
@@ -56,14 +61,14 @@ def _finished(messages: list[ModelMessage]) -> bool:
 def _interact(
     *,
     call_id: str = "question",
-    variable: str | None = "learning_goal",
+    question: str | None = "learning_goal",
     kind: str = "text",
     prompt: str = "What do you want to learn?",
     options: list[dict[str, str]] | None = None,
 ) -> DeltaToolCall:
     spec: dict[str, Any] = {"type": kind, "prompt": prompt}
-    if variable is not None:
-        spec["variable"] = variable
+    if question is not None:
+        spec["question"] = question
     if options:
         spec["options"] = options
     return DeltaToolCall(
@@ -149,7 +154,7 @@ def _evidence(messages: list[dict[str, str]]) -> dict[str, Any]:
 
 def test_full_script_and_native_session_survive_between_questions() -> None:
     calls: list[list[ModelMessage]] = []
-    document = "Collect %{{goal}} and %{{pace}} in two questions, then finish."
+    document = "?[%{{goal}}...Goal?]\n?[%{{pace}}...Pace?]"
 
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
         calls.append(messages)
@@ -158,10 +163,10 @@ def test_full_script_and_native_session_survive_between_questions() -> None:
             yield " "
         elif not answers:
             yield "Welcome.\n"
-            yield {0: _interact(call_id="goal", variable="goal", prompt="Your goal?")}
+            yield {0: _interact(call_id="goal", question="goal", prompt="Your goal?")}
         elif len(answers) == 1:
             assert "Practical skills" in str(answers[0].content)
-            yield {0: _interact(call_id="pace", variable="pace", prompt="Your pace?")}
+            yield {0: _interact(call_id="pace", question="pace", prompt="Your pace?")}
         else:
             assert "Slow" in str(answers[-1].content)
             yield _finish()
@@ -201,7 +206,13 @@ def test_full_script_and_native_session_survive_between_questions() -> None:
     )
     assert _terminal(final)["done"] is True
     assert _terminal(final)["profile_draft"] == "Private learner profile."
-    assert saved.document in str(calls[0])
+    assert any(
+        saved.document in part.content
+        for message in calls[0]
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, UserPromptPart)
+    )
     assert resumed.store.load(view["session_id"]).engine_session["id"] == engine_id
 
 
@@ -216,7 +227,7 @@ def test_private_summary_has_only_accepted_personal_answers_and_never_streams_te
         elif _tool_returns(messages):
             yield _finish()
         else:
-            yield {0: _interact(variable=None, prompt="Your learning needs?")}
+            yield {0: _interact(question=None, prompt="Your learning needs?")}
 
     _app, runtime, _factories = _runtime(script)
     runtime._provider_factory = lambda *_args: summary
@@ -287,7 +298,7 @@ def test_private_summary_keeps_an_unnamed_placeholder_question_as_context() -> N
         "accepted_answers": [
             {
                 "prompt": "",
-                "variable": None,
+                "question": None,
                 "answer": "Learner wrote: 10",
                 "question_context": {
                     "is_learner_fact": False,
@@ -304,7 +315,7 @@ def test_private_summary_keeps_an_unnamed_placeholder_question_as_context() -> N
     )
     assert "input placeholders" in instructions
     assert "not learner information" in instructions
-    assert runtime.store.load(view["session_id"]).variables == {}
+    assert runtime.store.load(view["session_id"]).memory == {}
     assert final[0]["content"] == {"phase": "summary"}
     assert not any(
         event["event_type"] == "content" and str(event["content"]).strip()
@@ -358,12 +369,12 @@ def test_native_batch_answers_persist_independently_and_exact_replay_keeps_the_s
             yield _finish()
         else:
             yield {
-                0: _interact(call_id="goal", variable="goal", prompt="Your goal?"),
-                1: _interact(call_id="pace", variable="pace", prompt="Your pace?"),
+                0: _interact(call_id="goal", question="goal", prompt="Your goal?"),
+                1: _interact(call_id="pace", question="pace", prompt="Your pace?"),
             }
 
     app, runtime, factories = _runtime(script)
-    view = _start(runtime, "Collect %{{goal}} and %{{pace}}, then finish.")
+    view = _start(runtime, "?[%{{goal}}...Goal?]\n?[%{{pace}}...Pace?]")
     opening = _run(runtime, view)
     assert _terminal(opening)["pending_interaction_ids"] == ["goal", "pace"]
     assert [
@@ -458,7 +469,7 @@ def test_model_memory_notes_do_not_become_private_profile_facts() -> None:
         elif _tool_returns(messages):
             yield _finish()
         elif remembered:
-            yield {0: _interact(variable="goal", prompt="Your goal?")}
+            yield {0: _interact(question="goal", prompt="Your goal?")}
         else:
             yield {
                 0: DeltaToolCall(
@@ -476,7 +487,7 @@ def test_model_memory_notes_do_not_become_private_profile_facts() -> None:
 
     _app, runtime, _factories = _runtime(script)
     runtime._provider_factory = lambda *_args: summary
-    view = _start(runtime, "Collect %{{goal}} and allow a working note %{{scratch}}.")
+    view = _start(runtime, "?[%{{goal}}...Goal?]\n?[%{{scratch}}...Scratch?]")
     _run(runtime, view)
     final = _run(
         runtime,
@@ -487,7 +498,7 @@ def test_model_memory_notes_do_not_become_private_profile_facts() -> None:
     )
     assert _terminal(final)["done"] is True
     assert (
-        runtime.store.load(view["session_id"]).variables["scratch"]
+        runtime.store.load(view["session_id"]).memory["scratch"]
         == "Invented profession"
     )
     facts = _evidence(summary.messages[0])
@@ -505,7 +516,7 @@ def test_private_summary_failure_keeps_the_pending_native_answer_retryable() -> 
             yield {0: _interact()}
 
     _app, runtime, _factories = _runtime(script)
-    view = _start(runtime, "Collect %{{learning_goal}} and finish.")
+    view = _start(runtime, "?[%{{learning_goal}}...What do you want to learn?]")
     _run(runtime, view)
     original = runtime.store.load(view["session_id"]).to_cache_payload()
 

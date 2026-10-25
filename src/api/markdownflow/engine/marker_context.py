@@ -16,7 +16,7 @@ from .document_blocks import (
     indentation,
     read_angle_autolink,
 )
-from .variable_names import normalize_variable_name, read_variable_marker
+from .questions import normalize_question, read_question_marker
 
 _BACKTICK_RUN = re.compile(r"`+")
 _DOLLAR_RUN = re.compile(r"\$+")
@@ -59,7 +59,7 @@ class ContextMarker:
 
 @dataclass
 class MarkerContext:
-    """Source offsets shared by collection, substitution and interaction scanning."""
+    """Source offsets shared by question collection and interaction scanning."""
 
     markers: list[ContextMarker] = field(default_factory=list)
     literals: list[tuple[int, int]] = field(default_factory=list)
@@ -100,21 +100,6 @@ def _escaped(text: str, at: int) -> bool:
     while before and text[before - 1] == "\\":
         before -= 1
     return (at - before) % 2 == 1
-
-
-def _literal_markers(text: str, start: int, end: int) -> list[ContextMarker]:
-    """Keep old complete literal references, but never read beyond their region."""
-    markers: list[ContextMarker] = []
-    while (start := text.find("{{", start, end)) >= 0:
-        close = text.find("}}", start + 2, end)
-        if close < 0:
-            break
-        raw = text[start + 2 : close]
-        markers.append(
-            ContextMarker(start, close + 2, raw, normalize_variable_name(raw))
-        )
-        start = close + 2
-    return markers
 
 
 def _html_can_close(text: str, at: int, last_ends: dict[str, int]) -> bool:
@@ -433,10 +418,9 @@ def analyze_marker_context(
 ) -> MarkerContext:
     """Recognize outer literals before markers; a real marker's body stays opaque.
 
-    Complete markers in inline code and HTML retain their historical collection
-    and substitution behavior. An incomplete example cannot consume text after
-    that literal's closing delimiter. Fences are optional because the streaming
-    filter already owns their state, while document callers need whole blocks.
+    Within an authored interaction, brace groups protect the exact question and
+    literal option text. Standalone braces outside controls have no lexical ownership.
+    Fences are optional because the streaming filter owns its fence state.
     """
     context = MarkerContext()
     last_html_ends = {
@@ -492,7 +476,7 @@ def analyze_marker_context(
                 break
             raw = text[at + 2 : close]
             context.markers.append(
-                ContextMarker(at, close + 2, raw, normalize_variable_name(raw))
+                ContextMarker(at, close + 2, raw, normalize_question(raw))
             )
             at = close + 2
             continue
@@ -512,10 +496,6 @@ def analyze_marker_context(
                 ]
             if reference_end is not None:
                 context.literals.append((at, reference_end))
-                context.markers.extend(_literal_markers(text, at, reference_start))
-                context.markers.extend(
-                    _literal_markers(text, reference_start, reference_end)
-                )
                 at = reference_end
                 continue
         if legacy_fence is not None:
@@ -539,7 +519,6 @@ def analyze_marker_context(
                 context.fences.append((at, fenced.end))
             else:
                 context.literals.append((at, fenced.end))
-                context.markers.extend(_literal_markers(text, at, fenced.end))
             if not final and fenced.steps and fenced.end == len(text):
                 context.pending_block_start = at
                 context.pending_container_fence = (
@@ -553,7 +532,6 @@ def analyze_marker_context(
         indented_end = _indented_code_end(text, at, blocks)
         if indented_end is not None:
             context.literals.append((at, indented_end))
-            context.markers.extend(_literal_markers(text, at, indented_end))
             steps = blocks.container_steps[blocks.by_start[at]]
             trailing = blocks.lines[
                 blocks.by_start[blocks.line_at(indented_end).start] + 1 :
@@ -577,10 +555,8 @@ def analyze_marker_context(
             continue
         raw_html = _raw_html_bounds(text, at, last_html_ends, blocks, final=final)
         if raw_html is not None:
-            opening_end, end, complete = raw_html
+            _opening_end, end, complete = raw_html
             context.literals.append((at, end))
-            context.markers.extend(_literal_markers(text, at, opening_end))
-            context.markers.extend(_literal_markers(text, opening_end, end))
             if not final and end == len(text):
                 context.pending_html_start = at
                 context.pending_raw_html_closed = complete
@@ -597,10 +573,6 @@ def analyze_marker_context(
         special_html = blocks.terminated_html(at, final=final)
         if special_html is not None:
             context.literals.append((at, special_html.end))
-            context.markers.extend(_literal_markers(text, at, special_html.opening_end))
-            context.markers.extend(
-                _literal_markers(text, special_html.opening_end, special_html.end)
-            )
             if not final and special_html.end == len(text):
                 context.pending_block_start = at
                 context.pending_html_closing_line = True
@@ -612,10 +584,6 @@ def analyze_marker_context(
         ordinary = blocks.ordinary_html(at, final=final)
         if ordinary is not None:
             context.literals.append((at, ordinary.end))
-            context.markers.extend(_literal_markers(text, at, ordinary.opening_end))
-            context.markers.extend(
-                _literal_markers(text, ordinary.opening_end, ordinary.end)
-            )
             if not final and (ordinary.end == len(text) or not ordinary.closed):
                 context.pending_block_start = at
                 context.pending_html_block = True
@@ -629,7 +597,6 @@ def analyze_marker_context(
         if text[at] == "$" and not _escaped(text, at) and at in math_closing:
             _, end = math_closing[at]
             context.literals.append((at, end))
-            context.markers.extend(_literal_markers(text, at, end))
             at = end
             continue
         if text[at] == "(" and at == resource_start:
@@ -641,7 +608,6 @@ def analyze_marker_context(
                         labels[index] = (image, False, start, count)
                     active_links.clear()
                 context.literals.append((at, resource_end))
-                context.markers.extend(_literal_markers(text, at, resource_end))
                 at = resource_end
                 continue
             if not final:
@@ -678,7 +644,7 @@ def analyze_marker_context(
                 at + 2,
                 lambda position: (
                     marker.end
-                    if (marker := read_variable_marker(text, position)) is not None
+                    if (marker := read_question_marker(text, position)) is not None
                     else None
                 ),
                 final=final,
@@ -687,30 +653,13 @@ def analyze_marker_context(
                 context.inactive_document_controls.append(at)
             if not (closed and text[limit + 1 : limit + 2] == "("):
                 interaction_until = limit if closed else limit - 1
-        if text.startswith("{{", at):
-            if _escaped(text, at):
-                context.escaped_openers.append(at)
-                at += 1
-                continue
-            close = text.find("}}", at + 2)
-            if close < 0:
-                context.markers.append(
-                    ContextMarker(at, len(text), text[at + 2 :], None, complete=False)
-                )
-                break
-            raw = text[at + 2 : close]
-            context.markers.append(
-                ContextMarker(at, close + 2, raw, normalize_variable_name(raw))
-            )
-            at = close + 2
-        elif run := _BACKTICK_RUN.match(text, at):
+        if run := _BACKTICK_RUN.match(text, at):
             if _escaped(text, at):
                 at += 1
                 continue
             if at in closing:
-                content_end, end = closing[at]
+                _content_end, end = closing[at]
                 context.literals.append((at, end))
-                context.markers.extend(_literal_markers(text, run.end(), content_end))
                 at = end
                 continue
             context.unmatched_backticks.append((at, run.group()))
@@ -719,7 +668,6 @@ def analyze_marker_context(
             autolink_end = read_angle_autolink(text, at)
             if autolink_end is not None:
                 context.literals.append((at, autolink_end))
-                context.markers.extend(_literal_markers(text, at, autolink_end))
                 at = autolink_end
                 continue
             if (
@@ -736,7 +684,6 @@ def analyze_marker_context(
             )
             if html_end is not None:
                 context.literals.append((at, html_end))
-                context.markers.extend(_literal_markers(text, at, html_end))
                 at = html_end
             else:
                 if context.pending_html_start is None and (
@@ -766,9 +713,19 @@ def analyze_marker_context(
 def marker_syntax_source(text: str, context: MarkerContext) -> str:
     """Hide only literal/escaped openers and fenced controls, preserving offsets."""
     scanned = list(text)
+    active = {
+        marker.start
+        for marker in context.markers
+        if not any(start <= marker.start < end for start, end in context.literals)
+    }
+    at = 0
+    while (at := text.find("{{", at)) >= 0:
+        if at not in active:
+            scanned[at] = "\x00"
+        at += 2
     for start, end in context.literals:
         for at in range(start, end):
-            if scanned[at] == "{":
+            if scanned[at] in "{?":
                 scanned[at] = "\x00"
     for at in (*context.escaped_openers, *context.inactive_document_controls):
         scanned[at] = "\x00"

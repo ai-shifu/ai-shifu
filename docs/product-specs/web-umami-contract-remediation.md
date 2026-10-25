@@ -134,7 +134,10 @@ are not backfilled under another name.
   is whether teachers preview text-key prompts and need continued editor support.
   Per UTC day, the numerator is recorded accepted preview clicks with true and
   the denominator is recorded accepted preview clicks with either boolean value.
-  This measures preview intent, not successful preview execution, an answer, or
+  The field retains its historical transport name after the question-memory
+  migration. Its syntactic classification remains unchanged; brace text alone
+  does not imply a memory question or substitution. Raw question text is never
+  collected. This measures preview intent, not successful preview execution, an answer, or
   a memory write. Historical rows missing the field remain `legacy_unknown` and
   are excluded from this denominator, never inferred as false; no backfill is
   performed and existing preview-count consumers may continue counting all rows.

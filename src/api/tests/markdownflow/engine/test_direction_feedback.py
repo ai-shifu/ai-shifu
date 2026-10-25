@@ -121,7 +121,7 @@ async def test_structured_direction_uses_one_request_and_preserves_navigation(
                     "prompt": "",
                     "placeholder": "Answer",
                     "direction": _direction(),
-                    "variable": "invented",
+                    "question": "invented",
                 },
                 "correction",
             )
@@ -177,7 +177,7 @@ async def test_structured_direction_uses_one_request_and_preserves_navigation(
     assert len(session.pending) == 1
     assert session.pending[0].spec.prompt == ""
     assert session.pending[0].spec.placeholder == "Answer"
-    assert session.pending[0].spec.variable is None
+    assert session.pending[0].spec.question is None
     assert session.memory == session.user_memory == {}
     assert not session.finished
     session = Session.loads(session.dumps())

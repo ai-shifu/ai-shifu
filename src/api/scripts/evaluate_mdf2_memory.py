@@ -174,7 +174,7 @@ def recall_session(case: dict[str, Any]) -> Session:
                             {
                                 "type": "text",
                                 "prompt": "Project code?",
-                                "variable": "project_code",
+                                "question": "project_code",
                             },
                             "project-question",
                         )
@@ -193,7 +193,7 @@ def recall_session(case: dict[str, Any]) -> Session:
         user_memory=snapshot,
         memory=dict(snapshot) if case.get("answered") else {},
         messages=messages,
-        initial_variables={} if messages else None,
+        initial_memory={} if messages else None,
         turn=1 if messages else 0,
     )
     if case.get("answered"):

@@ -16,7 +16,7 @@ _RENDERER = QuestionRenderer(
 
 
 @pytest.mark.parametrize(
-    "variable",
+    "question",
     [
         "What is your gender?",
         "Which [path] | level//hint...?",
@@ -27,46 +27,46 @@ _RENDERER = QuestionRenderer(
         "\ufeffname?\ufeff",
     ],
 )
-def test_renderer_preserves_the_complete_opaque_key(variable: str) -> None:
+def test_renderer_preserves_the_complete_opaque_key(question: str) -> None:
     spec = InteractionSpec(
         type="single",
         prompt="Choose one",
-        variable=variable,
+        question=question,
         options=[Option(display="A"), Option(display="B")],
     )
     rendered = _RENDERER.render_interaction(spec)
-    assert rendered == "?[%{{ " + variable + " }} A | B]"
-    assert InteractionParser().parse(rendered)["variable"] == variable
+    assert rendered == "?[%{{ " + question + " }} A | B]"
+    assert InteractionParser().parse(rendered)["variable"] == question
     assert _RENDERER.unrenderable_reason(spec) is None
 
 
-@pytest.mark.parametrize("variable", ["", " \t\n", "\u0085\u001f\u3000"])
-def test_legacy_blank_optional_keys_render_without_a_marker(variable: str) -> None:
+@pytest.mark.parametrize("question", ["", " \t\n", "\u0085\u001f\u3000"])
+def test_legacy_blank_optional_keys_render_without_a_marker(question: str) -> None:
     spec = InteractionSpec(
         type="single",
         prompt="Choose one",
-        variable=variable,
+        question=question,
         options=[Option(display="A")],
     )
     assert _RENDERER.render_interaction(spec) == "?[A]"
-    assert spec.variable == variable
+    assert spec.question == question
 
 
-@pytest.mark.parametrize("variable", ["a\x00b", "a\nb", "a\u2028b", "x}}y"])
-def test_renderer_rejects_keys_that_cannot_round_trip(variable: str) -> None:
+@pytest.mark.parametrize("question", ["a\x00b", "a\nb", "a\u2028b", "x}}y"])
+def test_renderer_rejects_keys_that_cannot_round_trip(question: str) -> None:
     spec = InteractionSpec(
         type="single",
         prompt="Choose one",
-        variable=variable,
+        question=question,
         options=[Option(display="A")],
     )
-    with pytest.raises(UnrepresentableInteractionError, match="Invalid variable name"):
+    with pytest.raises(UnrepresentableInteractionError, match="Invalid question text"):
         _RENDERER.render_interaction(spec)
-    assert _RENDERER.unrenderable_reason(spec) == "Invalid variable name"
+    assert _RENDERER.unrenderable_reason(spec) == "Invalid question text"
 
 
 def test_host_labels_stay_explicit_for_opaque_named_text_input() -> None:
-    spec = InteractionSpec(type="text", prompt="Explain", variable="Your goal?")
+    spec = InteractionSpec(type="text", prompt="Explain", question="Your goal?")
     rendered = _RENDERER.render_interaction(spec)
     parsed = InteractionParser().parse(rendered)
     assert parsed["variable"] == "Your goal?"

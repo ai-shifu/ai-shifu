@@ -38,12 +38,12 @@ import {
   useRef,
 } from 'react';
 import {
-  getStoredPreviewVariables,
-  mapKeysToStoredVariables,
-  PreviewVariablesMap,
-  savePreviewVariables,
-  StoredVariablesByScope,
-} from '@/components/lesson-preview/variableStorage';
+  getStoredPreviewMemory,
+  mapKeysToStoredMemory,
+  PreviewMemoryMap,
+  savePreviewMemory,
+  StoredMemoryByScope,
+} from '@/components/lesson-preview/memoryStorage';
 import { useTracking } from '@/hooks/useTracking';
 import {
   buildOutlineCreateAnalytics,
@@ -74,7 +74,7 @@ const readHiddenFromStorage = (shifuId?: string): string[] => {
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(item => typeof item === 'string');
   } catch (error) {
-    console.warn('Failed to read hidden variables from storage', error);
+    console.warn('Failed to read hidden questions from storage', error);
     return [];
   }
 };
@@ -88,7 +88,7 @@ const writeHiddenToStorage = (shifuId: string, hiddenKeys: string[]) => {
   try {
     window.localStorage.setItem(key, JSON.stringify(hiddenKeys));
   } catch (error) {
-    console.warn('Failed to write hidden variables to storage', error);
+    console.warn('Failed to write hidden questions to storage', error);
   }
 };
 
@@ -205,9 +205,9 @@ export const ShifuProvider = ({
   >([]);
   const [models, setModels] = useState<ModelOption[]>([]);
   const [mdflow, setMdflow] = useState<string>('');
-  const [variables, setVariables] = useState<string[]>([]);
-  const [hiddenVariables, setHiddenVariables] = useState<string[]>([]);
-  const [unusedVariables, setUnusedVariables] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [hiddenQuestions, setHiddenQuestions] = useState<string[]>([]);
+  const [unusedQuestions, setUnusedQuestions] = useState<string[]>([]);
   const [hideUnusedMode, setHideUnusedMode] = useState(false);
   const [baseRevision, setBaseRevision] = useState<number | null>(null);
   const [latestDraftMeta, setLatestDraftMeta] = useState<DraftMeta | null>(
@@ -234,15 +234,15 @@ export const ShifuProvider = ({
       string,
       {
         list: ProfileItem[];
-        systemVariableKeys: string[];
+        systemMemoryKeys: string[];
         unusedKeys?: string[];
         updatedAt: number;
       }
     >
   >({});
-  const [systemVariables, setSystemVariables] = useState<
-    Record<string, string>[]
-  >([]);
+  const [systemMemory, setSystemMemory] = useState<Record<string, string>[]>(
+    [],
+  );
   const currentOutlineRef = useRef<string | null>(null);
 
   const internalSetCurrentNode = (node: Outline | null) => {
@@ -729,7 +729,7 @@ export const ShifuProvider = ({
       }
       setChapters(list);
       buildOutlineTree(list);
-      await refreshVariableUsage(shifuId);
+      await refreshQuestionUsage(shifuId);
     } catch (error) {
       console.error(error);
       setError('Failed to load chapters');
@@ -1498,23 +1498,19 @@ export const ShifuProvider = ({
     list: ProfileItem[],
     shifuId?: string,
     options?: { updateCache?: boolean },
-  ): { list: ProfileItem[]; systemVariableKeys: string[] } => {
+  ): { list: ProfileItem[]; systemMemoryKeys: string[] } => {
     const shouldUpdateCache = options?.updateCache ?? true;
     setProfileItemDefinations(list || []);
-    const sysVariables =
+    const sysQuestions =
       list
         ?.filter((item: ProfileItem) => item.profile_scope === 'system')
         .map((item: ProfileItem) => ({
           name: item.profile_key,
           label: item.profile_remark || '',
         })) || [];
-    setSystemVariables(sysVariables);
+    setSystemMemory(sysQuestions);
 
-    const customVariables =
-      list
-        ?.filter((item: ProfileItem) => item.profile_scope === 'user')
-        .map((item: ProfileItem) => item.profile_key) || [];
-    const hiddenVariableKeys =
+    const hiddenQuestionKeys =
       list
         ?.filter(
           (item: ProfileItem) =>
@@ -1522,26 +1518,25 @@ export const ShifuProvider = ({
         )
         .map((item: ProfileItem) => item.profile_key) || [];
 
-    setVariables(customVariables);
-    setHiddenVariables(hiddenVariableKeys);
+    setHiddenQuestions(hiddenQuestionKeys);
     if (shifuId) {
-      writeHiddenToStorage(shifuId, hiddenVariableKeys);
+      writeHiddenToStorage(shifuId, hiddenQuestionKeys);
       const storedMode = readHideModeFromStorage(shifuId);
       setHideUnusedMode(storedMode ?? false);
     }
 
-    const systemVariableKeys = sysVariables.map(variable => variable.name);
+    const systemMemoryKeys = sysQuestions.map(question => question.name);
     if (shifuId && shouldUpdateCache) {
       profileDefinitionCacheRef.current[shifuId] = {
         list,
-        systemVariableKeys,
+        systemMemoryKeys,
         updatedAt: Date.now(),
       };
     }
 
     return {
       list: list || [],
-      systemVariableKeys,
+      systemMemoryKeys,
     };
   };
 
@@ -1557,12 +1552,12 @@ export const ShifuProvider = ({
         applyProfileDefinitionList(cached.list, shifuId, {
           updateCache: false,
         });
-        setUnusedVariables(cached.unusedKeys || []);
+        setUnusedQuestions(cached.unusedKeys || []);
         return cached;
       }
       const storedHidden = readHiddenFromStorage(shifuId);
       if (!cached && storedHidden.length > 0) {
-        setHiddenVariables(storedHidden);
+        setHiddenQuestions(storedHidden);
       }
       try {
         const [list, usage] = await Promise.all([
@@ -1572,40 +1567,40 @@ export const ShifuProvider = ({
           }),
           api.getProfileVariableUsage({ parent_id: shifuId }),
         ]);
-        const { systemVariableKeys } =
+        const { systemMemoryKeys } =
           applyProfileDefinitionList(list || [], shifuId) || {};
         const unusedKeys = usage?.unused_keys || [];
-        setUnusedVariables(unusedKeys);
+        setUnusedQuestions(unusedKeys);
         profileDefinitionCacheRef.current[shifuId] = {
           list: list || [],
-          systemVariableKeys: systemVariableKeys || [],
+          systemMemoryKeys: systemMemoryKeys || [],
           unusedKeys,
           updatedAt: Date.now(),
         };
         return {
           list: list || [],
-          systemVariableKeys: systemVariableKeys || [],
+          systemMemoryKeys: systemMemoryKeys || [],
           unusedKeys,
         };
       } catch (error) {
         console.error(error);
         setProfileItemDefinations([]);
-        setSystemVariables([]);
-        setVariables([]);
-        setUnusedVariables([]);
+        setSystemMemory([]);
+        setQuestions([]);
+        setUnusedQuestions([]);
         throw error;
       }
     },
     [],
   );
 
-  const refreshVariableUsage = useCallback(async (shifuId: string) => {
+  const refreshQuestionUsage = useCallback(async (shifuId: string) => {
     try {
       const usage = await api.getProfileVariableUsage({
         parent_id: shifuId,
       });
       const unusedKeys = usage?.unused_keys || [];
-      setUnusedVariables(unusedKeys);
+      setUnusedQuestions(unusedKeys);
       const cached = profileDefinitionCacheRef.current[shifuId];
       if (cached) {
         profileDefinitionCacheRef.current[shifuId] = {
@@ -1616,7 +1611,7 @@ export const ShifuProvider = ({
       return usage;
     } catch (error) {
       console.error(error);
-      setUnusedVariables([]);
+      setUnusedQuestions([]);
       return null;
     }
   }, []);
@@ -1631,8 +1626,8 @@ export const ShifuProvider = ({
       await refreshProfileDefinitions(shifuId);
     } catch (error) {
       console.error(error);
-      setSystemVariables([]);
-      setVariables([]);
+      setSystemMemory([]);
+      setQuestions([]);
     } finally {
       setIsLoading(false);
     }
@@ -1643,16 +1638,16 @@ export const ShifuProvider = ({
     shifuId: string,
     outlineId: string,
   ): Promise<{
-    variables: PreviewVariablesMap;
+    memory: PreviewMemoryMap;
     blocksCount: number;
-    systemVariableKeys: string[];
-    allVariableKeys?: string[];
+    systemMemoryKeys: string[];
+    allQuestionKeys?: string[];
     unusedKeys?: string[];
   }> => {
     try {
       const resolvedShifuId = shifuId || currentShifu?.bid || '';
       const resolvedOutlineId = outlineId || currentNode?.bid || '';
-      const { systemVariableKeys, unusedKeys } =
+      const { systemMemoryKeys, unusedKeys } =
         (await refreshProfileDefinitions(resolvedShifuId, {
           forceRefresh: true,
         })) || {};
@@ -1661,34 +1656,34 @@ export const ShifuProvider = ({
         outline_bid: resolvedOutlineId,
         data: value,
       });
-      const variableKeys = result?.variables || [];
+      const questionKeys: string[] = result?.questions || [];
+      setQuestions(questionKeys);
       const resolvedSystemKeys =
-        systemVariableKeys && systemVariableKeys.length
-          ? systemVariableKeys
-          : systemVariables?.map(variable => variable.name).filter(Boolean) ||
-            [];
-      const storedVariables: StoredVariablesByScope =
-        getStoredPreviewVariables(resolvedShifuId);
-      const variablesMap = mapKeysToStoredVariables(
-        variableKeys,
-        storedVariables,
+        systemMemoryKeys && systemMemoryKeys.length
+          ? systemMemoryKeys
+          : systemMemory?.map(question => question.name).filter(Boolean) || [];
+      const storedQuestions: StoredMemoryByScope =
+        getStoredPreviewMemory(resolvedShifuId);
+      const questionsMap = mapKeysToStoredMemory(
+        [...resolvedSystemKeys, ...questionKeys],
+        storedQuestions,
         resolvedSystemKeys,
       );
-      savePreviewVariables(resolvedShifuId, variablesMap, resolvedSystemKeys);
+      savePreviewMemory(resolvedShifuId, questionsMap, resolvedSystemKeys);
       return {
-        variables: variablesMap,
+        memory: questionsMap,
         blocksCount: result?.blocks_count ?? 0,
-        systemVariableKeys: resolvedSystemKeys,
-        allVariableKeys: variableKeys,
+        systemMemoryKeys: resolvedSystemKeys,
+        allQuestionKeys: questionKeys,
         unusedKeys,
       };
     } catch (error) {
       console.error(error);
-      return { variables: {}, blocksCount: 0, systemVariableKeys: [] };
+      return { memory: {}, blocksCount: 0, systemMemoryKeys: [] };
     }
   };
 
-  const hideUnusedVariables = async (shifuId: string) => {
+  const hideUnusedQuestions = async (shifuId: string) => {
     try {
       const list = await api.hideUnusedProfileItems({
         parent_id: shifuId,
@@ -1696,12 +1691,12 @@ export const ShifuProvider = ({
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
         logProfileAction('hide_unused', shifuId, list as ProfileItem[]);
-        await refreshVariableUsage(shifuId);
+        await refreshQuestionUsage(shifuId);
       } else {
         delete profileDefinitionCacheRef.current[shifuId];
         await Promise.all([
           refreshProfileDefinitions(shifuId),
-          refreshVariableUsage(shifuId),
+          refreshQuestionUsage(shifuId),
         ]);
       }
       setHideUnusedMode(true);
@@ -1711,7 +1706,7 @@ export const ShifuProvider = ({
     }
   };
 
-  const hideVariableByKey = async (shifuId: string, key: string) => {
+  const hideQuestionByKey = async (shifuId: string, key: string) => {
     if (!key) return;
     try {
       const list = await api.updateProfileHiddenState({
@@ -1721,12 +1716,12 @@ export const ShifuProvider = ({
       });
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
-        await refreshVariableUsage(shifuId);
+        await refreshQuestionUsage(shifuId);
       } else {
         delete profileDefinitionCacheRef.current[shifuId];
         await Promise.all([
           refreshProfileDefinitions(shifuId),
-          refreshVariableUsage(shifuId),
+          refreshQuestionUsage(shifuId),
         ]);
       }
     } catch (error) {
@@ -1734,29 +1729,29 @@ export const ShifuProvider = ({
     }
   };
 
-  const restoreHiddenVariables = async (shifuId: string) => {
+  const restoreHiddenQuestions = async (shifuId: string) => {
     try {
-      if (!hiddenVariables.length) {
+      if (!hiddenQuestions.length) {
         setHideUnusedMode(false);
         writeHideModeToStorage(shifuId, false);
         return;
       }
       const list = await api.updateProfileHiddenState({
         parent_id: shifuId,
-        profile_keys: hiddenVariables,
+        profile_keys: hiddenQuestions,
         hidden: false,
       });
       if (list) {
         applyProfileDefinitionList(list as ProfileItem[], shifuId);
         logProfileAction('restore_hidden', shifuId, list as ProfileItem[], {
-          requestedKeys: hiddenVariables,
+          requestedKeys: hiddenQuestions,
         });
-        await refreshVariableUsage(shifuId);
+        await refreshQuestionUsage(shifuId);
       } else {
         delete profileDefinitionCacheRef.current[shifuId];
         await Promise.all([
           refreshProfileDefinitions(shifuId),
-          refreshVariableUsage(shifuId),
+          refreshQuestionUsage(shifuId),
         ]);
       }
       setHideUnusedMode(false);
@@ -1766,7 +1761,7 @@ export const ShifuProvider = ({
     }
   };
 
-  const syncHiddenVariablesToUsage = useCallback(
+  const syncHiddenQuestionsToUsage = useCallback(
     async (
       shifuId: string,
       options?: { unusedKeys?: string[]; hiddenKeys?: string[] },
@@ -1777,10 +1772,10 @@ export const ShifuProvider = ({
       const storedHidden = readHiddenFromStorage(shifuId);
       const resolvedHiddenKeys =
         options?.hiddenKeys ??
-        (storedHidden.length ? storedHidden : hiddenVariables);
+        (storedHidden.length ? storedHidden : hiddenQuestions);
       let resolvedUnusedKeys = options?.unusedKeys;
       if (!resolvedUnusedKeys) {
-        const usage = await refreshVariableUsage(shifuId);
+        const usage = await refreshQuestionUsage(shifuId);
         if (!usage) {
           return;
         }
@@ -1833,9 +1828,9 @@ export const ShifuProvider = ({
     [
       applyProfileDefinitionList,
       hideUnusedMode,
-      hiddenVariables,
+      hiddenQuestions,
       refreshProfileDefinitions,
-      refreshVariableUsage,
+      refreshQuestionUsage,
     ],
   );
 
@@ -2039,10 +2034,10 @@ export const ShifuProvider = ({
     blockUITypes,
     blockContentTypes,
     mdflow,
-    variables,
-    hiddenVariables,
-    systemVariables,
-    unusedVariables,
+    questions,
+    hiddenQuestions,
+    systemMemory,
+    unusedQuestions,
     hideUnusedMode,
     baseRevision,
     latestDraftMeta,
@@ -2094,11 +2089,11 @@ export const ShifuProvider = ({
       setAutosavePaused,
       parseMdflow,
       previewParse,
-      hideUnusedVariables,
-      restoreHiddenVariables,
-      hideVariableByKey,
-      syncHiddenVariablesToUsage,
-      unhideVariablesByKeys: async (shifuId: string, keys: string[]) => {
+      hideUnusedQuestions,
+      restoreHiddenQuestions,
+      hideQuestionByKey,
+      syncHiddenQuestionsToUsage,
+      unhideQuestionsByKeys: async (shifuId: string, keys: string[]) => {
         if (!keys.length) return;
         try {
           const list = await api.updateProfileHiddenState({
@@ -2111,12 +2106,12 @@ export const ShifuProvider = ({
             logProfileAction('unhide_by_keys', shifuId, list as ProfileItem[], {
               requestedKeys: keys,
             });
-            await refreshVariableUsage(shifuId);
+            await refreshQuestionUsage(shifuId);
           } else {
             delete profileDefinitionCacheRef.current[shifuId];
             await Promise.all([
               refreshProfileDefinitions(shifuId),
-              refreshVariableUsage(shifuId),
+              refreshQuestionUsage(shifuId),
             ]);
           }
         } catch (error) {
@@ -2124,7 +2119,7 @@ export const ShifuProvider = ({
         }
       },
       refreshProfileDefinitions,
-      refreshVariableUsage,
+      refreshQuestionUsage,
       setCurrentMdflow,
       getCurrentMdflow,
       hasUnsavedMdflow,

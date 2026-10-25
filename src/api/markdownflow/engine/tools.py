@@ -27,13 +27,14 @@ from .direction import (
 from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .marker_context import analyze_marker_context, marker_syntax_source
-from .session import answer_fingerprint
-from .variable_names import (
-    VARIABLE_ASSIGNMENT_SOURCE,
+from .questions import (
+    MAX_QUESTION_LENGTH,
+    QUESTION_SOURCE,
     find_interaction_spans,
-    normalize_variable_name,
-    read_variable_marker,
+    normalize_question,
+    read_question_marker,
 )
+from .session import answer_fingerprint
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -144,7 +145,7 @@ def recall_exclusions(deps: Deps) -> frozenset[str]:
     )
 
 
-_VARIABLE = re.compile(r"^\s*" + VARIABLE_ASSIGNMENT_SOURCE)
+_QUESTION_MARKER = re.compile(r"^\s*" + QUESTION_SOURCE)
 
 
 def _is_escape(text: str, index: int) -> bool:
@@ -157,7 +158,7 @@ def _find_unescaped(text: str, needle: str, start: int = 0) -> int:
     index = start
     while index < len(text):
         if text.startswith("{{", index):
-            marker = read_variable_marker(text, index)
+            marker = read_question_marker(text, index)
             if marker is None:
                 return -1
             index = marker.end
@@ -188,7 +189,7 @@ def _split_on_single_pipe(text: str) -> list[str]:
     index = 0
     while index < len(text):
         if text.startswith("{{", index):
-            marker = read_variable_marker(text, index)
+            marker = read_question_marker(text, index)
             index = marker.end if marker is not None else len(text)
             continue
         if _is_escape(text, index):
@@ -214,7 +215,7 @@ def _unescape(text: str) -> str:
     index = 0
     while index < len(text):
         if text.startswith("{{", index):
-            marker = read_variable_marker(text, index)
+            marker = read_question_marker(text, index)
             end = marker.end if marker is not None else len(text)
             out.append(text[index:end])
             index = end
@@ -231,7 +232,7 @@ def _unescape(text: str) -> str:
 def script_options(script_text: str) -> dict[str, str]:
     """Map every option of the script's `?[...]` questions, as written, to what it means.
 
-    Split the way MarkdownFlow splits them: a leading `%{{variable}}` and a trailing `...`
+    Split the way MarkdownFlow splits them: a leading `%{{question}}` and a trailing `...`
     placeholder are not options, `||` separates the choices of a multiple choice and `|` those of
     a single one, and `//` separates what is shown from what is stored. Questions shown inside a
     code fence are examples, not questions. Both halves of `display//value` are entries of their
@@ -250,14 +251,14 @@ def script_options(script_text: str) -> dict[str, str]:
 def script_pauses(script_text: str) -> int:
     """Count the places the script pauses the lesson: a `?[...]` that is a single button.
 
-    One choice, no variable to store it in and no text box -- `?[继续]`, `?[准备好了//continue]` --
+    One choice, no question to store it in and no text box -- `?[继续]`, `?[准备好了//continue]` --
     is how MarkdownFlow writes "wait here until the learner goes on". A 1.0 lesson pauses there
     and nowhere else.
     """
     return sum(
         1
         for question in _script_questions(script_text)
-        if not question.variable
+        if not question.question
         and not question.text
         and len([c for c in question.choices if c.strip()]) == 1
     )
@@ -267,7 +268,7 @@ def script_pauses(script_text: str) -> int:
 class _Question:
     """One `?[...]` of a script, split the way MarkdownFlow splits it."""
 
-    variable: str | None
+    question: str | None
     text: bool
     choices: list[str]
     placeholder: str | None
@@ -285,7 +286,7 @@ def _script_questions(script_text: str) -> list[_Question]:
     ):
         end = end_exclusive - 1
         raw = text[start + 2 : end]
-        body = _VARIABLE.sub("", raw)
+        body = _QUESTION_MARKER.sub("", raw)
         newline = min(
             (
                 at
@@ -306,8 +307,8 @@ def _script_questions(script_text: str) -> list[_Question]:
             choices = _split_unescaped(body, "||")
         questions.append(
             _Question(
-                variable=normalize_variable_name(match.group(1))
-                if (match := _VARIABLE.match(raw))
+                question=normalize_question(match.group(1))
+                if (match := _QUESTION_MARKER.match(raw))
                 else None,
                 text=ellipsis >= 0,
                 choices=choices,
@@ -324,49 +325,10 @@ def _script_questions(script_text: str) -> list[_Question]:
 
 
 def script_text_inputs(script_text: str) -> tuple[_Question, ...]:
-    """Read authored input hints; examples in comments do not define a learner question."""
-    context = analyze_marker_context(script_text, fence_indent=3)
-    syntax = list(script_text)
-    for marker in context.markers:
-        # Document scanning bounds examples before protection, so an unfinished
-        # literal marker cannot hide a real outer comment or fence terminator.
-        syntax[marker.start : marker.end] = [
-            char if char in "\r\n" else "x"
-            for char in script_text[marker.start : marker.end]
-        ]
-    lines: list[str] = []
-    syntax_lines: list[str] = []
-    opening: str | None = None
-    offset = 0
-    for line in "".join(syntax).splitlines(keepends=True):
-        fence = re.match(r"^[ ]{0,3}(`{3,}|~{3,})(.*)$", line)
-        if opening is not None:
-            if (
-                fence
-                and fence.group(1)[0] == opening[0]
-                and len(fence.group(1)) >= len(opening)
-                and not fence.group(2).strip()
-            ):
-                opening = None
-        elif fence:
-            opening = fence.group(1)
-        elif line.expandtabs(4).startswith("    "):
-            ending = line[len(line.rstrip("\r\n")) :]
-            lines.append(ending)  # Retain the blank line after an indented example.
-            syntax_lines.append(ending)
-        else:
-            lines.append(script_text[offset : offset + len(line)])
-            syntax_lines.append(line)
-        offset += len(line)
-    source = "".join(lines)
-    parts: list[str] = []
-    offset = 0
-    for comment in re.finditer(r"<!--.*?-->", "".join(syntax_lines), re.DOTALL):
-        parts.append(source[offset : comment.start()])
-        offset = comment.end()
-    parts.append(source[offset:])
-    text = "".join(parts)
-    return tuple(q for q in _script_questions(text) if q.placeholder)
+    """Read authored text inputs directly without rewriting any question text."""
+    return tuple(
+        question for question in _script_questions(script_text) if question.text
+    )
 
 
 def normalize_script_text_input(
@@ -377,14 +339,14 @@ def normalize_script_text_input(
 
     The remaining stored values must be the author's exact ordered choices; display text
     may be translated. A hint stored as a real choice or a model-created value is kept.
-    Text-only questions must match the copied prompt and the same variable.
+    Text-only questions must match the copied prompt and the same question.
     Ambiguous questions and unrelated explicit placeholders are left unchanged.
     """
     if spec.type == "text" and not spec.options and not spec.placeholder:
         hints = {
             q.placeholder
             for q in questions
-            if q.variable == spec.variable
+            if q.question == spec.question
             and not any(c.strip() for c in q.choices)
             and spec.prompt.strip() in (q.placeholder, q.written_placeholder)
         }
@@ -393,7 +355,7 @@ def normalize_script_text_input(
     candidates: dict[str, InteractionSpec] = {}
     submitted = [o.stored for o in spec.options]
     for question in questions:
-        if question.variable != spec.variable:
+        if question.question != spec.question:
             continue
         kinds = (
             ("multi", "multi_or_text")
@@ -520,7 +482,7 @@ def _visible(text: str) -> str:
 def _question(
     kind: str,
     prompt: str,
-    variable: str | None,
+    question: str | None,
     options: list[Option] | None,
     placeholder: str | None,
     written: dict[str, str],
@@ -535,7 +497,7 @@ def _question(
     return (
         kind,
         prompt.strip(),
-        variable or None,
+        question or None,
         tuple((o.display, o.value or None) for o in options or []),
         (placeholder or "").strip() or None,
     )
@@ -551,7 +513,7 @@ def _asked(call: ToolCallPart, written: dict[str, str]) -> tuple[object, ...] | 
     return _question(
         args.get("type"),
         args.get("prompt") or "",
-        args.get("variable"),
+        args.get("question", args.get("variable")),
         options,
         args.get("placeholder"),
         written,
@@ -562,14 +524,14 @@ def asks_the_answered_question_again(
     ctx: RunContext[Deps],
     kind: str,
     prompt: str,
-    variable: str | None,
+    question: str | None,
     options: list[Option] | None = None,
     placeholder: str | None = None,
 ) -> bool:
     """Whether this call repeats, word for word, the turn that asked a question just answered.
 
     Seen on the general-education course (2026-09-24): the learner named a book, and the model
-    wrote the same paragraph and asked "which book?" again, with the same variable -- every answer
+    wrote the same paragraph and asked "which book?" again, with the same question -- every answer
     after that got the identical paragraph and question, 14 times. A question put again after a
     wrong answer is not this: the model says something about the answer first, so the words
     before it differ.
@@ -585,7 +547,7 @@ def asks_the_answered_question_again(
     if len(now) < _LOOP_FLOOR_CHARS:
         return False
     written = ctx.deps.script_options
-    question = _question(kind, prompt, variable, options, placeholder, written)
+    signature = _question(kind, prompt, question, options, placeholder, written)
     for index in range(min(start, len(messages)) - 1, -1, -1):
         msg = messages[index]
         if not isinstance(msg, ModelResponse):
@@ -597,7 +559,7 @@ def asks_the_answered_question_again(
         ]
         if not calls:
             continue
-        matching = [call for call in calls if _asked(call, written) == question]
+        matching = [call for call in calls if _asked(call, written) == signature]
         return any(
             _turn_text_before(messages, index, call.tool_call_id) == now
             for call in matching
@@ -781,7 +743,7 @@ async def interact(
     type: InteractionType,  # noqa: A002 - the model sends this name; it is the tool's contract
     prompt: str,
     options: list[Option] | None = None,
-    variable: str | None = None,
+    question: str | None = None,
     placeholder: str | None = None,
     direction: DirectionFeedback | None = None,
     review: FeedbackReview | None = None,
@@ -794,13 +756,14 @@ async def interact(
     `confirm`: one "continue"-style button; use it ONLY when the script itself asks for a pause
     without a question -- never on your own judgement, not between steps, not after a visual --
     and only after you have presented content in this turn (a confirm on its own is rejected).
-    A `confirm` never takes a `variable`: pressing it says "go on", not an answer, and it is
+    A `confirm` never takes a `question`: pressing it says "go on", not an answer, and it is
     dropped. To have the learner check something you wrote, ask it as `single`, or write the
     read-back as content and pause with a plain `confirm`.
-    Give `options` for every type except `text`. `variable` is ONLY for a memory key the script
-    explicitly names; follow the host memory policy for eligible declarations. Leave it empty
-    otherwise. Copy its exact internal text, including spaces and punctuation; only surrounding
-    whitespace is trimmed. Do not translate, rename or collapse spaces in a declared name.
+    Give `options` for every type except `text`. `question` is the text inside the main
+    script's `?[%{{question text}} ...]` marker and the memory key for its answer.
+    Follow the host memory policy for eligible questions. Leave it empty otherwise.
+    Copy the exact question text, including spaces and punctuation; only surrounding
+    whitespace is trimmed. Do not translate, rename or collapse spaces in that text.
     The learner's answer is returned as the tool result; then continue the script.
     Before personal feedback and the next interaction, cite the original submission
     supporting each claimed misconception. A quoted denial of prior storage does not
@@ -849,7 +812,7 @@ async def interact(
     unanswered questions are displayed; diagnoses/criteria stay internal. The host
     checks provenance, not correctness or semantic focus.
     Use type `text`, an empty `prompt`, and the same authored placeholder and eligible
-    variable as the answered input. Do not add another tool call or any free
+    question as the answered input. Do not add another tool call or any free
     content to that model response. This collects the correction directly, without
     a planning request. For passing answers, later authored help, navigation,
     clarification, stages without an authored count, multiple questions within one
@@ -874,22 +837,25 @@ async def interact(
             review = feedback
     validate_direction_call(ctx, review=review)
     response = current_tool_response(ctx)
-    if variable is not None and not variable.strip():
+    if question is not None and not question.strip():
         # An empty optional argument means the answer has no memory key.
-        variable = None
-    if variable is not None:
-        normalized_variable = normalize_variable_name(variable)
-        if normalized_variable is None:
-            message = "Use a nonblank variable name without control characters or a closing brace pair."
+        question = None
+    if question is not None:
+        normalized_question = normalize_question(question)
+        if normalized_question is None:
+            message = "Use nonblank question text without control characters or a closing brace pair."
             raise ModelRetry(message)
-        variable = normalized_variable
-    if variable and variable.startswith(ctx.deps.memory_readonly_prefixes):
-        message = "This variable is a read-only reference. Ask using a local variable instead."
+        if len(normalized_question) > MAX_QUESTION_LENGTH:
+            message = f"Question text must be at most {MAX_QUESTION_LENGTH} characters; never truncate the authored question."
+            raise ModelRetry(message)
+        question = normalized_question
+    if question and question.startswith(ctx.deps.memory_readonly_prefixes):
+        message = "This question targets read-only memory. Ask a question in the current course instead."
         raise ModelRetry(message)
-    if ctx.deps.memory_keys is not None and variable not in ctx.deps.memory_keys:
-        variable = None
+    if ctx.deps.memory_keys is not None and question not in ctx.deps.memory_keys:
+        question = None
     if type != "confirm" and asks_the_answered_question_again(
-        ctx, type, prompt, variable, options, placeholder
+        ctx, type, prompt, question, options, placeholder
     ):
         # Not a flat refusal: a script can ask again after a wrong answer, with the same
         # correction each time. Put that way, it is said to this answer and so reads differently.
@@ -922,7 +888,7 @@ async def interact(
         type=type,
         prompt=prompt,
         options=options or [],
-        variable=variable,
+        question=question,
         placeholder=placeholder,
     )
     spec = normalize_script_text_input(spec, ctx.deps.script_text_inputs)
@@ -946,7 +912,7 @@ async def interact(
             or spec.type != "text"
             or spec.prompt != ""
             or spec.placeholder != previous.placeholder
-            or spec.variable != previous.variable
+            or spec.question != previous.question
         ):
             problem = (
                 "direction requires an empty prompt and the original text input binding"
@@ -974,7 +940,7 @@ async def interact(
         msg = (
             f"The learner cannot be shown this question: {problem}. Call `interact` again "
             "with the same question, rewriting what the problem names: every option must be "
-            "non-empty single-line text that preserves its authored meaning, and the variable must preserve the script's exact name."
+            "non-empty single-line text that preserves its authored meaning, and the question must preserve the script's exact question text."
         )
         raise ModelRetry(msg)
     ctx.deps.interaction_markup_pending = False
@@ -984,8 +950,8 @@ async def interact(
 
 
 # Bound model-authored notes, not author-named interaction answers or loaded history.
-# Key length matches the host's variable storage; lengths count Unicode characters.
-_MEMORY_KEY_LIMIT = 255
+# Key length matches the host's memory storage; lengths count Unicode characters.
+_MEMORY_KEY_LIMIT = MAX_QUESTION_LENGTH
 _MEMORY_VALUE_LIMIT = 2000
 _MEMORY_ENTRY_LIMIT = 100
 # Match the JSON character count used by the initial memory prompt, including escaping.
@@ -1120,7 +1086,7 @@ async def remember(
     `key` preserves the declared name's exact internal text; only surrounding whitespace is
     trimmed. Spaces and punctuation are allowed, but internal control characters and `}}` are
     not. `value` is the learner's own words or the concrete fact.
-    `scope="session"` (default) is for this script run (answers, collected variables);
+    `scope="session"` (default) is for this script run (answers, collected questions);
     `scope="user"` is for things that should follow the learner into future sessions
     (preferences, stable facts, requests like "keep answers short"). Overwrites an existing key.
 
@@ -1128,7 +1094,7 @@ async def remember(
     100 or more entries accepts updates to existing keys only. Each scope has a budget of 32768
     characters of pretty-printed JSON. A larger existing scope accepts only non-growing updates.
     A refused note changes nothing; continue teaching instead of repeatedly trying to store it.
-    Existing history and answers recorded by `interact(variable=...)` are preserved without
+    Existing history and answers recorded by `interact(question=...)` are preserved without
     these model-note limits.
     Record required notes before `finish`; a finished lesson accepts no further model notes.
 
@@ -1137,7 +1103,7 @@ async def remember(
         validate_direction_call(ctx, review=review)
     if ctx.deps.finished is not None:
         return LESSON_OVER
-    normalized_key = normalize_variable_name(key)
+    normalized_key = normalize_question(key)
     if normalized_key is None or len(normalized_key) > _MEMORY_KEY_LIMIT:
         return "Not remembered: use a nonblank key of at most 255 characters. Continue teaching."
     key = normalized_key

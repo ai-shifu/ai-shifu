@@ -1,18 +1,20 @@
-"""Opaque variable names and the first-closing-brace marker contract."""
+"""Literal question text and the first-closing-brace marker contract."""
 
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-VARIABLE_BODY_SOURCE = r"(?:(?!\}\})[\s\S])*"
-VARIABLE_REFERENCE_SOURCE = r"\{\{(" + VARIABLE_BODY_SOURCE + r")\}\}"
-VARIABLE_ASSIGNMENT_SOURCE = "%" + VARIABLE_REFERENCE_SOURCE
-VARIABLE_ASSIGNMENT_UNIT_SOURCE = r"%\{\{" + VARIABLE_BODY_SOURCE + r"\}\}"
-VARIABLE_REFERENCE_UNIT_SOURCE = r"\{\{" + VARIABLE_BODY_SOURCE + r"\}\}"
+MAX_QUESTION_LENGTH = 255
+
+QUESTION_BODY_SOURCE = r"(?:(?!\}\})[\s\S])*"
+QUESTION_MARKER_SOURCE = r"\{\{(" + QUESTION_BODY_SOURCE + r")\}\}"
+QUESTION_SOURCE = "%" + QUESTION_MARKER_SOURCE
+QUESTION_UNIT_SOURCE = r"%\{\{" + QUESTION_BODY_SOURCE + r"\}\}"
+QUESTION_MARKER_UNIT_SOURCE = r"\{\{" + QUESTION_BODY_SOURCE + r"\}\}"
 _INVALID_NAME = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]")
 
 
-def normalize_variable_name(raw: str) -> str | None:
+def normalize_question(raw: str) -> str | None:
     """Trim Python whitespace while preserving every character inside a valid name."""
     name = raw.strip()
     if not name or "}}" in name or _INVALID_NAME.search(name):
@@ -21,7 +23,7 @@ def normalize_variable_name(raw: str) -> str | None:
 
 
 @dataclass(frozen=True)
-class VariableMarker:
+class QuestionMarker:
     """One whole marker, including an invalid name that must not be reparsed inside."""
 
     start: int
@@ -30,7 +32,7 @@ class VariableMarker:
     name: str | None
 
 
-def read_variable_marker(text: str, start: int = 0) -> VariableMarker | None:
+def read_question_marker(text: str, start: int = 0) -> QuestionMarker | None:
     """Read exactly at start; the first literal closing pair always ends the marker."""
     if not text.startswith("{{", start):
         return None
@@ -38,38 +40,41 @@ def read_variable_marker(text: str, start: int = 0) -> VariableMarker | None:
     if close < 0:
         return None
     raw = text[start + 2 : close]
-    return VariableMarker(start, close + 2, raw, normalize_variable_name(raw))
+    return QuestionMarker(start, close + 2, raw, normalize_question(raw))
 
 
-def find_variable_markers(text: str) -> Iterator[VariableMarker]:
-    """Yield non-overlapping markers without recursively reading their names."""
+def find_question_markers(text: str) -> Iterator[QuestionMarker]:
+    """Yield non-overlapping markers without recursively reading their questions."""
     at = 0
     while (start := text.find("{{", at)) >= 0:
-        marker = read_variable_marker(text, start)
+        marker = read_question_marker(text, start)
         if marker is None:
             return
         yield marker
         at = marker.end
 
 
-def format_variable_reference(raw: str) -> str | None:
+def format_question_marker(raw: str) -> str | None:
     """Pad a normalized name so even a final single brace remains part of the name."""
-    name = normalize_variable_name(raw)
+    name = normalize_question(raw)
     return "{{ " + name + " }}" if name is not None else None
 
 
-def format_variable_assignment(raw: str) -> str | None:
-    """Render an assignment without introducing an escape or quote decoding rule."""
-    reference = format_variable_reference(raw)
+def format_question(raw: str) -> str | None:
+    """Render a question marker without introducing an escape or quote decoding rule."""
+    question = normalize_question(raw)
+    if question is None or len(question) > MAX_QUESTION_LENGTH:
+        return None
+    reference = format_question_marker(question)
     return "%" + reference if reference is not None else None
 
 
 def find_interaction_end(text: str, start: int = 0) -> int:
-    """Find a closing bracket after skipping whole assignment markers and option escapes."""
+    """Find a closing bracket without splitting its question or literal option groups."""
     at = start
     while at < len(text):
         if text.startswith("{{", at):
-            marker = read_variable_marker(text, at)
+            marker = read_question_marker(text, at)
             if marker is None:
                 return -1
             at = marker.end
@@ -85,16 +90,11 @@ def find_interaction_end(text: str, start: int = 0) -> int:
 def find_interaction_spans(
     text: str, *, syntax_source: str | None = None
 ) -> Iterator[tuple[int, int]]:
-    """Scan without restarting inside complete or unterminated marker text."""
+    """Find authored controls while treating standalone braces as ordinary text."""
     source = syntax_source if syntax_source is not None else text
     at = 0
     while at < len(text):
-        if source.startswith("{{", at):
-            marker = read_variable_marker(text, at)
-            if marker is None:
-                return
-            at = marker.end
-        elif source.startswith("?[", at) and (not at or text[at - 1] != "\\"):
+        if source.startswith("?[", at) and (not at or text[at - 1] != "\\"):
             end = find_interaction_end(text, at + 2)
             if end < 0:
                 return

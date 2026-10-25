@@ -28,6 +28,7 @@
     "profileOnboardingPromptGenerationFailed": "代答提示词生成失败，配置未发布。你的输入仍保留，请重试。",
     "profileTypeInvalid": "变量类型不正确",
     "profileTypeRequired": "变量类型必选",
+    "questionTooLong": "问题文本同时作为记忆的键，不能超过 255 个字符。",
     "sex": "性别",
     "sexFemale": "女",
     "sexMale": "男",

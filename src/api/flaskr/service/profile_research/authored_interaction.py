@@ -1,81 +1,76 @@
-"""Keep static profile questions faithful to their authored answer contract."""
+"""Keep profile controls faithful to the native authored question contract."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from flaskr.api.markdownflow import (
-    render_question,
-    substitute_variables,
-    unrenderable_reason,
+from flaskr.api.markdownflow import render_question, unrenderable_reason
+from markdownflow.engine.tools import (
+    _find_unescaped,
+    _script_questions,
+    _unescape,
 )
-from markdown_flow import InteractionParser
-from markdown_flow.escaping import find_unescaped
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from flaskr.api.markdownflow import InteractionSpec
+    from markdownflow.engine.tools import _Question
+
+
+def authored_option_values(question: _Question) -> list[tuple[str, str]]:
+    """Read exact labels and stored values using the native control escapes."""
+    values = []
+    for choice in question.choices:
+        if not choice.strip():
+            continue
+        separator = _find_unescaped(choice, "//")
+        display = _unescape((choice[:separator] if separator >= 0 else choice).strip())
+        value = (
+            _unescape(choice[separator + 2 :].strip()) if separator >= 0 else display
+        )
+        values.append((display, value))
+    return values
 
 
 def check_authored_interaction(
-    spec: InteractionSpec, source: str, variables: Mapping[str, object]
+    spec: InteractionSpec, authored: _Question
 ) -> str | None:
-    """Reject changed bindings, input kinds, or ordered stored values.
-
-    Display labels, prompts and text hints may be localized. An unassigned
-    single button may use the engine's canonical confirm value, unless the
-    author explicitly supplied a machine value with ``Display//value``.
-    Hosts may match this contract against any authored question in a full script.
-    """
-    rendered_source = substitute_variables(source, variables)
-    parser = InteractionParser()
-    authored = parser.parse(rendered_source)
-    if authored.get("type") is None:
-        return (
-            "The authored interaction could not be parsed. Keep its original controls."
-        )
-
-    variable = authored.get("variable") or None
-    if (spec.variable or None) != variable:
-        return "Keep the authored interaction's variable binding unchanged."
-
-    buttons = authored.get("buttons") or []
-    has_text = "question" in authored
-    multi = bool(authored.get("is_multi_select"))
+    """Reject changed question keys, input kinds or ordered stored values."""
+    if (spec.question or None) != authored.question:
+        return "Keep the authored question text unchanged; it is the memory key."
+    buttons = authored_option_values(authored)
     expected_type = (
-        ("multi_or_text" if multi else "single_or_text")
-        if buttons and has_text
-        else ("multi" if multi else "single")
+        ("multi_or_text" if authored.multi else "single_or_text")
+        if buttons and authored.text
+        else ("multi" if authored.multi else "single")
         if buttons
         else "text"
     )
     is_confirm = (
         spec.type == "confirm"
-        and not variable
+        and not authored.question
         and expected_type == "single"
         and len(buttons) == 1
     )
     if spec.type != expected_type and not is_confirm:
-        return (
-            f"Use the authored interaction type {expected_type!r}; keep its choice "
-            "count and free-text input boundary unchanged."
-        )
-
-    expected_values = [button["value"] for button in buttons]
+        return f"Use the authored interaction type {expected_type!r}; keep its choices and input boundary unchanged."
     actual_values = [option.stored for option in spec.options]
     if is_confirm:
-        # A short confirm prompt becomes the button label and canonical value
-        # in the host renderer. Check the controls the learner actually submits.
         if reason := unrenderable_reason(spec):
             return reason
+        # A short confirm prompt becomes the rendered button label and forces
+        # its stored value to ``continue``. Compare the controls actually sent.
         _prompt, controls = render_question(spec)
+        rendered = _script_questions(controls)
+        if len(rendered) != 1:
+            return "Keep the authored confirmation controls unchanged."
         actual_values = [
-            button["value"] for button in parser.parse(controls).get("buttons", [])
+            value for _display, value in authored_option_values(rendered[0])
         ]
-        if find_unescaped(rendered_source, "//") < 0 and actual_values == ["continue"]:
+        if _find_unescaped(authored.choices[0], "//") < 0 and actual_values == [
+            "continue"
+        ]:
             return None
-    if actual_values != expected_values:
+    if actual_values != [value for _display, value in buttons]:
         return (
             "Keep every authored option's stored value exactly as written and in its "
             "original order. Do not omit or add options; localize only display labels."

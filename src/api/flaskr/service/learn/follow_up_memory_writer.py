@@ -21,7 +21,7 @@ from flaskr.service.profile.api import (
 )
 from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from markdownflow.engine.recall import recall as engine_recall
-from markdownflow.engine.script import collected_names
+from markdownflow.engine.script import collected_questions
 from markdownflow.engine.tools import Deps, prepare_memory_tool
 from markdownflow.engine.tools import remember as engine_remember
 from pydantic_ai import (
@@ -204,7 +204,7 @@ def load_follow_up_memory_policy(
         return None
     generations, deleted = course_memory_deletion_state(user_bid, shifu_bid)
     return FollowUpMemoryPolicy(
-        collected_names(outline.content or ""),
+        collected_questions(outline.content or ""),
         frozenset(deleted),
         dict(generations),
         get_global_profile_keys(),

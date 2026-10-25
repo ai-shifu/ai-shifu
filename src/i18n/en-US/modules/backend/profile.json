@@ -28,6 +28,7 @@
     "profileOnboardingPromptGenerationFailed": "Could not generate the assistant prompt. The configuration was not published and your input is still here. Try again.",
     "profileTypeInvalid": "Invalid variable type",
     "profileTypeRequired": "Variable type is required",
+    "questionTooLong": "Question text cannot exceed 255 characters because it is the memory key.",
     "sex": "Sex",
     "sexFemale": "Female",
     "sexMale": "Male",

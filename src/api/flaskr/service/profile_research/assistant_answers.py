@@ -30,7 +30,7 @@ def parse_assistant_answers(
                 "content": json.dumps(
                     {
                         "questionnaire": session.assistant_prompt,
-                        "manual_variables": session.variables,
+                        "manual_memory": session.memory,
                         "accepted_answers": profile_answer_evidence(session),
                         "conversation": session.context,
                         "external_answer": raw_text,

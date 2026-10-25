@@ -2,7 +2,7 @@
 
 import pytest
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
-from markdownflow.engine import collected_names, substitute_variables
+from markdownflow.engine import collected_questions
 from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.tools import _script_questions
 
@@ -33,12 +33,8 @@ def test_disqualified_question_replays_its_native_link_label(
 ) -> None:
     prefix = link + newline * 2
     source = prefix + QUESTION
-    assert collected_names(source) == frozenset({"real"})
-    assert [question.variable for question in _script_questions(source)] == ["real"]
-    assert (
-        substitute_variables(prefix + "{{ real }}", {"real": "VALUE"})
-        == prefix + "VALUE"
-    )
+    assert collected_questions(source) == frozenset({"real"})
+    assert [question.question for question in _script_questions(source)] == ["real"]
     _assert_streams(source, prefix, [QUESTION])
 
 
@@ -46,30 +42,23 @@ def test_disqualified_question_replays_its_native_link_label(
 @pytest.mark.parametrize(
     "link", ["?[Label](dest/{{unfinished", "?[outer [inner](u)](dest/{{unfinished)"]
 )
-def test_incomplete_or_inactive_resources_keep_raw_marker_ownership(
+def test_standalone_braces_in_incomplete_resources_do_not_hide_later_questions(
     link: str, newline: str
 ) -> None:
     source = link + newline * 2 + QUESTION
-    assert collected_names(source) == frozenset()
-    assert all(question.variable != "real" for question in _script_questions(source))
-    assert substitute_variables(source, {"real": "VALUE"}) == source
-    _assert_streams(source, source, [])
+    assert collected_questions(source) == frozenset({"real"})
+    assert [question.question for question in _script_questions(source)] == ["real"]
+    _assert_streams(source, link + newline * 2, [QUESTION])
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
 def test_replayed_labels_and_resources_keep_complete_names_exact(newline: str) -> None:
-    prefix = "?[{{ a]b }}](dest/{{ value ? }})" + newline * 2
+    prefix = "?[{{ a\\]b }}](dest/{{ value ? }})" + newline * 2
     source = prefix + QUESTION
     assert {marker.name for marker in analyze_marker_context(source).markers} == {
-        "a]b",
-        "value ?",
-        "real",
+        "real"
     }
-    assert [question.variable for question in _script_questions(source)] == ["real"]
-    assert (
-        substitute_variables(source, {"a]b": "LABEL", "value ?": "DEST"})
-        == "?[LABEL](dest/DEST)" + newline * 2 + QUESTION
-    )
+    assert [question.question for question in _script_questions(source)] == ["real"]
     _assert_streams(source, prefix, [QUESTION])
 
 
@@ -79,9 +68,12 @@ def test_only_an_adjacent_parenthesis_disqualifies_the_existing_control(
 ) -> None:
     tail = " (dest/{{unfinished)" + newline * 2 + QUESTION
     source = "?[Label]" + tail
-    assert [question.choices for question in _script_questions(source)] == [["Label"]]
-    assert collected_names(source) == frozenset()
-    _assert_streams(source, tail, ["?[Label]"])
+    assert [question.question for question in _script_questions(source)] == [
+        None,
+        "real",
+    ]
+    assert collected_questions(source) == frozenset({"real"})
+    _assert_streams(source, tail[: -len(QUESTION)], ["?[Label]", QUESTION])
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
@@ -90,8 +82,8 @@ def test_marker_body_closing_brackets_do_not_trigger_link_fallback(
 ) -> None:
     first = "?[%{{ a](b }} A|B]"
     source = first + newline * 2 + QUESTION
-    assert collected_names(source) == frozenset({"a](b", "real"})
-    assert [question.variable for question in _script_questions(source)] == [
+    assert collected_questions(source) == frozenset({"a](b", "real"})
+    assert [question.question for question in _script_questions(source)] == [
         "a](b",
         "real",
     ]
@@ -99,8 +91,10 @@ def test_marker_body_closing_brackets_do_not_trigger_link_fallback(
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
-def test_a_marker_opened_inside_the_candidate_stays_atomic(newline: str) -> None:
+def test_unfinished_brace_groups_inside_an_actual_control_remain_atomic(
+    newline: str,
+) -> None:
     source = "?[{{unfinished](dest)" + newline * 2 + QUESTION
-    assert collected_names(source) == frozenset()
-    assert all(question.variable != "real" for question in _script_questions(source))
+    assert collected_questions(source) == frozenset()
+    assert [question.question for question in _script_questions(source)] == [None]
     _assert_streams(source, "", [source])

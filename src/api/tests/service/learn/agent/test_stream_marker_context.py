@@ -32,7 +32,7 @@ AUTOLINK_CASES = json.loads(
         ("\r\n" + QUESTION, True),
         ("\r\r" + QUESTION, True),
         ("?x " + QUESTION, True),
-        ("{{unfinished " + QUESTION, False),
+        ("{{unfinished " + QUESTION, True),
     ],
 )
 def test_inline_closing_run_keeps_its_real_held_opener_lookahead(
@@ -55,7 +55,7 @@ def test_inline_closing_run_keeps_its_real_held_opener_lookahead(
 
 @pytest.mark.parametrize("run", ["`", "``", "```", "$", "$$", "$$$"])
 @pytest.mark.parametrize("marker_first", [False, True])
-def test_held_opener_lookahead_does_not_release_an_owned_raw_marker(
+def test_standalone_braces_leave_later_controls_visible_after_inline_runs(
     run: str, marker_first: bool
 ) -> None:
     prefix = (
@@ -69,8 +69,8 @@ def test_held_opener_lookahead_does_not_release_an_owned_raw_marker(
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == source, stream
-        assert syntax.spans == [], stream
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
 
 
 def test_held_inline_closure_keeps_bounded_context_and_parser_work(
@@ -129,8 +129,8 @@ def test_provisional_type_seven_html_can_revert_to_inline_on_the_same_line(
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == prefix + QUESTION + " between ", stream
-        assert syntax.spans == [QUESTION], stream
+        assert shown == prefix + " between ", stream
+        assert syntax.spans == [QUESTION, QUESTION], stream
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
@@ -158,8 +158,8 @@ def test_type_seven_html_cannot_interrupt_an_existing_paragraph(newline: str) ->
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == source, stream
-        assert syntax.spans == [], stream
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
 
 
 @pytest.mark.parametrize("tag", ["<div>", "</div>", "<section>"])
@@ -171,8 +171,8 @@ def test_type_six_html_remains_a_block_with_same_line_body_text(tag: str) -> Non
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == prefix, stream
-        assert syntax.spans == [QUESTION], stream
+        assert shown == source, stream
+        assert syntax.spans == [], stream
 
 
 @pytest.mark.parametrize(
@@ -188,8 +188,8 @@ def test_partial_native_tag_names_do_not_commit_a_different_html_category(
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == source, stream
-        assert syntax.spans == [], stream
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
 
 
 def test_provisional_html_keeps_long_attributes_and_padding_bounded(
@@ -213,8 +213,8 @@ def test_provisional_html_keeps_long_attributes_and_padding_bounded(
         assert len(syntax._context_prefix) <= 128
         assert len(syntax._held) <= 128
     pieces.append(syntax.flush())
-    assert "".join(pieces) == prefix + QUESTION + " between "
-    assert syntax.spans == [QUESTION]
+    assert "".join(pieces) == prefix + " between "
+    assert syntax.spans == [QUESTION, QUESTION]
     assert inspected <= 400 * len(source)
 
 
@@ -233,11 +233,11 @@ def test_shared_angle_link_corpus_keeps_stream_boundary_agreement(
         if expected is None:
             expected = actual
         assert actual == expected, stream
-        assert syntax.spans.count(QUESTION) == (1 if case["variables"] else 0), stream
+        assert syntax.spans.count(QUESTION) == 1, stream
 
 
 @pytest.mark.parametrize(
-    ("prefix", "real"),
+    ("prefix", "_real"),
     [
         ("<https://{{unfinished>\n\n", True),
         ("<ab:{{unfinished>\n\n", True),
@@ -261,7 +261,7 @@ def test_shared_angle_link_corpus_keeps_stream_boundary_agreement(
     ],
 )
 def test_angle_link_boundaries_and_invalid_fallback_survive_every_stream_cut(
-    prefix: str, real: bool
+    prefix: str, _real: bool
 ) -> None:
     source = prefix + QUESTION
     for stream in [[source], list(source)] + [
@@ -269,8 +269,8 @@ def test_angle_link_boundaries_and_invalid_fallback_survive_every_stream_cut(
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == (prefix if real else source), stream
-        assert syntax.spans == ([QUESTION] if real else []), stream
+        assert shown == prefix, stream
+        assert syntax.spans == [QUESTION], stream
 
 
 @pytest.mark.parametrize(
@@ -307,15 +307,15 @@ def test_angle_link_continuations_keep_bounded_state_and_parser_work(
     assert inspected <= 400 * (len(prefix) + len(QUESTION))
 
 
-def test_invalid_angle_link_releases_an_earlier_raw_marker_only_at_its_closer() -> None:
+def test_invalid_angle_link_does_not_give_standalone_braces_ownership() -> None:
     source = "<https://{{unfinished value>\n\n" + QUESTION + " then " + QUESTION
     for stream in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == source[: -len(QUESTION)], stream
-        assert syntax.spans == [QUESTION], stream
+        assert shown == source.replace(QUESTION, ""), stream
+        assert syntax.spans == [QUESTION, QUESTION], stream
 
 
 def test_angle_link_fallback_keeps_counted_label_and_resource_state() -> None:
@@ -333,26 +333,26 @@ def test_angle_link_fallback_keeps_counted_label_and_resource_state() -> None:
 @pytest.mark.parametrize(
     ("opening", "ending", "inner_is_question"),
     [
-        ("<https://{{", "answer}}>", True),
-        ("<aa:{{", "answer}}>", True),
-        ("<" + "a" * 32 + ":{{", "answer}}>", True),
-        ("<a:{{", "answer}}>", False),
-        ("<" + "a" * 33 + ":{{", "answer}}>", False),
-        ("<https://%{{", "answer}}>", True),
-        ("<https://{{", " answer}}>", False),
-        ("<https://{{", "\tanswer}}>", False),
-        ("<https://{{", "\r\nanswer}}>", False),
-        ("<https://{{", "\x7fanswer}}>", False),
-        ("<https://{{", "\x00answer}}>", True),
-        ("<https://{{", "\u00a0answer}}>", True),
-        ("<https://{{", "&#32;answer}}>", True),
-        ("<https://{{", "answer}}", False),
-        (r"\<https://{{", "answer}}>", False),
+        ("<https://{{", "answer}}>", False),
+        ("<aa:{{", "answer}}>", False),
+        ("<" + "a" * 32 + ":{{", "answer}}>", False),
+        ("<a:{{", "answer}}>", True),
+        ("<" + "a" * 33 + ":{{", "answer}}>", True),
+        ("<https://%{{", "answer}}>", False),
+        ("<https://{{", " answer}}>", True),
+        ("<https://{{", "\tanswer}}>", True),
+        ("<https://{{", "\r\nanswer}}>", True),
+        ("<https://{{", "\x7fanswer}}>", True),
+        ("<https://{{", "\x00answer}}>", False),
+        ("<https://{{", "\u00a0answer}}>", False),
+        ("<https://{{", "&#32;answer}}>", False),
+        ("<https://{{", "answer}}", True),
+        (r"\<https://{{", "answer}}>", True),
         (r"<https://\{{", " answer}}>", True),
-        (r"<https://\\{{", " answer}}>", False),
+        (r"<https://\\{{", " answer}}>", True),
     ],
 )
-def test_provisional_angle_link_defers_questions_owned_by_a_possible_raw_marker(
+def test_provisional_angle_link_defers_questions_until_native_scope_is_known(
     opening: str, ending: str, inner_is_question: bool
 ) -> None:
     inner = "?[A|B]"
@@ -370,15 +370,17 @@ def test_provisional_angle_link_defers_questions_owned_by_a_possible_raw_marker(
 
 
 @pytest.mark.parametrize("ending", ["", "x", "x}", "x}}", "x}}?[C|D]"])
-def test_provisional_angle_link_eof_replays_native_raw_marker_ownership(
+def test_provisional_angle_link_eof_replays_plain_braces_and_controls(
     ending: str,
 ) -> None:
     prefix = "<https://{{?[A|B]"
     source = prefix + ending
     outside = "?[C|D]" if ending.endswith("?[C|D]") else ""
     expected = (
-        source.removesuffix(outside) if outside else source,
-        [outside] if outside else [],
+        source.replace("?[A|B]", "").removesuffix(outside)
+        if outside
+        else source.replace("?[A|B]", ""),
+        ["?[A|B]", outside] if outside else ["?[A|B]"],
     )
     for stream in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
@@ -395,11 +397,11 @@ def test_provisional_angle_link_eof_replays_native_raw_marker_ownership(
 @pytest.mark.parametrize(
     ("opening", "ending", "inner_is_question"),
     [
-        ("<https://{{", "}}>", True),
-        ("<https://{{", " answer}}>", False),
-        ("<https://{{", "}}", False),
-        ("<!-- <https://{{", " answer}}> -->", True),
-        ("[label](<https://{{", " answer}}>)", True),
+        ("<https://{{", "}}>", False),
+        ("<https://{{", " answer}}>", True),
+        ("<https://{{", "}}", True),
+        ("<!-- <https://{{", " answer}}> -->", False),
+        ("[label](<https://{{", " answer}}>)", False),
     ],
 )
 def test_deferred_angle_candidate_buffers_output_without_rescanning_its_growing_tail(
@@ -419,7 +421,7 @@ def test_deferred_angle_candidate_buffers_output_without_rescanning_its_growing_
     monkeypatch.setattr(stream_marker_context, "analyze_marker_context", counted)
     monkeypatch.setattr(interaction_syntax, "analyze_marker_context", counted)
     inner = "?[A|B]"
-    source = opening + inner + "x" * 3000 + ending + QUESTION
+    source = opening + inner + "x" * 3000 + ending + "\n\n" + QUESTION
     syntax = InteractionSyntaxFilter()
     pieces = []
     for character in source:
@@ -441,19 +443,19 @@ def test_deferred_angle_candidate_buffers_output_without_rescanning_its_growing_
 @pytest.mark.parametrize(
     ("opening", "ending", "inner_is_question"),
     [
-        ("<!-- <https://{{", " answer}}> -->", True),
-        ("<!-- <https://{{", " answer}}>", False),
-        ("<!-- <https://{{", "answer}}>", True),
-        ("[label](<https://{{", " answer}}>)", True),
-        ("[label](<https://{{", " answer}}>", False),
-        ("[label](<https://{{", "answer}}>", True),
-        ("[label](<https://{{", "answer}}>\n\n", True),
-        ("<!-- <" + "a" * 32 + ":{{", "answer}}>", True),
-        ("<!-- <" + "a" * 33 + ":{{", "answer}}>", False),
-        ("[label](<" + "a" * 32 + ":{{", "answer}}>", True),
-        ("[label](<" + "a" * 33 + ":{{", "answer}}>", False),
-        ('<span title="<https://{{', ' answer}}>">', True),
-        ('<span title="<https://{{', " answer}}>", False),
+        ("<!-- <https://{{", " answer}}> -->", False),
+        ("<!-- <https://{{", " answer}}>", True),
+        ("<!-- <https://{{", "answer}}>", False),
+        ("[label](<https://{{", " answer}}>)", False),
+        ("[label](<https://{{", " answer}}>", True),
+        ("[label](<https://{{", "answer}}>", False),
+        ("[label](<https://{{", "answer}}>\n\n", False),
+        ("<!-- <" + "a" * 32 + ":{{", "answer}}>", False),
+        ("<!-- <" + "a" * 33 + ":{{", "answer}}>", True),
+        ("[label](<" + "a" * 32 + ":{{", "answer}}>", False),
+        ("[label](<" + "a" * 33 + ":{{", "answer}}>", True),
+        ('<span title="<https://{{', ' answer}}>">', False),
+        ('<span title="<https://{{', " answer}}>", True),
     ],
 )
 def test_angle_candidate_keeps_its_enclosing_native_literal_until_it_is_settled(
@@ -484,8 +486,8 @@ def test_resolved_angle_candidate_does_not_leak_into_the_next_pending_literal(
         "<https://{{" + first + first_tail + " then <https://{{" + second + second_tail
     )
     expected = (
-        source.replace(first if first_is_question else second, "", 1),
-        [first if first_is_question else second],
+        source.replace(second if first_is_question else first, "", 1),
+        [second if first_is_question else first],
     )
     for stream in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
@@ -513,7 +515,7 @@ def test_deferred_angle_candidate_still_keeps_native_link_fallback(
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
 @pytest.mark.parametrize(
-    ("prefix", "real"),
+    ("prefix", "_real"),
     [
         *[
             (f"> Text {run}{{{{ unfinished\n> # Heading {run} end\n\n", False)
@@ -542,7 +544,7 @@ def test_deferred_angle_candidate_still_keeps_native_link_fallback(
     ],
 )
 def test_container_document_context_survives_every_stream_cut(
-    newline: str, prefix: str, real: bool
+    newline: str, prefix: str, _real: bool
 ) -> None:
     prefix = prefix.replace("\n", newline)
     source = prefix + QUESTION
@@ -551,8 +553,8 @@ def test_container_document_context_survives_every_stream_cut(
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert syntax.spans == ([QUESTION] if real else []), stream
-        assert shown == (prefix if real else source), stream
+        assert syntax.spans == [QUESTION], stream
+        assert shown == prefix, stream
 
 
 @pytest.mark.parametrize(
@@ -625,8 +627,8 @@ def test_completed_nested_link_keeps_an_outer_link_inactive_across_chunks() -> N
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == source
-        assert syntax.spans == []
+        assert shown == source[: -len(QUESTION)]
+        assert syntax.spans == [QUESTION]
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
@@ -677,15 +679,17 @@ def test_literal_blocks_and_all_physical_endings_keep_the_external_question(
         '[foo]: /url "{{ unfinished" invalid\n\n',
     ],
 )
-def test_closed_blocks_do_not_reopen_and_hide_a_real_outer_marker(prefix: str) -> None:
+def test_closed_blocks_and_plain_braces_do_not_hide_a_later_question(
+    prefix: str,
+) -> None:
     source = prefix + QUESTION
     for stream in [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == source
-        assert syntax.spans == []
+        assert shown == prefix
+        assert syntax.spans == [QUESTION]
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
@@ -790,8 +794,10 @@ def test_batch_inactive_label_runs_keep_bounded_state_and_real_closing_semantics
         assert len(syntax._context_label_counts) <= 1
     pieces.append(syntax.flush())
     source = seed + "ordinary text " * 100 + "]" * 1000 + '(url "{{")\n\n' + QUESTION
-    assert "".join(pieces) == source
-    assert syntax.spans == []  # A completed inner link disables the outer resource.
+    assert "".join(pieces) == source[: -len(QUESTION)]
+    assert syntax.spans == [
+        QUESTION
+    ]  # The inactive resource cannot hide a later question.
     assert inspected <= 400 * len(source)
 
 
@@ -924,8 +930,8 @@ def test_new_container_paragraph_does_not_close_an_earlier_stream_literal(
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == source, stream
-        assert syntax.spans == [], stream
+        assert shown == source[: -len(QUESTION)], stream
+        assert syntax.spans == [QUESTION], stream
 
 
 @pytest.mark.parametrize(
@@ -975,8 +981,8 @@ def test_setext_heading_stops_stream_inline_delimiter_pairing(
     ]:
         syntax = InteractionSyntaxFilter()
         shown = "".join(syntax.feed(chunk) for chunk in stream) + syntax.flush()
-        assert shown == source, stream
-        assert syntax.spans == [], stream
+        assert shown == source[: -len(QUESTION)], stream
+        assert syntax.spans == [QUESTION], stream
 
 
 @pytest.mark.parametrize("delimiter", ["`", "$"])

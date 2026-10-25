@@ -430,7 +430,7 @@ async def test_rejected_review_neither_displays_nor_commits_its_branch(
                     "type": "text",
                     "prompt": "Rejected" if guard == "host" else "",
                     "placeholder": "Answer",
-                    "variable": "locked_value" if guard == "readonly" else None,
+                    "question": "locked_value" if guard == "readonly" else None,
                     "review": _review(),
                 },
                 "rejected",

@@ -164,7 +164,7 @@ async def test_named_learner_answer_is_not_subject_to_model_note_limits() -> Non
                     name="interact",
                     tool_call_id="answer",
                     json_args=json.dumps(
-                        {"type": "text", "prompt": "Your goal?", "variable": "goal"}
+                        {"type": "text", "prompt": "Your goal?", "question": "goal"}
                     ),
                 )
             }

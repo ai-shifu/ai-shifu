@@ -1,15 +1,14 @@
-"""Script bundle, 1.0-notation detection and variable substitution."""
+"""Script bundle, notation detection and literal prompt assembly."""
 
 from __future__ import annotations
 
 import json
 import re
 from dataclasses import dataclass, field
-from functools import partial
-from html import escape
 from typing import TYPE_CHECKING, Any
 
-from .marker_context import analyze_marker_context
+from .marker_context import analyze_marker_context, marker_syntax_source
+from .questions import QUESTION_SOURCE, find_interaction_spans, normalize_question
 
 # Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
 V1_SYNTAX_RE = re.compile(
@@ -26,7 +25,7 @@ def _closes_fence(line: str, opening: str) -> bool:
 
     A fence closes on a line of the same marker, at least as long as the opener, and nothing else.
     Keeping the opening length matters: a ``` line inside a ```` block is content, and closing on
-    it would expose the rest of the block to variable substitution and 1.0 syntax detection.
+    it would expose the rest of the block to question scanning and notation detection.
     """
     # rstrip, not strip: the opening fences recognized here must start at column 0, so an indented
     # marker is content -- a lesson showing a fenced block inside one would otherwise close early.
@@ -34,10 +33,8 @@ def _closes_fence(line: str, opening: str) -> bool:
     return len(stripped) >= len(opening) and stripped == opening[0] * len(stripped)
 
 
-# `%{{name}}` marks a variable this script collects during the lesson, in a question or an
-# instruction to remember something.
-_LITERAL_SPAN_RE = re.compile(r"(!===.*?!===|(?<!!)===(?!=).*?===)")
 _PRESERVED_LINE_RE = re.compile(r"^[ \t]*===(.+?)===[ \t]*$")
+_QUESTION = re.compile(r"^\s*" + QUESTION_SOURCE)
 
 
 if TYPE_CHECKING:
@@ -83,30 +80,27 @@ class ScriptBundle:
 def detect_v1_syntax(text: str) -> bool:
     """Report whether the text uses any MarkdownFlow 1.0 notation outside fenced code blocks."""
     source = _strip_fences(text)
+    context = analyze_marker_context(source, fence_indent=3)
     return bool(V1_SYNTAX_RE.search(source)) or any(
-        marker.name is not None for marker in analyze_marker_context(source).markers
+        find_interaction_spans(
+            source, syntax_source=marker_syntax_source(source, context)
+        )
     )
 
 
-def _project_variable_markers(
-    text: str, values: Mapping[str, Any] | None = None
-) -> tuple[str, dict[str, tuple[str, str | None, bool]], re.Pattern[str]]:
-    """Hide opaque marker names while the surrounding Markdown is inspected."""
-    marker_prefix = "\x00mdf-variable:"
-    while marker_prefix in text or any(
-        marker_prefix in str(value) for value in (values or {}).values()
-    ):
+def _project_question_markers(
+    text: str,
+) -> tuple[str, dict[str, str], re.Pattern[str]]:
+    """Protect actual question text while inspecting the surrounding Markdown."""
+    marker_prefix = "\x00mdf-question:"
+    while marker_prefix in text:
         marker_prefix += ":"
     markers = {}
     masked: list[str] = []
     at = 0
     for marker in analyze_marker_context(text, fence_indent=0).markers:
         token = f"{marker_prefix}{len(markers)}\x00"
-        markers[token] = (
-            text[marker.start : marker.end],
-            marker.name,
-            bool(marker.start and text[marker.start - 1] == "%"),
-        )
+        markers[token] = text[marker.start : marker.end]
         masked.extend((text[at : marker.start], token))
         at = marker.end
     masked.append(text[at:])
@@ -114,7 +108,7 @@ def _project_variable_markers(
 
 
 def _strip_fences(text: str) -> str:
-    projected, markers, tokens = _project_variable_markers(text)
+    projected, markers, tokens = _project_question_markers(text)
     out: list[str] = []
     in_fence: str | None = None
     for line in projected.splitlines():
@@ -127,35 +121,24 @@ def _strip_fences(text: str) -> str:
             continue
         if in_fence is None:
             out.append(line)
-    return tokens.sub(lambda match: markers[match.group(0)][0], "\n".join(out))
+    return tokens.sub(lambda match: markers[match.group(0)], "\n".join(out))
 
 
-def collected_names(text: str) -> frozenset[str]:
-    """Return the variables this script fills in during the lesson, named by `%{{name}}`.
+def collected_questions(text: str) -> frozenset[str]:
+    """Return memory questions declared at the start of actual authored controls.
 
-    Fenced blocks are content the lesson shows, not instructions it follows, so a `%{{name}}`
-    inside one is an example of the notation rather than a question. Counted as collected, it
-    would drop a real memory value that nothing in the lesson is going to ask for again --
-    exactly what a lesson teaching MarkdownFlow would do to itself.
+    Standalone brace text, examples, links and code do not declare questions.
+    The document scanner keeps punctuation inside question text opaque.
     """
-    source = _strip_fences(text)
+    context = analyze_marker_context(text, fence_indent=3)
     return frozenset(
-        marker.name
-        for marker in analyze_marker_context(source).markers
-        if marker.name is not None and marker.start and source[marker.start - 1] == "%"
+        question
+        for start, end in find_interaction_spans(
+            text, syntax_source=marker_syntax_source(text, context)
+        )
+        if (match := _QUESTION.match(text[start + 2 : end - 1]))
+        if (question := normalize_question(match.group(1))) is not None
     )
-
-
-def substitution_names(bundle: ScriptBundle) -> frozenset[str]:
-    """Name values rendered into host script/constraints, excluding collected answers."""
-    return frozenset(
-        marker.name
-        for text in (bundle.script, bundle.constraints or "")
-        for source in (_strip_fences(text),)
-        for marker in analyze_marker_context(source).markers
-        if marker.name is not None
-        and not (marker.start and source[marker.start - 1] == "%")
-    ) - collected_names(bundle.script)
 
 
 def final_preserved_line(text: str) -> str | None:
@@ -164,10 +147,10 @@ def final_preserved_line(text: str) -> str | None:
     Fenced examples and repeated author blocks are not a single terminal line. This is a
     narrow display anchor, never evidence that every preceding instruction was completed.
     """
-    projected, markers, tokens = _project_variable_markers(text)
+    projected, markers, tokens = _project_question_markers(text)
 
     def restore(match: re.Match[str]) -> str:
-        return markers[match.group(0)][0]
+        return markers[match.group(0)]
 
     lines = projected.rstrip().splitlines()
     if not lines or not (match := _PRESERVED_LINE_RE.fullmatch(lines[-1])):
@@ -188,85 +171,6 @@ def final_preserved_line(text: str) -> str | None:
     return content
 
 
-def substitute_variables(
-    text: str,
-    values: Mapping[str, Any],
-    *,
-    collected: frozenset[str] = frozenset(),
-    unavailable: bool = False,
-) -> str:
-    """Replace `{{name}}` with `values[name]` outside fenced code blocks.
-
-    `%{{name}}` and unknown names are left untouched so the model can still see what the author
-    meant. Host prompt rendering opts into explicit unavailable-value metadata instead;
-    this is request guidance, never a learner fact or a memory write.
-
-    A name in `collected` is left untouched as well, whatever memory holds for it. Those are the
-    variables this script is about to ask the learner for, and substitution happens once, before
-    the lesson starts. A script that echoes one back -- a line reading "your goal is {{purpose}}"
-    placed after the question that fills `purpose` -- would otherwise carry the previous
-    session's answer into this one as a statement of fact, and a model given both that statement
-    and a fresh tool result believes the statement. One lesson recorded a goal the learner had
-    given weeks earlier while they were looking at the "not sure yet" they had just chosen.
-
-    Left as `{{purpose}}`, the model fills it from the answer it was actually given. The 1.0 run
-    never had this problem: it rendered each block when it reached it, after the interaction had
-    already written the variable.
-    """
-    # Hide whole markers before Markdown line/literal handling. Their names are opaque;
-    # neither a nested opener nor padding that splitlines treats as a line break is syntax.
-    projected, markers, tokens = _project_variable_markers(text, values)
-
-    def restore(m: re.Match[str]) -> str:
-        return markers[m.group(0)][0]
-
-    def repl(m: re.Match[str], *, literal: bool = False) -> str:
-        """Resolve a read without turning missing literal notation into metadata."""
-        raw, name, assignment = markers[m.group(0)]
-        if name is None or assignment or name in collected:
-            return raw
-        if name not in values or values[name] in (None, ""):
-            return (
-                f'<unavailable_learner_value name="{escape(name, quote=True)}" />'
-                if unavailable and not literal
-                else raw
-            )
-        v = values[name]
-        return ", ".join(map(str, v)) if isinstance(v, (list, tuple)) else str(v)
-
-    out: list[str] = []
-    in_fence: str | None = None
-    in_verbatim = False
-    for line in projected.splitlines(keepends=True):
-        m = _FENCE_RE.match(line)
-        if m:
-            if in_fence is None:
-                in_fence = m.group(1)
-            elif _closes_fence(line, in_fence):
-                in_fence = None
-            out.append(tokens.sub(restore, line))
-            continue
-        if in_fence:
-            out.append(tokens.sub(restore, line))
-        elif unavailable and line.strip() == "!===":
-            in_verbatim = not in_verbatim
-            out.append(line)
-        elif unavailable and in_verbatim:
-            out.append(tokens.sub(partial(repl, literal=True), line))
-        elif unavailable:
-            # Preserve missing notation inside authored literal spans, while known
-            # personalization still follows the pre-existing substitution contract.
-            out.append(
-                "".join(
-                    tokens.sub(partial(repl, literal=bool(index % 2)), part)
-                    for index, part in enumerate(_LITERAL_SPAN_RE.split(line))
-                )
-            )
-        else:
-            out.append(tokens.sub(repl, line))
-    return "".join(out)
-
-
 def render_memory_section(
     bundle: ScriptBundle,
     memory: Mapping[str, Any],
@@ -276,23 +180,17 @@ def render_memory_section(
 ) -> tuple[str, bool]:
     """Project whole values into one bounded JSON payload without editing stored memory.
 
-    Referenced and host-priority keys come first; other keys retain input order. A value that
-    does not fit is omitted, never shortened. Script substitution remains a separate exact path.
+    Host-priority keys come first; other keys retain input order. A value that
+    does not fit is omitted, never shortened. Authored text remains literal.
     """
-    collected = collected_names(bundle.script)
+    collected = collected_questions(bundle.script)
     remembered = {k: v for k, v in memory.items() if k not in collected}
     selected = remembered
     if limit is not None:
         if limit < 2:
             message = "memory context limit must fit an empty JSON object"
             raise ValueError(message)
-        references = frozenset(
-            marker.name
-            for text in (bundle.script, bundle.constraints or "")
-            for marker in analyze_marker_context(_strip_fences(text)).markers
-            if marker.name is not None
-        )
-        preferred = references | priority
+        preferred = priority
         selected = {}
         for key in sorted(remembered, key=lambda k: k not in preferred):
             candidate = {**selected, key: remembered[key]}
@@ -304,7 +202,7 @@ def render_memory_section(
         section += (
             "\n\n<memory_context>Some stored values were omitted to fit the context budget. "
             "An absent key is unknown here, not forgotten or deleted. Do not infer its value. "
-            "Explicit script substitutions retain their complete values.</memory_context>"
+            "Use recall for a needed omitted answer when available.</memory_context>"
         )
     return section, len(selected) < len(remembered)
 
@@ -318,10 +216,8 @@ def render_first_prompt(
 ) -> str:
     """Compose the first user message.
 
-    Learner memory first, then the script with its variables substituted, then optional
-    constraints and extras.
+    Learner memory first, then the author's literal script, constraints and extras.
     """
-    collected = collected_names(bundle.script)
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a
     # stale fact and a fresh tool result tends to trust the fact.
@@ -329,14 +225,10 @@ def render_first_prompt(
         render_memory_section(
             bundle, memory, limit=memory_limit, priority=memory_priority
         )[0],
-        f"<script>\n{substitute_variables(bundle.script, memory, collected=collected, unavailable=True)}\n</script>",
+        f"<script>\n{bundle.script}\n</script>",
     ]
     if bundle.constraints:
-        parts.append(
-            f"<constraints>\n"
-            f"{substitute_variables(bundle.constraints, memory, collected=collected, unavailable=True)}\n"
-            f"</constraints>"
-        )
+        parts.append(f"<constraints>\n{bundle.constraints}\n</constraints>")
     for name, body in bundle.extras.items():
         parts.append(f'<extra name="{name}">\n{body}\n</extra>')
     return "\n\n".join(parts)

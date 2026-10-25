@@ -45,7 +45,7 @@ SPEC = {
         {"display": "Good", "value": "good"},
         {"display": "Bad", "value": "bad"},
     ],
-    "variable": "feeling",
+    "question": "feeling",
 }
 
 
@@ -116,7 +116,7 @@ async def test_first_turn_pauses_on_interact() -> None:
     )
     req = next(e for e in events if isinstance(e, InteractionRequest))
     assert req.id == "call_interact_1"
-    assert req.spec.variable == "feeling"
+    assert req.spec.question == "feeling"
     assert events[-1].reason == "interaction"
     assert s.pending[0].tool_call_id == "call_interact_1"
     assert s.started
@@ -384,13 +384,13 @@ async def test_two_interactions_in_one_turn_are_answered_one_at_a_time() -> None
         "type": "single",
         "prompt": "A?",
         "options": [{"display": "a1"}],
-        "variable": "a",
+        "question": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
         "options": [{"display": "b1"}],
-        "variable": "b",
+        "question": "b",
     }
 
     async def two_at_once(
@@ -459,13 +459,13 @@ async def test_pending_answers_survive_a_store_round_trip() -> None:
         "type": "single",
         "prompt": "A?",
         "options": [{"display": "a1"}],
-        "variable": "a",
+        "question": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
         "options": [{"display": "b1"}],
-        "variable": "b",
+        "question": "b",
     }
 
     async def two_at_once(
@@ -519,19 +519,19 @@ async def test_interactions_can_be_answered_out_of_order_and_without_an_id() -> 
         "type": "single",
         "prompt": "A?",
         "options": [{"display": "a1"}],
-        "variable": "a",
+        "question": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
         "options": [{"display": "b1"}],
-        "variable": "b",
+        "question": "b",
     }
     spec_c = {
         "type": "single",
         "prompt": "C?",
         "options": [{"display": "c1"}],
-        "variable": "c",
+        "question": "c",
     }
 
     async def three_at_once(
@@ -590,13 +590,13 @@ async def test_a_pending_interaction_rejects_anything_but_an_answer() -> None:
         "type": "single",
         "prompt": "A?",
         "options": [{"display": "a1"}],
-        "variable": "a",
+        "question": "a",
     }
     spec_b = {
         "type": "single",
         "prompt": "B?",
         "options": [{"display": "b1"}],
-        "variable": "b",
+        "question": "b",
     }
     calls = 0
 
@@ -664,7 +664,7 @@ async def test_a_failed_resume_can_be_retried_instead_of_stranding_the_learner()
         "type": "single",
         "prompt": "A?",
         "options": [{"display": "a1"}],
-        "variable": "a",
+        "question": "a",
     }
     fail_next = True
 
@@ -723,13 +723,13 @@ async def test_pressing_continue_does_not_overwrite_an_answer() -> None:
     asked for confirmation, and pressing "yes, that's it" replaced the stored description with the
     button's label.
     """
-    question = {"type": "text", "prompt": "说说看", "variable": "卡点场景"}
-    # The model attaches the same variable to its confirmation, which is what caused the loss.
+    question = {"type": "text", "prompt": "说说看", "question": "卡点场景"}
+    # The model attaches the same question to its confirmation, which is what caused the loss.
     confirm = {
         "type": "confirm",
         "prompt": "一致吗",
         "options": [{"display": "对，就是这样"}],
-        "variable": "卡点场景",
+        "question": "卡点场景",
     }
 
     async def coach(
@@ -815,7 +815,7 @@ async def test_an_unanswerable_response_keeps_the_question_pending() -> None:
         "type": "single",
         "prompt": "Pick one",
         "options": [{"display": "A"}, {"display": "B"}],
-        "variable": "picked",
+        "question": "picked",
     }
 
     async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
@@ -1308,8 +1308,8 @@ async def test_long_multiline_closing_survives_an_unscripted_pause(
     assert session.finished is False
 
 
-async def test_final_repeat_uses_known_script_variables() -> None:
-    """Recognize a closing line rendered with an already known learner variable."""
+async def test_final_repeat_does_not_resolve_braces_from_memory() -> None:
+    """Standalone brace text cannot supply an inferred closing-line match."""
     model, _ = _repeating_model("The explanation.\n\nGoodbye, Rae.", "Goodbye, Rae.")
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session(
@@ -1317,12 +1317,12 @@ async def test_final_repeat_uses_known_script_variables() -> None:
     )
     await collect(engine.run_turn(session))
     second = await collect(engine.run_turn(session))
-    assert _said(second) == ""
+    assert _said(second) == "Goodbye, Rae."
     assert session.finished is False
 
 
-async def test_final_repeat_does_not_substitute_a_stale_collected_variable() -> None:
-    """Do not use an earlier answer for a variable this lesson collects again."""
+async def test_final_repeat_does_not_interpolate_a_stale_collected_answer() -> None:
+    """Do not use an earlier answer for a question this lesson collects again."""
     model, _ = _repeating_model("The explanation.\n\nGoodbye, Rae.", "Goodbye, Rae.")
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session(
@@ -1334,7 +1334,7 @@ async def test_final_repeat_does_not_substitute_a_stale_collected_variable() -> 
 
 
 async def test_final_repeat_keeps_blocks_that_render_to_the_same_line() -> None:
-    """Repeated author blocks stay intentional even when substitution makes them equal."""
+    """Distinct literal author blocks never become equal through memory substitution."""
     model, _ = _repeating_model("The explanation.\n\nGoodbye, Rae.", "Goodbye, Rae.")
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session(
@@ -2088,7 +2088,7 @@ def test_a_script_pauses_only_where_it_puts_a_single_button() -> None:
 
     assert script_pauses("讲一段。\n\n?[继续]\n\n再讲一段。") == 1
     assert script_pauses("?[准备好了//continue]\n?[继续]") == 2
-    # A question, not a pause: a variable, a text box, or more than one choice.
+    # A question, not a pause: a question, a text box, or more than one choice.
     assert script_pauses("?[%{{name}} 好的]") == 0
     assert script_pauses("?[...写点什么]") == 0
     assert script_pauses("?[A | B]") == 0
@@ -2388,7 +2388,7 @@ async def test_finishing_with_the_last_step_ends_the_lesson_in_that_turn() -> No
 _BOOK = {
     "type": "text",
     "prompt": "你打算挑哪本经典名著来试？",
-    "variable": "classic_book",
+    "question": "classic_book",
 }
 _LEAD = (
     "《红楼梦》——好眼光。这本书人物上千、线索千头，正是检验 AI 读书功力的好材料。\n\n"
@@ -2551,7 +2551,7 @@ async def test_the_same_question_with_new_choices_is_still_asked() -> None:
 
 async def test_an_earlier_question_of_a_batch_asked_again_is_not_put() -> None:
     """Two questions in one response, both answered, then the first one again, word for word."""
-    genre = {"type": "text", "prompt": "你平时爱读哪类书？", "variable": "genre"}
+    genre = {"type": "text", "prompt": "你平时爱读哪类书？", "question": "genre"}
 
     async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
         last = messages[-1]
@@ -2608,7 +2608,7 @@ def test_only_the_text_before_each_question_is_compared() -> None:
         ToolReturnPart,
     )
 
-    genre = {"type": "text", "prompt": "你平时爱读哪类书？", "variable": "genre"}
+    genre = {"type": "text", "prompt": "你平时爱读哪类书？", "question": "genre"}
     messages = [
         ModelRequest(parts=[UserPromptPart(content="start")]),
         ModelResponse(
@@ -2642,7 +2642,7 @@ def test_only_the_text_before_each_question_is_compared() -> None:
     )
 
     assert asks_the_answered_question_again(
-        ctx, "text", _BOOK["prompt"], _BOOK["variable"]
+        ctx, "text", _BOOK["prompt"], _BOOK["question"]
     )
 
 
@@ -2654,7 +2654,7 @@ async def test_a_choice_spelled_with_the_script_s_escape_is_the_same_choice() ->
         return {
             "type": "single",
             "prompt": "选哪个？",
-            "variable": "pick",
+            "question": "pick",
             "options": [{"display": display}, {"display": "别的"}],
         }
 

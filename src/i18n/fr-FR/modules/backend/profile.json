@@ -28,6 +28,7 @@
     "profileOnboardingPromptGenerationFailed": "La consigne pour les assistants IA n’a pas pu être générée. La configuration n’a pas été publiée et votre saisie est conservée. Réessayez.",
     "profileTypeInvalid": "Type de variable non valide",
     "profileTypeRequired": "Le type de variable est requis",
+    "questionTooLong": "Le texte de la question sert de clé de mémoire et ne peut pas dépasser 255 caractères.",
     "sex": "Sexe",
     "sexFemale": "Femme",
     "sexMale": "Homme",

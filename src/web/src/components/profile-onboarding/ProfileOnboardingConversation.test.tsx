@@ -198,12 +198,12 @@ describe('ProfileOnboardingConversation', () => {
     );
 
     expect(
-      isProfileOnboardingSubmissionWithinLimits('v'.repeat(256), [
+      isProfileOnboardingSubmissionWithinLimits('v'.repeat(255), [
         emoji.repeat(4_000),
       ]),
     ).toBe(true);
     expect(
-      isProfileOnboardingSubmissionWithinLimits('v'.repeat(257), ['answer']),
+      isProfileOnboardingSubmissionWithinLimits('v'.repeat(256), ['answer']),
     ).toBe(false);
     expect(
       isProfileOnboardingSubmissionWithinLimits('profile_goal', [

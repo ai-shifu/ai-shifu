@@ -184,7 +184,7 @@ async def test_named_answer_can_exceed_budget_and_remains_exact() -> None:
                     name="interact",
                     tool_call_id="goal",
                     json_args=json.dumps(
-                        {"type": "text", "prompt": "Your goal?", "variable": "goal"}
+                        {"type": "text", "prompt": "Your goal?", "question": "goal"}
                     ),
                 )
             }

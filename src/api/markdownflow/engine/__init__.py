@@ -8,7 +8,7 @@ diverge. Changing how a 2.0 lesson teaches means changing this directory.
 The offline tests that came with it live in tests/markdownflow/engine/ and run in CI. They
 drive the engine with pydantic-ai's FunctionModel, so they need no network and no API key. Keep
 them green: they cover the parts that are easy to break and hard to notice, such as pausing and
-resuming an interaction, writing a variable to memory, splitting listen mode into segments,
+resuming an interaction, recording an answer in memory, splitting listen mode into segments,
 detecting 1.0 syntax and the guard against an empty confirm.
 
 What this package must not do is reach back into the rest of the service. It takes a model, a
@@ -47,10 +47,9 @@ from .interaction import InteractionAnswer, InteractionSpec, InteractionType, Op
 from .memory import InMemoryMemoryStore, MemoryStore
 from .script import (
     ScriptBundle,
-    collected_names,
+    collected_questions,
     detect_v1_syntax,
     render_first_prompt,
-    substitute_variables,
 )
 from .segmenter import Narration, Segmenter, SegmentPiece, plain_narration
 from .session import (
@@ -100,11 +99,10 @@ __all__ = [
     "TurnDone",
     "TurnInput",
     "Visual",
-    "collected_names",
+    "collected_questions",
     "detect_v1_syntax",
     "parse_event",
     "plain_narration",
     "render_first_prompt",
-    "substitute_variables",
     "to_sse",
 ]

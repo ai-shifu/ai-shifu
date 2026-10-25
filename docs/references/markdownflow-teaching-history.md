@@ -123,7 +123,7 @@ added. Disabling only the summarizer restores deterministic excerpts; disabling
 history compaction restores full request text. Existing sessions default to an
 empty derivative cache. Reads and summaries can add model calls and cost, so full
 teaching-quality and cost observations remain separate acceptance work. Stored-data
-compaction is outside this change. Ordinary variables remain course-scoped and
+compaction is outside this change. Question answers remain course-scoped and
 production enablement stays separately controlled.
 
 The opt-in [memory-quality evaluator](markdownflow-memory-quality.md) includes

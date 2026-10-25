@@ -34,7 +34,7 @@ def test_flat_quoted_html_collection_scans_container_lines_once(
         return original(line, steps, partial=partial)
 
     monkeypatch.setattr(document_blocks, "container_content_start", counted)
-    assert _extract_names("> text <n> {{x}}\n" * size) == {"x"}
+    assert _extract_names("> text <n> ?[%{{x}} A|B]\n" * size) == {"x"}
     assert size <= calls <= 4 * size
 
 

@@ -53,7 +53,7 @@ def test_authored_text_hint_keeps_the_exact_opaque_variable(
     script = "?[%{{" + raw_name.replace("\n", newline) + "}} A | ...Explain]"
     questions = script_text_inputs(script)
     assert len(questions) == 1
-    assert questions[0].variable == expected
+    assert questions[0].question == expected
     assert questions[0].placeholder == "Explain"
 
 
@@ -61,7 +61,7 @@ def test_authored_text_hint_keeps_the_exact_opaque_variable(
 @pytest.mark.parametrize(
     "prefix",
     [
-        "<!-- outer --> ",
+        "<!-- outer -->\n\n",
         "<!-- {{ unfinished -->\n\n",
         "<!-- ?[%{{ fake }} A | ...Fake] -->\n\n",
         "```\n{{ unfinished\n?[%{{ fake }} A | ...Fake]\n```\n\n",
@@ -75,24 +75,22 @@ def test_literal_examples_stay_excluded_before_a_real_opaque_question(
     """Bounded literal markers cannot hide their outer closing delimiter or a real input."""
     question = "?[%{{ Why <!--this-->? }} A | ...Explain]"
     questions = script_text_inputs(prefix.replace("\n", newline) + question)
-    assert [(q.variable, q.placeholder) for q in questions] == [
+    assert [(q.question, q.placeholder) for q in questions] == [
         ("Why <!--this-->?", "Explain")
     ]
 
 
-def test_html_block_question_retains_its_existing_hint_admission() -> None:
-    """Native literal metadata must not exclude a question the legacy hint reader accepts."""
+def test_html_block_examples_do_not_declare_question_controls() -> None:
+    """A question shown in an authored HTML example cannot collect an answer."""
     script = "<div>\n?[%{{ Why <!--this-->? }} A | ...Explain]\n</div>"
-    assert [(q.variable, q.placeholder) for q in script_text_inputs(script)] == [
-        ("Why <!--this-->?", "Explain")
-    ]
+    assert script_text_inputs(script) == ()
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
 def test_hint_uses_only_its_first_physical_line(newline: str) -> None:
     """Preserving marker source cannot merge later instructions into an authored input hint."""
     script = "?[%{{ Why <!--this-->? }} A | ...Explain" + newline + "More instructions]"
-    assert [(q.variable, q.placeholder) for q in script_text_inputs(script)] == [
+    assert [(q.question, q.placeholder) for q in script_text_inputs(script)] == [
         ("Why <!--this-->?", "Explain")
     ]
 
@@ -101,7 +99,6 @@ def test_hint_uses_only_its_first_physical_line(newline: str) -> None:
     "script",
     [
         "?[%{{ Why }<!--x-->} A | ...Explain]",
-        "{{ Why }<!--x-->} ?[A | ...Explain]",
     ],
 )
 def test_preprocessing_cannot_complete_an_unfinished_marker(script: str) -> None:
@@ -123,7 +120,7 @@ async def test_opaque_question_key_restores_the_input_and_saves_a_typed_answer(
     engine = _engine(
         _arguments(
             type="single",
-            variable=key,
+            question=key,
             placeholder=None,
             options=[
                 {"display": display, "value": "A"},
@@ -135,7 +132,7 @@ async def test_opaque_question_key_restores_the_input_and_saves_a_typed_answer(
     events = [event async for event in engine.run_turn(session)]
     spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
     assert spec.type == "single_or_text"
-    assert spec.variable == key
+    assert spec.question == key
     assert [(option.display, option.stored) for option in spec.options] == [
         (display, "A")
     ]
@@ -151,20 +148,20 @@ async def test_opaque_question_key_restores_the_input_and_saves_a_typed_answer(
 
 
 @pytest.mark.parametrize("placeholder", [None, ""])
-@pytest.mark.parametrize("variable", [None, "answer"])
+@pytest.mark.parametrize("question", [None, "answer"])
 async def test_text_only_hint_is_restored_among_multiple_authored_questions(
     placeholder: str | None,
-    variable: str | None,
+    question: str | None,
 ) -> None:
     """A copied authored prompt restores the input and accepts the reloaded answer."""
-    prefix = "%{{" + variable + "}} " if variable else ""
+    prefix = "%{{" + question + "}} " if question else ""
     hints = ["Prepare and execute", "List advantages", "Nine lines of code"]
     script = "\n".join("?[" + prefix + "..." + hint + "]" for hint in hints)
     arguments = _arguments(
         type="text",
         prompt=hints[0],
         options=[],
-        variable=variable,
+        question=question,
         placeholder=placeholder,
     )
     engine = _engine(arguments)
@@ -172,7 +169,7 @@ async def test_text_only_hint_is_restored_among_multiple_authored_questions(
     events = [e async for e in engine.run_turn(session)]
     spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
     assert spec.placeholder == hints[0]
-    rendered_prefix = "%{{ " + variable + " }} " if variable else ""
+    rendered_prefix = "%{{ " + question + " }} " if question else ""
     assert render_interaction(spec) == "?[" + rendered_prefix + "..." + hints[0] + "]"
     assert InteractionParser().parse(render_interaction(spec))["question"] == hints[0]
     session = Session.loads(session.dumps())
@@ -183,14 +180,14 @@ async def test_text_only_hint_is_restored_among_multiple_authored_questions(
         )
     ]
     assert not session.pending
-    assert session.memory == ({variable: "My answer"} if variable else {})
+    assert session.memory == ({question: "My answer"} if question else {})
 
 
 async def test_saved_text_only_question_recovers_input_on_empty_answer() -> None:
     """Old cached questions re-emit their authored input without changing history."""
     engine = _engine(
         _arguments(
-            type="text", prompt=_HINT, options=[], variable=None, placeholder=None
+            type="text", prompt=_HINT, options=[], question=None, placeholder=None
         )
     )
     session = await engine.new_session("Ask a dynamic question.")
@@ -206,7 +203,7 @@ async def test_saved_text_only_question_recovers_input_on_empty_answer() -> None
 
 
 @pytest.mark.parametrize(
-    ("script", "prompt", "variable", "placeholder", "expected"),
+    ("script", "prompt", "question", "placeholder", "expected"),
     [
         (
             "?[...Write your answer]",
@@ -241,7 +238,7 @@ async def test_saved_text_only_question_recovers_input_on_empty_answer() -> None
 async def test_missing_text_hint_uses_only_unambiguous_authored_text_questions(
     script: str,
     prompt: str,
-    variable: str | None,
+    question: str | None,
     placeholder: str | None,
     expected: str | None,
 ) -> None:
@@ -251,7 +248,7 @@ async def test_missing_text_hint_uses_only_unambiguous_authored_text_questions(
             type="text",
             prompt=prompt,
             options=[],
-            variable=variable,
+            question=question,
             placeholder=placeholder,
         )
     )
@@ -288,7 +285,7 @@ def _arguments(**changes: object) -> dict:
         "type": "single_or_text",
         "prompt": "How would you like to start?",
         "options": [{"display": option} for option in [*_CHOICES, _HINT]],
-        "variable": "project_path",
+        "question": "project_path",
         "placeholder": _HINT,
         **changes,
     }
@@ -346,7 +343,7 @@ async def test_only_an_unambiguous_authored_hint_duplication_is_repaired(
     script = _SCRIPT
     arguments = _arguments()
     if reason == "different_variable":
-        arguments["variable"] = "another_question"
+        arguments["question"] = "another_question"
     elif reason == "different_options":
         arguments["options"][0]["display"] = "A model-authored follow-up"
     elif reason == "reordered":
@@ -412,16 +409,16 @@ async def test_examples_and_links_cannot_authorize_a_repair(script: str) -> None
     assert [o.display for o in spec.options] == [*_CHOICES, _HINT]
 
 
-@pytest.mark.parametrize("variable", [None, "project_path"])
+@pytest.mark.parametrize("question", [None, "project_path"])
 async def test_multiple_choice_stored_values_and_escaped_input_hint_survive(
-    variable: str | None,
+    question: str | None,
 ) -> None:
-    prefix = "%{{" + variable + "}} " if variable else ""
+    prefix = "%{{" + question + "}} " if question else ""
     script = "?[" + prefix + r"First//one || Second//two || ...Describe a\|b\.\.\.]"
     hint = "Describe a|b..."
     arguments = _arguments(
         type="multi_or_text",
-        variable=variable,
+        question=question,
         placeholder=hint,
         options=[
             {"display": "First", "value": "one"},
@@ -438,7 +435,7 @@ async def test_multiple_choice_stored_values_and_escaped_input_hint_survive(
         ("Second", "two"),
     ]
     assert spec.type == "multi_or_text"
-    assert spec.variable == variable
+    assert spec.question == question
     assert spec.placeholder == hint
     parsed = InteractionParser().parse(render_interaction(spec))
     assert parsed["is_multi_select"] is True
@@ -687,3 +684,16 @@ async def test_literal_leading_ellipsis_in_authored_hint_is_preserved() -> None:
     spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
     assert spec.placeholder == hint
     assert [option.stored for option in spec.options] == _CHOICES
+
+
+def test_standalone_unfinished_braces_do_not_disable_an_authored_text_input() -> None:
+    script = "{{ Why }<!--x-->} ?[A | ...Explain]"
+    questions = script_text_inputs(script)
+    assert [(q.question, q.placeholder) for q in questions] == [(None, "Explain")]
+
+
+def test_same_line_html_block_cannot_be_preprocessed_into_an_authored_question() -> (
+    None
+):
+    script = "<!-- outer --> ?[%{{ Why <!--this-->? }} A | ...Explain]"
+    assert script_text_inputs(script) == ()

@@ -36,7 +36,7 @@ _QUESTION = InteractionSpec(
     type="single",
     prompt="Which way?",
     options=[Option(display="Left"), Option(display="Right")],
-    variable="way",
+    question="way",
 )
 
 

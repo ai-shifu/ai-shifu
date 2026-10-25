@@ -5,6 +5,7 @@ from typing import TypedDict
 
 from flask import Flask
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.common.markdownflow import uses_agent_engine
 from flaskr.dao import db, retry_on_deadlock, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
@@ -29,6 +30,16 @@ from flaskr.service.shifu.shifu_history_manager import (
 from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
+from markdownflow.engine.questions import MAX_QUESTION_LENGTH
+from markdownflow.engine.script import collected_questions
+
+
+def _validated_questions(source: str) -> list[str]:
+    """Keep complete question keys within durable memory storage's existing bound."""
+    questions = sorted(collected_questions(source))
+    if any(len(question) > MAX_QUESTION_LENGTH for question in questions):
+        raise_error("server.profile.questionTooLong")
+    return questions
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
@@ -166,6 +177,7 @@ def save_shifu_mdflow(
 ) -> DraftSaveResponse:
     """Save shifu mdflow."""
     content = content or ""
+    native_engine = uses_agent_engine(shifu_bid)
     with app_context_scope(app):
         lock_latest = isinstance(base_revision, int) and base_revision >= 0
 
@@ -197,6 +209,9 @@ def save_shifu_mdflow(
         conflict = _current_conflict()
         if conflict:
             return conflict
+
+        if native_engine:
+            _validated_questions(content)
 
         # Risk control writes and commits its own audit row, so it must run before
         # the outline write lock is acquired. The locked transaction below always
@@ -259,21 +274,16 @@ def save_shifu_mdflow(
                     get_markdownflow_output_language()
                 )
                 blocks = markdown_flow.get_all_blocks()
-                variable_definitions = get_profile_item_definition_list(app, shifu_bid)
-
-                variables = markdown_flow.extract_variables()
-                for variable in variables:
-                    exist_variable = next(
-                        (v for v in variable_definitions if v.profile_key == variable),
-                        None,
-                    )
-                    if not exist_variable:
-                        # Use the *_internal variant so this shared helper does
-                        # not commit mid-transaction; the outer save owns the
-                        # commit, keeping the write atomic and retry-safe.
-                        add_profile_item_quick_internal(
-                            app, shifu_bid, variable, user_id
-                        )
+                if not native_engine:
+                    # Legacy 1.0 resolves runtime values only through saved
+                    # definitions. Preserve its existing authoring contract;
+                    # native 2.0 writes question memory without definitions.
+                    definitions = get_profile_item_definition_list(app, shifu_bid)
+                    for key in markdown_flow.extract_variables():
+                        if not any(item.profile_key == key for item in definitions):
+                            add_profile_item_quick_internal(
+                                app, shifu_bid, key, user_id
+                            )
                 save_outline_history(
                     app,
                     user_id,
@@ -322,23 +332,9 @@ def parse_shifu_mdflow(
         )
         blocks = markdown_flow.get_all_blocks()
 
-        raw_variables = markdown_flow.extract_variables() or []
-        profile_definitions = get_profile_item_definition_list(
-            app, outline_item.shifu_bid
+        return MdflowDTOParseResult(
+            questions=_validated_questions(mdflow), blocks_count=len(blocks)
         )
-        definition_keys = [
-            item.profile_key for item in profile_definitions if item.profile_key
-        ]
-
-        dedup_vars: list[str] = []
-        seen = set()
-        for key in raw_variables + definition_keys:
-            if not key or key in seen:
-                continue
-            dedup_vars.append(key)
-            seen.add(key)
-
-        return MdflowDTOParseResult(variables=dedup_vars, blocks_count=len(blocks))
 
 
 def get_shifu_mdflow_history(

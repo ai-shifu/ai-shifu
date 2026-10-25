@@ -47,7 +47,7 @@ def test_mixed_control_keeps_typed_text_in_model_memory_and_private_facts(
         else:
             yield {
                 0: _interact(
-                    variable="background",
+                    question="background",
                     kind=kind,
                     prompt="Your background?",
                     options=[
@@ -59,8 +59,14 @@ def test_mixed_control_keeps_typed_text_in_model_memory_and_private_facts(
 
     _app, runtime, _factories = _runtime(script)
     runtime._provider_factory = lambda *_args: summary
+    separator = "||" if kind == "multi_or_text" else "|"
     view = _start(
-        runtime, "Collect %{{background}}, allowing choices and free text, then finish."
+        runtime,
+        "?[%{{background}}Teacher//teacher"
+        + separator
+        + "Engineer//engineer"
+        + separator
+        + "...Other]",
     )
     _run(runtime, view)
     final = _run(
@@ -77,7 +83,7 @@ def test_mixed_control_keeps_typed_text_in_model_memory_and_private_facts(
         else returns[0] == f"Learner wrote: {typed}"
     )
     expected = ", ".join(selected) + f"; {typed}" if selected else typed
-    assert runtime.store.load(view["session_id"]).variables["background"] == expected
+    assert runtime.store.load(view["session_id"]).memory["background"] == expected
     assert _terminal(final)["done"] is True
     facts = summary.messages[0][-1]["content"]
     assert typed in facts

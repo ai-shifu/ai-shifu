@@ -291,12 +291,6 @@ def _deadlock_error() -> object:
 def _stub_mdflow_save_collaborators(monkeypatch: object) -> None:
     prefix = "flaskr.service.shifu.shifu_mdflow_funcs."
     monkeypatch.setattr(prefix + "check_text_with_risk_control", lambda *_a, **_k: None)
-    monkeypatch.setattr(
-        prefix + "get_profile_item_definition_list", lambda *_a, **_k: []
-    )
-    monkeypatch.setattr(
-        prefix + "add_profile_item_quick_internal", lambda *_a, **_k: None
-    )
     monkeypatch.setattr(prefix + "save_outline_history", lambda *_a, **_k: 999999)
     monkeypatch.setattr(
         prefix + "cleanup_outline_history_versions", lambda *_a, **_k: None

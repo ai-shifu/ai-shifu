@@ -17,7 +17,6 @@ from .document_blocks import (
 )
 from .marker_context import analyze_marker_context
 from .stream_html_context import pending_html_prefix
-from .variable_names import read_variable_marker
 
 _HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]|$)")
 
@@ -378,31 +377,12 @@ def pending_autolink_is_primary(source: str, start: int) -> bool:
     )
 
 
-def _reference_marker_spans(source: str, body: int) -> list[tuple[int, int]]:
-    """Read raw marker ownership only inside an already viable reference tail."""
-    spans: list[tuple[int, int]] = []
-    at = body
-    while (start := source.find("{{", at)) >= 0:
-        before = start
-        while before and source[before - 1] == "\\":
-            before -= 1
-        if (start - before) % 2:
-            at = start + 1
-            continue
-        marker = read_variable_marker(source, start)
-        spans.append((start, marker.end if marker is not None else len(source)))
-        if marker is None:
-            break
-        at = marker.end
-    return spans
-
-
-def pending_literal_context(
-    source: str, *, reference_markers: list[tuple[int, int]] | None = None
-) -> tuple[int, str] | None:
+def pending_literal_context(source: str) -> tuple[int, str] | None:
     """Keep viable outer literal grammar until a raw marker can be classified."""
     context = analyze_marker_context(source, final=False)
-    starts: list[int] = []
+    starts: list[int] = [
+        at for at, _ in (*context.unmatched_backticks, *context.unmatched_math)
+    ]
     if (
         context.pending_reference_start is not None
         and context.pending_reference_body_start is not None
@@ -411,8 +391,6 @@ def pending_literal_context(
         reference = _reference_prefix(source, body, context.pending_reference_steps, "")
         if reference is not None:
             starts.append(context.pending_reference_start)
-            if reference_markers is not None:
-                reference_markers.extend(_reference_marker_spans(source, body))
     if context.pending_autolink_start is not None:
         start = context.pending_autolink_start
         if compact_angle_autolink_prefix(source, start) is not None:
@@ -550,11 +528,6 @@ def compact_marker_context(
             _reference_prefix(source, body, context.pending_reference_steps, "")
             is not None
         ):
-            spans = _reference_marker_spans(source, body)
-            if spans and read_variable_marker(source, spans[-1][0]) is None:
-                opening = spans[-1][0]
-                if not any(at == opening for at, _, _ in records):
-                    reference_tokens += "{{" + ("}" if source.endswith("}") else "")
             if source.endswith("{") and not reference_tokens.endswith("{"):
                 before = source[:-1]
                 escaped = (len(before) - len(before.rstrip("\\"))) % 2

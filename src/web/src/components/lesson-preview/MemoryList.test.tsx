@@ -2,33 +2,31 @@ import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fireEvent, render, screen } from '@testing-library/react';
-import VariableList from './VariableList';
-import styles from './VariableList.module.scss';
+import MemoryList from './MemoryList';
+import styles from './MemoryList.module.scss';
 
-const variableListStylesheet = readFileSync(
-  join(__dirname, 'VariableList.module.scss'),
+const memoryListStylesheet = readFileSync(
+  join(__dirname, 'MemoryList.module.scss'),
   'utf8',
 );
 
 const mockTranslations: Record<string, Record<string, string>> = {
   'zh-CN': {
-    'module.shifu.previewArea.systemVariableLabels.accessibleName':
+    'module.shifu.previewArea.systemMemoryLabels.accessibleName':
       '{label}（{name}）',
-    'module.shifu.previewArea.systemVariableLabels.nickname': '学生昵称',
-    'module.shifu.previewArea.systemVariableLabels.background': '学生背景偏好',
-    'module.shifu.previewArea.systemVariableLabels.input': '最新输入',
-    'module.shifu.previewArea.systemVariableLabels.language': '授课语言',
+    'module.shifu.previewArea.systemMemoryLabels.nickname': '学生昵称',
+    'module.shifu.previewArea.systemMemoryLabels.background': '学生背景偏好',
+    'module.shifu.previewArea.systemMemoryLabels.input': '最新输入',
+    'module.shifu.previewArea.systemMemoryLabels.language': '授课语言',
   },
   'en-US': {
-    'module.shifu.previewArea.systemVariableLabels.accessibleName':
+    'module.shifu.previewArea.systemMemoryLabels.accessibleName':
       '{label} ({name})',
-    'module.shifu.previewArea.systemVariableLabels.nickname':
-      'Student nickname',
-    'module.shifu.previewArea.systemVariableLabels.background':
+    'module.shifu.previewArea.systemMemoryLabels.nickname': 'Student nickname',
+    'module.shifu.previewArea.systemMemoryLabels.background':
       'Student background and preferences',
-    'module.shifu.previewArea.systemVariableLabels.input': 'Latest input',
-    'module.shifu.previewArea.systemVariableLabels.language':
-      'Teaching language',
+    'module.shifu.previewArea.systemMemoryLabels.input': 'Latest input',
+    'module.shifu.previewArea.systemMemoryLabels.language': 'Teaching language',
   },
 };
 let mockLanguage = 'zh-CN';
@@ -45,14 +43,14 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-describe('VariableList system variable labels', () => {
+describe('MemoryList system memory labels', () => {
   beforeEach(() => {
     mockLanguage = 'zh-CN';
   });
 
   test('crossfades localized names and raw keys within the same name cell', () => {
     const onChange = jest.fn();
-    const variables = {
+    const memory = {
       sys_user_nickname: 'Learner',
       sys_user_background: 'Teacher',
       sys_user_input: 'Question',
@@ -60,9 +58,9 @@ describe('VariableList system variable labels', () => {
     };
 
     render(
-      <VariableList
-        variables={variables}
-        systemVariableKeys={Object.keys(variables)}
+      <MemoryList
+        memory={memory}
+        systemMemoryKeys={Object.keys(memory)}
         onChange={onChange}
       />,
     );
@@ -99,28 +97,28 @@ describe('VariableList system variable labels', () => {
   });
 
   test('crossfades a full-row raw layer without changing layout', () => {
-    expect(variableListStylesheet).toMatch(
+    expect(memoryListStylesheet).toMatch(
       /\.systemName\s*{\s*min-width:\s*0;[\s\S]*?&:hover,\s*&:focus-visible\s*{\s*overflow:\s*visible;/,
     );
-    expect(variableListStylesheet).toMatch(
+    expect(memoryListStylesheet).toMatch(
       /&:hover \.friendlyName,\s*&:focus-visible \.friendlyName\s*{\s*opacity:\s*0;/,
     );
-    expect(variableListStylesheet).toMatch(
+    expect(memoryListStylesheet).toMatch(
       /&:hover \.rawName,\s*&:focus-visible \.rawName\s*{\s*opacity:\s*1;/,
     );
-    expect(variableListStylesheet).toMatch(
+    expect(memoryListStylesheet).toMatch(
       /\.rawName\s*{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?font-size:\s*11px;/,
     );
   });
 
-  test('keeps custom variables raw and falls unknown system variables back to raw', () => {
+  test('keeps custom memory raw and falls unknown system memory back to raw', () => {
     render(
-      <VariableList
-        variables={{
+      <MemoryList
+        memory={{
           custom_topic: 'Testing',
           sys_user_future: 'Future',
         }}
-        systemVariableKeys={['sys_user_future']}
+        systemMemoryKeys={['sys_user_future']}
       />,
     );
 
@@ -137,20 +135,20 @@ describe('VariableList system variable labels', () => {
 
   test('updates every visible friendly name when the interface language changes', () => {
     const props = {
-      variables: {
+      memory: {
         sys_user_nickname: 'Learner',
         sys_user_background: 'Teacher',
         sys_user_input: 'Question',
         sys_user_language: 'Chinese',
       },
-      systemVariableKeys: [
+      systemMemoryKeys: [
         'sys_user_nickname',
         'sys_user_background',
         'sys_user_input',
         'sys_user_language',
       ],
     };
-    const { rerender } = render(<VariableList {...props} />);
+    const { rerender } = render(<MemoryList {...props} />);
 
     expect(screen.getByText('学生昵称')).toBeInTheDocument();
     expect(screen.getByText('学生背景偏好')).toBeInTheDocument();
@@ -158,7 +156,7 @@ describe('VariableList system variable labels', () => {
     expect(screen.getByText('授课语言')).toBeInTheDocument();
 
     mockLanguage = 'en-US';
-    rerender(<VariableList {...props} />);
+    rerender(<MemoryList {...props} />);
 
     expect(screen.getByText('Student nickname')).toBeInTheDocument();
     expect(

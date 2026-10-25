@@ -2,8 +2,8 @@
 
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import styles from './VariableList.module.scss';
-import type { PreviewVariablesMap } from './variableStorage';
+import styles from './MemoryList.module.scss';
+import type { PreviewMemoryMap } from './memoryStorage';
 import { Input } from '../ui/Input';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import {
@@ -13,71 +13,70 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-interface VariableListProps {
-  variables?: PreviewVariablesMap;
+interface MemoryListProps {
+  memory?: PreviewMemoryMap;
   collapsed?: boolean;
   onToggle?: () => void;
   onChange?: (name: string, value: string) => void;
-  variableOrder?: string[];
-  systemVariableKeys?: string[];
+  memoryOrder?: string[];
+  systemMemoryKeys?: string[];
   actionType?: 'hide' | 'restore';
   onAction?: () => void;
   actionDisabled?: boolean;
-  customVariableKeys?: string[];
-  unusedVariableKeys?: string[];
-  onHideVariable?: (name: string) => void;
+  customMemoryKeys?: string[];
+  unusedMemoryKeys?: string[];
+  onHideMemory?: (name: string) => void;
 }
 
-const SYSTEM_VARIABLE_LABEL_KEYS = {
-  sys_user_nickname: 'module.shifu.previewArea.systemVariableLabels.nickname',
+const SYSTEM_MEMORY_LABEL_KEYS = {
+  sys_user_nickname: 'module.shifu.previewArea.systemMemoryLabels.nickname',
   sys_user_style: 'server.profile.style',
-  sys_user_background:
-    'module.shifu.previewArea.systemVariableLabels.background',
-  sys_user_input: 'module.shifu.previewArea.systemVariableLabels.input',
-  sys_user_language: 'module.shifu.previewArea.systemVariableLabels.language',
+  sys_user_background: 'module.shifu.previewArea.systemMemoryLabels.background',
+  sys_user_input: 'module.shifu.previewArea.systemMemoryLabels.input',
+  sys_user_language: 'module.shifu.previewArea.systemMemoryLabels.language',
 } as const;
 
-const resolveSystemVariableLabelKey = (name: string) =>
-  SYSTEM_VARIABLE_LABEL_KEYS[name as keyof typeof SYSTEM_VARIABLE_LABEL_KEYS];
+const resolveSystemMemoryLabelKey = (name: string) =>
+  SYSTEM_MEMORY_LABEL_KEYS[name as keyof typeof SYSTEM_MEMORY_LABEL_KEYS];
 
-const VariableList: React.FC<VariableListProps> = ({
-  variables,
+const MemoryList: React.FC<MemoryListProps> = ({
+  memory,
   collapsed = false,
   onToggle,
   onChange,
-  variableOrder = [],
-  systemVariableKeys,
+  memoryOrder = [],
+  systemMemoryKeys,
   actionType,
   onAction,
   actionDisabled = false,
-  customVariableKeys,
-  unusedVariableKeys,
-  onHideVariable,
+  customMemoryKeys,
+  unusedMemoryKeys,
+  onHideMemory,
 }) => {
   const { t } = useTranslation();
 
   const isHideAction = actionType === 'hide';
   const customKeySet = useMemo(
-    () => new Set(customVariableKeys || []),
-    [customVariableKeys],
+    () => new Set(customMemoryKeys || []),
+    [customMemoryKeys],
   );
   const unusedKeySet = useMemo(
-    () => new Set(unusedVariableKeys || []),
-    [unusedVariableKeys],
+    () => new Set(unusedMemoryKeys || []),
+    [unusedMemoryKeys],
   );
-  const systemVariableKeySet = useMemo(
-    () => new Set(systemVariableKeys || []),
-    [systemVariableKeys],
+  const systemMemoryKeySet = useMemo(
+    () => new Set(systemMemoryKeys || []),
+    [systemMemoryKeys],
   );
 
   const entries = useMemo(() => {
-    const sourceEntries = Object.entries(variables || {});
-    if (!variableOrder.length) {
+    const sourceEntries = Object.entries(memory || {});
+    if (!memoryOrder.length) {
       return sourceEntries;
     }
     const sourceMap = new Map(sourceEntries);
     const orderedEntries: [string, string][] = [];
-    variableOrder.forEach(key => {
+    memoryOrder.forEach(key => {
       if (sourceMap.has(key)) {
         orderedEntries.push([key, sourceMap.get(key) || '']);
         sourceMap.delete(key);
@@ -87,25 +86,25 @@ const VariableList: React.FC<VariableListProps> = ({
       orderedEntries.push([key, value]);
     });
     return orderedEntries;
-  }, [variableOrder, variables]);
+  }, [memoryOrder, memory]);
 
   const hasVisible = entries.length > 0;
   const isEmptyView = !hasVisible;
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className={styles.variableList}>
+      <div className={styles.memoryList}>
         <div className={styles.header}>
           <div className={styles.topRow}>
             <div className={styles.titleWrapper}>
               <div className={styles.title}>
-                {t('module.shifu.previewArea.variablesTitle')}
+                {t('module.shifu.previewArea.memoryTitle')}
               </div>
               <div
                 className={styles.description}
-                title={t('module.shifu.previewArea.variablesDescription')}
+                title={t('module.shifu.previewArea.memoryDescription')}
               >
-                {t('module.shifu.previewArea.variablesDescription')}
+                {t('module.shifu.previewArea.memoryDescription')}
               </div>
             </div>
             <div className={styles.actionsCompact}>
@@ -119,15 +118,15 @@ const VariableList: React.FC<VariableListProps> = ({
                       disabled={actionDisabled}
                     >
                       {isHideAction
-                        ? t('module.shifu.previewArea.variablesHideUnused')
-                        : t('module.shifu.previewArea.variablesRestoreHidden')}
+                        ? t('module.shifu.previewArea.memoryHideUnused')
+                        : t('module.shifu.previewArea.memoryRestoreHidden')}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side='top'>
                     {isHideAction
-                      ? t('module.shifu.previewArea.variablesHideUnusedTooltip')
+                      ? t('module.shifu.previewArea.memoryHideUnusedTooltip')
                       : t(
-                          'module.shifu.previewArea.variablesRestoreHiddenTooltip',
+                          'module.shifu.previewArea.memoryRestoreHiddenTooltip',
                         )}
                   </TooltipContent>
                 </Tooltip>
@@ -151,8 +150,8 @@ const VariableList: React.FC<VariableListProps> = ({
                   )}
                   <span>
                     {collapsed
-                      ? t('module.shifu.previewArea.variablesExpand')
-                      : t('module.shifu.previewArea.variablesCollapse')}
+                      ? t('module.shifu.previewArea.memoryExpand')
+                      : t('module.shifu.previewArea.memoryCollapse')}
                   </span>
                 </button>
               )}
@@ -167,23 +166,23 @@ const VariableList: React.FC<VariableListProps> = ({
             {entries.map(([name, value]) => {
               const displayValue = value || '';
               const canHide = customKeySet.has(name) && unusedKeySet.has(name);
-              const systemVariableLabelKey = systemVariableKeySet.has(name)
-                ? resolveSystemVariableLabelKey(name)
+              const systemMemoryLabelKey = systemMemoryKeySet.has(name)
+                ? resolveSystemMemoryLabelKey(name)
                 : undefined;
-              const displayName = systemVariableLabelKey
-                ? t(systemVariableLabelKey)
+              const displayName = systemMemoryLabelKey
+                ? t(systemMemoryLabelKey)
                 : name;
               return (
                 <div
                   className={styles.item}
                   key={name}
                 >
-                  {systemVariableLabelKey ? (
+                  {systemMemoryLabelKey ? (
                     <div
                       tabIndex={0}
                       className={`${styles.name} ${styles.systemName}`}
                       aria-label={t(
-                        'module.shifu.previewArea.systemVariableLabels.accessibleName',
+                        'module.shifu.previewArea.systemMemoryLabels.accessibleName',
                         { label: displayName, name },
                       )}
                     >
@@ -217,23 +216,23 @@ const VariableList: React.FC<VariableListProps> = ({
                       type='text'
                       value={displayValue}
                       placeholder={t(
-                        'module.shifu.previewArea.variablesPlaceholder',
+                        'module.shifu.previewArea.memoryPlaceholder',
                       )}
                       onChange={e => {
                         const nextValue = e.target.value;
                         onChange?.(name, nextValue);
                       }}
                     />
-                    {canHide && onHideVariable && (
+                    {canHide && onHideMemory && (
                       <button
                         type='button'
                         className={styles.hideBadge}
                         onClick={event => {
                           event.stopPropagation();
-                          onHideVariable(name);
+                          onHideMemory(name);
                         }}
                         aria-label={t(
-                          'module.shifu.previewArea.variablesHideSingleConfirmTitle',
+                          'module.shifu.previewArea.memoryHideSingleConfirmTitle',
                         )}
                       >
                         <X
@@ -252,7 +251,7 @@ const VariableList: React.FC<VariableListProps> = ({
 
         {isEmptyView && (
           <div className={styles.hiddenEmpty}>
-            {t('module.shifu.previewArea.variablesEmpty')}
+            {t('module.shifu.previewArea.memoryEmpty')}
           </div>
         )}
       </div>
@@ -260,4 +259,4 @@ const VariableList: React.FC<VariableListProps> = ({
   );
 };
 
-export default VariableList;
+export default MemoryList;

@@ -41,7 +41,7 @@ async def test_deleted_declared_key_requires_new_explicit_permission(
         memory_admission=True,
         memory_request_check=check,
     )
-    session = await engine.new_session("Collect %{{pace}}.")
+    session = await engine.new_session("?[%{{pace}} ...Your pace]")
     events = [
         e
         async for e in engine.run_turn(
@@ -59,10 +59,10 @@ async def test_deleted_declared_key_requires_new_explicit_permission(
 
 async def test_new_named_answer_can_recreate_deleted_course_memory() -> None:
     engine, session = await _ask(
-        {"type": "text", "prompt": "Your pace?", "variable": "pace"},
+        {"type": "text", "prompt": "Your pace?", "question": "pace"},
         AsyncMock(return_value=False),
         [{"key": "unrelated", "value": "ignored", "request": None}],
-        script="Collect %{{pace}}.",
+        script="?[%{{pace}} ...Your pace]",
     )
     events = [
         e
@@ -85,7 +85,7 @@ async def test_deferred_old_request_cannot_restore_deleted_memory() -> None:
         {"type": "text", "prompt": "Your answer?"},
         check,
         [{"key": "pace", "value": "short", "request": REQUEST}],
-        script="Collect %{{pace}}.",
+        script="?[%{{pace}} ...Your pace]",
     )
     session.request_inputs = [REQUEST]
     _ = [
@@ -132,7 +132,8 @@ def _note_model(notes: list[dict], returns: list[str]) -> FunctionModel:
 @pytest.mark.parametrize(
     ("script", "allowed"),
     [
-        ("Collect %{{pace}}.", True),
+        ("?[%{{pace}} ...Your pace]", True),
+        ("Collect %{{pace}}.", False),
         ("Read {{pace}}.", False),
         ("```md\nCollect %{{pace}}.\n```", False),
         ("Teach the lesson.", False),
@@ -152,7 +153,7 @@ async def test_only_main_script_collection_declarations_grant_permission(
     session = await engine.new_session(
         ScriptBundle(
             script=script,
-            constraints="Collect %{{pace}}.",
+            constraints="?[%{{pace}} ...Your pace]",
             extras={"example": "%{{pace}}"},
         )
     )
@@ -267,13 +268,13 @@ async def test_only_accepted_free_text_is_request_evidence(
 ) -> None:
     """Pure choices, confirm payloads and discarded extra values cannot manufacture consent."""
     check = AsyncMock(return_value=True)
-    spec = {"type": kind, "prompt": "Tell me", "variable": "guessed"}
+    spec = {"type": kind, "prompt": "Tell me", "question": "guessed"}
     if kind != "text":
         spec["options"] = [{"display": "Pick", "value": "pick"}]
     engine, session = await _ask(
         spec, check, [{"key": "pace", "value": "short", "request": REQUEST}]
     )
-    assert session.pending[0].spec.variable is None
+    assert session.pending[0].spec.question is None
     events = [
         e
         async for e in engine.run_turn(
@@ -346,7 +347,7 @@ async def test_old_session_pending_variable_cannot_bypass_admission() -> None:
         check,
         [{"key": "pace", "value": "short"}],
     )
-    session.pending[0].spec.variable = "legacy_guessed"
+    session.pending[0].spec.question = "legacy_guessed"
     _ = [
         e
         async for e in engine.run_turn(
@@ -423,15 +424,15 @@ async def test_queued_answers_retry_and_round_trip_preserve_only_pending_evidenc
 
 
 async def test_declared_answer_keeps_its_exact_long_value() -> None:
-    """Admission restricts who may name a variable, not the answer's original length."""
+    """Admission restricts who may name a question, not the answer's original length."""
     check = AsyncMock(return_value=False)
     engine, session = await _ask(
-        {"type": "text", "prompt": "Your goal?", "variable": "goal"},
+        {"type": "text", "prompt": "Your goal?", "question": "goal"},
         check,
         [],
-        script="Collect %{{goal}}.",
+        script="?[%{{goal}} ...Your goal]",
     )
-    assert session.pending[0].spec.variable == "goal"
+    assert session.pending[0].spec.question == "goal"
     answer = "é" * 4000
     events = [
         e async for e in engine.run_turn(session, InteractionResponseTurn(text=answer))
@@ -465,7 +466,7 @@ async def test_host_reserved_account_keys_need_script_declarations(key: str) -> 
             memory_request_check=check,
         )
         session = await engine.new_session(
-            f"Collect %{{{{{key}}}}}." if declared else "Teach."
+            f"?[%{{{{{key}}}}} ...Your answer]" if declared else "Teach."
         )
         _ = [e async for e in engine.run_turn(session, MessageTurn(text=REQUEST))]
         assert session.user_memory == ({key: "requested"} if declared else {})
@@ -611,7 +612,10 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
     engine = Engine(FunctionModel(stream_function=model), memory_admission=enabled)
     instructions = engine.compose_instructions()
     if enabled:
-        assert "Only record variables the main script declares" in instructions
+        assert (
+            "Only record answers under questions the main script declares"
+            in instructions
+        )
         assert "complete verbatim free-text input" in instructions
         assert "before your next `interact` or `finish`" in instructions
         assert (
@@ -623,13 +627,17 @@ async def test_model_facing_memory_policy_matches_the_host_capability(
             "Also call `remember` when the learner states a preference" in instructions
         )
         assert '"store it as X"' in instructions
-        assert "Only record variables the main script declares" not in instructions
+        assert (
+            "Only record answers under questions the main script declares"
+            not in instructions
+        )
     session = await engine.new_session("Teach.")
     _ = [event async for event in engine.run_turn(session)]
     assert len(seen) == 2
     for description in seen:
         assert (
-            "Only record variables the main script declares" in description
+            "Only record answers under questions the main script declares"
+            in description
         ) is enabled
         assert (
             "Also call `remember` when the learner states a preference" in description
@@ -646,7 +654,7 @@ async def test_replayed_explicit_request_cannot_recreate_deleted_key(
         memory_admission=True,
         memory_request_check=check,
     )
-    session = await engine.new_session("Collect %{{pace}}.")
+    session = await engine.new_session("?[%{{pace}} ...Your pace]")
     events = [
         e
         async for e in engine.run_turn(

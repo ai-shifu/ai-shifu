@@ -32,7 +32,7 @@ def output_language_instructions(language: str | None) -> str:
         "takes precedence over language hints in the learner memory, earlier "
         "conversation, script examples and teaching brief. Do not repeat or "
         "translate previously delivered teaching just because the language changed.\n"
-        "Only display wording is translated: keep variable names, identifiers, "
+        "Only display wording is translated: keep authored question text used as memory keys, identifiers, "
         "option submission values, URLs, executable code and explicitly verbatim "
         "preserved content unchanged. For Display//value translate only Display. "
         "For an option without //value, keep its original authored wording as "

@@ -41,10 +41,9 @@ from .engine.interaction import (
 from .engine.memory import InMemoryMemoryStore, MemoryStore
 from .engine.script import (
     ScriptBundle,
-    collected_names,
+    collected_questions,
     detect_v1_syntax,
     render_first_prompt,
-    substitute_variables,
 )
 from .engine.segmenter import Narration, Segmenter, SegmentPiece, plain_narration
 from .engine.session import (
@@ -107,7 +106,7 @@ __all__ = [
     "Visual",
     "__version__",
     "answer_is_usable",
-    "collected_names",
+    "collected_questions",
     "detect_v1_syntax",
     "iter_turn",
     "load_prompt",
@@ -115,6 +114,5 @@ __all__ = [
     "parse_event",
     "plain_narration",
     "render_first_prompt",
-    "substitute_variables",
     "to_sse",
 ]

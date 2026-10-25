@@ -91,7 +91,7 @@ __all__ = [
     "validate_profile_research_document",
 ]
 
-_NICKNAME_VARIABLE_KEY = "sys_user_nickname"
+_NICKNAME_MEMORY_KEY = "sys_user_nickname"
 
 
 @dataclass
@@ -103,7 +103,7 @@ class _RunAdmission:
 
 
 def _collected_nickname(session: _ProfileResearchSession) -> str | None:
-    raw_nickname = session.variables.get(_NICKNAME_VARIABLE_KEY)
+    raw_nickname = session.memory.get(_NICKNAME_MEMORY_KEY)
     if isinstance(raw_nickname, str):
         normalized = raw_nickname.strip()
         return normalized or None
@@ -756,14 +756,14 @@ class ProfileResearchRuntime:
                 raise ProfileResearchValidationError(msg)
 
             # All provider work happens on a detached snapshot. No cursor,
-            # variables, or context is published until both steps succeed.
+            # memory, or context is published until both steps succeed.
             with ProfileTrace(session, raw_text, operation="delegate") as trace:
                 staged = deepcopy(session)
                 answers, nickname = self._extract_assistant_answers(
                     staged, raw_text, trace=trace
                 )
                 if nickname and not _collected_nickname(staged):
-                    staged.variables[_NICKNAME_VARIABLE_KEY] = nickname
+                    staged.memory[_NICKNAME_MEMORY_KEY] = nickname
                 if (
                     len(_collected_nickname(staged) or "")
                     > LEARNER_PROFILE_NICKNAME_MAX_LENGTH

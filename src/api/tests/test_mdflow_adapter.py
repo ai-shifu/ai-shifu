@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import AppError
+from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.shifu_history_manager import (
     get_shifu_draft_meta,
@@ -23,23 +24,24 @@ from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 
 
-def test_parse_shifu_mdflow_returns_variables(app: object) -> None:
+def test_parse_shifu_mdflow_returns_only_authored_questions(app: object) -> None:
     with app.app_context():
         outline = DraftOutlineItem(
             outline_item_bid="outline-mdflow-1",
             shifu_bid="shifu-mdflow-1",
             title="Outline Title",
-            content="Hello {{name}}",
+            content="Hello {{name}}\n?[%{{Your learning goal?}}...Your answer]",
         )
         db.session.add(outline)
         db.session.commit()
 
     result = parse_shifu_mdflow(app, "shifu-mdflow-1", "outline-mdflow-1")
-    assert "name" in result.variables
+    assert result.questions == ["Your learning goal?"]
+    assert "variables" not in result.__json__()
     assert result.blocks_count >= 1
 
     content = get_shifu_mdflow(app, "shifu-mdflow-1", "outline-mdflow-1")
-    assert content == "Hello {{name}}"
+    assert content == "Hello {{name}}\n?[%{{Your learning goal?}}...Your answer]"
 
 
 def _add_outline_version(
@@ -278,14 +280,6 @@ def test_save_shifu_mdflow_normalizes_none_content(
         lambda _app, _check_id, _user_id, text: risk_checked_texts.append(text),
     )
     monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.save_outline_history",
         lambda *_args, **_kwargs: 999999,
     )
@@ -320,14 +314,6 @@ def test_save_shifu_mdflow_returns_outline_revision_not_history_log(
 
     monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
@@ -394,14 +380,6 @@ def test_save_shifu_mdflow_serializes_with_outline_structure_writes(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
@@ -478,14 +456,6 @@ def test_save_shifu_mdflow_rereads_outline_after_risk_control_commit(
     monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
         _risk_check_and_reorder,
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
-        lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.save_outline_history",
@@ -572,14 +542,6 @@ def test_restore_shifu_mdflow_history_restores_content(
 
     monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.get_profile_item_definition_list",
-        lambda *_args, **_kwargs: [],
-    )
-    monkeypatch.setattr(
-        "flaskr.service.shifu.shifu_mdflow_funcs.add_profile_item_quick_internal",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
@@ -695,3 +657,127 @@ def test_restore_shifu_mdflow_history_deleted_outline_returns_deleted_flag(
     )
     assert result["lesson_deleted"] is True
     assert result["restored"] is False
+
+
+def test_saving_questions_never_creates_profile_variable_definitions(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr("flaskr.common.config.Config._instance", None)
+    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", "true")
+    course = "question-memory-only"
+    outline = "question-memory-only-lesson"
+    revision = _add_outline_version(app, course, outline, "Original", "teacher", 0)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
+        lambda *_args: None,
+    )
+    with app.app_context():
+        before = Variable.query.filter_by(shifu_bid=course).count()
+    result = save_shifu_mdflow(
+        app,
+        "teacher",
+        course,
+        outline,
+        "Keep {{literal}} unchanged.\n?[%{{What would you like to learn?}}...Answer]",
+        base_revision=revision,
+    )
+    assert result["conflict"] is False
+    assert parse_shifu_mdflow(app, course, outline).questions == [
+        "What would you like to learn?"
+    ]
+    with app.app_context():
+        assert Variable.query.filter_by(shifu_bid=course).count() == before
+
+
+@pytest.mark.parametrize("size", [255, 256])
+def test_question_memory_key_limit_is_explicit_and_never_truncated(
+    app: object, monkeypatch: object, size: int
+) -> None:
+    monkeypatch.setattr("flaskr.common.config.Config._instance", None)
+    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", "true")
+    course, outline = f"question-bound-{size}", f"question-bound-lesson-{size}"
+    revision = _add_outline_version(app, course, outline, "Original", "teacher", 0)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
+        lambda *_args: None,
+    )
+    question = "Q" * size
+    content = "?[%{{" + question + "}}...Answer]"
+    if size > 255:
+        with pytest.raises(AppError):
+            save_shifu_mdflow(
+                app, "teacher", course, outline, content, base_revision=revision
+            )
+        assert get_shifu_mdflow(app, course, outline) == "Original"
+    else:
+        save_shifu_mdflow(
+            app, "teacher", course, outline, content, base_revision=revision
+        )
+        assert parse_shifu_mdflow(app, course, outline).questions == [question]
+
+
+@pytest.mark.parametrize("enabled", [None, "false"])
+def test_legacy_authoring_still_creates_definitions_for_runtime_values(
+    app: object, monkeypatch: object, enabled: str | None
+) -> None:
+    monkeypatch.setattr("flaskr.common.config.Config._instance", None)
+    if enabled is None:
+        monkeypatch.delenv("FLOW_ENGINE_V2_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", enabled)
+    course = "legacy-definitions-" + str(enabled)
+    outline = course + "-lesson"
+    revision = _add_outline_version(app, course, outline, "Original", "teacher", 0)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
+        lambda *_args: None,
+    )
+    content = "?[%{{legacy_answer}}A|B]\nUse {{legacy_answer}} in the next example."
+    result = save_shifu_mdflow(
+        app, "teacher", course, outline, content, base_revision=revision
+    )
+    assert result["conflict"] is False
+    with app.app_context():
+        definitions = Variable.query.filter_by(shifu_bid=course, deleted=0).all()
+        assert [item.key for item in definitions] == ["legacy_answer"]
+    assert get_shifu_mdflow(app, course, outline) == content
+
+
+def test_failed_legacy_save_rolls_back_definition_and_outline_together(
+    app: object, monkeypatch: object
+) -> None:
+    monkeypatch.setattr("flaskr.common.config.Config._instance", None)
+    monkeypatch.delenv("FLOW_ENGINE_V2_ENABLED", raising=False)
+    course, outline = "legacy-definition-rollback", "legacy-definition-rollback-lesson"
+    revision = _add_outline_version(app, course, outline, "Original", "teacher", 0)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.check_text_with_risk_control",
+        lambda *_args: None,
+    )
+
+    def fail_history(*_args: object, **_kwargs: object) -> None:
+        assert (
+            Variable.query.filter_by(shifu_bid=course, key="legacy_rolled_back").count()
+            == 1
+        )
+        message = "injected legacy history failure"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.shifu_mdflow_funcs.save_outline_history", fail_history
+    )
+    with pytest.raises(RuntimeError, match="injected legacy history failure"):
+        save_shifu_mdflow(
+            app,
+            "teacher",
+            course,
+            outline,
+            "?[%{{legacy_rolled_back}}A|B]",
+            base_revision=revision,
+        )
+    assert get_shifu_mdflow(app, course, outline) == "Original"
+    with app.app_context():
+        assert (
+            Variable.query.filter_by(shifu_bid=course, key="legacy_rolled_back").count()
+            == 0
+        )

@@ -78,7 +78,7 @@ def _collector() -> Engine:
                     name="interact",
                     tool_call_id="goal-question",
                     json_args=json.dumps(
-                        {"type": "text", "prompt": "Your goal?", "variable": "goal"}
+                        {"type": "text", "prompt": "Your goal?", "question": "goal"}
                     ),
                 )
             }
@@ -154,7 +154,7 @@ def _teach_first(app: Flask, user: str, course: str) -> str:
 
 
 def _memory(prompt: str) -> dict:
-    """Read the injected memory section separately from the substituted script."""
+    """Read the injected memory section separately from the literal script."""
     return json.loads(prompt.split("<memory>\n", 1)[1].split("\n</memory>", 1)[0])
 
 
@@ -175,10 +175,9 @@ def test_answer_and_durable_note_reach_the_next_lesson_but_working_notes_do_not(
     assert memory["pace"] == "slow"
     assert "scratch" not in memory
     script = seen[0].split("<script>\n", 1)[1]
-    assert ANSWER in script
-    assert "slow" in script
-    assert "{{goal}}" not in script
-    assert "{{pace}}" not in script
+    assert ANSWER not in script
+    assert "{{goal}}" in script
+    assert "{{pace}}" in script
 
 
 @pytest.mark.parametrize("other", ["learner", "course"])
@@ -354,3 +353,66 @@ def test_aggregate_note_budget_controls_host_writes_without_trimming_answers(
     memory = _memory(seen[0])
     assert memory["goal"] == goal
     assert memory["pace"] == expected
+
+
+def test_question_text_is_durable_without_a_profile_definition(app: Flask) -> None:
+    """Save an authored question as the exact key and reload it in a new lesson."""
+    question = 'Which [path] | level//hint do you prefer? "Explain"'
+    answer = "Practice with one real project."
+    user, course, lesson = uuid4().hex, uuid4().hex, uuid4().hex
+
+    async def model(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        if any(
+            isinstance(part, ToolReturnPart)
+            for message in messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+        ):
+            yield "Thanks for your answer."
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    tool_call_id="question-answer",
+                    json_args=json.dumps(
+                        {
+                            "type": "text",
+                            "prompt": "Your preference?",
+                            "question": question,
+                        }
+                    ),
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model), memory_admission=True)
+    with app.app_context():
+        with unit_of_work():
+            create_user_entity(user_bid=user, identify=user, nickname="Learner")
+        kwargs = {
+            "app": app,
+            "engine": engine,
+            "script": "?[%{{" + question + "}}...Your preference?]",
+            "user_bid": user,
+            "shifu_bid": course,
+            "outline_bid": lesson,
+            "iter_turn": _drive,
+        }
+        list(run_agent.run_agent_lesson(**kwargs))
+        list(run_agent.run_agent_lesson(**kwargs, user_input=answer))
+        db.session.remove()
+        assert Variable.query.filter_by(shifu_bid=course, key=question).count() == 0
+        saved = VariableValue.query.filter_by(
+            user_bid=user, shifu_bid=course, key=question
+        ).one()
+        assert saved.value == answer
+        assert (
+            load_memory(
+                app, user, course, include_course_variables=True
+            ).as_variables()[question]
+            == answer
+        )
+        seen: list[str] = []
+        _run(app, _observer(seen), user, course, uuid4().hex)
+        assert _memory(seen[0])[question] == answer

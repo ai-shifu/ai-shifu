@@ -64,9 +64,9 @@ class InteractionSpec(BaseModel):
     options: list[Option] = Field(
         default_factory=list, description="Choices; empty for text."
     )
-    variable: str | None = Field(
+    question: str | None = Field(
         default=None,
-        description="Memory key to store the answer under. Only when the script names one.",
+        description="Exact question text from the authored %{{...}} marker; also the memory key for its answer.",
     )
     placeholder: str | None = Field(
         default=None, description="Placeholder for the text box."
@@ -99,9 +99,9 @@ class InteractionSpec(BaseModel):
             # learner a choice that cannot reach the model. Keep the first one only.
             self.options = self.options[:1]
             # A confirm carries no answer, only "go on", so its button text must never be stored.
-            # Models do attach a variable to it -- often the one the previous question filled --
+            # Models do attach a question to it -- often the one the previous question filled --
             # and pressing continue then overwrites a real answer with the button's label.
-            self.variable = None
+            self.question = None
         return self
 
 
@@ -161,7 +161,7 @@ def answer_is_usable(spec: InteractionSpec, answer: InteractionAnswer) -> bool:
 
 
 def stored_value(spec: InteractionSpec, answer: InteractionAnswer) -> str | None:
-    """Pick the value to put in memory for `spec.variable`, or None if nothing usable came back."""
+    """Pick the value to put in memory for `spec.question`, or None if nothing usable came back."""
     if (
         answer.values
         and answer.text
@@ -187,3 +187,12 @@ def format_answer_for_model(spec: InteractionSpec, answer: InteractionAnswer) ->
     if answer.text:
         return f"Learner wrote: {answer.text}"
     return "Learner continued without answering."
+
+
+def restore_interaction_spec(stored: Mapping[str, Any]) -> InteractionSpec:
+    """Read a stored interaction, accepting the retired field only at this boundary."""
+    restored = dict(stored)
+    if "question" not in restored and "variable" in restored:
+        restored["question"] = restored["variable"]
+    restored.pop("variable", None)
+    return InteractionSpec.model_validate(restored)

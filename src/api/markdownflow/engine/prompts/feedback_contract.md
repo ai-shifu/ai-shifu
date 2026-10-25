@@ -51,7 +51,7 @@ and its reasoning to the learner rather than disclose a solution or checklist.
 
 Every `review` includes the actual returned `answer_id`, an exact
 `submission_quote` from that input and a brief internal `reason` for the branch.
-The host reference supplies the opaque interaction ID explicitly. A course variable,
+The host reference supplies the opaque interaction ID explicitly. A course question,
 question number or input placeholder is not that ID. Copy the same reference ID
 for either `direction` or `review`; a direction must omit ordinary `review`.
 These internal fields are not displayed. Do not label an incomplete answer as

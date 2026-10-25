@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from markdown_flow.escaping import escape_interaction_text
 
 from .engine.interaction import InteractionSpec, Option
-from .engine.variable_names import format_variable_assignment
+from .engine.questions import format_question
 
 
 @dataclass(frozen=True)
@@ -74,11 +74,9 @@ def _compose(spec: InteractionSpec) -> str:
         placeholder = escape_interaction_text(spec.placeholder or "")
         parts.append(f"{_FREE_TEXT_MARKER}{placeholder}")
 
-    marker = (
-        format_variable_assignment(spec.variable) if spec.variable is not None else None
-    )
-    if spec.variable is not None and marker is None:
-        message = "Invalid variable name"
+    marker = format_question(spec.question) if spec.question is not None else None
+    if spec.question is not None and marker is None:
+        message = "Invalid question text"
         raise UnrepresentableInteractionError(message)
     prefix = marker + " " if marker else ""
     return f"?[{prefix}{separator.join(parts)}]"
@@ -105,11 +103,12 @@ def _verify_round_trip(spec: InteractionSpec, rendered: str) -> None:
         message = f"options survive as {round_tripped!r}, not {expected!r}"
         raise UnrepresentableInteractionError(message)
 
-    if parsed.get("variable") != spec.variable and (
-        spec.variable or parsed.get("variable")
+    # The pinned parser retains its legacy field name at this boundary.
+    if parsed.get("variable") != spec.question and (
+        spec.question or parsed.get("variable")
     ):
         message = (
-            f"variable survives as {parsed.get('variable')!r}, not {spec.variable!r}"
+            f"question survives as {parsed.get('variable')!r}, not {spec.question!r}"
         )
         raise UnrepresentableInteractionError(message)
 
@@ -130,12 +129,12 @@ def render_interaction(spec: InteractionSpec, *, labels: QuestionLabels) -> str:
     """Rebuild the MarkdownFlow interaction the frontend expects from the engine's typed spec.
 
     Raises `UnrepresentableInteractionError` when the result would ask something other than the spec
-    does. The variable prefix is emitted only when the script named one to store the answer under;
+    does. The question marker is emitted only when the script named one to store the answer under;
     a confirm carries none by construction, since pressing continue is not an answer.
     """
-    if spec.variable is not None and not spec.variable.strip():
+    if spec.question is not None and not spec.question.strip():
         # Preserve pending interactions saved before blank names were validated.
-        spec = spec.model_copy(update={"variable": None})
+        spec = spec.model_copy(update={"question": None})
     if spec.type in _FREE_TEXT_TYPES and not (spec.placeholder or "").strip():
         # The UI uses a nonempty hint to expose its text box. A bare ... marker
         # parses successfully but displays only Submit, even for type="text".

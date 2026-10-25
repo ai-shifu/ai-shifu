@@ -58,7 +58,7 @@ async def test_combined_scopes_are_bounded_only_for_enabled_hosts(
     engine = Engine(
         FunctionModel(stream_function=model),
         memory_context_limit=limit,
-        memory_reserved_keys=frozenset({"sys_user_nickname"}),
+        memory_reserved_keys=frozenset({"sys_user_nickname", "goal"}),
     )
     session = await engine.new_session("Teach {{goal}}.")
     session.user_memory = {f"old_{i}": "x" * 1800 for i in range(30)}
@@ -69,7 +69,7 @@ async def test_combined_scopes_are_bounded_only_for_enabled_hosts(
     value, length = _memory(seen[0])
     assert value["goal"] == "session goal"
     assert value["sys_user_nickname"] == "Learner"
-    assert "Teach session goal." in seen[0]
+    assert "Teach {{goal}}." in seen[0]
     assert (session.memory, session.user_memory) == before
     assert any(isinstance(e, TurnDone) for e in events)
     if limit is None:
@@ -95,12 +95,12 @@ def test_json_budget_counts_escaping_and_keeps_whole_values(value: object) -> No
     assert memory == {"answer": value}
 
 
-def test_long_referenced_answer_stays_exact_outside_bounded_memory() -> None:
+def test_long_answer_stays_in_memory_without_interpolating_the_script() -> None:
     answer = "Original answer.\n" + "z" * 40000
     memory = {"answer": answer, "small": "yes", "again": "old answer"}
     prompt = render_first_prompt(
         ScriptBundle(
-            script="Teach {{answer}}. Ask %{{again}}, then echo {{again}}.",
+            script="Teach {{answer}}. ?[%{{again}} ...Again] then echo {{again}}.",
             constraints="Use {{answer}}.",
         ),
         memory,
@@ -109,13 +109,13 @@ def test_long_referenced_answer_stays_exact_outside_bounded_memory() -> None:
     values, length = _memory(prompt)
     assert values == {"small": "yes"}
     assert length <= 100
-    assert "Teach " + answer + "." in prompt
-    assert "Use " + answer + "." in prompt
+    assert "Teach {{answer}}." in prompt
+    assert "Use {{answer}}." in prompt
     assert "echo {{again}}" in prompt
     assert memory["answer"] == answer
 
 
-def test_reference_priority_ignores_fenced_examples_and_collected_values() -> None:
+def test_host_priority_preserves_memory_without_reinterpreting_brace_examples() -> None:
     memory = {
         "noise": "n" * 50,
         "fenced": "f" * 50,
@@ -124,11 +124,12 @@ def test_reference_priority_ignores_fenced_examples_and_collected_values() -> No
     }
     prompt = render_first_prompt(
         ScriptBundle(
-            script="```\n{{fenced}}\n```\nAsk %{{collected}}.",
+            script="```\n{{fenced}}\n```\n?[%{{collected}} ...Answer]",
             constraints="Use {{brief}}.",
         ),
         memory,
         memory_limit=45,
+        memory_priority=frozenset({"brief"}),
     )
     assert _memory(prompt)[0] == {"brief": "important"}
     assert "{{fenced}}" in prompt
@@ -147,13 +148,13 @@ async def test_old_pending_session_projects_history_but_preserves_answers_and_sn
                 name="interact",
                 tool_call_id="q",
                 json_args=json.dumps(
-                    {"type": "text", "prompt": "Your goal?", "variable": "goal"}
+                    {"type": "text", "prompt": "Your goal?", "question": "goal"}
                 ),
             )
         }
 
     original = Engine(FunctionModel(stream_function=ask))
-    session = await original.new_session("Ask %{{goal}}. Then explain.")
+    session = await original.new_session("?[%{{goal}} ...Your goal] Then explain.")
     session.user_memory = {"long": "x" * 40000, "small": "available"}
     _ = [e async for e in original.run_turn(session)]
     session = Session.loads(session.dumps())
@@ -209,13 +210,15 @@ async def test_failed_resume_retains_old_history_then_retries_exact_answer() -> 
                 name="interact",
                 tool_call_id="q",
                 json_args=json.dumps(
-                    {"type": "text", "prompt": "Your answer?", "variable": "answer"}
+                    {"type": "text", "prompt": "Your answer?", "question": "answer"}
                 ),
             )
         }
 
     old = Engine(FunctionModel(stream_function=ask))
-    session = await old.new_session("Ask %{{answer}}.", memory={"large": "a" * 40000})
+    session = await old.new_session(
+        "?[%{{answer}} ...Your answer]", memory={"large": "a" * 40000}
+    )
     _ = [e async for e in old.run_turn(session)]
     history = session.to_dict()["messages"]
     attempts = 0
@@ -283,12 +286,12 @@ def test_invalid_budget_fails_at_construction(limit: int) -> None:
         Engine("test", memory_context_limit=limit)
 
 
-def test_independent_brief_references_do_not_inherit_an_open_script_fence() -> None:
-    """Each author document has its own fence state, as exact substitution already does."""
+def test_independent_brief_is_literal_despite_an_open_script_fence() -> None:
+    """Each authored document keeps its original text without memory substitution."""
     prompt = render_first_prompt(
         ScriptBundle(script="```\n{{example}}", constraints="Use {{brief}}."),
         {"noise": "n" * 15, "brief": "important"},
         memory_limit=45,
     )
-    assert _memory(prompt)[0] == {"brief": "important"}
-    assert "Use important." in prompt
+    assert _memory(prompt)[0] == {"noise": "n" * 15}
+    assert "Use {{brief}}." in prompt

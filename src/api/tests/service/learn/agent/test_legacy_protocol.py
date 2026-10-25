@@ -39,6 +39,9 @@ def _translate(event: object) -> list:
 
 
 def _spec(**kwargs: object) -> InteractionSpec:
+    # Parser expectations below use the pinned library's historical wire field.
+    if "variable" in kwargs:
+        kwargs["question"] = kwargs.pop("variable")
     return InteractionSpec(**kwargs)
 
 
@@ -48,7 +51,7 @@ def test_a_single_choice_renders_with_one_bar() -> None:
             type="single",
             prompt="Pick one",
             options=[Option(display="A"), Option(display="B")],
-            variable="choice",
+            question="choice",
         )
     )
     assert rendered == "?[%{{ choice }} A | B]"
@@ -61,7 +64,7 @@ def test_a_multiple_choice_renders_with_two_bars() -> None:
             type="multi",
             prompt="Pick some",
             options=[Option(display="A"), Option(display="B")],
-            variable="choices",
+            question="choices",
         )
     )
     assert rendered == "?[%{{ choices }} A || B]"
@@ -79,11 +82,11 @@ def test_a_stored_blank_optional_variable_renders_without_a_marker(
     variable: str,
 ) -> None:
     saved = _spec(
-        type="single", prompt="Pick", options=[Option(display="A")], variable=variable
+        type="single", prompt="Pick", options=[Option(display="A")], question=variable
     )
     restored = InteractionSpec.model_validate_json(saved.model_dump_json())
     assert legacy_protocol.render_interaction(restored) == "?[A]"
-    assert restored.variable == variable
+    assert restored.question == variable
 
 
 def test_a_stored_value_is_kept_separate_from_the_text_the_learner_reads() -> None:
@@ -92,7 +95,7 @@ def test_a_stored_value_is_kept_separate_from_the_text_the_learner_reads() -> No
             type="single",
             prompt="Pick",
             options=[Option(display="Yes, please", value="yes")],
-            variable="answer",
+            question="answer",
         )
     )
     assert rendered == "?[%{{ answer }} Yes, please//yes]"
@@ -109,7 +112,7 @@ def test_a_value_is_written_even_when_it_equals_the_display() -> None:
             type="single",
             prompt="Pick",
             options=[Option(display="Yes", value="Yes")],
-            variable="answer",
+            question="answer",
         )
     )
     assert rendered == "?[%{{ answer }} Yes//Yes]"
@@ -122,7 +125,7 @@ def test_an_empty_stored_value_is_not_mistaken_for_an_absent_one() -> None:
             type="single",
             prompt="Pick",
             options=[Option(display="Skip", value="")],
-            variable="answer",
+            question="answer",
         )
     )
     assert rendered == "?[%{{ answer }} Skip//]"
@@ -133,7 +136,7 @@ def test_free_text_renders_as_a_trailing_placeholder() -> None:
         _spec(
             type="text",
             prompt="Tell me",
-            variable="story",
+            question="story",
             placeholder="Your answer",
         )
     )
@@ -146,7 +149,7 @@ def test_a_choice_that_also_accepts_text_offers_both() -> None:
             type="single_or_text",
             prompt="Pick or write",
             options=[Option(display="A")],
-            variable="answer",
+            question="answer",
             placeholder="Something else",
         )
     )
@@ -159,7 +162,7 @@ def test_multiple_choice_with_text_keeps_the_double_bar() -> None:
             type="multi_or_text",
             prompt="Pick or write",
             options=[Option(display="A"), Option(display="B")],
-            variable="answer",
+            question="answer",
             placeholder="Other",
         )
     )
@@ -173,7 +176,7 @@ def test_a_confirm_renders_one_button_and_stores_nothing() -> None:
             type="confirm",
             prompt="Ready?",
             options=[Option(display="Continue")],
-            variable="would_overwrite_a_real_answer",
+            question="would_overwrite_a_real_answer",
         )
     )
     assert rendered == "?[Continue]"
@@ -203,7 +206,7 @@ def test_an_interaction_arrives_as_its_question_then_its_controls() -> None:
                 type="single",
                 prompt="Which one?",
                 options=[Option(display="A")],
-                variable="pick",
+                question="pick",
             ),
         )
     )
@@ -454,7 +457,7 @@ def test_the_stored_value_a_learner_returns_is_the_one_the_engine_will_match() -
         type="single",
         prompt="p",
         options=[Option(display="Yes, please", value="yes")],
-        variable="answer",
+        question="answer",
     )
     parsed = _parse(legacy_protocol.render_interaction(spec))
     submitted = parsed["buttons"][0]["display"]
@@ -531,7 +534,7 @@ def test_an_option_carrying_the_grammar_s_own_delimiters_is_asked(
             type="single",
             prompt="p",
             options=[Option(display=option), Option(display="other")],
-            variable="v",
+            question="v",
         )
     )
     parsed = _parse(rendered)
@@ -553,7 +556,7 @@ def test_a_stored_value_carrying_a_delimiter_survives_as_well() -> None:
                 Option(display="Match a decimal", value=r"\d+\.\d+"),
                 Option(display="Any URL", value="https://a.com/x"),
             ],
-            variable="v",
+            question="v",
         )
     )
     assert [(b["display"], b["value"]) for b in _parse(rendered)["buttons"]] == [
@@ -569,7 +572,7 @@ def test_a_placeholder_carrying_a_delimiter_is_escaped_too() -> None:
             type="text",
             prompt="p",
             options=[],
-            variable="v",
+            question="v",
             placeholder="e.g. https://a.com/x]",
         )
     )
@@ -587,7 +590,7 @@ def test_an_option_the_model_padded_with_spaces_is_still_asked() -> None:
             type="single",
             prompt="p",
             options=[Option(display=" A "), Option(display="B")],
-            variable="v",
+            question="v",
         )
     )
     assert rendered == "?[%{{ v }} A | B]"
@@ -603,7 +606,7 @@ def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -
                     type="single",
                     prompt="q",
                     options=[Option(display="A\nB")],
-                    variable="v",
+                    question="v",
                 ),
             )
         )
@@ -749,7 +752,7 @@ def test_a_question_the_controls_can_carry_is_renderable() -> None:
             Option(display="Spring https://docs.spring.io/a"),
             Option(display="a|b ] ..."),
         ],
-        variable="读过的文档站",
+        question="读过的文档站",
     )
     assert legacy_protocol.unrenderable_reason(spec) is None
 
@@ -772,13 +775,13 @@ def test_a_short_confirm_is_checked_as_the_button_it_becomes() -> None:
             type="single",
             prompt="q",
             options=[Option(display="first"), Option(display="second")],
-            variable="a\x00b",
+            question="a\x00b",
         ),
         InteractionSpec(
             type="single",
             prompt="q",
             options=[Option(display="first"), Option(display="second")],
-            variable="x}}y",
+            question="x}}y",
         ),
     ],
     ids=[
@@ -808,7 +811,7 @@ def test_text_controls_without_a_hint_still_have_a_visible_input(
         type=kind,
         prompt="Describe your project.",
         options=options,
-        variable="project",
+        question="project",
         placeholder=placeholder,
     )
     before = spec.model_dump()

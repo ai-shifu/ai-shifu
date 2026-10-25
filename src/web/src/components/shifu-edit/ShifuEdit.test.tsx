@@ -169,15 +169,6 @@ jest.mock('@/components/ui/Dialog', () => ({
     <div>{children}</div>
   ),
 }));
-jest.mock('@/components/ui/Tabs', () => ({
-  Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TabsList: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TabsTrigger: ({ children }: { children: React.ReactNode }) => (
-    <button>{children}</button>
-  ),
-}));
 jest.mock('react-rnd', () => ({
   Rnd: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -255,9 +246,9 @@ jest.mock('@/components/lesson-preview/usePreviewChat', () => ({
       resetPreview: jest.fn(),
       onRefresh: jest.fn(),
       onSend: jest.fn(),
-      persistVariables: jest.fn(),
-      onVariableChange: jest.fn(),
-      variables: {},
+      persistMemory: jest.fn(),
+      onMemoryChange: jest.fn(),
+      memory: {},
       requestAudioForBlock: jest.fn(),
       reGenerateConfirm: jest.fn(),
     };
@@ -297,14 +288,14 @@ const baseActions = {
   cancelAutoSaveBlocks: mockCancelAutoSaveBlocks,
   insertPlaceholderChapter: jest.fn(),
   addRootOutline: jest.fn(),
-  hideUnusedVariables: jest.fn(),
-  restoreHiddenVariables: jest.fn(),
-  hideVariableByKey: jest.fn(),
+  hideUnusedQuestions: jest.fn(),
+  restoreHiddenQuestions: jest.fn(),
+  hideQuestionByKey: jest.fn(),
   saveMdflow: jest.fn(),
   previewParse: jest.fn(),
-  unhideVariablesByKeys: jest.fn(),
+  unhideQuestionsByKeys: jest.fn(),
   refreshProfileDefinitions: jest.fn(),
-  syncHiddenVariablesToUsage: jest.fn(),
+  syncHiddenQuestionsToUsage: jest.fn(),
   setCurrentNode: jest.fn(),
   setChapters: jest.fn(),
   setBlocks: jest.fn(),
@@ -312,7 +303,7 @@ const baseActions = {
   loadMdflowHistoryVersionDetail: jest.fn(),
   restoreMdflowHistory: jest.fn(),
   parseMdflow: jest.fn(),
-  refreshVariableUsage: jest.fn(),
+  refreshQuestionUsage: jest.fn(),
   setCurrentMdflow: jest.fn(),
   autoSaveBlocks: jest.fn(),
   getCurrentMdflow: jest.fn(() => ''),
@@ -326,10 +317,10 @@ const mockShifuState = {
   chapters: [],
   actions: baseActions,
   isLoading: false,
-  variables: [] as string[],
-  systemVariables: [] as Record<string, string>[],
-  hiddenVariables: [] as string[],
-  unusedVariables: [],
+  questions: [] as string[],
+  systemMemory: [] as Record<string, string>[],
+  hiddenQuestions: [] as string[],
+  unusedQuestions: [],
   hideUnusedMode: false,
   currentShifu: {
     bid: 'shifu-1',
@@ -430,9 +421,9 @@ describe('ShifuEdit draft conflict checks', () => {
     mockShifuState.hasDraftConflict = false;
     mockShifuState.autosavePaused = false;
     mockShifuState.mdflow = '';
-    mockShifuState.variables = [];
-    mockShifuState.systemVariables = [];
-    mockShifuState.hiddenVariables = [];
+    mockShifuState.questions = [];
+    mockShifuState.systemMemory = [];
+    mockShifuState.hiddenQuestions = [];
     mockUserStoreState.userInfo = {
       user_bid: 'user-1',
       user_id: 'user-1',
@@ -466,27 +457,27 @@ describe('ShifuEdit draft conflict checks', () => {
     });
   });
 
-  test('keeps preview variable filtering independent of editor props', async () => {
+  test('hides internal system questions from editor and preview question displays', async () => {
     setLessonNode();
     mockShifuState.mdflow = 'Hello {{sys_user_style}} {{sys_user_input}}';
-    mockShifuState.systemVariables = [
+    mockShifuState.systemMemory = [
       { name: 'sys_user_nickname', label: 'Nickname' },
       { name: 'sys_user_style', label: 'Style' },
       { name: 'sys_user_input', label: 'User Input' },
     ];
     baseActions.previewParse.mockResolvedValue({
-      variables: {
+      memory: {
         sys_user_nickname: 'Learner',
         sys_user_style: 'Concise',
         sys_user_input: 'Internal input',
       },
       blocksCount: 1,
-      systemVariableKeys: [
+      systemMemoryKeys: [
         'sys_user_nickname',
         'sys_user_style',
         'sys_user_input',
       ],
-      allVariableKeys: [
+      allQuestionKeys: [
         'sys_user_nickname',
         'sys_user_style',
         'sys_user_input',
@@ -508,15 +499,14 @@ describe('ShifuEdit draft conflict checks', () => {
     );
 
     await waitFor(() => {
-      expect(mockLessonPreview).toHaveBeenCalled();
+      expect(mockLessonPreview.mock.lastCall?.[0].hiddenMemoryKeys).toContain(
+        'sys_user_style',
+      );
     });
-    expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
-      'sys_user_style',
-    );
-    expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
+    expect(mockLessonPreview.mock.lastCall?.[0].hiddenMemoryKeys).toContain(
       'sys_user_input',
     );
-    expect(mockLessonPreview.mock.lastCall?.[0].systemVariableKeys).toEqual([
+    expect(mockLessonPreview.mock.lastCall?.[0].systemMemoryKeys).toEqual([
       'sys_user_nickname',
     ]);
     expect(baseActions.previewParse).toHaveBeenCalledWith(
@@ -553,13 +543,13 @@ describe('ShifuEdit draft conflict checks', () => {
     async key => {
       setLessonNode();
       mockShifuState.mdflow = `?[%{{ ${key} }} 男 | 女 | 秘密]`;
-      mockShifuState.variables = [key];
-      mockShifuState.hiddenVariables = [key];
+      mockShifuState.questions = [key];
+      mockShifuState.hiddenQuestions = [key];
       baseActions.previewParse.mockResolvedValue({
-        variables: { [key]: '' },
+        memory: { [key]: '' },
         blocksCount: 1,
-        systemVariableKeys: [],
-        allVariableKeys: [key],
+        systemMemoryKeys: [],
+        allQuestionKeys: [key],
         unusedKeys: [],
       });
 
@@ -569,7 +559,7 @@ describe('ShifuEdit draft conflict checks', () => {
       );
 
       await waitFor(() => {
-        expect(baseActions.unhideVariablesByKeys).toHaveBeenCalledWith(
+        expect(baseActions.unhideQuestionsByKeys).toHaveBeenCalledWith(
           'shifu-1',
           [key],
         );
@@ -594,13 +584,13 @@ describe('ShifuEdit draft conflict checks', () => {
     async source => {
       setLessonNode();
       mockShifuState.mdflow = source;
-      mockShifuState.variables = ['q'];
-      mockShifuState.hiddenVariables = ['q'];
+      mockShifuState.questions = ['q'];
+      mockShifuState.hiddenQuestions = ['q'];
       baseActions.previewParse.mockResolvedValue({
-        variables: { q: '' },
+        memory: { q: '' },
         blocksCount: 1,
-        systemVariableKeys: [],
-        allVariableKeys: ['q'],
+        systemMemoryKeys: [],
+        allQuestionKeys: ['q'],
         unusedKeys: [],
       });
 
@@ -610,7 +600,7 @@ describe('ShifuEdit draft conflict checks', () => {
       );
 
       await waitFor(() => {
-        expect(baseActions.unhideVariablesByKeys).toHaveBeenCalledWith(
+        expect(baseActions.unhideQuestionsByKeys).toHaveBeenCalledWith(
           'shifu-1',
           ['q'],
         );
@@ -1001,6 +991,29 @@ describe('ShifuEdit draft conflict checks', () => {
     });
   });
 
+  test('keeps question mode enabled in both editor modes without variable suggestions', async () => {
+    setLessonNode();
+    render(<ScriptEditor id='shifu-1' />);
+    await waitFor(() => {
+      expect(mockMarkdownFlowEditor.mock.lastCall?.[0]).toEqual(
+        expect.objectContaining({ questionMode: true, editMode: 'quickEdit' }),
+      );
+    });
+    const codeMode = screen.getByRole('tab', {
+      name: 'module.shifu.creationArea.modeCode',
+    });
+    fireEvent.mouseDown(codeMode, { button: 0, ctrlKey: false });
+    await waitFor(() => {
+      expect(mockMarkdownFlowEditor.mock.lastCall?.[0]).toEqual(
+        expect.objectContaining({ questionMode: true, editMode: 'codeEdit' }),
+      );
+    });
+    expect(mockMarkdownFlowEditor.mock.lastCall?.[0].variables).toBeUndefined();
+    expect(
+      mockMarkdownFlowEditor.mock.lastCall?.[0].systemVariables,
+    ).toBeUndefined();
+  });
+
   test('passes French locale through to MarkdownFlow editor', async () => {
     setLessonNode();
     const mockI18nState = getMockI18nState();
@@ -1105,7 +1118,7 @@ describe('ShifuEdit draft conflict checks', () => {
     ['?[%{{ Which [path] | level//hint...? }} A | B]', true],
   ])(
     'tracks an accepted preview of %s before saving with only IDs and a syntax flag',
-    async (mdflow, hasTextVariableKeys) => {
+    async (mdflow, hasTextQuestionKeys) => {
       setLessonNode();
       mockShifuState.mdflow = mdflow;
       baseActions.getCurrentMdflow.mockReturnValue(mdflow);
@@ -1114,7 +1127,7 @@ describe('ShifuEdit draft conflict checks', () => {
       const expectedPayload = {
         shifu_bid: 'shifu-1',
         outline_bid: 'lesson-1',
-        has_text_variable_keys: hasTextVariableKeys,
+        has_text_variable_keys: hasTextQuestionKeys,
       };
       baseActions.saveMdflow.mockImplementation(async () => {
         expect(mockTrackEvent).toHaveBeenCalledWith(
@@ -1123,10 +1136,10 @@ describe('ShifuEdit draft conflict checks', () => {
         );
       });
       baseActions.previewParse.mockResolvedValue({
-        variables: {},
+        memory: {},
         blocksCount: 0,
-        systemVariableKeys: [],
-        allVariableKeys: [],
+        systemMemoryKeys: [],
+        allQuestionKeys: [],
         unusedKeys: [],
       });
 

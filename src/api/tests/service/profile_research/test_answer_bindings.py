@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 @pytest.mark.parametrize(
-    ("kind", "variable", "values"),
+    ("kind", "question", "values"),
     [
         ("text", "role", ["I teach adults"]),
         ("single_or_text", "role", ["teacher", "I teach adults"]),
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     ],
 )
 def test_named_binding_rejects_other_keys_then_accepts_only_its_own_values(
-    kind: str, variable: str, values: list[str]
+    kind: str, question: str, values: list[str]
 ) -> None:
     calls: list[list[ModelMessage]] = []
     returns: list[str] = []
@@ -49,7 +49,7 @@ def test_named_binding_rejects_other_keys_then_accepts_only_its_own_values(
         else:
             yield {
                 0: _interact(
-                    variable=variable,
+                    question=question,
                     kind=kind,
                     prompt="Your answer?",
                     options=[{"display": "Teacher", "value": "teacher"}]
@@ -60,7 +60,10 @@ def test_named_binding_rejects_other_keys_then_accepts_only_its_own_values(
 
     _app, runtime, _factories = _runtime(script)
     runtime._provider_factory = lambda *_args: summary
-    view = _start(runtime, f"Collect %{{{{{variable}}}}} and finish.")
+    controls = (
+        "Teacher//teacher|...Your answer?" if kind != "text" else "...Your answer?"
+    )
+    view = _start(runtime, f"?[%{{{{{question}}}}}{controls}]")
     _run(runtime, view)
     original = runtime.store.load(view["session_id"]).engine_session
     count = len(calls)
@@ -74,7 +77,7 @@ def test_named_binding_rejects_other_keys_then_accepts_only_its_own_values(
     assert _terminal(rejected)["input_accepted"] is False
     assert _terminal(rejected)["awaiting_input"] is True
     saved = runtime.store.load(view["session_id"])
-    assert saved.variables == {}
+    assert saved.memory == {}
     for field in ("pending", "answers", "memory"):
         assert saved.engine_session[field] == original[field]
     assert len(calls) == count
@@ -92,7 +95,7 @@ def test_named_binding_rejects_other_keys_then_accepts_only_its_own_values(
     final = _run(
         runtime,
         view,
-        values={variable: values, "unrelated": ["Injected account owner"]},
+        values={question: values, "unrelated": ["Injected account owner"]},
         request_id="right",
         expected_interaction_id="question",
     )
@@ -100,7 +103,7 @@ def test_named_binding_rejects_other_keys_then_accepts_only_its_own_values(
     assert all(value in returns[0] for value in values)
     assert "Injected account owner" not in returns[0]
     assert "Injected account owner" not in str(summary.messages)
-    if variable == "sys_user_nickname":
+    if question == "sys_user_nickname":
         assert _terminal(final)["nickname"] == "River"
         assert _terminal(final)["profile_draft"] == ""
         assert summary.messages == []
@@ -122,7 +125,7 @@ def test_unnamed_question_preserves_answers_from_arbitrary_keys(kind: str) -> No
         else:
             yield {
                 0: _interact(
-                    variable=None,
+                    question=None,
                     kind=kind,
                     prompt="Your answer?",
                     options=[{"display": "Teacher", "value": "teacher"}]

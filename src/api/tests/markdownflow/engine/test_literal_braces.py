@@ -1,4 +1,4 @@
-"""Keep unavailable learner facts distinct from displayable template syntax."""
+"""Authored brace text stays literal through SDK calls and stored-session resumption."""
 
 from collections.abc import AsyncIterator
 
@@ -7,15 +7,15 @@ from markdownflow.engine import ScriptBundle, render_first_prompt
 
 
 @pytest.mark.parametrize("memory", [{}, {"goal": None}, {"goal": ""}])
-def test_missing_read_is_explicit_data_unavailability(memory: dict) -> None:
+def test_brace_text_does_not_read_memory(memory: dict) -> None:
     """A skipped earlier lesson cannot turn a template into a learner fact."""
     bundle = ScriptBundle(
         script="Show `{{goal}}` in a timeline; mark missing evidence unconfirmed.",
         constraints="Connect the explanation to {{goal}}.",
     )
     prompt = render_first_prompt(bundle, memory)
-    assert "{{goal}}" not in prompt
-    assert prompt.count('<unavailable_learner_value name="goal" />') == 2
+    assert prompt.count("{{goal}}") == 2
+    assert "unavailable_learner_value" not in prompt
     assert bundle.script.startswith("Show `{{goal}}`")
     assert memory.get("goal") in (None, "")
 
@@ -27,7 +27,8 @@ def test_known_false_zero_and_complete_values_remain_exact() -> None:
         {"goal": "Keep the whole learner answer.", "count": 0, "enabled": False},
         memory_limit=2,
     )
-    assert "Keep the whole learner answer. / 0 / False" in prompt
+    assert "{{goal}} / {{count}} / {{enabled}}" in prompt
+    assert "Keep the whole learner answer." not in prompt
     assert "unavailable_learner_value" not in prompt
 
 
@@ -45,7 +46,7 @@ def test_collected_answers_and_literal_generated_code_are_not_replaced() -> None
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("known", [False, True])
-async def test_unavailability_reaches_initial_and_resumed_sdk_requests(
+async def test_literal_braces_reach_initial_and_resumed_sdk_requests(
     reload: bool, known: bool
 ) -> None:
     """Inspect SDK inputs, retaining the distinction from actual model acceptance."""
@@ -82,10 +83,9 @@ async def test_unavailability_reaches_initial_and_resumed_sdk_requests(
             for part in message.parts
             if isinstance(part, UserPromptPart) and isinstance(part.content, str)
         )
-        assert "{{goal}}" not in payload
-        assert "Never display this metadata" in info.instructions
-        assert "generated visuals" in info.instructions
-        assert ("unavailable_learner_value" in payload) is not known
+        assert "Show {{goal}}, then ask ?[Next]." in payload
+        assert "ordinary authored text" in info.instructions
+        assert "unavailable_learner_value" not in payload
         yield output + "\n<div><style>.card {color: blue}</style>" + output + "</div>"
         yield {
             0: DeltaToolCall(
@@ -148,14 +148,62 @@ def test_unavailable_metadata_does_not_replace_verbatim_syntax_examples(
         ScriptBundle(script=verbatim + "\nPersonal fact: {{水平}}."), {}
     )
     assert verbatim in prompt
-    assert 'Personal fact: <unavailable_learner_value name="水平" />.' in prompt
+    assert "Personal fact: {{水平}}." in prompt
+    assert "unavailable_learner_value" not in prompt
 
 
-def test_known_personalization_in_verbatim_content_keeps_existing_behavior() -> None:
-    """Only unavailable metadata is excluded from authored literal spans."""
+def test_verbatim_content_never_interpolates_memory() -> None:
+    """Known memory never changes authored verbatim source."""
     prompt = render_first_prompt(
         ScriptBundle(script="===Hello {{name}}.===\n!===\n{{name}}\n!==="),
         {"name": "Ada"},
     )
-    assert "===Hello Ada.===" in prompt
-    assert "!===\nAda\n!===" in prompt
+    assert "===Hello {{name}}.===" in prompt
+    assert "!===\n{{name}}\n!===" in prompt
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "{{ unfinished\n",
+        "%{{ unfinished\n\n",
+        "{{ complete }} ",
+        "{{ unfinished\n\n```md\n?[example]\n```\n",
+        "{{ unfinished\n<!--\n?[example]\n-->\n",
+        "{{ unfinished\n<script>\n?[example]\n</script>\n",
+        "{{ unfinished\n` then ",
+    ],
+)
+def test_standalone_braces_never_hide_the_next_question_in_any_stream_partition(
+    prefix: str,
+) -> None:
+    """Ordinary braces cannot own later controls or native code/comment boundaries."""
+    from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+    from markdownflow.engine import collected_questions
+    from markdownflow.engine.tools import _script_questions
+
+    question = "?[%{{ What is your goal? }} A|B]"
+    source = prefix + question
+    assert collected_questions(source) == frozenset({"What is your goal?"})
+    assert [control.question for control in _script_questions(source)] == [
+        "What is your goal?"
+    ]
+    partitions = [[source], list(source)] + [
+        [source[:cut], source[cut:]] for cut in range(len(source) + 1)
+    ]
+    for chunks in partitions:
+        syntax = InteractionSyntaxFilter()
+        shown = "".join(syntax.feed(chunk) for chunk in chunks) + syntax.flush()
+        assert shown == prefix
+        assert syntax.spans == [question]
+
+
+def test_literal_option_brace_groups_keep_the_browser_parser_contract() -> None:
+    """Question text and literal option groups preserve their existing delimiter boundaries."""
+    from markdownflow.engine.tools import _script_questions, script_options
+
+    source = "?[%{{ Pick [a|b]? }} A {{x|y}} | B]"
+    question = _script_questions(source)[0]
+    assert question.question == "Pick [a|b]?"
+    assert [choice.strip() for choice in question.choices] == ["A {{x|y}}", "B"]
+    assert script_options(source)["A {{x|y}}"] == "A {{x|y}}"

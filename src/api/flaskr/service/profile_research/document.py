@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from flaskr.service.profile_research.authored_interaction import authored_option_values
 from flaskr.service.profile_research.session import (
     MAX_BLOCK_COUNT,
     MAX_DOCUMENT_CODEPOINTS,
@@ -14,7 +15,14 @@ from flaskr.service.profile_research.session import (
     ProfileResearchValidationError,
 )
 from flaskr.util.prompt_loader import load_prompt_template
-from markdown_flow import BlockType, InteractionParser, MarkdownFlow
+from markdown_flow import MarkdownFlow
+from markdownflow.engine.marker_context import (
+    analyze_marker_context,
+    marker_syntax_source,
+)
+from markdownflow.engine.questions import find_interaction_spans
+from markdownflow.engine.script import collected_questions
+from markdownflow.engine.tools import _script_questions
 
 
 def _profile_summary_prompt() -> str:
@@ -31,32 +39,39 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
     if len(document) > MAX_DOCUMENT_CODEPOINTS:
         msg = "document is too long"
         raise ProfileResearchValidationError(msg)
-    flow = MarkdownFlow(document=document)
-    blocks = flow.get_all_blocks()
-    if not blocks:
+    authored_questions = _script_questions(document)
+    context = analyze_marker_context(document, fence_indent=3)
+    spans = list(
+        find_interaction_spans(
+            document, syntax_source=marker_syntax_source(document, context)
+        )
+    )
+    # Only use the block SDK to count content outside native question spans.
+    # Its legacy brace scanner must never authorize or hide Profile controls.
+    content_count = 0
+    offset = 0
+    for start, end in [*spans, (len(document), len(document))]:
+        content = document[offset:start]
+        if content.strip():
+            content_count += len(MarkdownFlow(document=content).get_all_blocks())
+        offset = end
+    interaction_count = len(authored_questions)
+    block_count = content_count + interaction_count
+    if not block_count:
         msg = "document has no blocks"
         raise ProfileResearchValidationError(msg)
-    if len(blocks) >= MAX_BLOCK_COUNT:
+    if block_count >= MAX_BLOCK_COUNT:
         msg = "document has too many blocks"
         raise ProfileResearchValidationError(msg)
-    interaction_count = sum(
-        block.block_type == BlockType.INTERACTION for block in blocks
-    )
-    interaction_parser = InteractionParser()
-    for block in blocks:
-        if block.block_type != BlockType.INTERACTION:
-            continue
-        parsed_interaction = interaction_parser.parse(block.content)
-        variable_name = parsed_interaction.get("variable")
-        if (
-            isinstance(variable_name, str)
-            and len(variable_name) > MAX_INPUT_KEY_CODEPOINTS
-        ):
-            msg = "interaction variable name is too long"
+    for question in authored_questions:
+        if question.question and len(question.question) > MAX_INPUT_KEY_CODEPOINTS:
+            msg = "interaction question is too long"
             raise ProfileResearchValidationError(msg)
-        question = parsed_interaction.get("question")
-        has_question = isinstance(question, str) and bool(question.strip())
-        buttons = parsed_interaction.get("buttons")
+        has_question = question.text and bool((question.placeholder or "").strip())
+        buttons = [
+            {"display": display, "value": value}
+            for display, value in authored_option_values(question)
+        ]
         button_values: list[str] = []
         if isinstance(buttons, list):
             if len(buttons) > MAX_INPUT_VALUE_COUNT:
@@ -78,7 +93,7 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
                     raise ProfileResearchValidationError(msg)
                 button_values.append(value)
             if (
-                parsed_interaction.get("is_multi_select")
+                question.multi
                 and sum(len(value) for value in button_values)
                 > MAX_INPUT_TOTAL_CODEPOINTS
             ):
@@ -88,8 +103,8 @@ def validate_profile_research_document(document: str) -> dict[str, Any]:
             msg = "interaction has no answerable input"
             raise ProfileResearchValidationError(msg)
     return {
-        "block_count": len(blocks),
+        "block_count": block_count,
         "interaction_block_count": interaction_count,
-        "content_block_count": len(blocks) - interaction_count,
-        "variables": list(flow.extract_variables()),
+        "content_block_count": content_count,
+        "questions": sorted(collected_questions(document)),
     }

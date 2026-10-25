@@ -14,9 +14,9 @@ import InteractionBlock from '@/components/ChatUi/InteractionBlock';
 import { ChatContentItem, ChatContentItemType } from '@/types/chatUi';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { getAudioTrackByPosition } from '@/lib/audio-utils';
-import VariableList from './VariableList';
+import MemoryList from './MemoryList';
 import PreviewCopyButton from './PreviewCopyButton';
-import { type PreviewVariablesMap } from './variableStorage';
+import { type PreviewMemoryMap } from './memoryStorage';
 import styles from './LessonPreview.module.scss';
 import { cn } from '@/lib/utils';
 import {
@@ -48,7 +48,7 @@ interface LessonPreviewProps {
   errorMessage?: string | null;
   items: ChatContentItem[];
   creditInsufficientAudience?: CreditInsufficientAudience;
-  variables?: PreviewVariablesMap;
+  memory?: PreviewMemoryMap;
   shifuBid: string;
   onRefresh: (elementBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
@@ -57,21 +57,21 @@ interface LessonPreviewProps {
     blockId: string;
     text: string;
   }) => Promise<AudioCompleteData | null>;
-  onVariableChange?: (name: string, value: string) => void;
-  variableOrder?: string[];
-  systemVariableKeys?: string[];
+  onMemoryChange?: (name: string, value: string) => void;
+  memoryOrder?: string[];
+  systemMemoryKeys?: string[];
   reGenerateConfirm?: {
     open: boolean;
     onConfirm: () => void;
     onCancel: () => void;
   };
-  hiddenVariableKeys?: string[];
+  hiddenMemoryKeys?: string[];
   onHideOrRestore?: () => void;
   actionType?: 'hide' | 'restore';
   actionDisabled?: boolean;
-  customVariableKeys?: string[];
-  unusedVariableKeys?: string[];
-  onHideVariable?: (name: string) => void;
+  customMemoryKeys?: string[];
+  unusedMemoryKeys?: string[];
+  onHideMemory?: (name: string) => void;
   showGenerateBtn?: boolean;
 }
 
@@ -179,48 +179,48 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   errorMessage,
   items = [],
   creditInsufficientAudience = 'teacher-collaborator',
-  variables,
+  memory,
   shifuBid,
   onRefresh,
   onSend,
   onRequestAudioForBlock,
-  onVariableChange,
-  variableOrder,
-  systemVariableKeys,
+  onMemoryChange,
+  memoryOrder,
+  systemMemoryKeys,
   reGenerateConfirm,
-  hiddenVariableKeys,
+  hiddenMemoryKeys,
   onHideOrRestore,
   actionType,
   actionDisabled,
-  customVariableKeys,
-  unusedVariableKeys,
-  onHideVariable,
+  customMemoryKeys,
+  unusedMemoryKeys,
+  onHideMemory,
   showGenerateBtn = false,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
-  const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
+  const [memoryCollapsed, setMemoryCollapsed] = React.useState(false);
 
   const showEmpty = !loading && items.length === 0;
   const [previewTypewriterCache, setPreviewTypewriterCache] =
     React.useState<PreviewTypewriterCache>({});
 
-  const resolvedVariables = React.useMemo(() => {
-    if (variables && Object.keys(variables).length) {
-      return variables;
+  const resolvedMemory = React.useMemo(() => {
+    if (memory && Object.keys(memory).length) {
+      return memory;
     }
     return undefined;
-  }, [variables]);
+  }, [memory]);
 
   const hiddenSet = React.useMemo(
-    () => new Set(hiddenVariableKeys || []),
-    [hiddenVariableKeys],
+    () => new Set(hiddenMemoryKeys || []),
+    [hiddenMemoryKeys],
   );
 
-  const visibleVariables = React.useMemo(() => {
-    if (!resolvedVariables) return undefined;
-    if (!hiddenSet.size) return resolvedVariables;
-    return Object.entries(resolvedVariables).reduce<PreviewVariablesMap>(
+  const visibleMemory = React.useMemo(() => {
+    if (!resolvedMemory) return undefined;
+    if (!hiddenSet.size) return resolvedMemory;
+    return Object.entries(resolvedMemory).reduce<PreviewMemoryMap>(
       (acc, [key, value]) => {
         if (hiddenSet.has(key)) {
           return acc;
@@ -230,7 +230,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
       },
       {},
     );
-  }, [hiddenSet, resolvedVariables]);
+  }, [hiddenSet, resolvedMemory]);
 
   const itemByElementBid = React.useMemo(() => {
     const map = new Map<string, ChatContentItem>();
@@ -270,32 +270,31 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     const isHide = actionType === 'hide';
     showAlert({
       title: isHide
-        ? t('module.shifu.previewArea.variablesHideUnusedConfirmTitle')
-        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmTitle'),
+        ? t('module.shifu.previewArea.memoryHideUnusedConfirmTitle')
+        : t('module.shifu.previewArea.memoryRestoreHiddenConfirmTitle'),
       description: isHide
-        ? t('module.shifu.previewArea.variablesHideUnusedConfirmDesc')
-        : t('module.shifu.previewArea.variablesRestoreHiddenConfirmDesc'),
+        ? t('module.shifu.previewArea.memoryHideUnusedConfirmDesc')
+        : t('module.shifu.previewArea.memoryRestoreHiddenConfirmDesc'),
       confirmText: t('common.core.confirm'),
       cancelText: t('common.core.cancel'),
       onConfirm: () => onHideOrRestore(),
     });
   }, [actionType, onHideOrRestore, showAlert, t]);
 
-  const handleHideVariableConfirm = React.useCallback(
+  const handleHideMemoryConfirm = React.useCallback(
     (name: string) => {
-      if (!onHideVariable) return;
+      if (!onHideMemory) return;
       showAlert({
-        title: t('module.shifu.previewArea.variablesHideSingleConfirmTitle'),
-        description: t(
-          'module.shifu.previewArea.variablesHideSingleConfirmDesc',
-          { name },
-        ),
+        title: t('module.shifu.previewArea.memoryHideSingleConfirmTitle'),
+        description: t('module.shifu.previewArea.memoryHideSingleConfirmDesc', {
+          name,
+        }),
         confirmText: t('common.core.confirm'),
         cancelText: t('common.core.cancel'),
-        onConfirm: () => onHideVariable(name),
+        onConfirm: () => onHideMemory(name),
       });
     },
-    [onHideVariable, showAlert, t],
+    [onHideMemory, showAlert, t],
   );
 
   const handleGoToBilling = React.useCallback(() => {
@@ -361,20 +360,20 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
       <div className={styles.previewArea}>
         {!showEmpty && (
-          <div className={styles.variableListWrapper}>
-            <VariableList
-              variables={visibleVariables}
-              collapsed={variablesCollapsed}
-              onToggle={() => setVariablesCollapsed(prev => !prev)}
-              onChange={onVariableChange}
-              variableOrder={variableOrder}
-              systemVariableKeys={systemVariableKeys}
+          <div className={styles.memoryListWrapper}>
+            <MemoryList
+              memory={visibleMemory}
+              collapsed={memoryCollapsed}
+              onToggle={() => setMemoryCollapsed(prev => !prev)}
+              onChange={onMemoryChange}
+              memoryOrder={memoryOrder}
+              systemMemoryKeys={systemMemoryKeys}
               actionType={actionType}
               onAction={handleActionConfirm}
               actionDisabled={actionDisabled}
-              customVariableKeys={customVariableKeys}
-              unusedVariableKeys={unusedVariableKeys}
-              onHideVariable={handleHideVariableConfirm}
+              customMemoryKeys={customMemoryKeys}
+              unusedMemoryKeys={unusedMemoryKeys}
+              onHideMemory={handleHideMemoryConfirm}
             />
           </div>
         )}

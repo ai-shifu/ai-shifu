@@ -49,7 +49,7 @@ def test_malformed_question_retry_releases_only_the_corrected_response() -> None
             }
         else:
             yield "Corrected preface.\n"
-            yield {0: _interact(variable=None)}
+            yield {0: _interact(question=None)}
 
     _app, runtime, _factories = _runtime(script)
     view = _start(runtime, "Ask about learning needs.")

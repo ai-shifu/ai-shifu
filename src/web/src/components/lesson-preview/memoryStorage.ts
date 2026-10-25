@@ -6,14 +6,15 @@ import {
 } from '@/lib/runtimeStorage';
 import { debugWarn } from '@/lib/debugConsole';
 
+// Preserve saved preview answers from releases using the legacy storage label.
 const STORAGE_PREFIX = 'lesson_preview_variables';
 const GLOBAL_STORAGE_KEY = STORAGE_PREFIX;
 
-export type PreviewVariablesMap = Record<string, string>;
+export type PreviewMemoryMap = Record<string, string>;
 
-export interface StoredVariablesByScope {
-  system: PreviewVariablesMap;
-  custom: PreviewVariablesMap;
+export interface StoredMemoryByScope {
+  system: PreviewMemoryMap;
+  custom: PreviewMemoryMap;
 }
 
 const normalizeValue = (value: unknown): string => {
@@ -36,14 +37,14 @@ const buildCustomStorageKey = (shifuBid?: string) => {
   return `${STORAGE_PREFIX}:${shifuBid}`;
 };
 
-const readStorage = (key: string): PreviewVariablesMap => {
+const readStorage = (key: string): PreviewMemoryMap => {
   if (typeof window === 'undefined' || !key) {
     return {};
   }
 
   const raw = readLocalStorageItem(
     key,
-    '[preview-variable-storage] failed to read localStorage',
+    '[preview-memory-storage] failed to read localStorage',
   );
   if (!raw) {
     return {};
@@ -54,13 +55,13 @@ const readStorage = (key: string): PreviewVariablesMap => {
     if (!parsed || typeof parsed !== 'object') {
       return {};
     }
-    return Object.entries(parsed).reduce<PreviewVariablesMap>((acc, entry) => {
+    return Object.entries(parsed).reduce<PreviewMemoryMap>((acc, entry) => {
       const [name, storedValue] = entry;
       acc[name] = normalizeValue(storedValue);
       return acc;
     }, {});
   } catch (error) {
-    debugWarn('[preview-variable-storage] failed to parse localStorage JSON', {
+    debugWarn('[preview-memory-storage] failed to parse localStorage JSON', {
       key,
       error,
     });
@@ -68,20 +69,20 @@ const readStorage = (key: string): PreviewVariablesMap => {
   }
 };
 
-const writeStorage = (key: string, data: PreviewVariablesMap) => {
+const writeStorage = (key: string, data: PreviewMemoryMap) => {
   if (typeof window === 'undefined' || !key) {
     return;
   }
   writeLocalStorageItem(
     key,
     JSON.stringify(data),
-    '[preview-variable-storage] failed to write localStorage',
+    '[preview-memory-storage] failed to write localStorage',
   );
 };
 
-export const getStoredPreviewVariables = (
+export const getStoredPreviewMemory = (
   shifuBid?: string,
-): StoredVariablesByScope => {
+): StoredMemoryByScope => {
   const customKey = buildCustomStorageKey(shifuBid);
   return {
     system: readStorage(GLOBAL_STORAGE_KEY),
@@ -89,33 +90,33 @@ export const getStoredPreviewVariables = (
   };
 };
 
-export const mapKeysToStoredVariables = (
+export const mapKeysToStoredMemory = (
   keys: string[],
-  stored: StoredVariablesByScope,
-  systemVariableKeys: Set<string> | string[],
-): PreviewVariablesMap => {
-  const systemSet = new Set(systemVariableKeys);
-  return keys.reduce<PreviewVariablesMap>((acc, key) => {
+  stored: StoredMemoryByScope,
+  systemMemoryKeys: Set<string> | string[],
+): PreviewMemoryMap => {
+  const systemSet = new Set(systemMemoryKeys);
+  return keys.reduce<PreviewMemoryMap>((acc, key) => {
     const source = systemSet.has(key) ? stored.system : stored.custom;
     acc[key] = source?.[key] || '';
     return acc;
   }, {});
 };
 
-export const savePreviewVariables = (
+export const savePreviewMemory = (
   shifuBid?: string,
-  variables?: PreviewVariablesMap,
-  systemVariableKeys: Set<string> | string[] = [],
+  memory?: PreviewMemoryMap,
+  systemMemoryKeys: Set<string> | string[] = [],
 ) => {
   if (typeof window === 'undefined') {
     return;
   }
-  const systemSet = new Set(systemVariableKeys);
-  const stored = getStoredPreviewVariables(shifuBid);
+  const systemSet = new Set(systemMemoryKeys);
+  const stored = getStoredPreviewMemory(shifuBid);
   const customKey = buildCustomStorageKey(shifuBid);
   let hasSystemChanges = false;
   let hasCustomChanges = false;
-  Object.entries(variables || {}).forEach(([name, value]) => {
+  Object.entries(memory || {}).forEach(([name, value]) => {
     const normalized = normalizeValue(value);
     if (systemSet.has(name)) {
       if (stored.system[name] !== normalized) {

@@ -53,7 +53,7 @@ def test_or_text_keeps_free_text_values() -> None:
 
 
 def test_stored_value_and_model_text() -> None:
-    s = spec("single_or_text", variable="v")
+    s = spec("single_or_text", question="v")
     a = InteractionAnswer(values=["A"], text="because")
     assert stored_value(s, a) == "A; because"
     assert format_answer_for_model(s, a) == "Learner chose: A; and wrote: because"
@@ -73,7 +73,7 @@ def test_coerce() -> None:
 def test_a_confirm_never_carries_a_memory_variable() -> None:
     """A confirm means "go on", so its button text is never stored as an answer.
 
-    Models do attach a variable to one -- often the variable the previous question filled -- and
+    Models do attach a question to one -- often the question the previous question filled -- and
     storing the button's label then destroys a real answer.
     """
     spec = InteractionSpec.model_validate(
@@ -81,10 +81,10 @@ def test_a_confirm_never_carries_a_memory_variable() -> None:
             "type": "confirm",
             "prompt": "我复述的和你的实际情况一致吗？",
             "options": [{"display": "对，就是这样"}],
-            "variable": "卡点场景",
+            "question": "卡点场景",
         }
     )
-    assert spec.variable is None
+    assert spec.question is None
 
 
 def test_other_interaction_types_keep_their_variable() -> None:
@@ -95,9 +95,9 @@ def test_other_interaction_types_keep_their_variable() -> None:
         ("single_or_text", {"options": [{"display": "A"}]}),
     ):
         spec = InteractionSpec.model_validate(
-            {"type": kind, "prompt": "q", "variable": "mood", **extra}
+            {"type": kind, "prompt": "q", "question": "mood", **extra}
         )
-        assert spec.variable == "mood", kind
+        assert spec.question == "mood", kind
 
 
 def test_a_confirm_keeps_only_one_button() -> None:

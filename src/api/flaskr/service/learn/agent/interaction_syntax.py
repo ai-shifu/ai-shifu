@@ -43,14 +43,14 @@ from markdownflow.engine.marker_context import (
     analyze_marker_context,
     marker_syntax_source,
 )
+from markdownflow.engine.questions import (
+    find_interaction_end,
+    read_question_marker,
+)
 from markdownflow.engine.stream_marker_context import (
     compact_marker_context,
     pending_autolink_is_primary,
     pending_literal_context,
-)
-from markdownflow.engine.variable_names import (
-    find_interaction_end,
-    read_variable_marker,
 )
 
 _OPEN = "?["
@@ -86,7 +86,7 @@ class InteractionSyntaxFilter:
         self._context_prefix = ""
         self._context_label_counts: dict[int, int] = {}
         self._opaque_prefix_until = 0
-        # A question inside a raw marker cannot be classified until a viable
+        # A question inside a native literal cannot be classified until that
         # enclosing literal closes or fails. Buffer its possible output in chunks,
         # keeping only bounded lexical state for each new arrival.
         self._pending_literal: str | None = None
@@ -133,7 +133,7 @@ class InteractionSyntaxFilter:
             if self._inside:
 
                 def marker_end(at: int) -> int | None:
-                    marker = read_variable_marker(self._held, at)
+                    marker = read_question_marker(self._held, at)
                     return marker.end if marker is not None else None
 
                 limit, closed = DocumentBlocks(
@@ -350,9 +350,8 @@ class InteractionSyntaxFilter:
             source, provisional
         ):
             provisional = None
-        reference_markers: list[tuple[int, int]] = []
         pending = (
-            pending_literal_context(source, reference_markers=reference_markers)
+            pending_literal_context(source)
             if not final and provisional_markers is not None
             else None
         )
@@ -381,6 +380,9 @@ class InteractionSyntaxFilter:
             scanned = scanned[:provisional] + scanned[provisional:].replace("{", "\x00")
         if pending is not None and provisional_markers is not None:
             start, witness = pending
+            # A question in any unfinished native literal waits for that literal's
+            # classification; standalone braces do not create this protection.
+            provisional_markers.append((start - len(prefix), len(text), witness))
             provisional_markers.extend(
                 (marker.start - len(prefix), marker.end - len(prefix), witness)
                 for marker in context.markers
@@ -388,13 +390,6 @@ class InteractionSyntaxFilter:
                 and not any(
                     opening <= marker.start < end for opening, end in context.literals
                 )
-            )
-            # A reference definition accepted at EOF can still fail when its
-            # physical line continues. Its raw markers retain that ambiguity
-            # even when the native prefix currently classifies them as literal.
-            provisional_markers.extend(
-                (opening - len(prefix), end - len(prefix), witness)
-                for opening, end in reference_markers
             )
             # Find the potentially real question without committing the marker's
             # ownership before its enclosing native literal has been decided.
@@ -444,7 +439,7 @@ class InteractionSyntaxFilter:
             if context.pending_reference_body_start is not None:
                 opening = source.find("{{", context.pending_reference_body_start)
                 while opening >= 0:
-                    marker = read_variable_marker(source, opening)
+                    marker = read_question_marker(source, opening)
                     if marker is None:
                         if _LINE_BREAK.search(source, opening) is None:
                             # A title's closing quote is provisional until its line ends.
@@ -463,20 +458,15 @@ class InteractionSyntaxFilter:
             # its closing pair has not arrived. Padding may contain newlines, so
             # searching the original text would mistake its contents for fences.
             # Keep offsets intact for the original line/stream state below.
-            parts: list[str] = []
-            at = 0
-            marker_scan = self._marker_scan_text(
-                text, container_fences=True, final=final
+            characters = list(
+                self._marker_scan_text(text, container_fences=True, final=final)
             )
-            while (start := marker_scan.find("{{", at)) >= 0:
-                marker = read_variable_marker(text, start)
-                end = marker.end if marker is not None else len(text)
-                parts.extend((marker_scan[at:start], "\x00" * (end - start)))
-                at = end
-                if marker is None:
-                    break
-            parts.append(marker_scan[at:])
-            scan_text = "".join(parts)
+            for marker in context.markers:
+                start = max(0, marker.start - len(self._context_prefix))
+                end = min(len(text), marker.end - len(self._context_prefix))
+                if start < end:
+                    characters[start:end] = "\x00" * (end - start)
+            scan_text = "".join(characters)
         # Keep offsets while making all physical endings visible to multiline anchors.
         line_source = scan_text.replace("\r\n", "\x00\n").replace("\r", "\n")
         for match in _FENCE_OPEN.finditer(line_source):
@@ -496,7 +486,8 @@ class InteractionSyntaxFilter:
         for partial in _MAY_BE_FENCE.finditer(line_source):
             if (
                 self._at_line_start(text, partial.start())
-                and _LINE_BREAK.search(text, partial.start()) is None
+                and re.fullmatch(r" {0,3}(?:`{1,2}|~{1,2})", text[partial.start() :])
+                is not None
             ):
                 if reference_wait is not None and reference_wait <= partial.start():
                     return (reference_wait, None)
@@ -564,11 +555,11 @@ class InteractionSyntaxFilter:
         at = min(len(text), self._opaque_prefix_until)
         while at < len(text):
             if marker_scan.startswith("{{", at):
-                marker = read_variable_marker(text, at)
+                marker = read_question_marker(text, at)
                 if marker is None:
                     return -1, None
                 at = marker.end
-            elif text.startswith(_OPEN, at):
+            elif marker_scan.startswith(_OPEN, at):
                 before = text[at - 1] if at else previous
                 if before != "\\":
                     witness = next(
@@ -589,7 +580,7 @@ class InteractionSyntaxFilter:
         marker_scan = self._marker_scan_text(text, final=final)
         at = 0
         while (start := marker_scan.find("{{", at)) >= 0:
-            marker = read_variable_marker(text, start)
+            marker = read_question_marker(text, start)
             if marker is None:
                 return start
             at = marker.end

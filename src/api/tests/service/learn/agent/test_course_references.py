@@ -55,7 +55,7 @@ def test_discard_removes_initial_snapshots_but_keeps_original_classroom_evidence
         script=bundle,
         user_memory={} if prompt_only else {key: old},
         memory={} if prompt_only else {key: "spoof"},
-        initial_variables={} if prompt_only else {key: old},
+        initial_memory={} if prompt_only else {key: old},
         messages=[
             ModelRequest(
                 parts=[UserPromptPart(render_first_prompt(bundle, {key: old}))]
@@ -68,7 +68,7 @@ def test_discard_removes_initial_snapshots_but_keeps_original_classroom_evidence
     discard_course_references(session)
     assert old not in session.messages[0].parts[0].content
     assert key not in session.all_memory()
-    assert not session.initial_variables
+    assert not session.initial_memory
     assert session.messages[1] is later
     assert session.answers == {"pending": old}
     assert session.request_inputs == [old]
@@ -103,7 +103,7 @@ def test_unrecognized_initial_prompt_is_rebuilt_without_retired_values(
     session = Session(
         script=bundle,
         user_memory={"goal": "Local goal", **({} if prompt_only else {key: old})},
-        initial_variables={"goal": "Local goal"},
+        initial_memory={"goal": "Local goal"},
         messages=[ModelRequest(parts=[UserPromptPart(content)]), later],
         answers={"answer": old},
         request_inputs=[old],
@@ -222,7 +222,7 @@ def test_saved_pending_reference_answer_is_kept_as_evidence_without_a_memory_wri
         session.pending = [
             PendingInteraction(
                 "legacy-question",
-                InteractionSpec(type="text", prompt="Old question?", variable=key),
+                InteractionSpec(type="text", prompt="Old question?", question=key),
             )
         ]
         # Match the real deferred tool-call history required by pydantic-ai.
@@ -233,7 +233,7 @@ def test_saved_pending_reference_answer_is_kept_as_evidence_without_a_memory_wri
                 parts=[
                     ToolCallPart(
                         "interact",
-                        {"type": "text", "prompt": "Old question?", "variable": key},
+                        {"type": "text", "prompt": "Old question?", "question": key},
                         "legacy-question",
                     )
                 ]
@@ -276,7 +276,7 @@ def test_interact_readonly_policy_is_opt_in_for_portable_hosts(readonly: bool) -
                         name="interact",
                         tool_call_id="question",
                         json_args=json.dumps(
-                            {"type": "text", "prompt": "Your goal?", "variable": key}
+                            {"type": "text", "prompt": "Your goal?", "question": key}
                         ),
                     )
                 }
@@ -288,8 +288,8 @@ def test_interact_readonly_policy_is_opt_in_for_portable_hosts(readonly: bool) -
         assert any(isinstance(e, InteractionRequest) for e in events) is not readonly
         assert bool(retries) is readonly
         if readonly:
-            assert "read-only reference" in retries[0]
+            assert "read-only memory" in retries[0]
         else:
-            assert session.pending[0].spec.variable == key
+            assert session.pending[0].spec.question == key
 
     asyncio.run(check())

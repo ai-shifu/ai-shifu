@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 __all__ = ["learner"]
 
-SCRIPT = "Ask %{{goal}}. Then use the learner's goal for examples."
+SCRIPT = "?[%{{goal}}...Your goal?] Then use the learner's answer for examples."
 
 
 def _turn(

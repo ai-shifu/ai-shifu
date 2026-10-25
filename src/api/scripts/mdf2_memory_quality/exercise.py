@@ -139,7 +139,7 @@ def exercise_session(case: dict[str, Any]) -> Session:
         Session(
             script=bundle,
             messages=messages,
-            initial_variables={},
+            initial_memory={},
             turn=26,
         ).dumps()
     )

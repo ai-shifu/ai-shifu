@@ -18,7 +18,11 @@ from pydantic_ai.messages import (
     ToolReturnPart,
 )
 
-from .interaction import DEFAULT_CONFIRM_LABEL, InteractionSpec
+from .interaction import (
+    DEFAULT_CONFIRM_LABEL,
+    InteractionSpec,
+    restore_interaction_spec,
+)
 from .script import ScriptBundle
 
 
@@ -50,7 +54,7 @@ def _restored_spec(stored: dict[str, Any]) -> InteractionSpec:
     Only for what is missing from the stored form. A session written since records the answer
     and is believed. Removable once no session predating the field can still be open.
     """
-    spec = InteractionSpec.model_validate(stored)
+    spec = restore_interaction_spec(stored)
     if (
         "labelled_by_engine" not in stored
         and spec.type == "confirm"
@@ -76,8 +80,8 @@ class Session:
     # Host-supplied memory deletion generations this session's memory reflects.
     memory_generations: dict[str, int] = field(default_factory=dict)
     user_memory: dict[str, Any] = field(default_factory=dict)  # snapshot of user scope
-    # Exact source values for initial host substitutions; None identifies legacy sessions.
-    initial_variables: dict[str, Any] | None = None
+    # Historical initial host memory; None identifies sessions predating its snapshot.
+    initial_memory: dict[str, Any] | None = None
     pending: list[PendingInteraction] = field(default_factory=list)
     # Answers collected for this turn's deferred calls, keyed by tool_call_id. A turn can raise
     # several interactions at once; the host answers them one at a time, and they are only handed
@@ -183,7 +187,11 @@ class Session:
                     except (AssertionError, TypeError, ValueError):
                         continue
                     key = (
-                        args.get("variable" if part.tool_name == "interact" else "key")
+                        (
+                            args.get("question", args.get("variable"))
+                            if part.tool_name == "interact"
+                            else args.get("key")
+                        )
                         if isinstance(args, dict)
                         else None
                     )
@@ -225,7 +233,7 @@ class Session:
             "answer_hashes": dict(self.answer_hashes),
             "memory_generations": dict(self.memory_generations),
             "user_memory": self.user_memory,
-            "initial_variables": self.initial_variables,
+            "initial_memory": self.initial_memory,
             "pending": [
                 {"tool_call_id": p.tool_call_id, "spec": p.spec.model_dump(mode="json")}
                 for p in self.pending
@@ -259,9 +267,9 @@ class Session:
                 for key, value in (d.get("memory_generations") or {}).items()
             },
             user_memory=dict(d.get("user_memory") or {}),
-            initial_variables=(
-                dict(d["initial_variables"])
-                if d.get("initial_variables") is not None
+            initial_memory=(
+                dict(d.get("initial_memory", d.get("initial_variables")))
+                if d.get("initial_memory", d.get("initial_variables")) is not None
                 else None
             ),
             pending=[

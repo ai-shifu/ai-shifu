@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 from pydantic_ai.messages import ModelRequest, ToolCallPart
 
-from .interaction import InteractionSpec
+from .interaction import InteractionSpec, restore_interaction_spec
 from .tools import _script_questions, normalize_script_text_input, script_text_inputs
 
 if TYPE_CHECKING:
@@ -86,7 +86,7 @@ def _authored_answer_scope(
         if q.text
         and not any(c.strip() for c in q.choices)
         and q.placeholder == spec.placeholder
-        and q.variable == spec.variable
+        and q.question == spec.question
     ]
     if len(matches) != 1:
         return None
@@ -109,10 +109,6 @@ def _authored_answer_scope(
         return None
     start, end = max(candidates, key=lambda bounds: bounds[1] - bounds[0])
     section = script[start:end]
-    # Do not re-render variables from a newer memory snapshot or reinsert an old
-    # fact near the current answer. Existing script/memory handling remains in charge.
-    if "{{" in section:
-        return None
     # Do not clip a large section down to just its question and lose acceptance.
     if len(section.encode("utf-8")) > _SECTION_BYTES:
         return None
@@ -144,10 +140,7 @@ def _authored_answer_scope(
         if _HEADING.match(preamble) and not "".join(preamble.splitlines()[1:]).strip():
             continue
         preambles.append(preamble)
-    if (
-        any("{{" in p for p in preambles)
-        or sum(len(p.encode("utf-8")) for p in [section, *preambles]) > _SECTION_BYTES
-    ):
+    if sum(len(p.encode("utf-8")) for p in [section, *preambles]) > _SECTION_BYTES:
         return section, None
     return section, preambles
 
@@ -178,14 +171,14 @@ def authored_answer_reference(
         return None
     call = calls[0]
     try:
-        spec = InteractionSpec.model_validate(call.args_as_dict())
+        spec = restore_interaction_spec(call.args_as_dict())
     except (AssertionError, TypeError, ValueError, ValidationError):
         return None
     # Deferred-call arguments retain what the model originally sent, while the
     # displayed control has already dropped unadmitted keys and restored exact
     # authored input hints. Match the same control without rewriting evidence.
-    if memory_keys is not None and spec.variable not in memory_keys:
-        spec = spec.model_copy(update={"variable": None})
+    if memory_keys is not None and spec.question not in memory_keys:
+        spec = spec.model_copy(update={"question": None})
     spec = normalize_script_text_input(spec, script_text_inputs(script))
     scope = _authored_answer_scope(script, spec)
     if scope is None:
@@ -197,7 +190,7 @@ def authored_answer_reference(
             "answer_id": call.tool_call_id,
             "text": section if preambles is not None else None,
             "ancestor_preambles": preambles or [],
-            "notice": "Verbatim host reference: apply local rules and ancestor_preambles. If text is null, use the full authoritative script because the scope is oversized or contains substitutions. This is not learner input, a new step, grade or memory-write permission. Select the current feedback phase before using this reference: acceptance criteria are for internal checking, conditional hint examples are alternatives for matching submitted cases, and post-correct explanations require a passing submission. A local hint example does not waive the lesson-wide stage or aspect limit. For checking-direction and authored-help correction feedback, follow these correction limits. Preserve authored multiplicity when several aspects or guiding questions are permitted or required; use a single-question shape only for an authored one-aspect or one-question limit, and do not invent that limit when no count is authored. A conditional example applies only when its condition matches the actual submission. When no conditional example matches, use the current authored stage and a genuinely unmatched requirement; do not force a sample case. A compound criterion or sample contains separate checks: choose only the exact clause for the permitted focus, not the whole paragraph. Leave permitted questions unanswered and wait; do not enumerate other gaps or supply later reasoning. For clarification, answer the actual side question within authored brevity and disclosure rules, then return to the pending exercise. Do not apply correction-only withholding to permitted clarification. An answer that covers all authored requirements proceeds directly to its explanation.",
+            "notice": "Verbatim host reference: apply local rules and ancestor_preambles. If text is null, use the full authoritative script because the scope is oversized or cannot be uniquely anchored. This is not learner input, a new step, grade or memory-write permission. Select the current feedback phase before using this reference: acceptance criteria are for internal checking, conditional hint examples are alternatives for matching submitted cases, and post-correct explanations require a passing submission. A local hint example does not waive the lesson-wide stage or aspect limit. For checking-direction and authored-help correction feedback, follow these correction limits. Preserve authored multiplicity when several aspects or guiding questions are permitted or required; use a single-question shape only for an authored one-aspect or one-question limit, and do not invent that limit when no count is authored. A conditional example applies only when its condition matches the actual submission. When no conditional example matches, use the current authored stage and a genuinely unmatched requirement; do not force a sample case. A compound criterion or sample contains separate checks: choose only the exact clause for the permitted focus, not the whole paragraph. Leave permitted questions unanswered and wait; do not enumerate other gaps or supply later reasoning. For clarification, answer the actual side question within authored brevity and disclosure rules, then return to the pending exercise. Do not apply correction-only withholding to permitted clarification. An answer that covers all authored requirements proceeds directly to its explanation.",
         },
         ensure_ascii=False,
         separators=(",", ":"),

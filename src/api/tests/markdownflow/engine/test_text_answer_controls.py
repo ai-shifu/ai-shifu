@@ -59,7 +59,7 @@ async def test_saved_natural_question_rejects_blank_values_before_accepting_text
                         {
                             "type": "text",
                             "prompt": "Who will use your assistant?",
-                            "variable": "project",
+                            "question": "project",
                         }
                     ),
                 )

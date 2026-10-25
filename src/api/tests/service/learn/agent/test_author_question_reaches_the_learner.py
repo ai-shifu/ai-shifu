@@ -30,7 +30,7 @@ def _spec_from(authored: str) -> InteractionSpec:
         options=[
             Option(display=b.get("display"), value=b.get("value")) for b in buttons
         ],
-        variable=parsed.get("variable") or None,
+        question=parsed.get("variable") or None,
         placeholder=parsed.get("question") or None,
     )
 
@@ -65,7 +65,7 @@ def test_a_spec_whose_options_were_rewritten_does_not_match_the_script() -> None
             type="single_or_text",
             prompt="",
             options=[Option(display="还没想好")],
-            variable="purpose",
+            question="purpose",
             placeholder="学 AI 的目的是什么？",
         )
     )

@@ -41,7 +41,7 @@ from flaskr.api.markdownflow import (
     ScriptBundle,
     StartTurn,
     TurnDone,
-    collected_names,
+    collected_questions,
 )
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, translate_for_language
@@ -305,7 +305,7 @@ def _load_or_start(
             enabled=use_learner_language,
             editor_debug=debug_store is not None,
         )
-    # A blank canonical nickname is unknown to variable substitution and would leave its
+    # A blank canonical nickname needs an explicit fallback in learner memory;
     # literal placeholder in the lesson. This address is presentation data, not a profile edit.
     if (
         SYS_USER_NICKNAME in user_memory
@@ -336,7 +336,7 @@ def _load_or_start(
                 # Named answers are durable course values. Retain the answered marker,
                 # but do not let its old session copy shadow another lesson's update.
                 for key in (
-                    collected_names(stored.script.script)
+                    collected_questions(stored.script.script)
                     & stored.answered_memory_keys()
                 ):
                     if key in user_memory:

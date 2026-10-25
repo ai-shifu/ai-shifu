@@ -61,7 +61,7 @@ def test_tools_refuse_shared_aliases_even_with_explicit_learner_request(
                     "request": "Please remember Updated.",
                 }
                 if tool == "remember"
-                else {"type": "text", "prompt": "Your goal?", "variable": c.share}
+                else {"type": "text", "prompt": "Your goal?", "question": c.share}
             )
             yield {
                 0: DeltaToolCall(
@@ -110,7 +110,7 @@ def test_saved_shared_question_keeps_answer_without_writing_either_course(
 
     async def prepare() -> Session:
         session = await engine.new_session(c.script)
-        args = {"type": "text", "prompt": "Your goal?", "variable": c.share}
+        args = {"type": "text", "prompt": "Your goal?", "question": c.share}
         session.messages = [
             ModelRequest(parts=[UserPromptPart("Legacy start")]),
             ModelResponse(

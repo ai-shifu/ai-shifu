@@ -177,7 +177,7 @@ async def test_sorted_pages_have_no_repeats_and_exclude_recollected_answers() ->
     session, _, returned, _ = await _exercise(
         [("recall", {"offset": offset}) for offset in (0, 20, 40, 999)],
         user_memory=values,
-        script="Ask %{{goal}} and %{{missing}}.",
+        script="?[%{{goal}} ...Your goal] ?[%{{missing}} ...Your answer]",
     )
     pages = [json.loads(r) for r in returned]
     assert [p["next_offset"] for p in pages] == [20, 40, None, None]
@@ -192,7 +192,7 @@ async def test_missing_and_recollected_keys_share_the_same_refusal(key: str) -> 
     _, _, returned, _ = await _exercise(
         [("recall", {"key": key})],
         user_memory={"goal": "old answer"},
-        script="Ask %{{goal}}.",
+        script="?[%{{goal}} ...Your goal]",
     )
     assert json.loads(returned[0]) == {"status": "unavailable"}
 
@@ -205,7 +205,7 @@ async def test_seeded_session_value_does_not_answer_a_collected_question(
     session, _, returned, _ = await _exercise(
         [("recall", {}), ("recall", {"key": "goal"})],
         memory={"goal": "Seeded old answer"},
-        script="Ask %{{goal}}.",
+        script="?[%{{goal}} ...Your goal]",
         memory_admission=admission,
     )
     assert json.loads(returned[0])["keys"] == []
@@ -234,7 +234,7 @@ async def test_accepted_named_answer_is_readable_during_deferred_resume(
                     name="interact" if phase == 1 else "recall",
                     tool_call_id=f"call-{phase}",
                     json_args=json.dumps(
-                        {"type": "text", "prompt": "Your goal?", "variable": "goal"}
+                        {"type": "text", "prompt": "Your goal?", "question": "goal"}
                         if phase == 1
                         else {"key": "goal"}
                     ),
@@ -244,7 +244,7 @@ async def test_accepted_named_answer_is_readable_during_deferred_resume(
             yield "A useful example."
 
     engine = Engine(FunctionModel(stream_function=model), memory_recall=True)
-    session = await engine.new_session("Ask %{{goal}}.")
+    session = await engine.new_session("?[%{{goal}} ...Your goal]")
     session.user_memory = {"goal": "Prior course answer"}
     first = [event async for event in engine.run_turn(session)]
     assert first[-1].reason == "interaction"
@@ -287,7 +287,7 @@ async def test_authorized_user_correction_replaces_the_answer_before_same_turn_r
         nonlocal phase
         phase += 1
         actions = {
-            1: ("interact", {"type": "text", "prompt": "Goal?", "variable": "goal"}),
+            1: ("interact", {"type": "text", "prompt": "Goal?", "question": "goal"}),
             3: ("remember", {"key": "goal", "value": "New goal", "scope": "user"}),
             4: ("recall", {"key": "goal"}),
         }
@@ -304,7 +304,7 @@ async def test_authorized_user_correction_replaces_the_answer_before_same_turn_r
     engine = Engine(
         FunctionModel(stream_function=model), memory_admission=True, memory_recall=True
     )
-    session = await engine.new_session("Ask %{{goal}}.")
+    session = await engine.new_session("?[%{{goal}} ...Your goal]")
     _ = [event async for event in engine.run_turn(session)]
     _ = [
         event

@@ -36,7 +36,7 @@ def test_failed_total_budget_keeps_named_answer_and_retry_evidence_in_database(
                         "id": "q",
                         "name": "interact",
                         "arguments": json.dumps(
-                            {"type": "text", "prompt": "Your goal?", "variable": "goal"}
+                            {"type": "text", "prompt": "Your goal?", "question": "goal"}
                         ),
                     }
                 ],
@@ -66,7 +66,7 @@ def test_failed_total_budget_keeps_named_answer_and_retry_evidence_in_database(
             stream = run_agent.run_agent_lesson(
                 app,
                 engine=engine,
-                script="Ask %{{goal}} and explain.",
+                script="?[%{{goal}}...Your goal?] Then explain.",
                 user_bid=user,
                 shifu_bid=course,
                 outline_bid=lesson,

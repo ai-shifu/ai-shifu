@@ -82,6 +82,7 @@ from .interaction import (
     answer_is_usable,
     format_answer_for_model,
     normalize_answer,
+    restore_interaction_spec,
     stored_value,
 )
 from .interaction_markup import (
@@ -95,12 +96,10 @@ from .output_language import language_request_history, output_language_instructi
 from .recall import recall
 from .script import (
     ScriptBundle,
-    collected_names,
+    collected_questions,
     detect_v1_syntax,
     final_preserved_line,
     render_first_prompt,
-    substitute_variables,
-    substitution_names,
 )
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
@@ -433,7 +432,7 @@ class Engine:
         whether the learner explicitly asked to remember the proposed value.
 
         `memory_context_limit` bounds the initial memory JSON payload, including legacy
-        histories projected for a resumed request. It never bounds exact script substitution,
+        histories projected for a resumed request. It never changes the authored script,
         answers or conversation history. None retains portable hosts' previous rendering.
 
         `memory_readonly_prefixes` prevents tools and named answers from overwriting
@@ -786,14 +785,14 @@ class Engine:
                 self.pauses_from_notation and script_pauses(session.script.script) == 0
             ),
             memory_keys=(
-                collected_names(session.script.script)
+                collected_questions(session.script.script)
                 if self.memory_admission
                 else None
             ),
             memory_reserved_keys=self.memory_reserved_keys,
             memory_readonly_prefixes=self.memory_readonly_prefixes,
             memory_request_check=self.memory_request_check,
-            memory_recall_excluded_keys=collected_names(session.script.script),
+            memory_recall_excluded_keys=collected_questions(session.script.script),
             answer_hashes=session.answer_hashes,
             memory_recall_blocked_keys=memory_deleted_keys
             if replaying_input
@@ -814,12 +813,7 @@ class Engine:
             if isinstance(turn, InteractionResponseTurn):
                 yield ErrorEvent(message="no interaction is pending on a new session")
                 return
-            initial = session.all_memory()
-            session.initial_variables = {
-                key: initial[key]
-                for key in substitution_names(session.script)
-                if key in initial
-            }
+            session.initial_memory = {}
             prompt = render_first_prompt(
                 session.script,
                 session.all_memory(),
@@ -882,20 +876,20 @@ class Engine:
                         _free_text_inputs(pending.spec, answer)
                     )
             if (
-                pending.spec.variable
+                pending.spec.question
                 and (
-                    not pending.spec.variable.startswith(deps.memory_readonly_prefixes)
+                    not pending.spec.question.startswith(deps.memory_readonly_prefixes)
                 )
                 and (
                     deps.memory_keys is None
-                    or pending.spec.variable in deps.memory_keys
+                    or pending.spec.question in deps.memory_keys
                 )
             ):
                 value = stored_value(pending.spec, answer)
                 if value is not None:
-                    session.record_answer(pending.spec.variable, value)
+                    session.record_answer(pending.spec.question, value)
                     yield MemoryUpdated(
-                        key=pending.spec.variable, value=value, source="interaction"
+                        key=pending.spec.question, value=value, source="interaction"
                     )
             session.pending = [
                 p for p in session.pending if p.tool_call_id != pending.tool_call_id
@@ -970,14 +964,14 @@ class Engine:
                     and part.tool_call_id in resumed
                 ):
                     try:
-                        spec = InteractionSpec.model_validate(part.args_as_dict())
+                        spec = restore_interaction_spec(part.args_as_dict())
                     except (TypeError, ValueError):
                         continue
                     if (
                         deps.memory_keys is not None
-                        and spec.variable not in deps.memory_keys
+                        and spec.question not in deps.memory_keys
                     ):
-                        spec = spec.model_copy(update={"variable": None})
+                        spec = spec.model_copy(update={"question": None})
                     spec = normalize_script_text_input(spec, text_inputs)
                     if spec.type != "text":
                         continue
@@ -1086,16 +1080,6 @@ class Engine:
             else ""
         )
         final_line = final_preserved_line(session.script.script) if carried_on else None
-        if final_line is not None:
-            # Use the prompt's substitution rules, and keep both original and rendered
-            # uniqueness checks: distinct author blocks can render to the same text.
-            final_line = final_preserved_line(
-                substitute_variables(
-                    session.script.script,
-                    session.all_memory(),
-                    collected=collected_names(session.script.script),
-                )
-            )
         final_line_text = (
             "".join(_display_text(final_line).split()) if final_line else ""
         )

@@ -5,10 +5,10 @@ from dataclasses import dataclass, field
 
 @dataclass(slots=True)
 class VariableMemoryUpdate:
-    """One variable assignment; staging maps its value for update events.
+    """One memory entry projected onto the legacy profile persistence contract.
 
-    Variable keys and definition IDs belong to this category, not to every
-    future kind of memory. The backing writer owns storage normalization.
+    Historical adapter names and optional definition IDs remain compatible with
+    stored profile rows. A question answer needs no definition record.
     """
 
     key: str
@@ -20,8 +20,8 @@ class VariableMemoryUpdate:
 class MemoryUpdate:
     """An explicit memory patch; omitted items are not replaced or deleted.
 
-    Variables are the first supported category. Future categories need their
-    own typed fields and persistence handlers, rather than synthetic variables.
+    The historical ``variables`` member is a compatibility field for keyed
+    memory entries, including question answers without profile definitions.
     """
 
     variables: list[VariableMemoryUpdate] = field(default_factory=list)
@@ -29,10 +29,10 @@ class MemoryUpdate:
 
 @dataclass(slots=True)
 class MemorySnapshot:
-    """A runtime memory view, with each supported category kept separate."""
+    """Keyed learner memory exposed through the legacy profile adapter fields."""
 
     variables: dict[str, str] = field(default_factory=dict)
 
     def as_variables(self) -> dict[str, str]:
-        """Project only variables for prompts without mutating the memory view."""
+        """Copy memory entries through the historical profile-adapter method name."""
         return dict(self.variables)

@@ -46,7 +46,7 @@ async def test_failed_teaching_survives_reload_and_continues(
                         {
                             "type": "text",
                             "prompt": "Which project?",
-                            "variable": "project",
+                            "question": "project",
                         }
                     ),
                     tool_call_id="project-question",
