@@ -621,6 +621,40 @@ describe('ShifuEdit draft conflict checks', () => {
     },
   );
 
+  test('keeps saved-only legacy memory hidden when restoring referenced keys', async () => {
+    setLessonNode();
+    mockShifuState.previewEngineVersion = '1.0';
+    mockShifuState.mdflow = 'Hello {{used}}';
+    mockShifuState.questions = ['used', 'saved_only'];
+    mockShifuState.hiddenQuestions = ['used', 'saved_only'];
+    mockShifuState.unusedQuestions = ['saved_only'];
+    baseActions.previewParse.mockResolvedValue({
+      memory: { used: 'Ada', saved_only: 'Retained answer' },
+      blocksCount: 1,
+      systemMemoryKeys: [],
+      allQuestionKeys: ['used', 'saved_only'],
+      unusedKeys: ['saved_only'],
+      engineVersion: '1.0',
+    });
+
+    render(<ScriptEditor id='shifu-1' />);
+    fireEvent.click(
+      screen.getByText('module.shifu.previewArea.action').closest('button')!,
+    );
+
+    await waitFor(() => expect(mockStartPreview).toHaveBeenCalled());
+    expect(baseActions.unhideQuestionsByKeys).toHaveBeenCalledTimes(1);
+    expect(baseActions.unhideQuestionsByKeys).toHaveBeenCalledWith('shifu-1', [
+      'used',
+    ]);
+    expect(mockStartPreview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        memory: { used: 'Ada', saved_only: 'Retained answer' },
+      }),
+    );
+    expect(baseActions.syncHiddenQuestionsToUsage).not.toHaveBeenCalled();
+  });
+
   test('keeps native question memory visible without legacy visibility controls', async () => {
     const question = 'What motivates you?';
     setLessonNode();

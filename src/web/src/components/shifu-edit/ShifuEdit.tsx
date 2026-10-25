@@ -10,8 +10,8 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { UploadProps, EditMode } from 'markdown-flow-ui/editor';
-// Compatibility metadata for the existing analytics consumer; never used for memory writes.
-import { extractVariableNames as extractLegacyAnalyticsKeys } from 'remark-flow';
+// Legacy preview compatibility and the existing analytics contract only.
+import { extractVariableNames as extractLegacyVariableNames } from 'remark-flow';
 import { Rnd } from 'react-rnd';
 import { useTranslation } from 'react-i18next';
 import {
@@ -1018,7 +1018,7 @@ const ScriptEditor = ({
     trackEvent('creator_lesson_preview_click', {
       shifu_bid: targetShifu,
       outline_bid: targetOutline,
-      has_text_variable_keys: extractLegacyAnalyticsKeys(targetMdflow).some(
+      has_text_variable_keys: extractLegacyVariableNames(targetMdflow).some(
         name => !LEGACY_VARIABLE_IDENTIFIER_FOR_ANALYTICS.test(name),
       ),
     });
@@ -1055,11 +1055,15 @@ const ScriptEditor = ({
           return;
         }
       } else if (legacyPreview) {
-        // Auto-unhide only the hidden questions that are actually used in current prompts (use parsed keys)
+        // Legacy parsed keys include saved definitions, so require a source reference.
         const parsedQuestionKeys =
           allQuestionKeys || Object.keys(parsedMemoryMap || {});
-        const usedHiddenKeys = hiddenQuestions.filter(key =>
-          parsedQuestionKeys.includes(key),
+        const sourceVariableNames = new Set(
+          extractLegacyVariableNames(targetMdflow),
+        );
+        const usedHiddenKeys = hiddenQuestions.filter(
+          key =>
+            parsedQuestionKeys.includes(key) && sourceVariableNames.has(key),
         );
         if (usedHiddenKeys.length) {
           try {

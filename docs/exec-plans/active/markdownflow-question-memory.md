@@ -132,6 +132,10 @@ environment-only semantics or existing course-routing entry point.
 - [x] 2026-10-25 11:13 UTC: Consumed reviewed npm `0.3.2-dev.2` through the
   existing feature-branch bump workflow (`0bdbf411a`); the generated lockfile's
   official package URL and integrity match the independently verified build.
+- [x] 2026-10-25 11:24 UTC: A new live review caught saved-only legacy keys
+  being unhidden by preview. Restored the original source-reference guard only
+  at that compatibility boundary; the regression fails before the fix and all
+  66 editor tests pass afterward, retaining the complete preview memory map.
 - [ ] Synchronize final heads, terminal CI and live review threads. Keep the
   formal-release dependency comment open until a release pin exists.
 
