@@ -43,9 +43,12 @@ methods. Preserve the ordinary verification-code security boundary.
   access, password change, logout, old-password rejection and new-password
   login. Fixed the new modal's accessible title/description; three focused
   suites (16 tests) and a fresh native dialog check passed afterward.
+- [x] Following explicit user authorization to submit the PR, refreshed remote
+  main and dependency PR #3175. Both remain at their verified heads. Publish
+  this feature as a ready PR based on the OTP branch while #3175 is unmerged,
+  then retarget to main after that dependency merges.
 - [ ] On a Docker/MySQL-capable runner, run the final head's runtime harness
-  and fresh/existing MySQL acceptance before release. No push or new PR
-  publication is authorized by this implementation task.
+  and fresh/existing MySQL acceptance before release.
 
 ## Surprises & Discoveries
 
@@ -77,8 +80,9 @@ Schema downgrade refuses to drop mappings while local-account bindings remain.
   learner `LOGIN_METHODS_ENABLED`. Existing administrator accounts survive.
 - Local recovery requires server-console access and revokes previous sessions;
   it does not reopen setup or create a public recovery bypass.
-- This implementation is local. New push/PR publication, merge, deployment and
-  production changes are outside the current authorization.
+- The user's later request authorizes pushing this feature branch and
+  publishing its ready PR. Merge, auto-merge, deployment and production
+  configuration changes remain outside the current authorization.
 
 ## Outcomes & Retrospective
 
@@ -125,7 +129,8 @@ upgrade, concurrency and recovery paths before preparing a reviewable patch.
    infrastructure, request-origin and language handling.
 5. Add UI, shared translations and allowlisted analytics with focused tests.
 6. Update normal startup and installation guidance; run relevant checks and
-   independent boundary review. Do not publish or deploy this feature.
+   independent boundary review. Publish the authorized PR without merging or
+   deploying it, and report the current head's CI results.
 
 ## Validation and Acceptance
 
