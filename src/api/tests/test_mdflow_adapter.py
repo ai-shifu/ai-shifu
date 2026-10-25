@@ -24,7 +24,11 @@ from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
 
 
-def test_parse_shifu_mdflow_returns_only_authored_questions(app: object) -> None:
+def test_parse_shifu_mdflow_returns_only_authored_questions(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("flaskr.common.config.Config._instance", None)
+    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", "true")
     with app.app_context():
         outline = DraftOutlineItem(
             outline_item_bid="outline-mdflow-1",
@@ -38,6 +42,7 @@ def test_parse_shifu_mdflow_returns_only_authored_questions(app: object) -> None
     result = parse_shifu_mdflow(app, "shifu-mdflow-1", "outline-mdflow-1")
     assert result.questions == ["Your learning goal?"]
     assert "variables" not in result.__json__()
+    assert result.__json__()["engine_version"] == "2.0"
     assert result.blocks_count >= 1
 
     content = get_shifu_mdflow(app, "shifu-mdflow-1", "outline-mdflow-1")
@@ -781,3 +786,35 @@ def test_failed_legacy_save_rolls_back_definition_and_outline_together(
             Variable.query.filter_by(shifu_bid=course, key="legacy_rolled_back").count()
             == 0
         )
+
+
+@pytest.mark.parametrize("enabled", [None, "false"])
+def test_legacy_parse_retains_source_and_saved_definition_keys(
+    app: object, monkeypatch: pytest.MonkeyPatch, enabled: str | None
+) -> None:
+    monkeypatch.setattr("flaskr.common.config.Config._instance", None)
+    if enabled is None:
+        monkeypatch.delenv("FLOW_ENGINE_V2_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", enabled)
+    course, outline = (
+        "legacy-preview-keys-" + str(enabled),
+        "legacy-preview-outline-" + str(enabled),
+    )
+    _add_outline_version(app, course, outline, "Hello {{name}}", "teacher", 0)
+    import json
+
+    from flaskr.common.http import make_common_response
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.profile.profile_manage import add_profile_item_quick_internal
+
+    with app.app_context(), unit_of_work():
+        add_profile_item_quick_internal(app, course, "name", "teacher")
+        add_profile_item_quick_internal(app, course, "saved_only", "teacher")
+    result = parse_shifu_mdflow(app, course, outline)
+    payload = json.loads(make_common_response(result))["data"]
+    assert payload["engine_version"] == "1.0"
+    assert "name" in payload["variables"]
+    assert "saved_only" in payload["variables"]
+    assert payload["variables"].count("name") == 1
+    assert "questions" not in payload

@@ -509,11 +509,66 @@ describe('question memory discovery', () => {
       );
     });
     expect(result.current.questions).toEqual([question]);
+    expect(result.current.previewEngineVersion).toBe('2.0');
     expect(parsed?.memory).toEqual({
       [question]: 'Advanced',
       sys_user_nickname: 'Ada',
     });
     expect(parsed?.allQuestionKeys).toEqual([question]);
     expect(parsed?.memory).not.toHaveProperty('obsolete_template');
+  });
+
+  it.each([
+    { engine_version: '1.0', variables: ['name', 'saved_only'] },
+    { variables: ['name', 'saved_only'] },
+  ])('retains saved legacy preview values for response %j', async response => {
+    mockParseMdflow.mockResolvedValue(response);
+    mockGetProfileItemDefinitions.mockResolvedValue([]);
+    mockGetProfileVariableUsage.mockResolvedValue({ unused_keys: [] });
+    window.localStorage.setItem(
+      'lesson_preview_variables:legacy-course',
+      JSON.stringify({ name: 'Ada', saved_only: 'Existing answer' }),
+    );
+    const { result } = renderHook(() => useShifu(), { wrapper });
+    let parsed:
+      | Awaited<ReturnType<typeof result.current.actions.previewParse>>
+      | undefined;
+    await act(async () => {
+      parsed = await result.current.actions.previewParse(
+        'Hello {{name}}',
+        'legacy-course',
+        'legacy-lesson',
+      );
+    });
+    expect(parsed?.memory).toEqual({
+      name: 'Ada',
+      saved_only: 'Existing answer',
+    });
+    expect(result.current.questions).toEqual(['name', 'saved_only']);
+    expect(result.current.previewEngineVersion).toBe('1.0');
+  });
+
+  it('selects the runtime while loading authoring metadata before preview', async () => {
+    mockParseMdflow.mockResolvedValue({
+      engine_version: '2.0',
+      questions: ['Your learning goal?'],
+    });
+    mockGetProfileItemDefinitions.mockResolvedValue([]);
+    mockGetProfileVariableUsage.mockResolvedValue({ unused_keys: [] });
+    const { result } = renderHook(() => useShifu(), { wrapper });
+    await act(async () => {
+      await result.current.actions.parseMdflow(
+        '?[%{{Your learning goal?}}...Answer]',
+        'native-course',
+        'native-lesson',
+      );
+    });
+    expect(result.current.previewEngineVersion).toBe('2.0');
+    expect(result.current.questions).toEqual(['Your learning goal?']);
+    expect(mockParseMdflow).toHaveBeenCalledWith({
+      shifu_bid: 'native-course',
+      outline_bid: 'native-lesson',
+      data: '?[%{{Your learning goal?}}...Answer]',
+    });
   });
 });

@@ -332,8 +332,21 @@ def parse_shifu_mdflow(
         )
         blocks = markdown_flow.get_all_blocks()
 
+        if uses_agent_engine(shifu_bid):
+            return MdflowDTOParseResult(
+                engine_version="2.0",
+                questions=_validated_questions(mdflow),
+                blocks_count=len(blocks),
+            )
+        definitions = get_profile_item_definition_list(app, outline_item.shifu_bid)
+        keys = [
+            *(markdown_flow.extract_variables() or []),
+            *(item.profile_key for item in definitions if item.profile_key),
+        ]
         return MdflowDTOParseResult(
-            questions=_validated_questions(mdflow), blocks_count=len(blocks)
+            engine_version="1.0",
+            variables=list(dict.fromkeys(key for key in keys if key)),
+            blocks_count=len(blocks),
         )
 
 

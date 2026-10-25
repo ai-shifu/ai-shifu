@@ -318,6 +318,7 @@ const mockShifuState = {
   actions: baseActions,
   isLoading: false,
   questions: [] as string[],
+  previewEngineVersion: '2.0' as '1.0' | '2.0',
   systemMemory: [] as Record<string, string>[],
   hiddenQuestions: [] as string[],
   unusedQuestions: [],
@@ -422,6 +423,7 @@ describe('ShifuEdit draft conflict checks', () => {
     mockShifuState.autosavePaused = false;
     mockShifuState.mdflow = '';
     mockShifuState.questions = [];
+    mockShifuState.previewEngineVersion = '2.0';
     mockShifuState.systemMemory = [];
     mockShifuState.hiddenQuestions = [];
     mockUserStoreState.userInfo = {
@@ -1012,6 +1014,25 @@ describe('ShifuEdit draft conflict checks', () => {
     expect(
       mockMarkdownFlowEditor.mock.lastCall?.[0].systemVariables,
     ).toBeUndefined();
+  });
+
+  test('retains legacy editor controls and suggestions for a 1.0 preview', async () => {
+    setLessonNode();
+    mockShifuState.previewEngineVersion = '1.0';
+    mockShifuState.questions = ['name'];
+    mockShifuState.systemMemory = [
+      { name: 'sys_user_nickname', label: 'Nickname' },
+    ];
+    render(<ScriptEditor id='shifu-1' />);
+    await waitFor(() => {
+      expect(mockMarkdownFlowEditor.mock.lastCall?.[0]).toEqual(
+        expect.objectContaining({
+          questionMode: false,
+          variables: [{ name: 'name' }],
+          systemVariables: [{ name: 'sys_user_nickname', label: 'Nickname' }],
+        }),
+      );
+    });
   });
 
   test('passes French locale through to MarkdownFlow editor', async () => {

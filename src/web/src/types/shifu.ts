@@ -162,6 +162,7 @@ export interface ShifuState {
   models: ModelOption[];
   mdflow: string;
   questions: string[];
+  previewEngineVersion: '1.0' | '2.0';
   hiddenQuestions: string[];
   systemMemory: Record<string, string>[];
   unusedQuestions: string[];

@@ -499,16 +499,20 @@ class ReorderOutlineSiblingsDto:
 class MdflowDTOParseResult(BaseModel):
     """Represent the MarkdownFlow DTO parse result API payload."""
 
-    questions: list[str] = Field(..., description="questions")
+    engine_version: Literal["1.0", "2.0"] = Field(default="2.0")
+    questions: list[str] = Field(
+        default_factory=list, description="Native question keys"
+    )
+    variables: list[str] = Field(
+        default_factory=list, description="Legacy preview keys"
+    )
     blocks_count: int = Field(..., description="blocks count")
 
-    def __init__(self, questions: list[str], blocks_count: int) -> None:
-        """Capture parsed MarkdownFlow questions and block count."""
-        super().__init__(questions=questions, blocks_count=blocks_count)
-
     def __json__(self) -> dict:
-        """Return parsed MarkdownFlow metadata as JSON-compatible data."""
+        """Expose only the keys supported by the selected runtime."""
+        key = "questions" if self.engine_version == "2.0" else "variables"
         return {
-            "questions": self.questions,
+            "engine_version": self.engine_version,
+            key: self.questions if self.engine_version == "2.0" else self.variables,
             "blocks_count": self.blocks_count,
         }

@@ -206,6 +206,10 @@ export const ShifuProvider = ({
   const [models, setModels] = useState<ModelOption[]>([]);
   const [mdflow, setMdflow] = useState<string>('');
   const [questions, setQuestions] = useState<string[]>([]);
+  const [previewEngineVersion, setPreviewEngineVersion] = useState<
+    '1.0' | '2.0'
+  >('1.0');
+  const previewEngineVersionsRef = useRef<Record<string, '1.0' | '2.0'>>({});
   const [hiddenQuestions, setHiddenQuestions] = useState<string[]>([]);
   const [unusedQuestions, setUnusedQuestions] = useState<string[]>([]);
   const [hideUnusedMode, setHideUnusedMode] = useState(false);
@@ -1623,6 +1627,12 @@ export const ShifuProvider = ({
   ) => {
     setIsLoading(true);
     try {
+      const result = await api.parseMdflow({
+        shifu_bid: shifuId,
+        outline_bid: outlineId,
+        data: value,
+      });
+      applyParsedMdflow(result, shifuId, outlineId);
       await refreshProfileDefinitions(shifuId);
     } catch (error) {
       console.error(error);
@@ -1631,6 +1641,31 @@ export const ShifuProvider = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const applyParsedMdflow = (
+    result:
+      | {
+          engine_version?: '1.0' | '2.0';
+          questions?: string[];
+          variables?: string[];
+        }
+      | null
+      | undefined,
+    shifuId: string,
+    outlineId: string,
+  ): string[] => {
+    // Older servers identify their response through the matching field name.
+    const engineVersion =
+      result?.engine_version ?? (result?.questions ? '2.0' : '1.0');
+    const keys =
+      (engineVersion === '2.0' ? result?.questions : result?.variables) || [];
+    previewEngineVersionsRef.current[shifuId] = engineVersion;
+    if (!currentOutlineRef.current || currentOutlineRef.current === outlineId) {
+      setPreviewEngineVersion(engineVersion);
+      setQuestions(keys);
+    }
+    return keys;
   };
 
   const previewParse = async (
@@ -1656,8 +1691,11 @@ export const ShifuProvider = ({
         outline_bid: resolvedOutlineId,
         data: value,
       });
-      const questionKeys: string[] = result?.questions || [];
-      setQuestions(questionKeys);
+      const questionKeys = applyParsedMdflow(
+        result,
+        resolvedShifuId,
+        resolvedOutlineId,
+      );
       const resolvedSystemKeys =
         systemMemoryKeys && systemMemoryKeys.length
           ? systemMemoryKeys
@@ -2035,6 +2073,7 @@ export const ShifuProvider = ({
     blockContentTypes,
     mdflow,
     questions,
+    previewEngineVersion,
     hiddenQuestions,
     systemMemory,
     unusedQuestions,
