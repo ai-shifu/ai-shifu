@@ -6,7 +6,10 @@ import json
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from flaskr.service.learn.agent.legacy_prompt import matched_section_length
+from flaskr.service.learn.agent.legacy_prompt import (
+    historical_collected_questions,
+    matched_section_length,
+)
 from markdownflow.engine.memory_context import parse_initial_memory_prompt
 from markdownflow.engine.script import collected_questions
 from pydantic_ai.messages import ModelRequest, UserPromptPart
@@ -49,13 +52,14 @@ def refresh_deleted_memory(
                 return
             original = {**saved, **(session.initial_memory or {}), **parsed.memory}
             collected = collected_questions(session.script.script)
+            historical_collected = historical_collected_questions(session.script.script)
             length = matched_section_length(
                 part.content,
                 parsed.script_start,
                 "script",
                 session.script.script,
                 original,
-                collected,
+                historical_collected,
             )
             if length is None:
                 return
@@ -68,7 +72,7 @@ def refresh_deleted_memory(
                         "constraints",
                         session.script.constraints,
                         original,
-                        collected,
+                        historical_collected,
                     )
                     if session.script.constraints and suffix.startswith("\n\n")
                     else 0

@@ -6,7 +6,10 @@ import json
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from flaskr.service.learn.agent.legacy_prompt import matched_section_length
+from flaskr.service.learn.agent.legacy_prompt import (
+    historical_collected_questions,
+    matched_section_length,
+)
 from flaskr.service.profile.api import SYS_USER_NICKNAME
 from markdownflow.engine.memory_context import (
     parse_initial_memory_prompt,
@@ -49,13 +52,14 @@ def refresh_nickname(session: Session, current: dict[str, Any]) -> None:
                 **(session.initial_memory or {}),
                 **parsed.memory,
             }
+            historical_collected = historical_collected_questions(session.script.script)
             length = matched_section_length(
                 part.content,
                 parsed.script_start,
                 "script",
                 session.script.script,
                 source_memory,
-                collected_questions(session.script.script),
+                historical_collected,
             )
             if length is None:
                 return
@@ -69,7 +73,7 @@ def refresh_nickname(session: Session, current: dict[str, Any]) -> None:
                     "constraints",
                     session.script.constraints,
                     source_memory,
-                    collected_questions(session.script.script),
+                    historical_collected,
                 )
                 if brief_length is not None:
                     suffix = (

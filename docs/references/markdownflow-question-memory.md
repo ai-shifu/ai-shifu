@@ -47,3 +47,26 @@ The pinned rendering libraries and existing application wire/database contracts
 may still carry old field names inside explicit compatibility adapters. Those
 names do not introduce a second authoring concept or enable substitution.
 Historical teaching and learner messages are not rewritten as new answers.
+
+## Authoring and preview boundaries
+
+The parse response includes `engine_version`. Native 2.0 returns `questions`;
+1.0 retains its extracted and saved-definition `variables` for existing preview
+values. The editor enables question mode only for 2.0. This compatibility shape
+does not change the 1.0 execution engine.
+
+Every active native question marker is validated before saving or parsing a
+lesson or publishing a Profile document. Blank or internally control-bearing
+question text is an input error, not an unnamed answer. Controls that omit the
+marker and inactive examples remain valid. Course authoring returns the existing
+invalid-parameter API code (2001) with localized question guidance.
+
+Native question rows remain visible. Legacy definition-backed hide, unused and
+restore actions are unavailable in native previews; old stored visibility flags
+cannot hide an authored question. Fixed system-context display exclusions remain.
+1.0 retains its existing visibility controls and preferences.
+
+Historical native sessions may contain already-expanded inline code, HTML and
+math references. The read-only compatibility matcher recognizes these old host
+sections so deletion and nickname refresh can remove stale values. It never
+introduces substitution into new authored prompts or rewrites learner/tool history.

@@ -12,7 +12,7 @@ from html import escape
 from typing import TYPE_CHECKING, Any
 
 from markdownflow.engine.marker_context import analyze_marker_context
-from markdownflow.engine.questions import find_question_markers
+from markdownflow.engine.questions import read_question_marker
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -45,10 +45,60 @@ def _project_legacy_markers(
         marker_prefix += ":"
     markers = {}
     masked: list[str] = []
+    literal_spans = analyze_marker_context(text, fence_indent=0).literals
+    # A code example cannot make its unfinished opener consume a later reference.
+    # Walk native fence lines before reading opaque historical names.
+    line_ends = {}
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        line_ends[offset] = offset + len(line)
+        offset += len(line)
     at = 0
-    for marker in find_question_markers(text):
-        if marker.start and text[marker.start - 1] == "\\":
+    accepted_ranges: list[tuple[int, int]] = []
+    position = 0
+    in_fence: str | None = None
+    while position < len(text):
+        if position in line_ends:
+            end = line_ends[position]
+            line = text[position:end]
+            if fence := _FENCE_RE.match(line):
+                if in_fence is None:
+                    in_fence = fence.group(1)
+                elif _closes_fence(line, in_fence):
+                    in_fence = None
+                position = end
+                continue
+            if in_fence is not None:
+                position = end
+                continue
+        if not text.startswith("{{", position):
+            position += 1
             continue
+        # Historical keys own their contents, so a literal opener inside an
+        # earlier key cannot establish a Markdown scope for later references.
+        literal_end = next(
+            (
+                end
+                for start, end in literal_spans
+                if start <= position < end
+                and not any(left <= start < right for left, right in accepted_ranges)
+            ),
+            None,
+        )
+        before = position
+        while before and text[before - 1] == "\\":
+            before -= 1
+        # The former renderer expanded references inside inline/HTML literals,
+        # including their backslashes; only escaped prose openers stay literal.
+        if (position - before) % 2 and literal_end is None:
+            position += 1
+            continue
+        marker = read_question_marker(text, position)
+        if literal_end is not None and (marker is None or marker.end > literal_end):
+            position = literal_end
+            continue
+        if marker is None:
+            break
         token = f"{marker_prefix}{len(markers)}\x00"
         markers[token] = (
             text[marker.start : marker.end],
@@ -56,22 +106,20 @@ def _project_legacy_markers(
             bool(marker.start and text[marker.start - 1] == "%"),
         )
         masked.extend((text[at : marker.start], token))
-        at = marker.end
+        accepted_ranges.append((marker.start, marker.end))
+        at = position = marker.end
     masked.append(text[at:])
-    projected = "".join(masked)
-    tokens = re.compile(re.escape(marker_prefix) + r"\d+\x00")
-    # Legacy references are found lexically before asking today's scanner only
-    # for Markdown literal boundaries. Standalone braces have no new semantics.
-    literal_spans = analyze_marker_context(projected, fence_indent=0).literals
-    projected = tokens.sub(
-        lambda match: (
-            markers[match.group(0)][0]
-            if any(start <= match.start() < end for start, end in literal_spans)
-            else match.group(0)
-        ),
-        projected,
+    return "".join(masked), markers, re.compile(re.escape(marker_prefix) + r"\d+\x00")
+
+
+def historical_collected_questions(script: str) -> frozenset[str]:
+    """Read pre-migration main-script declarations only to match old 2.0 prompts."""
+    _projected, markers, _tokens = _project_legacy_markers(script)
+    return frozenset(
+        name
+        for _raw, name, assignment in markers.values()
+        if assignment and name is not None
     )
-    return projected, markers, tokens
 
 
 def _render_legacy_text(
@@ -161,7 +209,7 @@ def matched_section_length(
     memory: Mapping[str, Any],
     collected: frozenset[str],
 ) -> int | None:
-    """Find only exact known literal or historical host sections at this offset."""
+    """Match known sections using the historical main script's collection scope."""
     candidates = [
         source,
         *(

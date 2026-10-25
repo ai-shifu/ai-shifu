@@ -110,3 +110,26 @@ The shared draft-save path retains legacy definition creation when the existing
 deployment runtime selector chooses MarkdownFlow 1.0. Native 2.0 skips it. The
 selector is shared through `flaskr.common.markdownflow` without changing its
 environment-only semantics or existing course-routing entry point.
+
+## Review Follow-up: 2026-10-25
+
+- [x] 2026-10-25 10:44 UTC: Restored runtime-specific preview keys and editor mode
+  in independent commit `2f1f0455b`; 32 backend and 88 frontend checks pass.
+- [x] 2026-10-25 10:53 UTC: Rejected invalid active question markers in commit
+  `54acab325`; 2,629 offline engine and 233 authoring/Profile tests pass.
+- [x] 2026-10-25 10:55 UTC: Removed inapplicable native visibility actions in
+  commit `52dd9728f`; 148 frontend checks, types and lint pass.
+- [x] 2026-10-25 10:53 UTC: Editor PR #261 search-state correction is verified;
+  all applicable CI is terminal/successful on `2f24ef3`, the valid review thread
+  is resolved, and npm `0.3.2-dev.2` is read back against its exact source.
+- [x] 2026-10-25 11:06 UTC: Historical inline/HTML/math and collected-key
+  matching regressions pass in 146 relevant host tests; current native memory
+  eligibility and the 1.0 SDK remain unchanged.
+- [ ] Consume the reviewed editor development package on the application branch.
+- [ ] Synchronize final heads, terminal CI and live review threads. Keep the
+  formal-release dependency comment open until a release pin exists.
+
+The reviewer feedback about 1.0 preview values is handled only by restoring a
+compatibility boundary introduced by this PR. No 1.0 SDK or execution behavior
+is migrated. Native visibility actions are removed rather than introducing a
+new storage or course-wide usage contract.
