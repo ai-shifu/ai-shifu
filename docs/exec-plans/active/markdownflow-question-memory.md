@@ -59,7 +59,7 @@ and stream-reference checks pass, including the corrected provisional-reference
 streaming boundary and follow-up question admission. Local repository checks
 remain the commit gate; the development dependency intentionally blocks a main
 merge until the editor formal release is available. The app uses
-0.3.2-dev.1 for reproducible branch validation; replace it with the formal editor
+0.3.2-dev.2 for reproducible branch validation; replace it with the formal editor
 release after human review of PR #261. The main release-pin gate is retained.
 
 ## Context and Orientation
@@ -125,7 +125,13 @@ environment-only semantics or existing course-routing entry point.
 - [x] 2026-10-25 11:06 UTC: Historical inline/HTML/math and collected-key
   matching regressions pass in 146 relevant host tests; current native memory
   eligibility and the 1.0 SDK remain unchanged.
-- [ ] Consume the reviewed editor development package on the application branch.
+- [x] 2026-10-25 11:12 UTC: Corrected three CI test failures in `59563d8bc`.
+  The shared local SDK was older than the pinned CI SDK; the exact CI SDK now
+  passes 2,629 offline engine tests, 318 related host tests and all 74 tests in
+  the two affected CI test files. No runtime or CI workflow change was needed.
+- [x] 2026-10-25 11:13 UTC: Consumed reviewed npm `0.3.2-dev.2` through the
+  existing feature-branch bump workflow (`0bdbf411a`); the generated lockfile's
+  official package URL and integrity match the independently verified build.
 - [ ] Synchronize final heads, terminal CI and live review threads. Keep the
   formal-release dependency comment open until a release pin exists.
 
