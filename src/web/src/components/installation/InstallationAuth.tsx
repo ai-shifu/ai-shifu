@@ -161,6 +161,7 @@ export const InstallationAuth = ({
       setErrorMessage(t('module.installation.passwordMismatch'));
       return;
     }
+    const returnPath = getLocalAdminRedirect(window.location.search);
     submitting.current = true;
     setBusy(true);
     setOfferLocalLogin(false);
@@ -218,7 +219,7 @@ export const InstallationAuth = ({
       setBusy(false);
     }
     if (authenticated) {
-      router.replace(getLocalAdminRedirect(window.location.search));
+      router.replace(returnPath);
     }
   };
 

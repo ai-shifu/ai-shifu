@@ -50,8 +50,14 @@ validation and the explicitly selected local development and test workflow.
 - [x] 2026-10-25 UTC: At the user's request, rebased the auth and setup-doc
   commits onto main `a37b6e69`. Preserved the existing local verification log
   and the remote branch's upstream changes; kept backup refs for both old tips.
-- [ ] Follow the latest integrated revision's exact-head CI at
-  <https://github.com/ai-shifu/ai-shifu/pull/3175/checks>; earlier-head passes do
+- [x] 2026-10-25 UTC: Rebased head `3f5de08` passed all seven Actions workflows,
+  including 15,101 backend passes (15 skipped), eight contract checks and three
+  runtime browser smoke tests. These results cover only that OTP revision.
+- [x] The user subsequently requested one PR for the OTP fix and the first
+  administrator setup feature. Retain their full commit ancestry in #3183
+  targeting main, with #3175 superseded and its reviews/history preserved.
+- [ ] Follow the latest combined revision's exact-head CI at
+  <https://github.com/ai-shifu/ai-shifu/pull/3183/checks>; earlier-head passes do
   not count for a newer revision. PR merge and deployment remain out of scope.
 
 ## Surprises & Discoveries
@@ -84,9 +90,11 @@ passed; the added executable runtime lines are covered. Runtime browser smoke
 subsequently passed in CI for `b091ca8` and the documentation head `a6d5501`.
 The frontend parser integration `32d29ae` passed all seven Actions workflows,
 including the backend suite and runtime browser smoke. Local integration and
-the subsequent rebase onto main `a37b6e69` require fresh exact-head CI after an
-authorized push, tracked by PR #3175 checks. Earlier passes do not establish
-the rebased revision's remote status.
+the subsequent rebase onto main `a37b6e69` passed fresh CI at `3f5de08`.
+The user-authorized consolidation adds first administrator setup and its review
+fixes in PR #3183 against main. That combined revision needs its own exact-head
+CI; the earlier OTP-only passes do not establish its status. PR #3175 remains
+available as historical review evidence after it is superseded.
 Local container smoke was not run. Do not treat this plan as evidence that a
 running deployment has been patched.
 

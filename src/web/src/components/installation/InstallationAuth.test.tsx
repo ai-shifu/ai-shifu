@@ -342,6 +342,11 @@ it('supports local login independently of learner login settings and preserves a
   Object.assign(window.location, {
     search: '?redirect=%2Fadmin%2Fbilling%3Ftab%3Ddetails',
   });
+  mockLogin.mockImplementationOnce(async () => {
+    // The shared login action removes auth query parameters before it returns.
+    window.history.replaceState(null, '', '/admin-login');
+    Object.assign(window.location, { search: '' });
+  });
   render(<InstallationAuth surface='local_login' />);
   await screen.findByLabelText('module.installation.usernameLabel');
   fireEvent.change(screen.getByLabelText('module.installation.usernameLabel'), {
@@ -356,6 +361,7 @@ it('supports local login independently of learner login settings and preserves a
   await waitFor(() =>
     expect(mockReplace).toHaveBeenCalledWith('/admin/billing?tab=details'),
   );
+  expect(window.location.search).toBe('');
   expect(mockLocalLogin).toHaveBeenCalledWith({
     username: 'owner',
     password: 'GoodPassword1',

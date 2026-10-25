@@ -44,9 +44,21 @@ methods. Preserve the ordinary verification-code security boundary.
   login. Fixed the new modal's accessible title/description; three focused
   suites (16 tests) and a fresh native dialog check passed afterward.
 - [x] Following explicit user authorization to submit the PR, refreshed remote
-  main and dependency PR #3175. Both remain at their verified heads. Publish
-  this feature as a ready PR based on the OTP branch while #3175 is unmerged,
-  then retarget to main after that dependency merges.
+  main and dependency PR #3175, then created ready PR #3183 at `e0cb7e5` based
+  on the OTP branch. This was the original stacked review arrangement.
+- [x] The user subsequently requested one combined PR. Retain #3183, target
+  main directly and include the complete OTP-fix ancestry; close #3175 as
+  superseded after verifying the combined PR. Preserve both branches and
+  all existing review history without rewriting commits.
+- [x] Corrected the two actual #3183 review findings: restore contactless local
+  administrator sessions and preserve the validated admin return path before
+  the login store clears its redirect parameter. The new regressions failed
+  on the old implementation; the corrected source passed 106 focused tests,
+  TypeScript, full frontend lint and 281 suites/3,452 frontend tests.
+- [x] Native Chrome confirmed that refresh/new-tab navigation preserves local
+  administrator login without resubmitting credentials, and that logout then
+  local login returns to the exact original admin path including its query.
+  Isolated browser/API/Web processes and synthetic credentials were cleaned up.
 - [ ] On a Docker/MySQL-capable runner, run the final head's runtime harness
   and fresh/existing MySQL acceptance before release.
 
@@ -80,15 +92,19 @@ Schema downgrade refuses to drop mappings while local-account bindings remain.
   learner `LOGIN_METHODS_ENABLED`. Existing administrator accounts survive.
 - Local recovery requires server-console access and revokes previous sessions;
   it does not reopen setup or create a public recovery bypass.
-- The user's later request authorizes pushing this feature branch and
-  publishing its ready PR. Merge, auto-merge, deployment and production
-  configuration changes remain outside the current authorization.
+- The user's later requests authorize pushing this feature branch, publishing
+  its ready PR and consolidating #3175 into #3183. Merge into main, auto-merge,
+  deployment and production configuration changes remain outside the current
+  authorization.
 
 ## Outcomes & Retrospective
 
 Implementation, complete backend/frontend regression runs, native browser
 acceptance, production Web build and final repository checks are present in
 this isolated branch. No earlier OTP CI results count as feature verification.
+The combined review target is #3183 against main; the previous stacked PR
+arrangement is historical. Any additional review fixes require fresh CI for
+their actual head and do not inherit earlier revision results.
 Docker/MySQL container smoke is unavailable locally; discovering four Playwright
 harness cases is not evidence that they ran. The independent final identity
 review remained blocked by the review tool; it was not retried through an

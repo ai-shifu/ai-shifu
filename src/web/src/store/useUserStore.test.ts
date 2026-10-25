@@ -98,6 +98,82 @@ describe('useUserStore.initUser', () => {
     expect(mockChangeLanguage).not.toHaveBeenCalled();
   });
 
+  test.each([false, true])(
+    'restores a contactless local administrator from server evidence when cached guest status is %s',
+    async faked => {
+      mockTokenState = { token: 'local-admin-token', faked };
+      const localAdmin = {
+        user_id: 'local-admin',
+        username: 'site-owner',
+        mobile: '',
+        email: '',
+        is_operator: true,
+        has_local_password: true,
+        language: 'en-US',
+      };
+      mockGetUserInfo.mockResolvedValueOnce({ data: localAdmin });
+
+      await useUserStore.getState().initUser();
+
+      expect(mockTokenState).toEqual({
+        token: 'local-admin-token',
+        faked: false,
+      });
+      expect(useUserStore.getState()).toMatchObject({
+        userInfo: localAdmin,
+        isGuest: false,
+        isLoggedIn: true,
+        isInitialized: true,
+      });
+      expect(mockRegisterTmp).not.toHaveBeenCalled();
+      expect(mockIdentifyUmamiUser).toHaveBeenCalledWith(localAdmin);
+    },
+  );
+
+  test.each([undefined, false, 'true', 1])(
+    'does not authenticate a contactless profile from its name or a non-boolean local marker (%s)',
+    async localMarker => {
+      mockTokenState = { token: 'guest-token', faked: true };
+      mockGetUserInfo.mockResolvedValueOnce({
+        user_id: 'contactless-guest',
+        username: 'site-owner',
+        name: 'Account',
+        is_operator: true,
+        has_local_password: localMarker,
+      });
+
+      await useUserStore.getState().initUser();
+
+      expect(mockTokenState).toEqual({ token: 'guest-token', faked: true });
+      expect(useUserStore.getState()).toMatchObject({
+        isGuest: true,
+        isLoggedIn: false,
+        isInitialized: true,
+      });
+      expect(mockRegisterTmp).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([
+    { mobile: '+8613800000000', email: '' },
+    { mobile: '', email: 'owner@example.com' },
+  ])('preserves restored contact authentication for %o', async contact => {
+    mockTokenState = { token: 'contact-token', faked: false };
+    mockGetUserInfo.mockResolvedValueOnce({
+      user_id: 'contact-user',
+      ...contact,
+    });
+
+    await useUserStore.getState().initUser();
+
+    expect(mockTokenState).toEqual({ token: 'contact-token', faked: false });
+    expect(useUserStore.getState()).toMatchObject({
+      isGuest: false,
+      isLoggedIn: true,
+      isInitialized: true,
+    });
+  });
+
   test('passes exclusion from restored user info and restores guest eligibility on logout', async () => {
     mockTokenState = { token: 'excluded-token', faked: false };
     const excludedUser = {

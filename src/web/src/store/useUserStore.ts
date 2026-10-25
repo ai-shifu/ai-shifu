@@ -256,9 +256,12 @@ export const useUserStore = create<
             return;
           }
 
-          // Determine if user is authenticated based on mobile number or email
+          // Local identities have no verified contact. Their explicit server
+          // credential marker distinguishes them from contactless guests.
           const isAuthenticated = !!(
-            normalizedUserInfo?.mobile || normalizedUserInfo?.email
+            normalizedUserInfo?.mobile ||
+            normalizedUserInfo?.email ||
+            normalizedUserInfo?.has_local_password === true
           );
           tokenTool.set({
             token: latestTokenData.token || initialToken,
