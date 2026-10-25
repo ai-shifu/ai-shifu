@@ -13,6 +13,7 @@ let mockTranslationPrefix = '';
 const mockTranslate = (key: string) => `${mockTranslationPrefix}${key}`;
 const mockUsePathname = jest.fn(() => '/admin');
 const mockApplyCreatorBranding = jest.fn();
+const mockGetInstallationStatus = jest.fn();
 const mockRefreshUserInfo = jest.fn();
 const mockFocusNavFooter = jest.fn();
 let mockSearchParamsValue = '';
@@ -145,6 +146,10 @@ jest.mock('@/api', () => ({
     completeCreatorOnboarding: jest.fn(),
     getReferralInviteProfile: jest.fn(),
   },
+}));
+
+jest.mock('@/api/installation', () => ({
+  getInstallationStatus: () => mockGetInstallationStatus(),
 }));
 
 jest.mock('@/components/contact/ContactSideRail', () => ({
@@ -524,6 +529,10 @@ describe('AdminLayout', () => {
 
   beforeEach(() => {
     document.title = '';
+    mockGetInstallationStatus.mockReset().mockResolvedValue({
+      setup_required: false,
+      local_admin_login_enabled: false,
+    });
     mockUsePathname.mockReturnValue('/admin');
     mockApplyCreatorBranding.mockReset();
     mockRefreshUserInfo.mockReset();
@@ -565,7 +574,7 @@ describe('AdminLayout', () => {
     });
   });
 
-  test('shows sidebar loading placeholder before user state is ready', () => {
+  test('waits for user initialization before checking the installation entry', () => {
     mockUserStoreState.isInitialized = false;
     mockUserStoreState.userInfo = null as unknown as {
       user_id: string;
@@ -578,13 +587,16 @@ describe('AdminLayout', () => {
       </AdminLayout>,
     );
 
-    expect(screen.getByLabelText('admin-sidebar-loading')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.installation.checking',
+    );
+    expect(mockGetInstallationStatus).not.toHaveBeenCalled();
     expect(
       screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
   });
 
-  test('keeps sidebar in loading state for guests before redirect completes', () => {
+  test('keeps protected content hidden for guests before redirect completes', () => {
     mockUserStoreState.isInitialized = true;
     mockUserStoreState.isGuest = true;
     mockUserStoreState.isLoggedIn = false;
@@ -599,7 +611,9 @@ describe('AdminLayout', () => {
       </AdminLayout>,
     );
 
-    expect(screen.getByLabelText('admin-sidebar-loading')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'module.installation.checking',
+    );
     expect(
       screen.queryByRole('link', { name: 'common.core.shifu' }),
     ).not.toBeInTheDocument();
@@ -871,6 +885,67 @@ describe('AdminLayout', () => {
         '/login?redirect=%2Fadmin%2Fbilling%3Ftab%3Ddetails',
       );
     });
+  });
+
+  test('redirects a new installation to setup before the legacy login flow', async () => {
+    mockUserStoreState.isLoggedIn = false;
+    mockUserStoreState.isGuest = true;
+    mockGetInstallationStatus.mockResolvedValue({
+      setup_required: true,
+      local_admin_login_enabled: false,
+    });
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+    await waitFor(() => expect(window.location.href).toBe('/setup'));
+    expect(screen.queryByText(childText)).not.toBeInTheDocument();
+  });
+
+  test('uses local administrator login independently of learner methods', async () => {
+    mockUserStoreState.isLoggedIn = false;
+    mockUserStoreState.isGuest = true;
+    mockGetInstallationStatus.mockResolvedValue({
+      setup_required: false,
+      local_admin_login_enabled: true,
+    });
+    Object.assign(window.location, {
+      pathname: '/admin/operations',
+      search: '?tab=users',
+    });
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+    await waitFor(() =>
+      expect(window.location.href).toBe(
+        '/admin-login?redirect=%2Fadmin%2Foperations%3Ftab%3Dusers',
+      ),
+    );
+  });
+
+  test('shows a retry instead of exposing protected children when status fails', async () => {
+    mockUserStoreState.isLoggedIn = false;
+    mockUserStoreState.isGuest = true;
+    mockGetInstallationStatus.mockRejectedValueOnce(new Error('unavailable'));
+    render(
+      <AdminLayout>
+        <div>{childText}</div>
+      </AdminLayout>,
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'module.installation.statusFailed',
+    );
+    expect(screen.queryByText(childText)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.installation.retry' }),
+    );
+    await waitFor(() =>
+      expect(window.location.href).toBe('/login?redirect=%2F'),
+    );
+    expect(mockGetInstallationStatus).toHaveBeenCalledTimes(2);
   });
 
   test('keeps sidebar loading until user info resolves after initialization', () => {

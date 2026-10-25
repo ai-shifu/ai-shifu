@@ -54,7 +54,7 @@ python3 ../scripts/prepare_env.py
 # Edit .env: configure an LLM provider API key and set LLM_MODEL_1_ID
 # to a text model ID served by that provider (required; no default).
 # LLM_MODEL_1_NAME is optional; an empty name displays the model ID.
-# Configure the SMS/email provider used by your selected login method.
+# The first administrator uses a local username/password; no SMS or SMTP is needed.
 
 # Start all services
 docker compose -f docker-compose.latest.yml up -d
@@ -64,7 +64,7 @@ Notes
 
 - `LLM_MODEL_1_ID` is required and has no default. Configure optional model IDs for numbers 2-9; gaps are supported. All `LLM_MODEL_<number>_NAME` values are optional: omitted or blank names display the configured model ID. A name without a model ID does not enable an option. Historical selections automatically use model 1 when they do not reference a configured number; no data cleanup is needed.
 - For an existing installation, follow [Upgrading to numbered models](INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new images. This applies to latest, pinned-release and development Compose modes.
-- First verified user is automatically promoted to Admin and Creator; the bundled demo course is assigned to this user.
+- Fresh installations use a one-time setup code from the server console to create a local Admin and Creator; the bundled demo course is assigned to this account. SMTP, SMS and OAuth can be configured later for learner sign-in and notifications. See [First administrator setup](INSTALL_MANUAL.md#first-administrator-setup).
 - No universal verification code is configured by default. Normal deployments require a code issued by the configured SMS/email provider. Isolated development/testing can use the [explicit development login setup](INSTALL_MANUAL.md#local-demo-login).
 - Existing installations must [upgrade the API code/image and remove legacy bypass overrides](INSTALL_MANUAL.md#upgrading-existing-verification-code-deployments); changing an environment example alone does not patch an older image.
 - `docker-compose.latest.yml` pulls the freshest `:latest` images (or your own locally built `latest` tags). For a fresh pinned-release installation, use both `docker-compose.yml` and `docker-compose.secret-key.yml` as described below.
@@ -86,7 +86,7 @@ python3 ../scripts/prepare_env.py
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
 # - REDIS_HOST: Optional; set to enable Redis caching/locks (leave empty to disable)
 # - SECRET_KEY: Already generated and saved by the installer; preserve this value
-# - SMS/email delivery: Configure the provider used by your selected login method
+# - SMS/email delivery: Optional for learner verification; not required for the first administrator
 # - UNIVERSAL_VERIFICATION_CODE: Leave empty; only an explicitly bootstrapped isolated development/test app can use it
 # - Any other optional integrations
 
@@ -119,7 +119,7 @@ original file from backup. Existing configuration continues through the usual
 runtime validation. Configure the provider and model before starting services.
 
 This Compose mode explicitly selects `app:create_development_app()` with
-`ENV=development`, but supplies no universal code. Configure real delivery or,
+`ENV=development`, but supplies no universal code. Use [first administrator setup](INSTALL_MANUAL.md#first-administrator-setup) for local admin access. For learner verification, configure real delivery or,
 only for an isolated local test, deliberately choose a nonblank
 `UNIVERSAL_VERIFICATION_CODE`. The normal `app:app` / `create_app()` entrypoints
 do not enable this shortcut, even if that setting or `ENV=development` is present.
@@ -153,9 +153,11 @@ for automatic triggers, manual backfills and use with the existing Compose bundl
 
 After Docker starts:
 
-1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
-2. Use the configured login method and enter the code actually delivered to your phone number or email address; there is no default login code
-3. The first verified user becomes Admin and Creator
+1. Open `http://localhost:8080/admin`; a fresh installation leads to the setup page.
+2. Retrieve a one-time code with `docker compose -f docker-compose.latest.yml exec ai-shifu-api flask console setup-code --origin http://localhost:8080`.
+3. Enter the code and choose an administrator username/password. No phone, email or delivery provider is required. Later sign in at `/admin-login`; learner login methods are configured separately.
+
+Use an API/Web image containing this feature. Existing installations remain closed to Web setup and retain their accounts; see [initialization and recovery commands](INSTALL_MANUAL.md#first-administrator-setup).
 
 ## Internationalization (i18n)
 

@@ -22,6 +22,7 @@ export interface UserInfo {
   language?: string;
   is_creator?: boolean;
   is_operator?: boolean;
+  has_local_password?: boolean;
   [key: string]: any;
 }
 

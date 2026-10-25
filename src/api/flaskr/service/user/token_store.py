@@ -113,6 +113,34 @@ class TokenStoreProvider:
         # cache when that transaction later rolls back.
         uow.on_commit(populate_cache)
 
+    def revoke_all(self, app: Flask, *, user_id: str) -> int:
+        """Join durable session revocation to a credential-change transaction."""
+        if not uow.in_unit_of_work():
+            message = "Token revocation requires an active unit_of_work"
+            raise RuntimeError(message)
+        if not user_id:
+            return 0
+        records = (
+            UserTokenModel.query.filter_by(user_id=user_id).with_for_update().all()
+        )
+        tokens = tuple(record.token for record in records if record.token)
+        for record in records:
+            db.session.delete(record)
+
+        def evict_revoked_sessions() -> None:
+            from flaskr.service.common.session_attribution import (
+                discard_session_skill_attribution,
+            )
+
+            for token in tokens:
+                # Durable rows are authoritative even if cache eviction fails.
+                self.discard_uncommitted(app, token)
+                with contextlib.suppress(Exception):
+                    discard_session_skill_attribution(app, token=token)
+
+        uow.on_commit(evict_revoked_sessions)
+        return len(records)
+
     def _refresh_marker_key(self, app: Flask, token: str) -> str:
         return f"{self._cache_key(app, token)}:row"
 

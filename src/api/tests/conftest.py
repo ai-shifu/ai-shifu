@@ -153,6 +153,17 @@ def app() -> Iterator[Flask | None]:
             upgrade("migrations")
         else:
             dao.db.create_all()
+            # Match an ordinary upgraded installation. Tests that explicitly
+            # exercise historic first-user promotion opt into unclaimed legacy
+            # state in their own fixtures instead of granting it by default.
+            from flaskr.service.user.installation_models import InstallationState
+            from flaskr.util.datetime import now_utc
+
+            if dao.db.session.get(InstallationState, 1) is None:
+                dao.db.session.add(
+                    InstallationState(id=1, mode="legacy", initialized_at=now_utc())
+                )
+                dao.db.session.commit()
 
     yield app
 

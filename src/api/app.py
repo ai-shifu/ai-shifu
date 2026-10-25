@@ -87,6 +87,14 @@ def create_app(*, serving_http: bool = True) -> Flask:
 
     dao.init_db(flask_app)
 
+    # Capture provenance before plugin migrations can populate a fresh schema.
+    # The snapshot authorizes only the trusted console preparation operation.
+    from flaskr.service.user.installation import (
+        capture_installation_database_provenance,
+    )
+
+    capture_installation_database_provenance(flask_app)
+
     # init i18n
     from flaskr.i18n import load_translations
 

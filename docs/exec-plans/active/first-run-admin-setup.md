@@ -1,0 +1,162 @@
+# Provider-independent first administrator setup
+
+## Purpose / Big Picture
+
+A fresh self-hosted installation can create its first administrator without
+SMTP, SMS or OAuth configuration. A server-console operation authorizes one
+initialization transaction, either directly or through a short-lived Web setup
+code. Local administrator password login remains independent of learner login
+methods. Preserve the ordinary verification-code security boundary.
+
+## Progress
+
+- [x] 2026-10-25 UTC: User selected the Web setup design with console fallback
+  and explicitly authorized implementation.
+- [x] 2026-10-25 UTC: Refreshed main `a37b6e6` and existing PR #3175. Created
+  isolated branch `feat/first-run-admin-setup` from verified head `3f5de08`;
+  the OTP fix remains a dependency while its PR is unmerged.
+- [x] 2026-10-25 UTC: Read repository, auth, Web and Docker ownership rules;
+  agreed shared service, local identity, API and analytics contracts.
+- [x] 2026-10-25 UTC: Implemented durable installation state, migration provenance and console
+  initialization/recovery commands.
+- [x] 2026-10-25 UTC: Implemented local administrator identity, login and token/session checks.
+- [x] 2026-10-25 UTC: Implemented setup/status/login HTTP boundaries and deployment startup.
+- [x] 2026-10-25 UTC: Implemented setup and local login UI, translations, analytics and tests.
+- [x] 2026-10-25 UTC: Full frontend regression passed 281 suites/3,444 tests;
+  full backend regression passed 15,105 tests with 107 skipped. Coverage is
+  95.18%, exceeding the 95.01% gate; skip reasons are recorded in delivery evidence.
+- [x] 2026-10-25 UTC: Restored the missing task-local Redis test binary after
+  identifying 92 skipped real-Redis cases. Both affected modules passed all
+  120 tests with Redis required. Across runs, 15,197 distinct backend cases
+  passed and 15 remain skipped for MySQL or optional SaaS plugin prerequisites;
+  this is not a single full-run result.
+- [x] 2026-10-25 UTC: Corrected independently identified local-password reset
+  races, non-demo ownership transfer and unsafe schema downgrade. Independent
+  domain follow-up passed seven targeted cases. The review tool blocked the
+  final independent identity follow-up; the complete backend run includes the
+  new threaded identity regressions, and root inspected the shared lock boundary.
+- [x] 2026-10-25 UTC: TypeScript, complete frontend lint, production build,
+  repository pre-commit and migration/domain checks passed. Fixed missing
+  product-spec metadata and regenerated the knowledge indexes after the first
+  pre-commit attempt identified them.
+- [x] 2026-10-25 UTC: Native Chrome acceptance passed setup, administrator
+  access, password change, logout, old-password rejection and new-password
+  login. Fixed the new modal's accessible title/description; three focused
+  suites (16 tests) and a fresh native dialog check passed afterward.
+- [ ] On a Docker/MySQL-capable runner, run the final head's runtime harness
+  and fresh/existing MySQL acceptance before release. No push or new PR
+  publication is authorized by this implementation task.
+
+## Surprises & Discoveries
+
+Existing password login resolves phone/email accounts and cannot be treated as
+an independent local username contract. The existing password reset requires a
+verified contact. The default Docker gateway is HTTP, so browser setup must use
+loopback/SSH forwarding or HTTPS. Console-issued codes bind to the selected
+origin and never enter URLs or ordinary login/OTP/reset flows.
+
+Plugin initialization may migrate tables before the core CLI runs. Empty-schema
+provenance is captured before plugins, development repair shares that same
+process, and workers/beat wait for prepared API startup before importing the
+application. A conditional user-row write lock serializes local token issuance,
+recovery and password changes on SQLite and MySQL; SELECT FOR UPDATE alone is
+insufficient on SQLite. Managed setup transfers only configured demo IDs.
+Schema downgrade refuses to drop mappings while local-account bindings remain.
+
+## Decision Log
+
+- Keep the completed universal-code fix; never introduce default credentials.
+- Persist installation state and one-time code digests in SQL. Fresh-install
+  provenance is captured before migrations on a genuinely empty schema; normal
+  upgrades seed closed legacy state. User count is not setup authority.
+- Both trusted console provisioning and Web initialization call one domain
+  service. Account, roles, demo ownership and completion commit together.
+- Add a distinct local administrator identity namespace and uniqueness. Do not
+  mark an optional email or phone as verified or implicitly link it.
+- Local administrator login is automatically available and independent of
+  learner `LOGIN_METHODS_ENABLED`. Existing administrator accounts survive.
+- Local recovery requires server-console access and revokes previous sessions;
+  it does not reopen setup or create a public recovery bypass.
+- This implementation is local. New push/PR publication, merge, deployment and
+  production changes are outside the current authorization.
+
+## Outcomes & Retrospective
+
+Implementation, complete backend/frontend regression runs, native browser
+acceptance, production Web build and final repository checks are present in
+this isolated branch. No earlier OTP CI results count as feature verification.
+Docker/MySQL container smoke is unavailable locally; discovering four Playwright
+harness cases is not evidence that they ran. The independent final identity
+review remained blocked by the review tool; it was not retried through an
+alternate model or wider permissions.
+
+Source cost comparison: local passwords reuse the existing bcrypt cost-12
+helper, with one password verification on an ordinary successful login and
+bounded credential rechecks before token persistence. Installation state is one
+SQL singleton; issuing a new code replaces its digest rather than appending
+history. These are structural observations, not production latency or memory
+measurements.
+
+## Context and Orientation
+
+- Domain state and CLI: `src/api/flaskr/service/user/installation*.py`.
+- Local identity/provider: `local_accounts.py`, `auth/providers/local_password.py`,
+  repository and token-store helpers in the same user service.
+- HTTP boundary: `src/api/flaskr/route/installation.py`.
+- Web routes: `/setup`, `/admin-login`, and the existing `/admin` gate.
+- Durable product and analytics contract:
+  [First-run administrator setup](../../product-specs/first-run-admin-setup.md).
+
+## Plan of Work
+
+Establish the installation/local-account models and migration first. Implement
+the shared bootstrap transaction and provider contract, then wire sensitive
+HTTP routes and console commands. Add the guided Web experience and startup
+integration. Validate ordinary existing logins alongside first-run, retry,
+upgrade, concurrency and recovery paths before preparing a reviewable patch.
+
+## Concrete Steps
+
+1. Add installation and local-account models; generate and inspect migration.
+2. Implement console preparation, code issuance, direct creation and recovery.
+3. Implement local credential creation, rate-limited login and locked token
+   evidence confirmation; revoke durable/cache sessions after recovery commit.
+4. Add bounded sensitive HTTP endpoints and preserve standard response/token
+   infrastructure, request-origin and language handling.
+5. Add UI, shared translations and allowlisted analytics with focused tests.
+6. Update normal startup and installation guidance; run relevant checks and
+   independent boundary review. Do not publish or deploy this feature.
+
+## Validation and Acceptance
+
+A new instance creates and signs in its administrator with no external identity
+provider. Concurrent and replayed setup has one winner; wrong, expired, rotated,
+wrong-origin and consumed codes fail. Crash/retry and post-commit session errors
+do not reopen setup. Existing, imported and zero-user legacy schemas remain
+closed on upgrade. Restart, Redis loss and deleting users do not reopen setup.
+Local account aliases never prove contact ownership. Recovery revokes sessions,
+including a login racing an old password. Ordinary issued-code, password and
+Google paths keep their contracts and cannot consume setup codes.
+
+Run focused backend/Jest tests, user auth and relevant integration/migration
+suites, full applicable backend checks, frontend type/lint, Compose semantic
+validation and full pre-commit. Record actual skipped/unavailable Docker checks.
+Compare local login/hash cost and bounded setup-state growth without inventing
+latency or memory results.
+
+## Idempotence and Recovery
+
+The feature has a separate worktree and branch. SQL completion is authoritative;
+cache loss is never eligibility. Console access can rotate an unconsumed setup
+code or reset a local password, but cannot silently reopen completed Web setup.
+Keep compatible local-auth/recovery code when disabling the wizard; an old image
+that cannot read local credentials is not a safe rollback target.
+
+## Interfaces and Dependencies
+
+Public status returns `setup_required` and `local_admin_login_enabled` only.
+Sensitive initialize/login endpoints return the existing `UserToken` shape.
+Initialization codes are POST body secrets, never URL/analytics fields. No new
+mandatory environment secret or runtime dependency is required. The original
+OTP fix stays intact. Installation analytics use coarse exposure/attempt/result
+events described in the product specification and remain best-effort.

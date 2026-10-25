@@ -21,6 +21,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Main Docker build failures: evidence and repair strategy](./active/docker-build-failure-analysis.md)
 - [Docker build stability with native platform runners](./active/docker-build-stability.md)
 - [Repair independent Docker trust stores](./active/emudhra-build-trust.md)
+- [Provider-independent first administrator setup](./active/first-run-admin-setup.md)
 - [Configurable Gemini Live admission capacity](./active/gemini-live-configurable-capacity.md)
 - [Gemini Live follow-up acceptance](./active/gemini-live-voice-follow-up.md)
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)

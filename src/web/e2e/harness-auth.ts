@@ -63,3 +63,65 @@ export const loginWithPhone = async (
   await otpInput.fill(DEFAULT_OTP);
   await otpInput.press('Enter');
 };
+
+const localAdminCredentials = () => {
+  const password = process.env.AI_SHIFU_TEST_ADMIN_PASSWORD;
+  if (!password) {
+    throw new Error(
+      'Set AI_SHIFU_TEST_ADMIN_PASSWORD for the isolated runtime harness.',
+    );
+  }
+  return {
+    username: process.env.AI_SHIFU_TEST_ADMIN_USERNAME || 'runtime_admin',
+    password,
+  };
+};
+
+export const initializeLocalAdmin = async (page: Page) => {
+  const statusResponse = await page.request.get('/api/installation/status');
+  expect(statusResponse.ok()).toBeTruthy();
+  const status = await statusResponse.json();
+  expect(status.code).toBe(0);
+  if (!status.data.setup_required) {
+    // A Playwright retry may follow a committed initialization whose browser
+    // session failed. Reuse the same runner-only password, never reopen setup.
+    expect(status.data.local_admin_login_enabled).toBe(true);
+    await loginWithLocalAdmin(page);
+    return;
+  }
+
+  const setupCode = process.env.AI_SHIFU_TEST_SETUP_CODE;
+  if (!setupCode) {
+    throw new Error(
+      'Set AI_SHIFU_TEST_SETUP_CODE from the isolated server console.',
+    );
+  }
+  const { username, password } = localAdminCredentials();
+  await page.goto('/setup');
+  await page.locator('#installation-code').fill(setupCode);
+  await page.locator('#installation-username').fill(username);
+  await page.locator('#installation-password').fill(password);
+  await page.locator('#installation-confirmation').fill(password);
+  const initialized = page.waitForResponse(
+    response =>
+      new URL(response.url()).pathname === '/api/installation/initialize',
+  );
+  await page.locator('form button[type="submit"]').click();
+  expect((await (await initialized).json()).code).toBe(0);
+  await page.waitForURL(url => url.pathname === '/admin');
+};
+
+export const loginWithLocalAdmin = async (page: Page) => {
+  const { username, password } = localAdminCredentials();
+  await page.goto('/admin-login');
+  await page.locator('#installation-username').fill(username);
+  await page.locator('#installation-password').fill(password);
+  const authenticated = page.waitForResponse(
+    response => new URL(response.url()).pathname === '/api/installation/login',
+  );
+  await page.locator('form button[type="submit"]').click();
+  const payload = await (await authenticated).json();
+  expect(payload.code).toBe(0);
+  expect(payload.data.userInfo.is_operator).toBeTruthy();
+  await page.waitForURL(url => url.pathname === '/admin');
+};

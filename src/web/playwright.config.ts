@@ -21,6 +21,8 @@ export default defineConfig({
     {
       name: 'runtime-harness-auth',
       testMatch: /auth\.setup\.ts/,
+      // Setup/password POST bodies must not enter retained browser traces.
+      use: { trace: 'off' },
     },
     {
       name: 'runtime-harness-smoke',

@@ -18,7 +18,7 @@ services:
     # Use latest for development, check releases for specific versions
     # Available versions: https://hub.docker.com/u/aishifu or https://github.com/ai-shifu/ai-shifu/releases
     image: aishifu/ai-shifu-api:v3.1.0
-    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && exec gunicorn -k gthread --threads 8 -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output"]
+    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && if [ -f /app/flaskr/service/user/installation_cli.py ]; then flask console prepare-installation; else flask db upgrade; fi && flask console update_demo_shifu && exec gunicorn -k gthread --threads 8 -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output"]
     env_file:
       - ./.env
     environment: *default-env
@@ -33,7 +33,7 @@ services:
   ai-shifu-celery-worker:
     container_name: ai-shifu-celery-worker
     image: aishifu/ai-shifu-api:v3.1.0
-    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && exec python -m celery -A celery_app:celery_app worker --loglevel info"]
+    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-api/5800'; do sleep 1; done && exec python -m celery -A celery_app:celery_app worker --loglevel info"]
     env_file:
       - ./.env
     environment: *default-env
@@ -42,10 +42,11 @@ services:
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis
+      - ai-shifu-api
   ai-shifu-celery-beat:
     container_name: ai-shifu-celery-beat
     image: aishifu/ai-shifu-api:v3.1.0
-    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && exec python -m celery -A celery_app:celery_app beat --loglevel info"]
+    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-redis/6379'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-api/5800'; do sleep 1; done && exec python -m celery -A celery_app:celery_app beat --loglevel info"]
     env_file:
       - ./.env
     environment: *default-env
@@ -54,6 +55,7 @@ services:
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis
+      - ai-shifu-api
   ai-shifu-cook-web:
     container_name: ai-shifu-cook-web
     image: aishifu/ai-shifu-web:v3.1.0

@@ -1,0 +1,14 @@
+{
+  "__namespace__": "server.installation",
+  "__flat__": {
+    "invalidSetupOrigin": "Usa exactamente la dirección HTTPS o local seleccionada al emitir el código de configuración.",
+    "invalidSetupToken": "El código de configuración no es válido o ha caducado. Solicita uno nuevo desde la consola del servidor.",
+    "invalidUsername": "Usa entre 3 y 64 caracteres: una letra al principio y después letras, números, puntos, guiones bajos o guiones.",
+    "localLoginUnavailable": "El inicio de sesión local de administrador no está disponible en esta instancia.",
+    "passwordTooLong": "La contraseña no debe superar los 72 bytes en UTF-8.",
+    "setupComplete": "Esta instancia ya se ha inicializado. Inicia sesión con tu cuenta de administrador.",
+    "setupRateLimited": "Demasiados intentos de configuración. Inténtalo de nuevo más tarde.",
+    "setupUnavailable": "La configuración del administrador no está disponible. Comprueba la instalación desde la consola del servidor.",
+    "usernameUnavailable": "Ese nombre de usuario de administrador no está disponible."
+  }
+}

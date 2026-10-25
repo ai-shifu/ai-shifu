@@ -37,6 +37,11 @@ const mockUserStoreState = {
     mobile: '13800000000',
     email: 'user@example.com',
     is_creator: false,
+  } as {
+    mobile: string;
+    email: string;
+    is_creator: boolean;
+    has_local_password?: boolean;
   },
   logout: jest.fn(),
   refreshUserInfo: mockRefreshUserInfo,
@@ -183,6 +188,12 @@ jest.mock('../Settings/SetPasswordModal', () => ({
     open ? (
       <div data-testid='set-password-modal'>set-password-modal</div>
     ) : null,
+}));
+
+jest.mock('../Settings/ChangePasswordModal', () => ({
+  __esModule: true,
+  default: ({ open }: { open: boolean }) =>
+    open ? <div data-testid='change-password-modal' /> : null,
 }));
 
 jest.mock('@/components/ui/AlertDialog', () => ({
@@ -1430,6 +1441,35 @@ describe('MainMenuModal', () => {
     expect(
       screen.queryByText('module.settings.setPassword'),
     ).not.toBeInTheDocument();
+  });
+
+  test('lets a local administrator change their password without contact or learner password login', () => {
+    mockEnvState.loginMethodsEnabled = ['phone'];
+    mockUserStoreState.userInfo = {
+      mobile: '',
+      email: '',
+      is_creator: true,
+      has_local_password: true,
+    };
+    render(
+      <MainMenuModal
+        open
+        onClose={jest.fn()}
+        onPersonalInfoClick={jest.fn()}
+        surface='admin'
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.installation.changePassword',
+      }),
+    );
+    expect(screen.getByTestId('change-password-modal')).toBeInTheDocument();
+    expect(screen.queryByTestId('set-password-modal')).not.toBeInTheDocument();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'USER_MENU_SET_PASSWORD',
+      {},
+    );
   });
 
   test('hides set password entry when contact methods only contain whitespace', () => {

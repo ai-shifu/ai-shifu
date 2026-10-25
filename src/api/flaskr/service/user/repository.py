@@ -211,6 +211,9 @@ class UserAggregate:
     @property
     def username(self) -> str:
         """Return the account username, if present."""
+        local_credential = self._preferred_identifier("local_password")
+        if local_credential:
+            return local_credential.identifier
         if self.identify:
             return self.identify
         if self.email:
@@ -266,6 +269,7 @@ class UserAggregate:
 
     def to_user_info(self) -> UserInfo:
         """Convert the aggregate into public user information."""
+        local_credential = self._preferred_identifier("local_password")
         return UserInfo(
             user_id=self.user_bid,
             username=self.username,
@@ -278,6 +282,7 @@ class UserAggregate:
             user_avatar=self.avatar,
             is_creator=self.is_creator,
             is_operator=self.is_operator,
+            has_local_password=bool(local_credential and local_credential.is_verified),
         )
 
 
@@ -443,7 +448,10 @@ def load_user_aggregate_by_identifier(
             .order_by(UserEntity.id.asc())
             .first()
         )
-        if entity:
+        if entity and (
+            not lookup_identifier.startswith("local:")
+            or "local_password" in provider_candidates
+        ):
             return _build_user_aggregate(
                 entity,
                 credentials=list_credentials(user_bid=entity.user_bid),

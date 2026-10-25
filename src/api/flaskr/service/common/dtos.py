@@ -34,6 +34,7 @@ class UserInfo:
     user_avatar: str
     is_creator: bool
     is_operator: bool
+    has_local_password: bool
     analytics_enabled: bool
 
     def __init__(
@@ -49,6 +50,7 @@ class UserInfo:
         user_avatar: object = None,
         is_creator: object = False,
         is_operator: object = False,
+        has_local_password: object = False,
     ) -> None:
         """Build a serialized user-information payload."""
         self.user_id = user_id
@@ -64,11 +66,12 @@ class UserInfo:
         self.user_avatar = user_avatar
         self.is_creator = is_creator
         self.is_operator = is_operator
+        self.has_local_password = bool(has_local_password)
         self.analytics_enabled = not is_analytics_user_excluded(user_bid=user_id)
 
     def __json__(self) -> dict:
         """Return the user information as JSON-compatible data."""
-        return {
+        payload = {
             "user_id": self.user_id,
             "username": self.username,
             "name": self.name,
@@ -82,6 +85,9 @@ class UserInfo:
             "is_operator": self.is_operator,
             "analytics_enabled": self.analytics_enabled,
         }
+        if self.has_local_password:
+            payload["has_local_password"] = True
+        return payload
 
     def __html__(self) -> dict:
         """Return the serialized user-information payload."""

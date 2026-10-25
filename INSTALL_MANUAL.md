@@ -302,9 +302,12 @@ python3 scripts/prepare_env.py --output src/api/.env
 
 Verification bypass is disabled by default, including for `ENV=development`.
 The API and frontend commands below bind to loopback. Before making the
-application remotely accessible, configure a real login provider and keep the
-generated `SECRET_KEY` unchanged. See [Local Demo Login](#local-demo-login) for
-the explicit development-only bootstrap.
+application remotely accessible, configure a secure HTTPS endpoint and keep the
+generated `SECRET_KEY` unchanged. The first administrator uses a phone number
+or email address and a password;
+SMS, SMTP and OAuth are optional for subsequent learner login or notifications.
+See [First Administrator Setup](#first-administrator-setup) and
+[Local Demo Login](#local-demo-login).
 
 Edit `src/api/.env`, retaining the provider key and required `LLM_MODEL_1_ID`
 mapping. Replace Docker service hostnames with the addresses of your local
@@ -329,12 +332,19 @@ cd src/api
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Initialize database
-flask db upgrade
+# Initialize a fresh installation, or migrate an existing one without reopening setup
+flask console prepare-installation
 
 # Start the API server
 gunicorn -w 4 -b 127.0.0.1:5800 'app:app' --timeout 300 --log-level debug
 ```
+
+Complete `prepare-installation` before starting any worker or beat process;
+their application plugins may also initialize database state. Compose waits
+for the API to finish its preparation and begin listening before starting those
+Python processes. For the development stack, the known migration-residue repair
+runs inside `prepare-installation --repair-development` so the same process
+retains the original fresh-schema snapshot.
 
 The HTTP server does not process queued jobs. For background billing, TTS,
 and user tasks, open another terminal with the same Python environment and
@@ -487,7 +497,7 @@ do not call the LLM.
 1. **Database Connection Failed**
    - Ensure MySQL is running and accessible
    - Check database credentials in `.env`
-   - Run `flask db upgrade` to initialize tables
+   - Run `flask console prepare-installation` to initialize or migrate tables
 
 2. **Redis Connection Failed**
    - Ensure Redis is running and accessible
@@ -523,9 +533,74 @@ do not call the LLM.
 - Course authoring and administration: `http://localhost:3000/admin`
 - API: `http://localhost:5800`
 
+### First Administrator Setup
+
+This flow requires API and Web images containing the first-run setup feature.
+Rebuild from the matching source or pull a published release containing it;
+cached `:latest` images and older pinned releases do not acquire new commands
+by changing the Compose file. Pinned Compose keeps its image tags and uses the
+legacy migration command only when an older image lacks the feature. It never
+falls back after a new preparation command fails.
+
+Normal Compose startup runs `flask console prepare-installation`. It captures
+whether the schema is genuinely new before applying migrations. New instances
+start in pending setup; existing or unknown schemas remain closed even if user
+tables are empty. Restarting, clearing Redis or deleting users never reopens
+completed initialization.
+
+For a fresh Docker installation, run this from `docker/` on the server:
+
+```bash
+docker compose -f docker-compose.latest.yml exec ai-shifu-api \
+  flask console setup-code --origin http://localhost:8080
+```
+
+Open `http://localhost:8080/admin` (or `/setup`), paste the console code and
+choose a local administrator username and password. The code expires after
+20 minutes, works once and is bound to the exact selected origin. Reissuing a
+code invalidates the previous one. Keep it out of URLs and shared logs. Email,
+phone, SMTP, SMS and OAuth are not required. The account receives administrator
+and teacher permissions plus the bundled demo course where applicable.
+
+For a manual development install with Web on port 3000, run
+`flask console setup-code --origin http://localhost:3000` from `src/api` instead.
+For a remote browser use your exact HTTPS origin, such as the origin configured
+for your deployment, in `--origin`. Plain public HTTP is not supported by the
+setup/local-login forms; use HTTPS or access loopback through an SSH tunnel.
+
+After setup, use `/admin-login` with the local username/password. This entry is
+available independently of learner `LOGIN_METHODS_ENABLED`; configure learner
+SMS/email/Google sign-in later as needed. A local username does not verify or
+bind a phone/email address. Existing administrators keep their original login
+methods during upgrade, and ordinary new user registration does not claim the
+administrator role on a managed installation.
+
+For a headless installation, use the same initialization service directly:
+
+```bash
+docker compose -f docker-compose.latest.yml exec ai-shifu-api \
+  flask console create-admin
+```
+
+The command prompts for the username and a hidden, confirmed password. For
+local administrator recovery, run:
+
+```bash
+docker compose -f docker-compose.latest.yml exec ai-shifu-api \
+  flask console reset-admin-password --username owner
+```
+
+Enter the account's actual local username in place of `owner`. Recovery prompts
+for a hidden new password and revokes the previous sessions. It does not reopen
+Web setup. An existing installation can explicitly create its first local
+administrator through the server-console command without replacing existing
+accounts or demo ownership. For development Compose, replace the file with
+`docker-compose.dev.yml` and the service with `ai-shifu-api-dev`.
+
 ### Local Demo Login
 
-Phone login normally requires a code issued by the configured SMS provider.
+The first administrator uses the independent setup flow above. Ordinary
+phone login requires a code issued by the configured SMS provider.
 Email login likewise requires a code issued through the configured SMTP provider.
 The Docker environment example leaves `UNIVERSAL_VERIFICATION_CODE` empty;
 there is no default login code.

@@ -14,6 +14,7 @@ from werkzeug.datastructures import FileStorage
 from flaskr.service.billing.cli import register_billing_commands
 from flaskr.service.shifu.cli import register_shifu_commands
 from flaskr.service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
+from flaskr.service.user.installation_cli import register_installation_commands
 
 from .import_user import import_user
 from .unified_migration_task import MigrationConfig, UnifiedMigrationTask
@@ -41,6 +42,7 @@ def enable_commands(app: Flask) -> None:
 
     register_billing_commands(console)
     register_shifu_commands(console, app)
+    register_installation_commands(console, app)
 
     @console.command(name="import_user")
     @click.argument("mobile")

@@ -64,10 +64,21 @@ class _FakeGoogleSession:
         return _FakeGoogleResponse(self._profile)
 
 
-def _reset_user_auth_tables() -> None:
+def _reset_user_auth_tables(*, allow_legacy_bootstrap: bool = False) -> None:
+    from flaskr.service.user.installation_models import InstallationState
+    from flaskr.util.datetime import now_utc
+
     UserTokenModel.query.delete()
     AuthCredential.query.delete()
     UserEntity.query.delete()
+    InstallationState.query.delete()
+    db.session.add(
+        InstallationState(
+            id=1,
+            mode="legacy",
+            initialized_at=None if allow_legacy_bootstrap else now_utc(),
+        )
+    )
     db.session.commit()
 
 
@@ -150,7 +161,7 @@ def test_google_unverified_email_does_not_consume_first_account_bootstrap(
     second_email = f"{uuid.uuid4().hex[:10]}@example.com"
 
     with app.app_context():
-        _reset_user_auth_tables()
+        _reset_user_auth_tables(allow_legacy_bootstrap=True)
         try:
             first_result = _run_google_callback(
                 app,

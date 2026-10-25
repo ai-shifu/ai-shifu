@@ -6,10 +6,11 @@ the credential write owns its transaction boundary.
 
 from __future__ import annotations
 
+import hmac
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
-from flaskr.dao.uow import unit_of_work
+from flaskr.dao.uow import require_transaction_owner, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
@@ -113,12 +114,39 @@ def change_password(
     app: Flask, *, user_bid: str, old_password: str, new_password: str
 ) -> None:
     """Change the password of a logged-in user after verifying the old one."""
-    del app  # kept for a uniform service signature
-    creds = list_credentials(user_bid=user_bid, provider_name="password")
+    creds = [
+        credential
+        for credential in list_credentials(user_bid=user_bid)
+        if credential.provider_name in ("password", "local_password")
+    ]
     if not creds:
         raise_error("server.user.invalidCredentials")
 
     pwd_cred = creds[0]
+    if pwd_cred.provider_name == "local_password":
+        from flaskr.service.user.local_accounts import (
+            lock_local_admin_credentials,
+            validate_local_password,
+        )
+
+        require_transaction_owner("change_local_admin_password", app)
+        validate_local_password(new_password)
+        with unit_of_work():
+            current_hash = get_password_hash(pwd_cred)
+            credential_bid = pwd_cred.credential_bid
+        if not current_hash or not verify_password(old_password, current_hash):
+            raise_error("server.user.invalidCredentials")
+        new_hash = hash_password(new_password)
+        with unit_of_work():
+            _user, _account, locked_credential = lock_local_admin_credentials(
+                user_bid=user_bid, credential_bid=credential_bid
+            )
+            if not hmac.compare_digest(
+                current_hash, get_password_hash(locked_credential)
+            ):
+                raise_error("server.user.invalidCredentials")
+            set_password_hash(locked_credential, new_hash)
+        return
     current_hash = get_password_hash(pwd_cred)
     if not current_hash or not verify_password(old_password, current_hash):
         raise_error("server.user.invalidCredentials")

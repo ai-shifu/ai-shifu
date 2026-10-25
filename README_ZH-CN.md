@@ -55,7 +55,7 @@ python3 ../scripts/prepare_env.py
 # 编辑 .env：填写模型服务商 API Key，并将 LLM_MODEL_1_ID
 # 设置为该服务商已配置的文本模型 ID（必填，没有默认值）。
 # LLM_MODEL_1_NAME 可选；未填写或留空时直接显示模型 ID。
-# 配置所选登录方式对应的短信或邮件服务商。
+# 首位管理员使用本地用户名和密码，无需配置短信或 SMTP。
 
 # 启动全部服务
 docker compose -f docker-compose.latest.yml up -d
@@ -65,7 +65,7 @@ docker compose -f docker-compose.latest.yml up -d
 
 - `LLM_MODEL_1_ID` 必填且没有默认值；2–9 号模型 ID 可选，支持跳号。所有编号的 `NAME` 均可选，未填写或留空时直接显示该编号配置的模型 ID；只有名称、没有模型 ID 的编号不会展示。历史课程中的无效选择自动使用 1 号，无需数据清洗。
 - 已有安装升级前，请按照[编号模型升级说明](INSTALL_MANUAL.md#upgrading-to-numbered-models)完成新编号配置，再启动新镜像；latest、固定版本和开发模式均适用。
-- 第一个完成验证登录的用户会自动成为管理员和老师，并获得内置 Demo 课程的所有权。
+- 新安装通过服务器控制台获取一次性初始化码，创建本地管理员和老师账号，并自动获得内置 Demo 课程的所有权。短信、SMTP 和 OAuth 可在需要学员登录或通知时再配置，详见[首位管理员初始化](INSTALL_MANUAL.md#first-administrator-setup)。
 - 默认不配置通用验证码。普通部署需要使用已配置的短信或邮件服务商实际签发的验证码。隔离的开发或测试环境可按[显式开发登录说明](INSTALL_MANUAL.md#local-demo-login)启用测试旁路。
 - 已有部署必须[升级 API 代码或镜像并移除旧旁路配置](INSTALL_MANUAL.md#upgrading-existing-verification-code-deployments)；仅修改环境示例文件不会修复旧镜像。
 - `docker-compose.latest.yml` 使用 `:latest` 镜像标签，适合希望获取最新构建的场景（或在本地构建 `:latest` 镜像后启动）；全新安装固定版本时，需同时使用下方的 `docker-compose.yml` 与 `docker-compose.secret-key.yml`。
@@ -87,7 +87,7 @@ python3 ../scripts/prepare_env.py
 # - SQLALCHEMY_DATABASE_URI：默认指向 docker 中的 MySQL 服务
 # - REDIS_HOST：可选；如需 Redis 缓存/锁可配置外部 Redis（留空则禁用）
 # - SECRET_KEY：已由安装程序生成并保存，请保留该值
-# - 短信或邮件发送：配置所选登录方式对应的服务商
+# - 短信或邮件发送：学员验证时按需配置；首位管理员初始化不需要
 # - UNIVERSAL_VERIFICATION_CODE：保持为空；仅显式启用的隔离开发或测试应用可使用
 
 docker compose -f docker-compose.latest.yml up -d
@@ -117,7 +117,7 @@ python3 ../scripts/prepare_env.py
 如果 `.env` 缺失，开发脚本会在构建前停止。全新安装请先执行上方配置安装命令；已有实例应从备份恢复原配置，避免丢失密钥后误生成新值。
 
 此 Compose 模式显式选择 `app:create_development_app()`，并设置
-`ENV=development`，但仍不提供通用验证码。请配置真实的验证码发送服务；只有在隔离的本地测试中，才可主动设置非空的
+`ENV=development`，但仍不提供通用验证码。管理员请使用[首位管理员初始化](INSTALL_MANUAL.md#first-administrator-setup)；学员验证码登录需配置真实发送服务。只有在隔离的本地测试中，才可主动设置非空的
 `UNIVERSAL_VERIFICATION_CODE`。普通 `app:app` / `create_app()` 入口即使配置了该值或
 `ENV=development`，也不会启用测试旁路。手动启动方式参见[本地演示登录说明](INSTALL_MANUAL.md#local-demo-login)。
 
@@ -142,9 +142,11 @@ docker compose -f docker-compose.dev.yml up --build -d
 
 Docker 启动后：
 
-1. 用浏览器打开 `http://localhost:8080`，访问 Cook Web（学习端与内容管理界面）
-2. 使用已配置的登录方式，输入自己的手机号或邮箱实际收到的验证码；没有默认登录验证码
-3. 第一个验证通过的用户会成为管理员与老师
+1. 打开 `http://localhost:8080/admin`；新安装会进入初始化页面。
+2. 在服务器控制台运行 `docker compose -f docker-compose.latest.yml exec ai-shifu-api flask console setup-code --origin http://localhost:8080`，获取一次性初始化码。
+3. 输入初始化码，设置管理员用户名和密码；无需手机号、邮箱或发送服务。以后通过 `/admin-login` 登录，学员登录方式另行按需配置。
+
+请使用包含此功能的 API/Web 镜像。已有实例升级不会重新开放网页初始化，原有账号继续可用；初始化和恢复命令详见[安装手册](INSTALL_MANUAL.md#first-administrator-setup)。
 
 ## 国际化（i18n）
 
