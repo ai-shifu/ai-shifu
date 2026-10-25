@@ -466,7 +466,7 @@ describe('ShifuEdit draft conflict checks', () => {
     });
   });
 
-  test('hides internal system variables from editor and preview variable displays', async () => {
+  test('keeps preview variable filtering independent of editor props', async () => {
     setLessonNode();
     mockShifuState.mdflow = 'Hello {{sys_user_style}} {{sys_user_input}}';
     mockShifuState.systemVariables = [
@@ -499,9 +499,9 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(mockMarkdownFlowEditor).toHaveBeenCalled();
     });
-    expect(mockMarkdownFlowEditor.mock.lastCall?.[0].systemVariables).toEqual([
-      { name: 'sys_user_nickname', label: 'Nickname' },
-    ]);
+    const editorProps = mockMarkdownFlowEditor.mock.lastCall?.[0];
+    expect(editorProps).not.toHaveProperty('variables');
+    expect(editorProps).not.toHaveProperty('systemVariables');
 
     fireEvent.click(
       screen.getByText('module.shifu.previewArea.action').closest('button')!,

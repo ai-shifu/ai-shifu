@@ -44,8 +44,6 @@ describe('installed MarkdownFlow editor integration', () => {
                 locale: 'en-US',
                 lang: '',
                 disabled: false,
-                variables: [{ name: 'learner', label: 'Learner' }],
-                systemVariables: [{ name: 'sys_user_language', label: 'Language' }],
                 uploadProps: { action: '/api/shifu/upfile' },
                 onChange: () => {},
               };
