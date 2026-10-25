@@ -53,10 +53,10 @@ validation and the explicitly selected local development and test workflow.
 - [x] 2026-10-25 UTC: Rebased head `3f5de08` passed all seven Actions workflows,
   including 15,101 backend passes (15 skipped), eight contract checks and three
   runtime browser smoke tests. These results cover only that OTP revision.
-- [x] The user subsequently requested one PR for the OTP fix and the first
+- [x] 2026-10-25 UTC: The user requested one PR for the OTP fix and the first
   administrator setup feature. Retain their full commit ancestry in #3183
   targeting main, with #3175 superseded and its reviews/history preserved.
-- [ ] Follow the latest combined revision's exact-head CI at
+- [ ] 2026-10-25 UTC: Follow the latest combined revision's exact-head CI at
   <https://github.com/ai-shifu/ai-shifu/pull/3183/checks>; earlier-head passes do
   not count for a newer revision. PR merge and deployment remain out of scope.
 

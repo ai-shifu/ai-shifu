@@ -43,24 +43,39 @@ methods. Preserve the ordinary verification-code security boundary.
   access, password change, logout, old-password rejection and new-password
   login. Fixed the new modal's accessible title/description; three focused
   suites (16 tests) and a fresh native dialog check passed afterward.
-- [x] Following explicit user authorization to submit the PR, refreshed remote
+- [x] 2026-10-25 UTC: Following authorization to submit the PR, refreshed remote
   main and dependency PR #3175, then created ready PR #3183 at `e0cb7e5` based
   on the OTP branch. This was the original stacked review arrangement.
-- [x] The user subsequently requested one combined PR. Retain #3183, target
+- [x] 2026-10-25 UTC: The user requested one combined PR. Retain #3183, target
   main directly and include the complete OTP-fix ancestry; close #3175 as
   superseded after verifying the combined PR. Preserve both branches and
   all existing review history without rewriting commits.
-- [x] Corrected the two actual #3183 review findings: restore contactless local
+- [x] 2026-10-25 UTC: Corrected two #3183 review findings: restore contactless local
   administrator sessions and preserve the validated admin return path before
   the login store clears its redirect parameter. The new regressions failed
   on the old implementation; the corrected source passed 106 focused tests,
   TypeScript, full frontend lint and 281 suites/3,452 frontend tests.
-- [x] Native Chrome confirmed that refresh/new-tab navigation preserves local
-  administrator login without resubmitting credentials, and that logout then
+- [x] 2026-10-25 UTC: Native Chrome confirmed refresh/new-tab navigation
+  preserves local administrator login without resubmitting credentials, and logout then
   local login returns to the exact original admin path including its query.
   Isolated browser/API/Web processes and synthetic credentials were cleaned up.
-- [ ] On a Docker/MySQL-capable runner, run the final head's runtime harness
-  and fresh/existing MySQL acceptance before release.
+- [x] 2026-10-25 UTC: Rechecked the session-restoration and return-path fixes
+  against code, regressions and native evidence; replied to and resolved both
+  corresponding review threads. Corrected missing Progress timestamps.
+- [x] 2026-10-25 UTC: Aligned browser HTTP loopback handling with the backend,
+  including alternate 127/8, expanded IPv6 and mapped loopback addresses.
+  Strict invalid-address, non-loopback and fake-host rejections remain covered.
+  The old implementation failed the new regressions; the correction passed
+  109 focused tests, all 281 suites/3,490 frontend tests, TypeScript, complete
+  frontend lint and the production Web build.
+- [ ] 2026-10-25 UTC: GitGuardian incidents 38999521, 38999522 and 38999520
+  match synthetic test inputs and an error-code name. The user authorized only
+  these exact false-positive classifications. The current dashboard session
+  redirects from workspace 601861 with "Incident not found" to workspace
+  940126, so incident access/edit permission remains unavailable. No incident
+  was changed. Do not widen access, add broad exclusions or rewrite history.
+- [ ] 2026-10-25 UTC: On a Docker/MySQL-capable runner, run the final head's
+  runtime harness and fresh/existing MySQL acceptance before release.
 
 ## Surprises & Discoveries
 

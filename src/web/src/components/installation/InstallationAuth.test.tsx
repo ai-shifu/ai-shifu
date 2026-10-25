@@ -114,6 +114,45 @@ it('creates the administrator, stores the normal session and navigates without c
   );
 });
 
+it.each(['setup', 'local_login'] as const)(
+  'accepts the %s credential form on another IPv4 loopback address',
+  async surface => {
+    Object.assign(window.location, { hostname: '127.0.0.2' });
+    mockStatus.mockResolvedValue(
+      surface === 'setup' ? setupStatus : readyStatus,
+    );
+    render(<InstallationAuth surface={surface} />);
+    if (surface === 'setup') {
+      await fillSetup();
+    } else {
+      await screen.findByLabelText('module.installation.usernameLabel');
+      fireEvent.change(
+        screen.getByLabelText('module.installation.usernameLabel'),
+        { target: { value: 'Owner' } },
+      );
+      fireEvent.change(
+        screen.getByLabelText('module.installation.passwordLabel'),
+        { target: { value: 'GoodPassword1' } },
+      );
+    }
+    fireEvent.click(
+      screen.getByRole('button', {
+        name:
+          surface === 'setup'
+            ? 'module.installation.createAdmin'
+            : 'module.installation.login',
+      }),
+    );
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin'));
+    expect(
+      surface === 'setup' ? mockInitialize : mockLocalLogin,
+    ).toHaveBeenCalledTimes(1);
+    expect(mockTrackEvent).toHaveBeenCalledWith('installation_auth_exposure', {
+      surface,
+    });
+  },
+);
+
 it('exposes the form once across re-renders and accepts only one pending request', async () => {
   let resolve!: (value: typeof session) => void;
   mockInitialize.mockReturnValue(

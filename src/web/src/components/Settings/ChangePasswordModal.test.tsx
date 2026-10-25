@@ -124,6 +124,23 @@ it('changes the local password without requesting a phone/email code', async () 
   );
 });
 
+it('allows password changes on another IPv4 loopback address', async () => {
+  Object.assign(window.location, { hostname: '127.0.0.2' });
+  render(
+    <ChangePasswordModal
+      open
+      onClose={mockClose}
+    />,
+  );
+  fillPasswords();
+  fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+  await waitFor(() => expect(mockClose).toHaveBeenCalledTimes(1));
+  expect(mockChange).toHaveBeenCalledWith({
+    old_password: 'OldPassword1',
+    new_password: 'NewPassword2',
+  });
+});
+
 it('submits from the password field on Enter with the same attempt guard', async () => {
   render(
     <ChangePasswordModal
