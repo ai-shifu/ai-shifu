@@ -68,12 +68,18 @@ methods. Preserve the ordinary verification-code security boundary.
   The old implementation failed the new regressions; the correction passed
   109 focused tests, all 281 suites/3,490 frontend tests, TypeScript, complete
   frontend lint and the production Web build.
-- [ ] 2026-10-25 UTC: GitGuardian incidents 38999521, 38999522 and 38999520
-  match synthetic test inputs and an error-code name. The user authorized only
-  these exact false-positive classifications. The current dashboard session
-  redirects from workspace 601861 with "Incident not found" to workspace
-  940126, so incident access/edit permission remains unavailable. No incident
-  was changed. Do not widen access, add broad exclusions or rewrite history.
+- [x] 2026-10-25 UTC: The user authorized false-positive classification of
+  GitGuardian incidents 38999521, 38999522 and 38999520 only. The dashboard
+  could not open workspace 601861, but the native GitHub check exposed the
+  approved action and listed exactly those three findings. The platform
+  confirmed the classification at `c9a8d2c`: check 121319994457 completed as
+  skipped with its false-positive title. This is not a clean scan, and the
+  incident lifecycle rows remained Triggered. No broad exclusion or history
+  rewrite was used.
+- [ ] 2026-10-25 UTC: The single-check rerun request returned HTTP 404 through
+  the current GitHub connection; no rerun is confirmed from that request.
+  Do not retry it or widen permissions. Observe the final source revision's
+  automatically triggered scan and CI separately.
 - [ ] 2026-10-25 UTC: On a Docker/MySQL-capable runner, run the final head's
   runtime harness and fresh/existing MySQL acceptance before release.
 
