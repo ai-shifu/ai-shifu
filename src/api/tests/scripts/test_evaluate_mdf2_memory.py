@@ -576,7 +576,7 @@ def test_resumed_fixture_contains_the_product_first_prompt(identifier: str) -> N
     )
     assert content == expected
     assert parse_initial_memory_prompt(content) is not None
-    assert session.initial_variables == {}
+    assert session.initial_memory == {}
     assert session.turn == 1
 
 

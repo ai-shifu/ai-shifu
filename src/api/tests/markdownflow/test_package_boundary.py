@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from markdownflow import Engine, InteractionResponseTurn, Session, load_prompt
-from pydantic_ai.messages import ModelRequest, ToolReturnPart
+from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelRequest, ToolReturnPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 if TYPE_CHECKING:
@@ -131,6 +131,11 @@ async def test_legacy_package_session_resumes_its_remaining_pending_answer() -> 
     expected["initial_memory"] = expected.pop("initial_variables")
     for pending in expected["pending"]:
         pending["spec"]["question"] = pending["spec"].pop("variable")
+    expected["messages"] = json.loads(
+        ModelMessagesTypeAdapter.dump_json(
+            ModelMessagesTypeAdapter.validate_python(expected["messages"])
+        )
+    )
     assert session.to_dict() == expected
     assert session.answers == {"legacy-role": "Learner wrote: Data analyst"}
     assert [item.tool_call_id for item in session.pending] == ["legacy-goal"]
