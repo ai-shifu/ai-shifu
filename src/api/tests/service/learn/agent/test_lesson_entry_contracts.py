@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Callable
 from decimal import Decimal
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from flaskr.api.llm import markdownflow_model as gateway_module
@@ -11,6 +11,7 @@ from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.learn.agent import langfuse_tracing as course_tracing
 from flaskr.service.learn.agent import lesson_entry as entry
 from flaskr.service.learn.agent.run_agent import TurnOutcome
 from flaskr.service.learn.exceptions import PaidError
@@ -103,9 +104,9 @@ def test_all_lesson_models_send_the_current_attempt_and_block_to_the_gateway(
             learning_mode=learning_mode,
         )
     assert [r["generation_name"] for r in requests[:3]] == [
-        "agent_lesson",
-        "agent_teaching_summary",
-        "agent_memory_admission",
+        "teaching",
+        "history_summary",
+        "memory_check",
     ]
 
 
@@ -167,14 +168,22 @@ def test_resolver_reads_language_setting_from_the_selected_course_version(
             not multilingual
         )
     with app.app_context():
+        resolved_context = Mock()
         resolved = entry._resolve(
             app,
             user_bid="teacher",
             shifu_bid=lesson,
             outline_bid=lesson,
             preview_mode=preview,
+            on_resolved=resolved_context,
         )
         assert resolved[-1] is multilingual
+        facts = resolved_context.call_args.kwargs
+        assert facts["shifu"].id == selected.query.filter_by(shifu_bid=lesson).one().id
+        assert facts["outline"].outline_item_bid == lesson
+        assert facts["outline_model"] is (
+            DraftOutlineItem if preview else PublishedOutlineItem
+        )
 
 
 @pytest.mark.parametrize("preview", [False, True])
@@ -366,13 +375,13 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     monkeypatch.setattr(
         entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41, False)
     )
-    trace, span = object(), object()
-    monkeypatch.setattr(entry, "get_langfuse_client", object)
-    monkeypatch.setattr(
-        entry, "create_trace_with_root_span", lambda **_kw: (trace, span)
+    span = object()
+    tracing = MagicMock(model_parent=span)
+    tracing.capture.side_effect = lambda events: course_tracing.CourseTrace.capture(
+        tracing, events
     )
-    finalize = Mock()
-    monkeypatch.setattr(entry, "finalize_langfuse_trace", finalize)
+    monkeypatch.setattr(entry, "CourseTrace", Mock(return_value=tracing))
+    finalize = tracing.__exit__
     gateway = Mock(return_value=object())
     summary = Mock(return_value=object())
     monkeypatch.setattr(entry, "make_teaching_summarizer", summary)
@@ -416,16 +425,20 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
             next(stream)
     else:
         assert list(stream) == []
-    finalize.assert_called_once_with(
-        trace=trace,
-        root_span=span,
-        root_span_payload={"metadata": {"end_reason": termination}},
-    )
+    finalize.assert_called_once()
+    if termination == "completed":
+        assert finalize.call_args.args == (None, None, None)
+    else:
+        assert finalize.call_args.args[0] is (
+            RuntimeError if termination == "error" else GeneratorExit
+        )
+    tracing.append_output.assert_called_once_with("Visible answer")
     gateway.assert_any_call(
         app,
         "2",
         user_id="learner",
         span=span,
+        generation_name="teaching",
         usage_metadata=settings.usage_metadata,
         usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
         usage_context=UsageContext(
@@ -445,7 +458,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "2",
         user_id="learner",
         span=span,
-        generation_name="agent_teaching_summary",
+        generation_name="history_summary",
         input_budget_bytes=40_960,
         retry_deadline_seconds=8,
         timeout=8,
@@ -467,7 +480,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "2",
         user_id="learner",
         span=span,
-        generation_name="agent_memory_admission",
+        generation_name="memory_check",
         usage_metadata=settings.usage_metadata,
         usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
         usage_context=UsageContext(
@@ -518,6 +531,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "shifu_model": DraftShifu if preview_mode else PublishedShifu,
         "heartbeat_interval": 0.1,
         "rewind": None,
+        "tracing": tracing,
     }
 
 
@@ -527,11 +541,9 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     monkeypatch.setattr(
         entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41, False)
     )
-    monkeypatch.setattr(entry, "get_langfuse_client", object)
-    monkeypatch.setattr(
-        entry, "create_trace_with_root_span", lambda **_kw: (object(), object())
-    )
-    monkeypatch.setattr(entry, "finalize_langfuse_trace", Mock())
+    tracing = MagicMock()
+    tracing.capture.side_effect = lambda events: events
+    monkeypatch.setattr(entry, "CourseTrace", Mock(return_value=tracing))
     monkeypatch.setattr(entry, "GatewayModel", Mock(return_value=object()))
     monkeypatch.setattr(entry, "make_request_check", Mock(return_value=object()))
     monkeypatch.setattr(entry, "make_teaching_summarizer", Mock(return_value=object()))

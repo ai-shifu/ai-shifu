@@ -14,15 +14,16 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from flaskr.api.langfuse import (
-    create_trace_with_root_span,
-    finalize_langfuse_trace,
-    get_langfuse_client,
-)
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.api.markdownflow import Engine, GatewayModel
 from flaskr.dao.uow import app_context_scope
 from flaskr.service.common.models import AppError, raise_error
+from flaskr.service.learn.agent.langfuse_tracing import (
+    MEMORY_ADMISSION_GENERATION_NAME,
+    TEACHING_GENERATION_NAME,
+    TEACHING_SUMMARY_GENERATION_NAME,
+    CourseTrace,
+)
 from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
 from flaskr.service.learn.agent.memory_admission import make_request_check
 from flaskr.service.learn.agent.rewind import RewindUnavailableError, plan_rewind
@@ -51,7 +52,7 @@ from flaskr.service.shifu.models import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
 
     from flask import Flask
     from flaskr.service.learn.agent.debug_session import DebugSessionStore
@@ -96,6 +97,7 @@ def _resolve(
     outline_bid: str,
     preview_mode: bool,
     require_script: bool = True,
+    on_resolved: Callable[..., None] | None = None,
 ) -> tuple[str, str, LLMSettings, int | None, bool]:
     """Read the script, the author's teaching brief, and the model settings for this lesson.
 
@@ -126,6 +128,13 @@ def _resolve(
     )
     course_model = selection_model(shifu)
     brief = _teaching_brief(outline_model, outline=outline, shifu=shifu)
+    if on_resolved is not None:
+        on_resolved(
+            outline_model=outline_model,
+            outline=outline,
+            shifu=shifu,
+            content_revision=content_revision,
+        )
     return (
         outline.content or "",
         brief,
@@ -299,6 +308,17 @@ def agent_lesson_events(
                     )
         except RewindUnavailableError:
             raise_error("server.learn.agentRewindUnavailable")
+    tracing = CourseTrace(
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        user_input=user_input,
+        preview_mode=preview_mode,
+        debug=debug_store is not None,
+        listen=listen,
+        learning_mode=learning_mode,
+        regenerate=rewind is not None,
+    )
     script, brief, settings, content_revision, use_learner_language = _resolve(
         app,
         user_bid=user_bid,
@@ -306,6 +326,7 @@ def agent_lesson_events(
         outline_bid=outline_bid,
         preview_mode=preview_mode,
         require_script=debug_store is None,
+        on_resolved=tracing.resolved,
     )
     if debug_store is not None:
         if not preview_mode or script_override is None:
@@ -313,19 +334,6 @@ def agent_lesson_events(
             raise ValueError(msg)
         script = script_override
 
-    trace, span = create_trace_with_root_span(
-        client=get_langfuse_client(),
-        trace_payload={
-            "name": "agent_lesson",
-            "user_id": user_bid,
-            "metadata": {
-                "shifu_bid": shifu_bid,
-                "outline_item_bid": outline_bid,
-                "flow_engine": "2.0",
-            },
-        },
-        root_span_payload={"name": "agent_lesson_turn"},
-    )
     usage_scene = BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
     # Auxiliary requests belong to the same lesson as teaching. Without the course identity,
     # the shared settlement path cannot find the course owner or report its lesson costs.
@@ -349,7 +357,7 @@ def agent_lesson_events(
             app,
             settings.model,
             user_id=user_bid,
-            span=span,
+            span=tracing.model_parent,
             usage_context=usage_context,
             usage_metadata=settings.usage_metadata,
             # An author previewing is not a learner taking the course; counting their turns as
@@ -371,113 +379,106 @@ def agent_lesson_events(
         for model in models:
             model.set_usage_context(context)
 
-    engine = Engine(
-        gateway(),
-        # No memory store: the engine runs on the bridge's producer thread, which has no app
-        # context. The host consumes its `MemoryUpdated` events and writes them instead.
-        memory_store=None,
-        memory_admission=True,
-        memory_context_limit=32_768,
-        memory_recall=True,
-        recall_history_compaction=True,
-        teaching_history_compaction=True,
-        exercise_statistics=True,
-        feedback_contract=True,
-        teaching_summarizer=make_teaching_summarizer(
-            gateway(
-                generation_name="agent_teaching_summary",
-                input_budget_bytes=40_960,
-                retry_deadline_seconds=8,
-                timeout=8,
-                num_retries=0,
+    with tracing:
+        try:
+            engine = Engine(
+                gateway(generation_name=TEACHING_GENERATION_NAME),
+                # No memory store: the engine runs on the bridge's producer thread, which has no app
+                # context. The host consumes its `MemoryUpdated` events and writes them instead.
+                memory_store=None,
+                memory_admission=True,
+                memory_context_limit=32_768,
+                memory_recall=True,
+                recall_history_compaction=True,
+                teaching_history_compaction=True,
+                exercise_statistics=True,
+                feedback_contract=True,
+                teaching_summarizer=make_teaching_summarizer(
+                    gateway(
+                        generation_name=TEACHING_SUMMARY_GENERATION_NAME,
+                        input_budget_bytes=40_960,
+                        retry_deadline_seconds=8,
+                        timeout=8,
+                        num_retries=0,
+                    )
+                ),
+                memory_reserved_keys=get_global_profile_keys(),
+                memory_readonly_prefixes=(
+                    COURSE_REFERENCE_PREFIX,
+                    SHARED_ANSWER_PREFIX,
+                ),
+                memory_request_check=make_request_check(
+                    gateway(
+                        generation_name=MEMORY_ADMISSION_GENERATION_NAME,
+                    )
+                ),
+                model_settings={"temperature": settings.temperature},
+                # A question this host cannot render goes back to the model to be asked again. Let
+                # through, it reached the learner as text with no controls under it, the lesson waited
+                # for an answer that could not be given, and each return to the lesson asked it again.
+                interaction_check=unrenderable_reason,
+                # Every lesson here is written in MarkdownFlow, and a MarkdownFlow lesson pauses only where
+                # its author put a button. Left to decide, the model added pauses the author never wrote:
+                # 17 "继续" buttons over 4 lessons of the general-education course (2026-09-24), 6 of
+                # them in a lesson whose script has no question at all.
+                pauses_from_notation=True,
             )
-        ),
-        memory_reserved_keys=get_global_profile_keys(),
-        memory_readonly_prefixes=(COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX),
-        memory_request_check=make_request_check(
-            gateway(
-                generation_name="agent_memory_admission",
-            )
-        ),
-        model_settings={"temperature": settings.temperature},
-        # A question this host cannot render goes back to the model to be asked again. Let
-        # through, it reached the learner as text with no controls under it, the lesson waited
-        # for an answer that could not be given, and each return to the lesson asked it again.
-        interaction_check=unrenderable_reason,
-        # Every lesson here is written in MarkdownFlow, and a MarkdownFlow lesson pauses only where
-        # its author put a button. Left to decide, the model added pauses the author never wrote:
-        # 17 "继续" buttons over 4 lessons of the general-education course (2026-09-24), 6 of
-        # them in a lesson whose script has no question at all.
-        pauses_from_notation=True,
-    )
-    end_reason = "error"
-    try:
-        while True:
-            debug_options = (
-                {"debug_store": debug_store, "preview_variables": preview_variables}
-                if debug_store is not None
-                else {}
-            )
-            if preview_generation is not None:
-                debug_options["preview_generation"] = preview_generation
-            outcome = yield from run_agent_lesson(
-                app,
-                engine=engine,
-                script=script,
-                teaching_brief=brief,
-                content_revision=content_revision,
-                use_learner_language=use_learner_language,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                user_input=user_input,
-                listen=listen,
-                preview_mode=preview_mode,
-                shifu_model=_models(preview_mode)[1],
-                heartbeat_interval=heartbeat_interval,
-                rewind=rewind,
-                on_turn_opened=bind_turn_usage,
-                **debug_options,
-            )
-            if outcome is not None and outcome.reason is None:
-                # The engine can return a bare ErrorEvent after a provider failure. It has
-                # already saved the usable session, but the legacy stream has no error DTO;
-                # raising here lets the outer SSE layer show the failure instead of
-                # silently ending a lesson that remains in progress.
-                key = (
-                    "server.learn.agentInputBudgetExceeded"
-                    if outcome.error_code == "input_budget_exceeded"
-                    else "server.common.unknownError"
+            while True:
+                debug_options = (
+                    {"debug_store": debug_store, "preview_variables": preview_variables}
+                    if debug_store is not None
+                    else {}
                 )
-                try:
-                    raise_error(key)
-                except AppError as error:
-                    if not outcome.discarded:
-                        raise
-                    raise DiscardedTurnError(error.message, error.code) from None
-            # A turn that ran out of content with the lesson not over is followed by the next,
-            # as the host's own "continue": the learner's input and the rewind belonged to the
-            # first turn only. The browser is not asked to do this. It never sees the boundary
-            # -- a turn's end that is not the lesson's is kept off the stream -- so a lesson
-            # left there stayed "in progress" until the learner came back to it, and only then
-            # went on. A turn that ended the same way having said nothing is not followed: the
-            # model has nothing to add and did not say so, and asking again would only loop.
-            if outcome is None or outcome.reason != "end" or not outcome.taught:
-                break
-            user_input, rewind = None, None
-        end_reason = "completed"
-    except RewindUnavailableError:
-        # The session the rows point back into is gone (unreadable, or never stored).
-        raise_error("server.learn.agentRewindUnavailable")
-    except GeneratorExit:
-        # The learner closed the page mid-turn. Still an ending, and one worth telling apart from
-        # a failure when reading traces later.
-        end_reason = "disconnected"
-        raise
-    finally:
-        # However the turn ended, an unfinished trace leaves its cost and latency unattributed.
-        finalize_langfuse_trace(
-            trace=trace,
-            root_span=span,
-            root_span_payload={"metadata": {"end_reason": end_reason}},
-        )
+                if preview_generation is not None:
+                    debug_options["preview_generation"] = preview_generation
+                outcome = yield from tracing.capture(
+                    run_agent_lesson(
+                        app,
+                        engine=engine,
+                        script=script,
+                        teaching_brief=brief,
+                        content_revision=content_revision,
+                        use_learner_language=use_learner_language,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        user_input=user_input,
+                        listen=listen,
+                        preview_mode=preview_mode,
+                        shifu_model=_models(preview_mode)[1],
+                        heartbeat_interval=heartbeat_interval,
+                        rewind=rewind,
+                        on_turn_opened=bind_turn_usage,
+                        tracing=tracing,
+                        **debug_options,
+                    )
+                )
+                if outcome is not None and outcome.reason is None:
+                    # The engine can return a bare ErrorEvent after a provider failure. It has
+                    # already saved the usable session, but the legacy stream has no error DTO;
+                    # raising here lets the outer SSE layer show the failure instead of
+                    # silently ending a lesson that remains in progress.
+                    key = (
+                        "server.learn.agentInputBudgetExceeded"
+                        if outcome.error_code == "input_budget_exceeded"
+                        else "server.common.unknownError"
+                    )
+                    try:
+                        raise_error(key)
+                    except AppError as error:
+                        if not outcome.discarded:
+                            raise
+                        raise DiscardedTurnError(error.message, error.code) from None
+                # A turn that ran out of content with the lesson not over is followed by the next,
+                # as the host's own "continue": the learner's input and the rewind belonged to the
+                # first turn only. The browser is not asked to do this. It never sees the boundary
+                # -- a turn's end that is not the lesson's is kept off the stream -- so a lesson
+                # left there stayed "in progress" until the learner came back to it, and only then
+                # went on. A turn that ended the same way having said nothing is not followed: the
+                # model has nothing to add and did not say so, and asking again would only loop.
+                if outcome is None or outcome.reason != "end" or not outcome.taught:
+                    break
+                user_input, rewind = None, None
+        except RewindUnavailableError:
+            # The session the rows point back into is gone (unreadable, or never stored).
+            raise_error("server.learn.agentRewindUnavailable")

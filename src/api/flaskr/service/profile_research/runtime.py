@@ -9,12 +9,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from flask import Flask, Response, stream_with_context
-from flaskr.api.langfuse import (
-    create_trace_with_root_span,
-    finalize_langfuse_trace,
-    get_langfuse_client,
-    get_request_trace_id,
-)
 from flaskr.api.llm.model_selection import get_default_llm_model
 from flaskr.dao import (
     invalidate_session,
@@ -41,6 +35,7 @@ from flaskr.service.profile_research.events import (
 from flaskr.service.profile_research.events import (
     _profile_research_event as _event,
 )
+from flaskr.service.profile_research.langfuse_tracing import ProfileTrace
 from flaskr.service.profile_research.provider import (
     _ProfileResearchLLMProvider,
     create_profile_research_model,
@@ -468,87 +463,69 @@ class ProfileResearchRuntime:
         *,
         session: _ProfileResearchSession,
         user_input: dict[str, list[str]],
+        trace: ProfileTrace,
     ) -> tuple[list[dict[str, Any]], bool, bool]:
         """Adapt one native engine turn without owning questionnaire progression."""
-        trace, root_span = create_trace_with_root_span(
-            client=get_langfuse_client(),
-            trace_payload={
-                "id": get_request_trace_id(),
-                "name": "profile_research_markdownflow",
-                "user_id": session.user_bid,
-                "session_id": session.session_id,
-                "metadata": {
-                    "purpose": session.purpose,
-                    "config_revision": session.config_revision,
-                    "turn_index": session.turn_index,
-                },
-            },
-            root_span_payload={"name": "profile_research_turn"},
-        )
         events: list[dict[str, Any]] = []
-        output = ""
-        try:
-            result = run_profile_turn(
-                session=session,
-                user_input=user_input,
-                model=self._model_factory(self.app, session, root_span),
-            )
-            element_content: dict[tuple[int, str, int], str] = {}
-            segments: dict[int, int] = {}
-            html_segments: dict[int, int] = {}
-            previous_identity: tuple[int, str] | None = None
-            segment = 0
-            bid = f"profile-research:{session.session_id}:{session.turn_index}"
-            for chunk in result.chunks:
-                if chunk.interaction is not None:
-                    events.append(
-                        _event(
-                            "interaction",
-                            chunk.interaction,
-                            element_type="interaction",
-                            generated_block_bid=f"{bid}:interaction",
-                            run_session_bid=session.session_id,
-                            is_terminal=False,
-                            interaction_id=chunk.interaction_id,
-                        )
-                    )
-                    continue
-                if not chunk.content:
-                    continue
-                output += chunk.content
-                identity = (chunk.number, chunk.type)
-                if identity != previous_identity:
-                    previous_identity = identity
-                    if chunk.type == "html" and chunk.number in html_segments:
-                        segment = html_segments[chunk.number]
-                    else:
-                        segment = segments.get(chunk.number, 0)
-                        segments[chunk.number] = segment + 1
-                        if chunk.type == "html":
-                            html_segments[chunk.number] = segment
-                key = (*identity, segment)
-                content = element_content.get(key, "") + chunk.content
-                element_content[key] = content
+        result = run_profile_turn(
+            session=session,
+            user_input=user_input,
+            model=self._model_factory(self.app, session, trace.model_parent),
+            observer=trace.event,
+        )
+        element_content: dict[tuple[int, str, int], str] = {}
+        segments: dict[int, int] = {}
+        html_segments: dict[int, int] = {}
+        previous_identity: tuple[int, str] | None = None
+        segment = 0
+        bid = f"profile-research:{session.session_id}:{session.turn_index}"
+        for chunk in result.chunks:
+            if chunk.interaction is not None:
                 events.append(
                     _event(
-                        "content",
-                        content,
-                        element_type=chunk.type,
-                        generated_block_bid=f"{bid}:{chunk.number}:{segment}",
+                        "interaction",
+                        chunk.interaction,
+                        element_type="interaction",
+                        generated_block_bid=f"{bid}:interaction",
                         run_session_bid=session.session_id,
                         is_terminal=False,
+                        interaction_id=chunk.interaction_id,
                     )
                 )
-            return events, result.input_accepted, result.finished
-        finally:
-            finalize_langfuse_trace(
-                trace=trace,
-                root_span=root_span,
-                trace_payload={"output": output},
-                root_span_payload={"output": output},
+                continue
+            if not chunk.content:
+                continue
+            identity = (chunk.number, chunk.type)
+            if identity != previous_identity:
+                previous_identity = identity
+                if chunk.type == "html" and chunk.number in html_segments:
+                    segment = html_segments[chunk.number]
+                else:
+                    segment = segments.get(chunk.number, 0)
+                    segments[chunk.number] = segment + 1
+                    if chunk.type == "html":
+                        html_segments[chunk.number] = segment
+            key = (*identity, segment)
+            content = element_content.get(key, "") + chunk.content
+            element_content[key] = content
+            events.append(
+                _event(
+                    "content",
+                    content,
+                    element_type=chunk.type,
+                    generated_block_bid=f"{bid}:{chunk.number}:{segment}",
+                    run_session_bid=session.session_id,
+                    is_terminal=False,
+                )
             )
+        return events, result.input_accepted, result.finished
 
-    def _generate_profile_draft(self, session: _ProfileResearchSession) -> str:
+    def _generate_profile_draft(
+        self,
+        session: _ProfileResearchSession,
+        *,
+        trace: ProfileTrace | None = None,
+    ) -> str:
         """Transform accepted learner evidence without publishing private model text."""
         evidence = profile_answer_evidence(session)
         supplemental = [
@@ -558,36 +535,27 @@ class ProfileResearchRuntime:
         ]
         if not evidence and not supplemental:
             return ""
-        trace, root_span = create_trace_with_root_span(
-            client=get_langfuse_client(),
-            trace_payload={
-                "id": get_request_trace_id(),
-                "name": "profile_research_summary",
-                "user_id": session.user_bid,
-                "session_id": session.session_id,
+        instructions = _profile_summary_prompt()
+        if session.output_language:
+            instructions += f"\n\nOUTPUT LANGUAGE: {session.output_language}"
+        messages = [
+            {"role": "system", "content": instructions},
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "accepted_answers": evidence,
+                        "supplemental_answers": supplemental,
+                    },
+                    ensure_ascii=False,
+                ),
             },
-            root_span_payload={"name": "profile_research_summary"},
-        )
-        try:
-            instructions = _profile_summary_prompt()
-            if session.output_language:
-                instructions += f"\n\nOUTPUT LANGUAGE: {session.output_language}"
+        ]
+        with ProfileTrace.summary(session, messages, trace=trace) as summary:
             draft = (
-                self._provider_factory(self.app, session, root_span)
+                self._provider_factory(self.app, session, summary)
                 .complete(
-                    messages=[
-                        {"role": "system", "content": instructions},
-                        {
-                            "role": "user",
-                            "content": json.dumps(
-                                {
-                                    "accepted_answers": evidence,
-                                    "supplemental_answers": supplemental,
-                                },
-                                ensure_ascii=False,
-                            ),
-                        },
-                    ],
+                    messages=messages,
                     model=session.model,
                     temperature=session.temperature,
                 )
@@ -596,9 +564,8 @@ class ProfileResearchRuntime:
             if not draft:
                 msg = "profile draft is empty"
                 raise ProfileResearchError(msg)
+            summary.update(output=draft)
             return draft
-        finally:
-            finalize_langfuse_trace(trace=trace, root_span=root_span)
 
     @staticmethod
     def _summary_phase(session: _ProfileResearchSession) -> dict[str, Any]:
@@ -670,41 +637,48 @@ class ProfileResearchRuntime:
             # A failed turn or private transformation leaves the stored native Session
             # untouched, including its pending calls and exact-request replay data.
             staged = deepcopy(admission.session)
-            events, input_accepted, finished = self._execute_turn(
-                session=staged,
-                user_input=admission.user_input,
-            )
-            if finished:
-                phase = self._summary_phase(staged)
-                yield phase
-                events.insert(0, phase)
-                staged.profile_draft = self._generate_profile_draft(staged)
-            staged.awaiting_input = bool((staged.engine_session or {}).get("pending"))
-            staged.done = finished
-            processed_turn_index = staged.turn_index
-            staged.turn_index += 1
-            terminal = _event(
-                "done",
-                self._summary(
+            with ProfileTrace(staged, admission.user_input) as trace:
+                events, input_accepted, finished = self._execute_turn(
+                    session=staged,
+                    user_input=admission.user_input,
+                    trace=trace,
+                )
+                if finished:
+                    phase = self._summary_phase(staged)
+                    yield phase
+                    events.insert(0, phase)
+                    staged.profile_draft = self._generate_profile_draft(
+                        staged, trace=trace
+                    )
+                staged.awaiting_input = bool(
+                    (staged.engine_session or {}).get("pending")
+                )
+                staged.done = finished
+                processed_turn_index = staged.turn_index
+                staged.turn_index += 1
+                terminal = _event(
+                    "done",
+                    self._summary(
+                        staged,
+                        processed_turn_index=processed_turn_index,
+                        input_accepted=input_accepted,
+                    ),
+                    run_session_bid=staged.session_id,
+                    is_terminal=True,
+                )
+                all_events = [*events, terminal]
+                self._remember_request(
                     staged,
-                    processed_turn_index=processed_turn_index,
-                    input_accepted=input_accepted,
-                ),
-                run_session_bid=staged.session_id,
-                is_terminal=True,
-            )
-            all_events = [*events, terminal]
-            self._remember_request(
-                staged,
-                request_id=request_id,
-                expected_turn_index=expected_turn_index,
-                user_input=admission.user_input,
-                events=all_events,
-                expected_interaction_id=expected_interaction_id,
-            )
-            self.store.save(staged)
-            yield from [event for event in events if event.get("type") != "phase"]
-            yield terminal
+                    request_id=request_id,
+                    expected_turn_index=expected_turn_index,
+                    user_input=admission.user_input,
+                    events=all_events,
+                    expected_interaction_id=expected_interaction_id,
+                )
+                self.store.save(staged)
+                trace.publish(staged, events)
+                yield from [event for event in events if event.get("type") != "phase"]
+                yield terminal
         finally:
             with contextlib.suppress(Exception):
                 lock.release()
@@ -712,23 +686,17 @@ class ProfileResearchRuntime:
                 owner_lock.release()
 
     def _extract_assistant_answers(
-        self, session: _ProfileResearchSession, raw_text: str
+        self,
+        session: _ProfileResearchSession,
+        raw_text: str,
+        *,
+        trace: ProfileTrace | None = None,
     ) -> tuple[str, str]:
-        trace, root_span = create_trace_with_root_span(
-            client=get_langfuse_client(),
-            trace_payload={
-                "id": get_request_trace_id(),
-                "name": "profile_research_assistant_answers",
-                "user_id": session.user_bid,
-                "session_id": session.session_id,
-            },
-            root_span_payload={"name": "profile_research_answer_extraction"},
-        )
-        try:
-            provider = self._provider_factory(self.app, session, root_span)
-            return parse_assistant_answers(provider, session, raw_text)
-        finally:
-            finalize_langfuse_trace(trace=trace, root_span=root_span)
+        with ProfileTrace.import_answers(session, raw_text, trace=trace) as extraction:
+            provider = self._provider_factory(self.app, session, extraction)
+            answers, nickname = parse_assistant_answers(provider, session, raw_text)
+            extraction.update(output={"answers": answers, "nickname": nickname})
+            return answers, nickname
 
     def stream_assistant_answers(
         self,
@@ -789,63 +757,68 @@ class ProfileResearchRuntime:
 
             # All provider work happens on a detached snapshot. No cursor,
             # variables, or context is published until both steps succeed.
-            staged = deepcopy(session)
-            answers, nickname = self._extract_assistant_answers(staged, raw_text)
-            if nickname and not _collected_nickname(staged):
-                staged.variables[_NICKNAME_VARIABLE_KEY] = nickname
-            if (
-                len(_collected_nickname(staged) or "")
-                > LEARNER_PROFILE_NICKNAME_MAX_LENGTH
-            ):
-                msg = "assistant nickname is too long"
-                raise ProfileResearchValidationError(msg)
-            has_manual_answers = bool(profile_answer_evidence(staged)) or any(
-                message.get(USER_ANSWER_CONTEXT_KEY) for message in staged.context
-            )
-            if (
-                not answers
-                and not has_manual_answers
-                and not _collected_nickname(staged)
-            ):
-                msg = "assistant answers contain no usable information"
-                raise ProfileResearchValidationError(msg)
-            if answers:
-                staged.context.append(
-                    {
-                        "role": "user",
-                        "content": answers,
-                        USER_ANSWER_CONTEXT_KEY: answers,
-                    }
+            with ProfileTrace(session, raw_text, operation="delegate") as trace:
+                staged = deepcopy(session)
+                answers, nickname = self._extract_assistant_answers(
+                    staged, raw_text, trace=trace
                 )
-            phase = self._summary_phase(staged)
-            yield phase
-            draft = self._generate_profile_draft(staged)
-            if len(draft) > LEARNER_PROFILE_MAX_LENGTH:
-                msg = "assistant profile draft is invalid"
-                raise ProfileResearchValidationError(msg)
-            staged.profile_draft = draft
-            staged.awaiting_input = False
-            staged.done = True
-            processed_turn_index = staged.turn_index
-            staged.turn_index += 1
-            summary = self._summary(
-                staged,
-                processed_turn_index=processed_turn_index,
-            )
-            summary["operation"] = "delegate"
-            event = _event(
-                "done", summary, run_session_bid=staged.session_id, is_terminal=True
-            )
-            self._remember_request(
-                staged,
-                request_id=request_id,
-                expected_turn_index=expected_turn_index,
-                user_input={},
-                operation="delegate",
-                raw_text=raw_text,
-                events=[phase, event],
-            )
-            yield from self._save_assistant_result(staged, event)
+                if nickname and not _collected_nickname(staged):
+                    staged.variables[_NICKNAME_VARIABLE_KEY] = nickname
+                if (
+                    len(_collected_nickname(staged) or "")
+                    > LEARNER_PROFILE_NICKNAME_MAX_LENGTH
+                ):
+                    msg = "assistant nickname is too long"
+                    raise ProfileResearchValidationError(msg)
+                has_manual_answers = bool(profile_answer_evidence(staged)) or any(
+                    message.get(USER_ANSWER_CONTEXT_KEY) for message in staged.context
+                )
+                if (
+                    not answers
+                    and not has_manual_answers
+                    and not _collected_nickname(staged)
+                ):
+                    msg = "assistant answers contain no usable information"
+                    raise ProfileResearchValidationError(msg)
+                if answers:
+                    staged.context.append(
+                        {
+                            "role": "user",
+                            "content": answers,
+                            USER_ANSWER_CONTEXT_KEY: answers,
+                        }
+                    )
+                phase = self._summary_phase(staged)
+                yield phase
+                draft = self._generate_profile_draft(staged, trace=trace)
+                if len(draft) > LEARNER_PROFILE_MAX_LENGTH:
+                    msg = "assistant profile draft is invalid"
+                    raise ProfileResearchValidationError(msg)
+                staged.profile_draft = draft
+                staged.awaiting_input = False
+                staged.done = True
+                processed_turn_index = staged.turn_index
+                staged.turn_index += 1
+                summary = self._summary(
+                    staged,
+                    processed_turn_index=processed_turn_index,
+                )
+                summary["operation"] = "delegate"
+                event = _event(
+                    "done", summary, run_session_bid=staged.session_id, is_terminal=True
+                )
+                self._remember_request(
+                    staged,
+                    request_id=request_id,
+                    expected_turn_index=expected_turn_index,
+                    user_input={},
+                    operation="delegate",
+                    raw_text=raw_text,
+                    events=[phase, event],
+                )
+                published = self._save_assistant_result(staged, event)
+                trace.publish(staged, published)
+                yield from published
 
     def _save_assistant_result(
         self, session: _ProfileResearchSession, event: dict[str, Any]

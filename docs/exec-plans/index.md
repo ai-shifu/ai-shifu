@@ -119,6 +119,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)
 - [Shared MarkdownFlow foundation library](./completed/markdownflow-foundation-library.md)
+- [MarkdownFlow Langfuse Tracing](./completed/markdownflow-langfuse-tracing.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./completed/markdownflow-model-arena.md)
 - [MarkdownFlow 2.0: a lesson carries on until it waits or ends](./completed/mdf2-agent-lesson-carries-on.md)
 - [Keep grading within authored answer criteria](./completed/mdf2-authored-grading-criteria.md)
