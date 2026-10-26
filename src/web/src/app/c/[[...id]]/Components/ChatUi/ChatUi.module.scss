@@ -209,13 +209,13 @@
       calc(var(--app-viewport-block-unit, 1dvh) * 100) - var(
           --mobile-chat-header-height,
           44px
-        ) - var(--chat-footer-height)
+        ) - var(--chat-footer-reserved-height)
     );
     max-height: calc(
       calc(var(--app-viewport-block-unit, 1dvh) * 100) - var(
           --mobile-chat-header-height,
           44px
-        ) - var(--chat-footer-height)
+        ) - var(--chat-footer-reserved-height)
     );
     min-height: 0;
     flex-direction: column;

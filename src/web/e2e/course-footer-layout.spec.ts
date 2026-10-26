@@ -196,7 +196,7 @@ for (const layout of [
   });
 }
 
-for (const mode of ['read'] as const) {
+for (const mode of ['read', 'listen', 'classroom'] as const) {
   test(`hidden mobile footer reclaims its space in ${mode} mode`, async ({
     page,
   }) => {
