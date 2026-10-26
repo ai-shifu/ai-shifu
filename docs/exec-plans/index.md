@@ -11,6 +11,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [API capacity observability](./active/api-capacity-observability.md)
 - [Backend External Client Journey Analytics](./active/backend-external-client-journey-analytics.md)
 - [Bound Lesson Memory Context](./active/bounded-lesson-memory-context.md)
+- [Make course actions understandable to first-time teachers](./active/course-action-copy.md)
 - [Course Memory Management](./active/course-memory-management.md)
 - [Course Sharing](./active/course-sharing.md)
 - [Keep custom learner variables within their course](./active/course-variable-isolation.md)

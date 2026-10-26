@@ -605,8 +605,12 @@ const ScriptManagementPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {archiveTarget?.archived
-                ? t('module.shifuSetting.unarchiveTitle')
-                : t('module.shifuSetting.archiveTitle')}
+                ? t('module.shifuSetting.unarchiveTitle', {
+                    courseName: archiveTarget?.name || archiveTarget?.bid,
+                  })
+                : t('module.shifuSetting.archiveTitle', {
+                    courseName: archiveTarget?.name || archiveTarget?.bid,
+                  })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {archiveTarget?.archived
@@ -625,7 +629,9 @@ const ScriptManagementPage = () => {
               }}
               disabled={archiveLoading}
             >
-              {t('common.core.ok')}
+              {archiveTarget?.archived
+                ? t('module.shifuSetting.unarchive')
+                : t('module.shifuSetting.archive')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -669,13 +675,13 @@ const ScriptManagementPage = () => {
                   value='all'
                   className={COURSE_TABS_TRIGGER_CLASS}
                 >
-                  {t('common.core.all')}
+                  {t('module.shifuSetting.activeCourses')}
                 </TabsTrigger>
                 <TabsTrigger
                   value='archived'
                   className={COURSE_TABS_TRIGGER_CLASS}
                 >
-                  {t('common.core.archived')}
+                  {t('module.shifuSetting.archivedCourses')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>

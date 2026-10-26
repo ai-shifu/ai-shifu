@@ -158,47 +158,88 @@ describe('CreatorRedemptionCodeDialog', () => {
       });
     });
 
+    expect(
+      screen.getByText('module.order.redemptionCodes.description'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.genericHint'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.singleUseHint'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.dateRangeHint'),
+    ).toBeVisible();
+
     fireEvent.change(
       screen.getByPlaceholderText(
-        'module.operationsPromotion.filters.namePlaceholder',
+        'module.order.redemptionCodes.namePlaceholder',
       ),
       { target: { value: 'Creator Batch' } },
     );
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsPromotion.usageType.singleUse',
+        name: 'module.order.redemptionCodes.genericLabel',
       }),
     );
+    expect(
+      screen.getByText('module.order.redemptionCodes.quantityLabelGeneric'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.quantityHintGeneric'),
+    ).toBeVisible();
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsPromotion.discountType.fixed',
+        name: 'module.order.redemptionCodes.singleUseLabel',
       }),
     );
+    expect(
+      screen.getByText('module.order.redemptionCodes.quantityLabelSingleUse'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.quantityHintSingleUse'),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.redemptionCodes.discountTypePercent',
+      }),
+    );
+    expect(
+      screen.getByText('module.order.redemptionCodes.valuePercentHint'),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.redemptionCodes.discountTypeFixed',
+      }),
+    );
+    expect(
+      screen.queryByText('module.order.redemptionCodes.valuePercentHint'),
+    ).not.toBeInTheDocument();
     fireEvent.change(
       screen.getByPlaceholderText(
-        'module.operationsPromotion.coupon.valueAmountPlaceholder',
+        'module.order.redemptionCodes.valueAmountPlaceholder',
       ),
       { target: { value: '20' } },
     );
     fireEvent.change(
       screen.getByPlaceholderText(
-        'module.operationsPromotion.coupon.quantityPlaceholder',
+        'module.order.redemptionCodes.quantityPlaceholder',
       ),
       { target: { value: '3' } },
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Course 1' }));
     fireEvent.change(
-      screen.getByLabelText('module.operationsPromotion.coupon.startAt'),
+      screen.getByLabelText('module.order.redemptionCodes.startAtLabel'),
       { target: { value: '2026-04-24 10:00:00' } },
     );
     fireEvent.change(
-      screen.getByLabelText('module.operationsPromotion.coupon.endAt'),
+      screen.getByLabelText('module.order.redemptionCodes.endAtLabel'),
       { target: { value: '2026-05-24 10:00:00' } },
     );
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsPromotion.actions.confirmCreate',
+        name: 'module.order.redemptionCodes.submit',
       }),
     );
 
@@ -254,6 +295,9 @@ describe('CreatorRedemptionCodeDialog', () => {
       screen.getAllByText('module.order.redemptionCodes.editDialogTitle')
         .length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText('module.order.redemptionCodes.editDescription'),
+    ).toBeVisible();
 
     fireEvent.change(screen.getByDisplayValue('Old Batch'), {
       target: { value: 'Updated Batch' },

@@ -22,6 +22,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -175,12 +176,34 @@ export default function ShifuPermissionDialog({
     contactType === 'email'
       ? t('module.shifuSetting.permissionEmailPlaceholder')
       : t('module.shifuSetting.permissionPhonePlaceholder');
+  const contactHint =
+    contactType === 'email'
+      ? t('module.shifuSetting.permissionEmailHint', {
+          max: MAX_SHARED_PERMISSION_COUNT,
+        })
+      : t('module.shifuSetting.permissionPhoneHint', {
+          max: MAX_SHARED_PERMISSION_COUNT,
+        });
 
   const permissionOptions = React.useMemo(
     () => [
-      { value: 'view', label: t('module.shifuSetting.permissionReadOnly') },
-      { value: 'edit', label: t('module.shifuSetting.permissionEdit') },
-      { value: 'publish', label: t('module.shifuSetting.permissionPublish') },
+      {
+        value: 'view',
+        label: t('module.shifuSetting.permissionReadOnly'),
+        hint: t('module.shifuSetting.permissionReadOnlyHint'),
+      },
+      {
+        value: 'edit',
+        label: t('module.shifuSetting.permissionEdit'),
+        hint: t('module.shifuSetting.permissionEditHint'),
+      },
+      {
+        value: 'publish',
+        label: t('module.shifuSetting.permissionPublish'),
+        hint: t('module.shifuSetting.permissionPublishHintWrapped', {
+          hint: t('module.shifuSetting.permissionPublishHint'),
+        }),
+      },
     ],
     [t],
   );
@@ -511,11 +534,14 @@ export default function ShifuPermissionDialog({
         open={open}
         onOpenChange={onOpenChange}
       >
-        <DialogContent className='pb-4'>
+        <DialogContent className='max-h-[calc(100dvh-32px)] overflow-y-auto pb-4'>
           <DialogHeader>
             <DialogTitle>
               <span>{t('module.shifuSetting.permissionDialogTitle')}</span>
             </DialogTitle>
+            <DialogDescription>
+              {t('module.shifuSetting.permissionDescription')}
+            </DialogDescription>
           </DialogHeader>
           <Tabs
             defaultValue='grant'
@@ -555,6 +581,7 @@ export default function ShifuPermissionDialog({
                     placeholder={contactPlaceholder}
                     rows={3}
                   />
+                  <p className='text-xs text-muted-foreground'>{contactHint}</p>
                   {permissionError ? (
                     <p className='text-xs text-destructive'>
                       {permissionError}
@@ -572,38 +599,26 @@ export default function ShifuPermissionDialog({
                         value as SharedPermission['permission'],
                       )
                     }
-                    className='flex flex-row flex-wrap gap-x-8 gap-y-2'
+                    className='gap-3'
                   >
                     {permissionOptions.map(option => (
                       <div
                         key={option.value}
-                        className='flex items-center'
+                        className='flex items-start'
                       >
                         <RadioGroupItem
                           value={option.value}
                           id={`permission-${option.value}`}
+                          className='mt-0.5'
                         />
                         <Label
                           htmlFor={`permission-${option.value}`}
-                          className='ml-2 text-sm font-medium text-foreground'
+                          className='ml-2 space-y-1 text-sm font-medium text-foreground'
                         >
-                          {option.value === 'publish' ? (
-                            <>
-                              {option.label}
-                              <span className='text-xs text-muted-foreground'>
-                                {t(
-                                  'module.shifuSetting.permissionPublishHintWrapped',
-                                  {
-                                    hint: t(
-                                      'module.shifuSetting.permissionPublishHint',
-                                    ),
-                                  },
-                                )}
-                              </span>
-                            </>
-                          ) : (
-                            option.label
-                          )}
+                          <span className='block'>{option.label}</span>
+                          <span className='block text-xs font-normal text-muted-foreground'>
+                            {option.hint}
+                          </span>
                         </Label>
                       </div>
                     ))}
@@ -783,7 +798,7 @@ export default function ShifuPermissionDialog({
                       setPermissionConfirmOpen(true);
                     }}
                   >
-                    {t('common.core.confirm')}
+                    {t('module.shifuSetting.permissionSave')}
                   </Button>
                 ) : (
                   <>
@@ -802,7 +817,7 @@ export default function ShifuPermissionDialog({
                         setPermissionRemovals(new Set());
                       }}
                     >
-                      {t('module.shifuSetting.permissionEdit')}
+                      {t('module.shifuSetting.permissionEditAction')}
                     </Button>
                   </>
                 )}
@@ -861,7 +876,7 @@ export default function ShifuPermissionDialog({
             >
               {grantLoading
                 ? t('common.core.submitting')
-                : t('common.core.confirm')}
+                : t('module.shifuSetting.permissionGrant')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -924,7 +939,7 @@ export default function ShifuPermissionDialog({
             >
               {permissionSaveLoading
                 ? t('common.core.submitting')
-                : t('common.core.confirm')}
+                : t('module.shifuSetting.permissionSave')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
