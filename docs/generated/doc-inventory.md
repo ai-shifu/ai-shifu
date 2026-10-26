@@ -100,6 +100,7 @@
 | `docs/exec-plans/active/skill-request-analytics.md` | Account-linked Skill request pageviews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/stripe-refund-credit-reversal.md` | Stop Stripe Refund Credit Regrant | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/urdu-product-locale.md` | Urdu product locale | `exec-plan-active` | `active` | `cross-surface` | `2026-09-27` | `true` |
+| `docs/exec-plans/active/verify-markdownflow-finish-in-sim.md` | Verify MarkdownFlow completion in SIM | `exec-plan-active` | `active` | `backend` | `2026-10-26` | `true` |
 | `docs/exec-plans/completed/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-rate-management-create.md` | Add arbitrary rate entries to Rate Management | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
