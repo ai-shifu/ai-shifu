@@ -105,6 +105,7 @@ class MarkdownFlowTrace:
     """Own one request, with explicit parents across producer-thread boundaries."""
 
     CONTEXT_PROMPT_FIELDS = ("script", "teaching_brief")
+    TURN_NAME = "turn"
 
     def __init__(
         self,
@@ -193,7 +194,7 @@ class MarkdownFlowTrace:
             return
         self._context_identity = identity
         self.child(
-            "context",
+            "prompts",
             input={
                 self.CONTEXT_PROMPT_FIELDS[0]: script,
                 self.CONTEXT_PROMPT_FIELDS[1]: teaching_brief,
@@ -225,7 +226,9 @@ class MarkdownFlowTrace:
             self.complete_turn("end")
         self._outcome = "running"
         self._turn_output_start = len(self._output)
-        self._turn = self.child("turn", as_type="agent", input=input, metadata=metadata)
+        self._turn = self.child(
+            self.TURN_NAME, as_type="agent", input=input, metadata=metadata
+        )
         self.current = self._turn
         return self.current
 

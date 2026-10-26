@@ -105,8 +105,8 @@ def test_all_lesson_models_send_the_current_attempt_and_block_to_the_gateway(
         )
     assert [r["generation_name"] for r in requests[:3]] == [
         "teaching",
-        "agent_teaching_summary",
-        "agent_memory_admission",
+        "history_summary",
+        "memory_check",
     ]
 
 
@@ -458,7 +458,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "2",
         user_id="learner",
         span=span,
-        generation_name="agent_teaching_summary",
+        generation_name="history_summary",
         input_budget_bytes=40_960,
         retry_deadline_seconds=8,
         timeout=8,
@@ -480,7 +480,7 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "2",
         user_id="learner",
         span=span,
-        generation_name="agent_memory_admission",
+        generation_name="memory_check",
         usage_metadata=settings.usage_metadata,
         usage_scene=BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD,
         usage_context=UsageContext(

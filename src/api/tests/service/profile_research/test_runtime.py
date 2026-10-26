@@ -732,6 +732,9 @@ def test_agent_receives_the_session_output_language() -> None:
 def test_llm_provider_uses_shared_non_billable_route_without_redaction(
     monkeypatch: object,
 ) -> None:
+    from flaskr.service.profile_research.provider import create_profile_research_model
+    from pydantic_ai.models import ModelRequestParameters
+
     _app, runtime, _providers = _make_runtime()
     view = runtime.start_session(
         user_bid="user-1",
@@ -753,17 +756,29 @@ def test_llm_provider_uses_shared_non_billable_route_without_redaction(
         "flaskr.service.profile_research.provider.chat_llm",
         fake_chat_llm,
     )
+    monkeypatch.setattr(
+        "flaskr.api.llm.markdownflow_model.chat_llm",
+        fake_chat_llm,
+    )
 
     provider = _ProfileResearchLLMProvider(runtime.app, session, MockClient())
 
     assert provider.complete([{"role": "user", "content": "整理画像"}]) == "画像结果"
-    call_app, user_id, _span, kwargs = calls[0]
-    assert call_app is runtime.app
-    assert user_id == "user-1"
-    assert kwargs["usage_scene"] == BILL_USAGE_SCENE_DEBUG
-    assert kwargs["usage_context"].billable == 0
-    assert kwargs["billable"] == 0
-    assert "usage_metadata" not in kwargs
+    model = create_profile_research_model(runtime.app, session, MockClient())
+    assert [chunk.result for chunk in model._stream([], ModelRequestParameters())] == [
+        "画像结果"
+    ]
+    assert [call[3]["generation_name"] for call in calls] == [
+        "profile.model",
+        "questionnaire",
+    ]
+    for call_app, user_id, _span, kwargs in calls:
+        assert call_app is runtime.app
+        assert user_id == "user-1"
+        assert kwargs["usage_scene"] == BILL_USAGE_SCENE_DEBUG
+        assert kwargs["usage_context"].billable == 0
+        assert kwargs["billable"] == 0
+        assert "usage_metadata" not in kwargs
 
 
 def test_sse_response_emits_public_error_without_course_dtos(

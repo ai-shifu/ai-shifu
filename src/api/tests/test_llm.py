@@ -4421,7 +4421,7 @@ async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retr
             span=span,
             model="test",
             messages=[],
-            generation_name="agent_teaching_summary",
+            generation_name="history_summary",
         )
         next(chunks)
         chunks.close()
@@ -4431,7 +4431,7 @@ async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retr
             "test",
             user_id="internal",
             span=span,
-            generation_name="agent_teaching_summary",
+            generation_name="history_summary",
             retry_deadline_seconds=8,
             timeout=8,
             num_retries=0,
@@ -4455,7 +4455,7 @@ async def test_summary_deadline_finalizes_real_gateway_accounting_and_stops_retr
     assert records[0]["total"] == (
         10 if phase in {"late_chunk", "eof", "close", "normal"} else 0
     )
-    assert records[0]["extra"]["generation_name"] == "agent_teaching_summary"
+    assert records[0]["extra"]["generation_name"] == "history_summary"
     assert span.end_args is not None
     if phase != "normal":
         assert records[0]["error_message"]
@@ -4637,8 +4637,8 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
         assert len(rows) == 3
         assert {row.extra["generation_name"] for row in rows} == {
             "teaching",
-            "agent_teaching_summary",
-            "agent_memory_admission",
+            "history_summary",
+            "memory_check",
         }
         for row in rows:
             assert row.shifu_bid == course_bid
