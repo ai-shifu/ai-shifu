@@ -15,6 +15,8 @@ reviewable PR on current main. The durable contract is
 
 ## Progress
 
+- [x] 2026-10-26 CST: Keep recognized memory JSON fresh when authored sections are unmatched; preserve the entire unknown suffix. All 2,769 engine/envelope checks pass. Fix the independent variable-field fixture separately (38 reference checks).
+
 - [x] 2026-10-26 CST: Restore historical Profile option contracts only for issued pending objects, including siblings and fresh-call rejection; 331 shared host/Profile regressions pass. Shared matcher extraction preserves the service boundary.
 
 - [x] 2026-10-26 CST: Fix review finding for unset retired references; 128 reference/compatibility regressions pass.

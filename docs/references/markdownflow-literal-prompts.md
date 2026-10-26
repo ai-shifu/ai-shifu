@@ -30,7 +30,9 @@ New sessions no longer snapshot values for prompt substitution. Historical
 `initial_variables` snapshots remain readable for recognizing old native host
 prompts. Deletion and nickname refresh match literal sections or the historical
 expanded sections independently, then rebuild only recognized engine-owned
-initial memory/script/constraints. The compatibility matcher reproduces old
+initial memory/script/constraints. A recognized memory JSON envelope is refreshed
+independently even when the authored script cannot be matched; the complete
+unmatched script and suffix remain unchanged. The compatibility matcher reproduces old
 inline-code, HTML, math, escape-parity, malformed-example and main-script
 collection behavior. Unrecognized sections, learner messages, tool returns,
 extras and already displayed teaching are preserved. No 1.0 session is migrated.

@@ -61,12 +61,14 @@ def refresh_nickname(session: Session, current: dict[str, Any]) -> None:
                 source_memory,
                 historical_collected,
             )
-            if length is None:
-                return
             # Rewrite only the recognized initial host memory/script. The suffix
             # can contain an earlier brief, extras and the learner's own request.
-            suffix = part.content[parsed.script_start + length :]
-            if session.script.constraints and suffix.startswith("\n\n"):
+            suffix = part.content[parsed.script_start + (length or 0) :]
+            if (
+                length is not None
+                and session.script.constraints
+                and suffix.startswith("\n\n")
+            ):
                 brief_length = matched_section_length(
                     suffix,
                     2,
@@ -85,9 +87,12 @@ def refresh_nickname(session: Session, current: dict[str, Any]) -> None:
                 + json.dumps(memory, ensure_ascii=False, indent=2)
                 + "\n</memory>"
                 + parsed.notice
-                + "\n\n<script>\n"
-                + session.script.script
-                + "\n</script>"
+                + "\n\n"
+                + (
+                    f"<script>\n{session.script.script}\n</script>"
+                    if length is not None
+                    else ""
+                )
                 + suffix
             )
             parts = list(message.parts)
