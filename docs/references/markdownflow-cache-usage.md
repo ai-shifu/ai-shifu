@@ -64,7 +64,7 @@ the numeric counters or private evaluation report.
 
 ## Complete-course testing
 
-Normal classroom teaching (`agent_lesson`), semantic summaries
+Normal classroom teaching (`teaching`), semantic summaries
 (`agent_teaching_summary`) and memory admission (`agent_memory_admission`) share
 the authenticated course and lesson usage context. The ledger retains the learner
 identity and read/listen/classroom mode, while existing ownership resolution identifies the

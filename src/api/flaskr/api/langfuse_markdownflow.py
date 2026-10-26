@@ -104,6 +104,8 @@ class SafeObservation:
 class MarkdownFlowTrace:
     """Own one request, with explicit parents across producer-thread boundaries."""
 
+    CONTEXT_PROMPT_FIELDS = ("script", "teaching_brief")
+
     def __init__(
         self,
         *,
@@ -192,7 +194,10 @@ class MarkdownFlowTrace:
         self._context_identity = identity
         self.child(
             "context",
-            input={"script": script, "teaching_brief": teaching_brief},
+            input={
+                self.CONTEXT_PROMPT_FIELDS[0]: script,
+                self.CONTEXT_PROMPT_FIELDS[1]: teaching_brief,
+            },
             metadata=metadata,
         ).end(output={"loaded": True})
 

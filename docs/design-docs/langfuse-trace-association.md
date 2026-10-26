@@ -89,7 +89,9 @@ makes the diagnostic limit visible without adding unbounded telemetry queries.
 
 The tree uses stable names such as `context`, `turn`, and native tool names.
 A turn is an `agent` observation, an LLM request is a `generation`, and an
-engine tool execution is a `tool`. The existing shared gateway remains the
+engine tool execution is a `tool`. The primary course model generation is named
+`teaching`; auxiliary models keep their distinct operation names. The existing
+shared gateway remains the
 sole producer of model usage and cost observations. An observation proxy resolves
 the current turn when a gateway generation starts, so reused models follow new
 turns automatically. Explicit parent handles
@@ -101,8 +103,9 @@ OpenTelemetry context or gateway mutation in business orchestration.
 Root input is the current submitted learner text or structured answers. A
 request without text uses an explicit start, continue, or regenerate action.
 It is not the last model-message array entry, which may be a tool response.
-The `context` child records the actual native session script and effective
-author teaching brief. Restored sessions retain their script snapshot; debug
+The course `context` child records the actual native session script as
+`teaching_prompt` (Teaching Prompt) and the effective author teaching brief as
+`course_prompt` (Course Prompt). Restored sessions retain their script snapshot; debug
 sessions use the submitted editor document. Prompt bodies are observation
 input, not propagated trace metadata.
 
