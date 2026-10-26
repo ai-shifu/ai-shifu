@@ -82,6 +82,11 @@ does not belong to a course or lesson. Request ids, native turn indexes,
 progress/block identifiers, content/configuration revisions, learning mode,
 and operation type belong in metadata rather than observation names.
 
+Ancestor title lookup is bounded to twelve parent records per request. A deeper
+path keeps the nearest ancestors and exact lesson title, prefixes its displayed
+chapter path with `...`, and sets `chapter_path_truncated` in metadata. This
+makes the diagnostic limit visible without adding unbounded telemetry queries.
+
 The tree uses stable names such as `context`, `turn`, and native tool names.
 A turn is an `agent` observation, an LLM request is a `generation`, and an
 engine tool execution is a `tool`. The existing shared gateway remains the
@@ -121,7 +126,10 @@ or discarded save must not leave an unresolved tool labeled as successful.
 Any outstanding tool/turn is also closed when the request fails or disconnects.
 
 The host marks a business outcome only after its authoritative save succeeds,
-before publishing the terminal DTO. Root metadata separates `runtime_outcome`
+before publishing progress updates or terminal DTOs from that save. Course turn
+observations stay open until all delivered output has been collected; closing
+the transport during post-save progression still retains the committed outcome.
+Root metadata separates `runtime_outcome`
 from `transport_closed`, retaining `end_reason` for existing diagnostics. A
 connection closed after a committed waiting/completed result remains successful;
 a real mid-turn disconnect retains partial public output. A discarded save is

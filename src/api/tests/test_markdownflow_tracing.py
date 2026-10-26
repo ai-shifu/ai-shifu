@@ -425,6 +425,30 @@ def test_midstream_disconnect_keeps_partial_output_and_closes_open_tools(
     assert _value(spans["recall"], "output") == {"status": "disconnected"}
 
 
+def test_committed_status_survives_close_while_final_output_is_still_published(
+    observations: InMemorySpanExporter,
+) -> None:
+    trace = _trace()
+    trace.start_turn()
+    trace.event(ToolCall(id="finish-1", name="finish", args={"summary": "Done"}))
+    trace.append_output("Teaching.\n")
+    trace.mark_outcome("completed")
+
+    assert _value(_spans(observations)["finish"], "output") == {"status": "completed"}
+    assert "turn" not in _spans(observations)
+    trace.append_output("[Next lesson]")
+    trace.finish(transport_closed=True)
+
+    spans = _spans(observations)
+    root = spans["learn/Course/Chapter/Lesson"]
+    assert (
+        root.attributes["langfuse.observation.metadata.runtime_outcome"] == "completed"
+    )
+    assert root.attributes["langfuse.observation.metadata.transport_closed"] is True
+    assert _value(root, "output") == "Teaching.\n[Next lesson]"
+    assert _value(spans["turn"], "output") == _value(root, "output")
+
+
 def test_auto_continuation_has_separate_turns_and_one_aggregated_root(
     observations: InMemorySpanExporter,
 ) -> None:

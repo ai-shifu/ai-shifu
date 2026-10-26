@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 import pytest
+from flaskr.api import langfuse_markdownflow
+from flaskr.api.langfuse import MockClient
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn import runscript_v2 as runtime
@@ -150,11 +152,7 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
         )
 
     monkeypatch.setattr(lesson_entry, "_resolve", resolve)
-    monkeypatch.setattr(lesson_entry, "get_langfuse_client", lambda: None)
-    monkeypatch.setattr(
-        lesson_entry, "create_trace_with_root_span", lambda **_k: (Mock(), Mock())
-    )
-    monkeypatch.setattr(lesson_entry, "finalize_langfuse_trace", lambda **_k: None)
+    monkeypatch.setattr(langfuse_markdownflow, "get_langfuse_client", MockClient)
     monkeypatch.setattr(runtime, "uses_agent_engine", lambda _bid: True)
     monkeypatch.setattr(routing, "uses_agent_engine", lambda _bid: True)
 

@@ -53,17 +53,26 @@ def _lesson_context(
         "course_title": (shifu.title or "").strip() or shifu.shifu_bid,
         "lesson_title": (outline.title or "").strip() or outline.outline_item_bid,
         "chapter_path": list(reversed(ancestors)),
+        "chapter_path_truncated": bool(parent_bid and parent_bid not in seen),
         "course_record_id": shifu.id,
         "outline_record_id": outline.id,
     }
 
 
-def _lesson_name(scene: str, course: str, chapters: list[str], lesson: str) -> str:
+def _lesson_name(
+    scene: str,
+    course: str,
+    chapters: list[str],
+    lesson: str,
+    *,
+    truncated: bool = False,
+) -> str:
     """Preserve both title identities within the SDK's propagation limit."""
     scene, course, lesson = (
         " ".join(value.split()) for value in (scene, course, lesson)
     )
-    chapter_path = "/".join(" ".join(value.split()) for value in chapters)
+    chapter_parts = ["...", *chapters] if truncated else chapters
+    chapter_path = "/".join(" ".join(value.split()) for value in chapter_parts)
     parts = [scene, course, *([chapter_path] if chapter_path else []), lesson]
     name = "/".join(parts)
     if len(name) <= 180:
@@ -166,6 +175,7 @@ class CourseTrace(MarkdownFlowTrace):
                     str(self._titles.get("course_title") or self._shifu_bid),
                     self._titles.get("chapter_path") or [],
                     str(self._titles.get("lesson_title") or self._outline_bid),
+                    truncated=bool(self._titles.get("chapter_path_truncated")),
                 ),
                 user_id=self._user_bid,
                 input=self._request_input,
@@ -229,12 +239,17 @@ class CourseTrace(MarkdownFlowTrace):
     def after_save(
         self,
         *,
+        session: Session | None = None,
         reason: str | None = None,
         finished: bool = False,
         discarded: bool = False,
     ) -> None:
-        """Map the host's persistence facts to a trace outcome before terminal publication."""
-        self.complete_turn(
+        """Record authoritative saved state before publishing any resulting events."""
+        if session is not None:
+            finished = bool(session.finished)
+            if reason is None:
+                reason = "interaction" if session.pending else "end"
+        self.mark_outcome(
             "discarded"
             if discarded
             else "completed"
@@ -267,6 +282,7 @@ class CourseTrace(MarkdownFlowTrace):
                 try:
                     event = next(iterator)
                 except StopIteration as stopped:
+                    self.complete_turn(self._outcome)
                     return stopped.value
                 if event.type in {
                     GeneratedType.CONTENT,

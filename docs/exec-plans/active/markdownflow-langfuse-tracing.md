@@ -23,7 +23,10 @@ tree shows context, turns, models, and tools. Profile uses the same machinery.
 - [x] 2026-10-26 CST: Integrated course learning, preview, and debugging with real-SDK regression coverage.
 - [x] 2026-10-26 CST: Integrated Profile execution, preview, and private transformations; all 193 Profile tests pass.
 - [ ] Run regression checks and inspect exported traces through Langfuse readback.
-- [ ] Update the canonical design and deliver a ready pull request without merging.
+- [x] 2026-10-26 CST: Updated the canonical design and opened ready PR #3185; no main merge.
+- [x] 2026-10-26 CST: Centralized host policies in Langfuse modules and removed gateway parent mutation from business code.
+- [x] 2026-10-26 CST: Deployed dev build 5492 and read back debug, course preview, and Profile-preview request records.
+- [ ] Complete final full-backend/CI checks and remaining remote scene acceptance.
 
 ## Surprises & Discoveries
 
@@ -36,6 +39,11 @@ tree shows context, turns, models, and tools. Profile uses the same machinery.
 - Profile buffers native results before publication; tracing must preserve
   that atomicity and must not expose private profile summaries as root output.
 - Tools such as finish and remember do not always emit ToolResult events.
+- Full CI found old fixtures patching SDK names removed from the course entry
+  module. Fixtures now patch the shared tracing boundary instead of retaining
+  dead aliases in business code.
+- Closing after a committed outline update precedes the terminal DTO. Mark the
+  saved outcome before those yields, but keep turn output open through delivery.
 
 ## Decision Log
 
@@ -54,9 +62,25 @@ tree shows context, turns, models, and tools. Profile uses the same machinery.
 
 ## Outcomes & Retrospective
 
-Implementation is complete. The course agent and affected routing suite passed
-1,764 tests (three skipped); Profile passed all 193 tests. Shared SDK and gateway
-regressions pass. Final checks and external acceptance remain pending.
+The implementation and minimal-intrusion refinement are complete. The full
+learner suite passed 3,634 tests (93 skipped), the gateway/usage file passed all
+265 tests, and 631 focused shared/course/Profile cases passed. Additional real
+SDK cases cover post-save closes at outline updates, next-lesson controls, and
+the terminal event. Seven bounded-name/context cases pass. Full backend and
+current-head CI remain the final verification gate.
+
+Dev build 5492 deployed image `20261026-54d5df8` to API and Cook Web; both
+containers were running with zero restarts on readback. The debugging request
+[aa37898765db4e1c8c94e59be04db4f2](https://langfuse.ai-shifu.cn/project/clx156l3a00034h4evri3dbb4/traces/aa37898765db4e1c8c94e59be04db4f2)
+has the resolved course/lesson name, start action input, visible lesson and
+interaction output, a context node, an agent turn, teaching generations, and an
+interaction tool. Its native session link and waiting outcome are present.
+The course preview request
+[5ead395f5fbb4abfaeb78a85aeb1437d](https://langfuse.ai-shifu.cn/project/clx156l3a00034h4evri3dbb4/traces/5ead395f5fbb4abfaeb78a85aeb1437d)
+was independently read back with preview naming, root IO, generation/tool
+parents, and native session correlation. Profile preview start/root IO were
+read back and its five-question UI completed; final summary-child readback and
+the formal learn/profile remote paths remain pending.
 
 ## Context and Orientation
 
