@@ -15,6 +15,10 @@ from pathlib import Path
 
 import prepare_env
 import pytest
+from test_runtime_packaging import path_matches
+
+ROOT = Path(__file__).resolve().parents[1]
+TEMPFILE_GLOB = f"{prepare_env._TEMPFILE_PREFIX}*.tmp"
 
 
 @pytest.fixture
@@ -146,7 +150,7 @@ def test_invalid_explicit_environment_fails_without_output_or_disclosure(
     if key.strip():
         assert key not in captured.out + captured.err
     assert not output.exists()
-    assert not list(output.parent.glob(".*.init-*.tmp"))
+    assert not list(output.parent.glob(TEMPFILE_GLOB))
 
 
 @pytest.mark.parametrize(
@@ -196,7 +200,7 @@ def test_invalid_existing_configuration_is_never_repaired_or_overwritten(
     with pytest.raises(prepare_env.PreparationError):
         prepare_env.prepare_env(output, template, environ={})
     assert output.read_text() == content
-    assert not list(output.parent.glob(".*.init-*.tmp"))
+    assert not list(output.parent.glob(TEMPFILE_GLOB))
 
 
 @pytest.mark.parametrize(
@@ -228,7 +232,7 @@ def test_multiple_processes_publish_one_complete_shared_configuration(
     assert len(key) == 43
     assert original.endswith(b'OTHER="unchanged"\n')
     assert all(key not in result.stdout + result.stderr for result in results)
-    assert not list(output.parent.glob(".*.init-*.tmp"))
+    assert not list(output.parent.glob(TEMPFILE_GLOB))
 
 
 @pytest.mark.parametrize("dangling", [False, True])
@@ -316,7 +320,7 @@ def test_failure_before_publication_leaves_no_partial_configuration(
             prepare_env.prepare_env(output, template, environ={})
         assert "confidential-fixture-data" not in str(caught.value)
     assert not output.exists()
-    assert not list(output.parent.glob(".*.init-*.tmp"))
+    assert not list(output.parent.glob(TEMPFILE_GLOB))
     assert prepare_env.prepare_env(output, template, environ={})
 
 
@@ -338,10 +342,12 @@ def test_directory_sync_failure_preserves_published_key_for_recovery(
     assert output.read_bytes() == original
 
 
+@pytest.mark.parametrize("filename", [".env", "settings.conf", "unusual env name"])
 def test_crash_before_publication_recovers_without_using_partial_file(
-    installation: tuple[Path, Path],
+    installation: tuple[Path, Path], filename: str
 ) -> None:
     output, template = installation
+    output = output.with_name(filename)
     code = """
 import os
 import sys
@@ -366,8 +372,9 @@ prepare_env.prepare_env(Path(sys.argv[1]), Path(sys.argv[2]), environ={})
     )
     assert crashed.returncode == 19
     assert not output.exists()
-    leftovers = list(output.parent.glob(".*.init-*.tmp"))
+    leftovers = list(output.parent.glob(TEMPFILE_GLOB))
     assert len(leftovers) == 1
+    assert leftovers[0].name.startswith(".ai-shifu-env-init-")
     assert stat.S_IMODE(leftovers[0].stat().st_mode) == 0o600
     assert prepare_env.prepare_env(output, template, environ={})
     assert prepare_env._key_assignment(output.read_text())[1]
@@ -448,3 +455,58 @@ def test_cli_errors_do_not_echo_existing_secret(
         )
     assert "confidential-value" not in stderr.getvalue()
     assert "other-value" not in stderr.getvalue()
+
+
+def test_crash_orphans_are_git_ignored_at_every_installation_location() -> None:
+    """Private orphan files cannot enter a normal git add -A after a crash."""
+    filename = f"{prepare_env._TEMPFILE_PREFIX}synthetic.tmp"
+    candidates = [
+        filename,
+        f"docker/{filename}",
+        f"src/api/{filename}",
+        f"src/web/{filename}",
+        f"src/web/nested/{filename}",
+    ]
+    ignored = subprocess.run(
+        ["git", "check-ignore", "--no-index", "--stdin"],
+        cwd=ROOT,
+        input="\n".join(candidates) + "\n",
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert ignored.stdout.splitlines() == candidates
+
+
+@pytest.mark.parametrize("context", [".", "src/web"])
+def test_private_installation_files_are_excluded_from_every_docker_build_context(
+    context: str,
+) -> None:
+    """Both builds exclude saved configuration and private crash orphans."""
+    filename = f"{prepare_env._TEMPFILE_PREFIX}synthetic.tmp"
+    candidates = [filename, f"nested/{filename}", ".env", "nested/.env"]
+    if context == ".":
+        candidates.extend(
+            [
+                f"docker/{filename}",
+                f"src/api/{filename}",
+                f"src/web/{filename}",
+                "docker/.env",
+                "src/api/.env",
+                "src/web/.env",
+            ]
+        )
+    patterns = (ROOT / context / ".dockerignore").read_text().splitlines()
+    for candidate in candidates:
+        ignored = False
+        for line in patterns:
+            pattern = line.strip()
+            if (
+                pattern
+                and not pattern.startswith("#")
+                and path_matches(pattern.removeprefix("!"), candidate)
+            ):
+                ignored = not pattern.startswith("!")
+        assert ignored, (
+            f"{context}: {candidate} must be excluded from the build context"
+        )

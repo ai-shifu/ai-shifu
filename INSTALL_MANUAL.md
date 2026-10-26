@@ -136,9 +136,14 @@ file/directory synchronization. Read-only configurations are usable when
 already valid; a read-only or unwritable directory cannot initialize a new
 file. Unsupported filesystems, symlinks and nonregular destinations fail
 without a fallback key. A crash before publication may leave a private
-`.env` temporary file; rerunning is safe. A synchronization failure after
+`.ai-shifu-env-init-*.tmp` file; Git and both Docker build contexts exclude
+this reserved name. Rerunning is safe. A synchronization failure after
 publication is reported without removing the saved file; retain it and fix
 the storage error before starting services.
+
+The bundled Docker build contexts also exclude saved `.env` files at every
+depth, including the manual installation's `src/api/.env`. Keep custom output
+filenames outside build contexts or add equivalent private-file exclusions.
 
 Latest-image and development Compose modes load the same `docker/.env` for
 the API, Celery worker and beat. All Gunicorn workers inherit that key. Manual

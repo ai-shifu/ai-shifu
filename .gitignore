@@ -162,6 +162,7 @@ celerybeat.pid
 # Project specific ignores
 ###############################################################################
 # Environment files
+.ai-shifu-env-init-*.tmp
 .env.local
 .env.development.local
 .env.test.local

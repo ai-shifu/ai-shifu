@@ -34,9 +34,11 @@ on:
       - scripts/test_release_workflow.py
       - scripts/test_runtime_packaging.py
       - .dockerignore
+      - .gitignore
       - src/api/Dockerfile
       - src/api/requirements.txt
       - src/web/Dockerfile
+      - src/web/.dockerignore
       - src/web/package.json
       - src/web/package-lock.json
       - src/web/.npmrc

@@ -40,6 +40,13 @@ is independent of administrator setup in PR #3183.
 - Latest and development Compose services already share one `.env` file.
   No new runtime store or per-process random fallback is necessary.
 - Tests deliberately require missing and blank runtime keys to fail.
+- Crash orphans use a reserved temporary-file prefix independent of output
+  filenames. Git and both Docker build contexts exclude that namespace so
+  interrupted initialization cannot leak a private key through later staging
+  or image builds.
+- Root and standalone Web Docker contexts also exclude final `.env` files
+  recursively, including the manual backend's saved `src/api/.env`; a later
+  image build must not copy the installation's key with application sources.
 - The shared local Python environment contained older MarkdownFlow and dotenv
   versions. Tests use the repository-pinned `markdown-flow==0.4.2` and
   `python-dotenv==1.2.2` from an isolated temporary overlay; no shared
@@ -73,7 +80,7 @@ is independent of administrator setup in PR #3183.
 
 ## Outcomes & Retrospective
 
-Local validation passed: 96 installer/Compose/packaging tests, all nine Compose
+Local validation passed: 101 installer/Compose/packaging tests, all nine Compose
 integration cases on both 2.24.4 and 5.6.1, and 595 backend
 configuration/session/encryption regressions, strict mypy for the installer,
 shell syntax, development-tool verification, architecture/harness validation,
@@ -131,7 +138,8 @@ CI to terminal states and distinguish local checks from hosted checks.
 Rerunning provisioning validates and keeps an existing file. Never fill an
 empty or missing key in an existing file; restore the original configuration
 from backup. Crashes before publication can leave only private temporary
-files; rerun to finish. After publication, reuse the committed file even if
+files under the reserved `.ai-shifu-env-init-` namespace; Git and Docker ignore
+them. Rerun to finish. After publication, reuse the committed file even if
 directory synchronization reports an error. Back up configuration with the
 database and preserve it across upgrades and replicas.
 

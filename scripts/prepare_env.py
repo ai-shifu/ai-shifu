@@ -29,6 +29,7 @@ class PreparationError(Exception):
 _KEY_LINE = re.compile(r"^\s*(?:export\s+)?SECRET_KEY\b")
 _ASSIGNMENT = re.compile(r"^\s*(?:export\s+)?SECRET_KEY\s*=\s*(.*)$")
 _ROOT = Path(__file__).resolve().parent.parent
+_TEMPFILE_PREFIX = ".ai-shifu-env-init-"
 
 
 def _literal_value(raw: str) -> str:
@@ -195,7 +196,7 @@ def prepare_env(
             return False
         content = _new_content(template, os.environ if environ is None else environ)
         descriptor, name = tempfile.mkstemp(
-            prefix=f".{output.name}.init-", suffix=".tmp", dir=output.parent
+            prefix=_TEMPFILE_PREFIX, suffix=".tmp", dir=output.parent
         )
         temporary = Path(name)
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as destination:
