@@ -35,6 +35,14 @@ inline-code, HTML, math, escape-parity, malformed-example and main-script
 collection behavior. Unrecognized sections, learner messages, tool returns,
 extras and already displayed teaching are preserved. No 1.0 session is migrated.
 
+A saved Profile control may carry a historically expanded option value. Only
+restored pending objects can match that historical contract, reconstructed from
+the recognized initial host prompt and its original values. Batched siblings
+retain this compatibility across store round trips. The initial host script is
+restored to literal source before another model request; new controls must match
+literal values even in a resumed historical session. Existing tool calls and
+accepted answers are never rewritten.
+
 This change retains native `variable` and `initial_variables` field names and
 the existing declaration/admission rules. Question-key naming, interaction
 collection semantics and authoring/preview migration are separate work in PR
