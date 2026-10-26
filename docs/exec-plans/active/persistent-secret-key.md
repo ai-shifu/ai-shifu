@@ -31,7 +31,12 @@ is independent of administrator setup in PR #3183.
 - [x] 2026-10-26 CST: Create ready PR #3186, independent of #3183.
 - [x] 2026-10-26 CST: Fix the reviewed release-note installation path and
   validate both published notes and PR previews with 30 release regressions.
-- [ ] 2026-10-26 CST: Follow the final review-fix head's CI to completion.
+- [x] 2026-10-26 CST: Verify implementation head `057dad363`: 18 successful
+  checks/statuses, one expected skipped publication check, and one neutral review.
+- [x] 2026-10-26 CST: Condense installation guidance to three key reminders,
+  move pinned-release requirements beside Docker startup, and pass the
+  repository harness and all-files pre-commit gate.
+- [ ] 2026-10-26 CST: Track the documentation update's current-head CI on PR #3186.
 
 ## Surprises & Discoveries
 
@@ -63,6 +68,10 @@ is independent of administrator setup in PR #3183.
 
 ## Decision Log
 
+- 2026-10-26: Keep the installation manual focused on user actions: retain
+  three key-preservation reminders and place pinned-image prerequisites,
+  commands, and migration guidance beside Docker startup. Implementation and
+  filesystem details remain in the installer, regression tests, and this plan.
 - 2026-10-26: Generate at installation, not application import. A stdlib-only
   helper writes a fresh `.env` using secure randomness and no-clobber atomic
   publication. Runtime startup remains read-only and deterministic.
@@ -92,7 +101,9 @@ configuration/session/encryption regressions, strict mypy for the installer,
 shell syntax, development-tool verification, architecture/harness validation,
 and the all-files pre-commit gate. Independent review found no outstanding
 introduced issue after fixing existing interpolated-config compatibility and
-test/CI integration. Hosted acceptance remains to be recorded on the PR.
+test/CI integration. Implementation head `057dad363` passed its applicable CI,
+including 15,054 backend tests with 15 skips and eight contract tests. The
+documentation follow-up's hosted acceptance is tracked on PR #3186.
 No deployment, production inspection, automatic merge, or modification of
 another task's checkout is authorized or necessary.
 

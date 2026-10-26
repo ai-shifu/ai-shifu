@@ -105,73 +105,13 @@ These variables are essential for the application to run:
 
 #### Secret key preservation and recovery
 
-`python3 scripts/prepare_env.py` creates a new `docker/.env` with a
-cryptographically random key from 32 random bytes and permissions `0600`.
-It writes and synchronizes a private temporary file before atomically
-publishing the complete configuration without overwriting an existing file.
-Concurrent installers use the first complete file. A valid `SECRET_KEY`
-explicitly supplied in the installer's environment takes priority when
-creating a new file. Explicit install-time values must be single-line
-literals without backslashes or `${...}` interpolation so Docker Compose and
-python-dotenv read the same bytes. Neither success nor failure prints key material.
-
-An existing `.env` is never rewritten, including its permissions or legacy
-key. An explicit shell key does not replace a saved key. Duplicate, missing,
-blank, malformed or interpolated key assignments fail installer validation; restore the
-original file from a secure backup instead of rerunning installation to
-rotate it. Existing keys with weak historical values are preserved for
-compatibility. Any rotation requires a separate migration because it
-invalidates sessions and may make encrypted configuration unreadable.
-
-The installer validates literal assignments; existing deployments that resolve
-their keys through dotenv interpolation or a secret manager should retain
-their established startup path. The development script refuses to start when
-`.env` is absent; restore an existing installation's original file instead of
-initializing again. It never invokes provisioning on startup or changes
-existing configuration semantics. Runtime key validation remains authoritative
-for those deployments.
-
-The destination directory must already exist and allow atomic hard links and
-file/directory synchronization. Read-only configurations are usable when
-already valid; a read-only or unwritable directory cannot initialize a new
-file. Unsupported filesystems, symlinks and nonregular destinations fail
-without a fallback key. A crash before publication may leave a private
-`.ai-shifu-env-init-*.tmp` file; Git and both Docker build contexts exclude
-this reserved name. Rerunning is safe. A synchronization failure after
-publication is reported without removing the saved file; retain it and fix
-the storage error before starting services.
-
-The bundled Docker build contexts also exclude saved `.env` files at every
-depth, including the manual installation's `src/api/.env`. Keep custom output
-filenames outside build contexts or add equivalent private-file exclusions.
-
-Latest-image and development Compose modes load the same `docker/.env` for
-the API, Celery worker and beat. All Gunicorn workers inherit that key. Manual
-installations load `src/api/.env`. Runtime startup never generates a key: a
-missing or invalid runtime key fails as before. Persist and securely back up
-the environment file alongside the database; distribute the same key through
-your secret manager for replicas on other hosts. Never regenerate
-configuration during restart, image replacement or restore.
-
-The pinned `docker-compose.yml` still preserves its historical effective
-demo key, which took precedence over `.env`. For a **fresh** pinned-release
-installation only, run the installer and include the explicit overlay on
-every command:
-
-```bash
-cd docker
-docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d
-```
-
-This overlay passes the saved key to all three backend services and works
-with the existing pinned images. It requires Docker Compose 2.24.4+ and uses
-the [Compose reset tag](https://docs.docker.com/reference/compose-file/merge/#reset-value)
-to remove the historical `environment` override, letting `env_file` supply
-the saved key even if the invoking shell exports a different `SECRET_KEY`.
-Do not add it to an existing deployment
-without first preserving the key that was actually in use; a previously
-ignored custom `.env` value would otherwise change authentication. Continue
-using existing deployment commands until that deliberate migration.
+- The installer automatically generates and saves an independent `SECRET_KEY`;
+  no manual key entry is required.
+- Securely back up `.env` and reuse it across restarts, upgrades, and all
+  replicas.
+- Keep existing keys. If configuration is lost, restore the original file
+  instead of generating a new key; changing it invalidates sessions and can
+  make encrypted configuration unreadable.
 
 #### Trusted reverse proxies and client IPs
 
@@ -318,8 +258,23 @@ docker compose -f docker-compose.latest.yml up -d
 builds. That tag does not guarantee a cached image is current: run
 `docker compose -f docker-compose.latest.yml pull` before `up -d` when you
 want to replace local images with the published ones. For a fresh pinned
-release installation, use both `docker-compose.yml` and
-`docker-compose.secret-key.yml` as described in the key preservation section.
+release installation, use the following instructions instead.
+
+#### Fresh pinned-release installation
+
+Requires Docker Compose 2.24.4+. After creating `docker/.env` in Step 2,
+run this command from `docker/` to start the pinned images:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d
+```
+
+Keep both `-f` options on every Compose command for this new deployment,
+including restarts and upgrades.
+
+Existing pinned deployments must retain their original commands and effective
+key until a deliberate migration. Adding the overlay can activate a previously
+ignored `.env` value and break existing sessions or encrypted configuration.
 
 ### Step 5: Manual Installation (Development)
 
