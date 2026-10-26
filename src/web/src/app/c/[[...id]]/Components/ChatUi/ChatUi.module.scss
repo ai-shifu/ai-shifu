@@ -1,10 +1,29 @@
 .ChatUi {
   --chat-footer-height: 40px;
+  --chat-footer-reserved-height: var(--chat-footer-height);
   --listen-player-footer-gap: 0px;
 
   position: relative;
   flex: 1;
   min-width: 0;
+
+  &:not(.listenMode) {
+    height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
+    min-height: 0;
+
+    // Only the outer container reserves space; the inner scroller fills it.
+    > .chatComponents {
+      height: calc(100% - var(--chat-footer-reserved-height));
+    }
+
+    &.mobile {
+      flex: 1 1 auto;
+      height: calc(
+        var(--app-viewport-block-unit, 1dvh) *
+          100 - var(--mobile-chat-header-height, 44px)
+      );
+    }
+  }
 
   .header {
     position: absolute;
@@ -213,17 +232,9 @@
   .chatComponents {
     width: 100%;
 
-    // The footer is a fixed/absolute overlay pinned to the bottom. Reserving
-    // the footer height at the container level (shrinking this box) keeps all
-    // scrollable content above the overlay — not just the last item — so lesson
-    // text is never hidden behind the footer while scrolling. Inner
-    // padding-bottom cannot achieve this because the overlay still sits on top
-    // of the scroll area regardless of inner padding.
-    height: calc(100% - var(--chat-footer-height));
+    height: 100%;
     min-width: 0;
-    min-height: calc(
-      var(--app-viewport-block-unit, 1dvh) * 100 - var(--chat-footer-height)
-    );
+    min-height: 0;
     background: #fff;
     flex: 1 1 auto;
     justify-content: center;
@@ -292,13 +303,10 @@
 }
 
 .hideMobileFooter {
+  --chat-footer-reserved-height: 0px;
+
   .footer {
     display: none;
-  }
-  // Footer is hidden, so the chat area must not keep reserving space for it.
-  .chatComponents {
-    height: 100%;
-    min-height: calc(var(--app-viewport-block-unit, 1dvh) * 100);
   }
 }
 
