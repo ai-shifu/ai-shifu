@@ -22,9 +22,10 @@ methods. Preserve the ordinary verification-code security boundary.
 - [x] 2026-10-25 UTC: Implemented local administrator identity, login and token/session checks.
 - [x] 2026-10-25 UTC: Implemented setup/status/login HTTP boundaries and deployment startup.
 - [x] 2026-10-25 UTC: Implemented setup and local login UI, translations, analytics and tests.
-- [x] 2026-10-25 UTC: Full frontend regression passed 281 suites/3,444 tests;
-  full backend regression passed 15,105 tests with 107 skipped. Coverage is
-  95.18%, exceeding the 95.01% gate; skip reasons are recorded in delivery evidence.
+- [x] 2026-10-25 UTC: The historical local frontend run passed 281 suites/3,444
+  tests; the local backend run passed 15,105 tests with 107 skipped. That local
+  backend run measured 95.18% coverage against the 95.01% gate. PR CI did not
+  collect new coverage; skip reasons are recorded in delivery evidence.
 - [x] 2026-10-25 UTC: Restored the missing task-local Redis test binary after
   identifying 92 skipped real-Redis cases. Both affected modules passed all
   120 tests with Redis required. Across runs, 15,197 distinct backend cases
@@ -33,8 +34,9 @@ methods. Preserve the ordinary verification-code security boundary.
 - [x] 2026-10-25 UTC: Corrected independently identified local-password reset
   races, non-demo ownership transfer and unsafe schema downgrade. Independent
   domain follow-up passed seven targeted cases. The review tool blocked the
-  final independent identity follow-up; the complete backend run includes the
-  new threaded identity regressions, and root inspected the shared lock boundary.
+  final independent identity follow-up; the 15,105-pass/107-skip local backend
+  run includes the new threaded identity regressions, and root inspected the
+  shared lock boundary.
 - [x] 2026-10-25 UTC: TypeScript, complete frontend lint, production build,
   repository pre-commit and migration/domain checks passed. Fixed missing
   product-spec metadata and regenerated the knowledge indexes after the first
@@ -76,6 +78,13 @@ methods. Preserve the ordinary verification-code security boundary.
   skipped with its false-positive title. This is not a clean scan, and the
   incident lifecycle rows remained Triggered. No broad exclusion or history
   rewrite was used.
+- [x] 2026-10-26 UTC: Integrated main `ee125ce1` without rewriting history.
+  At immutable head `21fd8586`, all seven Actions passed: one full backend CI
+  run passed 15,197 tests with 15 skipped (911.30s, testmon selection disabled),
+  eight separate contract tests passed, 282 frontend suites/3,492 tests passed,
+  and four production-image browser cases passed on the first attempt. These
+  CI results are separate from the earlier multi-run local union and do not
+  count for later heads. CI did not collect new coverage.
 - [ ] 2026-10-25 UTC: The single-check rerun request returned HTTP 404 through
   the current GitHub connection; no rerun is confirmed from that request.
   Do not retry it or widen permissions. Observe the final source revision's
@@ -120,14 +129,23 @@ Schema downgrade refuses to drop mappings while local-account bindings remain.
 
 ## Outcomes & Retrospective
 
-Implementation, complete backend/frontend regression runs, native browser
-acceptance, production Web build and final repository checks are present in
-this isolated branch. No earlier OTP CI results count as feature verification.
+Implementation, native browser acceptance, the production Web build and
+repository checks are present in this isolated branch. Historical local backend
+evidence comprises the 15,105-pass/107-skip run and the subsequent 120-pass Redis
+module run, yielding 15,197 distinct passes across runs with 15 remaining skips.
+The 95.18% coverage measurement belongs only to the former local run. Separately,
+head `21fd8586` passed a single full backend CI run (15,197 passed/15 skipped),
+282 frontend suites/3,492 tests and four container browser cases. PR CI did not
+collect new coverage. No earlier OTP CI results count as feature verification.
 The combined review target is #3183 against main; the previous stacked PR
 arrangement is historical. Any additional review fixes require fresh CI for
 their actual head and do not inherit earlier revision results.
 Docker/MySQL container smoke is unavailable locally; discovering four Playwright
-harness cases is not evidence that they ran. The independent final identity
+harness cases is not evidence that they ran. The CI browser results above cover
+that immutable head's real MySQL/Redis happy paths; fresh/existing MySQL upgrade
+and concurrency acceptance remains pending before release, as recorded in
+Progress. The five MySQL-specific pytest cases and ten optional SaaS-plugin
+cases remain skipped. The independent final identity
 review remained blocked by the review tool; it was not retried through an
 alternate model or wider permissions.
 
