@@ -159,7 +159,11 @@ docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d
 ```
 
 This overlay passes the saved key to all three backend services and works
-with the existing pinned images. Do not add it to an existing deployment
+with the existing pinned images. It requires Docker Compose 2.24.4+ and uses
+the [Compose reset tag](https://docs.docker.com/reference/compose-file/merge/#reset-value)
+to remove the historical `environment` override, letting `env_file` supply
+the saved key even if the invoking shell exports a different `SECRET_KEY`.
+Do not add it to an existing deployment
 without first preserving the key that was actually in use; a previously
 ignored custom `.env` value would otherwise change authentication. Continue
 using existing deployment commands until that deliberate migration.

@@ -89,7 +89,7 @@ python3 ../scripts/prepare_env.py
 
 docker compose -f docker-compose.latest.yml up -d
 
-# 全新安装固定版本时，可改用以下命令：
+# 全新安装固定版本时，可改用以下命令（需要 Compose 2.24.4+）：
 docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d
 ```
 

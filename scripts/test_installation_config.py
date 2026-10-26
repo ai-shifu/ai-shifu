@@ -66,6 +66,8 @@ def test_installation_key_reaches_all_backend_containers(
     )
     generated_key = key_line.split("=", 1)[1].strip("\"'")
     assert len(generated_key) >= 43
+    # A shell left over from another deployment cannot replace the saved key.
+    environment["SECRET_KEY"] = "unrelated-shell-fixture-value"  # noqa: S105 -- Synthetic conflicting shell configuration.
     for name in files:
         command.extend(["-f", str(tmp_path / name)])
     command.extend(["config", "--format", "json"])
@@ -112,13 +114,17 @@ def test_pinned_legacy_command_preserves_historical_effective_key(
         assert model["services"][role]["environment"]["SECRET_KEY"] == "ai-shifu"  # noqa: S105
 
 
-def test_fresh_pinned_overlay_refuses_missing_key(tmp_path: Path) -> None:
-    """The fresh-install path cannot fall back to the legacy public key."""
+@pytest.mark.parametrize("content", [None, "SECRET_KEY=\n", "OTHER=value\n"])
+def test_fresh_pinned_overlay_has_no_public_fallback(
+    tmp_path: Path, content: str | None
+) -> None:
+    """Missing files fail Compose; empty/missing keys remain invalid at runtime."""
     command = compose_command()
     for name in ["docker-compose.yml", "docker-compose.secret-key.yml"]:
         shutil.copy2(ROOT / "docker" / name, tmp_path)
         command.extend(["-f", str(tmp_path / name)])
-    (tmp_path / ".env").write_text("SECRET_KEY=\n")
+    if content is not None:
+        (tmp_path / ".env").write_text(content)
     result = subprocess.run(
         [*command, "config", "--format", "json"],
         cwd=tmp_path,
@@ -127,8 +133,66 @@ def test_fresh_pinned_overlay_refuses_missing_key(tmp_path: Path) -> None:
         text=True,
         check=False,
     )
-    assert result.returncode != 0
-    assert "SECRET_KEY" in result.stderr
+    if content is None:
+        assert result.returncode != 0
+    else:
+        assert result.returncode == 0
+        model = json.loads(result.stdout)
+        for service in [
+            "ai-shifu-api",
+            "ai-shifu-celery-worker",
+            "ai-shifu-celery-beat",
+        ]:
+            assert not model["services"][service]["environment"].get("SECRET_KEY")
+
+
+def test_explicit_dollar_key_has_stable_compose_roundtrip(tmp_path: Path) -> None:
+    """Printed dollar escaping must not be mistaken for a mutated key value."""
+    command = compose_command()
+    configuration = tmp_path / ".env"
+    explicit = "fixture$literal'key"
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/prepare_env.py"),
+            "--output",
+            str(configuration),
+        ],
+        env={"PATH": os.environ["PATH"], "SECRET_KEY": explicit},
+        capture_output=True,
+        check=True,
+    )
+    compose = tmp_path / "compose.yml"
+    compose.write_text(
+        "services:\n  app:\n    image: example.test/fixture:unused\n    env_file: .env\n"
+    )
+    rendered = subprocess.run(
+        [*command, "-f", str(compose), "config", "--format", "json"],
+        cwd=tmp_path,
+        env={"PATH": os.environ["PATH"]},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    model = json.loads(rendered.stdout)
+    # Compose escapes $ in config output so reloading that output preserves it.
+    assert model["services"]["app"]["environment"]["SECRET_KEY"] == explicit.replace(
+        "$", "$$"
+    )
+    roundtrip = tmp_path / "rendered.json"
+    roundtrip.write_text(rendered.stdout)
+    reloaded = subprocess.run(
+        [*command, "-f", str(roundtrip), "config", "--format", "json"],
+        cwd=tmp_path,
+        env={"PATH": os.environ["PATH"]},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert (
+        json.loads(reloaded.stdout)["services"]["app"]["environment"]
+        == model["services"]["app"]["environment"]
+    )
 
 
 def test_template_has_no_public_authentication_key() -> None:

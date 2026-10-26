@@ -134,7 +134,14 @@ jobs:
       - name: Hard-fail checks (on the now-fixed tree)
         run: |
           sel() { grep -E "$1" /tmp/changed.txt || true; }
-          yaml=$(sel '\.(ya?ml)$'); [ -n "$yaml" ] && check-yaml $yaml
+          compose_key_overlay='docker/docker-compose.secret-key.yml'
+          yaml=$(sel '\.(ya?ml)$' | grep -Fxv "$compose_key_overlay" || true)
+          [ -n "$yaml" ] && check-yaml $yaml
+          # Syntax-only parsing supports Compose's !reset without loading tags.
+          # Docker Packaging checks validate the overlay's actual merge semantics.
+          if grep -Fxq "$compose_key_overlay" /tmp/changed.txt; then
+            check-yaml --unsafe "$compose_key_overlay"
+          fi
           json=$(sel '\.json$'); [ -n "$json" ] && check-json $json
           txt=$(cat /tmp/changed_text.txt)
           [ -n "$txt" ] && check-merge-conflict $txt

@@ -89,7 +89,7 @@ python3 ../scripts/prepare_env.py
 
 docker compose -f docker-compose.latest.yml up -d
 
-# Alternative for a FRESH installation using pinned images:
+# Alternative for a FRESH installation using pinned images (Compose 2.24.4+):
 docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d
 ```
 

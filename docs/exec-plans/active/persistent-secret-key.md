@@ -28,7 +28,8 @@ is independent of administrator setup in PR #3183.
   installation paths and their documentation.
 - [x] 2026-10-26 CST: Verify concurrency, failure recovery, compatibility,
   configuration regressions, Compose rendering, and repository gates.
-- [ ] 2026-10-26 CST: Create a ready PR and follow its exact-head CI to completion.
+- [x] 2026-10-26 CST: Create ready PR #3186, independent of #3183.
+- [ ] 2026-10-26 CST: Follow the final review-fix head's CI to completion.
 
 ## Surprises & Discoveries
 
@@ -58,10 +59,22 @@ is independent of administrator setup in PR #3183.
   requires deliberate operator action because keys also protect encrypted data.
 - 2026-10-26: Keep the legacy pinned Compose behavior and add a fresh-install
   overlay that requires the provisioned key for API, worker, and beat.
+- 2026-10-26: Remove the pinned legacy `environment` key with Compose's
+  `!reset` tag so the shared `env_file` wins over a conflicting shell value.
+  Validate the exact tagged file with syntax-only YAML parsing locally and in
+  lint CI; keep every other YAML file on the existing strict loader. Actual
+  Compose merge tests cover the tag's semantics on 2.24.4 and 5.6.1.
+- 2026-10-26: The dollar-key review report is an output-escaping false
+  positive. Compose explicitly doubles dollars only when printing config;
+  see [the official implementation](https://github.com/docker/compose/blob/v5.6.1/cmd/compose/config.go#L179-L195).
+  Replaying the serialized model preserves its environment and service hash
+  on Compose 5.6.1. Retain explicit dollar values and cover model round trips
+  alongside the manual dotenv/JWT regression instead of rejecting valid keys.
 
 ## Outcomes & Retrospective
 
-Local validation passed: 93 installer/Compose/packaging tests, 595 backend
+Local validation passed: 96 installer/Compose/packaging tests, all nine Compose
+integration cases on both 2.24.4 and 5.6.1, and 595 backend
 configuration/session/encryption regressions, strict mypy for the installer,
 shell syntax, development-tool verification, architecture/harness validation,
 and the all-files pre-commit gate. Independent review found no outstanding
