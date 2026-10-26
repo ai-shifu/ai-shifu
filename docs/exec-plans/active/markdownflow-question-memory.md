@@ -16,6 +16,8 @@ The canonical contract is [Question Memory](../../references/markdownflow-questi
 
 ## Progress
 
+- [x] 2026-10-26 CST: Synchronize both #3188 review fixes through the shared matcher; final engine/learner/Profile pack passes 4,627 tests and full pre-commit passes. New controls remain literal after a historical pending answer.
+
 - [x] 2026-10-26 CST: Save source snapshots and rebase onto current main without losing Profile tracing.
 - [x] 2026-10-26 CST: Extract literal prompt behavior into PR #3188 and preserve shared compatibility fixes.
 - [x] 2026-10-26 CST: Combined backend pack has 7,945 passing cases after migrating three new main tracing fixtures; 96 skips. All 2,643 engine/tracing checks and 368 frontend checks pass, with types, lint and full pre-commit.

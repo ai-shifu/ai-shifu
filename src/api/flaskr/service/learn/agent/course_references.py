@@ -6,6 +6,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
+from flaskr.service.learn.agent.legacy_prompt import historical_reference_names
 from flaskr.service.profile.api import is_course_reference
 from markdownflow.engine.memory_context import parse_initial_memory_prompt
 from markdownflow.engine.script import render_first_prompt
@@ -19,7 +20,11 @@ def discard_course_references(
     session: Session, *, teaching_brief: str | None = None
 ) -> None:
     """Clear old aliases/substitutions; keep original classroom answers and later history."""
-    names = set(session.all_memory()) | set(session.initial_memory or {})
+    names = (
+        set(session.all_memory())
+        | set(session.initial_memory or {})
+        | historical_reference_names(session.script)
+    )
     unparsed_prompt = None
     for index, message in enumerate(session.messages):
         if not isinstance(message, ModelRequest):

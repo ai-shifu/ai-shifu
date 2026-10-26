@@ -15,11 +15,15 @@ reviewable PR on current main. The durable contract is
 
 ## Progress
 
+- [x] 2026-10-26 CST: Restore historical Profile option contracts only for issued pending objects, including siblings and fresh-call rejection; 331 shared host/Profile regressions pass. Shared matcher extraction preserves the service boundary.
+
+- [x] 2026-10-26 CST: Fix review finding for unset retired references; 128 reference/compatibility regressions pass.
+
 - [x] 2026-10-26 CST: Fetch main and PR #3181; save local recovery branches.
 - [x] 2026-10-26 CST: Create isolated managed worktree and copy local environment files.
 - [x] 2026-10-26 CST: Separate literal prompt assembly and historical host refresh from field renaming.
 - [x] 2026-10-26 CST: Verify 2,770 engine/compatibility checks and 127 focused prompt/Profile regressions; full pre-commit passes. Broad host/authoring regression readback remains in progress.
-- [ ] 2026-10-26 CST: Rebase PR #3181 onto this branch, verify combined behavior and update both PR descriptions.
+- [x] 2026-10-26 CST: Stack PR #3181 on this branch and update both descriptions; initial combined backend and frontend verification passes. Review fixes will be synchronized before final readback.
 - [ ] 2026-10-26 CST: Read current-head CI and reviews after the five-minute review window.
 
 ## Surprises & Discoveries
@@ -45,8 +49,8 @@ publication or deployment is authorized by this plan.
 ## Context and Orientation
 
 `markdownflow/engine/script.py` assembles model prompts; `engine.py` records the
-initial snapshot and chooses verbatim anchors. Host `learn/agent/legacy_prompt.py`
-recognizes historical native sections for deletion and nickname refresh.
+initial snapshot and chooses verbatim anchors. The shared `flaskr/common/markdownflow_prompt.py` matcher (also exported through
+the historical `learn/agent/legacy_prompt.py` path) recognizes historical native sections for deletion and nickname refresh.
 Profile's authored-interaction checker must compare literal options.
 
 ## Plan of Work

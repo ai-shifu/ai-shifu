@@ -293,3 +293,37 @@ def test_interact_readonly_policy_is_opt_in_for_portable_hosts(readonly: bool) -
             assert session.pending[0].spec.question == key
 
     asyncio.run(check())
+
+
+@pytest.mark.parametrize("prefix", ["course:", "share:"])
+@pytest.mark.parametrize("section", ["script", "constraints"])
+@pytest.mark.parametrize("snapshot", [None, {}])
+def test_unvalued_retired_reference_refreshes_only_initial_host_sections(
+    prefix: str, section: str, snapshot: dict | None
+) -> None:
+    key = prefix + "a" * 32 + ":goal"
+    source = "Use {{" + key + "}}."
+    old = f'Use <unavailable_learner_value name="{key}" />.'
+    bundle = ScriptBundle(
+        script=source if section == "script" else "Teach.",
+        constraints=source if section == "constraints" else None,
+    )
+    prompt = (
+        "<memory>\n{}\n</memory>\n\n<script>\n"
+        + (old if section == "script" else "Teach.")
+        + "\n</script>"
+    )
+    if section == "constraints":
+        prompt += "\n\n<constraints>\n" + old + "\n</constraints>"
+    later = ModelRequest(
+        parts=[UserPromptPart(old), ToolReturnPart("interact", old, "old")]
+    )
+    session = Session(
+        script=bundle,
+        initial_memory=snapshot,
+        messages=[ModelRequest(parts=[UserPromptPart(prompt)]), later],
+    )
+    discard_course_references(session)
+    assert session.messages[0].parts[0].content == render_first_prompt(bundle, {})
+    assert session.messages[1] is later
+    assert session.all_memory() == {}
