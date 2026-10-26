@@ -1138,14 +1138,12 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
         required=True,
-        example="ai-shifu",
-        description="""Secret key for JWT token signing and verification
-CRITICAL: Used to encrypt/decrypt user authentication tokens
-- Must be a strong random string (at least 32 characters recommended)
-- DO NOT change in production (will invalidate all user sessions)
-- Keep different values for dev/test/prod environments
-- Never commit to version control
-Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))" """,
+        description="""Secret key for authentication and encrypted configuration
+- New installs: run python3 scripts/prepare_env.py from the repository root
+- The installer generates and privately saves an independent random key
+- Keep the existing key across restarts, upgrades, and all replicas
+- Changing it invalidates sessions and can make encrypted data unreadable
+- Back up the environment file securely; never commit it to version control""",
         secret=True,
         group="auth",
         validator=lambda value: bool(value and str(value).strip()),
@@ -2494,14 +2492,16 @@ class EnhancedConfig:
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
                 "# These are the bare minimum values that must be set.",
-                "# Start from docker/.env.example.full and configure a provider API key.",
+                "# Create configuration with python3 scripts/prepare_env.py from the repository root.",
                 "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
                 "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
-                "# Copy this file to docker/.env (or .env) and configure a provider API key.",
+                "# Run python3 scripts/prepare_env.py from the repository root to create docker/.env.",
+                "# The installer generates SECRET_KEY once; existing configurations are never overwritten.",
+                "# Configure a provider API key in the resulting file.",
                 "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
                 "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]

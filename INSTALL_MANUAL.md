@@ -54,10 +54,11 @@ cd ai-shifu
 
 ### Step 2: Set Up Environment Variables
 
-Copy the full environment template (already aligned with the Docker defaults):
+Create private configuration from the full template (Python 3.10 or newer on
+a POSIX host is required; no Python packages need to be installed):
 
 ```bash
-cp docker/.env.example.full docker/.env
+python3 scripts/prepare_env.py
 ```
 
 For Docker-based workflows, configure at least one LLM provider key (for example `OPENAI_API_KEY`, `ERNIE_API_KEY` or `BIGMODEL_API_KEY`) and set `LLM_MODEL_1_ID` to a text model ID available through that provider. `LLM_MODEL_1_NAME` is optional; omit it or leave it blank to display the configured model ID. The template intentionally leaves both values empty, but only the ID is required. Database defaults match the bundled services; review security settings before production use.
@@ -75,10 +76,10 @@ These variables are essential for the application to run:
    - Bundled Compose default: `mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4`
    - For manual installation, use the local connection settings in Step 5.2.
 
-2. **Security**
-   - `SECRET_KEY`: JWT signing key for authentication
-   - Generate secure key: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-   - **Important**: Use different keys for dev/test/prod environments
+2. **Security (automatically provisioned)**
+   - `SECRET_KEY`: signing and encryption key, generated once by the installer
+   - Keep the saved value for the lifetime of the instance, including upgrades
+   - Run the installer separately for independent dev/test/prod environments
 
 3. **LLM Provider** (at least one required)
    - Choose from: OpenAI, ERNIE, ARK, SiliconFlow, GLM, DeepSeek, Qwen
@@ -92,7 +93,7 @@ These variables are essential for the application to run:
 
 #### Configuration Reference
 
-- `docker/.env.example.full`: canonical template that lists every environment variable with defaults, descriptions, and grouping (Database, Redis, Auth, LLM, etc.). Copy it to `docker/.env` and edit in place.
+- `docker/.env.example.full`: canonical template that lists every environment variable with defaults, descriptions, and grouping (Database, Redis, Auth, LLM, etc.). The installer creates `docker/.env` from it and fills only its empty `SECRET_KEY` placeholder. Configure other settings in the resulting file.
 - **Docker reminder**: configure a provider API key and `LLM_MODEL_1_ID` for latest-image, pinned-release and local-development Compose modes. Update database/Redis URLs if you are not using the bundled services.
 
 #### Important Notes
@@ -101,6 +102,16 @@ These variables are essential for the application to run:
 - Never commit `.env` files to version control
 - For production deployments, use environment-specific configurations
 - Refer to the example files for detailed explanations of each variable
+
+#### Secret key preservation and recovery
+
+- The installer automatically generates and saves an independent `SECRET_KEY`;
+  no manual key entry is required.
+- Securely back up `.env` and reuse it across restarts, upgrades, and all
+  replicas.
+- Keep existing keys. If configuration is lost, restore the original file
+  instead of generating a new key; changing it invalidates sessions and can
+  make encrypted configuration unreadable.
 
 #### Trusted reverse proxies and client IPs
 
@@ -246,8 +257,24 @@ docker compose -f docker-compose.latest.yml up -d
 `docker-compose.latest.yml` uses images tagged `:latest`, including local
 builds. That tag does not guarantee a cached image is current: run
 `docker compose -f docker-compose.latest.yml pull` before `up -d` when you
-want to replace local images with the published ones. Use `docker-compose.yml`
-instead if you need pinned release tags for reproducible environments.
+want to replace local images with the published ones. For a fresh pinned
+release installation, use the following instructions instead.
+
+#### Fresh pinned-release installation
+
+Requires Docker Compose 2.24.4+. After creating `docker/.env` in Step 2,
+run this command from `docker/` to start the pinned images:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d
+```
+
+Keep both `-f` options on every Compose command for this new deployment,
+including restarts and upgrades.
+
+Existing pinned deployments must retain their original commands and effective
+key until a deliberate migration. Adding the overlay can activate a previously
+ignored `.env` value and break existing sessions or encrypted configuration.
 
 ### Step 5: Manual Installation (Development)
 
@@ -265,19 +292,19 @@ docker run -d --name redis -p 127.0.0.1:6379:6379 redis:7-alpine
 
 #### Step 5.2: Configure Environment for Local Development
 
-For a fresh local setup, copy the Docker configuration from Step 3 to the
-backend directory. Run this from the repository root; keep an existing
-`src/api/.env` if it already contains local settings.
+For a fresh local setup, provision a separate configuration in the backend
+directory. Run this from the repository root; existing configuration is
+validated and preserved.
 
 ```bash
-cp -n docker/.env src/api/.env
+python3 scripts/prepare_env.py --output src/api/.env
 ```
 
 The Docker template includes demo authentication settings such as
 `UNIVERSAL_VERIFICATION_CODE`. The API and frontend commands below bind to
 loopback so those settings are not exposed through either development server.
 Before making the application remotely accessible, clear the universal code,
-replace the demo `SECRET_KEY`, and configure a real login provider.
+and configure a real login provider. Keep the generated `SECRET_KEY` unchanged.
 
 Edit `src/api/.env`, retaining the provider key and required `LLM_MODEL_1_ID`
 mapping. Replace Docker service hostnames with the addresses of your local
