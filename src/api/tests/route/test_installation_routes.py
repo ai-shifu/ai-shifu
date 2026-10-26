@@ -92,6 +92,268 @@ def _setup_payload(app: Flask) -> dict[str, str]:
     }
 
 
+def _create_password_user(
+    app: Flask, *, user_bid: str, identifier: str, operator: bool = False
+) -> str:
+    from flaskr.service.user.consts import USER_STATE_REGISTERED
+    from flaskr.service.user.password_flow import write_password_credential
+    from flaskr.service.user.repository import create_user_entity
+
+    with app.app_context(), unit_of_work():
+        user = create_user_entity(
+            user_bid=user_bid, identify=identifier, state=USER_STATE_REGISTERED
+        )
+        user.is_operator = int(operator)
+        write_password_credential(
+            app, user_bid=user_bid, identifier=identifier, new_password="Attacker123"
+        )
+    return user_bid
+
+
+def _unverified_contact_payload(identifier: str) -> dict[str, str]:
+    return (
+        {"email": identifier.upper()}
+        if "@" in identifier
+        else {"mobile": f"+86 {identifier}"}
+    )
+
+
+def _assert_unverified_contact_claim(user_bid: str, identifier: str) -> None:
+    from flaskr.service.user.consts import CREDENTIAL_STATE_UNVERIFIED
+
+    credential = AuthCredential.query.filter_by(
+        user_bid=user_bid,
+        provider_name="email" if "@" in identifier else "phone",
+        identifier=identifier,
+        deleted=0,
+    ).one()
+    assert credential.state == CREDENTIAL_STATE_UNVERIFIED
+
+
+@pytest.mark.parametrize("identifier", ["owner@example.com", "13800138000"])
+@pytest.mark.parametrize(
+    ("owner_kind", "path"),
+    [
+        ("ordinary", "/api/user/login_password"),
+        ("setup", "/api/user/login_password"),
+        ("setup", "/api/installation/login"),
+    ],
+)
+def test_unverified_profile_claim_cannot_block_the_password_owner(
+    password_http_app: Flask, identifier: str, owner_kind: str, path: str
+) -> None:
+    from flaskr.service.user.password_flow import write_password_credential
+    from flaskr.service.user.repository import find_password_identity_user_bids
+
+    app = password_http_app
+    payload = {**_setup_payload(app), "identifier": identifier}
+    if owner_kind == "ordinary":
+        payload["identifier"] = "bootstrap@example.com"
+    setup = _post(app, "initialize", payload).get_json()
+    assert setup["code"] == 0
+    owner_bid = setup["data"]["userInfo"]["user_id"]
+    if owner_kind == "ordinary":
+        owner_bid = _create_password_user(
+            app, user_bid="ordinary-owner", identifier=identifier
+        )
+        with app.app_context(), unit_of_work():
+            write_password_credential(
+                app,
+                user_bid=owner_bid,
+                identifier=identifier,
+                new_password=payload["password"],
+            )
+    initial_login = _password_login(app, path, identifier, payload["password"])
+    assert initial_login["code"] == 0
+    assert initial_login["data"]["userInfo"]["user_id"] == owner_bid
+
+    attacker_bid = _create_password_user(
+        app, user_bid="attacker", identifier="attacker@example.net"
+    )
+    attacker_login = _password_login(
+        app, "/api/user/login_password", "attacker@example.net", "Attacker123"
+    )
+    assert attacker_login["code"] == 0
+    assert attacker_login["data"]["userInfo"]["user_id"] == attacker_bid
+    claim = (
+        app.test_client()
+        .post(
+            "/api/user/update_info",
+            json=_unverified_contact_payload(identifier),
+            headers={"Token": attacker_login["data"]["token"]},
+        )
+        .get_json(force=True)
+    )
+    assert claim["code"] == 0
+    with app.app_context():
+        _assert_unverified_contact_claim(attacker_bid, identifier)
+
+    owner_login = _password_login(app, path, identifier, payload["password"])
+    assert owner_login["code"] == 0
+    assert owner_login["data"]["userInfo"]["user_id"] == owner_bid
+    assert _password_login(app, path, identifier, "Attacker123")["code"] != 0
+    own_login = _password_login(
+        app, "/api/user/login_password", "attacker@example.net", "Attacker123"
+    )
+    assert own_login["code"] == 0
+    assert own_login["data"]["userInfo"]["user_id"] == attacker_bid
+    with app.app_context(), unit_of_work():
+        assert find_password_identity_user_bids(identifier) == {owner_bid}
+        assert find_password_identity_user_bids(identifier, for_update=True) == {
+            owner_bid
+        }
+
+
+@pytest.mark.parametrize("identifier", ["owner@example.com", "13800138000"])
+@pytest.mark.parametrize(
+    "path", ["/api/user/login_password", "/api/installation/login"]
+)
+def test_locked_password_confirmation_ignores_a_new_unverified_profile_claim(
+    password_http_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    identifier: str,
+    path: str,
+) -> None:
+    from flaskr.dao.uow import in_unit_of_work
+    from flaskr.route import user as user_routes
+    from flaskr.service.user.common import update_user_info
+    from flaskr.service.user.repository import (
+        build_user_info_from_aggregate,
+        load_user_aggregate,
+    )
+
+    app = password_http_app
+    payload = {**_setup_payload(app), "identifier": identifier}
+    setup = _post(app, "initialize", payload).get_json()
+    assert setup["code"] == 0
+    owner_bid = setup["data"]["userInfo"]["user_id"]
+    attacker_bid = _create_password_user(
+        app, user_bid="attacker", identifier="attacker@example.net"
+    )
+    with app.app_context(), unit_of_work():
+        UserToken.query.filter_by(user_id=owner_bid).delete()
+    route_module = user_routes if path.startswith("/api/user/") else routes
+    original_confirm = route_module.confirm_password_login_for_token_issue
+    injected: list[bool] = []
+
+    def claim_before_confirmation(**kwargs: object) -> None:
+        assert in_unit_of_work()
+        attacker = build_user_info_from_aggregate(load_user_aggregate(attacker_bid))
+        update_user_info(
+            app, attacker, name=None, **_unverified_contact_payload(identifier)
+        )
+        _assert_unverified_contact_claim(attacker_bid, identifier)
+        injected.append(True)
+        original_confirm(**kwargs)
+
+    monkeypatch.setattr(
+        route_module,
+        "confirm_password_login_for_token_issue",
+        claim_before_confirmation,
+    )
+    owner_login = _password_login(app, path, identifier, payload["password"])
+    assert injected == [True]
+    assert owner_login["code"] == 0
+    assert owner_login["data"]["userInfo"]["user_id"] == owner_bid
+    with app.app_context():
+        _assert_unverified_contact_claim(attacker_bid, identifier)
+        assert UserToken.query.filter_by(user_id=owner_bid).count() == 1
+
+
+@pytest.mark.parametrize(
+    "path", ["/api/user/login_password", "/api/installation/login"]
+)
+def test_locked_password_confirmation_ignores_an_unverified_google_canonical_copy(
+    password_http_app: Flask, monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    from flaskr.route import user as user_routes
+    from flaskr.service.user.consts import (
+        CREDENTIAL_STATE_UNVERIFIED,
+        USER_STATE_UNREGISTERED,
+    )
+    from flaskr.service.user.models import UserInfo
+    from flaskr.service.user.repository import create_user_entity, upsert_credential
+
+    app = password_http_app
+    payload = _setup_payload(app)
+    setup = _post(app, "initialize", payload).get_json()
+    assert setup["code"] == 0
+    owner_bid = setup["data"]["userInfo"]["user_id"]
+    with app.app_context(), unit_of_work():
+        UserInfo.query.filter_by(
+            user_bid=owner_bid
+        ).one().user_identify = "current@example.com"
+        UserToken.query.delete()
+    route_module = user_routes if path.startswith("/api/user/") else routes
+    original_confirm = route_module.confirm_password_login_for_token_issue
+
+    def create_unverified_copy(**kwargs: object) -> None:
+        # Model the persisted new-account shape of an unverified Google
+        # callback completed after password verification, before token issue.
+        claimant = create_user_entity(
+            user_bid="unverified-google-claimant",
+            identify=payload["identifier"],
+            state=USER_STATE_UNREGISTERED,
+        )
+        upsert_credential(
+            app,
+            user_bid=claimant.user_bid,
+            provider_name="google",
+            subject_id="unverified-google-subject",
+            subject_format="google",
+            identifier=payload["identifier"],
+            metadata={"email_verified": False},
+            verified=False,
+        )
+        original_confirm(**kwargs)
+
+    monkeypatch.setattr(
+        route_module, "confirm_password_login_for_token_issue", create_unverified_copy
+    )
+    result = _password_login(app, path, payload["identifier"], payload["password"])
+    assert result["code"] == 0
+    assert result["data"]["userInfo"]["user_id"] == owner_bid
+    with app.app_context():
+        assert UserInfo.query.filter_by(user_bid="unverified-google-claimant").one()
+        assert AuthCredential.query.filter_by(provider_name="google").one().state == (
+            CREDENTIAL_STATE_UNVERIFIED
+        )
+        assert UserToken.query.filter_by(user_id=owner_bid).count() == 1
+
+
+@pytest.mark.parametrize("identifier", ["unowned@example.com", "13800138000"])
+def test_an_unverified_profile_contact_is_not_a_password_login_alias(
+    password_http_app: Flask, identifier: str
+) -> None:
+    from flaskr.service.user.repository import find_password_identity_user_bids
+
+    app = password_http_app
+    assert _post(app, "initialize", _setup_payload(app)).get_json()["code"] == 0
+    attacker_bid = _create_password_user(
+        app, user_bid="attacker", identifier="attacker@example.net", operator=True
+    )
+    login = _password_login(
+        app, "/api/user/login_password", "attacker@example.net", "Attacker123"
+    )
+    assert login["code"] == 0
+    assert login["data"]["userInfo"]["user_id"] == attacker_bid
+    response = app.test_client().post(
+        "/api/user/update_info",
+        json=_unverified_contact_payload(identifier),
+        headers={"Token": login["data"]["token"]},
+    )
+    assert response.get_json(force=True)["code"] == 0
+    with app.app_context(), unit_of_work():
+        _assert_unverified_contact_claim(attacker_bid, identifier)
+        assert find_password_identity_user_bids(identifier) == set()
+        assert find_password_identity_user_bids(identifier, for_update=True) == set()
+    for path in ("/api/user/login_password", "/api/installation/login"):
+        assert _password_login(app, path, identifier, "Attacker123")["code"] != 0
+        own_login = _password_login(app, path, "attacker@example.net", "Attacker123")
+        assert own_login["code"] == 0
+        assert own_login["data"]["userInfo"]["user_id"] == attacker_bid
+
+
 def test_status_is_minimal_and_not_cached(installation_http_app: Flask) -> None:
     response = installation_http_app.test_client().get("/api/installation/status")
     assert response.get_json() == {
@@ -283,16 +545,20 @@ def test_persisted_password_identifiers_require_a_usable_ordinary_credential(
         assert UserToken.query.count() == 0
 
 
-@pytest.mark.parametrize("collision", ["canonical", "email", "password"])
+@pytest.mark.parametrize("collision", ["canonical", "email", "phone", "password"])
 def test_password_identifiers_reject_conflicting_account_ownership(
     password_http_app: Flask, collision: str
 ) -> None:
     from flaskr.service.user.consts import USER_STATE_REGISTERED
     from flaskr.service.user.password_flow import write_password_credential
-    from flaskr.service.user.repository import create_user_entity, upsert_credential
+    from flaskr.service.user.repository import (
+        create_user_entity,
+        find_password_identity_user_bids,
+        upsert_credential,
+    )
 
     app = password_http_app
-    identifier = "original@example.com"
+    identifier = "13800138000" if collision == "phone" else "original@example.com"
     with app.app_context(), unit_of_work():
         owner = create_user_entity(
             user_bid="password-owner",
@@ -315,17 +581,21 @@ def test_password_identifiers_reject_conflicting_account_ownership(
                 identifier=identifier,
                 new_password="Other123",
             )
-        elif collision == "email":
+        elif collision in {"email", "phone"}:
             upsert_credential(
                 app,
                 user_bid=other.user_bid,
-                provider_name="email",
+                provider_name=collision,
                 subject_id=identifier,
-                subject_format="email",
+                subject_format=collision,
                 identifier=identifier,
                 metadata={},
                 verified=True,
             )
+        assert find_password_identity_user_bids(identifier) == {
+            owner.user_bid,
+            other.user_bid,
+        }
     for path in ("/api/user/login_password", "/api/installation/login"):
         for password in ("Owner123", "Other123"):
             assert _password_login(app, path, identifier, password)["code"] != 0
@@ -336,7 +606,9 @@ def test_password_identifiers_reject_conflicting_account_ownership(
 @pytest.mark.parametrize(
     "path", ["/api/user/login_password", "/api/installation/login"]
 )
-@pytest.mark.parametrize("mutation", ["conflict", "delete_alias", "unverify_alias"])
+@pytest.mark.parametrize(
+    "mutation", ["conflict", "verified_contact", "delete_alias", "unverify_alias"]
+)
 def test_password_identity_is_resolved_again_before_token_persistence(
     password_http_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -350,7 +622,7 @@ def test_password_identity_is_resolved_again_before_token_persistence(
     )
     from flaskr.service.user.models import UserInfo
     from flaskr.service.user.password_flow import write_password_credential
-    from flaskr.service.user.repository import create_user_entity
+    from flaskr.service.user.repository import create_user_entity, upsert_credential
 
     app = password_http_app
     payload = _setup_payload(app)
@@ -373,12 +645,27 @@ def test_password_identity_is_resolved_again_before_token_persistence(
     original_confirm = route_module.confirm_password_login_for_token_issue
 
     def change_identity(**kwargs: object) -> None:
-        if mutation == "conflict":
+        if mutation in {"conflict", "verified_contact"}:
             create_user_entity(
                 user_bid="new-conflicting-account",
-                identify=payload["identifier"],
+                identify=(
+                    payload["identifier"]
+                    if mutation == "conflict"
+                    else "other@example.com"
+                ),
                 state=USER_STATE_REGISTERED,
             )
+            if mutation == "verified_contact":
+                upsert_credential(
+                    app,
+                    user_bid="new-conflicting-account",
+                    provider_name="email",
+                    subject_id=payload["identifier"],
+                    subject_format="email",
+                    identifier=payload["identifier"],
+                    metadata={},
+                    verified=True,
+                )
         else:
             credential = AuthCredential.query.filter_by(
                 credential_bid=label_credential_bid

@@ -27,6 +27,7 @@ from flaskr.service.user.consts import (
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
+from sqlalchemy import and_, or_
 
 if TYPE_CHECKING:
     from datetime import date, datetime
@@ -513,8 +514,12 @@ def find_password_identity_user_bids(
     """Resolve every ordinary password identity, rejecting ambiguity at the caller.
 
     A persisted password label remains usable when the canonical contact changes.
-    Contact aliases retain the shared account-password semantics. Local username
-    compatibility belongs to its explicit installation binding, never this lookup.
+    Verified contact aliases retain the shared account-password semantics.
+    Unverified profile claims cannot establish or conflict with an identity.
+    A canonical email with a matching unverified Google claim is insufficient
+    on its own; verified contacts and usable password labels remain evidence.
+    Local username compatibility belongs to its explicit installation binding,
+    never this lookup.
     """
     normalized = (identifier or "").strip().lower()
     normalized = (
@@ -538,21 +543,34 @@ def find_password_identity_user_bids(
     ).filter(
         UserEntity.deleted == 0,
         AuthCredential.deleted == 0,
-        AuthCredential.provider_name.in_(["phone", "email", "password"]),
+        or_(
+            and_(
+                AuthCredential.provider_name.in_(["phone", "email", "password"]),
+                AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
+            ),
+            and_(
+                AuthCredential.provider_name == "google",
+                AuthCredential.state.is_distinct_from(CREDENTIAL_STATE_VERIFIED),
+            ),
+        ),
         AuthCredential.identifier.in_(lookup_identifiers),
     )
     if for_update:
         users = users.populate_existing().with_for_update()
         credentials = credentials.populate_existing().with_for_update()
     user_bids = {user.user_bid for user in users.all()}
+    unverified_google_bids: set[str] = set()
+    verified_identity_bids: set[str] = set()
     for credential in credentials.all():
-        if credential.provider_name == "password" and (
-            credential.state != CREDENTIAL_STATE_VERIFIED
-            or not get_password_hash(credential)
+        if credential.provider_name == "google":
+            unverified_google_bids.add(credential.user_bid)
+            continue
+        if credential.state != CREDENTIAL_STATE_VERIFIED or (
+            credential.provider_name == "password" and not get_password_hash(credential)
         ):
             continue
-        user_bids.add(credential.user_bid)
-    return user_bids
+        verified_identity_bids.add(credential.user_bid)
+    return (user_bids - unverified_google_bids) | verified_identity_bids
 
 
 def ensure_user_aggregate(

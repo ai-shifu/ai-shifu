@@ -54,6 +54,11 @@ Password login also resolves the identifier stored in a usable password
 credential, independently of later changes to the canonical contact. Both
 password entrypoints and the token-issuance recheck use the same resolution;
 conflicting identifiers across accounts are rejected rather than guessed.
+Only verified contact credentials can establish aliases or ownership conflicts;
+unverified profile contact claims cannot select or block another account.
+An active unverified Google claim also cannot establish a canonical email's
+password identity on its own. Verified contacts or usable password labels can
+still establish that identity; bound Google-subject login keeps its own rules.
 Console recovery retains that password login path. Its selector is the original
 setup identifier and its target is the stable account/password-credential
 mapping. An operator contact replacement may update the password login

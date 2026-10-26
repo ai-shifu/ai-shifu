@@ -292,6 +292,59 @@ refers to the same account, and setup does not claim contact verification.
   `EPERM`, before its behavior assertions. No test was skipped or weakened.
   Independent final review confirmed stable mapping, real verification,
   decoy isolation, legacy checks and matching documentation without a blocker.
+- [x] 2026-10-26 12:17 UTC: Published `971fbe65`; all seven Actions passed.
+  Backend ran every target without selection: 15,478 passed /15 skipped /282
+  warnings (960.61s), frontend passed 3,518 and Runtime passed four browser
+  cases on the first attempt (8.4s). Actual checkout `b2d668b1` and API merge
+  candidate `b0b95cb9` have identical parents and tree, matching this head.
+  The console recovery review was replied to and resolved with these results.
+- [x] 2026-10-26 12:17 UTC: New P1 review identified login denial from another
+  authenticated account's unverified profile contact claim. Independently
+  traced the protected update-info route through stored unverified credentials
+  to all three shared password-identity reads, including token confirmation.
+  Six real HTTP email/phone, ordinary/setup and both-login controls first
+  succeeded, then failed after the attacker's claim was stored. The candidate
+  query now requires verified credential state; canonical identities, usable
+  standard passwords (including setup metadata) and legacy bindings retain
+  their existing rules. Only trusted contact aliases assert ownership.
+- [ ] 2026-10-26 12:17 UTC: Challenge the candidate with locked-token timing,
+  unverified alias rejection and genuine conflict controls; complete a fresh
+  independent security review, required user-domain and repository checks,
+  then publish and verify that head's CI without inheriting earlier results.
+- [x] 2026-10-26 12:43 UTC: The local execution environment disconnected
+  before the complete domain command could create a process; no result was
+  counted. After restoration, verified the uncommitted patch was intact and
+  its domain log absent. The original source fix passed 24 focused and 176
+  adjacent cases. One fresh candidate security review found a surviving
+  canonical copy from an unverified Google callback. Two dynamic new-account
+  and registered-origin cases reproduced the same password-login denial.
+- [x] 2026-10-26 12:43 UTC: The shared helper now reads matching unverified
+  Google claims alongside trusted identity credentials, including during its
+  locked recheck. A canonical row alone cannot restore that unverified claim's
+  authority; verified contacts or usable password labels can still re-add the
+  same account. Bare legacy canonical and bound Google-subject behavior remain.
+  The completed security HTTP set passed 27 cases; all 27 Google cases passed,
+  including eight dynamic trust/provenance controls and existing OAuth behavior.
+  These focused counts overlap and are not added. Complete owning-domain checks
+  and new-head CI are still pending; no candidate fix is published yet.
+- [x] 2026-10-26 12:46 UTC: The final complete user-domain, installation HTTP,
+  console and contract run passed 1,216 tests with 289 warnings in 229.02s.
+  Its sole failure remains the existing fixture TCP-bind `EPERM` before
+  assertions. No skip, timeout or permission workaround was introduced. The
+  fresh review's one surviving Google path was reproduced, corrected in the
+  same shared consumer and checked with trusted-evidence re-add controls.
+- [ ] 2026-10-26 12:46 UTC: Main advanced to `beeccf3f` with #3189's engine
+  finish termination fix. Commit the checked P1 patch, back it up, rebase onto
+  that main without losing either change, run the required offline engine and
+  integration checks, then publish with an exact `971fbe65` remote-head lease
+  and obtain the resulting head's CI. Do not inherit the prior green results.
+- [x] 2026-10-26 12:53 UTC: Saved pre-integration `f7c85243` and rebased
+  all 16 patches onto main `beeccf3f` without conflicts; range-diff marks every
+  patch equal. Authentication and its route/domain tests are byte-identical to
+  the checked pre-rebase tree, and #3189 is retained. The required complete
+  offline MarkdownFlow suite plus installation HTTP/Google integration passed
+  all 2,746 cases with 54 warnings in 159.31s. Final repository gate and exact
+  new-head CI remain necessary before treating the delivery as complete.
 - [ ] 2026-10-25 UTC: The single-check rerun request returned HTTP 404 through
   the current GitHub connection; no rerun is confirmed from that request.
   Do not retry it or widen permissions. Observe the final source revision's
