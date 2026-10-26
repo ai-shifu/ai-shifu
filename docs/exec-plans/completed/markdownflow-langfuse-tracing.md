@@ -1,6 +1,6 @@
 ---
 title: MarkdownFlow Langfuse Tracing
-status: active
+status: completed
 owner_surface: backend
 last_reviewed: 2026-10-26
 canonical: false
@@ -22,11 +22,12 @@ tree shows context, turns, models, and tools. Profile uses the same machinery.
 - [x] 2026-10-26 CST: Implemented safe observations, typed nodes, and the request coordinator.
 - [x] 2026-10-26 CST: Integrated course learning, preview, and debugging with real-SDK regression coverage.
 - [x] 2026-10-26 CST: Integrated Profile execution, preview, and private transformations; all 193 Profile tests pass.
-- [ ] Run regression checks and inspect exported traces through Langfuse readback.
+- [x] 2026-10-26 CST: Ran regression checks and inspected exported traces through Langfuse readback.
 - [x] 2026-10-26 CST: Updated the canonical design and opened ready PR #3185; no main merge.
 - [x] 2026-10-26 CST: Centralized host policies in Langfuse modules and removed gateway parent mutation from business code.
 - [x] 2026-10-26 CST: Deployed dev build 5492 and read back debug, course preview, and Profile-preview request records.
-- [ ] Complete final full-backend/CI checks and remaining remote scene acceptance.
+- [x] 2026-10-26 CST: Full local backend passed 15,037 tests; all five deployed scenes passed remote readback.
+- [x] 2026-10-26 CST: All applicable GitHub checks passed at runtime head 564f54a07; reviewed scope/acceptance and archived the plan.
 
 ## Surprises & Discoveries
 
@@ -63,11 +64,19 @@ tree shows context, turns, models, and tools. Profile uses the same machinery.
 ## Outcomes & Retrospective
 
 The implementation and minimal-intrusion refinement are complete. The full
-learner suite passed 3,634 tests (93 skipped), the gateway/usage file passed all
-265 tests, and 631 focused shared/course/Profile cases passed. Additional real
-SDK cases cover post-save closes at outline updates, next-lesson controls, and
-the terminal event. Seven bounded-name/context cases pass. Full backend and
-current-head CI remain the final verification gate.
+local backend passed 15,037 tests with zero failures, 107 skips, and 50 passing
+subtests. Skips require real Redis (92 cases), optional SaaS plugins (10), or
+isolated MySQL configuration (5); GitHub CI provides the Redis harness. The
+gateway/usage file separately passed all 265 tests, and 631 focused
+shared/course/Profile cases passed. Additional real SDK cases cover post-save
+closes at outline updates, next-lesson controls, and the terminal event. Seven
+bounded-name/context cases pass. All-files pre-commit, repository harness, and
+architecture boundary checks pass. All applicable GitHub checks passed at
+runtime head `564f54a07`, including the full backend suite with real Redis
+(15,129 passed, 15 skipped),
+frontend tests, runtime harness, static checks, lint, CodeQL, GitGuardian, and
+automated review. The archival commit only updates documentation and generated
+indexes; it does not change the verified runtime.
 
 Dev build 5492 deployed image `20261026-54d5df8` to API and Cook Web; both
 containers were running with zero restarts on readback. The debugging request
@@ -78,9 +87,23 @@ interaction tool. Its native session link and waiting outcome are present.
 The course preview request
 [5ead395f5fbb4abfaeb78a85aeb1437d](https://langfuse.ai-shifu.cn/project/clx156l3a00034h4evri3dbb4/traces/5ead395f5fbb4abfaeb78a85aeb1437d)
 was independently read back with preview naming, root IO, generation/tool
-parents, and native session correlation. Profile preview start/root IO were
-read back and its five-question UI completed; final summary-child readback and
-the formal learn/profile remote paths remain pending.
+parents, and native session correlation. The completed Profile preview request
+[bfd591e4210b4d4ea477a2ba93b78988](https://langfuse.ai-shifu.cn/project/clx156l3a00034h4evri3dbb4/traces/bfd591e4210b4d4ea477a2ba93b78988)
+contains public closing text on the root, a separate `profile.summary` child
+with actual transformation messages/result, and its model generation. Its
+session is `fb7bb88d5a5247058a271a15f605219d`; its outcome is finished.
+
+Build 5493 subsequently deployed image `20261026-cd4ec0c` to both services,
+again with zero restarts. The formal learning answer request
+[478ac77042dc4e33be626422f1a9c176](https://langfuse.ai-shifu.cn/project/clx156l3a00034h4evri3dbb4/traces/478ac77042dc4e33be626422f1a9c176)
+shows the submitted structured answer, the published chapter/lesson path,
+public lesson output, context/agent/generation/tool hierarchy, and native
+session `f4783a1924014c39b5c0d175ec355861`. The formal Profile start request
+[f585754ec8914380b718045ec7e5fe08](https://langfuse.ai-shifu.cn/project/clx156l3a00034h4evri3dbb4/traces/f585754ec8914380b718045ec7e5fe08)
+has the short `profile` name, action input, greeting/question output, waiting
+outcome, and session `639a697e2e9d448ab1def8a236653630`. Its context, agent,
+generation, and interaction tool were read back. Collection was cancelled
+after acceptance and the previously saved personal introduction was retained.
 
 ## Context and Orientation
 
