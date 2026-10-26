@@ -1,6 +1,6 @@
 ---
 title: Share lesson request completion
-status: active
+status: completed
 owner_surface: backend
 last_reviewed: 2026-10-26
 ---
@@ -21,7 +21,14 @@ does. Keep the existing frontend, model execution and session-saving code.
   policy, retaining the original polling, serialization and error handling.
 - [x] 2026-10-26 CST: Pass 67 focused request-completion, cleanup and legacy
   preview-history tests; full learning-host suite: 3,658 passed, 93 skipped.
-- [ ] 2026-10-26 CST: Run repository gates, align SIM and update the existing PR.
+- [x] 2026-10-26 CST: Pass full repository gates and update PR #3191. Deploy
+  SIM build 5504 (`sim-d92a225`); verify API 2/2 and Web 1/1 ready, with six
+  deployed backend source hashes matching the narrowed PR.
+- [x] 2026-10-26 CST: Complete the original affected lesson in an isolated editor
+  debug session using `ark/deepseek-v4-1-flash-261017`. Observe one terminal,
+  two actual calls and two usage/consumption entries totaling 9.62 credits.
+  Two completed-session replays each emit one terminal and add zero calls or
+  charges, with saved history unchanged and no response or retry after finish.
 
 ## Surprises & Discoveries
 
@@ -42,8 +49,12 @@ This ordering fix is required by request completion, not a storage refactor.
 
 ## Outcomes & Retrospective
 
-The narrower patch is being verified. The previous `sim-48acc14` acceptance
-included withdrawn frontend and storage changes; it does not validate this scope.
+The narrowed patch passes 67 focused tests and the full learning-host suite
+(3,658 passed, 93 skipped), plus the full repository gate. Formal learning is
+covered through its actual request boundary offline. SIM build 5504 verifies the
+editor debug boundary with a real model and read-only usage/ledger reconciliation.
+The previous broad `sim-48acc14` is replaced in both API and Web. Existing learner
+and author-preview sessions were preserved. Production services were not deployed.
 
 ## Context and Orientation
 

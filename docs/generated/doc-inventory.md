@@ -95,7 +95,6 @@
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/resumed-learner-nickname.md` | Refresh Nicknames in Existing Agent Lessons | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/shared-lesson-request-lifecycle.md` | Share lesson request completion | `exec-plan-active` | `active` | `backend` | `2026-10-26` | `true` |
 | `docs/exec-plans/active/simplify-typed-marker-cleanup.md` | Simplify typed MarkdownFlow marker cleanup | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-request-analytics.md` | Account-linked Skill request pageviews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -228,6 +227,7 @@
 | `docs/exec-plans/completed/safe-frontend-dead-code-cleanup.md` | Safe Frontend Dead Code Cleanup | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/safe-outbound-url-validation.md` | Safe Outbound URL Validation | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/shared-answer-writeback.md` | Write explicit named answers back to same-owner course variables | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
+| `docs/exec-plans/completed/shared-lesson-request-lifecycle.md` | Share lesson request completion | `exec-plan-completed` | `completed` | `backend` | `2026-10-26` | `false` |
 | `docs/exec-plans/completed/spanish-es-es-localization.md` | Spanish (Spain) Product Localization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/stop-markdownflow-after-finish.md` | Stop model requests after lesson completion | `exec-plan-completed` | `completed` | `learner` | `2026-10-26` | `false` |
 | `docs/exec-plans/completed/stripe-payment-sync-security.md` | Secure learner Stripe payment synchronization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
