@@ -19,7 +19,7 @@ tree shows context, turns, models, and tools. Profile uses the same machinery.
 
 - [x] 2026-10-26 CST: Inspected both engine hosts, gateway, SDK v4 facade, and tests; agreed on request-level traces and short scene names.
 - [x] 2026-10-26 CST: Fetched origin/main and created sunner/markdownflow-tracing.
-- [x] 2026-10-26 CST: Implemented safe observations, typed nodes, the request coordinator, and explicit gateway parent rebinding.
+- [x] 2026-10-26 CST: Implemented safe observations, typed nodes, and the request coordinator.
 - [x] 2026-10-26 CST: Integrated course learning, preview, and debugging with real-SDK regression coverage.
 - [x] 2026-10-26 CST: Integrated Profile execution, preview, and private transformations; all 193 Profile tests pass.
 - [ ] Run regression checks and inspect exported traces through Langfuse readback.
@@ -48,6 +48,9 @@ tree shows context, turns, models, and tools. Profile uses the same machinery.
 - The user authorized synchronizing the change to dev and identified the
   development Langfuse project for remote acceptance. Keep the feature PR
   separate and preserve existing dev commits when integrating.
+- The user requested minimal intrusion in business code. Keep course/Profile
+  naming, metadata, output, and lifecycle policies in Langfuse-specific modules;
+  use a current-turn observation proxy instead of mutating gateway instances.
 
 ## Outcomes & Retrospective
 
@@ -99,6 +102,7 @@ Existing runtime persistence and cancellation remain authoritative.
 
 The application coordinator provides root/current observations, context and
 input binding, turn creation, native event observation, public output collection,
-persisted completion, and idempotent finalization. GatewayModel gains explicit
-parent-observation rebinding. Host tracing callbacks are optional. The portable
+persisted completion, and idempotent finalization. A permanent parent proxy
+follows the current turn without a new gateway setter. Host callbacks are
+optional, and host-specific policy lives in local langfuse_tracing modules. The portable
 markdownflow package gains no Langfuse dependency.

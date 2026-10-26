@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 import pytest
-from flaskr.api import markdownflow_tracing as tracing
+from flaskr.api import langfuse_markdownflow as tracing
 from langfuse import Langfuse
 from langfuse._client.resource_manager import LangfuseResourceManager
 from langfuse._client.span_exporter import LangfuseTransformingSpanExporter
@@ -448,6 +448,185 @@ def test_auto_continuation_has_separate_turns_and_one_aggregated_root(
         _value(_spans(observations)["learn/Course/Chapter/Lesson"], "output")
         == "First part.\nSecond part."
     )
+
+
+def test_model_parent_proxy_reuses_models_without_reparenting_existing_generations(
+    observations: InMemorySpanExporter,
+) -> None:
+    trace = _trace()
+    model_parent = trace.model_parent
+    trace.start_turn(metadata={"turn_index": 1})
+    first_generation = model_parent.generation(
+        name="teach", input="First model request", model="test-model"
+    )
+    model_parent.generation(name="summary", input="First auxiliary request").end(
+        output="First auxiliary response"
+    )
+    trace.append_output("First part.\n")
+    trace.complete_turn("end")
+    trace.start_turn(metadata={"turn_index": 2})
+    assert trace.model_parent is model_parent
+    model_parent.generation(name="teach", input="Second model request").end(
+        output="Second response"
+    )
+    model_parent.generation(name="summary", input="Second auxiliary request").end(
+        output="Second auxiliary response"
+    )
+    # Finishing an older generation after an automatic continuation must update
+    # its original observation, rather than follow the model-parent proxy.
+    first_generation.end(
+        output="First response", usage_details={"input": 2, "output": 3}
+    )
+    trace.append_output("Second part.")
+    trace.complete_turn("finished")
+    trace.finish()
+
+    spans = observations.get_finished_spans()
+    roots = [span for span in spans if span.name == "learn/Course/Chapter/Lesson"]
+    turns = [span for span in spans if span.name == "turn"]
+    generations = [
+        span
+        for span in spans
+        if span.attributes.get("langfuse.observation.type") == "generation"
+    ]
+    assert len(roots) == 1
+    assert len(turns) == 2
+    assert len(generations) == 4
+    parents = {
+        span.attributes[
+            "langfuse.observation.metadata.turn_index"
+        ]: span.context.span_id
+        for span in turns
+    }
+    for generation in generations:
+        turn_index = 1 if str(_value(generation, "input")).startswith("First") else 2
+        assert generation.parent.span_id == parents[turn_index]
+    first = next(
+        span for span in generations if _value(span, "input") == "First model request"
+    )
+    assert _value(first, "output") == "First response"
+    assert roots[0].context.trace_id == first.context.trace_id
+
+
+def test_request_scope_returns_itself_and_finishes_a_normal_request(
+    observations: InMemorySpanExporter,
+) -> None:
+    trace = _trace()
+    with trace as active:
+        assert active is trace
+        active.start_turn()
+        active.append_output("Normal response")
+
+    spans = _spans(observations)
+    root = spans["learn/Course/Chapter/Lesson"]
+    assert (
+        root.attributes["langfuse.observation.metadata.runtime_outcome"] == "completed"
+    )
+    assert _value(root, "output") == "Normal response"
+    assert spans["turn"].end_time is not None
+
+
+@pytest.mark.parametrize("outcome", ["waiting", "completed"])
+def test_request_scope_preserves_committed_terminal_when_consumer_closes(
+    observations: InMemorySpanExporter, outcome: str
+) -> None:
+    trace = _trace()
+
+    def request() -> None:
+        with trace:
+            trace.start_turn()
+            trace.append_output("Committed public response")
+            trace.complete_turn(outcome)
+            raise GeneratorExit
+
+    with pytest.raises(GeneratorExit):
+        request()
+
+    root = _spans(observations)["learn/Course/Chapter/Lesson"]
+    assert root.attributes["langfuse.observation.metadata.runtime_outcome"] == outcome
+    assert root.attributes["langfuse.observation.metadata.end_reason"] == "completed"
+    assert root.attributes["langfuse.observation.metadata.transport_closed"] is True
+    assert _value(root, "output") == "Committed public response"
+
+
+def test_request_scope_records_an_active_disconnect_without_suppressing_it(
+    observations: InMemorySpanExporter,
+) -> None:
+    trace = _trace()
+
+    def request() -> None:
+        with trace:
+            trace.start_turn()
+            trace.event(
+                ToolCall(id="recall-active", name="recall", args={"query": "goal"})
+            )
+            trace.append_output("Partial response")
+            raise GeneratorExit
+
+    with pytest.raises(GeneratorExit):
+        request()
+
+    spans = _spans(observations)
+    root = spans["learn/Course/Chapter/Lesson"]
+    assert (
+        root.attributes["langfuse.observation.metadata.runtime_outcome"]
+        == "disconnected"
+    )
+    assert _value(root, "output") == "Partial response"
+    assert _value(spans["recall"], "output") == {"status": "disconnected"}
+
+
+def test_request_scope_keeps_a_saved_discarded_outcome_and_domain_exception(
+    observations: InMemorySpanExporter,
+) -> None:
+    class DiscardedTurnError(RuntimeError):
+        """The host rejected this turn before publication."""
+
+    error = DiscardedTurnError("The session was reset")
+    trace = _trace()
+
+    def request() -> None:
+        with trace:
+            trace.start_turn()
+            trace.complete_turn("discarded")
+            raise error
+
+    with pytest.raises(DiscardedTurnError) as caught:
+        request()
+
+    assert caught.value is error
+    root = _spans(observations)["learn/Course/Chapter/Lesson"]
+    assert (
+        root.attributes["langfuse.observation.metadata.runtime_outcome"] == "discarded"
+    )
+    assert _spans(observations)["turn"].end_time is not None
+
+
+def test_request_scope_closes_observations_and_propagates_runtime_exceptions(
+    observations: InMemorySpanExporter,
+) -> None:
+    error = RuntimeError("Business persistence failed")
+    trace = _trace()
+
+    def request() -> None:
+        with trace:
+            trace.start_turn()
+            trace.event(
+                ToolCall(id="finish-1", name="finish", args={"summary": "Done"})
+            )
+            trace.append_output("Partial response")
+            raise error
+
+    with pytest.raises(RuntimeError) as caught:
+        request()
+
+    assert caught.value is error
+    spans = _spans(observations)
+    root = spans["learn/Course/Chapter/Lesson"]
+    assert root.attributes["langfuse.observation.metadata.runtime_outcome"] == "error"
+    assert root.attributes["langfuse.observation.level"] == "ERROR"
+    assert _value(spans["finish"], "output") == {"status": "error"}
+    assert spans["turn"].end_time is not None
 
 
 def test_context_is_recorded_once_per_effective_session_snapshot(

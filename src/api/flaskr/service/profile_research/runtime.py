@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 
 from flask import Flask, Response, stream_with_context
 from flaskr.api.llm.model_selection import get_default_llm_model
-from flaskr.api.markdownflow_tracing import MarkdownFlowTrace
 from flaskr.dao import (
     invalidate_session,
     is_protocol_interrupt_error,
@@ -36,6 +35,7 @@ from flaskr.service.profile_research.events import (
 from flaskr.service.profile_research.events import (
     _profile_research_event as _event,
 )
+from flaskr.service.profile_research.langfuse_tracing import ProfileTrace
 from flaskr.service.profile_research.provider import (
     _ProfileResearchLLMProvider,
     create_profile_research_model,
@@ -68,7 +68,6 @@ from markdown_flow import USER_ANSWER_CONTEXT_KEY, LLMProvider
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Mapping
 
-    from flaskr.api.markdownflow_tracing import SafeObservation
     from pydantic_ai.models import Model
 
 __all__ = [
@@ -93,36 +92,6 @@ __all__ = [
 ]
 
 _NICKNAME_VARIABLE_KEY = "sys_user_nickname"
-
-
-@contextlib.contextmanager
-def _profile_trace_scope(trace: MarkdownFlowTrace) -> Generator[None, None, None]:
-    """Keep stream transport closure separate from committed profile outcomes."""
-    try:
-        yield
-    except GeneratorExit:
-        trace.finish(transport_closed=True)
-        raise
-    except Exception:
-        trace.finish(outcome="error")
-        raise
-    finally:
-        trace.finish()
-
-
-@contextlib.contextmanager
-def _profile_trace_step(
-    trace: MarkdownFlowTrace, name: str, input_value: object
-) -> Generator[SafeObservation, None, None]:
-    """End private transformation observations on both success and failure."""
-    step = trace.child(name, input=input_value)
-    try:
-        yield step
-    except Exception as exc:
-        step.end(level="ERROR", status_message=type(exc).__name__)
-        raise
-    else:
-        step.end()
 
 
 @dataclass
@@ -489,68 +458,19 @@ class ProfileResearchRuntime:
             )
         return _RunAdmission(session=session, user_input=normalized_user_input)
 
-    @staticmethod
-    def _trace(
-        session: _ProfileResearchSession, *, input_value: object, operation: str = "run"
-    ) -> MarkdownFlowTrace:
-        scene = (
-            "profile-preview"
-            if session.purpose == PROFILE_ONBOARDING_PREVIEW_PURPOSE
-            else "profile"
-        )
-        trace = MarkdownFlowTrace(
-            name=scene,
-            user_id=session.user_bid,
-            input=input_value,
-            session_id=session.session_id,
-            metadata={
-                "scene": scene,
-                "purpose": session.purpose,
-                "flow_engine": "2.0",
-                "config_revision": session.config_revision,
-                "turn_index": session.turn_index,
-                "operation": operation,
-            },
-        )
-        trace.set_context(
-            session_id=session.session_id,
-            script=session.document,
-            metadata={"config_revision": session.config_revision},
-        )
-        return trace
-
-    @staticmethod
-    def _append_visible_output(
-        trace: MarkdownFlowTrace, events: list[dict[str, Any]]
-    ) -> bool:
-        # Content events are cumulative snapshots; record their deltas once. The
-        # private profile in the terminal payload is intentionally not root output.
-        previous: dict[tuple[str, str], str] = {}
-        for event in events:
-            if event.get("type") not in {"content", "interaction"}:
-                continue
-            value = event.get("content")
-            if not isinstance(value, str) or not value:
-                continue
-            key = (str(event["type"]), str(event.get("generated_block_bid") or ""))
-            earlier = previous.get(key, "")
-            trace.append_output(value.removeprefix(earlier))
-            previous[key] = value
-        return bool(previous)
-
     def _execute_turn(
         self,
         *,
         session: _ProfileResearchSession,
         user_input: dict[str, list[str]],
-        trace: MarkdownFlowTrace,
+        trace: ProfileTrace,
     ) -> tuple[list[dict[str, Any]], bool, bool]:
         """Adapt one native engine turn without owning questionnaire progression."""
         events: list[dict[str, Any]] = []
         result = run_profile_turn(
             session=session,
             user_input=user_input,
-            model=self._model_factory(self.app, session, trace.current),
+            model=self._model_factory(self.app, session, trace.model_parent),
             observer=trace.event,
         )
         element_content: dict[tuple[int, str, int], str] = {}
@@ -604,7 +524,7 @@ class ProfileResearchRuntime:
         self,
         session: _ProfileResearchSession,
         *,
-        trace: MarkdownFlowTrace | None = None,
+        trace: ProfileTrace | None = None,
     ) -> str:
         """Transform accepted learner evidence without publishing private model text."""
         evidence = profile_answer_evidence(session)
@@ -615,10 +535,6 @@ class ProfileResearchRuntime:
         ]
         if not evidence and not supplemental:
             return ""
-        owns_trace = trace is None
-        active_trace = trace or self._trace(
-            session, input_value={"action": "summary"}, operation="summary"
-        )
         instructions = _profile_summary_prompt()
         if session.output_language:
             instructions += f"\n\nOUTPUT LANGUAGE: {session.output_language}"
@@ -635,12 +551,7 @@ class ProfileResearchRuntime:
                 ),
             },
         ]
-        with (
-            _profile_trace_scope(active_trace)
-            if owns_trace
-            else contextlib.nullcontext(),
-            _profile_trace_step(active_trace, "profile.summary", messages) as summary,
-        ):
+        with ProfileTrace.summary(session, messages, trace=trace) as summary:
             draft = (
                 self._provider_factory(self.app, session, summary)
                 .complete(
@@ -707,7 +618,6 @@ class ProfileResearchRuntime:
             with contextlib.suppress(Exception):
                 owner_lock.release()
             raise
-        trace: MarkdownFlowTrace | None = None
         try:
             admission = self._admit_run(
                 user_bid=normalized_user_bid,
@@ -727,72 +637,49 @@ class ProfileResearchRuntime:
             # A failed turn or private transformation leaves the stored native Session
             # untouched, including its pending calls and exact-request replay data.
             staged = deepcopy(admission.session)
-            trace = self._trace(
-                staged,
-                input_value=admission.user_input
-                or {"action": "continue" if staged.engine_session else "start"},
-            )
-            trace.start_turn(metadata={"turn_index": staged.turn_index})
-            events, input_accepted, finished = self._execute_turn(
-                session=staged,
-                user_input=admission.user_input,
-                trace=trace,
-            )
-            if finished:
-                phase = self._summary_phase(staged)
-                yield phase
-                events.insert(0, phase)
-                staged.profile_draft = self._generate_profile_draft(staged, trace=trace)
-            staged.awaiting_input = bool((staged.engine_session or {}).get("pending"))
-            staged.done = finished
-            processed_turn_index = staged.turn_index
-            staged.turn_index += 1
-            terminal = _event(
-                "done",
-                self._summary(
-                    staged,
-                    processed_turn_index=processed_turn_index,
-                    input_accepted=input_accepted,
-                ),
-                run_session_bid=staged.session_id,
-                is_terminal=True,
-            )
-            all_events = [*events, terminal]
-            self._remember_request(
-                staged,
-                request_id=request_id,
-                expected_turn_index=expected_turn_index,
-                user_input=admission.user_input,
-                events=all_events,
-                expected_interaction_id=expected_interaction_id,
-            )
-            self.store.save(staged)
-            if not self._append_visible_output(trace, events):
-                trace.append_output(
-                    json.dumps(
-                        {"done": finished, "awaiting_input": staged.awaiting_input}
-                    )
+            with ProfileTrace(staged, admission.user_input) as trace:
+                events, input_accepted, finished = self._execute_turn(
+                    session=staged,
+                    user_input=admission.user_input,
+                    trace=trace,
                 )
-            trace.complete_turn(
-                "finished"
-                if finished
-                else "waiting"
-                if staged.awaiting_input
-                else "end"
-            )
-            yield from [event for event in events if event.get("type") != "phase"]
-            yield terminal
-        except GeneratorExit:
-            if trace is not None:
-                trace.finish(transport_closed=True)
-            raise
-        except Exception:
-            if trace is not None:
-                trace.finish(outcome="error")
-            raise
+                if finished:
+                    phase = self._summary_phase(staged)
+                    yield phase
+                    events.insert(0, phase)
+                    staged.profile_draft = self._generate_profile_draft(
+                        staged, trace=trace
+                    )
+                staged.awaiting_input = bool(
+                    (staged.engine_session or {}).get("pending")
+                )
+                staged.done = finished
+                processed_turn_index = staged.turn_index
+                staged.turn_index += 1
+                terminal = _event(
+                    "done",
+                    self._summary(
+                        staged,
+                        processed_turn_index=processed_turn_index,
+                        input_accepted=input_accepted,
+                    ),
+                    run_session_bid=staged.session_id,
+                    is_terminal=True,
+                )
+                all_events = [*events, terminal]
+                self._remember_request(
+                    staged,
+                    request_id=request_id,
+                    expected_turn_index=expected_turn_index,
+                    user_input=admission.user_input,
+                    events=all_events,
+                    expected_interaction_id=expected_interaction_id,
+                )
+                self.store.save(staged)
+                trace.publish(staged, events)
+                yield from [event for event in events if event.get("type") != "phase"]
+                yield terminal
         finally:
-            if trace is not None:
-                trace.finish()
             with contextlib.suppress(Exception):
                 lock.release()
             with contextlib.suppress(Exception):
@@ -803,18 +690,9 @@ class ProfileResearchRuntime:
         session: _ProfileResearchSession,
         raw_text: str,
         *,
-        trace: MarkdownFlowTrace | None = None,
+        trace: ProfileTrace | None = None,
     ) -> tuple[str, str]:
-        owns_trace = trace is None
-        active_trace = trace or self._trace(
-            session, input_value=raw_text, operation="delegate"
-        )
-        with (
-            _profile_trace_scope(active_trace)
-            if owns_trace
-            else contextlib.nullcontext(),
-            _profile_trace_step(active_trace, "profile.import", raw_text) as extraction,
-        ):
+        with ProfileTrace.import_answers(session, raw_text, trace=trace) as extraction:
             provider = self._provider_factory(self.app, session, extraction)
             answers, nickname = parse_assistant_answers(provider, session, raw_text)
             extraction.update(output={"answers": answers, "nickname": nickname})
@@ -879,9 +757,7 @@ class ProfileResearchRuntime:
 
             # All provider work happens on a detached snapshot. No cursor,
             # variables, or context is published until both steps succeed.
-            trace = self._trace(session, input_value=raw_text, operation="delegate")
-            trace.start_turn(metadata={"turn_index": session.turn_index})
-            with _profile_trace_scope(trace):
+            with ProfileTrace(session, raw_text, operation="delegate") as trace:
                 staged = deepcopy(session)
                 answers, nickname = self._extract_assistant_answers(
                     staged, raw_text, trace=trace
@@ -941,8 +817,7 @@ class ProfileResearchRuntime:
                     events=[phase, event],
                 )
                 published = self._save_assistant_result(staged, event)
-                trace.append_output(json.dumps({"done": True, "operation": "delegate"}))
-                trace.complete_turn("finished")
+                trace.publish(staged, published)
                 yield from published
 
     def _save_assistant_result(
