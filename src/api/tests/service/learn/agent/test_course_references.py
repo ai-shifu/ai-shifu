@@ -222,7 +222,7 @@ def test_saved_pending_reference_answer_is_kept_as_evidence_without_a_memory_wri
         session.pending = [
             PendingInteraction(
                 "legacy-question",
-                InteractionSpec(type="text", prompt="Old question?", variable=key),
+                InteractionSpec(type="text", prompt="Old question?", question=key),
             )
         ]
         # Match the real deferred tool-call history required by pydantic-ai.

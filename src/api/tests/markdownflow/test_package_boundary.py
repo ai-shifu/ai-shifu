@@ -25,10 +25,14 @@ _API_ROOT = Path(__file__).resolve().parents[2]
 _LEGACY_SESSION = Path(__file__).parent / "fixtures" / "legacy_session.json"
 
 
-def test_bundled_prompts_keep_the_old_engine_bytes() -> None:
+def test_only_literal_prompt_guidance_changes_from_the_bundled_engine() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
+    # Runtime substitution removal changes only the native notation guidance.
+    hashes["v1_syntax"] = (
+        "82ddc6c2fca5c0ad836ecb2267fc9d49006e3fc421bb61f1a5189f4955d2d9ce"
+    )
     for name, expected in hashes.items():
         assert hashlib.sha256(load_prompt(name).encode("utf-8")).hexdigest() == expected
 

@@ -17,7 +17,7 @@ This is not a provider token limit or a guarantee about the provider's final
 HTTP serialization, model context window or output allowance.
 
 The check includes the final mapped current system instructions, initial memory,
-complete rendered script and brief (including repeated exact substitutions),
+complete literal authored script and brief,
 extra documents, conversation history, tool-call arguments, answers, tool
 results, retry prompts and the effective offered tool definitions. It runs for
 every streaming and non-streaming request, including subsequent tool-loop
@@ -43,7 +43,7 @@ A refused memory-admission request continues to deny the proposed
 write without interrupting the main teaching call.
 
 A course owner may need to reduce the lesson's inputs. Restarting a lesson is
-not a universal fix: a large script or exact substituted value can exceed the
+not a universal fix: a large script or recalled memory value can exceed the
 budget even without history. Retrieval, semantic compression, per-model token
 budgets and automatic recovery are separate follow-ups. The Python constructor
 accepts a positive `input_budget_bytes` for controlled tests; production factories

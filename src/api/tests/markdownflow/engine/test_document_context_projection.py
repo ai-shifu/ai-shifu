@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 import pytest
-from markdownflow.engine import collected_names, substitute_variables
+from flaskr.service.learn.agent.legacy_prompt import _render_legacy_text
+from markdownflow.engine import collected_names
 from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.tools import _script_questions
 
@@ -25,7 +26,7 @@ def _assert_real(prefix: str) -> None:
     assert collected_names(source) == frozenset({"real"})
     assert _script_questions(source)[-1].variable == "real"
     assert (
-        substitute_variables(prefix + "{{ real }}", {"real": "VALUE"})
+        _render_legacy_text(prefix + "{{ real }}", {"real": "VALUE"})
         == prefix + "VALUE"
     )
     for marker in analyze_marker_context(source).markers:
@@ -127,7 +128,7 @@ def test_multiline_and_lazy_container_reference_continuations(prefix: str) -> No
 def test_complete_container_names_keep_original_source_offsets(prefix: str) -> None:
     source = prefix + "{{ other }}"
     assert _names(source) == frozenset({"a|b[🙂]", "other"})
-    assert substitute_variables(source, {"other": "VALUE"}) == prefix + "VALUE"
+    assert _render_legacy_text(source, {"other": "VALUE"}) == prefix + "VALUE"
     for marker in analyze_marker_context(source).markers:
         assert marker.raw_name == source[marker.start + 2 : marker.end - 2]
 
@@ -193,7 +194,7 @@ def test_container_columns_preserve_native_literal_boundaries(
     source = prefix + QUESTION
     assert _names(source) == (frozenset({"real"}) if real else frozenset())
     assert bool(_script_questions(source)) == real
-    assert substitute_variables(prefix + "{{ real }}", {"real": "VALUE"}) == (
+    assert _render_legacy_text(prefix + "{{ real }}", {"real": "VALUE"}) == (
         prefix + "VALUE" if real else prefix + "{{ real }}"
     )
 
@@ -333,7 +334,7 @@ def test_angle_link_declarations_keep_exact_keys(example: str, key: str) -> None
     assert collected_names(source) == (
         frozenset({key, "real"}) if "%{{" in example else frozenset({"real"})
     )
-    assert substitute_variables(source, {key: "VALUE"}) == (
+    assert _render_legacy_text(source, {key: "VALUE"}) == (
         source if "%{{" in example else source.replace("{{" + key + "}}", "VALUE")
     )
     for marker in analyze_marker_context(source).markers:
