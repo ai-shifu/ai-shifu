@@ -211,11 +211,19 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
 
 
 @pytest.mark.usefixtures("calls")
-@pytest.mark.parametrize("close_after_terminal", [False, True])
+@pytest.mark.parametrize(
+    "close_at",
+    [
+        None,
+        GeneratedType.OUTLINE_ITEM_UPDATE,
+        GeneratedType.INTERACTION,
+        GeneratedType.DONE,
+    ],
+)
 def test_completed_course_trace_includes_buffered_text_and_real_next_lesson_controls(
     monkeypatch: pytest.MonkeyPatch,
     captured_spans: object,
-    close_after_terminal: bool,
+    close_at: GeneratedType | None,
 ) -> None:
     """The real host flushes text and creates next-lesson controls before terminal DONE."""
     client, exporter, _provider = captured_spans
@@ -258,20 +266,25 @@ def test_completed_course_trace_includes_buffered_text_and_real_next_lesson_cont
     events = []
     for event in stream:
         events.append(event)
-        if close_after_terminal and event.type == GeneratedType.DONE:
+        if close_at is not None and event.type == close_at:
             stream.close()
             break
-    assert events[-1].type == GeneratedType.DONE
+    assert events[-1].type == (close_at or GeneratedType.DONE)
     visible_output = "".join(
         event.content
         for event in events
         if event.type in {GeneratedType.CONTENT, GeneratedType.INTERACTION}
     )
     assert final_text in visible_output
-    assert len(controls) == 1
-    assert run_agent.CONTEXT_INTERACTION_NEXT in controls[0]
-    assert controls[0] in visible_output
-    assert any(event.generated_block_bid == "next-lesson-control" for event in events)
+    if close_at == GeneratedType.OUTLINE_ITEM_UPDATE:
+        assert controls == []
+    else:
+        assert len(controls) == 1
+        assert run_agent.CONTEXT_INTERACTION_NEXT in controls[0]
+        assert controls[0] in visible_output
+        assert any(
+            event.generated_block_bid == "next-lesson-control" for event in events
+        )
     spans = exporter.get_finished_spans()
     root = next(span for span in spans if span.name.startswith("learn/"))
     turn = next(span for span in spans if span.name == "turn")
@@ -280,9 +293,8 @@ def test_completed_course_trace_includes_buffered_text_and_real_next_lesson_cont
     assert (
         root.attributes["langfuse.observation.metadata.runtime_outcome"] == "completed"
     )
-    assert (
-        root.attributes["langfuse.observation.metadata.transport_closed"]
-        is close_after_terminal
+    assert root.attributes["langfuse.observation.metadata.transport_closed"] is (
+        close_at is not None
     )
 
 
@@ -368,6 +380,7 @@ def test_trace_context_uses_the_selected_version_for_each_title(
         "course_title": "Draft course",
         "lesson_title": "Draft lesson",
         "chapter_path": ["Draft chapter"],
+        "chapter_path_truncated": False,
         "course_record_id": 8,
         "outline_record_id": 12,
     }

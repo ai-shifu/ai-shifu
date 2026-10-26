@@ -4260,6 +4260,8 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
     """The 2.0 entry point carries revision, number and actual model into usage."""
     from uuid import uuid4
 
+    from flaskr.api import langfuse_markdownflow
+    from flaskr.api.langfuse import MockClient
     from flaskr.api.llm import model_selection
     from flaskr.dao import db
     from flaskr.service.learn.agent import lesson_entry
@@ -4278,10 +4280,13 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
         llm, "record_llm_usage", lambda *_args, **kwargs: usage.update(kwargs)
     )
     span = DummySpan()
+    root = MockClient()
+    monkeypatch.setattr(root, "generation", span.generation)
     monkeypatch.setattr(
-        lesson_entry, "create_trace_with_root_span", lambda **_kw: (None, span)
+        langfuse_markdownflow,
+        "create_trace_with_root_span",
+        lambda **_kw: (MockClient(), root),
     )
-    monkeypatch.setattr(lesson_entry, "finalize_langfuse_trace", lambda **_kw: None)
     monkeypatch.setattr(
         lesson_entry,
         "Engine",
@@ -4291,7 +4296,9 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
     )
 
     def run_gateway(_app: object, *, engine: object, **_kwargs: object) -> object:
-        yield from engine.model._stream([], ModelRequestParameters(), engine.settings)
+        # Exercise the gateway without presenting provider chunks as lesson DTOs.
+        list(engine.model._stream([], ModelRequestParameters(), engine.settings))
+        yield from ()
 
     monkeypatch.setattr(lesson_entry, "run_agent_lesson", run_gateway)
     with app.test_request_context():
@@ -4541,6 +4548,8 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
     import asyncio
     import uuid
 
+    from flaskr.api import langfuse_markdownflow
+    from flaskr.api.langfuse import MockClient
     from flaskr.api.llm import markdownflow_model as gateway_model
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.billing import ownership
@@ -4564,13 +4573,7 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
             False,
         ),
     )
-    monkeypatch.setattr(
-        lesson_entry,
-        "create_trace_with_root_span",
-        lambda **_kwargs: (object(), DummySpan()),
-    )
-    monkeypatch.setattr(lesson_entry, "get_langfuse_client", lambda: None)
-    monkeypatch.setattr(lesson_entry, "finalize_langfuse_trace", lambda **_kwargs: None)
+    monkeypatch.setattr(langfuse_markdownflow, "get_langfuse_client", MockClient)
     monkeypatch.setattr(
         recorder, "_enqueue_usage_settlement", lambda *_args, **_kw: None
     )

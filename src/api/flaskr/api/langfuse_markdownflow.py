@@ -308,10 +308,14 @@ class MarkdownFlowTrace:
         # A native TurnDone is not a committed result. Unmatched tools stay
         # open until complete_turn receives the host's authoritative save outcome.
 
-    def complete_turn(self, outcome: str) -> None:
-        """Mark the host's committed outcome before its terminal event is yielded."""
+    def mark_outcome(self, outcome: str) -> None:
+        """Record committed state while its host may still publish visible output."""
         self._outcome = outcome
         self._end_tools(outcome)
+
+    def complete_turn(self, outcome: str) -> None:
+        """Finalize one turn after its public output has been collected."""
+        self.mark_outcome(outcome)
         if self._turn is not None:
             self._turn.end(
                 output="".join(self._output[self._turn_output_start :]),

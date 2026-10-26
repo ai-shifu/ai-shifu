@@ -1102,6 +1102,8 @@ def _stream_turn(
                     return TurnOutcome(reason=None, taught=False, discarded=True)
                 persisted = True
                 pending_memory = []
+                if tracing is not None:
+                    tracing.after_save(session=session)
             if not event.text:
                 continue
             pieces = narration.process(pager.add(echoes.feed(event.text)))
@@ -1207,6 +1209,10 @@ def _stream_turn(
                         preview_question_ids=preview_question_ids,
                     )
                 pending_memory = []
+                if tracing is not None:
+                    tracing.after_save(
+                        session=session, reason=event.reason, discarded=not kept
+                    )
                 if session.finished and kept:  # not for a turn a reset discarded
                     # Before the terminal event, because the browser stops reading the stream on
                     # it. These are the only thing that ticks the lesson off in the outline, ends
