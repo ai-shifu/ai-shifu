@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -41,7 +42,7 @@ from pydantic_ai.messages import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Mapping
+    from collections.abc import AsyncIterator, Callable, Mapping
 
     from flaskr.api.markdownflow import (
         Event,
@@ -205,6 +206,8 @@ def run_profile_turn(
     session: _ProfileResearchSession,
     user_input: dict[str, list[str]],
     model: Model,
+    *,
+    observer: Callable[[Event], None] | None = None,
 ) -> ProfileTurnResult:
     """Advance the full script, retaining native deferred calls, answers and memory."""
     working = _restore_engine_session(session)
@@ -256,6 +259,9 @@ def run_profile_turn(
     completed: TurnDone | None = None
     try:
         for event in stream:
+            if observer is not None:
+                with contextlib.suppress(Exception):
+                    observer(event)
             if isinstance(event, ContentDelta) and event.text:
                 content.append(event.text)
             elif isinstance(event, ErrorEvent):

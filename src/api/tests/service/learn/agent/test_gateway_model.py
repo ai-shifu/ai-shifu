@@ -284,6 +284,34 @@ async def test_usage_is_carried_through() -> None:
 # -- driving the real engine -------------------------------------------------------------
 
 
+async def test_subsequent_requests_use_the_rebound_turn_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Automatic continuation reparents model calls without losing their usage context."""
+    from flaskr.service.metering.api import UsageContext
+
+    calls: list[dict[str, object]] = []
+
+    def fake_chat_llm(**kwargs: object) -> Iterator[FakeChunk]:
+        calls.append(kwargs)
+        kwargs["span"].generation(name=kwargs["generation_name"])
+        yield FakeChunk(result="Taught.", finish_reason="stop")
+
+    monkeypatch.setattr(gw, "chat_llm", fake_chat_llm)
+    first, second = FakeSpan(), FakeSpan()
+    model = gw.GatewayModel(app=None, model="test-model", user_id="u1", span=first)
+    context = UsageContext(user_bid="u1", shifu_bid="course-1")
+    model.set_usage_context(context)
+    messages = [ModelRequest(parts=[UserPromptPart(content="Teach this lesson.")])]
+    await model.request(messages, None, _params())
+    model.set_parent_observation(second)
+    await model.request(messages, None, _params())
+
+    assert [call["span"] for call in calls] == [first, second]
+    assert all(call["usage_context"] is context for call in calls)
+    assert first.generations == second.generations == ["agent_lesson"]
+
+
 async def test_the_engine_runs_a_full_interaction_cycle_through_the_gateway(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

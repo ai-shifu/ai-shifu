@@ -167,14 +167,22 @@ def test_resolver_reads_language_setting_from_the_selected_course_version(
             not multilingual
         )
     with app.app_context():
+        trace_context = {}
         resolved = entry._resolve(
             app,
             user_bid="teacher",
             shifu_bid=lesson,
             outline_bid=lesson,
             preview_mode=preview,
+            trace_context=trace_context,
         )
         assert resolved[-1] is multilingual
+        assert trace_context["course_title"] == ("draft" if preview else "published")
+        assert (
+            trace_context["course_record_id"]
+            == selected.query.filter_by(shifu_bid=lesson).one().id
+        )
+        assert trace_context["lesson_title"] == lesson
 
 
 @pytest.mark.parametrize("preview", [False, True])
@@ -366,13 +374,10 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     monkeypatch.setattr(
         entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41, False)
     )
-    trace, span = object(), object()
-    monkeypatch.setattr(entry, "get_langfuse_client", object)
-    monkeypatch.setattr(
-        entry, "create_trace_with_root_span", lambda **_kw: (trace, span)
-    )
-    finalize = Mock()
-    monkeypatch.setattr(entry, "finalize_langfuse_trace", finalize)
+    span = object()
+    tracing = Mock(current=span)
+    monkeypatch.setattr(entry, "MarkdownFlowTrace", Mock(return_value=tracing))
+    finalize = tracing.finish
     gateway = Mock(return_value=object())
     summary = Mock(return_value=object())
     monkeypatch.setattr(entry, "make_teaching_summarizer", summary)
@@ -417,10 +422,10 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
     else:
         assert list(stream) == []
     finalize.assert_called_once_with(
-        trace=trace,
-        root_span=span,
-        root_span_payload={"metadata": {"end_reason": termination}},
+        outcome="error" if termination == "error" else None,
+        transport_closed=termination == "disconnected",
     )
+    tracing.append_output.assert_called_once_with("Visible answer")
     gateway.assert_any_call(
         app,
         "2",
@@ -518,6 +523,8 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "shifu_model": DraftShifu if preview_mode else PublishedShifu,
         "heartbeat_interval": 0.1,
         "rewind": None,
+        "tracing": tracing,
+        "trace_request_input": True,
     }
 
 
@@ -527,11 +534,7 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     monkeypatch.setattr(
         entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41, False)
     )
-    monkeypatch.setattr(entry, "get_langfuse_client", object)
-    monkeypatch.setattr(
-        entry, "create_trace_with_root_span", lambda **_kw: (object(), object())
-    )
-    monkeypatch.setattr(entry, "finalize_langfuse_trace", Mock())
+    monkeypatch.setattr(entry, "MarkdownFlowTrace", Mock())
     monkeypatch.setattr(entry, "GatewayModel", Mock(return_value=object()))
     monkeypatch.setattr(entry, "make_request_check", Mock(return_value=object()))
     monkeypatch.setattr(entry, "make_teaching_summarizer", Mock(return_value=object()))

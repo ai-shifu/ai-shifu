@@ -25,7 +25,7 @@ Implementation and architecture decisions that shape repository behavior live he
 - [Fresh MySQL Migration Replay Repair](../design-docs/fresh-mysql-migration.md)
   - Status: `needs-review` | Owner: `backend` | Last reviewed: `` | Canonical: `true`
 - [Langfuse Trace Association](../design-docs/langfuse-trace-association.md)
-  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-08-17` | Canonical: `true`
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-26` | Canonical: `true`
 - [Learner follow-up input shortcuts](../design-docs/learner-follow-up-input-shortcuts.md)
   - Status: `implemented` | Owner: `learner-web` | Last reviewed: `2026-09-04` | Canonical: `true`
 - [MarkdownFlow engine library](../design-docs/markdownflow-engine-library.md)
