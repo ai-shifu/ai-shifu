@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -25,6 +26,7 @@ from flaskr.service.profile_research.document import (
     validate_profile_research_document,
 )
 from flaskr.service.profile_research.engine_runtime import (
+    historical_pending_question_keys,
     profile_answer_evidence,
     run_profile_turn,
 )
@@ -44,6 +46,7 @@ from flaskr.service.profile_research.session import (
     ALLOWED_PROFILE_RESEARCH_PURPOSES as _ALLOWED_PURPOSES,
 )
 from flaskr.service.profile_research.session import (
+    MAX_INPUT_KEY_CODEPOINTS,
     PROFILE_ONBOARDING_PREVIEW_PURPOSE,
     PROFILE_ONBOARDING_PURPOSE,
     PROFILE_RESEARCH_RUN_LOCK_LEASE_SECONDS,
@@ -66,7 +69,7 @@ from flaskr.util import generate_id
 from markdown_flow import USER_ANSWER_CONTEXT_KEY, LLMProvider
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable, Mapping
+    from collections.abc import Callable, Generator, Iterable
 
     from pydantic_ai.models import Model
 
@@ -416,7 +419,17 @@ class ProfileResearchRuntime:
             msg = "session not found"
             raise ProfileResearchSessionNotFound(msg)
 
-        normalized_user_input = _normalize_user_input(user_input)
+        legacy_keys = frozenset()
+        if isinstance(user_input, Mapping) and any(
+            isinstance(key, str) and len(key) > MAX_INPUT_KEY_CODEPOINTS
+            for key in user_input
+        ):
+            legacy_keys = historical_pending_question_keys(session)
+            if request_id and request_id == session.last_request_id:
+                legacy_keys |= frozenset(session.last_user_input)
+        normalized_user_input = _normalize_user_input(
+            user_input, legacy_keys=legacy_keys
+        )
         replay = self._replay_or_validate_request(
             session,
             request_id=request_id,

@@ -18,8 +18,10 @@ from flaskr.api.markdownflow import (
     Session,
     StartTurn,
     TurnDone,
+    UnrepresentableInteractionError,
     iter_turn,
     render_question,
+    render_restored_question,
     unrenderable_reason,
 )
 from flaskr.common.markdownflow_prompt import (
@@ -32,6 +34,7 @@ from flaskr.service.profile_research.authored_interaction import (
     check_authored_interaction,
 )
 from flaskr.service.profile_research.session import (
+    MAX_LEGACY_INPUT_KEY_CODEPOINTS,
     ProfileResearchError,
     ProfileResearchValidationError,
     _normalize_session_memory,
@@ -120,6 +123,22 @@ def _restore_engine_session(session: _ProfileResearchSession) -> Session:
     return working
 
 
+def historical_pending_question_keys(
+    session: _ProfileResearchSession,
+) -> frozenset[str]:
+    """Allow the old transport width only for issued historical pending bindings."""
+    if not (session.engine_session or {}).get("pending"):
+        return frozenset()
+    working = _restore_engine_session(session)
+    return frozenset(
+        pending.spec.question
+        for pending in working.pending
+        if pending.spec.question is not None
+        and len(pending.spec.question) == MAX_LEGACY_INPUT_KEY_CODEPOINTS
+        and working.has_historical_pending_binding(pending)
+    )
+
+
 def _authored_questions(source: str) -> tuple[_Question, ...]:
     """Use the native grammar, including literal standalone braces, for Profile."""
     return tuple(_script_questions(source))
@@ -173,8 +192,15 @@ def _restore_historical_questions(working: Session) -> tuple[_Question, ...]:
 def _interaction_problem(
     spec: InteractionSpec,
     questions: tuple[_Question, ...],
+    *,
+    historical: bool = False,
 ) -> str | None:
-    if reason := unrenderable_reason(spec):
+    if historical:
+        try:
+            render_restored_question(spec)
+        except UnrepresentableInteractionError as exc:
+            return str(exc)
+    elif reason := unrenderable_reason(spec):
         return reason
     if questions and all(
         check_authored_interaction(spec, source) is not None for source in questions
@@ -187,8 +213,14 @@ def _interaction_problem(
     return None
 
 
-def _pending_chunk(pending: PendingInteraction) -> ProfileChunk:
-    prompt, controls = render_question(pending.spec)
+def _pending_chunk(
+    pending: PendingInteraction, *, historical: bool = False
+) -> ProfileChunk:
+    prompt, controls = (
+        render_restored_question(pending.spec)
+        if historical
+        else render_question(pending.spec)
+    )
     return ProfileChunk(
         interaction=f"{prompt}\n\n{controls}" if prompt.strip() else controls,
         interaction_id=pending.tool_call_id,
@@ -266,12 +298,17 @@ def run_profile_turn(
         problem = _interaction_problem(spec, questions)
         # Keep references to the restored PendingInteraction objects: Engine can
         # normalize their specs in place. New tool calls never inherit this fallback.
-        if (
-            problem
-            and historical_questions
-            and any(pending.spec is spec for pending in restored_pending)
-        ):
-            return _interaction_problem(spec, historical_questions)
+        if problem:
+            restored = next(
+                (pending for pending in restored_pending if pending.spec is spec), None
+            )
+            if restored is not None:
+                if historical_questions:
+                    problem = _interaction_problem(spec, historical_questions)
+                if problem and working.has_historical_pending_binding(restored):
+                    return _interaction_problem(
+                        spec, historical_questions or questions, historical=True
+                    )
         return problem
 
     if any(interaction_check(pending.spec) for pending in working.pending):
@@ -281,7 +318,15 @@ def run_profile_turn(
         raise ProfileResearchError(msg)
     if working.pending and not user_input:
         return ProfileTurnResult(
-            chunks=[_pending_chunk(working.pending[0])], reason="interaction"
+            chunks=[
+                _pending_chunk(
+                    working.pending[0],
+                    historical=working.has_historical_pending_binding(
+                        working.pending[0]
+                    ),
+                )
+            ],
+            reason="interaction",
         )
     if user_input and not working.pending:
         msg = "MarkdownFlow 2.0 has no profile question to answer"
@@ -339,7 +384,15 @@ def run_profile_turn(
     )
     if rejected_answer:
         return ProfileTurnResult(
-            chunks=[_pending_chunk(working.pending[0])], reason="interaction"
+            chunks=[
+                _pending_chunk(
+                    working.pending[0],
+                    historical=working.has_historical_pending_binding(
+                        working.pending[0]
+                    ),
+                )
+            ],
+            reason="interaction",
         )
     if completed is None or errors:
         msg = "MarkdownFlow 2.0 failed to execute the profile questionnaire"
@@ -366,7 +419,12 @@ def run_profile_turn(
     if working.pending:
         # Native Engine retains every deferred call. Only the first unanswered one
         # is visible; the next answer resumes it without discarding sibling calls.
-        chunks.append(_pending_chunk(working.pending[0]))
+        chunks.append(
+            _pending_chunk(
+                working.pending[0],
+                historical=working.has_historical_pending_binding(working.pending[0]),
+            )
+        )
     session.engine_session = working.to_dict()
     session.memory.update(_normalize_session_memory(working.memory))
     return ProfileTurnResult(

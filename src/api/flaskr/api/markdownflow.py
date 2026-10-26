@@ -73,6 +73,7 @@ __all__ = [
     "render_interaction",
     "render_narrated_interaction",
     "render_question",
+    "render_restored_question",
     "unrenderable_reason",
 ]
 
@@ -95,6 +96,11 @@ def render_interaction(spec: InteractionSpec) -> str:
 def render_question(spec: InteractionSpec) -> tuple[str, str]:
     """Render the question and controls under the same validation policy."""
     return _question_renderer().render_question(spec)
+
+
+def render_restored_question(spec: InteractionSpec) -> tuple[str, str]:
+    """Render a host-verified historical pending binding with localized controls."""
+    return _question_renderer().render_restored_question(spec)
 
 
 def unrenderable_reason(spec: InteractionSpec) -> str | None:

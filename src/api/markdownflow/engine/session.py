@@ -23,6 +23,7 @@ from .interaction import (
     InteractionSpec,
     restore_interaction_spec,
 )
+from .questions import normalize_question
 from .script import ScriptBundle
 
 
@@ -107,6 +108,33 @@ class Session:
     def all_memory(self) -> dict[str, Any]:
         """Merge user-scoped memory with this session's own, session winning."""
         return {**self.user_memory, **self.memory}
+
+    def has_historical_pending_binding(self, pending: PendingInteraction) -> bool:
+        """Recognize a unique issued pre-question-schema binding without rewriting history."""
+        if not pending.spec.question or not any(
+            item is pending for item in self.pending
+        ):
+            return False
+        calls = [
+            part
+            for message in self.messages
+            for part in message.parts
+            if isinstance(part, ToolCallPart)
+            and part.tool_call_id == pending.tool_call_id
+        ]
+        if len(calls) != 1 or calls[0].tool_name != "interact":
+            return False
+        try:
+            arguments = calls[0].args_as_dict()
+            historical_question = restore_interaction_spec(arguments).question
+            return (
+                "variable" in arguments
+                and "question" not in arguments
+                and historical_question is not None
+                and normalize_question(historical_question) == pending.spec.question
+            )
+        except (AssertionError, TypeError, ValueError):
+            return False
 
     def answered_memory_keys(self) -> frozenset[str]:
         """Identify current copies still owned by an accepted named answer."""

@@ -51,6 +51,12 @@ Already-issued pending questions retain admission when their unique historical
 pending answer. New calls continue to use the current question-only allowlist,
 and read-only restrictions still apply. The actual answer is persisted normally;
 its ownership fingerprint lets later durable edits refresh the stored session.
+Previously accepted Profile keys of 256 codepoints remain readable in cached
+request history and can finish a verified historical pending interaction. The
+special renderer and submission allowance require old tool-call provenance;
+replays preserve the exact accepted input. New authored questions, new tool
+calls and the default renderer retain the 255-codepoint limit. Keys beyond the
+old 256-codepoint transport limit remain invalid.
 
 ## Authoring and preview boundaries
 

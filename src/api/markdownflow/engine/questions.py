@@ -5,6 +5,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 MAX_QUESTION_LENGTH = 255
+# A previous native host accepted this width for already-issued bindings.
+MAX_LEGACY_QUESTION_LENGTH = 256
 
 QUESTION_BODY_SOURCE = r"(?:(?!\}\})[\s\S])*"
 QUESTION_MARKER_SOURCE = r"\{\{(" + QUESTION_BODY_SOURCE + r")\}\}"

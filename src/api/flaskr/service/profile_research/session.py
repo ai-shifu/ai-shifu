@@ -11,7 +11,10 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.common.cache_provider import CacheLock, CacheProvider, redis_cache
 from markdown_flow import USER_ANSWER_CONTEXT_KEY
-from markdownflow.engine.questions import MAX_QUESTION_LENGTH
+from markdownflow.engine.questions import (
+    MAX_LEGACY_QUESTION_LENGTH,
+    MAX_QUESTION_LENGTH,
+)
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -32,6 +35,7 @@ _READABLE_SESSION_SCHEMA_VERSIONS = frozenset({SESSION_SCHEMA_VERSION})
 MAX_DOCUMENT_CODEPOINTS = 100_000
 MAX_BLOCK_COUNT = 100
 MAX_INPUT_KEY_CODEPOINTS = MAX_QUESTION_LENGTH
+MAX_LEGACY_INPUT_KEY_CODEPOINTS = MAX_LEGACY_QUESTION_LENGTH
 MAX_INPUT_KEY_COUNT = 100
 MAX_INPUT_VALUES_PER_KEY = 100
 MAX_INPUT_VALUE_COUNT = 100
@@ -131,6 +135,8 @@ def _normalize_session_context(raw: object) -> list[dict[str, str]]:
 
 def _normalize_profile_research_user_input(
     raw: Mapping[str, Any] | None,
+    *,
+    legacy_keys: frozenset[str] = frozenset(),
 ) -> dict[str, list[str]]:
     if raw is None:
         return {}
@@ -147,7 +153,12 @@ def _normalize_profile_research_user_input(
         if not isinstance(raw_key, str) or not raw_key.strip():
             msg = "user_input key is invalid"
             raise ProfileResearchValidationError(msg)
-        if len(raw_key) > MAX_INPUT_KEY_CODEPOINTS:
+        key_limit = (
+            MAX_LEGACY_INPUT_KEY_CODEPOINTS
+            if raw_key in legacy_keys
+            else MAX_INPUT_KEY_CODEPOINTS
+        )
+        if len(raw_key) > key_limit:
             msg = "user_input key is too long"
             raise ProfileResearchValidationError(msg)
         if (
@@ -293,7 +304,8 @@ class _ProfileResearchSession:
                 ),
                 last_expected_interaction_id=last_expected_interaction_id,
                 last_user_input=_normalize_profile_research_user_input(
-                    payload.get("last_user_input")
+                    payload.get("last_user_input"),
+                    legacy_keys=frozenset(payload.get("last_user_input") or {}),
                 ),
                 last_events=events,
                 engine_session=engine_session,

@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from markdown_flow.escaping import escape_interaction_text
 
 from .engine.interaction import InteractionSpec, Option
-from .engine.questions import format_question
+from .engine.questions import (
+    MAX_LEGACY_QUESTION_LENGTH,
+    MAX_QUESTION_LENGTH,
+    format_question,
+    format_question_marker,
+)
 
 
 @dataclass(frozen=True)
@@ -240,6 +245,32 @@ def render_question(
     return prompt, render_interaction(normalized, labels=labels)
 
 
+def render_restored_question(
+    spec: InteractionSpec, *, labels: QuestionLabels
+) -> tuple[str, str]:
+    """Render an already-issued legacy binding; new questions keep the default limit.
+
+    The caller must establish historical pending provenance. Old Profile hosts
+    supported one extra codepoint, so only that exact compatibility width is allowed.
+    """
+    if spec.question is None or len(spec.question) <= MAX_QUESTION_LENGTH:
+        return render_question(spec, labels=labels)
+    if len(spec.question) != MAX_LEGACY_QUESTION_LENGTH:
+        message = "Invalid historical question length"
+        raise UnrepresentableInteractionError(message)
+    marker = format_question_marker(spec.question)
+    if marker is None:
+        message = "Invalid historical question text"
+        raise UnrepresentableInteractionError(message)
+    prompt, normalized = _as_sent(spec, labels)
+    controls = render_interaction(
+        normalized.model_copy(update={"question": None}), labels=labels
+    )
+    restored = "?[%" + marker + " " + controls[2:]
+    _verify_round_trip(normalized, restored)
+    return prompt, restored
+
+
 @dataclass(frozen=True)
 class QuestionRenderer:
     """Keep rendering and renderability checks on one explicit label policy."""
@@ -253,6 +284,10 @@ class QuestionRenderer:
     def render_question(self, spec: InteractionSpec) -> tuple[str, str]:
         """Return the displayed prompt and its normalized controls."""
         return render_question(spec, labels=self.labels)
+
+    def render_restored_question(self, spec: InteractionSpec) -> tuple[str, str]:
+        """Render a verified historical pending binding without truncating its key."""
+        return render_restored_question(spec, labels=self.labels)
 
     def unrenderable_reason(self, spec: InteractionSpec) -> str | None:
         """Refuse controls that cannot be shown with this renderer's policy."""
