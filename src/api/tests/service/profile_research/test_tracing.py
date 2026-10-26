@@ -85,7 +85,7 @@ def test_profile_trace_records_context_controls_and_skips_exact_replay(
     assert _value(root, "input") == {"action": "start"}
     assert root.attributes["session.id"] == view["session_id"]
     spans = observations.get_finished_spans()
-    context = next(span for span in spans if span.name == "context")
+    context = next(span for span in spans if span.name == "prompts")
     assert _value(context, "input")["script"] == document
     assert "Welcome." in _value(root, "output")
     assert "Your goal?" in _value(root, "output")
@@ -200,9 +200,12 @@ def test_assistant_import_and_summary_share_one_request_without_private_root_out
     private = [
         span
         for span in observations.get_finished_spans()
-        if span.name in {"profile.import", "profile.summary"}
+        if span.name in {"answer_extraction", "profile.summary"}
     ]
-    assert {span.name for span in private} == {"profile.import", "profile.summary"}
+    assert {span.name for span in private} == {
+        "answer_extraction",
+        "profile.summary",
+    }
     assert all(span.parent.span_id == root.context.span_id for span in private)
     assert _value(root, "output") == {"done": True, "operation": "delegate"}
     assert (

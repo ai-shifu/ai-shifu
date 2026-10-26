@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TEACHING_GENERATION_NAME = "teaching"
-TEACHING_SUMMARY_GENERATION_NAME = "agent_teaching_summary"
-MEMORY_ADMISSION_GENERATION_NAME = "agent_memory_admission"
+TEACHING_SUMMARY_GENERATION_NAME = "history_summary"
+MEMORY_ADMISSION_GENERATION_NAME = "memory_check"
 
 
 def _latest_ancestor(model: type, *, outline_bid: str, shifu_bid: str) -> object:
@@ -122,6 +122,7 @@ class CourseTrace(MarkdownFlowTrace):
     """Keep course observability outside lesson resolution, billing and execution."""
 
     CONTEXT_PROMPT_FIELDS = ("teaching_prompt", "course_prompt")
+    TURN_NAME = "teaching_round"
 
     def __init__(
         self,

@@ -172,13 +172,13 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
     assert "Ready?" in output
     assert "model result" not in output
     assert "private tool result" not in output
-    contexts = [span for span in spans if span.name == "context"]
+    contexts = [span for span in spans if span.name == "prompts"]
     assert len(contexts) == 1
     assert json.loads(contexts[0].attributes["langfuse.observation.input"]) == {
         "teaching_prompt": session.script.script,
         "course_prompt": "Current teaching brief",
     }
-    turns = [span for span in spans if span.name == "turn"]
+    turns = [span for span in spans if span.name == "teaching_round"]
     generations = [
         span
         for span in spans
@@ -188,8 +188,8 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
     assert len(generations) == 6
     assert {generation.name for generation in generations} == {
         "teaching",
-        "agent_teaching_summary",
-        "agent_memory_admission",
+        "history_summary",
+        "memory_check",
     }
     ordered_turns = sorted(turns, key=lambda span: span.start_time)
     first_output = ordered_turns[0].attributes["langfuse.observation.output"]
@@ -292,7 +292,7 @@ def test_completed_course_trace_includes_buffered_text_and_real_next_lesson_cont
         )
     spans = exporter.get_finished_spans()
     root = next(span for span in spans if span.name.startswith("learn/"))
-    turn = next(span for span in spans if span.name == "turn")
+    turn = next(span for span in spans if span.name == "teaching_round")
     assert root.attributes["langfuse.observation.output"] == visible_output
     assert turn.attributes["langfuse.observation.output"] == visible_output
     assert (
@@ -484,7 +484,7 @@ def test_empty_course_input_records_the_actual_session_action(
     )
     spans = exporter.get_finished_spans()
     root = next(span for span in spans if span.name.startswith("learn/"))
-    turn = next(span for span in spans if span.name == "turn")
+    turn = next(span for span in spans if span.name == "teaching_round")
     assert json.loads(root.attributes["langfuse.observation.input"]) == {
         "action": action
     }

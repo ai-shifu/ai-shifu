@@ -110,11 +110,11 @@ def test_request_tree_preserves_answer_context_and_typed_operations(
     root = spans["learn/Course/Chapter/Lesson"]
     assert _value(root, "input") == {"goal": ["Learn to build"]}
     assert _value(root, "output") == "Choose a project.\n[Build a dashboard]"
-    assert _value(spans["context"], "input") == {
+    assert _value(spans["prompts"], "input") == {
         "script": "The effective session script.",
         "teaching_brief": "Ask one concrete question.",
     }
-    assert spans["context"].parent.span_id == root.context.span_id
+    assert spans["prompts"].parent.span_id == root.context.span_id
     assert spans["turn"].parent.span_id == root.context.span_id
     assert spans["turn"].attributes["langfuse.observation.type"] == "agent"
     for name, kind in (("teach", "generation"), ("recall", "tool")):
@@ -168,7 +168,7 @@ def test_late_session_binding_reaches_a_turn_without_a_generation(
 
     spans = _spans(observations)
     assert "teach" not in spans
-    for name in ("learn/Course/Chapter/Lesson", "turn", "context"):
+    for name in ("learn/Course/Chapter/Lesson", "turn", "prompts"):
         assert spans[name].attributes["session.id"] == "restored-session"
 
 
@@ -662,7 +662,7 @@ def test_context_is_recorded_once_per_effective_session_snapshot(
     trace.set_context(session_id="native-session", script="Edited debug draft.")
     trace.finish()
     contexts = [
-        span for span in observations.get_finished_spans() if span.name == "context"
+        span for span in observations.get_finished_spans() if span.name == "prompts"
     ]
     assert [_value(span, "input")["script"] for span in contexts] == [
         "Original.",

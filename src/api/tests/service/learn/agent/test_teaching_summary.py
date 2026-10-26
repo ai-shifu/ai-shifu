@@ -38,7 +38,7 @@ async def test_real_gateway_summary_isolated_billed_named_and_exact_read_still_w
 
     def fake(**kwargs: object) -> Iterator[FakeChunk]:
         calls.append(kwargs)
-        if kwargs["generation_name"] == "agent_teaching_summary":
+        if kwargs["generation_name"] == "history_summary":
             assert kwargs["user_id"] == "learner"
             assert kwargs["timeout"] == 8
             assert kwargs["num_retries"] == 0
@@ -78,7 +78,7 @@ async def test_real_gateway_summary_isolated_billed_named_and_exact_read_still_w
         "selected-course-model",
         user_id="learner",
         span=FakeSpan(),
-        generation_name="agent_teaching_summary",
+        generation_name="history_summary",
         input_budget_bytes=40_960,
         retry_deadline_seconds=8,
         timeout=8,

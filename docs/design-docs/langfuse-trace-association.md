@@ -87,12 +87,24 @@ path keeps the nearest ancestors and exact lesson title, prefixes its displayed
 chapter path with `...`, and sets `chapter_path_truncated` in metadata. This
 makes the diagnostic limit visible without adding unbounded telemetry queries.
 
-The tree uses stable names such as `context`, `turn`, and native tool names.
-A turn is an `agent` observation, an LLM request is a `generation`, and an
-engine tool execution is a `tool`. The primary course model generation is named
-`teaching`; auxiliary models keep their distinct operation names. The existing
-shared gateway remains the
-sole producer of model usage and cost observations. An observation proxy resolves
+The tree uses stable operation names:
+
+| Operation | Observation name |
+| --- | --- |
+| Effective prompt snapshot | `prompts` |
+| Course execution round | `teaching_round` |
+| Primary course model | `teaching` |
+| Delivered teaching history summary | `history_summary` |
+| Learner memory request check | `memory_check` |
+| Profile questionnaire model | `questionnaire` |
+| Delegated answer extraction | `answer_extraction` |
+
+A round is an `agent` observation, an LLM request is a `generation`, and an
+engine tool execution is a `tool`. Profile retains its generic `turn` round and
+the existing private `profile.summary` and `profile.model` hierarchy. Tool nodes
+keep the exact native tool names so they can be matched to actual model calls.
+The shared gateway remains the sole producer of model usage and cost
+observations. An observation proxy resolves
 the current turn when a gateway generation starts, so reused models follow new
 turns automatically. Explicit parent handles
 keep producer-thread calls in the correct tree without relying on ambient
@@ -103,7 +115,7 @@ OpenTelemetry context or gateway mutation in business orchestration.
 Root input is the current submitted learner text or structured answers. A
 request without text uses an explicit start, continue, or regenerate action.
 It is not the last model-message array entry, which may be a tool response.
-The course `context` child records the actual native session script as
+The course `prompts` child records the actual native session script as
 `teaching_prompt` (Teaching Prompt) and the effective author teaching brief as
 `course_prompt` (Course Prompt). Restored sessions retain their script snapshot; debug
 sessions use the submitted editor document. Prompt bodies are observation

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from flaskr.api.langfuse_markdownflow import SafeObservation
     from flaskr.service.profile_research.session import _ProfileResearchSession
 
-PROFILE_GENERATION_NAME = "profile.generate"
+PROFILE_GENERATION_NAME = "questionnaire"
 PROFILE_PRIVATE_GENERATION_NAME = "profile.model"
 
 
@@ -149,5 +149,5 @@ class ProfileTrace(MarkdownFlowTrace):
     ) -> contextlib.AbstractContextManager[SafeObservation]:
         """Nest answer extraction without exposing private results on the request root."""
         return cls._private_step(
-            session, "profile.import", raw_text, operation="delegate", trace=trace
+            session, "answer_extraction", raw_text, operation="delegate", trace=trace
         )

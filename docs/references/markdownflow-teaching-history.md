@@ -41,7 +41,7 @@ not be treated as a current authorized memory snapshot.
 The host enables a summarizer using the current course model through the shared
 GatewayModel. Its isolated request contains the complete original assistant text,
 not the current script, learner answers, memory snapshot or tools. The generation
-name `agent_teaching_summary` keeps extra requests visible in existing billing and
+name `history_summary` keeps extra requests visible in existing billing and
 Langfuse; preview calls keep the existing preview usage scene. Session `usage`
 continues to describe the teaching agent's calls; summary costs are recorded by
 the shared gateway separately, as memory admission costs already are.

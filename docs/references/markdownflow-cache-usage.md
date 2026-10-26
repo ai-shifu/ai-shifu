@@ -59,13 +59,13 @@ gateway usage outside this observer.
 Admission, teaching and summary observations retain provider-cache coverage when
 available. Summary requests are separately billed/traced under
 `agent_memory_quality_teaching_summary`; normal classroom summary generations use
-`agent_teaching_summary`. No prompts, remembered facts or responses are added to
+`history_summary`. No prompts, remembered facts or responses are added to
 the numeric counters or private evaluation report.
 
 ## Complete-course testing
 
 Normal classroom teaching (`teaching`), semantic summaries
-(`agent_teaching_summary`) and memory admission (`agent_memory_admission`) share
+(`history_summary`) and memory admission (`memory_check`) share
 the authenticated course and lesson usage context. The ledger retains the learner
 identity and read/listen/classroom mode, while existing ownership resolution identifies the
 course owner. Draft preview stays in the preview usage scene. Synthetic evaluator
