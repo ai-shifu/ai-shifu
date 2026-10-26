@@ -40,6 +40,7 @@ from flaskr.service.learn.learn_dtos import (
     RunStatusDTO,
 )
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.learn.request_stream import RequestCompletion
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -1021,6 +1022,7 @@ def run_script(
         persist_only_final=teaches_with_agent,
     )
     stream_element_adapter = element_adapter
+    completion = RequestCompletion()
     if is_ask:
         # Ask (follow-up) requests use a counting semaphore instead of the main mutex
         # so they can run in parallel with the main lesson stream (up to
@@ -1174,8 +1176,6 @@ def run_script(
             stream_error: Exception | None = None
             client_disconnected = False
             done_received = False
-            last_stream_type: str | None = None
-            last_stream_done_is_terminal: bool | None = None
 
             def _should_suppress_live_payload(payload_obj: object) -> bool:
                 payload_type = getattr(payload_obj, "type", None)
@@ -1217,6 +1217,7 @@ def run_script(
                             )
                             yield _to_sse_chunk(heartbeat_payload)
                         except GeneratorExit:
+                            completion.cancel()
                             client_disconnected = True
                             stop_event.set()
                             app.logger.info(
@@ -1224,6 +1225,7 @@ def run_script(
                             )
                             return
                         except (ConnectionError, BrokenPipeError, OSError) as exc:
+                            completion.cancel()
                             client_disconnected = True
                             stop_event.set()
                             app.logger.info(
@@ -1238,23 +1240,17 @@ def run_script(
                         _refresh_run_script_status()
                         if _should_suppress_live_payload(payload):
                             continue
-                        payload_type = getattr(payload, "type", None)
-                        if hasattr(payload_type, "value"):
-                            payload_type = payload_type.value
-                        yield (
+                        chunk = (
                             "data: "
                             + json.dumps(payload, default=fmt, ensure_ascii=False)
                             + b"\n\n".decode("utf-8")
                         )
-                        if isinstance(payload_type, str):
-                            last_stream_type = payload_type
-                            if payload_type == GeneratedType.DONE.value:
-                                last_stream_done_is_terminal = bool(
-                                    getattr(payload, "is_terminal", False)
-                                )
-                            else:
-                                last_stream_done_is_terminal = None
+                        completion.record_serialized(payload)
+                        yield chunk
+                        if completion.terminal_sent:
+                            break
                     except GeneratorExit:
+                        completion.cancel()
                         client_disconnected = True
                         stop_event.set()
                         app.logger.info(
@@ -1262,6 +1258,7 @@ def run_script(
                         )
                         return
                     except (ConnectionError, BrokenPipeError, OSError) as exc:
+                        completion.cancel()
                         client_disconnected = True
                         stop_event.set()
                         app.logger.info(
@@ -1298,7 +1295,6 @@ def run_script(
                         element_adapter=stream_element_adapter,
                     )
                 )
-                last_stream_type = "error"
                 block_end_event = _make_terminal_event(
                     outline_bid=outline_bid,
                     event_type=GeneratedType.BREAK.value,
@@ -1308,31 +1304,18 @@ def run_script(
                 )
                 if not _should_suppress_live_payload(block_end_event):
                     yield _to_sse_chunk(block_end_event)
-                    last_stream_type = (
-                        GeneratedType.DONE.value
-                        if use_element_protocol
-                        else GeneratedType.BREAK.value
-                    )
-                    last_stream_done_is_terminal = (
-                        False if use_element_protocol else None
-                    )
 
-            if not client_disconnected and not (
-                use_element_protocol
-                and last_stream_type == GeneratedType.DONE.value
-                and last_stream_done_is_terminal is True
-            ):
-                yield _to_sse_chunk(
-                    _make_terminal_event(
-                        outline_bid=outline_bid,
-                        event_type=GeneratedType.DONE.value,
-                        content="",
-                        element_adapter=stream_element_adapter,
-                        is_terminal=True if use_element_protocol else None,
-                    )
+            if completion.needs_terminal:
+                terminal = _make_terminal_event(
+                    outline_bid=outline_bid,
+                    event_type=GeneratedType.DONE.value,
+                    content="",
+                    element_adapter=stream_element_adapter,
+                    is_terminal=True if use_element_protocol else None,
                 )
-                last_stream_type = GeneratedType.DONE.value
-                last_stream_done_is_terminal = True if use_element_protocol else None
+                chunk = _to_sse_chunk(terminal)
+                completion.record_serialized(terminal)
+                yield chunk
         finally:
             stop_event.set()
             if producer_thread is not None:

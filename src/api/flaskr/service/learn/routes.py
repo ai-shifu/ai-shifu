@@ -1,5 +1,6 @@
 """Expose HTTP routes for learning sessions."""
 
+import contextlib
 import json
 import re
 import sys
@@ -47,6 +48,7 @@ from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,
     resolve_preview_request_user,
 )
+from flaskr.service.learn.request_stream import RequestCompletion
 from flaskr.service.learn.runscript_v2 import get_run_status, run_script
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
@@ -114,34 +116,65 @@ def _stream_sse_response(
     terminal_event_factory: object = None,
 ) -> Response:
     def event_stream() -> Iterator[str]:
+        completion = RequestCompletion()
+        source = None
+
+        def emit_message(message: object) -> Iterator[str]:
+            chunk = _to_sse_data_line(message)
+            completion.record_serialized(message)
+            try:
+                yield chunk
+            except BaseException:
+                completion.cancel()
+                raise
+
         try:
-            for message in message_iter_factory():
-                yield _to_sse_data_line(message)
+            try:
+                source = message_iter_factory()
+                for message in source:
+                    yield from emit_message(message)
+                    if completion.terminal_sent:
+                        break
+            except AppError as exc:
+                if completion.cancelled:
+                    raise
+                app.logger.warning("%s: %s (code: %s)", error_log, exc, exc.code)
+                if error_event_factory is None:
+                    raise
+                yield from emit_message(error_event_factory(exc))
+            except Exception as exc:
+                if completion.cancelled:
+                    raise
+                app.logger.exception(error_log)
+                if is_protocol_interrupt_error(exc):
+                    invalidate_session(source="learn stream_sse_response desync")
+                if error_event_factory is None:
+                    raise
+                yield from emit_message(error_event_factory(exc))
+            if completion.needs_terminal and terminal_event_factory is not None:
+                yield from emit_message(terminal_event_factory())
         except GeneratorExit:
+            completion.cancel()
             app.logger.info(close_log)
             # The close may have interrupted a DB exchange mid-stream:
             # discard the connection so the finally's remove does not send a
             # ROLLBACK on a possibly desynced stream.
             invalidate_session(source="learn stream_sse_response close")
             raise
-        except AppError as exc:
-            app.logger.warning("%s: %s (code: %s)", error_log, exc, exc.code)
-            if error_event_factory is None:
+        except (ConnectionError, OSError):
+            if not completion.cancelled:
                 raise
-            yield _to_sse_data_line(error_event_factory(exc))
-            if terminal_event_factory is not None:
-                yield _to_sse_data_line(terminal_event_factory())
-        except Exception as exc:
-            app.logger.exception(error_log)
-            if is_protocol_interrupt_error(exc):
-                invalidate_session(source="learn stream_sse_response desync")
-            if error_event_factory is None:
-                raise
-            yield _to_sse_data_line(error_event_factory(exc))
-            if terminal_event_factory is not None:
-                yield _to_sse_data_line(terminal_event_factory())
+            completion.cancel()
+            app.logger.info(close_log)
+            invalidate_session(source="learn stream_sse_response close")
         finally:
-            _release_db_session(app, source="learn stream_sse_response")
+            try:
+                close = getattr(source, "close", None)
+                if close is not None:
+                    with contextlib.suppress(Exception):
+                        close()
+            finally:
+                _release_db_session(app, source="learn stream_sse_response")
 
     _release_db_session(app, source="learn stream_sse_response")
     return Response(

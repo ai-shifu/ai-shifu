@@ -1051,18 +1051,28 @@ class RunScriptPreviewContextV2:
                 user_bid=user_bid,
                 run_session_bid=session_id,
             )
-            yield from preview_adapter.process(
-                self._iter_preview_generated_events(
-                    result=result,
-                    outline_bid=outline_bid,
-                    block_index=block_index,
-                    current_block=current_block,
-                    is_user_input_validation=is_user_input_validation,
-                    content_chunks=content_chunks,
-                    langfuse_output_chunks=langfuse_output_chunks,
-                    sent_prompt_chunks=sent_prompt_chunks,
+            terminal_done = None
+            with contextlib.closing(
+                preview_adapter.process(
+                    self._iter_preview_generated_events(
+                        result=result,
+                        outline_bid=outline_bid,
+                        block_index=block_index,
+                        current_block=current_block,
+                        is_user_input_validation=is_user_input_validation,
+                        content_chunks=content_chunks,
+                        langfuse_output_chunks=langfuse_output_chunks,
+                        sent_prompt_chunks=sent_prompt_chunks,
+                    )
                 )
-            )
+            ) as messages:
+                for message in messages:
+                    if message.type == "done" and getattr(
+                        message, "is_terminal", False
+                    ):
+                        terminal_done = message
+                    else:
+                        yield message
             self._update_preview_context(
                 context_store,
                 document,
@@ -1071,6 +1081,9 @@ class RunScriptPreviewContextV2:
                 current_block_content,
                 sent_prompt=(sent_prompt_chunks[0] if sent_prompt_chunks else ""),
             )
+            if terminal_done is not None:
+                # The browser closes on terminal DONE; the next turn must already be cached.
+                yield terminal_done
         finally:
             finalize_langfuse_trace(
                 trace=trace,

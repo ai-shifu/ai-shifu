@@ -65,6 +65,16 @@ response remains answerable, including after a Session round trip. A rejected
 completion or sibling tool validation still receives its required correction.
 No tool, event or Session schema changes are required.
 
+## Course request completion
+
+The course host shares HTTP completion rules through `RequestCompletion` in
+`flaskr/service/learn/request_stream.py`. It observes successfully serialized
+terminal events and cancellation; formal learning and preview add one ephemeral
+terminal on normal exhaustion when none was sent. `done(false)` remains a block
+boundary. Existing polling, serialization, errors and session-saving paths stay
+with their callers. Legacy preview saves its context before emitting terminal.
+An HTTP terminal does not independently finish the lesson or create an element.
+
 ## Compatibility and delivery
 
 PR #3163 extracts the existing course engine directly from `main`. PR #3161
