@@ -110,7 +110,9 @@ Native tool calls are paired by their tool-call ids where possible. Deferred
 interaction requests close the corresponding tool with the pending question.
 Memory updates identify staged notes; unmatched `remember` calls are closed
 with an unavailable-result status rather than an invented successful result.
-Tools such as `finish` that omit a result are closed at the native turn boundary.
+Tools such as `finish` that omit a result stay open at the native turn boundary
+and close only when the host reports its authoritative saved outcome. A failed
+or discarded save must not leave an unresolved tool labeled as successful.
 Any outstanding tool/turn is also closed when the request fails or disconnects.
 
 The host marks a business outcome only after its authoritative save succeeds,

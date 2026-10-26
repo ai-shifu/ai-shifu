@@ -268,8 +268,8 @@ class MarkdownFlowTrace:
                 status_message=event.code or "engine_error",
                 metadata={"retryable": event.retryable},
             )
-        elif kind == "turn.done":
-            self._end_tools(event.reason)
+        # A native TurnDone is not a committed result. Unmatched tools stay
+        # open until complete_turn receives the host's authoritative save outcome.
 
     def complete_turn(self, outcome: str) -> None:
         """Mark the host's committed outcome before its terminal event is yielded."""
