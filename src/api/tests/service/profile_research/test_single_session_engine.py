@@ -466,9 +466,7 @@ def test_natural_questionnaire_uses_native_controls_without_a_static_question_se
     assert session.variables == {"goal": "writing"}
 
 
-def test_static_option_substitution_uses_native_memory_and_not_extra_host_state() -> (
-    None
-):
+def test_static_option_braces_remain_literal_independently_of_memory() -> None:
     session = _session("?[%{{role}}Primary//{{primary}}|Other//other]")
     session.variables["primary"] = "teacher"
 
@@ -485,7 +483,7 @@ def test_static_option_substitution_uses_native_memory_and_not_extra_host_state(
                     "role",
                     kind="single",
                     options=[
-                        {"display": "Primary", "value": "teacher"},
+                        {"display": "Primary", "value": "{{primary}}"},
                         {"display": "Other", "value": "other"},
                     ],
                 )
@@ -494,9 +492,9 @@ def test_static_option_substitution_uses_native_memory_and_not_extra_host_state(
     model = FunctionModel(stream_function=script)
     run_profile_turn(session, {}, model)
     session.variables["primary"] = "untrusted-host-value"
-    result = run_profile_turn(session, {"role": ["teacher"]}, model)
+    result = run_profile_turn(session, {"role": ["{{primary}}"]}, model)
     assert result.input_accepted
-    assert session.variables["role"] == "teacher"
+    assert session.variables["role"] == "{{primary}}"
     assert session.variables["primary"] == "teacher"
 
 

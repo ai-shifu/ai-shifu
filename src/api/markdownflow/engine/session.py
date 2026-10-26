@@ -76,7 +76,7 @@ class Session:
     # Host-supplied memory deletion generations this session's memory reflects.
     memory_generations: dict[str, int] = field(default_factory=dict)
     user_memory: dict[str, Any] = field(default_factory=dict)  # snapshot of user scope
-    # Exact source values for initial host substitutions; None identifies legacy sessions.
+    # Historical initial host values; None identifies sessions predating the snapshot.
     initial_variables: dict[str, Any] | None = None
     pending: list[PendingInteraction] = field(default_factory=list)
     # Answers collected for this turn's deferred calls, keyed by tool_call_id. A turn can raise

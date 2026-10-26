@@ -219,18 +219,25 @@ async def test_every_input_source_counts_before_gateway_io(
     assert not calls
 
 
-async def test_repeated_exact_substitutions_count_and_original_memory_survives(
+async def test_repeated_literal_braces_do_not_expand_omitted_memory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = []
-    monkeypatch.setattr(gw, "chat_llm", lambda **kw: calls.append(kw))
+
+    def chat(**kwargs: object) -> Iterator[FakeChunk]:
+        calls.append(kwargs)
+        yield FakeChunk(result="A useful example.", finish_reason="stop")
+
+    monkeypatch.setattr(gw, "chat_llm", chat)
     engine = Engine(_model(), memory_context_limit=32768)
     answer = "z" * 70000
-    session = await engine.new_session("{{answer}}\n" * 4, memory={"answer": answer})
+    source = "{{answer}}\n" * 4
+    session = await engine.new_session(source, memory={"answer": answer})
     events = [event async for event in engine.run_turn(session)]
-    assert not calls
-    assert events[-1].code == "input_budget_exceeded"
-    assert events[-1].retryable is False
+    assert len(calls) == 1
+    assert isinstance(events[-1], TurnDone)
+    assert source in calls[0]["messages"][-1]["content"]
+    assert answer not in calls[0]["messages"][-1]["content"]
     assert session.memory["answer"] == answer
     assert not session.finished
 

@@ -99,8 +99,6 @@ from .script import (
     detect_v1_syntax,
     final_preserved_line,
     render_first_prompt,
-    substitute_variables,
-    substitution_names,
 )
 from .segmenter import Narration, Segmenter, SegmentPiece
 from .session import PendingInteraction, Session
@@ -433,7 +431,7 @@ class Engine:
         whether the learner explicitly asked to remember the proposed value.
 
         `memory_context_limit` bounds the initial memory JSON payload, including legacy
-        histories projected for a resumed request. It never bounds exact script substitution,
+        histories projected for a resumed request. It never changes the authored script,
         answers or conversation history. None retains portable hosts' previous rendering.
 
         `memory_readonly_prefixes` prevents tools and named answers from overwriting
@@ -814,12 +812,7 @@ class Engine:
             if isinstance(turn, InteractionResponseTurn):
                 yield ErrorEvent(message="no interaction is pending on a new session")
                 return
-            initial = session.all_memory()
-            session.initial_variables = {
-                key: initial[key]
-                for key in substitution_names(session.script)
-                if key in initial
-            }
+            session.initial_variables = {}
             prompt = render_first_prompt(
                 session.script,
                 session.all_memory(),
@@ -1086,16 +1079,6 @@ class Engine:
             else ""
         )
         final_line = final_preserved_line(session.script.script) if carried_on else None
-        if final_line is not None:
-            # Use the prompt's substitution rules, and keep both original and rendered
-            # uniqueness checks: distinct author blocks can render to the same text.
-            final_line = final_preserved_line(
-                substitute_variables(
-                    session.script.script,
-                    session.all_memory(),
-                    collected=collected_names(session.script.script),
-                )
-            )
         final_line_text = (
             "".join(_display_text(final_line).split()) if final_line else ""
         )

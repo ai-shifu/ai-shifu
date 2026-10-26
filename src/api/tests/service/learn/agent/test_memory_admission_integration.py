@@ -114,7 +114,7 @@ def test_request_without_a_definition_reaches_next_lesson_only_when_admitted(
             "short explanations" if allowed else None
         )
         if allowed:
-            assert "Teach using short explanations." in seen[0]
+            assert "Teach using {{requested_pace}}." in seen[0]
         with unit_of_work():
             other = uuid4().hex
             create_user_entity(user_bid=other, identify=other, nickname="Other learner")

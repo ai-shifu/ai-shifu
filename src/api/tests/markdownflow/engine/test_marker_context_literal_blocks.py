@@ -2,7 +2,8 @@
 
 import pytest
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
-from markdownflow.engine import collected_names, substitute_variables
+from flaskr.service.learn.agent.legacy_prompt import _render_legacy_text
+from markdownflow.engine import collected_names
 from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.tools import _script_questions
 
@@ -32,7 +33,7 @@ def test_block_examples_do_not_consume_external_named_questions(prefix: str) -> 
     assert questions[0].variable == "real"
     assert [choice.strip() for choice in questions[0].choices] == ["A", "B"]
     assert (
-        substitute_variables(prefix + "{{ real }}", {"real": "VALUE"})
+        _render_legacy_text(prefix + "{{ real }}", {"real": "VALUE"})
         == prefix + "VALUE"
     )
 
@@ -47,7 +48,7 @@ def test_escaped_first_tick_keeps_suffix_code_boundary_across_consumers(
     assert collected_names(source) == frozenset({"real"})
     assert _script_questions(source)[0].variable == "real"
     assert (
-        substitute_variables(prefix + "{{ real }}", {"real": "VALUE"})
+        _render_legacy_text(prefix + "{{ real }}", {"real": "VALUE"})
         == prefix + "VALUE"
     )
     for chunk_size in (1, 2, len(source)):
@@ -70,7 +71,7 @@ def test_block_literals_preserve_complete_markers_and_separate_opening_attribute
         '<script title="{{">\n%{{ example }} {{ value }}\n</script>\n?[%{{ real }} A|B]'
     )
     assert collected_names(source) == frozenset({"example", "real"})
-    assert substitute_variables(source, {"value": "VALUE"}) == source.replace(
+    assert _render_legacy_text(source, {"value": "VALUE"}) == source.replace(
         "{{ value }}", "VALUE"
     )
 
@@ -99,7 +100,7 @@ def test_math_and_link_examples_cannot_hide_the_following_real_question(
     assert len(questions) == 1
     assert questions[0].variable == "real"
     assert (
-        substitute_variables(prefix + "\n\n{{ real }}", {"real": "VALUE"})
+        _render_legacy_text(prefix + "\n\n{{ real }}", {"real": "VALUE"})
         == prefix + "\n\nVALUE"
     )
 
@@ -112,7 +113,7 @@ def test_complete_math_and_resource_examples_keep_exact_variable_names(
     source: str,
 ) -> None:
     assert collected_names(source) == frozenset({"example"})
-    assert substitute_variables(source, {"value": "VALUE"}) == source.replace(
+    assert _render_legacy_text(source, {"value": "VALUE"}) == source.replace(
         "{{ value }}", "VALUE"
     )
 
@@ -146,7 +147,7 @@ def test_raw_html_closing_line_bounds_local_examples(newline: str) -> None:
     assert collected_names(source) == frozenset({"real"})
     assert _script_questions(source)[0].variable == "real"
     complete = prefix.replace("{{ unfinished", "{{ example }}") + "{{ real }}"
-    assert substitute_variables(
+    assert _render_legacy_text(
         complete, {"example": "local", "real": "outside"}
     ).endswith("local" + newline + "outside")
 
@@ -207,7 +208,7 @@ def test_many_link_ancestors_keep_native_active_state_without_repeated_work(
         image == images and active == images for image, active in context.pending_labels
     )
     assert (
-        substitute_variables(source + " {{ real }}", {"real": "VALUE"})
+        _render_legacy_text(source + " {{ real }}", {"real": "VALUE"})
         == source + " VALUE"
     )
 
@@ -241,7 +242,7 @@ def test_late_document_contexts_keep_external_names_and_exact_raw_offsets(
     assert collected_names(source) == frozenset({"real"})
     assert _script_questions(source)[-1].variable == "real"
     assert (
-        substitute_variables(prefix + "{{ real }}", {"real": "VALUE"})
+        _render_legacy_text(prefix + "{{ real }}", {"real": "VALUE"})
         == prefix + "VALUE"
     )
     for marker in analyze_marker_context(source).markers:
@@ -324,7 +325,7 @@ def test_setext_heading_stops_inline_delimiter_pairing(
     )
     assert collected_names(source) == frozenset()
     assert _script_questions(source) == []
-    assert substitute_variables(source, {"real": "VALUE"}) == source
+    assert _render_legacy_text(source, {"real": "VALUE"}) == source
 
 
 @pytest.mark.parametrize("delimiter", ["`", "$"])
@@ -342,7 +343,7 @@ def test_complete_inline_examples_in_setext_headings_keep_their_names(
         "real",
     ]
     assert _script_questions(source)[-1].variable == "real"
-    assert substitute_variables(source, {"example": "VALUE"}) == source.replace(
+    assert _render_legacy_text(source, {"example": "VALUE"}) == source.replace(
         "{{ example }}", "VALUE"
     )
 
@@ -382,7 +383,7 @@ def test_complete_html_blocks_bound_unclosed_examples_on_the_closing_line(
     assert collected_names(source) == frozenset({"real"})
     assert _script_questions(source)[-1].variable == "real"
     assert (
-        substitute_variables(prefix + "{{ real }}", {"real": "VALUE"})
+        _render_legacy_text(prefix + "{{ real }}", {"real": "VALUE"})
         == prefix + "VALUE"
     )
 
@@ -396,7 +397,7 @@ def test_html_token_and_closing_line_keep_separate_complete_variable_examples(
         "tail",
         "real",
     ]
-    assert substitute_variables(source, {"tail": "VALUE"}) == source.replace(
+    assert _render_legacy_text(source, {"tail": "VALUE"}) == source.replace(
         "{{ tail }}", "VALUE"
     )
 

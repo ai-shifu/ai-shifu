@@ -6,21 +6,16 @@ from typing import TYPE_CHECKING
 
 from flaskr.api.markdownflow import (
     render_question,
-    substitute_variables,
     unrenderable_reason,
 )
 from markdown_flow import InteractionParser
 from markdown_flow.escaping import find_unescaped
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from flaskr.api.markdownflow import InteractionSpec
 
 
-def check_authored_interaction(
-    spec: InteractionSpec, source: str, variables: Mapping[str, object]
-) -> str | None:
+def check_authored_interaction(spec: InteractionSpec, source: str) -> str | None:
     """Reject changed bindings, input kinds, or ordered stored values.
 
     Display labels, prompts and text hints may be localized. An unassigned
@@ -28,7 +23,8 @@ def check_authored_interaction(
     author explicitly supplied a machine value with ``Display//value``.
     Hosts may match this contract against any authored question in a full script.
     """
-    rendered_source = substitute_variables(source, variables)
+    # Native authored controls keep brace text literal, independently of memory.
+    rendered_source = source
     parser = InteractionParser()
     authored = parser.parse(rendered_source)
     if authored.get("type") is None:

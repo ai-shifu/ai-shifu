@@ -95,10 +95,10 @@ def test_nickname_reaches_the_model_without_changing_the_profile(
         prompt = seen[0]
         memory = json.loads(prompt.split("<memory>\n", 1)[1].split("\n</memory>", 1)[0])
         assert memory["sys_user_nickname"] == address
-        assert f"Hello {address}." in prompt
-        assert f"Address {address} directly." in prompt
-        assert "{{sys_user_nickname}}" not in prompt
-        assert '<unavailable_learner_value name="unknown" />' in prompt
+        assert "Hello {{sys_user_nickname}}." in prompt
+        assert "Address {{sys_user_nickname}} directly." in prompt
+        assert "{{sys_user_nickname}}" in prompt
+        assert "{{unknown}}" in prompt
         db.session.remove()
         assert get_user_entity_by_bid(user).nickname == (nickname or "")
         assert load_memory(app, user, course).as_variables() == original

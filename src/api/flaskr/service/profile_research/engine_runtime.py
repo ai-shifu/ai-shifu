@@ -42,7 +42,7 @@ from pydantic_ai.messages import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable, Mapping
+    from collections.abc import AsyncIterator, Callable
 
     from flaskr.api.markdownflow import (
         Event,
@@ -124,13 +124,11 @@ def _authored_questions(source: str) -> tuple[str, ...]:
 def _interaction_problem(
     spec: InteractionSpec,
     questions: tuple[str, ...],
-    variables: Mapping[str, object],
 ) -> str | None:
     if reason := unrenderable_reason(spec):
         return reason
     if questions and all(
-        check_authored_interaction(spec, source, variables) is not None
-        for source in questions
+        check_authored_interaction(spec, source) is not None for source in questions
     ):
         return (
             "Use one of the authored questionnaire interactions. Preserve its input type, "
@@ -214,7 +212,7 @@ def run_profile_turn(
     questions = _authored_questions(working.script.script)
 
     def interaction_check(spec: InteractionSpec) -> str | None:
-        return _interaction_problem(spec, questions, working.all_memory())
+        return _interaction_problem(spec, questions)
 
     if any(interaction_check(pending.spec) for pending in working.pending):
         # Engine may set aside an unshowable question without accepting its answer.

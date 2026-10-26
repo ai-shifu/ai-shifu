@@ -44,7 +44,6 @@ from .engine.script import (
     collected_names,
     detect_v1_syntax,
     render_first_prompt,
-    substitute_variables,
 )
 from .engine.segmenter import Narration, Segmenter, SegmentPiece, plain_narration
 from .engine.session import (
@@ -115,6 +114,5 @@ __all__ = [
     "parse_event",
     "plain_narration",
     "render_first_prompt",
-    "substitute_variables",
     "to_sse",
 ]

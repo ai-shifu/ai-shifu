@@ -62,8 +62,8 @@ def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
     refresh_deleted_memory(session, frozenset({"goal"}))
     first = session.messages[0].parts[0].content
     assert "goal" not in json.JSONDecoder().raw_decode(first, len("<memory>\n"))[0]
-    assert 'Use <unavailable_learner_value name="goal" /> at slow pace.' in first
-    assert 'Consider <unavailable_learner_value name="goal" />.' in first
+    assert "Use {{goal}} at {{pace}} pace." in first
+    assert "Consider {{goal}}." in first
     assert value not in first
     assert "goal" not in session.all_memory()
     assert session.messages[1] is later
@@ -143,10 +143,7 @@ def test_actual_host_drops_pre_delete_turn_write_and_allows_a_fresh_request(
         resumed = asyncio.run(factory())
         assert "pace" not in resumed.all_memory()
         assert "old" not in resumed.messages[0].parts[0].content
-        assert (
-            '<unavailable_learner_value name="pace" />'
-            in resumed.messages[0].parts[0].content
-        )
+        assert "Teach at {{pace}} pace." in resumed.messages[0].parts[0].content
         kwargs["outline_bid"] = uuid4().hex
         list(run_agent.run_agent_lesson(**kwargs))
         assert (
@@ -217,10 +214,7 @@ def test_omitted_initial_substitution_survives_value_changes_and_roundtrip(
         _ = [e async for e in engine.run_turn(session)]
         first = session.messages[0].parts[0].content
         assert "goal" not in json.JSONDecoder().raw_decode(first, len("<memory>\n"))[0]
-        assert session.initial_variables == {
-            "goal": original,
-            "sys_user_nickname": "Before",
-        }
+        assert session.initial_variables == {}
         session.memory["goal"] = "later changed value"
         session = Session.loads(session.dumps())
         if renamed:
@@ -231,14 +225,9 @@ def test_omitted_initial_substitution_survives_value_changes_and_roundtrip(
         refresh_deleted_memory(session, frozenset({"goal"}))
         first = session.messages[0].parts[0].content
         assert original not in first
-        assert (
-            f'Use <unavailable_learner_value name="goal" /> for {"After" if renamed else "Before"}.'
-            in first
-        )
-        assert 'Consider <unavailable_learner_value name="goal" />.' in first
-        assert session.initial_variables == {
-            "sys_user_nickname": "After" if renamed else "Before"
-        }
+        assert "Use {{goal}} for {{sys_user_nickname}}." in first
+        assert "Consider {{goal}}." in first
+        assert session.initial_variables == {}
         once = session.dumps()
         refresh_deleted_memory(session, frozenset({"goal"}))
         assert session.dumps() == once
