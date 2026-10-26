@@ -137,6 +137,49 @@ def test_request_tree_preserves_answer_context_and_typed_operations(
         assert "langfuse.trace.metadata.teaching_brief" not in span.attributes
 
 
+def test_generation_keeps_native_tools_separate_from_xml_content(
+    observations: InMemorySpanExporter,
+) -> None:
+    from flaskr.api.llm import _build_langfuse_llm_output
+
+    visible = "Choose a project.\n"
+    content = visible + '<interact type="text" variable="project_goal"></interact>'
+    arguments = '{ "type": "text", "prompt": "What is your goal?" }'
+    tool_calls = [
+        {
+            "id": "question-1",
+            "type": "function",
+            "function": {"name": "interact", "arguments": arguments},
+        }
+    ]
+    trace = _trace()
+    turn = trace.start_turn()
+    turn.generation(name="teach", model="test-model").end(
+        output=_build_langfuse_llm_output(content, "Ask for the goal.", tool_calls)
+    )
+    trace.append_output(visible)
+    trace.complete_turn("interaction")
+    trace.finish()
+
+    spans = _spans(observations)
+    assert _value(spans["teach"], "output") == [
+        {
+            "role": "assistant",
+            "content": content,
+            "reasoning_content": "Ask for the goal.",
+            "tool_calls": [
+                {
+                    "id": "question-1",
+                    "type": "function",
+                    "function": {"name": "interact", "arguments": arguments},
+                }
+            ],
+        }
+    ]
+    assert _value(spans["turn"], "output") == visible
+    assert _value(spans["learn/Course/Chapter/Lesson"], "output") == visible
+
+
 def test_late_session_binding_reaches_root_existing_turn_and_future_children(
     observations: InMemorySpanExporter,
 ) -> None:
