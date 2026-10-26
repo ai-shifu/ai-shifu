@@ -1,6 +1,6 @@
 ---
 title: Share lesson request lifecycle and session persistence
-status: active
+status: completed
 owner_surface: learning-runtime
 last_reviewed: 2026-10-26
 ---
@@ -26,7 +26,7 @@ content, permission, billing and history isolation between the three hosts.
   every existing persistence boundary and isolation rule.
 - [x] 2026-10-26 CST: Share frontend lesson SSE transport and lifecycle cleanup.
 - [x] 2026-10-26 CST: Run affected suites, repository gates and independent review.
-- [ ] 2026-10-26 CST: Verify the changed paths on SIM and prepare a focused PR.
+- [x] 2026-10-26 CST: Verify the changed paths on SIM and prepare a focused PR.
 
 ## Surprises & Discoveries
 
@@ -68,17 +68,52 @@ content, permission, billing and history isolation between the three hosts.
 
 ## Outcomes & Retrospective
 
-Implementation is in progress. No main-branch merge or production deployment is
-authorized. The previous finish repair remains independently reviewable in
-merged PR #3189.
+Implementation and verification are complete. No main-branch merge or production
+service deployment was performed. The previous finish repair remains
+independently reviewable in merged PR #3189.
 
 Verification passes 2,653 portable engine tests, 3,675 learning-host tests (93
 skipped) and all 3,412 frontend tests across 278 suites, plus TypeScript and lint.
 Independent review reproduced and closed both the legacy-preview cache and
 native-XHR scheduling regressions. Real Chromium checks pass for HTTP 200/403
 JSON business errors, ordinary EOF, retired requests and cancellation. The full
-repository pre-commit gate and architecture boundary check pass. SIM acceptance
-and final review preparation remain in progress.
+repository pre-commit gate and architecture boundary check pass.
+
+SIM integration `48acc14de3a79f6ba011e7c039382e3c19abf9fb` preserves SIM history
+and has the same runtime source tree as implementation commit `66cad4b27`.
+[Drone build 5503](https://ci.pillowai.cn/ai-shifu/ai-shifu/5503) produced
+`sim-48acc14`. API deployment record 3370 and Web record 3371 completed; actual
+readback showed API 2/2 and Web 1/1 available with zero restarts. The deployed
+request helper SHA-256 is
+`75d4d4f2ab36e8c63fce85777d92f290b1dcdd58aa299b2752ff83603ebb2542`,
+and the course runner is
+`fc32bd6479742571f6fdbc5a26101bc73bd64f1888a889d44e9dbeefb925dcc3`,
+both matching the tested source.
+
+Real-model acceptance reused the original 1,108-character lesson script from the
+earlier finish investigation, SHA-256
+`94f82238770f1f7861f01c952e9116536e54a68cc27ac1a6ba4a24ed926eae83`.
+The isolated run `lifecycle-419221a9e3774297bf223139c7a4f5b7` used
+`ark/deepseek-v4-1-flash-261017` and finished with one paired finish call/return,
+no pending question and no model responses or retries after accepted finish.
+Its two actual model requests match usage rows 812525 and 812526 and two distinct
+consumption ledger entries totaling 9.55 credits: 42,876 input tokens, 37,760
+cached input and 4,859 output tokens. This is an acceptance run, not a controlled
+cost comparison with a prior model response.
+
+The initial HTTP trace was `851ff9a05a0b44ecb77ccf3063492165`. Two subsequent
+requests using the same completed debug session had traces
+`324ef55e62e2474f8ab6cf5614a03a9e` and
+`ff8d9c35396d4ffba9e35281905141c9`. Each now emits exactly
+`preview_engine` followed by one terminal `done`; both probes exit successfully.
+Both add zero usage rows or credits, and the Session history and usage remain
+identical. Thus the previously observed missing terminal is fixed on the
+deployed runtime without reopening the engine.
+
+Existing author course-preview state was left intact. Formal/course-preview
+boundaries are covered by the common request fixtures and full learning suite;
+no new live persisted author-preview turn or learner progress was created for
+this acceptance. No database migration or shared course-model change was made.
 
 ## Context and Orientation
 
