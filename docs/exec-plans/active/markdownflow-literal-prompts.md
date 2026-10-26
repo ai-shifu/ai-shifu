@@ -15,6 +15,8 @@ reviewable PR on current main. The durable contract is
 
 ## Progress
 
+- [x] 2026-10-26 CST: Fix review finding for unset retired references; 128 reference/compatibility regressions pass.
+
 - [x] 2026-10-26 CST: Fetch main and PR #3181; save local recovery branches.
 - [x] 2026-10-26 CST: Create isolated managed worktree and copy local environment files.
 - [x] 2026-10-26 CST: Separate literal prompt assembly and historical host refresh from field renaming.

@@ -18,6 +18,8 @@ from markdownflow.engine.variable_names import read_variable_marker
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from markdownflow.engine.script import ScriptBundle
+
 _FENCE_RE = re.compile(r"(?m)^(`{3,}|~{3,}).*$")
 _LITERAL_SPAN_RE = re.compile(r"(!===.*?!===|(?<!!)===(?!=).*?===)")
 
@@ -129,6 +131,18 @@ def historical_collected_names(script: str) -> frozenset[str]:
         name
         for _raw, name, assignment in markers.values()
         if assignment and name is not None
+    )
+
+
+def historical_reference_names(bundle: ScriptBundle) -> frozenset[str]:
+    """Find former host reads even when no value was ever saved for them."""
+    collected = historical_collected_names(bundle.script)
+    return frozenset(
+        name
+        for source in (bundle.script, bundle.constraints or "")
+        for _projected, markers, _tokens in (_project_legacy_markers(source),)
+        for _raw, name, assignment in markers.values()
+        if name is not None and not assignment and name not in collected
     )
 
 
