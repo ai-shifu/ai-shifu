@@ -409,6 +409,8 @@ type SseFallbackXhr = Pick<XMLHttpRequest, 'addEventListener' | 'responseText'>;
 type AttachSseBusinessResponseFallbackOptions = {
   requestToken?: string;
   meta?: RequestDebugMeta;
+  shouldHandle?: () => boolean;
+  onDetected?: () => void;
   onHandled?: (error: ErrorWithCode) => void;
 };
 
@@ -423,24 +425,29 @@ export const attachSseBusinessResponseFallback = (
 
   let handled = false;
 
-  xhr.addEventListener('load', () => {
+  const handleResponse = (payload: unknown = xhr.responseText) => {
+    if (options.shouldHandle && !options.shouldHandle()) return false;
     if (handled) {
-      return;
+      return true;
     }
 
-    const response = parseBusinessResponsePayload(xhr.responseText);
+    const response = parseBusinessResponsePayload(payload);
     if (!response || response.code === 0) {
-      return;
+      return false;
     }
 
     handled = true;
+    options.onDetected?.();
 
     void handleBusinessCode(response, options.requestToken, options.meta).catch(
       error => {
         options.onHandled?.(error as ErrorWithCode);
       },
     );
-  });
+    return true;
+  };
+  xhr.addEventListener('load', () => handleResponse());
+  return { handleResponse };
 };
 
 // ===== Utility Functions =====

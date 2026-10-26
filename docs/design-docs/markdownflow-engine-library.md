@@ -65,6 +65,11 @@ response remains answerable, including after a Session round trip. A rejected
 completion or sibling tool validation still receives its required correction.
 No tool, event or Session schema changes are required.
 
+HTTP response termination and course-host persistence are separate from the
+engine's completion boundary. See the
+[shared lesson request lifecycle](lesson-request-lifecycle.md) for the common
+formal-learning and preview stream contract.
+
 ## Compatibility and delivery
 
 PR #3163 extracts the existing course engine directly from `main`. PR #3161

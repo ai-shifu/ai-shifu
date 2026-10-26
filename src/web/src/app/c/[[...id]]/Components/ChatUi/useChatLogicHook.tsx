@@ -2228,6 +2228,22 @@ function useChatLogicHook({
           setHasRunFailed(true);
           cleanupRunStreamState();
         },
+        {
+          isCurrent: () =>
+            sseRef.current === source && runSerial === sseRunSerialRef.current,
+          onSettled: outcome => {
+            if (
+              outcome === 'stale' ||
+              sseRef.current !== source ||
+              runSerial !== sseRunSerialRef.current
+            )
+              return;
+            finishPreviewRewind?.(
+              outcome === 'terminal' ? 'success' : 'failed',
+            );
+            cleanupRunStreamState();
+          },
+        },
       );
       sseRef.current = source;
       armRunStreamTimeout();
@@ -2239,15 +2255,6 @@ function useChatLogicHook({
           if (isActiveSource) {
             isStreamingRef.current = true;
             setIsOutputInProgress(true);
-          }
-        }
-        if (source.readyState === 2) {
-          if (isActiveSource) {
-            finishPreviewRewind?.('failed');
-            // Always clear the loading placeholder when the active stream closes.
-            // Some interaction flows may only emit control events before closing,
-            // which still leaves the placeholder visible without this cleanup.
-            cleanupRunStreamState();
           }
         }
       });

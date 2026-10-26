@@ -7,6 +7,7 @@ declare module 'sse.js' {
         payload?: string;
         method?: string;
         withCredentials?: boolean;
+        start?: boolean;
       },
     );
 
@@ -20,5 +21,7 @@ declare module 'sse.js' {
     ): void;
     stream(): void;
     close(): void;
+    readyState: number;
+    dispatchEvent(event: Event): boolean;
   }
 }

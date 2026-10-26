@@ -28,6 +28,8 @@ Implementation and architecture decisions that shape repository behavior live he
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-26` | Canonical: `true`
 - [Learner follow-up input shortcuts](../design-docs/learner-follow-up-input-shortcuts.md)
   - Status: `implemented` | Owner: `learner-web` | Last reviewed: `2026-09-04` | Canonical: `true`
+- [Shared lesson request lifecycle](../design-docs/lesson-request-lifecycle.md)
+  - Status: `implemented` | Owner: `learner` | Last reviewed: `2026-10-26` | Canonical: `true`
 - [MarkdownFlow engine library](../design-docs/markdownflow-engine-library.md)
   - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-26` | Canonical: `true`
 - [Native China Payments](../design-docs/native-cn-payments.md)

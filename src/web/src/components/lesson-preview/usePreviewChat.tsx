@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { SSE } from 'sse.js';
+import type { SSE } from 'sse.js';
+import {
+  createSseSource,
+  resolveLessonStreamTerminal,
+} from '@/lib/lessonStream';
 import { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { createInteractionParser, normalizeVariableName } from 'remark-flow';
 import {
@@ -31,7 +35,7 @@ import LoadingBar from '@/components/ChatUi/LoadingBar';
 import { ChatContentItem, ChatContentItemType } from '@/types/chatUi';
 import { normalizeLegacyBlockCompatList } from '@/lib/chatUiCompat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
-import { useShifu, useUserStore } from '@/store';
+import { useShifu } from '@/store';
 import { toast } from '@/hooks/useToast';
 import {
   resolveLearnerErrorMessage,
@@ -44,12 +48,7 @@ import {
   isCreditInsufficientBusinessCode,
   showCreditInsufficientToast,
 } from '@/lib/creditInsufficientToast';
-import {
-  attachSseBusinessResponseFallback,
-  getCurrentLanguageHeaders,
-} from '@/lib/request';
 import type { ErrorWithCode } from '@/lib/request';
-import { buildTraceHeaders } from '@/lib/request-trace';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/hooks/useTracking';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
@@ -226,57 +225,6 @@ const resolveResponseStringPayload = (
       ? objectPayload.mdflow
       : '';
   return mdflow || '';
-};
-
-const resolveDoneIsTerminal = (
-  response: PreviewSseResponseData,
-): boolean | null => {
-  const topLevelFlag = readBooleanField(response as Record<string, unknown>, [
-    'is_terminal',
-  ]);
-  if (topLevelFlag !== null) {
-    return topLevelFlag;
-  }
-  const payloadObject = resolveResponsePayload(response);
-  if (!payloadObject) {
-    return null;
-  }
-  return readBooleanField(payloadObject, ['is_terminal']);
-};
-
-const readPayloadField = (
-  payload: Record<string, unknown>,
-  keys: string[],
-): unknown => {
-  for (const key of keys) {
-    if (key in payload) {
-      return payload[key];
-    }
-  }
-  return undefined;
-};
-
-const readBooleanField = (
-  payload: Record<string, unknown>,
-  keys: string[],
-): boolean | null => {
-  const value = readPayloadField(payload, keys);
-  if (typeof value === 'boolean') {
-    return value;
-  }
-  if (typeof value === 'number') {
-    return value !== 0;
-  }
-  if (typeof value === 'string') {
-    const normalized = value.toLowerCase();
-    if (normalized === 'true') {
-      return true;
-    }
-    if (normalized === 'false') {
-      return false;
-    }
-  }
-  return null;
 };
 
 const resolveElementPayload = (
@@ -1251,15 +1199,8 @@ export function usePreviewChat({
   );
 
   const handlePayload = useCallback(
-    (payload: string) => {
+    (response: PreviewSseResponseData) => {
       try {
-        const normalizedPayload = payload.replace(/^data:\s*/, '').trim();
-        if (!normalizedPayload) {
-          return;
-        }
-        const response = JSON.parse(
-          normalizedPayload,
-        ) as PreviewSseResponseData;
         const responseType =
           typeof response.type === 'string'
             ? response.type
@@ -1423,7 +1364,7 @@ export function usePreviewChat({
             });
           }
         } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.DONE) {
-          const doneIsTerminal = resolveDoneIsTerminal(response);
+          const doneIsTerminal = resolveLessonStreamTerminal(response);
           const latestActionableItem = finalizePreviewItems();
           doneTerminalStateRef.current = doneIsTerminal;
           currentContentIdRef.current = null;
@@ -1589,6 +1530,7 @@ export function usePreviewChat({
       const previewRunId = invalidatePreviewRun();
       doneTerminalStateRef.current = null;
       const resolvedBaseUrl = await resolveBaseUrl();
+      if (!isCurrentPreviewRun(previewRunId)) return;
       if (!resolvedBaseUrl) {
         setError(t('module.preview.missingApiBaseUrl'));
         return;
@@ -1610,17 +1552,6 @@ export function usePreviewChat({
       currentStreamingElementBidRef.current = null;
 
       try {
-        const tokenValue = useUserStore.getState().getToken();
-        const traceHeaders = buildTraceHeaders({
-          'Content-Type': 'application/json',
-          ...getCurrentLanguageHeaders(),
-          ...(tokenValue
-            ? {
-                Authorization: `Bearer ${tokenValue}`,
-                Token: tokenValue,
-              }
-            : {}),
-        });
         const payload: Record<string, unknown> = {
           block_index: finalBlockIndex,
           content: finalMdflow,
@@ -1634,83 +1565,80 @@ export function usePreviewChat({
           payload.user_input = normalizedUserInput;
         }
         const url = `${resolvedBaseUrl}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`;
-        const source = new SSE(url, {
-          headers: traceHeaders.headers,
-          payload: JSON.stringify(payload),
-          method: 'POST',
-        });
-        sseRef.current = source;
-        attachSseBusinessResponseFallback(source, {
-          requestToken: tokenValue || '',
-          meta: {
-            url,
-            method: 'POST',
-            requestToken: tokenValue || '',
-            requestId: traceHeaders.requestId,
-            harnessRunId: traceHeaders.harnessRunId,
-            skipErrorToast: true,
-            creditInsufficientAudience,
-          },
-          onHandled: error => {
-            if (sseRef.current !== source) {
-              return;
-            }
-            handlePreviewBusinessError(error);
-          },
-        });
-        source.addEventListener('message', event => {
-          if (
-            !isCurrentPreviewRun(previewRunId) ||
-            previewFailedRef.current ||
-            sseRef.current !== source
-          ) {
-            return;
-          }
-          const raw = event?.data;
-          if (!raw) return;
-          const payload = String(raw).trim();
-          if (payload) {
-            handlePayload(payload);
+        const source = createSseSource({
+          url,
+          payload,
+          creditInsufficientAudience,
+          skipErrorToast: true,
+          start: false,
+          isCurrent: () =>
+            isCurrentPreviewRun(previewRunId) && sseRef.current === source,
+          onMessage: response => {
+            if (previewFailedRef.current) return;
+            handlePayload(response);
             setIsLoading(false);
-          }
-        });
-        source.addEventListener('error', err => {
-          if (!isCurrentPreviewRun(previewRunId) || sseRef.current !== source) {
-            return;
-          }
-          debugError('[preview-chat] preview SSE error', err);
-          const latestActionableItem = finalizePreviewItems();
-          const hasReceivedNonTerminalDone =
-            doneTerminalStateRef.current === false;
-          if (hasReceivedNonTerminalDone) {
-            stopPreviewAndContinueIfNeeded(latestActionableItem);
-            return;
-          }
-          // Treat abrupt stream closure as success only for non-interaction blocks.
-          // Interaction submissions must receive the block-level done marker first.
-          const shouldContinuePreviewOnAbruptClose =
-            !agentPreviewRef.current &&
-            doneTerminalStateRef.current === null &&
-            Boolean(latestActionableItem) &&
-            latestActionableItem?.type !== ChatContentItemType.INTERACTION;
-          if (shouldContinuePreviewOnAbruptClose) {
-            const didContinue =
-              continuePreviewFromLatestStateRef.current(latestActionableItem);
-            if (didContinue) {
+          },
+          onError: err => {
+            const businessError = (err as { detail?: ErrorWithCode })?.detail;
+            if (businessError) {
+              handlePreviewBusinessError(businessError);
               return;
             }
+            debugError('[preview-chat] preview SSE error', err);
+            const latestActionableItem = finalizePreviewItems();
+            const hasReceivedNonTerminalDone =
+              doneTerminalStateRef.current === false;
+            if (hasReceivedNonTerminalDone) {
+              stopPreviewAndContinueIfNeeded(latestActionableItem);
+              return;
+            }
+            // Treat abrupt stream closure as success only for non-interaction blocks.
+            // Interaction submissions must receive the block-level done marker first.
+            const shouldContinuePreviewOnAbruptClose =
+              !agentPreviewRef.current &&
+              doneTerminalStateRef.current === null &&
+              Boolean(latestActionableItem) &&
+              latestActionableItem?.type !== ChatContentItemType.INTERACTION;
+            if (shouldContinuePreviewOnAbruptClose) {
+              const didContinue =
+                continuePreviewFromLatestStateRef.current(latestActionableItem);
+              if (didContinue) {
+                return;
+              }
+              if (
+                isCompletedFinalPreviewContentAfterAbruptClose(
+                  latestActionableItem,
+                  sseParams.current,
+                )
+              ) {
+                stopPreview();
+                return;
+              }
+            }
+            handlePreviewBusinessError(t('module.preview.streamError'));
+          },
+          onSettled: outcome => {
             if (
-              isCompletedFinalPreviewContentAfterAbruptClose(
-                latestActionableItem,
-                sseParams.current,
-              )
+              !isCurrentPreviewRun(previewRunId) ||
+              sseRef.current !== source ||
+              (outcome !== 'eof' && outcome !== 'terminal')
+            )
+              return;
+            const latestActionableItem = finalizePreviewItems();
+            if (
+              outcome === 'eof' &&
+              !latestActionableItem &&
+              doneTerminalStateRef.current !== false
             ) {
               stopPreview();
               return;
             }
-          }
-          handlePreviewBusinessError(t('module.preview.streamError'));
+            // Legacy blocks may need another HTTP run. A terminal marker only
+            // completes this request; the host still owns lesson continuation.
+            stopPreviewAndContinueIfNeeded(latestActionableItem);
+          },
         });
+        sseRef.current = source;
         source.stream();
       } catch (err) {
         previewFailedRef.current = true;
@@ -2226,26 +2154,8 @@ export function usePreviewChat({
         ),
       );
 
-      const tokenValue = useUserStore.getState().getToken();
-      const traceHeaders = buildTraceHeaders({
-        'Content-Type': 'application/json',
-        ...getCurrentLanguageHeaders(),
-        ...(tokenValue
-          ? {
-              Authorization: `Bearer ${tokenValue}`,
-              Token: tokenValue,
-            }
-          : {}),
-      });
-
       return new Promise((resolve, reject) => {
         const url = `${resolvedBaseUrl}/api/learn/shifu/${shifuBid}/tts/preview?preview_mode=true`;
-        const source = new SSE(url, {
-          headers: traceHeaders.headers,
-          payload: JSON.stringify({ text: text || '' }),
-          method: 'POST',
-        });
-        ttsSseRef.current[blockId] = source;
         let settled = false;
         const settleFailure = (error: Error) => {
           if (settled || ttsSseRef.current[blockId] !== source) {
@@ -2279,34 +2189,16 @@ export function usePreviewChat({
           settleFailure(
             new DOMException('Preview audio request cancelled', 'AbortError'),
           );
-        attachSseBusinessResponseFallback(source, {
-          requestToken: tokenValue || '',
-          meta: {
-            url,
-            method: 'POST',
-            requestToken: tokenValue || '',
-            requestId: traceHeaders.requestId,
-            harnessRunId: traceHeaders.harnessRunId,
-            creditInsufficientAudience,
-          },
-          onHandled: fail,
-        });
-
-        source.addEventListener('message', event => {
-          if (
-            !isCurrentPreviewRun(previewRunId) ||
-            previewFailedRef.current ||
-            ttsSseRef.current[blockId] !== source
-          ) {
-            return;
-          }
-          const raw = event?.data;
-          if (!raw) return;
-          const payload = String(raw).trim();
-          if (!payload) return;
-
-          try {
-            const response = JSON.parse(payload);
+        const source = createSseSource({
+          url,
+          payload: { text: text || '' },
+          creditInsufficientAudience,
+          start: false,
+          isCurrent: () =>
+            isCurrentPreviewRun(previewRunId) &&
+            ttsSseRef.current[blockId] === source,
+          onMessage: response => {
+            if (previewFailedRef.current) return;
             if (response?.type === 'error' || response?.type === 'done') {
               fail(
                 new Error(
@@ -2353,22 +2245,18 @@ export function usePreviewChat({
               closeTtsStream(blockId);
               resolve(audioComplete ?? null);
             }
-          } catch (err) {
-            debugWarn('[preview-chat] preview audio stream parse error', err);
-          }
+          },
+          onError: error => {
+            const businessError = (error as { detail?: Error })?.detail;
+            fail(businessError ?? new Error('Preview audio stream failed'));
+          },
+          onSettled: outcome => {
+            if (outcome === 'eof' || outcome === 'terminal') {
+              fail(new Error('Preview audio stream ended without audio'));
+            }
+          },
         });
-
-        source.addEventListener('error', () => {
-          fail(new Error('Preview audio stream failed'));
-        });
-        source.addEventListener('readystatechange', event => {
-          const readyState = (event as Event & { readyState?: number })
-            .readyState;
-          if ((readyState ?? source.readyState) === 2) {
-            fail(new Error('Preview audio stream ended without audio'));
-          }
-        });
-
+        ttsSseRef.current[blockId] = source;
         source.stream();
       });
     },

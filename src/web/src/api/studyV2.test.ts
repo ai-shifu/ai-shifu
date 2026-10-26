@@ -10,7 +10,13 @@ jest.mock('sse.js', () => ({
   SSE: jest.fn().mockImplementation(() => ({
     addEventListener: jest.fn(),
     dispatchEvent: jest.fn(),
-    stream: jest.fn(),
+    get stream() {
+      return this._stream;
+    },
+    set stream(value) {
+      this._stream = jest.fn(value);
+    },
+    _stream: jest.fn(),
   })),
 }));
 

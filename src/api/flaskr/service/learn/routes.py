@@ -47,6 +47,7 @@ from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,
     resolve_preview_request_user,
 )
+from flaskr.service.learn.request_stream import stream_request
 from flaskr.service.learn.runscript_v2 import get_run_status, run_script
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
@@ -113,33 +114,31 @@ def _stream_sse_response(
     error_event_factory: object = None,
     terminal_event_factory: object = None,
 ) -> Response:
-    def event_stream() -> Iterator[str]:
-        try:
-            for message in message_iter_factory():
-                yield _to_sse_data_line(message)
-        except GeneratorExit:
-            app.logger.info(close_log)
-            # The close may have interrupted a DB exchange mid-stream:
-            # discard the connection so the finally's remove does not send a
-            # ROLLBACK on a possibly desynced stream.
-            invalidate_session(source="learn stream_sse_response close")
-            raise
-        except AppError as exc:
+    def error_messages(exc: Exception) -> Iterator[object]:
+        if isinstance(exc, AppError):
             app.logger.warning("%s: %s (code: %s)", error_log, exc, exc.code)
-            if error_event_factory is None:
-                raise
-            yield _to_sse_data_line(error_event_factory(exc))
-            if terminal_event_factory is not None:
-                yield _to_sse_data_line(terminal_event_factory())
-        except Exception as exc:
-            app.logger.exception(error_log)
+        else:
+            app.logger.error(error_log, exc_info=(type(exc), exc, exc.__traceback__))
             if is_protocol_interrupt_error(exc):
                 invalidate_session(source="learn stream_sse_response desync")
-            if error_event_factory is None:
-                raise
-            yield _to_sse_data_line(error_event_factory(exc))
-            if terminal_event_factory is not None:
-                yield _to_sse_data_line(terminal_event_factory())
+        if error_event_factory is None:
+            raise exc
+        yield error_event_factory(exc)
+
+    def on_disconnect(_exc: BaseException) -> None:
+        app.logger.info(close_log)
+        # Invalidate before removal can roll back an interrupted DB exchange.
+        invalidate_session(source="learn stream_sse_response close")
+
+    def event_stream() -> Iterator[str]:
+        try:
+            yield from stream_request(
+                message_iter_factory,
+                render=_to_sse_data_line,
+                terminal_event_factory=terminal_event_factory,
+                error_messages_factory=error_messages,
+                on_disconnect=on_disconnect,
+            )
         finally:
             _release_db_session(app, source="learn stream_sse_response")
 

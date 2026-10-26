@@ -8,6 +8,7 @@ import pytest
 from flask import Flask
 from flaskr.service.learn import context_v2 as runtime
 from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
+from flaskr.service.learn.request_stream import stream_request
 
 
 @pytest.fixture
@@ -126,6 +127,71 @@ def test_empty_preview_document_fails_before_tracing_or_replacing_history(
         )
     assert preview_run.cache == {}
     preview_run.finalized.assert_not_called()
+
+
+@pytest.mark.parametrize("user_input", [None, {"answer": ["A new learner answer"]}])
+def test_preview_saves_the_new_turn_before_the_request_boundary_closes(
+    preview_run: object,
+    monkeypatch: pytest.MonkeyPatch,
+    user_input: dict[str, list[str]] | None,
+) -> None:
+    # Keep the real preview context, event generator and element adapter. Only the model
+    # result is fake: a terminal-aware consumer must not skip the source's cache update.
+    monkeypatch.setattr(
+        runtime.MdflowContextV2,
+        "process",
+        lambda *_a, **_k: SimpleNamespace(
+            content="The accepted preview answer.", metadata={}, variables={}
+        ),
+    )
+    request = PlaygroundPreviewRequest(
+        content="Explain the lesson.",
+        block_index=0,
+        context=[
+            {"role": "user", "content": "Earlier question"},
+            {"role": "assistant", "content": "Earlier answer"},
+        ],
+        user_input=user_input,
+    )
+
+    def source() -> object:
+        return preview_run.context.stream_preview(
+            preview_request=request,
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_bid="teacher",
+            session_id="preview",
+        )
+
+    with preview_run.app.app_context():
+        runtime.set_language("en-US")
+        events = []
+        for event in stream_request(source, render=lambda message: message):
+            events.append(event)
+            if event.type == "done" and event.is_terminal:
+                # Check at delivery, before asking the helper to close its source.
+                entries = json.loads(next(iter(preview_run.cache.values())))["entries"]
+                assert entries == [
+                    {
+                        "block_index": -1,
+                        "user": "Earlier question",
+                        "assistant": "Earlier answer",
+                    },
+                    {
+                        "block_index": 0,
+                        "user": "A new learner answer"
+                        if user_input
+                        else "Explain the lesson.",
+                        "assistant": "The accepted preview answer.",
+                    },
+                ]
+        assert runtime.get_current_language() == "en-US"
+
+    assert [event.is_terminal for event in events if event.type == "done"] == [
+        False,
+        True,
+    ]
+    preview_run.finalized.assert_called_once()
 
 
 @pytest.mark.parametrize("prompt", ["Course guidance", " "])

@@ -40,6 +40,7 @@ from flaskr.service.learn.learn_dtos import (
     RunStatusDTO,
 )
 from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.learn.request_stream import stream_request
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -1021,6 +1022,16 @@ def run_script(
         persist_only_final=teaches_with_agent,
     )
     stream_element_adapter = element_adapter
+
+    def terminal_message() -> RunMarkdownFlowDTO | RunElementSSEMessageDTO:
+        return _make_terminal_event(
+            outline_bid=outline_bid,
+            event_type=GeneratedType.DONE.value,
+            content="",
+            element_adapter=stream_element_adapter,
+            is_terminal=True,
+        )
+
     if is_ask:
         # Ask (follow-up) requests use a counting semaphore instead of the main mutex
         # so they can run in parallel with the main lesson stream (up to
@@ -1171,13 +1182,7 @@ def run_script(
 
             _refresh_run_script_status(force=True)
 
-            stream_error: Exception | None = None
-            client_disconnected = False
-            done_received = False
-            last_stream_type: str | None = None
-            last_stream_done_is_terminal: bool | None = None
-
-            def _should_suppress_live_payload(payload_obj: object) -> bool:
+            def should_suppress_live_payload(payload_obj: object) -> bool:
                 payload_type = getattr(payload_obj, "type", None)
                 if hasattr(payload_type, "value"):
                     payload_type = payload_type.value
@@ -1187,102 +1192,37 @@ def run_script(
                     and not bool(getattr(payload_obj, "is_terminal", False))
                 )
 
-            while True:
-                kind: str
-                payload: object
-                try:
-                    kind, payload = output_queue.get_nowait()
-                except queue.Empty:
-                    if done_received or client_disconnected:
-                        break
-                    _refresh_run_script_status()
-                    if heartbeat_interval > 0:
-                        # Keep waiting cooperative under gevent while polling a thread-safe queue.
-                        time.sleep(heartbeat_interval)
-                    else:
-                        time.sleep(0.01)
+            def request_messages() -> Generator[object, None, None]:
+                while not stop_event.is_set():
                     try:
                         kind, payload = output_queue.get_nowait()
                     except queue.Empty:
-                        if heartbeat_interval <= 0:
-                            continue
-                        try:
-                            heartbeat_payload = (
-                                stream_element_adapter.make_ephemeral_message(
-                                    event_type="heartbeat",
-                                    content="",
-                                )
-                                if stream_element_adapter is not None
-                                else {"type": "heartbeat"}
-                            )
-                            yield _to_sse_chunk(heartbeat_payload)
-                        except GeneratorExit:
-                            client_disconnected = True
-                            stop_event.set()
-                            app.logger.info(
-                                "Client disconnected from SSE stream during heartbeat"
-                            )
-                            return
-                        except (ConnectionError, BrokenPipeError, OSError) as exc:
-                            client_disconnected = True
-                            stop_event.set()
-                            app.logger.info(
-                                "Client disconnected from SSE stream during heartbeat: %s",
-                                repr(exc),
-                            )
-                            break
-                        continue
-
-                if kind == "data":
-                    try:
                         _refresh_run_script_status()
-                        if _should_suppress_live_payload(payload):
-                            continue
-                        payload_type = getattr(payload, "type", None)
-                        if hasattr(payload_type, "value"):
-                            payload_type = payload_type.value
-                        yield (
-                            "data: "
-                            + json.dumps(payload, default=fmt, ensure_ascii=False)
-                            + b"\n\n".decode("utf-8")
+                        time.sleep(
+                            heartbeat_interval if heartbeat_interval > 0 else 0.01
                         )
-                        if isinstance(payload_type, str):
-                            last_stream_type = payload_type
-                            if payload_type == GeneratedType.DONE.value:
-                                last_stream_done_is_terminal = bool(
-                                    getattr(payload, "is_terminal", False)
+                        try:
+                            kind, payload = output_queue.get_nowait()
+                        except queue.Empty:
+                            if heartbeat_interval > 0:
+                                yield stream_element_adapter.make_ephemeral_message(
+                                    event_type="heartbeat", content=""
                                 )
-                            else:
-                                last_stream_done_is_terminal = None
-                    except GeneratorExit:
-                        client_disconnected = True
-                        stop_event.set()
-                        app.logger.info(
-                            "Client disconnected from SSE stream (GeneratorExit)"
-                        )
+                            continue
+                    if kind == "data":
+                        _refresh_run_script_status()
+                        if not should_suppress_live_payload(payload):
+                            yield payload
+                    elif kind == "error":
+                        if isinstance(payload, Exception):
+                            raise payload
+                        raise RuntimeError(str(payload))
+                    elif kind == "done":
                         return
-                    except (ConnectionError, BrokenPipeError, OSError) as exc:
-                        client_disconnected = True
-                        stop_event.set()
-                        app.logger.info(
-                            "Client disconnected from SSE stream: %s", repr(exc)
-                        )
-                        break
-                elif kind == "error":
-                    if isinstance(payload, Exception):
-                        stream_error = payload
-                    else:
-                        stream_error = Exception(str(payload))
-                    break
-                elif kind == "done":
-                    done_received = True
-                    break
 
-            if (
-                stream_error
-                and not client_disconnected
-                and isinstance(stream_error, Exception)
-            ):
+            def error_messages(
+                stream_error: Exception,
+            ) -> Generator[object, None, None]:
                 _log_run_script_stream_error(app, stream_error)
                 if isinstance(stream_error, AppError):
                     error_content = str(stream_error)
@@ -1290,15 +1230,12 @@ def run_script(
                     error_content = str(_("server.learn.llmStreamInterrupted"))
                 else:
                     error_content = str(_("server.common.unknownError"))
-                yield _to_sse_chunk(
-                    _make_terminal_event(
-                        outline_bid=outline_bid,
-                        event_type="error",
-                        content=error_content,
-                        element_adapter=stream_element_adapter,
-                    )
+                yield _make_terminal_event(
+                    outline_bid=outline_bid,
+                    event_type="error",
+                    content=error_content,
+                    element_adapter=stream_element_adapter,
                 )
-                last_stream_type = "error"
                 block_end_event = _make_terminal_event(
                     outline_bid=outline_bid,
                     event_type=GeneratedType.BREAK.value,
@@ -1306,33 +1243,23 @@ def run_script(
                     element_adapter=stream_element_adapter,
                     is_terminal=False if runtime_listen else None,
                 )
-                if not _should_suppress_live_payload(block_end_event):
-                    yield _to_sse_chunk(block_end_event)
-                    last_stream_type = (
-                        GeneratedType.DONE.value
-                        if use_element_protocol
-                        else GeneratedType.BREAK.value
-                    )
-                    last_stream_done_is_terminal = (
-                        False if use_element_protocol else None
-                    )
+                if not should_suppress_live_payload(block_end_event):
+                    yield block_end_event
 
-            if not client_disconnected and not (
-                use_element_protocol
-                and last_stream_type == GeneratedType.DONE.value
-                and last_stream_done_is_terminal is True
-            ):
-                yield _to_sse_chunk(
-                    _make_terminal_event(
-                        outline_bid=outline_bid,
-                        event_type=GeneratedType.DONE.value,
-                        content="",
-                        element_adapter=stream_element_adapter,
-                        is_terminal=True if use_element_protocol else None,
-                    )
+            def on_disconnect(exc: BaseException) -> None:
+                stop_event.set()
+                app.logger.info(
+                    "Client disconnected from SSE stream: %s", type(exc).__name__
                 )
-                last_stream_type = GeneratedType.DONE.value
-                last_stream_done_is_terminal = True if use_element_protocol else None
+
+            yield from stream_request(
+                request_messages,
+                render=_to_sse_chunk,
+                terminal_event_factory=terminal_message,
+                error_messages_factory=error_messages,
+                on_disconnect=on_disconnect,
+                cancelled=stop_event.is_set,
+            )
         finally:
             stop_event.set()
             if producer_thread is not None:
@@ -1354,30 +1281,25 @@ def run_script(
             outline_bid,
         )
         busy_content = str(_("server.learn.outputInProgress"))
-        terminal_events = (
-            [("error", busy_content), (GeneratedType.DONE.value, "")]
-            if use_element_protocol
-            else [
-                ("error", busy_content),
-                (GeneratedType.BREAK.value, ""),
-                (GeneratedType.DONE.value, ""),
-            ]
-        )
-        for event_type, content in terminal_events:
-            yield _to_sse_chunk(
-                _make_terminal_event(
-                    outline_bid=outline_bid,
-                    event_type=event_type,
-                    content=content,
-                    element_adapter=stream_element_adapter,
-                    is_terminal=(
-                        True
-                        if use_element_protocol
-                        and event_type == GeneratedType.DONE.value
-                        else None
-                    ),
-                )
+
+        def busy_messages() -> Generator[object, None, None]:
+            yield _make_terminal_event(
+                outline_bid=outline_bid,
+                event_type="error",
+                content=busy_content,
+                element_adapter=stream_element_adapter,
             )
+            if not use_element_protocol:
+                yield _make_terminal_event(
+                    outline_bid=outline_bid,
+                    event_type=GeneratedType.BREAK.value,
+                    content="",
+                    element_adapter=stream_element_adapter,
+                )
+
+        yield from stream_request(
+            busy_messages, render=_to_sse_chunk, terminal_event_factory=terminal_message
+        )
 
 
 def get_run_status(
