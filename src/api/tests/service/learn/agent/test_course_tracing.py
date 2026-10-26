@@ -174,10 +174,10 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
     assert "private tool result" not in output
     contexts = [span for span in spans if span.name == "context"]
     assert len(contexts) == 1
-    assert (
-        json.loads(contexts[0].attributes["langfuse.observation.input"])["script"]
-        == session.script.script
-    )
+    assert json.loads(contexts[0].attributes["langfuse.observation.input"]) == {
+        "teaching_prompt": session.script.script,
+        "course_prompt": "Current teaching brief",
+    }
     turns = [span for span in spans if span.name == "turn"]
     generations = [
         span
@@ -186,6 +186,11 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
     ]
     assert len(turns) == 2
     assert len(generations) == 6
+    assert {generation.name for generation in generations} == {
+        "teaching",
+        "agent_teaching_summary",
+        "agent_memory_admission",
+    }
     ordered_turns = sorted(turns, key=lambda span: span.start_time)
     first_output = ordered_turns[0].attributes["langfuse.observation.output"]
     second_output = ordered_turns[1].attributes["langfuse.observation.output"]

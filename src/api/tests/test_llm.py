@@ -4636,7 +4636,7 @@ def test_agent_entry_attributes_all_model_usage_to_the_course(
         rows = BillUsageRecord.query.filter_by(user_bid=identity).all()
         assert len(rows) == 3
         assert {row.extra["generation_name"] for row in rows} == {
-            "agent_lesson",
+            "teaching",
             "agent_teaching_summary",
             "agent_memory_admission",
         }

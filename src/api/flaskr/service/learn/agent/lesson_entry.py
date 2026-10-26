@@ -20,6 +20,7 @@ from flaskr.dao.uow import app_context_scope
 from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.agent.langfuse_tracing import (
     MEMORY_ADMISSION_GENERATION_NAME,
+    TEACHING_GENERATION_NAME,
     TEACHING_SUMMARY_GENERATION_NAME,
     CourseTrace,
 )
@@ -381,7 +382,7 @@ def agent_lesson_events(
     with tracing:
         try:
             engine = Engine(
-                gateway(),
+                gateway(generation_name=TEACHING_GENERATION_NAME),
                 # No memory store: the engine runs on the bridge's producer thread, which has no app
                 # context. The host consumes its `MemoryUpdated` events and writes them instead.
                 memory_store=None,

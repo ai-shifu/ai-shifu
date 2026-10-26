@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+TEACHING_GENERATION_NAME = "teaching"
 TEACHING_SUMMARY_GENERATION_NAME = "agent_teaching_summary"
 MEMORY_ADMISSION_GENERATION_NAME = "agent_memory_admission"
 
@@ -119,6 +120,8 @@ def _request_input(
 
 class CourseTrace(MarkdownFlowTrace):
     """Keep course observability outside lesson resolution, billing and execution."""
+
+    CONTEXT_PROMPT_FIELDS = ("teaching_prompt", "course_prompt")
 
     def __init__(
         self,
