@@ -29,6 +29,9 @@ does. Keep the existing frontend, model execution and session-saving code.
   two actual calls and two usage/consumption entries totaling 9.62 credits.
   Two completed-session replays each emit one terminal and add zero calls or
   charges, with saved history unchanged and no response or retry after finish.
+- [x] 2026-10-27 CST: Complete real-browser SIM acceptance for formal learning,
+  course preview and editor debug. Reconcile every model usage against its unique
+  consumption entry and verify completed replays add zero usage or charges.
 
 ## Surprises & Discoveries
 
@@ -50,9 +53,9 @@ This ordering fix is required by request completion, not a storage refactor.
 ## Outcomes & Retrospective
 
 The narrowed patch passes 67 focused tests and the full learning-host suite
-(3,658 passed, 93 skipped), plus the full repository gate. Formal learning is
-covered through its actual request boundary offline. SIM build 5504 verifies the
-editor debug boundary with a real model and read-only usage/ledger reconciliation.
+(3,658 passed, 93 skipped), plus the full repository gate. SIM build 5504 now has
+real-browser acceptance for formal learning, course preview and editor debug,
+including native-session and read-only usage/ledger reconciliation.
 The previous broad `sim-48acc14` is replaced in both API and Web. Existing learner
 and author-preview sessions were preserved. Production services were not deployed.
 
@@ -79,6 +82,29 @@ Normal and empty EOF emit one terminal; existing terminals do not repeat. Block
 boundaries and audio readiness remain ordered. Errors retain their payloads,
 disconnects stop output, and legacy preview history is saved before terminal
 delivery. Completed-session replay adds no model calls or credits.
+
+The browser acceptance used the existing free internal test course
+`4d011ad81eb348ce9f1c171a98d0d0cc`, lesson
+`8303a2e1f64f4a5da47cf57619841337`, for both published learning and draft preview.
+Both scopes were initially unused; two anonymous answers led to natural finish.
+Editor debug used the original affected lesson in an isolated debug session.
+
+| Path | Actual model | Model usages / consumption entries | Credits |
+| --- | --- | --- | --- |
+| Formal learning | `qwen/glm-5.3` | 3 / 3 | 24.66 |
+| Course preview | `qwen/glm-5.3` | 4 / 4 | 18.90 |
+| Editor debug | `ark/deepseek-v4-1-flash-261017` | 2 / 2 | 9.32 |
+
+These are individual acceptance runs, not a cost benchmark. Each actual usage
+has exactly one consumption entry. All three native sessions reached finish with
+no subsequent model response or retry. Each observed completed request emitted
+one terminal, the UI became idle, and formal learning offered the next lesson
+with progress status 603. Completed HTTP replays preserved history and added zero
+usage/charges; course preview replayed saved elements before its terminal. The
+browser's automatic preview replay was also checked separately and cost zero.
+Before/after hashes confirmed unchanged canonical, global and test-course profile
+values. The original course's existing learner and author-preview sessions were
+unchanged. No reset, migration, model-setting or runtime change was needed.
 
 ## Idempotence and Recovery
 
