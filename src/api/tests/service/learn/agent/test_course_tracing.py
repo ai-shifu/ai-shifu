@@ -8,7 +8,11 @@ from flaskr.api import markdownflow as application
 from flaskr.api import markdownflow_tracing as tracing_module
 from flaskr.api.llm import markdownflow_model as gateway
 from flaskr.service.learn.agent import lesson_entry, run_agent
-from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.learn.learn_dtos import (
+    GeneratedType,
+    LearnStatus,
+    OutlineItemUpdateDTO,
+)
 from flaskr.service.learn.llmsetting import LLMSettings
 from markdownflow.engine.events import (
     ContentDelta,
@@ -174,6 +178,15 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
     ]
     assert len(turns) == 2
     assert len(generations) == 6
+    ordered_turns = sorted(turns, key=lambda span: span.start_time)
+    first_output = ordered_turns[0].attributes["langfuse.observation.output"]
+    second_output = ordered_turns[1].attributes["langfuse.observation.output"]
+    assert "Visible turn 1" in first_output
+    assert "Visible turn 2" not in first_output
+    assert "Ready?" not in first_output
+    assert "Visible turn 2" in second_output
+    assert "Ready?" in second_output
+    assert "Visible turn 1" not in second_output
     tools = [span for span in spans if span.name == "recall"]
     assert len(tools) == 2
     assert all(
@@ -187,6 +200,82 @@ def test_course_trace_keeps_request_context_output_and_automatic_turn_hierarchy(
     )
     assert len({span.context.trace_id for span in spans}) == 1
     assert root.attributes["langfuse.observation.metadata.runtime_outcome"] == "waiting"
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("close_after_terminal", [False, True])
+def test_completed_course_trace_includes_buffered_text_and_real_next_lesson_controls(
+    monkeypatch: pytest.MonkeyPatch,
+    captured_spans: object,
+    close_after_terminal: bool,
+) -> None:
+    """The real host flushes text and creates next-lesson controls before terminal DONE."""
+    client, exporter, _provider = captured_spans
+    monkeypatch.setattr(tracing_module, "get_langfuse_client", lambda: client)
+    session = _Session()
+    session.id = "completed-course-session"
+    session.finished = True
+    final_text = "Final buffered teaching sentence."
+    engine = _Engine(
+        [
+            ContentDelta(text="Earlier visible teaching.\n\n"),
+            ContentDelta(text=final_text),
+            TurnDone(reason="finished"),
+        ],
+        session,
+    )
+    _entry(monkeypatch, engine)
+    updates = [
+        OutlineItemUpdateDTO(
+            "lesson", "Current lesson", LearnStatus.COMPLETED, has_children=False
+        ),
+        OutlineItemUpdateDTO(
+            "next-lesson", "Next lesson", LearnStatus.IN_PROGRESS, has_children=False
+        ),
+    ]
+    monkeypatch.setattr(
+        run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
+    )
+    controls = []
+
+    def record_next_lesson(_app: object, **kwargs: object) -> str:
+        controls.append(kwargs["content"])
+        return "next-lesson-control"
+
+    monkeypatch.setattr(run_agent, "record_next_lesson_interaction", record_next_lesson)
+    monkeypatch.setattr(run_agent, "_retire_block", lambda *_a, **_k: None)
+    stream = lesson_entry.agent_lesson_events(
+        None, user_bid="learner", shifu_bid="course", outline_bid="lesson"
+    )
+    events = []
+    for event in stream:
+        events.append(event)
+        if close_after_terminal and event.type == GeneratedType.DONE:
+            stream.close()
+            break
+    assert events[-1].type == GeneratedType.DONE
+    visible_output = "".join(
+        event.content
+        for event in events
+        if event.type in {GeneratedType.CONTENT, GeneratedType.INTERACTION}
+    )
+    assert final_text in visible_output
+    assert len(controls) == 1
+    assert run_agent.CONTEXT_INTERACTION_NEXT in controls[0]
+    assert controls[0] in visible_output
+    assert any(event.generated_block_bid == "next-lesson-control" for event in events)
+    spans = exporter.get_finished_spans()
+    root = next(span for span in spans if span.name.startswith("learn/"))
+    turn = next(span for span in spans if span.name == "turn")
+    assert root.attributes["langfuse.observation.output"] == visible_output
+    assert turn.attributes["langfuse.observation.output"] == visible_output
+    assert (
+        root.attributes["langfuse.observation.metadata.runtime_outcome"] == "completed"
+    )
+    assert (
+        root.attributes["langfuse.observation.metadata.transport_closed"]
+        is close_after_terminal
+    )
 
 
 @pytest.mark.usefixtures("calls")
