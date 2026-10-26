@@ -1,16 +1,20 @@
+"""Define persistence models for legacy orders."""
+
+from typing import ClassVar
+
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     Column,
-    String,
-    Integer,
-    Text,
-    Numeric,
-    SmallInteger,
     DateTime,
     Index,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
-from ...dao import db
 
 from .consts import (
     ORDER_STATUS_INIT,
@@ -18,12 +22,10 @@ from .consts import (
 
 
 class Order(db.Model):
-    """
-    Order
-    """
+    """Order."""
 
     __tablename__ = "order_orders"
-    __table_args__ = {"comment": "Order orders"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Order orders"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     order_bid = Column(
         String(36),
@@ -101,9 +103,7 @@ class Order(db.Model):
 
 
 class PingxxOrder(db.Model):
-    """
-    Pingxx Order
-    """
+    """Pingxx Order."""
 
     __tablename__ = "order_pingxx_orders"
     __table_args__ = (
@@ -238,9 +238,7 @@ class PingxxOrder(db.Model):
 
 
 class StripeOrder(db.Model):
-    """
-    Stripe Order
-    """
+    """Stripe Order."""
 
     __tablename__ = "order_stripe_orders"
     __table_args__ = (
@@ -395,9 +393,7 @@ class StripeOrder(db.Model):
 
 
 class _NativeProviderOrderBase(db.Model):
-    """
-    Common raw native payment snapshot fields.
-    """
+    """Common raw native payment snapshot fields."""
 
     __abstract__ = True
     id = Column(BIGINT, primary_key=True, autoincrement=True)
@@ -518,9 +514,7 @@ class _NativeProviderOrderBase(db.Model):
 
 
 class AlipayOrder(_NativeProviderOrderBase):
-    """
-    Raw direct Alipay payment snapshot.
-    """
+    """Raw direct Alipay payment snapshot."""
 
     __tablename__ = "order_alipay_orders"
     __table_args__ = (
@@ -547,9 +541,7 @@ class AlipayOrder(_NativeProviderOrderBase):
 
 
 class WechatPayOrder(_NativeProviderOrderBase):
-    """
-    Raw direct WeChat Pay payment snapshot.
-    """
+    """Raw direct WeChat Pay payment snapshot."""
 
     __tablename__ = "order_wechatpay_orders"
     __table_args__ = (
@@ -576,8 +568,10 @@ class WechatPayOrder(_NativeProviderOrderBase):
 
 
 class BannerInfo(db.Model):
+    """Persist banner metadata attached to an order."""
+
     __tablename__ = "order_banner_info"
-    __table_args__ = {"comment": "Order banner info"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Order banner info"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     banner_id = Column(
         String(36), nullable=False, default="", index=True, comment="Banner identifier"

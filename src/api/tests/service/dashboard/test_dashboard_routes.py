@@ -1,17 +1,30 @@
+"""Verify dashboard HTTP route behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
+from flaskr.service.billing.consts import (
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_SOURCE_TYPE_USAGE,
+)
+from flaskr.service.billing.models import CreditLedgerEntry
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
     LearnProgressRecord,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -34,9 +47,12 @@ from flaskr.service.shifu.models import (
     ShifuUserArchive,
 )
 from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
+from flaskr.util.datetime import now_utc
 
 
 def _clear_dashboard_tables() -> None:
+    db.session.query(CreditLedgerEntry).delete()
+    db.session.query(BillUsageRecord).delete()
     db.session.query(UserToken).delete()
     db.session.query(AuthCredential).delete()
     db.session.query(UserInfo).delete()
@@ -54,7 +70,7 @@ def _clear_dashboard_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_dashboard_tables(app):
+def _isolate_dashboard_tables(app: object) -> object:
     if app is None:
         yield
         return
@@ -70,7 +86,11 @@ def _isolate_dashboard_tables(app):
 
 @pytest.mark.usefixtures("app")
 class TestDashboardRoutes:
-    def _mock_request_user(self, monkeypatch, *, user_id: str = "teacher-1"):
+    """Verify dashboard routes behavior."""
+
+    def _mock_request_user(
+        self, monkeypatch: object, *, user_id: str = "teacher-1"
+    ) -> None:
         dummy_user = SimpleNamespace(
             user_id=user_id,
             language="en-US",
@@ -91,7 +111,7 @@ class TestDashboardRoutes:
         created_at: datetime | None = None,
         published_created_at: datetime | None = None,
     ) -> None:
-        draft_created_at = created_at or datetime.utcnow()
+        draft_created_at = created_at or now_utc()
         publish_time = published_created_at or draft_created_at
         db.session.add(
             DraftShifu(
@@ -149,7 +169,7 @@ class TestDashboardRoutes:
         hidden: int = 0,
         created_at: datetime | None = None,
     ) -> None:
-        now = created_at or datetime.utcnow()
+        now = created_at or now_utc()
         db.session.add(
             PublishedOutlineItem(
                 outline_item_bid=outline_item_bid,
@@ -159,12 +179,8 @@ class TestDashboardRoutes:
                 position=position,
                 hidden=hidden,
                 type=0,
-                llm="",
-                llm_temperature=0,
                 llm_system_prompt="",
                 ask_enabled_status=0,
-                ask_llm="",
-                ask_llm_temperature=0,
                 ask_llm_system_prompt="",
                 content="",
                 deleted=0,
@@ -238,10 +254,10 @@ class TestDashboardRoutes:
 
     def test_entry_summary_uses_owned_courses_only(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 1, 15, 10, 0, 0)
@@ -360,10 +376,10 @@ class TestDashboardRoutes:
 
     def test_entry_keyword_and_date_range_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         in_range = datetime(2025, 1, 10, 9, 0, 0)
@@ -459,10 +475,10 @@ class TestDashboardRoutes:
 
     def test_entry_emits_utc_last_active_ignoring_request_timezone(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
         with app.app_context():
             self._seed_dashboard_course(shifu_bid="course-timezone", title="Course TZ")
@@ -496,10 +512,10 @@ class TestDashboardRoutes:
 
     def test_entry_course_count_respects_date_filter(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         in_range = datetime(2025, 2, 10, 9, 0, 0)
@@ -553,10 +569,10 @@ class TestDashboardRoutes:
 
     def test_entry_order_only_user_not_counted_as_learner(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 2, 10, 9, 0, 0)
@@ -597,10 +613,10 @@ class TestDashboardRoutes:
 
     def test_entry_manual_import_user_counted_as_learner(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 2, 10, 9, 0, 0)
@@ -642,10 +658,10 @@ class TestDashboardRoutes:
 
     def test_entry_manual_non_zero_order_counted_in_order_metrics(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 2, 10, 9, 0, 0)
@@ -687,10 +703,10 @@ class TestDashboardRoutes:
 
     def test_entry_non_success_order_excluded_from_order_metrics(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2025, 2, 10, 9, 0, 0)
@@ -746,10 +762,10 @@ class TestDashboardRoutes:
 
     def test_entry_excludes_all_shared_courses(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -827,10 +843,10 @@ class TestDashboardRoutes:
 
     def test_entry_excludes_shared_courses_without_owned_copy(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
             "flaskr.service.dashboard.funcs.get_dynamic_config",
@@ -861,10 +877,10 @@ class TestDashboardRoutes:
 
     def test_entry_excludes_demo_courses(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
             "flaskr.service.shifu.demo_courses.get_dynamic_config",
@@ -896,10 +912,10 @@ class TestDashboardRoutes:
 
     def test_entry_excludes_builtin_demo_titles_when_config_missing(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
         monkeypatch.setattr(
             "flaskr.service.shifu.demo_courses.get_dynamic_config",
@@ -935,15 +951,15 @@ class TestDashboardRoutes:
 
     def test_course_detail_returns_real_metrics(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         draft_created_at = datetime(2025, 1, 1, 8, 0, 0)
         published_created_at = datetime(2025, 2, 1, 9, 0, 0)
-        recent_now = datetime.utcnow().replace(microsecond=0)
+        recent_now = now_utc().replace(microsecond=0)
         old_activity = recent_now - timedelta(days=10)
 
         with app.app_context():
@@ -1215,6 +1231,159 @@ class TestDashboardRoutes:
                     ),
                 ]
             )
+            db.session.add_all(
+                [
+                    BillUsageRecord(
+                        usage_bid="detail-usage-read-recent",
+                        user_bid="learner-1",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-1",
+                        progress_record_bid="detail-progress-u1-l1",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_PROD,
+                        billable=1,
+                        status=0,
+                        extra={"learning_mode": "read"},
+                        created_at=recent_now - timedelta(days=1),
+                        updated_at=recent_now - timedelta(days=1),
+                    ),
+                    BillUsageRecord(
+                        usage_bid="detail-usage-read-old",
+                        user_bid="learner-2",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-2",
+                        progress_record_bid="detail-progress-u2-l2",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_PROD,
+                        billable=1,
+                        status=0,
+                        extra={},
+                        created_at=old_activity,
+                        updated_at=old_activity,
+                    ),
+                    BillUsageRecord(
+                        usage_bid="detail-usage-listen",
+                        user_bid="learner-1",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-3",
+                        progress_record_bid="detail-progress-u1-l3",
+                        usage_type=BILL_USAGE_TYPE_TTS,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_PROD,
+                        billable=1,
+                        status=0,
+                        extra={},
+                        created_at=recent_now - timedelta(days=2),
+                        updated_at=recent_now - timedelta(days=2),
+                    ),
+                    BillUsageRecord(
+                        usage_bid="detail-usage-classroom",
+                        user_bid="learner-3",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-1",
+                        progress_record_bid="",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_PROD,
+                        billable=1,
+                        status=0,
+                        extra={"learning_mode": "classroom"},
+                        created_at=recent_now - timedelta(days=3),
+                        updated_at=recent_now - timedelta(days=3),
+                    ),
+                    BillUsageRecord(
+                        usage_bid="detail-usage-debug-ignore",
+                        user_bid="learner-1",
+                        shifu_bid="course-detail",
+                        outline_item_bid="lesson-1",
+                        progress_record_bid="detail-progress-u1-l1",
+                        usage_type=BILL_USAGE_TYPE_LLM,
+                        record_level=0,
+                        usage_scene=BILL_USAGE_SCENE_DEBUG,
+                        billable=1,
+                        status=0,
+                        extra={"learning_mode": "read"},
+                        created_at=recent_now,
+                        updated_at=recent_now,
+                    ),
+                ]
+            )
+            db.session.add_all(
+                [
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-read-recent",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-read-recent",
+                        idempotency_key="detail-ledger-read-recent",
+                        amount="-70.00",
+                        balance_after="0",
+                        created_at=recent_now - timedelta(days=1),
+                        updated_at=recent_now - timedelta(days=1),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-read-old",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-read-old",
+                        idempotency_key="detail-ledger-read-old",
+                        amount="-30.00",
+                        balance_after="0",
+                        created_at=old_activity,
+                        updated_at=old_activity,
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-listen",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-listen",
+                        idempotency_key="detail-ledger-listen",
+                        amount="-21.00",
+                        balance_after="0",
+                        created_at=recent_now - timedelta(days=2),
+                        updated_at=recent_now - timedelta(days=2),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-classroom",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-classroom",
+                        idempotency_key="detail-ledger-classroom",
+                        amount="-14.00",
+                        balance_after="0",
+                        created_at=recent_now - timedelta(days=3),
+                        updated_at=recent_now - timedelta(days=3),
+                    ),
+                    CreditLedgerEntry(
+                        ledger_bid="detail-ledger-debug-ignore",
+                        creator_bid="teacher-1",
+                        wallet_bid="wallet-1",
+                        wallet_bucket_bid="bucket-1",
+                        entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                        source_type=CREDIT_SOURCE_TYPE_USAGE,
+                        source_bid="detail-usage-debug-ignore",
+                        idempotency_key="detail-ledger-debug-ignore",
+                        amount="-999.00",
+                        balance_after="0",
+                        created_at=recent_now,
+                        updated_at=recent_now,
+                    ),
+                ]
+            )
             db.session.commit()
 
         detail_resp = test_client.get("/api/dashboard/shifus/course-detail/detail")
@@ -1235,14 +1404,35 @@ class TestDashboardRoutes:
         assert detail_payload["data"]["metrics"] == {
             "order_count": 3,
             "order_amount": "60.00",
-            "new_learner_count_last_7_days": 2,
             "learning_learner_count": 1,
             "completed_learner_count": 1,
             "completion_rate": "33.33",
-            "active_learner_count_last_7_days": 1,
             "total_follow_up_count": 3,
             "rating_score": "4.0",
         }
+        assert detail_payload["data"]["learning_mode_metrics"] == [
+            {
+                "mode": "read",
+                "participant_count": 2,
+                "consumed_credits": "100.00",
+                "consumption_speed": "10.00",
+                "average_consumed_credits": "50.00",
+            },
+            {
+                "mode": "listen",
+                "participant_count": 1,
+                "consumed_credits": "21.00",
+                "consumption_speed": "3.00",
+                "average_consumed_credits": "21.00",
+            },
+            {
+                "mode": "classroom",
+                "participant_count": 1,
+                "consumed_credits": "14.00",
+                "consumption_speed": "2.00",
+                "average_consumed_credits": "14.00",
+            },
+        ]
         assert "learners" not in detail_payload["data"]
 
         assert learners_resp.status_code == 200
@@ -1281,10 +1471,10 @@ class TestDashboardRoutes:
 
     def test_course_learners_supports_search_and_pagination(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         now = datetime(2026, 4, 10, 12, 0, 0)
@@ -1437,12 +1627,12 @@ class TestDashboardRoutes:
     )
     def test_course_learners_rejects_invalid_learner_date_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
-        query_string,
-        expected_param,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+        query_string: object,
+        expected_param: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -1499,12 +1689,12 @@ class TestDashboardRoutes:
     )
     def test_paginated_routes_reject_invalid_pagination_args(
         self,
-        monkeypatch,
-        test_client,
-        app,
-        path,
-        expected_param,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+        path: object,
+        expected_param: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -1522,10 +1712,10 @@ class TestDashboardRoutes:
 
     def test_course_ratings_returns_summary_and_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -1689,12 +1879,12 @@ class TestDashboardRoutes:
     )
     def test_course_ratings_reject_invalid_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
-        query_string,
-        expected_param,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+        query_string: object,
+        expected_param: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -1714,13 +1904,13 @@ class TestDashboardRoutes:
 
     def test_course_follow_ups_routes_return_creator_facing_data(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
-        now = datetime.utcnow().replace(microsecond=0)
+        now = now_utc().replace(microsecond=0)
         with app.app_context():
             self._seed_dashboard_user(
                 user_bid="learner-followup-1",
@@ -1955,13 +2145,13 @@ class TestDashboardRoutes:
 
     def test_course_follow_ups_clamps_page_index_to_last_page(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
-        now = datetime.utcnow().replace(microsecond=0)
+        now = now_utc().replace(microsecond=0)
         with app.app_context():
             self._seed_dashboard_user(
                 user_bid="learner-followup-page",
@@ -2061,12 +2251,12 @@ class TestDashboardRoutes:
     )
     def test_course_follow_ups_reject_invalid_date_filters(
         self,
-        monkeypatch,
-        test_client,
-        app,
-        query_string,
-        expected_param,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+        query_string: object,
+        expected_param: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -2087,10 +2277,10 @@ class TestDashboardRoutes:
 
     def test_course_follow_ups_reject_invalid_source_status(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -2111,10 +2301,10 @@ class TestDashboardRoutes:
 
     def test_course_detail_emits_utc_created_at_ignoring_request_timezone(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -2139,10 +2329,10 @@ class TestDashboardRoutes:
 
     def test_course_learners_emit_utc_timestamps_ignoring_request_timezone(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         joined_at = datetime(2026, 3, 4, 9, 15, 0)
@@ -2211,10 +2401,10 @@ class TestDashboardRoutes:
 
     def test_course_detail_counts_restudy_learners_as_completed(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():
@@ -2243,7 +2433,7 @@ class TestDashboardRoutes:
                 position="1.2",
             )
 
-            now = datetime.utcnow()
+            now = now_utc()
             db.session.add_all(
                 [
                     LearnProgressRecord(
@@ -2312,6 +2502,28 @@ class TestDashboardRoutes:
                         created_at=now - timedelta(minutes=50),
                         updated_at=now - timedelta(minutes=50),
                     ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u4-l1-in-progress",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-1",
+                        user_bid="learner-4",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(minutes=40),
+                        updated_at=now - timedelta(minutes=40),
+                    ),
+                    LearnProgressRecord(
+                        progress_record_bid="restudy-u4-l2-in-progress",
+                        shifu_bid="course-restudy",
+                        outline_item_bid="lesson-2",
+                        user_bid="learner-4",
+                        status=LEARN_STATUS_IN_PROGRESS,
+                        block_position=0,
+                        deleted=0,
+                        created_at=now - timedelta(minutes=30),
+                        updated_at=now - timedelta(minutes=30),
+                    ),
                 ]
             )
             db.session.commit()
@@ -2321,16 +2533,17 @@ class TestDashboardRoutes:
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert payload["data"]["basic_info"]["learner_count"] == 3
+        assert payload["data"]["basic_info"]["learner_count"] == 4
+        assert payload["data"]["metrics"]["learning_learner_count"] == 2
         assert payload["data"]["metrics"]["completed_learner_count"] == 2
-        assert payload["data"]["metrics"]["completion_rate"] == "66.67"
+        assert payload["data"]["metrics"]["completion_rate"] == "50.00"
 
     def test_course_detail_rejects_non_owned_course(
         self,
-        monkeypatch,
-        test_client,
-        app,
-    ):
+        monkeypatch: object,
+        test_client: object,
+        app: object,
+    ) -> None:
         self._mock_request_user(monkeypatch)
 
         with app.app_context():

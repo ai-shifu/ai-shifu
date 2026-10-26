@@ -1,9 +1,12 @@
+"""Verify billing boundary behavior."""
+
 from __future__ import annotations
 
-from flask import Flask
-import pytest
+from typing import TYPE_CHECKING
 
-import flaskr.dao as dao
+import pytest
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWallet,
@@ -16,9 +19,12 @@ from flaskr.service.metering.consts import (
 )
 from flaskr.service.metering.models import BillUsageRecord
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def metering_billing_boundary_app():
+def metering_billing_boundary_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(

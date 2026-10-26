@@ -1,4 +1,4 @@
-"""add ask_provider_config to shifu draft/published tables
+"""add ask_provider_config to shifu draft/published tables.
 
 Revision ID: e1b2c3d4e5f6
 Revises: 0e9b8c7d6a5f
@@ -6,9 +6,8 @@ Create Date: 2026-03-04 15:30:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "e1b2c3d4e5f6"

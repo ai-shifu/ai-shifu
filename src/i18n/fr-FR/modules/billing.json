@@ -55,21 +55,27 @@
         "configurationSectionDescription": "Renseignez ici la configuration réelle du logo, du domaine, de WeChat et du paiement. Les valeurs enregistrées remonteront aussi dans le tableau.",
         "createdContinue": "La configuration marque et paiement a été créée pour {creator}. Vous pouvez compléter la configuration ci-dessous.",
         "creatorBidPlaceholder": "Saisissez le BID du responsable du cours",
+        "creatorEmailPlaceholder": "Saisir l’e-mail du responsable",
         "creatorMobilePlaceholder": "Saisir le téléphone du responsable",
         "description": "L’équipe opérations gère ici la marque, le domaine, WeChat et le paiement. L’enregistrement met à jour en même temps les éléments ouverts.",
         "disabled": "Non activé",
         "domainInlineDescription": "Ajoutez le domaine dédié, lancez la vérification et synchronisez l’avancement de mise en place.",
         "edit": "Modifier",
         "editTitle": "Modifier la configuration marque et paiement",
+        "emailHint": "Utilisez une adresse e-mail. Si elle n’est pas encore inscrite, le système crée le compte et active d’abord l’accès enseignant.",
         "enabled": "Activé",
         "errors": {
           "creatorBidRequired": "Saisissez le BID du responsable du cours",
+          "creatorEmailInvalid": "Saisissez une adresse e-mail valide",
+          "creatorEmailRequired": "Saisissez l’e-mail du responsable",
+          "creatorMobileInvalid": "Saisissez un numéro de téléphone valide",
           "creatorMobileRequired": "Saisissez le téléphone du responsable"
         },
         "fields": {
           "branding_enabled": "Logos de marque",
           "configStatus": "Statut de configuration",
           "creatorBid": "BID du responsable du cours",
+          "creatorEmail": "E-mail du responsable",
           "creatorMobile": "Téléphone du responsable",
           "custom_domain_enabled": "Domaine personnalisé",
           "custom_payment_enabled": "Configuration de paiement personnalisée",
@@ -149,13 +155,144 @@
         "startedAt": "Actif depuis {date}"
       }
     },
-    "navigation": {
-      "description": "Basculez entre forfaits, commandes, droits, domaines et rapports tout en gardant l’état des capacités visible au-dessus.",
-      "title": "Par thème"
-    },
     "pagination": {
       "page": "Page {page} / {pageCount} · {total} enregistrements",
       "total": "{total} enregistrements"
+    },
+    "providerPrices": {
+      "actions": {
+        "activate": "Mettre en ligne",
+        "cancel": "Annuler",
+        "configure": "Configurer",
+        "create": "Ajouter un prix",
+        "restore": "Restaurer en brouillon",
+        "retire": "Retirer",
+        "saveDraft": "Enregistrer le brouillon",
+        "validate": "Contrôler",
+        "viewIssues": "Voir problèmes"
+      },
+      "billingLabel": {
+        "monthly": "Mensuel",
+        "yearly": "Annuel"
+      },
+      "confirm": {
+        "activate": "Mettre {productName} en ligne ? Les prochains paiements de ce produit utiliseront ce prix.",
+        "restore": "Restaurer {productName} ? Le prix reviendra en brouillon et devra être contrôlé avant la remise en ligne.",
+        "retire": "Retirer {productName} ? Le produit n’aura temporairement plus de checkout à prix fixe."
+      },
+      "dialog": {
+        "autoDetectHint": "Le système vérifie automatiquement montant, devise, période et mode. Activez le prix après validation.",
+        "description": "Copiez l’ID produit et l’ID prix depuis Stripe. Le système lira automatiquement les détails du prix.",
+        "title": "Configurer le prix de paiement"
+      },
+      "empty": "Aucune offre ou recharge disponible pour configuration.",
+      "fields": {
+        "priceId": "ID prix Stripe",
+        "product": "Produit",
+        "productId": "ID produit Stripe",
+        "productPlaceholder": "Sélectionner un produit"
+      },
+      "filters": {
+        "allProducts": "Tous les produits",
+        "product": "Produit",
+        "status": "Statut"
+      },
+      "health": {
+        "active": "En ligne",
+        "draft": "Non activé",
+        "healthy": "Sain",
+        "invalid": "Échec du contrôle",
+        "missing": "Non configuré",
+        "retired": "Retiré",
+        "warning": "À vérifier"
+      },
+      "interval": {
+        "month": "Tous les {count} mois",
+        "year": "Tous les {count} ans"
+      },
+      "issueDrawer": {
+        "description": "Affiche les raisons lisibles par l’équipe opérations et conserve les codes bruts pour le diagnostic technique.",
+        "issues": "Raisons du problème",
+        "noIssues": "Aucun détail disponible",
+        "raw": "Détails bruts",
+        "title": "Problèmes de validation du prix"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "Le nombre de périodes ne correspond pas à l’article local",
+        "billing_interval_mismatch": "La période de facturation ne correspond pas à l’article local",
+        "currency_mismatch": "La devise ne correspond pas à l’article local",
+        "local_plan_billing_mode_invalid": "Le mode de facturation local de l’abonnement est invalide",
+        "local_topup_billing_interval_count_invalid": "Le nombre de périodes du pack crédits doit être 0",
+        "local_topup_billing_interval_invalid": "Les packs crédits ne doivent pas utiliser de période récurrente",
+        "local_topup_billing_mode_invalid": "Le mode de facturation local du pack crédits est invalide",
+        "plan_requires_licensed_recurring_price": "Les abonnements doivent utiliser une tarification récurrente licensed",
+        "plan_requires_recurring_price": "Les abonnements doivent utiliser un prix Stripe récurrent",
+        "price_livemode_mismatch": "Le mode du prix Stripe ne correspond pas",
+        "price_metadata_billing_interval_mismatch": "La metadata de période du prix Stripe ne correspond pas",
+        "price_metadata_billing_interval_missing": "Le prix Stripe n’a pas de metadata de période",
+        "price_metadata_credit_amount_mismatch": "La metadata de crédits du prix Stripe ne correspond pas",
+        "price_metadata_credit_amount_missing": "Le prix Stripe n’a pas de metadata de crédits",
+        "price_metadata_product_code_mismatch": "La metadata de code produit du prix Stripe ne correspond pas",
+        "price_metadata_product_code_missing": "Le prix Stripe n’a pas de metadata de code produit",
+        "price_product_mismatch": "Le prix Stripe n’est pas rattaché à ce produit",
+        "product_livemode_mismatch": "Le mode du produit Stripe ne correspond pas",
+        "product_metadata_market_mismatch": "La metadata de marché du produit Stripe ne correspond pas",
+        "product_metadata_market_missing": "Le produit Stripe n’a pas de metadata de marché",
+        "product_metadata_plan_tier_mismatch": "La metadata de niveau du produit Stripe ne correspond pas",
+        "product_metadata_plan_tier_missing": "Le produit Stripe n’a pas de metadata de niveau",
+        "product_metadata_product_type_mismatch": "La metadata de type produit Stripe ne correspond pas",
+        "product_metadata_product_type_missing": "Le produit Stripe n’a pas de metadata de type produit",
+        "provider_account_mismatch": "Le compte Stripe ne correspond pas",
+        "provider_price_inactive": "Le prix Stripe est inactif",
+        "provider_price_mismatch": "L’ID prix Stripe ne correspond pas à cet article",
+        "provider_price_unit_amount_missing": "Le prix Stripe n’a pas de montant fixe",
+        "provider_product_inactive": "Le produit Stripe est inactif",
+        "provider_product_mismatch": "L’ID produit Stripe ne correspond pas à cet article",
+        "retired_mapping_cannot_be_activated": "Un prix retiré ne peut pas être remis en ligne",
+        "retired_mapping_cannot_be_validated": "Un prix retiré ne peut pas être revérifié",
+        "stripe_catalog_reference_missing": "ID produit ou prix Stripe manquant",
+        "stripe_catalog_retrieve_failed": "Impossible de lire le produit ou le prix dans Stripe",
+        "topup_requires_one_time_price": "Les packs crédits doivent utiliser un prix Stripe unique",
+        "unit_amount_mismatch": "Le montant encaissé ne correspond pas au prix affiché",
+        "unknown": "Problème inconnu",
+        "unsupported_product_type": "Ce type d’article ne peut pas être lié à un prix de paiement"
+      },
+      "loadError": "Impossible de charger les paramètres de prix pour le moment.",
+      "menuTitle": "Gestion des offres",
+      "pageDescription": "Gérez les prix de paiement des abonnements et packs de crédits internationaux afin d’aligner affichage, paiement et rapprochement.",
+      "productType": {
+        "plan": "Abonnement",
+        "topup": "Pack crédits"
+      },
+      "status": {
+        "active": "En ligne",
+        "all": "Tous les statuts",
+        "draft": "Brouillon",
+        "invalid": "Invalide",
+        "missing": "Non configuré",
+        "retired": "Retiré"
+      },
+      "table": {
+        "actions": "Actions",
+        "localPrice": "Prix affiché",
+        "product": "Produit",
+        "productType": "Type",
+        "status": "Statut",
+        "stripePrice": "Prix paiement",
+        "validatedAt": "Dernier contrôle"
+      },
+      "toast": {
+        "activateFailed": "Échec de la mise en ligne du prix",
+        "activateSuccess": "Prix mis en ligne",
+        "createFailed": "Échec de l’enregistrement",
+        "createSuccess": "Prix enregistré",
+        "restoreFailed": "Échec de la restauration du prix",
+        "restoreSuccess": "Prix restauré en brouillon",
+        "retireFailed": "Échec du retrait du prix",
+        "retireSuccess": "Prix retiré",
+        "validateFailed": "Échec du contrôle",
+        "validateSuccess": "Contrôle du prix terminé"
+      }
     },
     "reports": {
       "actions": {
@@ -163,62 +300,62 @@
       },
       "attentionReasons": {
         "active_production": "Usage en production actif",
-        "debug_preview_heavy": "Debug et preview dominants",
-        "high_consumption": "Consommation elevee",
-        "high_frequency": "Appels frequents",
-        "rapid_growth": "Croissance rapide",
-        "sustained_activity": "Actif sur 3+ jours recents"
+        "debug_preview_heavy": "Consommation élevée en débogage",
+        "high_consumption": "Consommation élevée",
+        "high_frequency": "Appels fréquents",
+        "rapid_growth": "Consommation en forte hausse",
+        "sustained_activity": "Activité soutenue sur les 7 derniers jours"
       },
-      "description": "Resume les enseignants avec une consommation recente, une activite ou une structure d usage inhabituelle afin de prioriser le suivi operationnel.",
-      "empty": "Aucun enseignant ne necessite un suivi prioritaire pour le moment.",
-      "emptyHint": "Les enseignants apparaissent apres une consommation elevee, des appels frequents, une activite production, une part debug elevee, une activite soutenue ou une croissance rapide.",
+      "description": "Recense les enseignants dont la consommation récente, l’activité ou la répartition des usages est inhabituelle, afin d’aider les équipes opérationnelles à prioriser le suivi.",
+      "empty": "Aucun enseignant ne nécessite un suivi prioritaire pour le moment.",
+      "emptyHint": "Les enseignants sont affichés lorsqu’ils remplissent au moins une condition : consommation élevée, appels fréquents, usage actif en production, forte part de débogage, activité soutenue ou consommation en forte hausse.",
       "filters": {
-        "active_production": "Production active",
-        "all": "Tous les prioritaires",
-        "debug_preview_heavy": "Debug dominant",
-        "rapid_growth": "Croissance rapide"
+        "active_production": "Usage actif en production",
+        "all": "Tous les enseignants à suivre",
+        "debug_preview_heavy": "Consommation élevée en débogage",
+        "rapid_growth": "Consommation en forte hausse"
       },
       "sections": {
         "usage": {
-          "description": "Seuls les enseignants qui declenchent des regles de suivi sont affiches. Tri possible par croissance, part de debug ou consommation sur 30 j.",
-          "title": "Enseignants a suivre"
+          "description": "Seuls les enseignants remplissant les conditions de suivi sont affichés. Triez par croissance, part de débogage ou consommation des 30 derniers jours.",
+          "title": "Enseignants à suivre"
         }
       },
       "sort": {
         "label": "Trier par",
         "options": {
-          "credits_30d": "Credits sur 30 j",
-          "debug_ratio": "Part de debug",
-          "growth": "Priorite a la croissance"
+          "credits_30d": "Consommation des 30 derniers jours",
+          "debug_ratio": "Part de débogage",
+          "growth": "Croissance en priorité"
         }
       },
       "summary": {
         "activeTeachers7d": "Encore actifs sur 7 j",
-        "activeTeachers7dHint": "Enseignants suivis avec des usages sur les 7 derniers jours",
-        "debugHeavyCount": "Debug dominant",
-        "debugHeavyCountHint": "Enseignants dont le debug/preview est eleve sur 30 j",
-        "focusCount": "Enseignants a examiner",
-        "focusCountHint": "Declenche une ou plusieurs regles de suivi d usage",
-        "totalCredits": "Credits 30 j des suivis",
-        "totalCreditsHint": "Total 30 j des enseignants actuellement affiches"
+        "activeTeachers7dHint": "Enseignants suivis ayant des consommations enregistrées au cours des 7 derniers jours",
+        "debugHeavyCount": "Part de débogage élevée",
+        "debugHeavyCountHint": "Enseignants dont la part de consommation en débogage ou aperçu est élevée sur les 30 derniers jours",
+        "focusCount": "Nombre d’enseignants à suivre",
+        "focusCountHint": "Remplit au moins une condition de suivi de la consommation",
+        "totalCredits": "Consommation des enseignants suivis sur 30 jours",
+        "totalCreditsHint": "Consommation cumulée des enseignants actuellement suivis sur les 30 derniers jours"
       },
       "table": {
         "actions": "Actions",
         "activeDays7d": "Jours actifs sur 7 j",
-        "attentionReasons": "Regles de suivi",
-        "attentionReasonsMore": "{count} elements",
+        "attentionReasons": "Conditions de suivi",
+        "attentionReasonsMore": "{count} éléments",
         "creator": "Enseignant",
-        "credits30d": "Credits sur 30 j",
-        "credits30dBreakdown": "Production {production} · Debug/preview {debugPreview}",
-        "credits30dDebugPreview": "Debug/preview {debugPreview}",
+        "credits30d": "Consommation sur 30 jours",
+        "credits30dBreakdown": "Production {production} · Débogage/aperçu {debugPreview}",
+        "credits30dDebugPreview": "Débogage/aperçu {debugPreview}",
         "credits30dProduction": "Production {production}",
-        "credits7d": "Credits sur 7 j",
-        "latestActivity": "Derniere activite",
+        "credits7d": "Consommation sur 7 jours",
+        "latestActivity": "Dernière activité",
         "latestActivityHint": "Actif {days} jours sur les 7 derniers jours",
-        "productionRatio": "Part de credits production",
+        "productionRatio": "Part de consommation en production",
         "recordCount7d": "Appels sur 7 j"
       },
-      "title": "Synthese du suivi d usage"
+      "title": "Vue d’ensemble des usages à suivre"
     },
     "subscriptions": {
       "description": "Consultez les abonnements a suivre, avec le solde de credits et les actions a venir.",
@@ -226,8 +363,8 @@
       "filters": {
         "reset": "Reinitialiser",
         "search": "Rechercher",
-        "searchPlaceholderEmail": "Saisir l e-mail de l enseignant",
-        "searchPlaceholderPhone": "Saisir le telephone de l enseignant",
+        "searchPlaceholderEmail": "E-mail enseignant",
+        "searchPlaceholderPhone": "Mobile enseignant",
         "status": "Statut d abonnement",
         "statusAll": "Tous les statuts",
         "teacherField": "Enseignant"
@@ -260,9 +397,7 @@
       "title": "Suivi abonnements"
     },
     "subtitle": "Espace opérations pour suivre les abonnements, les usages à surveiller et les réglages de marque et de paiement.",
-    "table": {},
     "tabs": {
-      "domains": "Domaines",
       "entitlements": "Configuration marque et paiement",
       "reports": "Suivi d usage",
       "subscriptions": "Suivi abonnements"
@@ -282,8 +417,7 @@
     "subscriptionPastDue": "Le renouvellement de l’abonnement est bloqué. Consultez les enregistrements de paiement et synchronisez le dernier statut fournisseur."
   },
   "capabilities": {
-    "description": "Cette zone résume les modules directement utilisables dans le back-office marque et paiements. À configurer signifie que le code existe mais reste désactivé par défaut. Flux interne signifie que la capacité ne vit que dans des tâches, compensations ou outils ops et ne s’affiche pas comme fonction de page.",
-    "fallbackDescription": "Le statut des capacités est suivi depuis le grand livre de facturation.",
+    "fallbackDescription": "Le statut des fonctionnalités est défini par le registre des fonctionnalités de facturation.",
     "fallbackTitle": "Capacité de facturation",
     "items": {
       "adminEntitlements": {
@@ -311,7 +445,7 @@
         "title": "Catalogue enseignant"
       },
       "creatorOrders": {
-        "description": "Les flux de commandes enseignant, synchronisation, remboursement et achat de packs de crédits restent activés.",
+        "description": "Les flux de synchronisation, de paiement et d’achat de packs de crédits restent activés pour les enseignants.",
         "title": "Commandes enseignant"
       },
       "creatorSubscriptionCheckout": {
@@ -320,7 +454,7 @@
       },
       "creatorWalletLedger": {
         "description": "Les réserves de crédits du compte et les modèles de lecture du grand livre restent activés.",
-        "title": "Compte créateur et grand livre"
+        "title": "Compte enseignant et registre des crédits"
       },
       "dailyAggregateRebuild": {
         "description": "Les flux de reconstruction et finalisation des agrégats quotidiens restent internes uniquement.",
@@ -363,13 +497,7 @@
       "active": "Prêt à utiliser",
       "defaultDisabled": "À configurer",
       "internalOnly": "Flux interne"
-    },
-    "summary": {
-      "active": "{count} prêts à utiliser",
-      "defaultDisabled": "{count} à configurer",
-      "internalOnly": "{count} flux internes"
-    },
-    "title": "Modules disponibles"
+    }
   },
   "catalog": {
     "actions": {
@@ -440,6 +568,12 @@
     "processing": "Traitement…",
     "productLabel": "Produit",
     "providerLabel": "Fournisseur de paiement",
+    "redirect": {
+      "creating": "Création de votre commande...",
+      "description": "Gardez cette page ouverte. Si la redirection ne se fait pas automatiquement, utilisez le bouton ci-dessous pour réessayer.",
+      "openingStripe": "Ouverture du paiement sécurisé Stripe...",
+      "retry": "Rouvrir la page de paiement"
+    },
     "subject": {
       "plan": {
         "day": "Forfait quotidien",
@@ -456,11 +590,16 @@
   "common": {
     "empty": "Non disponible"
   },
+  "creditInsufficient": {
+    "learner": "Ce cours ne dispose pas de suffisamment de crédits pour générer davantage de contenu. Veuillez contacter l’enseignant du cours.",
+    "purchaseActionAltText": "Ouvrir la page d’achat de crédits",
+    "teacher": "Votre solde de crédits est insuffisant. Vous ne pouvez pas continuer pour le moment.",
+    "teacherCollaborator": "Le solde de crédits du responsable du cours est insuffisant pour générer davantage de contenu. Veuillez contacter le responsable du cours.",
+    "teacherSoftlimit": "Votre solde de crédits est inférieur au seuil d’alerte. Les prévisualisations de débogage sont temporairement indisponibles."
+  },
   "customization": {
     "actions": {
       "clear": "Effacer",
-      "saveConfiguration": "Enregistrer la configuration",
-      "saveIntegration": "Enregistrer les paramètres de paiement",
       "secretSaved": "Enregistré. Saisissez une nouvelle valeur pour le remplacer."
     },
     "branding": {
@@ -469,11 +608,8 @@
       "homeUrl": "URL du lien du logo",
       "homeUrlHint": "Adresse ouverte lorsque l’apprenant clique sur le logo. Laissez vide pour utiliser l’adresse par défaut.",
       "homeUrlPlaceholder": "ex. https://www.example.com",
-      "invalidFile": "Utilisez un fichier PNG, JPEG ou WebP de 2 Mo maximum",
-      "resizeNotice": "L’image ne correspond pas totalement au format recommandé. Elle sera tout de même téléversée puis redimensionnée de façon standard.",
       "squareHint": "Recommandé : un logo carré de 32x32 px. Les variantes en plus haute définition sont aussi prises en charge.",
       "squareLogo": "Logo carré",
-      "title": "Logos de marque",
       "uploadFailed": "L’import de l’image a échoué. Réessayez plus tard.",
       "uploadFavicon": "Importer l’icône du site",
       "uploadSquare": "Importer le logo carré",
@@ -482,22 +618,12 @@
       "wideHint": "Recommandé : un logo horizontal de 32 px de haut et de 220 px de large maximum. Les variantes en plus haute définition sont aussi prises en charge.",
       "wideLogo": "Logo horizontal"
     },
-    "disable": "Désactiver",
     "domain": {
-      "bind": "Associer le domaine",
-      "disableSuccess": "Le domaine a été désactivé.",
-      "dnsTitle": "Ajoutez l’enregistrement TXT suivant dans votre console DNS",
-      "lastError": "Dernier résultat de vérification : {reason}",
       "placeholder": "p. ex. learn.example.com",
       "record": "{name} = {value}",
-      "recordName": "Nom d’hôte",
-      "recordType": "Type d’enregistrement",
-      "recordValue": "Valeur",
-      "status": "{status} · SSL {sslStatus}",
       "title": "Domaine personnalisé",
       "verify": "Vérifier le DNS",
       "verifyFailed": "La vérification DNS n’a pas encore réussi. Vérifiez l’enregistrement TXT puis réessayez.",
-      "verifyInstruction": "Une fois le DNS propagé, lancez la vérification ici. Le certificat HTTPS sera traité après validation.",
       "verifySuccess": "La vérification DNS a réussi. Le statut du domaine a été actualisé."
     },
     "integrationStatus": {
@@ -507,30 +633,42 @@
       "unconfigured": "Non configuré",
       "verified": "Activé"
     },
-    "integrations": {
-      "title": "Configuration WeChat et paiements"
-    },
-    "loading": "Chargement des détails de configuration…",
-    "locked": "Votre forfait actuel n’inclut pas cette fonction. Passez au forfait supérieur ou contactez le support.",
     "paymentProvider": {
       "description": "Choisissez un ou plusieurs modes de paiement côté apprenant. Après l’enregistrement, le paiement générera les QR codes des modes configurés.",
       "title": "Modes de paiement"
     },
-    "pendingActivation": "Enregistrez d’abord la capacité activée. Une fois effective, vous pourrez enregistrer et vérifier cette configuration.",
     "providers": {
       "alipay": "Alipay",
       "pingxx": "Ping++",
       "stripe": "Stripe",
       "wechat_oauth": "Compte officiel WeChat",
       "wechatpay": "WeChat Pay"
-    },
-    "verify": "Vérifier et activer"
+    }
   },
   "details": {
     "actions": {
       "upgradeNow": "Mettre à niveau"
     },
     "emptyValidityLabel": "--",
+    "subscription": {
+      "accessUntil": "Accès jusqu’au",
+      "autoRenew": "Renouvellement automatique activé",
+      "cancelAction": "Annuler le renouvellement automatique",
+      "cancelConfirmAction": "Confirmer l’annulation",
+      "cancelConfirmDescription": "Vos avantages et crédits restent disponibles jusqu’au {date}. Aucun nouveau prélèvement ne sera effectué ensuite.",
+      "cancelConfirmTitle": "Annuler le renouvellement automatique ?",
+      "cancelScheduled": "Renouvellement automatique annulé",
+      "cancelSuccess": "Le renouvellement automatique est annulé. Les avantages de la période en cours restent inchangés.",
+      "currentPlan": "Forfait actuel",
+      "nextRenewal": "Prochain renouvellement",
+      "paused": "Abonnement suspendu",
+      "renewalStatus": "État du renouvellement",
+      "resumeAction": "Rétablir le renouvellement automatique",
+      "resumeConfirmAction": "Confirmer le rétablissement",
+      "resumeConfirmDescription": "Votre forfait initial sera renouvelé automatiquement le {date}.",
+      "resumeConfirmTitle": "Rétablir le renouvellement automatique ?",
+      "resumeSuccess": "Le renouvellement automatique est rétabli."
+    },
     "subtitle": "Consulter le total des crédits, les soldes par catégorie et la fenêtre effective de chaque source de crédits.",
     "table": {
       "balance": "Solde",
@@ -597,6 +735,32 @@
       "priority": "Support prioritaire",
       "selfServe": "Libre-service"
     }
+  },
+  "globalPricing": {
+    "actions": {
+      "buyCredits": "Acheter des crédits",
+      "checkoutLoading": "Ouverture du paiement...",
+      "choosePlan": "Choisir ce forfait",
+      "cycleSwitchDisabled": "Changement de période indisponible",
+      "viewMonthly": "Voir le forfait mensuel"
+    },
+    "annualSavings": "Économisez {amount} par an par rapport à la facturation mensuelle",
+    "monthlyOnly": "Mensuel uniquement",
+    "plans": {
+      "business": {
+        "name": "Business"
+      },
+      "growth": {
+        "name": "Growth"
+      },
+      "scale": {
+        "name": "Scale"
+      },
+      "studio": {
+        "name": "Studio"
+      }
+    },
+    "renewalPrice": "Puis renouvellement à {price} / {period}."
   },
   "ledger": {
     "bucketDescription": "Consulter les réserves de crédits, les soldes restants et l’ordre de consommation.",
@@ -690,6 +854,7 @@
       "currentUsing": "Forfait actuel",
       "downgradeDisabled": "Rétrogradation indisponible",
       "freeTrial": "Inactif",
+      "monthlySwitchDisabled": "Passage au mensuel indisponible",
       "nonMemberTooltip": "Vous êtes actuellement sur l’offre non membre. Aucune action n’est nécessaire.",
       "preorderDowngrade": "Précommander une rétrogradation",
       "preorderLocked": "Précommande verrouillée",
@@ -698,15 +863,12 @@
       "preorderRenewal": "Prépayer le renouvellement",
       "preorderScheduled": "Précommande planifiée",
       "subscribeNow": "S’abonner maintenant",
-      "upgradeNow": "Mettre à niveau",
-      "upgradeOnlyTooltip": "L’abonnement actuel est encore actif. Seules les mises à niveau vers une offre supérieure sont autorisées."
+      "upgradeNow": "Mettre à niveau"
     },
     "campaign": {
       "bonusBadge": "{credits} crédits offerts",
-      "discountBadge": "Offre limitée"
-    },
-    "creditPeriod": {
-      "oneTime": "Une fois"
+      "discountBadge": "Offre limitée",
+      "paymentOnly": "La réduction s’applique uniquement à ce paiement."
     },
     "creditSummary": {
       "daily": "Crédits quotidiens {credits}",
@@ -724,11 +886,8 @@
         "techBasic": "Support technique de base"
       },
       "common": {
-        "allLearning": "Toutes les fonctionnalités d’apprentissage",
         "allTeachingAndLearning": "Toutes les fonctionnalités d’enseignement et de recherche",
-        "createDebugPublish": "Créer, déboguer et publier des cours",
-        "higherConcurrency": "Support de concurrence supérieur",
-        "unlimitedCourses": "Cours illimités"
+        "higherConcurrency": "Support de concurrence supérieur"
       },
       "daily": {
         "preview": "Accès quotidien rapide pour cycles courts de validation",
@@ -776,12 +935,8 @@
         }
       }
     },
-    "featuresTitle": "Avantages inclus :",
     "footnote": {
-      "learnerEstimateIntro": "Les sessions d’apprentissage estimées reposent sur l’expérience de la plateforme et utilisent la référence “un apprenant termine le cours une fois, avec un cours d’environ 10 sections, une moyenne d’environ 15 minutes d’étude régulière par section, en utilisant le modèle par défaut tout au long du cours et avec le mode écoute activé”. La facturation réelle est calculée à partir de la consommation du modèle pendant l’étude, la prévisualisation et le débogage ; le détail des crédits consommés fait foi. Facteurs influant sur la consommation de crédits :",
-      "learnerEstimateMode": "Lorsque le mode écoute est désactivé et que seules les interactions d’apprentissage en texte et image restent actives, le nombre de sessions prises en charge peut augmenter de 1 à 4 fois.",
-      "learnerEstimateModel": "Le choix d’un modèle plus ou moins coûteux influera sur la consommation de crédits.",
-      "learnerEstimateScale": "Les changements de nombre de sections, de longueur de chaque section, de volume d’interactions, de taux d’achèvement ou de nombre de questions de suivi des apprenants influent sur la consommation de crédits.",
+      "learningTime": "Ces durées sont estimées à partir de données historiques et sont données à titre indicatif. Le contenu du cours, le modèle choisi et les interactions influencent la consommation réelle de crédits. Si la synthèse vocale est activée, la consommation de crédits augmente.",
       "validity": "Validité des crédits : les forfaits mensuels sont valables 30 jours à compter du jour de réception inclus ; les forfaits annuels sont valables par année calendaire à compter du jour de réception. Les deux expirent à 23:59 le jour d’expiration."
     },
     "free": {
@@ -798,43 +953,27 @@
       "topup": "Packs de crédits",
       "yearly": "Forfaits annuels"
     },
+    "learningTime": {
+      "compactValue": "Environ {minutes} minutes",
+      "label": "Temps d’apprentissage estimé",
+      "lessThanOne": "Moins de 1 minute",
+      "unavailable": "—",
+      "value": "Environ {minutes} minutes"
+    },
+    "loading": "Chargement des forfaits…",
     "preorder": {
       "pending": "Précommande en attente : {plan} prendra effet le {date}."
     },
-    "scale": {
-      "advanced": {
-        "students": "250 à 750 sessions apprenant"
-      },
-      "basic": {
-        "students": "5 à 15 sessions apprenant"
-      },
-      "free": {
-        "students": "5 à 15 sessions apprenant"
-      },
-      "lite": {
-        "students": "Moins d’une session apprenant"
-      },
-      "premium": {
-        "students": "1 100 à 3 300 sessions apprenant"
-      },
-      "pro": {
-        "students": "500 à 1 500 sessions apprenant"
-      },
-      "sectionTitle": "Capacité apprenant estimée"
-    },
     "subtitle": "Choisissez le forfait de crédits adapté.",
     "table": {
-      "creditsRowLabel": "Crédits par cycle",
       "emptyValue": "—",
       "featuresRowLabel": "Droits",
-      "studentsRowLabel": "Sessions apprenant estimées",
       "validityRowLabel": "Validité des crédits"
     },
-    "title": "Acheter des crédits",
     "topup": {
       "creditLabel": "{credits} crédits",
       "noteFrozen": "Les crédits du pack de crédits ne peuvent être utilisés que si le compte dispose d’un forfait de crédits actif.",
-      "noteInstant": "Les crédits prennent effet immédiatement après l’achat."
+      "noteInstant": "Les crédits prennent effet immédiatement après l’achat et n’expirent jamais."
     },
     "topupComingSoon": "Bientôt disponible",
     "validity": {
@@ -855,7 +994,6 @@
   "page": {
     "adminLink": "Ouvrir les opérations de facturation",
     "tabs": {
-      "customization": "Marque et paiements",
       "ledger": "Détail des crédits",
       "plans": "Acheter des crédits"
     },
@@ -863,7 +1001,7 @@
   },
   "renewal": {
     "eventType": {
-      "cancelEffective": "Annuler effective",
+      "cancelEffective": "Annulation effective",
       "downgradeEffective": "Rétrogradation effective",
       "expire": "Expiration",
       "reconcile": "Rapprochement",
@@ -911,7 +1049,7 @@
   "result": {
     "countdown": "Redirection vers le centre de facturation dans {seconds} s",
     "errorTitle": "Échec de la synchronisation de facturation",
-    "missingOrder": "Commande de facturation introuvable. Ouvrez le centre de facturation et réessayez depuis votre liste de commandes.",
+    "missingOrder": "Le numéro de commande de facturation est manquant. Retournez au centre des abonnements et relancez la synchronisation depuis la liste des commandes.",
     "openBilling": "Ouvrir le centre de facturation",
     "pending": "Le paiement est encore en cours de traitement. Vous pourrez réessayer la synchronisation dans un instant.",
     "pendingTitle": "En attente de confirmation de facturation",
@@ -932,7 +1070,6 @@
     "monthlyTitle": "Forfait mensuel",
     "nonMemberBalanceTitle": "Solde de crédits",
     "nonMemberTitle": "Non membre",
-    "periodLabel": "Période",
     "placeholderValue": "--",
     "subscriptionPending": "Bientôt disponible",
     "subscriptionStatusLabel": "Abonnement",
@@ -944,7 +1081,7 @@
   },
   "status": {
     "active": "Actif",
-    "cancelScheduled": "Annuler scheduled",
+    "cancelScheduled": "Annulation programmée",
     "canceled": "Annulé",
     "draft": "Brouillon",
     "expired": "Expiré",

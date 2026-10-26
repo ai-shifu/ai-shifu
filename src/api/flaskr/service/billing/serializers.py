@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from flask import Flask
-
-from flaskr.util.datetime import now_utc
+from typing import TYPE_CHECKING, Any
 
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -15,12 +11,18 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_LLM,
     BILL_USAGE_TYPE_TTS,
 )
+from flaskr.util.datetime import now_utc
 
+from .bucket_categories import (
+    load_billing_order_type_by_bid,
+    resolve_credit_bucket_priority,
+    resolve_wallet_bucket_runtime_category,
+)
 from .consts import (
-    BILLING_INTERVAL_LABELS,
-    BILLING_METRIC_LABELS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_LABELS,
     BILLING_CAMPAIGN_DISCOUNT_TYPE_LABELS,
+    BILLING_INTERVAL_LABELS,
+    BILLING_METRIC_LABELS,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_LABELS,
     BILLING_ORDER_STATUS_PENDING,
@@ -38,35 +40,17 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
-    CREDIT_BUCKET_CATEGORY_TOPUP,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     CREDIT_BUCKET_CATEGORY_LABELS,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_LABELS,
     CREDIT_LEDGER_ENTRY_TYPE_LABELS,
     CREDIT_SOURCE_TYPE_LABELS,
 )
-from .bucket_categories import (
-    load_billing_order_type_by_bid,
-    resolve_credit_bucket_priority,
-    resolve_wallet_bucket_runtime_category,
-)
-from .models import (
-    BillingCampaign,
-    BillingCampaignProduct,
-    BillingDailyLedgerSummary,
-    BillingDailyUsageMetric,
-    BillingOrder,
-    BillingProduct,
-    BillingRenewalEvent,
-    BillingSubscription,
-    CreditLedgerEntry,
-    CreditWallet,
-    CreditWalletBucket,
-)
 from .dtos import (
-    AdminBillingCampaignDTO,
     AdminBillingCampaignDetailDTO,
+    AdminBillingCampaignDTO,
     AdminBillingCampaignProductOptionDTO,
     AdminBillingDailyLedgerSummaryDTO,
     AdminBillingDailyUsageMetricDTO,
@@ -79,14 +63,14 @@ from .dtos import (
     BillingDailyUsageMetricDTO,
     BillingLedgerItemDTO,
     BillingOrderSummaryDTO,
-    OperatorCreditOrderDTO,
-    OperatorCreditOrderGrantDTO,
     BillingPlanDTO,
     BillingRenewalEventDTO,
     BillingSubscriptionDTO,
     BillingTopupProductDTO,
     BillingWalletBucketDTO,
     BillingWalletSnapshotDTO,
+    OperatorCreditOrderDTO,
+    OperatorCreditOrderGrantDTO,
 )
 from .primitives import (
     credit_decimal_to_number,
@@ -94,7 +78,24 @@ from .primitives import (
     normalize_json_object,
     to_decimal,
 )
-from .queries import load_product_code_map
+from .queries import load_product_code_map, load_product_name_key_map
+
+if TYPE_CHECKING:
+    from flask import Flask
+
+    from .models import (
+        BillingCampaign,
+        BillingCampaignProduct,
+        BillingDailyLedgerSummary,
+        BillingDailyUsageMetric,
+        BillingOrder,
+        BillingProduct,
+        BillingRenewalEvent,
+        BillingSubscription,
+        CreditLedgerEntry,
+        CreditWallet,
+        CreditWalletBucket,
+    )
 
 _USAGE_SCENE_LABELS = {
     BILL_USAGE_SCENE_DEBUG: "debug",
@@ -126,8 +127,9 @@ def _resolve_runtime_subscription_status(row: BillingSubscription) -> int:
 
 
 def serialize_catalog_campaign(
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingCatalogCampaignDTO | None:
+    """Serialize catalog campaign."""
     if not payload:
         return None
     return BillingCatalogCampaignDTO(
@@ -148,6 +150,7 @@ def serialize_admin_campaign_product_option(
     *,
     binding: BillingCampaignProduct | None = None,
 ) -> AdminBillingCampaignProductOptionDTO:
+    """Serialize admin campaign product option."""
     payload = serialize_product(row)
     return AdminBillingCampaignProductOptionDTO(
         product_bid=row.product_bid,
@@ -186,9 +189,12 @@ def serialize_admin_campaign(
     has_custom_product_rules: bool = False,
     discount_type_code: int | None = None,
     discount_amount: int | None = None,
-    discount_percent: Any | None = None,
-    bonus_credit_amount: Any | None = None,
+    discount_percent: object | None = None,
+    bonus_credit_amount: object | None = None,
+    provider_discount_summary: dict[str, object] | None = None,
 ) -> AdminBillingCampaignDTO:
+    """Serialize admin campaign."""
+    _ = app
     now = now_utc()
     if not bool(row.enabled):
         computed_status = "inactive"
@@ -233,6 +239,7 @@ def serialize_admin_campaign(
         product_types=product_types,
         product_names=product_names,
         has_custom_product_rules=has_custom_product_rules,
+        provider_discount_summary=provider_discount_summary or {},
         computed_status=computed_status,
         hit_order_count=hit_order_count,
         start_at=row.start_at,
@@ -250,6 +257,7 @@ def serialize_admin_campaign_detail(
     created_user_bid: str,
     updated_user_bid: str,
 ) -> AdminBillingCampaignDetailDTO:
+    """Serialize admin campaign detail."""
     return AdminBillingCampaignDetailDTO(
         campaign=campaign,
         products=products,
@@ -261,8 +269,9 @@ def serialize_admin_campaign_detail(
 def serialize_product(
     row: BillingProduct,
     *,
-    campaign_payload: dict[str, Any] | None = None,
+    campaign_payload: dict[str, object] | None = None,
 ) -> BillingPlanDTO | BillingTopupProductDTO:
+    """Serialize product."""
     metadata = row.metadata_json if isinstance(row.metadata_json, dict) else {}
     badge = metadata.get("badge")
     highlights = metadata.get("highlights")
@@ -316,6 +325,7 @@ def serialize_product(
 
 
 def serialize_wallet(wallet: CreditWallet | None) -> BillingWalletSnapshotDTO:
+    """Serialize wallet."""
     if wallet is None:
         return BillingWalletSnapshotDTO(
             available_credits=0,
@@ -339,15 +349,19 @@ def serialize_subscription(
     app: Flask,
     row: BillingSubscription | None,
 ) -> BillingSubscriptionDTO | None:
+    """Serialize subscription."""
+    _ = app
     if row is None:
         return None
     product_codes = load_product_code_map([row.product_bid])
+    product_name_keys = load_product_name_key_map([row.product_bid])
     next_product_bid = normalize_bid(row.next_product_bid)
     runtime_status = _resolve_runtime_subscription_status(row)
     return BillingSubscriptionDTO(
         subscription_bid=row.subscription_bid,
         product_bid=row.product_bid,
         product_code=product_codes.get(row.product_bid, ""),
+        product_name_key=product_name_keys.get(row.product_bid, ""),
         status=BILLING_SUBSCRIPTION_STATUS_LABELS.get(runtime_status, "draft"),
         billing_provider=str(row.billing_provider or ""),
         current_period_start_at=row.current_period_start_at,
@@ -371,12 +385,14 @@ def serialize_admin_subscription(
     wallet: CreditWallet | None,
     renewal_event: BillingRenewalEvent | None,
 ) -> AdminBillingSubscriptionDTO:
+    """Serialize admin subscription."""
     next_product_bid = normalize_bid(row.next_product_bid)
     return AdminBillingSubscriptionDTO(
         subscription_bid=row.subscription_bid,
         creator_bid=row.creator_bid,
         creator_identify=str(creator.get("identify") or ""),
         creator_mobile=str(creator.get("mobile") or ""),
+        creator_email=str(creator.get("email") or ""),
         creator_nickname=str(creator.get("nickname") or ""),
         product_bid=row.product_bid,
         product_code=product_codes.get(row.product_bid, ""),
@@ -414,6 +430,8 @@ def serialize_renewal_event(
     app: Flask,
     row: BillingRenewalEvent | None,
 ) -> BillingRenewalEventDTO | None:
+    """Serialize renewal event."""
+    _ = app
     if row is None:
         return None
     return BillingRenewalEventDTO(
@@ -435,6 +453,7 @@ def build_billing_alerts(
     wallet_payload: BillingWalletSnapshotDTO,
     subscription: BillingSubscription | None,
 ) -> list[BillingAlertDTO]:
+    """Build billing alerts."""
     alerts: list[BillingAlertDTO] = []
     available_credits = float(wallet_payload.available_credits or 0)
 
@@ -495,6 +514,8 @@ def serialize_wallet_bucket(
     category_code: int | None = None,
     credit_asset_kind: str = "unknown",
 ) -> BillingWalletBucketDTO:
+    """Serialize wallet bucket."""
+    _ = app
     runtime_category_code = (
         resolve_wallet_bucket_runtime_category(
             row,
@@ -537,9 +558,11 @@ def serialize_ledger_entry(
     app: Flask,
     row: CreditLedgerEntry,
     *,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     credit_asset_kind: str = "unknown",
 ) -> BillingLedgerItemDTO:
+    """Serialize ledger entry."""
+    _ = app
     return BillingLedgerItemDTO(
         ledger_bid=row.ledger_bid,
         wallet_bucket_bid=row.wallet_bucket_bid,
@@ -563,6 +586,8 @@ def serialize_daily_usage_metric(
     app: Flask,
     row: BillingDailyUsageMetric,
 ) -> BillingDailyUsageMetricDTO:
+    """Serialize daily usage metric."""
+    _ = app
     return BillingDailyUsageMetricDTO(
         daily_usage_metric_bid=row.daily_usage_metric_bid,
         stat_date=row.stat_date,
@@ -587,6 +612,8 @@ def serialize_daily_ledger_summary(
     app: Flask,
     row: BillingDailyLedgerSummary,
 ) -> BillingDailyLedgerSummaryDTO:
+    """Serialize daily ledger summary."""
+    _ = app
     return BillingDailyLedgerSummaryDTO(
         daily_ledger_summary_bid=row.daily_ledger_summary_bid,
         stat_date=row.stat_date,
@@ -601,15 +628,18 @@ def serialize_daily_ledger_summary(
 
 def serialize_admin_entitlement_state(
     app: Flask,
-    state,
+    state: object,
     *,
     creator: dict[str, str],
     product: BillingProduct | None,
 ) -> AdminBillingEntitlementDTO:
+    """Serialize admin entitlement state."""
+    _ = app
     return AdminBillingEntitlementDTO(
         creator_bid=normalize_bid(state.creator_bid),
         creator_identify=str(creator.get("identify") or ""),
         creator_mobile=str(creator.get("mobile") or ""),
+        creator_email=str(creator.get("email") or ""),
         creator_nickname=str(creator.get("nickname") or ""),
         source_kind=str(state.source_kind or "default"),
         source_type=str(state.source_type or ""),
@@ -637,6 +667,7 @@ def serialize_admin_daily_usage_metric(
     *,
     creator: dict[str, str] | None = None,
 ) -> AdminBillingDailyUsageMetricDTO:
+    """Serialize admin daily usage metric."""
     payload = serialize_daily_usage_metric(
         app,
         row,
@@ -645,6 +676,7 @@ def serialize_admin_daily_usage_metric(
         **payload.__json__(),
         creator_bid=row.creator_bid,
         creator_mobile=str((creator or {}).get("mobile") or ""),
+        creator_email=str((creator or {}).get("email") or ""),
         creator_nickname=str((creator or {}).get("nickname") or ""),
     )
 
@@ -653,6 +685,7 @@ def serialize_admin_daily_ledger_summary(
     app: Flask,
     row: BillingDailyLedgerSummary,
 ) -> AdminBillingDailyLedgerSummaryDTO:
+    """Serialize admin daily ledger summary."""
     payload = serialize_daily_ledger_summary(
         app,
         row,
@@ -667,6 +700,8 @@ def serialize_order_summary(
     app: Flask,
     row: BillingOrder,
 ) -> BillingOrderSummaryDTO:
+    """Serialize order summary."""
+    _ = app
     subscription_bid = normalize_bid(row.subscription_bid)
     payment_mode = _resolve_billing_order_payment_mode(row)
 
@@ -696,11 +731,13 @@ def serialize_admin_order_summary(
     creator: dict[str, str] | None = None,
     product: BillingProduct | None = None,
 ) -> AdminBillingOrderDTO:
+    """Serialize admin order summary."""
     payload = serialize_order_summary(app, row)
     return AdminBillingOrderDTO(
         **payload.__json__(),
         creator_identify=str((creator or {}).get("identify") or ""),
         creator_mobile=str((creator or {}).get("mobile") or ""),
+        creator_email=str((creator or {}).get("email") or ""),
         creator_nickname=str((creator or {}).get("nickname") or ""),
         product_name_key=str(product.display_name_i18n_key or "")
         if product is not None
@@ -735,10 +772,12 @@ def serialize_operator_credit_order_grant(
     *,
     source_type: str,
     source_bid: str,
-    granted_credits: int | float,
-    valid_from,
-    valid_to,
+    granted_credits: float,
+    valid_from: object,
+    valid_to: object,
 ) -> OperatorCreditOrderGrantDTO:
+    """Serialize operator credit order grant."""
+    _ = app
     return OperatorCreditOrderGrantDTO(
         granted_credits=granted_credits,
         valid_from=valid_from,
@@ -756,6 +795,7 @@ def serialize_operator_credit_order(
     creator: dict[str, str],
     grant: OperatorCreditOrderGrantDTO | None,
 ) -> OperatorCreditOrderDTO:
+    """Serialize operator credit order."""
     order_summary = serialize_admin_order_summary(
         app,
         row,

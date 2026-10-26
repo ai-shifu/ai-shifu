@@ -1,32 +1,34 @@
-"""
-TTS Database Models.
+"""TTS Database Models.
 
 This module defines the database models for storing TTS audio records.
 """
 
+from typing import ClassVar
+
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc, to_utc_iso
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    DateTime,
-    Text,
-    SmallInteger,
     JSON,
-    Numeric,
+    Column,
+    DateTime,
     Index,
+    Integer,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc, to_utc_iso
-
-from flaskr.dao import db
-
 
 # Audio status constants
 AUDIO_STATUS_PENDING = 0
 AUDIO_STATUS_PROCESSING = 1
 AUDIO_STATUS_COMPLETED = 2
 AUDIO_STATUS_FAILED = 3
+
+TTS_CLONE_PROVIDER_MINIMAX = "minimax"
+TTS_CLONE_PROVIDER_VOLCENGINE = "volcengine"
 
 TTS_MINIMAX_CLONE_STATUS_QUEUED = "queued"
 TTS_MINIMAX_CLONE_STATUS_PROCESSING = "processing"
@@ -44,15 +46,16 @@ TTS_CREDIT_NUMERIC = Numeric(20, 10)
 
 
 class LearnGeneratedAudio(db.Model):
-    """
-    TTS audio record for generated content blocks.
+    """TTS audio record for generated content blocks.
 
     This model stores the synthesized audio for AI-generated content,
     including both streaming segments and final concatenated audio.
     """
 
     __tablename__ = "learn_generated_audios"
-    __table_args__ = {"comment": "TTS audio for generated content blocks"}
+    __table_args__: ClassVar[dict[str, str]] = {
+        "comment": "TTS audio for generated content blocks"
+    }
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
 
@@ -263,6 +266,15 @@ class TTSMiniMaxClonedVoice(db.Model):
     owner_user_bid = Column(String(36), nullable=False, default="", index=True)
     shifu_bid = Column(String(36), nullable=False, default="", index=True)
     display_name = Column(String(128), nullable=False, default="")
+    # TTS provider that owns this cloned voice. Voice id shapes overlap across
+    # providers (an S_xxxxxxxxxx id also matches MiniMax's rule), so the provider must
+    # be stored explicitly rather than inferred from the id format.
+    provider = Column(
+        String(32),
+        nullable=False,
+        default=TTS_CLONE_PROVIDER_MINIMAX,
+        index=True,
+    )
     voice_id = Column(String(64), nullable=False, default="", index=True)
 
     status = Column(
@@ -328,7 +340,7 @@ class TTSMiniMaxClonedVoice(db.Model):
     ready_at = Column(DateTime, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, object]:
         """Convert model to dictionary."""
         return {
             "audio_bid": self.audio_bid,

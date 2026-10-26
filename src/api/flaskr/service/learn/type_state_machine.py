@@ -6,10 +6,10 @@ produced by this module.
 
 State definitions
 -----------------
-- ``IDLE``       – no open element
-- ``BUILDING``   – accumulating a new element
-- ``PATCHING``   – applying incremental update to an existing element (``is_new=false``)
-- ``TERMINATED`` – final state after ``done`` / ``error``
+- ``IDLE``       - no open element
+- ``BUILDING``   - accumulating a new element
+- ``PATCHING``   - applying incremental update to an existing element (``is_new=false``)
+- ``TERMINATED`` - final state after ``done`` / ``error``
 
 See design doc §3.4 for the full transition table.
 """
@@ -20,6 +20,8 @@ from enum import Enum
 
 
 class TypeState(Enum):
+    """Enumerate parser states used while building learning elements."""
+
     IDLE = "IDLE"
     BUILDING = "BUILDING"
     PATCHING = "PATCHING"
@@ -58,14 +60,17 @@ class TypeStateMachine:
     """
 
     def __init__(self) -> None:
+        """Set the content-block type state machine to ``IDLE``."""
         self._state = TypeState.IDLE
 
     @property
     def state(self) -> TypeState:
+        """Return the current parser state."""
         return self._state
 
     @property
     def is_terminated(self) -> bool:
+        """Return whether the type state machine has terminated."""
         return self._state is TypeState.TERMINATED
 
     def feed(self, trigger: TypeInput, *, is_new: bool = True) -> str:
@@ -88,11 +93,11 @@ class TypeStateMachine:
         ------
         ValueError
             If the transition is illegal (e.g. feeding after ``TERMINATED``).
+
         """
         if self._state is TypeState.TERMINATED:
-            raise ValueError(
-                f"State machine already terminated; cannot process {trigger!r}"
-            )
+            message = f"State machine already terminated; cannot process {trigger!r}"
+            raise ValueError(message)
 
         if trigger is TypeInput.CONTENT_START:
             if is_new:
@@ -124,7 +129,8 @@ class TypeStateMachine:
             self._state = TypeState.TERMINATED
             return TYPE_ERROR
 
-        raise ValueError(f"Unknown trigger: {trigger!r}")  # pragma: no cover
+        message = f"Unknown trigger: {trigger!r}"
+        raise ValueError(message)  # pragma: no cover
 
     def reset(self) -> None:
         """Reset the machine to ``IDLE``."""

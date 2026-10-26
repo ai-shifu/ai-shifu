@@ -55,21 +55,27 @@
         "configurationSectionDescription": "补充品牌 Logo、独立域名、微信公众号与支付通道配置，保存后同步展示最新结果。",
         "createdContinue": "已为 {creator} 新增品牌与收款配置，可继续补充下方详细内容。",
         "creatorBidPlaceholder": "输入课程负责人 BID",
+        "creatorEmailPlaceholder": "输入课程负责人邮箱",
         "creatorMobilePlaceholder": "输入课程负责人手机号",
         "description": "为老师统一开通并维护品牌、域名、微信与支付配置，保存后同步更新对应能力。",
         "disabled": "未开通",
         "domainInlineDescription": "填写独立域名并完成校验，便于后续确认是否已正式可用。",
         "edit": "编辑",
         "editTitle": "编辑品牌与收款配置",
+        "emailHint": "请输入邮箱。若该邮箱尚未注册，系统会先创建账号并默认开通老师身份。",
         "enabled": "已开通",
         "errors": {
           "creatorBidRequired": "请输入课程负责人 BID",
+          "creatorEmailInvalid": "请输入有效的邮箱地址",
+          "creatorEmailRequired": "请输入课程负责人邮箱",
+          "creatorMobileInvalid": "请输入有效的手机号",
           "creatorMobileRequired": "请输入课程负责人手机号"
         },
         "fields": {
           "branding_enabled": "品牌 Logo",
           "configStatus": "配置状态",
           "creatorBid": "课程负责人 BID",
+          "creatorEmail": "课程负责人邮箱",
           "creatorMobile": "课程负责人手机号",
           "custom_domain_enabled": "独立域名",
           "custom_payment_enabled": "独立支付配置",
@@ -149,13 +155,144 @@
         "startedAt": "生效于 {date}"
       }
     },
-    "navigation": {
-      "description": "按套餐、订单、权益、域名和报表切换查看，能力状态会始终保留在上方。",
-      "title": "查看维度"
-    },
     "pagination": {
       "page": "第 {page} / {pageCount} 页，共 {total} 条记录",
       "total": "共 {total} 条记录"
+    },
+    "providerPrices": {
+      "actions": {
+        "activate": "上架",
+        "cancel": "取消",
+        "configure": "配置价格",
+        "create": "新增价格",
+        "restore": "恢复到待启用",
+        "retire": "下架",
+        "saveDraft": "保存草稿",
+        "validate": "校验",
+        "viewIssues": "查看问题"
+      },
+      "billingLabel": {
+        "monthly": "月付",
+        "yearly": "年付"
+      },
+      "confirm": {
+        "activate": "确认上架 {productName}？上架后，该商品后续支付将使用这个收款价格。",
+        "restore": "确认恢复 {productName}？恢复后会回到待启用状态，需要重新校验后再上架。",
+        "retire": "确认下架 {productName}？下架后，该商品将暂时无法使用固定价格支付。"
+      },
+      "dialog": {
+        "autoDetectHint": "系统会自动校验金额、币种、周期和当前环境；确认无误后再启用。",
+        "description": "从 Stripe 后台复制商品 ID 和价格 ID。保存后系统会自动读取价格信息。",
+        "title": "配置收款价格"
+      },
+      "empty": "暂无可配置的套餐或积分包。",
+      "fields": {
+        "priceId": "Stripe 价格 ID",
+        "product": "商品",
+        "productId": "Stripe 商品 ID",
+        "productPlaceholder": "选择商品"
+      },
+      "filters": {
+        "allProducts": "全部商品",
+        "product": "商品",
+        "status": "状态"
+      },
+      "health": {
+        "active": "已上架",
+        "draft": "待启用",
+        "healthy": "正常",
+        "invalid": "校验失败",
+        "missing": "未配置",
+        "retired": "已下架",
+        "warning": "需确认"
+      },
+      "interval": {
+        "month": "每 {count} 个月",
+        "year": "每 {count} 年"
+      },
+      "issueDrawer": {
+        "description": "展示面向运营的原因说明，同时保留原始 code，便于技术排查。",
+        "issues": "问题原因",
+        "noIssues": "暂无问题详情",
+        "raw": "原始信息",
+        "title": "价格校验问题"
+      },
+      "issueMessages": {
+        "billing_interval_count_mismatch": "计费周期数量与本地商品不一致",
+        "billing_interval_mismatch": "计费周期与本地商品不一致",
+        "currency_mismatch": "币种与本地商品不一致",
+        "local_plan_billing_mode_invalid": "本地套餐计费方式配置错误",
+        "local_topup_billing_interval_count_invalid": "本地积分包周期数量应为 0",
+        "local_topup_billing_interval_invalid": "本地积分包不应配置周期",
+        "local_topup_billing_mode_invalid": "本地积分包计费方式配置错误",
+        "plan_requires_licensed_recurring_price": "套餐必须使用 licensed 周期价格",
+        "plan_requires_recurring_price": "套餐必须绑定 Stripe 周期价格",
+        "price_livemode_mismatch": "Stripe 价格环境与当前配置不一致",
+        "price_metadata_billing_interval_mismatch": "Stripe 价格计费周期 metadata 不一致",
+        "price_metadata_billing_interval_missing": "Stripe 价格缺少计费周期 metadata",
+        "price_metadata_credit_amount_mismatch": "Stripe 价格积分数 metadata 不一致",
+        "price_metadata_credit_amount_missing": "Stripe 价格缺少积分数 metadata",
+        "price_metadata_product_code_mismatch": "Stripe 价格商品编码 metadata 不一致",
+        "price_metadata_product_code_missing": "Stripe 价格缺少商品编码 metadata",
+        "price_product_mismatch": "Stripe 价格不属于当前商品",
+        "product_livemode_mismatch": "Stripe 商品环境与当前配置不一致",
+        "product_metadata_market_mismatch": "Stripe 商品市场 metadata 不一致",
+        "product_metadata_market_missing": "Stripe 商品缺少市场 metadata",
+        "product_metadata_plan_tier_mismatch": "Stripe 商品套餐档位 metadata 不一致",
+        "product_metadata_plan_tier_missing": "Stripe 商品缺少套餐档位 metadata",
+        "product_metadata_product_type_mismatch": "Stripe 商品类型 metadata 不一致",
+        "product_metadata_product_type_missing": "Stripe 商品缺少商品类型 metadata",
+        "provider_account_mismatch": "Stripe 账号不一致",
+        "provider_price_inactive": "Stripe 价格已停用",
+        "provider_price_mismatch": "Stripe 价格 ID 与当前配置不一致",
+        "provider_price_unit_amount_missing": "Stripe 价格缺少固定金额",
+        "provider_product_inactive": "Stripe 商品已停用",
+        "provider_product_mismatch": "Stripe 商品 ID 与当前配置不一致",
+        "retired_mapping_cannot_be_activated": "已下架价格不能重新上架",
+        "retired_mapping_cannot_be_validated": "已下架价格不能重新校验",
+        "stripe_catalog_reference_missing": "缺少 Stripe 商品 ID 或价格 ID",
+        "stripe_catalog_retrieve_failed": "无法从 Stripe 读取商品或价格",
+        "topup_requires_one_time_price": "积分包必须绑定 Stripe 一次性价格",
+        "unit_amount_mismatch": "收款金额与页面售价不一致",
+        "unknown": "未知问题",
+        "unsupported_product_type": "该商品类型暂不支持配置收款价格"
+      },
+      "loadError": "暂时无法加载套餐价格配置。",
+      "menuTitle": "套餐管理",
+      "pageDescription": "管理海外套餐和积分包的收款价格，确保页面展示、实际支付和后续对账一致。",
+      "productType": {
+        "plan": "套餐",
+        "topup": "积分包"
+      },
+      "status": {
+        "active": "已上架",
+        "all": "全部状态",
+        "draft": "待启用",
+        "invalid": "校验失败",
+        "missing": "未配置",
+        "retired": "已下架"
+      },
+      "table": {
+        "actions": "操作",
+        "localPrice": "页面售价",
+        "product": "商品",
+        "productType": "类型",
+        "status": "状态",
+        "stripePrice": "收款价格",
+        "validatedAt": "最近校验"
+      },
+      "toast": {
+        "activateFailed": "价格上架失败",
+        "activateSuccess": "价格已上架",
+        "createFailed": "价格保存失败",
+        "createSuccess": "价格已保存",
+        "restoreFailed": "价格恢复失败",
+        "restoreSuccess": "价格已恢复为待启用",
+        "retireFailed": "价格下架失败",
+        "retireSuccess": "价格已下架",
+        "validateFailed": "价格校验失败",
+        "validateSuccess": "价格校验已完成"
+      }
     },
     "reports": {
       "actions": {
@@ -226,8 +363,8 @@
       "filters": {
         "reset": "重置",
         "search": "查询",
-        "searchPlaceholderEmail": "输入老师邮箱",
-        "searchPlaceholderPhone": "输入老师手机号",
+        "searchPlaceholderEmail": "老师邮箱",
+        "searchPlaceholderPhone": "老师手机号",
         "status": "订阅状态",
         "statusAll": "全部订阅状态",
         "teacherField": "老师"
@@ -260,9 +397,7 @@
       "title": "订阅跟进"
     },
     "subtitle": "统一跟进订阅状态、用量关注和品牌收款配置。",
-    "table": {},
     "tabs": {
-      "domains": "域名",
       "entitlements": "品牌与收款配置",
       "reports": "用量关注",
       "subscriptions": "订阅跟进"
@@ -282,7 +417,6 @@
     "subscriptionPastDue": "订阅续费当前处于异常状态，请先检查付款记录并同步最新 provider 状态。"
   },
   "capabilities": {
-    "description": "这里汇总品牌与收款后台当前可直接使用的模块。待配置表示代码已接入但默认不启用；仅后台流程表示只在任务、补偿或运维链路中使用，不会直接出现在页面上。",
     "fallbackDescription": "能力状态以 billing capability registry 为准。",
     "fallbackTitle": "Billing 能力",
     "items": {
@@ -311,7 +445,7 @@
         "title": "老师商品目录"
       },
       "creatorOrders": {
-        "description": "老师订单、sync、refund 和 topup 流程当前仍启用。",
+        "description": "老师订单、sync、checkout 和 topup 流程当前仍启用。",
         "title": "老师订单"
       },
       "creatorSubscriptionCheckout": {
@@ -363,13 +497,7 @@
       "active": "可直接使用",
       "defaultDisabled": "待配置",
       "internalOnly": "仅后台流程"
-    },
-    "summary": {
-      "active": "{count} 个可直接使用",
-      "defaultDisabled": "{count} 个待配置",
-      "internalOnly": "{count} 个仅后台流程"
-    },
-    "title": "当前可用模块"
+    }
   },
   "catalog": {
     "actions": {
@@ -440,6 +568,12 @@
     "processing": "处理中...",
     "productLabel": "商品",
     "providerLabel": "支付通道",
+    "redirect": {
+      "creating": "正在创建订单...",
+      "description": "请不要关闭页面；如果没有自动跳转，可以点击下方按钮重试。",
+      "openingStripe": "正在前往 Stripe 安全支付页...",
+      "retry": "重新打开支付页"
+    },
     "subject": {
       "plan": {
         "day": "日套餐",
@@ -456,11 +590,16 @@
   "common": {
     "empty": "暂无"
   },
+  "creditInsufficient": {
+    "learner": "当前课程的积分不足，暂时无法继续生成内容，请联系课程老师。",
+    "purchaseActionAltText": "前往积分购买页",
+    "teacher": "积分余额不足，暂时无法继续使用。",
+    "teacherCollaborator": "课程负责人的积分不足，暂时无法继续生成内容，请联系课程负责人。",
+    "teacherSoftlimit": "积分余额已低于提醒阈值，暂时不能继续调试。"
+  },
   "customization": {
     "actions": {
       "clear": "清空",
-      "saveConfiguration": "保存配置",
-      "saveIntegration": "保存支付配置",
       "secretSaved": "已保存，可重新填写覆盖"
     },
     "branding": {
@@ -469,11 +608,8 @@
       "homeUrl": "Logo 跳转地址",
       "homeUrlHint": "学习页点击 Logo 时跳转的网址，留空则使用默认地址。",
       "homeUrlPlaceholder": "例如 https://www.example.com",
-      "invalidFile": "仅支持 2MB 以内的 PNG、JPEG 或 WebP 图片",
-      "resizeNotice": "图片尺寸与推荐规格不完全一致，保存后会按常规方式缩放处理。",
       "squareHint": "建议上传 32x32px 方形 Logo，也支持更高清的倍图。",
       "squareLogo": "方形 Logo",
-      "title": "品牌 Logo",
       "uploadFailed": "图片上传失败，请稍后重试。",
       "uploadFavicon": "上传网站图标",
       "uploadSquare": "上传方形 Logo",
@@ -482,22 +618,12 @@
       "wideHint": "建议上传高度 32px、宽度不超过 220px 的横版 Logo，也支持倍图。",
       "wideLogo": "横版 Logo"
     },
-    "disable": "停用",
     "domain": {
-      "bind": "绑定域名",
-      "disableSuccess": "域名已停用。",
-      "dnsTitle": "请在域名 DNS 后台添加以下 TXT 记录",
-      "lastError": "最近一次校验结果：{reason}",
       "placeholder": "例如 learn.example.com",
       "record": "{name} = {value}",
-      "recordName": "主机记录",
-      "recordType": "记录类型",
-      "recordValue": "记录值",
-      "status": "{status} · SSL {sslStatus}",
       "title": "独立域名",
       "verify": "验证 DNS",
       "verifyFailed": "DNS 暂未验证通过，请确认 TXT 记录生效后重试。",
-      "verifyInstruction": "DNS 生效后点击验证，验证通过后会继续处理 HTTPS 证书。",
       "verifySuccess": "DNS 验证通过，已刷新域名状态。"
     },
     "integrationStatus": {
@@ -507,30 +633,42 @@
       "unconfigured": "未配置",
       "verified": "已启用"
     },
-    "integrations": {
-      "title": "微信与支付配置"
-    },
-    "loading": "正在加载配置内容...",
-    "locked": "当前套餐未包含此功能，请升级套餐或联系运营开通。",
     "paymentProvider": {
       "description": "可选择一个或多个学习端收款方式，保存后学习端将按已配置方式生成支付二维码。",
       "title": "支付方式"
     },
-    "pendingActivation": "请先保存本次开通项。权益生效后即可继续保存和校验该配置。",
     "providers": {
       "alipay": "支付宝",
       "pingxx": "Ping++",
       "stripe": "Stripe",
       "wechat_oauth": "微信公众号",
       "wechatpay": "微信支付"
-    },
-    "verify": "验证并启用"
+    }
   },
   "details": {
     "actions": {
       "upgradeNow": "立即升级"
     },
     "emptyValidityLabel": "--",
+    "subscription": {
+      "accessUntil": "可使用至",
+      "autoRenew": "自动续订",
+      "cancelAction": "取消自动续订",
+      "cancelConfirmAction": "确认取消自动续订",
+      "cancelConfirmDescription": "取消后，本周期权益和积分仍可使用至 {date}，到期后不再自动续费。",
+      "cancelConfirmTitle": "取消自动续订？",
+      "cancelScheduled": "已取消自动续订",
+      "cancelSuccess": "已取消自动续订，本周期权益不受影响。",
+      "currentPlan": "当前套餐",
+      "nextRenewal": "下次续费",
+      "paused": "订阅已暂停",
+      "renewalStatus": "续订状态",
+      "resumeAction": "恢复自动续订",
+      "resumeConfirmAction": "确认恢复自动续订",
+      "resumeConfirmDescription": "恢复后，订阅将在 {date} 按原套餐自动续费。",
+      "resumeConfirmTitle": "恢复自动续订？",
+      "resumeSuccess": "已恢复自动续订。"
+    },
     "subtitle": "查看当前老师空间的总积分、各类积分余额以及对应有效期。",
     "table": {
       "balance": "余额",
@@ -597,6 +735,32 @@
       "priority": "优先支持",
       "selfServe": "自助支持"
     }
+  },
+  "globalPricing": {
+    "actions": {
+      "buyCredits": "购买积分",
+      "checkoutLoading": "正在打开支付...",
+      "choosePlan": "选择套餐",
+      "cycleSwitchDisabled": "暂不支持切换周期",
+      "viewMonthly": "查看月付套餐"
+    },
+    "annualSavings": "较月付每年节省 {amount}",
+    "monthlyOnly": "仅支持月付",
+    "plans": {
+      "business": {
+        "name": "Business"
+      },
+      "growth": {
+        "name": "Growth"
+      },
+      "scale": {
+        "name": "Scale"
+      },
+      "studio": {
+        "name": "Studio"
+      }
+    },
+    "renewalPrice": "之后按 {price} / {period} 续费。"
   },
   "ledger": {
     "bucketDescription": "查看积分来源积分桶、当前余额，以及后续实际扣减时会采用的顺序。",
@@ -690,6 +854,7 @@
       "currentUsing": "当前使用",
       "downgradeDisabled": "不支持降级",
       "freeTrial": "已失效",
+      "monthlySwitchDisabled": "暂不支持切换月付",
       "nonMemberTooltip": "当前为非会员状态，无需操作",
       "preorderDowngrade": "预购降级",
       "preorderLocked": "预购锁定",
@@ -698,15 +863,12 @@
       "preorderRenewal": "预付续费",
       "preorderScheduled": "已预购",
       "subscribeNow": "立即订阅",
-      "upgradeNow": "立即升级",
-      "upgradeOnlyTooltip": "当前套餐在有效期内仅支持升级，不能购买同级或更低档套餐"
+      "upgradeNow": "立即升级"
     },
     "campaign": {
       "bonusBadge": "赠送 {credits} 积分",
-      "discountBadge": "限时优惠"
-    },
-    "creditPeriod": {
-      "oneTime": "一次性"
+      "discountBadge": "限时优惠",
+      "paymentOnly": "优惠仅适用于本次支付。"
     },
     "creditSummary": {
       "daily": "日积分数 {credits}",
@@ -724,11 +886,8 @@
         "techBasic": "技术基础支持"
       },
       "common": {
-        "allLearning": "全部学习功能",
         "allTeachingAndLearning": "全部教研教学功能",
-        "createDebugPublish": "创建、调试和发布课程",
-        "higherConcurrency": "更高并发支持",
-        "unlimitedCourses": "不限课程数"
+        "higherConcurrency": "更高并发支持"
       },
       "daily": {
         "preview": "适合短周期验证与快速体验",
@@ -776,12 +935,8 @@
         }
       }
     },
-    "featuresTitle": "享有权益：",
     "footnote": {
-      "learnerEstimateIntro": "学习人次是基于平台经验的预估，按“一人完整学完一次课程，课程规模约 10 个小节，平均每小节正常学习约 15 分钟，全部使用默认模型，并开启听课模式”的口径估算。实际扣费会根据学习、预览、调试中产生的模型消耗结算，最终以积分明细为准。积分消耗影响因素：",
-      "learnerEstimateMode": "关闭听课模式、仅保留图文学习互动时，支持人次可增加 1-4 倍。",
-      "learnerEstimateModel": "选择更贵或更便宜的模型，会影响积分消耗。",
-      "learnerEstimateScale": "课程节数、每节长度、互动数量、完课率和学生追问次数的变化，都会影响积分消耗。",
+      "learningTime": "时长按历史数据估算，仅供参考。课程内容、所选模型和互动情况都会影响实际积分消耗。如果启用语音合成，会消耗更多积分。",
       "validity": "积分有效期：月度套餐自获取之日起 30 天内有效（含当日）；年度套餐自获取之日起按自然年有效。两类均以到期日 23:59 为截止。"
     },
     "free": {
@@ -798,39 +953,23 @@
       "topup": "积分包",
       "yearly": "年度套餐"
     },
+    "learningTime": {
+      "compactValue": "约 {minutes}分钟",
+      "label": "预估支持学习时长",
+      "lessThanOne": "约不到 1 分钟",
+      "unavailable": "—",
+      "value": "约 {minutes} 分钟"
+    },
+    "loading": "正在加载套餐……",
     "preorder": {
       "pending": "待生效预购：{plan} 将于 {date} 生效。"
     },
-    "scale": {
-      "advanced": {
-        "students": "250 - 750 人次"
-      },
-      "basic": {
-        "students": "5 - 15 人次"
-      },
-      "free": {
-        "students": "5 - 15 人次"
-      },
-      "lite": {
-        "students": "少于 1 人次"
-      },
-      "premium": {
-        "students": "1100 - 3300 人次"
-      },
-      "pro": {
-        "students": "500 - 1500 人次"
-      },
-      "sectionTitle": "学员支持规模（参考）"
-    },
     "subtitle": "请选择合适的积分套餐",
     "table": {
-      "creditsRowLabel": "周期积分",
       "emptyValue": "—",
       "featuresRowLabel": "权益",
-      "studentsRowLabel": "预估支持学习人次",
       "validityRowLabel": "积分有效期"
     },
-    "title": "积分购买",
     "topup": {
       "creditLabel": "{credits} 积分",
       "noteFrozen": "账户下存在一个有效期内的积分套餐时，才可以使用积分包",
@@ -855,7 +994,6 @@
   "page": {
     "adminLink": "打开后台账务视图",
     "tabs": {
-      "customization": "品牌与收款",
       "ledger": "积分详情",
       "plans": "积分购买"
     },
@@ -882,9 +1020,9 @@
     "empty": "暂无日报表数据。",
     "loadError": "当前无法加载账务报表。",
     "metric": {
-      "llmCacheTokens": "LLM 缓存 tokens",
-      "llmInputTokens": "LLM 输入 tokens",
-      "llmOutputTokens": "LLM 输出 tokens",
+      "llmCacheTokens": "LLM 缓存词元",
+      "llmInputTokens": "LLM 输入词元",
+      "llmOutputTokens": "LLM 输出词元",
       "ttsInputChars": "TTS 输入字符",
       "ttsOutputChars": "TTS 输出字符",
       "ttsRequestCount": "TTS 请求次数"
@@ -932,7 +1070,6 @@
     "monthlyTitle": "月订阅",
     "nonMemberBalanceTitle": "积分余额",
     "nonMemberTitle": "非会员",
-    "periodLabel": "套餐周期",
     "placeholderValue": "--",
     "subscriptionPending": "即将开放",
     "subscriptionStatusLabel": "订阅状态",

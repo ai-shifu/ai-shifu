@@ -1,31 +1,36 @@
+"""Expose dicts HTTP routes."""
+
 from flask import Flask
 
-from flaskr.api.llm import get_current_models
-from .common import make_common_response, bypass_token_validation
-from ..service.common.dicts import get_all_dicts
+from flaskr.api.llm import get_legacy_course_model_options
+from flaskr.service.common.dicts import get_all_dicts
+
+from .common import bypass_token_validation, make_common_response
 
 
 def register_dict_handler(app: Flask, path_prefix: str) -> Flask:
+    """Register the dict routes on the Flask application."""
+
     @app.route(path_prefix + "/dicts", methods=["GET"])
     @bypass_token_validation
-    def get_dicts():
-        """
-        获取所有字典
+    def get_dicts() -> str:
+        """Get all dictionaries.
+
         ---
         tags:
-          - 字典
+          - dict
         """
         return make_common_response(get_all_dicts(app))
 
     @app.route(path_prefix + "/models", methods=["GET"])
     @bypass_token_validation
-    def get_models():
-        """
-        获取所有模型
+    def get_models() -> str:
+        """Get all models.
+
         ---
         tags:
-          - 字典
+          - dict
         """
-        return make_common_response(get_current_models(app))
+        return make_common_response(get_legacy_course_model_options(app))
 
     return app

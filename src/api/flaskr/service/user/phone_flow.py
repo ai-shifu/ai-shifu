@@ -3,31 +3,23 @@
 from __future__ import annotations
 
 import uuid
-import datetime
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
-
-from flaskr.common.cache_provider import cache as redis
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
-from sqlalchemy import text
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.order.consts import LEARN_STATUS_RESET
-from flaskr.service.shifu.models import PublishedShifu, DraftShifu
-from flaskr.service.user.consts import (
-    USER_STATE_REGISTERED,
-    USER_STATE_UNREGISTERED,
-    USER_STATE_TRAIL,
-    USER_STATE_PAID,
-)
-from flaskr.service.user.models import UserInfo as UserEntity, UserVerifyCode
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
-from flaskr.service.user.utils import (
-    generate_token,
-    ensure_admin_creator_and_demo_permissions,
+from flaskr.service.order.consts import LEARN_STATUS_RESET
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+from flaskr.service.user.consts import (
+    USER_STATE_PAID,
+    USER_STATE_REGISTERED,
+    USER_STATE_TRAIL,
+    USER_STATE_UNREGISTERED,
 )
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -39,20 +31,21 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
     upsert_wechat_credentials,
-    transactional_session,
 )
-from flaskr.common.config import get_redis_derived_prefix
+from flaskr.service.user.utils import (
+    ensure_admin_creator_and_demo_permissions,
+    generate_token,
+)
+from flaskr.service.user.verification_codes import consume_verification_code
+from sqlalchemy import text
 
-FIX_CHECK_CODE = None
+if TYPE_CHECKING:
+    from flask import Flask
+
 BOOTSTRAP_LOCK_NAME = "user_first_verified_bootstrap"
 
 
-def configure_fix_check_code(value: Optional[str]) -> None:
-    global FIX_CHECK_CODE
-    FIX_CHECK_CODE = value
-
-
-def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> Optional[bool]:
+def _acquire_bootstrap_lock(app: Flask, timeout_seconds: int = 5) -> bool | None:
     bind = db.session.get_bind()
     dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
     if dialect_name != "mysql":
@@ -85,53 +78,11 @@ def _release_bootstrap_lock() -> None:
     )
 
 
-def _is_within_seconds(value: datetime.datetime, *, seconds: int) -> bool:
-    if value is None:
-        return False
-    try:
-        if value.tzinfo is not None:
-            value = value.replace(tzinfo=None)
-    except Exception:
-        pass
-    now = now_utc()
-    return (now - value).total_seconds() <= seconds
-
-
-def _consume_latest_sms_code_from_db(app: Flask, phone: str, code: str) -> str:
-    """
-    Consume the latest sent SMS verification code from the database.
-
-    Returns:
-      - "ok" when the code is valid and is marked as used.
-      - "expired" when no valid code exists (missing/used/expired).
-      - "invalid" when a code exists but does not match.
-    """
-    expire_seconds = int(app.config.get("PHONE_CODE_EXPIRE_TIME", 300))
-    latest = (
-        UserVerifyCode.query.filter(
-            UserVerifyCode.phone == phone,
-            UserVerifyCode.verify_code_type == 1,
-            UserVerifyCode.verify_code_send == 1,
-        )
-        .order_by(UserVerifyCode.created.desc(), UserVerifyCode.id.desc())
-        .first()
-    )
-    if not latest or int(getattr(latest, "verify_code_used", 0) or 0) == 1:
-        return "expired"
-    created_at = getattr(latest, "created", None)
-    if not created_at or not _is_within_seconds(created_at, seconds=expire_seconds):
-        return "expired"
-    if (latest.verify_code or "") != (code or ""):
-        return "invalid"
-    latest.verify_code_used = 1
-    db.session.flush()
-    return "ok"
-
-
 def migrate_user_study_record(
-    app: Flask, from_user_id: str, to_user_id: str, course_id: Optional[str] = None
+    app: Flask, from_user_id: str, to_user_id: str, course_id: str | None = None
 ) -> None:
-    from flaskr.service.learn.models import LearnProgressRecord
+    """Migrate user study record."""
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 
     normalized_course_id = str(course_id or "").strip()
     if not normalized_course_id:
@@ -178,24 +129,15 @@ def migrate_user_study_record(
         )
         return
 
-    db.session.execute(
-        text(
-            "update learn_progress_records set user_bid = '%s' where id in (%s)"
-            % (to_user_id, ",".join(str(attend.id) for attend in migrate_attends))
-        )
-    )
-    db.session.execute(
-        text(
-            "update learn_generated_blocks set user_bid = '%s' where progress_record_bid in (%s)"
-            % (
-                to_user_id,
-                ",".join(
-                    "'" + str(attend.progress_record_bid) + "'"
-                    for attend in migrate_attends
-                ),
-            )
-        )
-    )
+    record_ids = [attend.id for attend in migrate_attends]
+    progress_record_bids = [attend.progress_record_bid for attend in migrate_attends]
+    db.session.query(LearnProgressRecord).filter(
+        LearnProgressRecord.id.in_(record_ids)
+    ).update({LearnProgressRecord.user_bid: to_user_id}, synchronize_session=False)
+    db.session.query(LearnGeneratedBlock).filter(
+        LearnGeneratedBlock.user_bid == from_user_id,
+        LearnGeneratedBlock.progress_record_bid.in_(progress_record_bids),
+    ).update({LearnGeneratedBlock.user_bid: to_user_id}, synchronize_session=False)
     db.session.flush()
     app.logger.info(
         "migrate_user_study_record done: migrated_records=%s course_id=%s",
@@ -206,6 +148,7 @@ def migrate_user_study_record(
 
 def init_first_course(app: Flask, user_id: str) -> bool:
     # Ensure pending state changes are visible to subsequent queries
+    """Initialize first course."""
     db.session.flush()
 
     # Count only verified users for the bootstrap check.
@@ -240,12 +183,13 @@ def init_first_course(app: Flask, user_id: str) -> bool:
         creator_granted_now = not bool(verified_users[0].is_creator)
         mark_user_roles(user_id, is_creator=True, is_operator=True)
 
-        ShifuModel: Union[PublishedShifu, DraftShifu] = PublishedShifu
+        # Holds a model class, so it keeps the CapWords spelling.
+        ShifuModel: PublishedShifu | DraftShifu = PublishedShifu  # noqa: N806
         # Assign demo shifu only when there is exactly one published course
         course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
         if course_count == 0:
             course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
-            ShifuModel = DraftShifu
+            ShifuModel = DraftShifu  # noqa: N806
         if course_count != 1:
             db.session.flush()
             return creator_granted_now
@@ -274,68 +218,36 @@ def init_first_course(app: Flask, user_id: str) -> bool:
 
 def verify_phone_code(
     app: Flask,
-    user_id: Optional[str],
+    user_id: str | None,
     phone: str,
     code: str,
-    course_id: Optional[str] = None,
-    language: Optional[str] = None,
-    login_context: Optional[str] = None,
-) -> Tuple[UserToken, bool, Dict[str, Optional[str]]]:
+    course_id: str | None = None,
+    language: str | None = None,
+    login_context: str | None = None,
+) -> tuple[UserToken, bool, dict[str, str | None]]:
     # Local import avoids circular dependency during module initialization.
+    """Verify phone code."""
     from flaskr.service.profile.funcs import (
         get_user_profile_labels,
         update_user_profile_with_lable,
     )
 
-    if FIX_CHECK_CODE is None:
-        configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
-
     raw_phone = (phone or "").strip()
     normalized_phone = normalize_phone_identifier(raw_phone)
     if not normalized_phone:
         raise_param_error("mobile")
-    lookup_phones = [normalized_phone]
-    if raw_phone and raw_phone not in lookup_phones:
-        lookup_phones.append(raw_phone)
-    phone_code_prefix = get_redis_derived_prefix("REDIS_KEY_PREFIX_PHONE_CODE", app=app)
-    code_keys = [phone_code_prefix + lookup_phone for lookup_phone in lookup_phones]
-    if code != FIX_CHECK_CODE:
-        cached = None
-        cached_phone = normalized_phone
-        for code_key, lookup_phone in zip(code_keys, lookup_phones):
-            cached = redis.get(code_key)
-            if cached is not None:
-                cached_phone = lookup_phone
-                break
-        if cached is not None:
-            cached_str = (
-                cached.decode("utf-8") if isinstance(cached, bytes) else str(cached)
-            )
-            if code != cached_str:
-                raise_error("server.user.smsCheckError")
-            status = _consume_latest_sms_code_from_db(app, cached_phone, code)
-            if status != "ok" and cached_phone != normalized_phone:
-                _consume_latest_sms_code_from_db(app, normalized_phone, code)
-        else:
-            status = "expired"
-            for lookup_phone in lookup_phones:
-                status = _consume_latest_sms_code_from_db(app, lookup_phone, code)
-                if status == "ok":
-                    break
-                if status == "invalid":
-                    break
-            if status == "invalid":
-                raise_error("server.user.smsCheckError")
-            if status != "ok":
-                raise_error("server.user.smsSendExpired")
-
-    redis.delete(*code_keys)
+    consume_verification_code(
+        app,
+        identifier=raw_phone,
+        code=code,
+        kind="sms",
+    )
 
     created_new_user = False
     creator_granted_now = False
     normalized_course_id = str(course_id or "").strip() or None
 
-    with transactional_session():
+    with unit_of_work():
         target_aggregate = load_user_aggregate_by_identifier(
             normalized_phone, providers=["phone"]
         )
@@ -351,6 +263,10 @@ def verify_phone_code(
                 target_aggregate.user_bid,
                 normalized_course_id,
             )
+            include_legacy_nickname = merge_learner_profile_for_sign_in(
+                source_user_id=user_id,
+                target_user_id=target_aggregate.user_bid,
+            )
             if normalized_course_id is None:
                 app.logger.warning(
                     "verify_phone_code skip_study_migration missing_course_id origin_user_id=%s target_user_id=%s",
@@ -359,14 +275,18 @@ def verify_phone_code(
                 )
             else:
                 new_profiles = get_user_profile_labels(
-                    app, user_id, normalized_course_id
+                    app,
+                    user_id,
+                    normalized_course_id,
+                    include_nickname=include_legacy_nickname,
+                    include_background=False,
                 )
                 update_user_profile_with_lable(
                     app,
                     target_aggregate.user_bid,
                     new_profiles,
-                    False,
-                    normalized_course_id,
+                    update_all=False,
+                    course_id=normalized_course_id,
                 )
                 migrate_user_study_record(
                     app,
@@ -419,7 +339,7 @@ def verify_phone_code(
                 target_aggregate.user_bid, include_deleted=True
             )
             if entity:
-                updates: Dict[str, Any] = {"identify": normalized_phone}
+                updates: dict[str, Any] = {"identify": normalized_phone}
                 promote_state = target_aggregate.state in (
                     USER_STATE_UNREGISTERED,
                     0,
@@ -465,7 +385,7 @@ def verify_phone_code(
         snapshot = build_user_profile_snapshot_from_aggregate(refreshed)
 
     return (
-        UserToken(userInfo=user_dto, token=token),
+        UserToken(user_info=user_dto, token=token),
         created_new_user,
         {
             "course_id": normalized_course_id,

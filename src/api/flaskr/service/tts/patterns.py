@@ -1,11 +1,13 @@
-"""
-Centralized regex patterns for TTS text processing and AV segmentation.
+"""Centralized text patterns for TTS processing and AV segmentation.
 
-All compiled regex patterns used across the TTS service layer are defined
-here. Import patterns from this module rather than defining them locally.
+Compiled regex patterns and the shared sentence-boundary matcher are defined
+here. Import them from this module rather than defining them locally.
 """
 
 import re
+
+import regex
+from flaskr.service.tts.sentence_boundary import SentenceBoundaryPattern
 
 # ---------------------------------------------------------------------------
 # Markdown text cleaning (used by preprocess_for_tts)
@@ -23,6 +25,25 @@ DATA_URI = re.compile(r"data:[a-zA-Z0-9/+;=,]+")
 MULTI_NEWLINE = re.compile(r"\n{3,}")
 MULTI_SPACE = re.compile(r"[ \t]+")
 ANY_HTML_TAG = re.compile(r"<[^>]*>")
+
+# ---------------------------------------------------------------------------
+# MarkdownFlow authoring syntax (never speak these aloud)
+# ---------------------------------------------------------------------------
+# Interaction blocks: `?[A | B | C]`, `?[%{{var}} A | B]`, `?[...prompt]`,
+# `?[label//value]`, `?[]`. Option text is the learner's choice, not narration,
+# so the whole block is dropped rather than flattened into speech.
+# LINK above only matches `[text](url)`, so it never covers these.
+# The negative lookahead hands a markdown link that merely follows a question
+# mark (`?[label](url)`) over to LINK instead. Without it the label would be
+# dropped here and the orphaned `(url)` would survive every later rule and end
+# up being read aloud.
+MDFLOW_INTERACTION = re.compile(r"\?\[[^\[\]]*\](?!\()")
+# A trailing interaction block that has not been closed yet. Streaming chunks
+# can split mid-block, and half of one must not reach the synthesizer.
+MDFLOW_INTERACTION_INCOMPLETE = re.compile(r"\?\[[^\[\]]*\Z")
+# Variable placeholders: `%{{preserved}}` and `{{replaceable}}`. An unresolved
+# placeholder is authoring syntax, not something to read out.
+MDFLOW_VARIABLE = re.compile(r"%?\{\{[^{}]*\}\}")
 
 # Stray SVG text elements (malformed streaming fragments)
 SVG_TEXT_TAGS = [
@@ -68,9 +89,29 @@ AV_SPEAKABLE_HINT = re.compile(r"<(p|li|h[1-6])\b", re.IGNORECASE)
 FIXED_MARKER_TAIL = re.compile(r"^[\s!=]*$")
 
 # ---------------------------------------------------------------------------
-# Streaming TTS
+# Sentence boundaries shared by TTS requests and subtitle alignment
 # ---------------------------------------------------------------------------
-SENTENCE_ENDINGS = re.compile(r"[.!?。！？；;]")
+# Use Unicode's sentence-terminal property instead of a language-specific list.
+# Semicolons remain pause boundaries for compatibility, including their Arabic
+# and Greek forms. Pairing context distinguishes closing quotes from the next
+# sentence's opening quotes, including languages that reverse quote direction.
+# This is punctuation-based streaming segmentation, not language-specific NLP.
+_SENTENCE_TERMINALS = r"\p{Sentence_Terminal};\uFF1B\u061B\u037E"
+_SENTENCE_CLOSERS = r"\p{Pe}\p{Pf}\"'"
+SENTENCE_ENDINGS = SentenceBoundaryPattern(
+    rf"[{_SENTENCE_TERMINALS}]+", rf"[{_SENTENCE_CLOSERS}]"
+)
+# Only discard fragments created by our boundary punctuation. Leave symbols
+# and other punctuation to the provider's non-speakable-text policy.
+SENTENCE_PUNCTUATION_FRAGMENT = regex.compile(
+    rf"[{_SENTENCE_TERMINALS}{_SENTENCE_CLOSERS}\s]+"
+)
+# Non-quote brackets remain safe to strip after a consumed boundary, even when
+# the following speech touches the bracket without whitespace.
+# Quote continuations need the preceding sentence's pairing context instead.
+SENTENCE_CLOSER_CONTINUATION = regex.compile(
+    r"^(?:(?:(?!\p{Quotation_Mark})[\p{Pe}\p{Pf}])+\s*)+"
+)
 
 # ---------------------------------------------------------------------------
 # HTML tag extraction helpers

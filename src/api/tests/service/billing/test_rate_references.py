@@ -1,3 +1,5 @@
+"""Verify rate references behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -10,7 +12,6 @@ from flaskr.service.billing.consts import (
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import CreditUsageRate
-from flaskr.service.billing import rate_references
 from flaskr.service.common import credit_rate_references
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD, BILL_USAGE_TYPE_LLM
 
@@ -34,10 +35,12 @@ def _rate(
     )
 
 
-def test_llm_credit_1x_unit_cost_uses_fixed_config(monkeypatch, app):
+def test_llm_credit_1x_unit_cost_uses_fixed_config(
+    monkeypatch: object, app: object
+) -> None:
     values = {
         "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": "0.066667",
-        "DEFAULT_LLM_MODEL": "qwen/deepseek-v4-flash",
+        "LLM_MODEL_1_ID": "qwen/deepseek-v4-flash",
     }
     monkeypatch.setattr(
         credit_rate_references,
@@ -55,17 +58,25 @@ def test_llm_credit_1x_unit_cost_uses_fixed_config(monkeypatch, app):
         )
         db.session.commit()
 
-        assert rate_references.load_llm_credit_1x_unit_cost() == Decimal("0.000066667")
+        assert credit_rate_references.load_llm_credit_1x_unit_cost() == Decimal(
+            "0.000066667"
+        )
 
-        values["DEFAULT_LLM_MODEL"] = "ark/doubao-seed-2-0-lite-260428"
-        assert rate_references.load_llm_credit_1x_unit_cost() == Decimal("0.000066667")
+        values["LLM_MODEL_1_ID"] = "ark/doubao-seed-2-0-lite-260428"
+        assert credit_rate_references.load_llm_credit_1x_unit_cost() == Decimal(
+            "0.000066667"
+        )
 
         db.session.query(CreditUsageRate).delete()
         db.session.commit()
-        assert rate_references.load_llm_credit_1x_unit_cost() == Decimal("0.000066667")
+        assert credit_rate_references.load_llm_credit_1x_unit_cost() == Decimal(
+            "0.000066667"
+        )
 
 
-def test_llm_credit_1x_unit_cost_rejects_missing_or_invalid_config(monkeypatch):
+def test_llm_credit_1x_unit_cost_rejects_missing_or_invalid_config(
+    monkeypatch: object,
+) -> None:
     for raw_value in [None, "", "bad", "0", "-1"]:
         monkeypatch.setattr(
             credit_rate_references,
@@ -75,4 +86,4 @@ def test_llm_credit_1x_unit_cost_rejects_missing_or_invalid_config(monkeypatch):
             ),
         )
 
-        assert rate_references.load_llm_credit_1x_unit_cost() is None
+        assert credit_rate_references.load_llm_credit_1x_unit_cost() is None

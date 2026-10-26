@@ -1,8 +1,105 @@
 {
   "__namespace__": "module.operationsUser",
   "actions": {
+    "cancelAccount": "Cancel account",
+    "deductCredits": "Deduct Credits",
     "grantCredits": "Grant Credits/Package",
     "moreForUser": "More actions for {user}"
+  },
+  "cancellation": {
+    "back": "Back",
+    "blockers": {
+      "operator": "This account has operator access and cannot currently be cancelled.",
+      "paid_preorder_refund_required": "This account has {count} paid preorders awaiting activation. Complete a manual refund before cancellation.",
+      "published_course_transfer_required": "Transfer the {count} published courses owned by this account before continuing.",
+      "self": "You cannot cancel the operator account currently signed in. Ask another operator to complete this action.",
+      "title": "Cancellation cannot continue",
+      "unknown": "This account has unresolved items. Refresh and try again or contact technical support.",
+      "unsettled_payment": "Resolve the {count} unsettled orders before cancelling this account."
+    },
+    "confirm": "Cancel account",
+    "confirmDescription": "Account {user} will be permanently cancelled. Check the account and cancellation reason again. Once submitted, this action cannot be undone.",
+    "confirmPaidPreorder": "This account has {count} paid prepaid plans awaiting activation. Confirm that manual refunds or related handling are complete.",
+    "confirmTitle": "Confirm account cancellation",
+    "continue": "Cancel account",
+    "description": "Courses, subscriptions, credits, and sessions will be checked.",
+    "errors": {
+      "blocked": "Some items still require action",
+      "cancel": "Cancellation failed",
+      "executionFailed": "The cancellation task failed. Please try again.",
+      "load": "Unable to load cancellation details",
+      "prepare": "Unable to prepare cancellation",
+      "processingTimeout": "The cancellation task is still processing. Refresh the user list later to check the result.",
+      "transfer": "Course transfer failed"
+    },
+    "irreversible": "After cancellation, account identity information and login credentials will be erased, the credit balance will be set to zero, and current sign-in sessions will end. Historical business records and course data will be retained according to the applicable rules.",
+    "processing": "Cancelling…",
+    "reasonCounter": "{count}/500",
+    "reasonHint": "This reason is retained in the operation audit log.",
+    "reasonLabel": "Cancellation reason",
+    "reasonPlaceholder": "Enter a specific reason, such as “Cancellation requested by the user”",
+    "reasonTooShort": "Enter at least 5 characters.",
+    "summary": {
+      "accountLabel": "User account",
+      "courseCounts": "Draft {drafts} · Published {published}",
+      "coursesHint": "Draft courses are retained and frozen; published courses must be transferred first.",
+      "coursesLabel": "Courses",
+      "creditsExpireAtLabel": "Credit validity",
+      "creditsHint": "The credit balance will be cleared without a refund.",
+      "creditsLabel": "Credit balance",
+      "paidPackages": "Paid plan:",
+      "preorders": "Pending prepaid plan:",
+      "subscriptions": "Auto-renewing subscription:"
+    },
+    "title": "Cancel account",
+    "transfer": "Transfer all",
+    "transferEmailPlaceholder": "New owner email",
+    "transferPhonePlaceholder": "New owner phone number",
+    "transferRequired": "Transfer {count} published courses first"
+  },
+  "contactChange": {
+    "back": "Back to edit",
+    "cancel": "Cancel",
+    "confirm": "Confirm change",
+    "email": {
+      "action": "Change email",
+      "confirmDescription": "Review the change details below.",
+      "confirmTitle": "Confirm user email change",
+      "currentLabel": "Current email",
+      "description": "The previous email will be unlinked and can register a new account. This user's existing data will remain unchanged.",
+      "newLabel": "New email",
+      "newPlaceholder": "Enter the new email",
+      "sessionNotice": "After this change, all sessions for this user will be revoked. The user must sign in again with the new email.",
+      "successDescription": "All sessions for this user have been revoked. The user must sign in again with the new email.",
+      "successTitle": "User email updated",
+      "title": "Change user email"
+    },
+    "errors": {
+      "emailInvalid": "Enter a valid email address.",
+      "emailRequired": "Enter the new email.",
+      "emailUnchanged": "The new email is the same as the current email.",
+      "phoneInvalid": "Enter a valid 11-digit phone number.",
+      "phoneRequired": "Enter the new phone number.",
+      "phoneUnchanged": "The new phone number is the same as the current phone number.",
+      "reasonRequired": "Enter the reason for this change.",
+      "submitFailed": "The account could not be changed. Try again later."
+    },
+    "phone": {
+      "action": "Change phone number",
+      "confirmDescription": "Review the change details below.",
+      "confirmTitle": "Confirm user phone number change",
+      "currentLabel": "Current phone number",
+      "description": "The previous phone number will be unlinked and can register a new account. This user's existing data will remain unchanged.",
+      "newLabel": "New phone number",
+      "newPlaceholder": "Enter the new phone number",
+      "sessionNotice": "After this change, all sessions for this user will be revoked. The user must sign in again with the new phone number.",
+      "successDescription": "All sessions for this user have been revoked. The user must sign in again with the new phone number.",
+      "successTitle": "User phone number updated",
+      "title": "Change user phone number"
+    },
+    "reasonLabel": "Reason for change",
+    "reasonPlaceholder": "Enter the reason for this change",
+    "submitting": "Submitting…"
   },
   "courseSummary": {
     "dialog": {
@@ -18,8 +115,38 @@
   "credits": {
     "longTerm": "Long-term valid"
   },
+  "deductionDialog": {
+    "account": "Account",
+    "amount": "Credits to Deduct",
+    "amountPlaceholder": "Enter a positive amount (up to 2 decimal places)",
+    "back": "Back",
+    "confirmButton": "Confirm Deduction",
+    "confirmDescription": "Paid credits are deducted first, followed by manually granted credits. Confirm before continuing.",
+    "confirmTitle": "Confirm Credit Deduction",
+    "continueButton": "Continue",
+    "currentBalance": "Current Credit Balance",
+    "description": "Deduct credits from this user. Gift and reward credits are not eligible.",
+    "errors": {
+      "amount": "Enter a positive credit amount with no more than 2 decimal places.",
+      "submitFailed": "Credit deduction failed. Please try again."
+    },
+    "note": "Note",
+    "notePlaceholder": "Optional internal operation note",
+    "reason": "Reason",
+    "reasons": {
+      "account_correction": "Account correction",
+      "incorrect_grant": "Incorrect grant",
+      "other": "Other"
+    },
+    "submitting": "Deducting...",
+    "success": "Credits deducted",
+    "title": "Deduct Credits"
+  },
   "detail": {
     "basicInfo": "Basic Information",
+    "cancellationOperator": "Cancellation operator",
+    "cancellationReason": "Cancellation reason",
+    "cancelledAt": "Cancelled at",
     "createdCourses": "Created Courses",
     "creditExpireAtHint": "When multiple validity periods exist, the earliest expiry is shown first.",
     "creditExpireAtHintAriaLabel": "View credits expiry explanation",
@@ -42,7 +169,7 @@
     },
     "creditLedgerFilters": {
       "course": "Course",
-      "coursePlaceholder": "Enter ID/name",
+      "coursePlaceholder": "Course ID / Course name",
       "grantSource": "Grant Source",
       "grantSourceOptions": {
         "all": "All",
@@ -52,7 +179,7 @@
         "trial_subscription": "Trial Credits"
       },
       "time": "Time Range",
-      "timePlaceholder": "Select time range",
+      "timePlaceholder": "Start time ~ End time",
       "type": "Type",
       "typeOptions": {
         "all": "All",
@@ -192,7 +319,11 @@
     "mobile": "Mobile",
     "nickname": "Nickname",
     "role": "Role",
-    "status": "Status"
+    "status": "Status",
+    "user": "User",
+    "userPlaceholderEmail": "Email / Nickname",
+    "userPlaceholderPhone": "Mobile / Nickname",
+    "userPlaceholderPhoneEmail": "Mobile / Email / Nickname"
   },
   "grantDialog": {
     "bootstrapError": "Failed to load packages. Please try again later.",
@@ -215,6 +346,20 @@
       "validityPreset": "Validity"
     },
     "confirmTitle": "Confirm Credit Grant",
+    "customValidity": {
+      "actualExpiry": "Actual expiry: {date}",
+      "estimatedExpiry": "Estimated expiry (confirmed on grant)",
+      "hint": "Effective immediately. Days are 24 hours; months and years follow the calendar, clipping missing dates to month end.",
+      "invalid": "Enter a valid positive whole-number duration and select days, months, or years.",
+      "summary": "Effective immediately, valid for {value} {unit}",
+      "unitLabel": "Duration unit",
+      "units": {
+        "day": "day(s)",
+        "month": "month(s)",
+        "year": "year(s)"
+      },
+      "valueLabel": "Duration"
+    },
     "description": "Use this dialog to grant credits or a package to teacher or operator users from Operations.",
     "fields": {
       "amount": "Credits",
@@ -243,9 +388,7 @@
       "note": "Optional. Record the reason for this grant",
       "product": "Select a package",
       "productLoading": "Loading packages...",
-      "referralRewardAmount": "Enter reward credits",
-      "source": "Select source",
-      "validityPreset": "Select validity"
+      "referralRewardAmount": "Enter reward credits"
     },
     "referralReward": {
       "bootstrapError": "Failed to load referral reward data. Please try again later.",
@@ -273,25 +416,14 @@
       "availableCredits": "Credit Balance",
       "currentExpireAt": "Valid Until",
       "currentPackage": "Current Package",
-      "nickname": "Nickname",
-      "package": "Package"
+      "nickname": "Nickname"
     },
     "title": "Grant Credits/Package",
     "validation": {
       "amountRequired": "Enter a credit amount greater than 0",
       "productRequired": "Select a package",
       "referralRewardAmountRequired": "Enter a positive integer credit amount",
-      "sourceRequired": "Select a source",
-      "validityPresetRequired": "Select a validity preset"
-    },
-    "validityHint": "If there is no active subscription, the validity cannot be set to \"Match current subscription expiry\".",
-    "validityOptions": {
-      "alignSubscription": "Match current subscription expiry",
-      "oneDay": "1 day after grant",
-      "oneMonth": "1 month after grant",
-      "oneYear": "1 year after grant",
-      "sevenDays": "7 days after grant",
-      "threeMonths": "3 months after grant"
+      "sourceRequired": "Select a source"
     }
   },
   "loginMethodLabels": {
@@ -346,6 +478,7 @@
     "unknown": "Unknown"
   },
   "statusLabels": {
+    "cancelled": "Cancelled",
     "paid": "Paid",
     "registered": "Registered",
     "unknown": "Unknown",

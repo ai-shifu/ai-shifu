@@ -1,4 +1,4 @@
-"""Initial migration
+"""Initial migration.
 
 Revision ID: 185e37df3252
 Revises:
@@ -6,8 +6,8 @@ Create Date: 2025-11-05 15:26:35.759743
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.

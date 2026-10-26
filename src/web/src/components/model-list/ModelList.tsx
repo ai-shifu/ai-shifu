@@ -1,0 +1,176 @@
+import { useShifu } from '@/store';
+import * as React from 'react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/Select';
+import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
+import { ModelOption } from '@/types/shifu';
+
+const MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME = 'right-3';
+const MODEL_OPTIONS_REFRESH_TTL_MS = 30_000;
+let lastModelOptionsRefreshAt = 0;
+
+function ModelOptionLabel({
+  label,
+  creditMultiplier,
+  creditMultiplierLabel,
+}: {
+  label: string;
+  creditMultiplier?: number | null;
+  creditMultiplierLabel?: string;
+}) {
+  const multiplierLabel =
+    creditMultiplierLabel || (creditMultiplier ? `${creditMultiplier}x` : '');
+  return (
+    <span className='flex w-full min-w-0 items-center'>
+      <span className='min-w-0 flex-1 truncate text-left'>{label}</span>
+      {multiplierLabel ? (
+        <span className='ml-2 shrink-0 rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs font-medium leading-none text-primary'>
+          {multiplierLabel}
+        </span>
+      ) : null}
+      <span
+        aria-hidden='true'
+        className='w-8 shrink-0'
+      />
+    </span>
+  );
+}
+
+export default function ModelList({
+  value,
+  className,
+  onChange,
+  disabled,
+  options,
+  showDefaultOption = true,
+}: {
+  value: string;
+  className?: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  options?: ModelOption[];
+  showDefaultOption?: boolean;
+}) {
+  const { models, actions } = useShifu();
+  const { t } = useTranslation();
+
+  const refreshModelOptions = React.useCallback(
+    (open: boolean) => {
+      if (!open || options || disabled) {
+        return;
+      }
+      const now = Date.now();
+      if (
+        lastModelOptionsRefreshAt &&
+        now - lastModelOptionsRefreshAt < MODEL_OPTIONS_REFRESH_TTL_MS
+      ) {
+        return;
+      }
+      lastModelOptionsRefreshAt = now;
+      void actions.loadModels();
+    },
+    [actions, disabled, options],
+  );
+
+  const modelOptions: ModelOption[] = options || models || [];
+
+  // Empty string is used to represent using the default model. However, the Select component uses empty string as unselected.
+  // So we need to use a special value to represent the empty state in the Select component.
+  const DEFAULT_MODEL_OPTION_VALUE = '__empty__';
+  const displayValue =
+    showDefaultOption && value === '' ? DEFAULT_MODEL_OPTION_VALUE : value;
+  const defaultModelOption =
+    modelOptions.find(item => item.isDefault) || modelOptions[0];
+  const defaultOption: ModelOption = {
+    value: DEFAULT_MODEL_OPTION_VALUE,
+    label: t('common.core.default'),
+    creditMultiplier: defaultModelOption?.creditMultiplier ?? null,
+    creditMultiplierLabel: defaultModelOption?.creditMultiplierLabel || '',
+    disabled: defaultModelOption?.disabled,
+  };
+  const selectedOption =
+    showDefaultOption && displayValue === DEFAULT_MODEL_OPTION_VALUE
+      ? defaultOption
+      : modelOptions.find(item => item.value === displayValue);
+
+  const handleChange = (selectedValue: string) => {
+    // If the selected value is the empty value, we need to pass an empty string
+    const outputValue =
+      selectedValue === DEFAULT_MODEL_OPTION_VALUE ? '' : selectedValue;
+    onChange(outputValue);
+  };
+
+  return (
+    <Select
+      onValueChange={handleChange}
+      onOpenChange={refreshModelOptions}
+      value={displayValue}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        className={cn(
+          'relative w-full pl-3 pr-1 [&>svg]:absolute [&>svg]:right-3',
+          className,
+        )}
+      >
+        <SelectValue
+          asChild
+          placeholder={t('common.core.selectModel')}
+        >
+          <span className='flex min-w-0 w-full'>
+            {selectedOption ? (
+              <ModelOptionLabel
+                label={selectedOption.label}
+                creditMultiplier={selectedOption.creditMultiplier}
+                creditMultiplierLabel={selectedOption.creditMultiplierLabel}
+              />
+            ) : (
+              t('common.core.selectModel')
+            )}
+          </span>
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {showDefaultOption && (
+          <SelectItem
+            key='default'
+            value={DEFAULT_MODEL_OPTION_VALUE}
+            textValue={defaultOption.label}
+            indicatorClassName={MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME}
+            className='pl-3 pr-0'
+            disabled={defaultOption.disabled}
+          >
+            <ModelOptionLabel
+              label={defaultOption.label}
+              creditMultiplier={defaultOption.creditMultiplier}
+            />
+          </SelectItem>
+        )}
+        {modelOptions.map(item => {
+          return (
+            <SelectItem
+              key={item.value}
+              value={item.value}
+              textValue={item.label}
+              indicatorClassName={MODEL_SELECT_ITEM_INDICATOR_CLASS_NAME}
+              className='pl-3 pr-0'
+              disabled={item.disabled}
+            >
+              <ModelOptionLabel
+                label={item.label}
+                creditMultiplier={item.creditMultiplier}
+                creditMultiplierLabel={item.creditMultiplierLabel}
+              />
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
+    </Select>
+  );
+}

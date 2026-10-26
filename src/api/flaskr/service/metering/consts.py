@@ -1,6 +1,6 @@
-from __future__ import annotations
+"""Define constants for usage metering."""
 
-from typing import Any
+from __future__ import annotations
 
 from flaskr.i18n import _
 
@@ -36,11 +36,13 @@ _LEGACY_USAGE_SCENE_MAP = {
 
 
 def normalize_usage_type(
-    value: Any, *, default: int = BILL_USAGE_TYPE_LLM, strict: bool = False
+    value: object, *, default: int = BILL_USAGE_TYPE_LLM, strict: bool = False
 ) -> int:
+    """Normalize usage type."""
     if value is None or value == "":
         if strict:
-            raise ValueError("usage_type is required")
+            message = "usage_type is required"
+            raise ValueError(message)
         return default
     try:
         numeric_value = int(value)
@@ -51,16 +53,19 @@ def normalize_usage_type(
     if numeric_value in _LEGACY_USAGE_TYPE_MAP:
         return _LEGACY_USAGE_TYPE_MAP[numeric_value]
     if strict:
-        raise ValueError("usage_type is invalid")
+        message = "usage_type is invalid"
+        raise ValueError(message)
     return default
 
 
 def normalize_usage_scene(
-    value: Any, *, default: int = BILL_USAGE_SCENE_PROD, strict: bool = False
+    value: object, *, default: int = BILL_USAGE_SCENE_PROD, strict: bool = False
 ) -> int:
+    """Normalize usage scene."""
     if value is None or value == "":
         if strict:
-            raise ValueError("usage_scene is required")
+            message = "usage_scene is required"
+            raise ValueError(message)
         return default
     try:
         numeric_value = int(value)
@@ -75,5 +80,6 @@ def normalize_usage_scene(
     if numeric_value in _LEGACY_USAGE_SCENE_MAP:
         return _LEGACY_USAGE_SCENE_MAP[numeric_value]
     if strict:
-        raise ValueError("usage_scene is invalid")
+        message = "usage_scene is invalid"
+        raise ValueError(message)
     return default

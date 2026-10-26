@@ -1,9 +1,10 @@
+"""Map Markdown source spans for listen-mode elements."""
+
 from __future__ import annotations
 
-from typing import Any
 
-
-def normalize_source_span(raw: Any) -> list[int]:
+def normalize_source_span(raw: object) -> list[int]:
+    """Normalize source span."""
     if not isinstance(raw, list) or len(raw) < 2:
         return []
     try:
@@ -19,6 +20,7 @@ def normalize_source_span(raw: Any) -> list[int]:
 
 
 def slice_source_by_span(raw_content: str, source_span: list[int]) -> str:
+    """Slice source by span."""
     if not raw_content:
         return ""
     if len(source_span) != 2:

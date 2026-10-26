@@ -7,7 +7,6 @@ from flaskr.service.creator_analytics.pii import (
     redact_pii,
 )
 
-
 # ---------------------------------------------------------------------------
 # redact_pii — existing behaviour must not regress
 # ---------------------------------------------------------------------------

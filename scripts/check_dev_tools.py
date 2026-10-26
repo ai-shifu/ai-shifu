@@ -7,6 +7,7 @@ git hooks only fire after ``lefthook install`` has wired them into
 on ``PATH`` (ruff, commitizen, the pre-commit-hooks console scripts, and the
 Cook Web prettier binary). If lefthook or any of those tools is missing the
 local checks are silently skipped or fail with a cryptic ``command not found``.
+The repository harness also needs markdown-it-py in the current Python environment.
 
 Run this from the repository root before committing to find what is missing and
 exactly how to install it::
@@ -29,14 +30,26 @@ from __future__ import annotations
 import argparse
 import shutil
 import subprocess
+import sys
+from importlib import import_module
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 # Install hints. Versions mirror lefthook.yml's header comment (lines 10-13).
-BREW_INSTALL = "brew install lefthook"
-PIP_INSTALL = "pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0"
-NPM_INSTALL = "cd src/cook-web && npm ci"
+if sys.platform == "darwin":
+    LEFTHOOK_PKG_INSTALL = "brew install lefthook"
+else:
+    LEFTHOOK_PKG_INSTALL = (
+        "npm install -g @evilmartians/lefthook  # (or use your package manager)"
+    )
+PIP_INSTALL = (
+    "python -m pip install ruff==0.16.5 commitizen==4.16.2 "
+    "pre-commit-hooks==6.0.0 markdown-it-py==4.0.0"
+)
+RUFF_VERSION = "0.16.5"
+MARKDOWN_IT_VERSION = "4.0.0"
+NPM_INSTALL = "cd src/web && npm ci"
 LEFTHOOK_INSTALL = "lefthook install"
 NODE_INSTALL = "install Node.js (see INSTALL_MANUAL.md for the supported version)"
 
@@ -54,13 +67,14 @@ PRE_COMMIT_HOOKS_SCRIPTS = (
 )
 
 # Cook Web prettier is installed locally, not on PATH (see lefthook.yml).
-COOK_WEB_PRETTIER = ROOT / "src" / "cook-web" / "node_modules" / ".bin" / "prettier"
+WEB_PRETTIER = ROOT / "src" / "web" / "node_modules" / ".bin" / "prettier"
 
 
 class Check:
     """A single tool/state check and the command that fixes it."""
 
-    def __init__(self, name: str, ok: bool, fix: str, *, required: bool = True):
+    def __init__(self, name: str, ok: bool, fix: str, *, required: bool = True) -> None:
+        """Record a development-tool availability check."""
         self.name = name
         self.ok = ok
         self.fix = fix
@@ -75,6 +89,7 @@ def _hooks_dir() -> Path | None:
             cwd=ROOT,
             capture_output=True,
             text=True,
+            check=False,
         )
         if configured.returncode == 0 and configured.stdout.strip():
             # git config values may use ~ / ~user; Path() does not expand it.
@@ -95,7 +110,7 @@ def _hooks_dir() -> Path | None:
 
 
 def _lefthook_hook_installed() -> bool:
-    """True when ``lefthook install`` has wired the pre-commit hook in."""
+    """Report whether ``lefthook install`` has wired the pre-commit hook in."""
     hooks_dir = _hooks_dir()
     if hooks_dir is None:
         return False
@@ -108,12 +123,38 @@ def _lefthook_hook_installed() -> bool:
         return False
 
 
+def _ruff_version_matches() -> bool:
+    """Report whether the Ruff binary on PATH matches the repository pin."""
+    ruff = shutil.which("ruff")
+    if ruff is None:
+        return False
+    try:
+        result = subprocess.run(
+            [ruff, "--version"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, OSError):
+        return False
+    return result.stdout.strip() == f"ruff {RUFF_VERSION}"
+
+
+def _markdown_it_version_matches() -> bool:
+    """Report whether this Python environment can load the pinned parser."""
+    try:
+        return import_module("markdown_it").__version__ == MARKDOWN_IT_VERSION
+    except ImportError:
+        return False
+
+
 def collect_checks() -> tuple[list[Check], list[Check]]:
     """Return (core_checks, frontend_checks)."""
     lefthook_present = shutil.which("lefthook") is not None
 
     core: list[Check] = [
-        Check("lefthook", lefthook_present, BREW_INSTALL),
+        Check("lefthook", lefthook_present, LEFTHOOK_PKG_INSTALL),
         # Only meaningful once the binary exists; surface the install step
         # regardless so a half-finished setup is obvious.
         Check(
@@ -121,18 +162,25 @@ def collect_checks() -> tuple[list[Check], list[Check]]:
             lefthook_present and _lefthook_hook_installed(),
             LEFTHOOK_INSTALL,
         ),
-        Check("ruff", shutil.which("ruff") is not None, PIP_INSTALL),
+        Check(f"ruff {RUFF_VERSION}", _ruff_version_matches(), PIP_INSTALL),
+        Check(
+            f"markdown-it-py {MARKDOWN_IT_VERSION}",
+            _markdown_it_version_matches(),
+            PIP_INSTALL,
+        ),
         Check("cz (commitizen)", shutil.which("cz") is not None, PIP_INSTALL),
     ]
-    for script in PRE_COMMIT_HOOKS_SCRIPTS:
-        core.append(Check(script, shutil.which(script) is not None, PIP_INSTALL))
+    core.extend(
+        Check(script, shutil.which(script) is not None, PIP_INSTALL)
+        for script in PRE_COMMIT_HOOKS_SCRIPTS
+    )
 
     frontend: list[Check] = [
         Check("node", shutil.which("node") is not None, NODE_INSTALL, required=False),
         Check("npm", shutil.which("npm") is not None, NODE_INSTALL, required=False),
         Check(
             "Cook Web prettier (node_modules)",
-            COOK_WEB_PRETTIER.is_file(),
+            WEB_PRETTIER.is_file(),
             NPM_INSTALL,
             required=False,
         ),
@@ -148,7 +196,7 @@ def _report(title: str, checks: list[Check]) -> None:
 
 
 def _fix_lines(missing: list[Check]) -> list[str]:
-    """Unique fix commands, preserving first-seen order."""
+    """Collect unique fix commands, preserving first-seen order."""
     seen: list[str] = []
     for check in missing:
         if check.fix not in seen:
@@ -157,6 +205,7 @@ def _fix_lines(missing: list[Check]) -> list[str]:
 
 
 def main() -> int:
+    """Verify lefthook and every required developer tool."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--strict",

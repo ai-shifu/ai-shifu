@@ -6,10 +6,12 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import math
+import re
 from decimal import Decimal
-from typing import Any, Dict, Optional, Sequence
-from flask import Flask
-from sqlalchemy import and_, case, false, literal, not_, or_
+from typing import TYPE_CHECKING
+
+from flaskr.api.llm import PROVIDER_STATES, get_current_models
+from flaskr.api.tts import get_all_provider_configs
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -19,13 +21,9 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
 )
 from flaskr.service.billing.primitives import credit_decimal_to_number
-from flaskr.service.metering.consts import (
-    BILL_USAGE_SCENE_DEBUG,
-    BILL_USAGE_SCENE_PREVIEW,
-    BILL_USAGE_SCENE_PROD,
-    BILL_USAGE_TYPE_TTS,
+from flaskr.service.common.models import (
+    raise_param_error,
 )
-from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
 )
@@ -34,25 +32,19 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
-from flaskr.service.common.models import (
-    raise_param_error,
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_TTS,
 )
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseCreditUsageDetailItemDTO,
     AdminOperationCourseCreditUsageDetailListDTO,
     AdminOperationCourseCreditUsageItemDTO,
     AdminOperationCourseCreditUsageListDTO,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-)
-from flaskr.service.user.models import (
-    AuthCredential,
-    UserInfo as UserEntity,
-)
-
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_CREDIT_USAGE_LIST_MAX_PAGE_SIZE,
     COURSE_CREDIT_USAGE_MODE_ASK,
@@ -70,6 +62,25 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _normalize_metadata_json,
     _resolve_visible_leaf_outline_bids,
 )
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
+from flaskr.service.user.models import (
+    AuthCredential,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from sqlalchemy import and_, case, false, literal, not_, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from flask import Flask
+    from flask_sqlalchemy.query import Query
+    from sqlalchemy.sql.selectable import Subquery
 
 
 def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
@@ -79,10 +90,8 @@ def _resolve_course_credit_usage_mode(row: BillUsageRecord) -> str:
 
     metadata = _normalize_metadata_json(getattr(row, "extra", None))
     generation_name = str(metadata.get("generation_name", "") or "").strip().lower()
-    if (
-        "/user_follow_ask/" in generation_name
-        or generation_name.startswith("lesson_ask/")
-        or generation_name.startswith("lesson_preview_ask/")
+    if "/user_follow_ask/" in generation_name or generation_name.startswith(
+        ("lesson_ask/", "lesson_preview_ask/")
     ):
         return COURSE_CREDIT_USAGE_MODE_ASK
 
@@ -126,7 +135,7 @@ def _resolve_course_credit_usage_scene_filter(value: str) -> str:
     return ""
 
 
-def _build_course_credit_usage_scene_filter(value: str) -> Any | None:
+def _build_course_credit_usage_scene_filter(value: str) -> object | None:
     if value == COURSE_CREDIT_USAGE_SCENE_LEARNING:
         return BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD
     if value == COURSE_CREDIT_USAGE_SCENE_PREVIEW:
@@ -151,6 +160,123 @@ def _build_course_credit_usage_model_display(provider: str, model: str) -> str:
     if normalized_provider and normalized_model:
         return f"{normalized_provider} / {normalized_model}"
     return normalized_provider or normalized_model
+
+
+def _format_course_credit_usage_model_label_fallback(value: str) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return ""
+    raw_label = "/".join(normalized.split("/")[1:]) if "/" in normalized else normalized
+    raw_label = re.sub(r"-\d{6,}$", "", raw_label)
+    raw_label = re.sub(r"(seed)-(\d+)-(\d+)", r"\1-\2.\3", raw_label)
+
+    special_segments = {
+        "deepseek": "DeepSeek",
+        "doubao": "Doubao",
+        "gpt": "GPT",
+        "seed": "Seed",
+        "pro": "pro",
+        "lite": "lite",
+        "flash": "Flash",
+    }
+    formatted_segments = []
+    for segment in raw_label.split("-"):
+        if not segment:
+            continue
+        lower_segment = segment.lower()
+        formatted_segments.append(
+            special_segments.get(
+                lower_segment,
+                segment[:1].upper() + segment[1:] if segment.isalpha() else segment,
+            )
+        )
+    return "-".join(formatted_segments)
+
+
+class _CourseCreditUsageModelLabelResolver:
+    def __init__(self, app: Flask) -> None:
+        self._app = app
+        self._llm_label_map: dict[tuple[str, str], str] | None = None
+        self._tts_label_map: dict[tuple[str, str], str] | None = None
+
+    def _load_llm_label_map(self) -> dict[tuple[str, str], str]:
+        if self._llm_label_map is not None:
+            return self._llm_label_map
+
+        label_by_model: dict[str, str] = {}
+        label_map: dict[tuple[str, str], str] = {}
+        try:
+            for option in get_current_models(self._app):
+                option_model = str(option.get("model", "") or "").strip()
+                label = str(option.get("display_name", "") or "").strip()
+                if option_model and label:
+                    label_by_model[option_model] = label
+                option_provider = str(option.get("provider", "") or "").strip().lower()
+                if option_provider and option_model and label:
+                    label_map[(option_provider, option_model)] = label
+
+            for provider_name, state in PROVIDER_STATES.items():
+                normalized_provider = str(provider_name or "").strip().lower()
+                if not normalized_provider:
+                    continue
+                for state_model in getattr(state, "models", []) or []:
+                    normalized_model = str(state_model or "").strip()
+                    label = label_by_model.get(normalized_model, "")
+                    if normalized_model and label:
+                        label_map[(normalized_provider, normalized_model)] = label
+        except Exception:
+            label_map = {}
+
+        self._llm_label_map = label_map
+        return label_map
+
+    def _load_tts_label_map(self) -> dict[tuple[str, str], str]:
+        if self._tts_label_map is not None:
+            return self._tts_label_map
+
+        label_map: dict[tuple[str, str], str] = {}
+        try:
+            configs = get_all_provider_configs()
+            for option in configs.get("model_options") or []:
+                option_provider = str(option.get("provider", "") or "").strip().lower()
+                option_model = str(option.get("model", "") or "").strip()
+                label = str(option.get("label", "") or "").strip()
+                if option_provider and label:
+                    label_map[(option_provider, option_model)] = label
+            for provider_config in configs.get("providers") or []:
+                option_provider = (
+                    str(provider_config.get("name", "") or "").strip().lower()
+                )
+                if not option_provider:
+                    continue
+                for option in provider_config.get("models") or []:
+                    option_model = str(option.get("value", "") or "").strip()
+                    label = str(option.get("label", "") or "").strip()
+                    if option_model and label:
+                        label_map[(option_provider, option_model)] = label
+        except Exception:
+            label_map = {}
+
+        self._tts_label_map = label_map
+        return label_map
+
+    def resolve(self, *, usage_type: int, provider: str, model: str) -> str:
+        normalized_provider = str(provider or "").strip().lower()
+        normalized_model = str(model or "").strip()
+        if not normalized_provider and not normalized_model:
+            return ""
+
+        label_map = (
+            self._load_tts_label_map()
+            if int(usage_type or 0) == BILL_USAGE_TYPE_TTS
+            else self._load_llm_label_map()
+        )
+        label = label_map.get((normalized_provider, normalized_model), "")
+        if label:
+            return label
+        return _format_course_credit_usage_model_label_fallback(
+            normalized_model or normalized_provider
+        )
 
 
 def _build_course_credit_usage_group_key(
@@ -180,17 +306,18 @@ def _build_course_credit_usage_group_key(
 def _build_operator_course_credit_usage_item(
     *,
     usage_row: BillUsageRecord,
-    ledger_amount: Any,
-    user_map: Dict[str, Dict[str, Any]],
-    outline_context_map: Dict[str, Dict[str, str]],
+    ledger_amount: object,
+    user_map: dict[str, dict[str, object]],
+    outline_context_map: dict[str, dict[str, str]],
     group_key: str = "",
     usage_count: int = 1,
     usage_mode: str = "",
     provider: str = "",
     model: str = "",
+    model_label: str = "",
     model_variant_count: int = 0,
-    consumed_credits: Any = None,
-    created_at: Any = None,
+    consumed_credits: object = None,
+    created_at: object = None,
 ) -> AdminOperationCourseCreditUsageItemDTO:
     user_bid = str(getattr(usage_row, "user_bid", "") or "").strip()
     outline_item_bid = str(getattr(usage_row, "outline_item_bid", "") or "").strip()
@@ -239,6 +366,7 @@ def _build_operator_course_credit_usage_item(
         usage_mode=resolved_usage_mode,
         provider=resolved_provider,
         model=resolved_model,
+        model_label=str(model_label or "").strip(),
         usage_count=max(int(usage_count or 0), 1),
         model_variant_count=max(int(model_variant_count or 0), 0),
         consumed_credits=resolved_consumed_credits,
@@ -246,11 +374,13 @@ def _build_operator_course_credit_usage_item(
     )
 
 
-def _build_course_credit_usage_generation_name_expr() -> Any:
+def _build_course_credit_usage_generation_name_expr() -> object:
     return db.func.lower(BillUsageRecord.extra["generation_name"].as_string())
 
 
-def _build_course_credit_usage_ask_filter(generation_name: Any | None = None) -> Any:
+def _build_course_credit_usage_ask_filter(
+    generation_name: object | None = None,
+) -> object:
     generation_name = (
         generation_name
         if generation_name is not None
@@ -264,8 +394,8 @@ def _build_course_credit_usage_ask_filter(generation_name: Any | None = None) ->
 
 
 def _build_course_credit_usage_learn_filter(
-    generation_name: Any | None = None,
-) -> Any:
+    generation_name: object | None = None,
+) -> object:
     generation_name = (
         generation_name
         if generation_name is not None
@@ -278,7 +408,9 @@ def _build_course_credit_usage_learn_filter(
     )
 
 
-def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
+def _build_operator_course_credit_usage_ledger_totals_subquery(
+    shifu_bid: str,
+) -> Subquery:
     course_usage_bids = (
         db.session.query(BillUsageRecord.usage_bid.label("usage_bid"))
         .filter(
@@ -319,8 +451,8 @@ def _build_operator_course_credit_usage_ledger_totals_subquery(shifu_bid: str):
 def _build_operator_course_credit_usage_base_query(
     shifu_bid: str,
     *,
-    outline_item_bids: Optional[Sequence[str]] = None,
-):
+    outline_item_bids: Sequence[str] | None = None,
+) -> Query:
     ledger_totals = _build_operator_course_credit_usage_ledger_totals_subquery(
         shifu_bid
     )
@@ -464,7 +596,7 @@ def _load_course_credit_usage_output_summary_map(
     if not generated_block_bids:
         return {}
 
-    def context_key(row: Any) -> tuple[str, str, str, str]:
+    def context_key(row: object) -> tuple[str, str, str, str]:
         return (
             str(getattr(row, "generated_block_bid", "") or "").strip(),
             str(getattr(row, "shifu_bid", "") or "").strip(),
@@ -587,8 +719,9 @@ def _load_course_credit_usage_output_summary_map(
 
 def _build_operator_course_credit_usage_detail_item(
     usage_row: BillUsageRecord,
-    ledger_amount: Any,
-    output_summary: Optional[str] = None,
+    ledger_amount: object,
+    model_label_resolver: _CourseCreditUsageModelLabelResolver,
+    output_summary: str | None = None,
 ) -> AdminOperationCourseCreditUsageDetailItemDTO:
     return AdminOperationCourseCreditUsageDetailItemDTO(
         usage_bid=str(getattr(usage_row, "usage_bid", "") or ""),
@@ -597,6 +730,13 @@ def _build_operator_course_credit_usage_detail_item(
         ),
         input_tokens=int(getattr(usage_row, "input", 0) or 0),
         output_tokens=int(getattr(usage_row, "output", 0) or 0),
+        provider=str(getattr(usage_row, "provider", "") or ""),
+        model=str(getattr(usage_row, "model", "") or ""),
+        model_label=model_label_resolver.resolve(
+            usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
+            provider=str(getattr(usage_row, "provider", "") or ""),
+            model=str(getattr(usage_row, "model", "") or ""),
+        ),
         word_count=int(getattr(usage_row, "word_count", 0) or 0),
         duration_ms=int(getattr(usage_row, "duration_ms", 0) or 0),
         segment_count=int(getattr(usage_row, "segment_count", 0) or 0),
@@ -609,7 +749,7 @@ def _build_operator_course_credit_usage_detail_item(
     )
 
 
-def _apply_course_credit_usage_filters(query: Any, filters: dict) -> Any:
+def _apply_course_credit_usage_filters(query: object, filters: dict) -> object:
     keyword = str(filters.get("keyword", "") or "").strip()
     mode_filter = _resolve_course_credit_usage_mode_filter(
         str(filters.get("mode", "") or "")
@@ -655,7 +795,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
     *,
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-):
+) -> Subquery | None:
     normalized_leaf_outline_bids = [
         str(outline_item_bid or "").strip()
         for outline_item_bid in leaf_outline_bids
@@ -717,7 +857,7 @@ def _build_course_credit_usage_covered_completed_user_subquery(
 def _build_operator_course_credit_metrics(
     shifu_bid: str,
     leaf_outline_bids: Sequence[str],
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     base_query = _build_operator_course_credit_usage_base_query(
         shifu_bid,
         outline_item_bids=leaf_outline_bids,
@@ -743,7 +883,7 @@ def _build_operator_course_credit_metrics(
         )
     )
     completed_credit_user_count = 0
-    completed_credit_total = Decimal("0")
+    completed_credit_total = Decimal(0)
     if completed_user_subquery is not None:
         completed_row = (
             db.session.query(
@@ -787,8 +927,8 @@ def _build_operator_course_credit_metrics(
 
 
 def _build_credit_usage_user_keyword_filter(
-    user_bid_column: Any, keyword: str
-) -> Any | None:
+    user_bid_column: object, keyword: str
+) -> object | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None
@@ -848,8 +988,9 @@ def get_operator_course_credit_usages(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageListDTO:
+    """Return operator course credit usages."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -888,6 +1029,7 @@ def get_operator_course_credit_usages(
             outline_item_bids=visible_leaf_outline_bids,
         )
         query = _apply_course_credit_usage_filters(query, filters)
+        model_label_resolver = _CourseCreditUsageModelLabelResolver(app)
 
         if view == COURSE_CREDIT_USAGE_VIEW_RAW:
             total = query.count()
@@ -923,6 +1065,11 @@ def get_operator_course_credit_usages(
                         group_key=str(getattr(usage_row, "usage_bid", "") or ""),
                         usage_count=1,
                         usage_mode=_resolve_course_credit_usage_mode(usage_row),
+                        model_label=model_label_resolver.resolve(
+                            usage_type=int(getattr(usage_row, "usage_type", 0) or 0),
+                            provider=str(getattr(usage_row, "provider", "") or ""),
+                            model=str(getattr(usage_row, "model", "") or ""),
+                        ),
                         model_variant_count=1 if model_display else 0,
                     )
                 )
@@ -1128,6 +1275,16 @@ def get_operator_course_credit_usages(
                     usage_mode=str(getattr(row, "usage_mode", "") or ""),
                     provider=str(getattr(row, "provider", "") or ""),
                     model=str(getattr(row, "model", "") or ""),
+                    model_label=model_label_resolver.resolve(
+                        usage_type=(
+                            BILL_USAGE_TYPE_TTS
+                            if str(getattr(row, "usage_mode", "") or "")
+                            == COURSE_CREDIT_USAGE_MODE_LISTEN
+                            else 0
+                        ),
+                        provider=str(getattr(row, "provider", "") or ""),
+                        model=str(getattr(row, "model", "") or ""),
+                    ),
                     usage_count=int(getattr(row, "usage_count", 0) or 0),
                     model_variant_count=int(
                         getattr(row, "model_variant_count", 0) or 0
@@ -1157,8 +1314,9 @@ def get_operator_course_credit_usage_details(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationCourseCreditUsageDetailListDTO:
+    """Return operator course credit usage details."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -1210,11 +1368,13 @@ def get_operator_course_credit_usage_details(
         output_summary_map = _load_course_credit_usage_output_summary_map(
             [usage_row for usage_row, _ledger_amount in rows]
         )
+        model_label_resolver = _CourseCreditUsageModelLabelResolver(app)
         return AdminOperationCourseCreditUsageDetailListDTO(
             items=[
                 _build_operator_course_credit_usage_detail_item(
                     usage_row=usage_row,
                     ledger_amount=ledger_amount,
+                    model_label_resolver=model_label_resolver,
                     output_summary=output_summary_map.get(
                         str(getattr(usage_row, "usage_bid", "") or "").strip(),
                         "",
@@ -1231,7 +1391,7 @@ def get_operator_course_credit_usage_details(
 
 def _load_bill_usage_record_map(
     usage_bids: Sequence[str],
-) -> Dict[str, BillUsageRecord]:
+) -> dict[str, BillUsageRecord]:
     normalized_usage_bids = sorted(
         {
             str(usage_bid or "").strip()
@@ -1250,7 +1410,7 @@ def _load_bill_usage_record_map(
         .order_by(BillUsageRecord.id.desc())
         .all()
     )
-    usage_map: Dict[str, BillUsageRecord] = {}
+    usage_map: dict[str, BillUsageRecord] = {}
     for row in rows:
         usage_bid = str(row.usage_bid or "").strip()
         if usage_bid and usage_bid not in usage_map:
@@ -1262,7 +1422,7 @@ def _build_latest_bill_usage_record_subquery(
     *,
     user_bid: str = "",
     usage_bids: Sequence[str] | None = None,
-):
+) -> Subquery:
     normalized_user_bid = str(user_bid or "").strip()
     normalized_usage_bids = [
         str(usage_bid or "").strip()

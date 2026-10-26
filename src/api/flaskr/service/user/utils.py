@@ -1,33 +1,51 @@
-from flask import Flask, has_app_context
-import jwt
-import time
-import string
-import random
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from flaskr.i18n import _
+"""Provide shared utilities for user accounts."""
 
-from ..common.models import raise_error, raise_param_error
-from flaskr.common.cache_provider import cache as redis
-from ...dao import db
-from flaskr.api.sms.aliyun import send_sms_code_ali
-from flaskr.service.user.captcha import consume_captcha_ticket
-from flaskr.common.config import get_redis_derived_prefix
-from .models import UserVerifyCode
-
+import contextlib
+import html
 import json
+import secrets
+import smtplib
+import string
+import time
+import uuid
+from collections.abc import Callable
+from dataclasses import dataclass
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
-from flaskr.service.config.funcs import get_config as get_dynamic_config
-from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+import jwt
+from flask import Flask, has_app_context, has_request_context, request
+from flaskr.api.sms.aliyun import send_sms_code_ali
+from flaskr.common.cache_provider import cache as redis
+from flaskr.common.client_ip import resolve_client_ip
+from flaskr.common.config import get_redis_derived_prefix
+from flaskr.dao import db, uow
+from flaskr.dao.uow import unit_of_work
+from flaskr.i18n import _, get_current_language, get_i18n_list, set_language
+from flaskr.service.common.contact_identifiers import (
+    CONTACT_TYPE_EMAIL,
+    validate_contact_identifier,
+)
+from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import (
     is_valid_sms_mobile,
     normalize_phone_identifier,
 )
+from flaskr.service.common.smtp import SMTP_TIMEOUT_SECONDS
+from flaskr.service.config.funcs import get_config as get_dynamic_config
+from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
+from flaskr.service.user.captcha import consume_captcha_ticket
 from flaskr.service.user.repository import get_user_entity_by_bid, mark_user_roles
-from flaskr.service.user.token_store import token_store
-from flaskr.util.datetime import now_utc
+from flaskr.service.user.token_store import SessionMetadata, token_store
+from flaskr.service.user.verification_codes import (
+    clear_verification_attempts,
+    verification_cache_provider,
+    verification_code_lock,
+)
 from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
+
+from .models import UserVerifyCode
 
 
 def _redis_prefix(app: Flask, config_key: str) -> str:
@@ -61,7 +79,28 @@ def _normalize_language_code(language_code: str) -> str:
     return "-".join(normalized_parts)
 
 
-def get_user_language(user):
+def _resolve_supported_language_code(language_code: str) -> str:
+    """Resolve a loaded locale or the same English fallback used by translations."""
+    normalized = _normalize_language_code(language_code)
+    if not normalized:
+        return "en-US"
+
+    supported_languages = get_i18n_list()
+    normalized_lower = normalized.lower()
+    for supported_language in supported_languages:
+        if supported_language.lower() == normalized_lower:
+            return supported_language
+
+    primary_language = normalized_lower.split("-", maxsplit=1)[0]
+    for supported_language in supported_languages:
+        if supported_language.lower().split("-", maxsplit=1)[0] == primary_language:
+            return supported_language
+
+    return "en-US"
+
+
+def get_user_language(user: object) -> str:
+    """Return the language preference recorded for a user."""
     language = ""
     if hasattr(user, "user_language") and user.user_language:
         language = user.user_language
@@ -82,7 +121,6 @@ def get_user_language(user):
 
 def mark_creator_role_if_needed(user_id: str) -> bool:
     """Mark an existing user as creator and report whether this is a new grant."""
-
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:
         return False
@@ -108,7 +146,6 @@ def run_creator_granted_post_auth(
     language: str | None = None,
 ) -> None:
     """Run post-auth hooks for flows that grant creator access outside login."""
-
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:
         return
@@ -129,18 +166,81 @@ def run_creator_granted_post_auth(
 
 
 # generate token
-def generate_token(app: Flask, user_id: str) -> str:
+# Ordered so the specific match wins: a Chrome user agent also mentions Safari,
+# and an Edge one also mentions Chrome.
+_BROWSER_MARKERS = (
+    ("Edg/", "Edge"),
+    ("OPR/", "Opera"),
+    ("Firefox/", "Firefox"),
+    ("Chrome/", "Chrome"),
+    ("Safari/", "Safari"),
+)
+_OS_MARKERS = (
+    ("iPhone", "iOS"),
+    ("iPad", "iPadOS"),
+    ("Android", "Android"),
+    ("Mac OS X", "macOS"),
+    ("Windows NT", "Windows"),
+    ("Linux", "Linux"),
+)
+
+
+def describe_user_agent(user_agent: str) -> tuple[str, str]:
+    """Summarize a browser user agent as (device name, operating system).
+
+    Only enough for a person to recognise their own session in a list. The raw
+    string is deliberately not stored: it is long, highly fingerprintable, and
+    nothing here needs it.
+    """
+    raw = str(user_agent or "")
+    browser = next((name for marker, name in _BROWSER_MARKERS if marker in raw), "")
+    operating_system = next((name for marker, name in _OS_MARKERS if marker in raw), "")
+    return browser, operating_system
+
+
+def _current_session_metadata(
+    source: str, device_name: str, device_os: str
+) -> SessionMetadata:
+    """Describe the session being created from the request serving it."""
+    client_ip = ""
+    if has_request_context():
+        client_ip = resolve_client_ip()
+        if not device_name and not device_os:
+            device_name, device_os = describe_user_agent(
+                request.headers.get("User-Agent", "")
+            )
+    return SessionMetadata(
+        session_bid=str(uuid.uuid4()),
+        source=source[:32],
+        device_name=device_name[:64],
+        device_os=device_os[:64],
+        created_ip=client_ip[:64],
+    )
+
+
+def generate_token(
+    app: Flask,
+    user_id: str,
+    *,
+    source: str = "web",
+    device_name: str = "",
+    device_os: str = "",
+) -> str:
+    """Generate an authentication token for a user identifier.
+
+    The session description is collected here rather than at each call site, so
+    every sign-in path records it, including ones added later.
+    """
+    token = create_token_value(app, user_id)
+
     def _generate() -> str:
-        token = jwt.encode(
-            {"user_id": user_id, "time_stamp": time.time()},
-            app.config["SECRET_KEY"],
-            algorithm="HS256",
-        )
-        token_store.save(
+        persist_token(
             app,
             user_id=user_id,
             token=token,
-            ttl_seconds=app.config["TOKEN_EXPIRE_TIME"],
+            source=source,
+            device_name=device_name,
+            device_os=device_os,
         )
         return token
 
@@ -150,14 +250,310 @@ def generate_token(app: Flask, user_id: str) -> str:
         return _generate()
 
 
+def create_token_value(app: Flask, user_id: str) -> str:
+    """Create a signed token value without persisting or exposing it."""
+    return jwt.encode(
+        {"user_id": user_id, "time_stamp": time.time()},
+        app.config["SECRET_KEY"],
+        algorithm="HS256",
+    )
+
+
+def persist_token(
+    app: Flask,
+    *,
+    user_id: str,
+    token: str,
+    source: str = "web",
+    device_name: str = "",
+    device_os: str = "",
+) -> None:
+    """Persist a signed token inside the caller's transaction."""
+
+    def _persist() -> None:
+        token_store.save(
+            app,
+            user_id=user_id,
+            token=token,
+            ttl_seconds=app.config["TOKEN_EXPIRE_TIME"],
+            metadata=_current_session_metadata(source, device_name, device_os),
+        )
+
+    if has_app_context():
+        _persist()
+        return
+    with app.app_context():
+        _persist()
+
+
+def _format_email_verification_message(
+    code: str, expire_seconds: int, language: str | None = None
+) -> tuple[str, str, str]:
+    previous_language = get_current_language()
+    requested_language = language or previous_language
+    resolved_language = _resolve_supported_language_code(requested_language)
+    set_language(resolved_language)
+
+    try:
+        expire_minutes = max(1, int(expire_seconds) // 60)
+        plural_category = _email_verification_plural_category(
+            expire_minutes, resolved_language
+        )
+        expiry_duration = _email_verification_duration_template(plural_category).format(
+            expire_minutes=expire_minutes
+        )
+        is_one_minute = expire_minutes == 1
+        expiry_key = (
+            "server.user.emailVerificationExpirySingular"
+            if is_one_minute
+            else "server.user.emailVerificationExpiry"
+        )
+        plain_body_key = (
+            "server.user.emailVerificationPlainBodySingular"
+            if is_one_minute
+            else "server.user.emailVerificationPlainBody"
+        )
+        subject = _("server.user.emailVerificationSubject")
+        text = _(plain_body_key).format(code=code, expiry_duration=expiry_duration)
+        title = _("server.user.emailVerificationTitle")
+        intro = _("server.user.emailVerificationIntro")
+        expiry = _(expiry_key).format(expiry_duration=expiry_duration)
+        ignore = _("server.user.emailVerificationIgnore")
+        footer = _("server.user.emailVerificationFooter")
+    finally:
+        set_language(previous_language)
+
+    html_language = html.escape(resolved_language, quote=True)
+    html_direction = (
+        "rtl"
+        if resolved_language.split("-", maxsplit=1)[0].lower() in {"ar", "ur"}
+        else "ltr"
+    )
+    html_body = f"""\
+<!doctype html>
+<html lang="{html_language}" dir="{html_direction}">
+  <body style="margin:0;background:#f5f7fb;padding:24px;font-family:Arial,'Helvetica Neue',sans-serif;color:#111827;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
+      <tr>
+        <td style="padding:28px 32px 12px;font-size:20px;font-weight:700;">AI-Shifu</td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 8px;font-size:18px;font-weight:700;">{html.escape(title)}</td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 20px;font-size:14px;line-height:22px;color:#4b5563;">{html.escape(intro)}</td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 20px;">
+          <div dir="ltr" style="display:inline-block;background:#eef4ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 24px;font-size:32px;line-height:40px;font-weight:700;letter-spacing:8px;color:#1d4ed8;">{html.escape(code)}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 8px;font-size:14px;line-height:22px;color:#4b5563;">{html.escape(expiry)}</td>
+      </tr>
+      <tr>
+        <td style="padding:0 32px 24px;font-size:13px;line-height:20px;color:#6b7280;">{html.escape(ignore)}</td>
+      </tr>
+      <tr>
+        <td style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:12px;line-height:18px;color:#9ca3af;">{html.escape(footer)}</td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+    return subject, text, html_body
+
+
+def _email_verification_plural_category(count: int, language: str) -> str:
+    """Return the translation-key suffix for a verification expiry count."""
+    if language.split("-", maxsplit=1)[0].lower() != "ar":
+        return "One" if count == 1 else "Other"
+
+    if count == 0:
+        return "Zero"
+    if count == 1:
+        return "One"
+    if count == 2:
+        return "Two"
+    remainder = count % 100
+    if 3 <= remainder <= 10:
+        return "Few"
+    if 11 <= remainder <= 99:
+        return "Many"
+    return "Other"
+
+
+def _email_verification_duration_template(plural_category: str) -> str:
+    """Return a literal translation key so usage checks can discover every form."""
+    if plural_category == "Zero":
+        return _("server.user.emailVerificationMinutesZero")
+    if plural_category == "One":
+        return _("server.user.emailVerificationMinutesOne")
+    if plural_category == "Two":
+        return _("server.user.emailVerificationMinutesTwo")
+    if plural_category == "Few":
+        return _("server.user.emailVerificationMinutesFew")
+    if plural_category == "Many":
+        return _("server.user.emailVerificationMinutesMany")
+    return _("server.user.emailVerificationMinutesOther")
+
+
+def _email_verification_translation_keys_used() -> None:
+    """Register translation keys selected dynamically above."""
+    _("server.user.emailVerificationExpiry")
+    _("server.user.emailVerificationExpirySingular")
+    _("server.user.emailVerificationPlainBody")
+    _("server.user.emailVerificationPlainBodySingular")
+
+
+@dataclass(frozen=True, slots=True)
+class _VerificationChallengePolicy:
+    ip_limit_count_config: str
+    ip_limit_time_config: str
+    identifier_limit_prefix_config: str
+    code_prefix_config: str
+    interval_config: str
+    expire_time_config: str
+    rate_limit_error: str
+    verify_code_type: int
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedVerificationChallenge:
+    code: str
+    expire_in: int
+    record: UserVerifyCode
+
+
+_SMS_CHALLENGE_POLICY = _VerificationChallengePolicy(
+    ip_limit_count_config="IP_SMS_LIMIT_COUNT",
+    ip_limit_time_config="IP_SMS_LIMIT_TIME",
+    identifier_limit_prefix_config="REDIS_KEY_PREFIX_PHONE_LIMIT",
+    code_prefix_config="REDIS_KEY_PREFIX_PHONE_CODE",
+    interval_config="SMS_CODE_INTERVAL",
+    expire_time_config="PHONE_CODE_EXPIRE_TIME",
+    rate_limit_error="server.user.smsSendTooFrequent",
+    verify_code_type=1,
+)
+_EMAIL_CHALLENGE_POLICY = _VerificationChallengePolicy(
+    ip_limit_count_config="IP_MAIL_LIMIT_COUNT",
+    ip_limit_time_config="IP_MAIL_LIMIT_TIME",
+    identifier_limit_prefix_config="REDIS_KEY_PREFIX_MAIL_LIMIT",
+    code_prefix_config="REDIS_KEY_PREFIX_MAIL_CODE",
+    interval_config="MAIL_CODE_INTERVAL",
+    expire_time_config="MAIL_CODE_EXPIRE_TIME",
+    rate_limit_error="server.user.emailSendTooFrequent",
+    verify_code_type=2,
+)
+
+
+def _enforce_verification_ip_limit(
+    app: Flask,
+    ip: str | None,
+    policy: _VerificationChallengePolicy,
+) -> None:
+    if not ip:
+        return
+
+    ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
+    if redis.get(ip_ban_key):
+        raise_error("server.user.ipBanned")
+
+    ip_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_LIMIT") + ip
+    ip_send_count = redis.get(ip_limit_key)
+    if ip_send_count:
+        if int(ip_send_count) >= int(app.config[policy.ip_limit_count_config]):
+            redis.set(ip_ban_key, 1, ex=int(app.config["IP_BAN_TIME"]))
+            raise_error("server.user.ipBanned")
+        redis.incr(ip_limit_key)
+        return
+
+    redis.set(
+        ip_limit_key,
+        1,
+        ex=int(app.config[policy.ip_limit_time_config]),
+    )
+
+
+def _prepare_verification_challenge(
+    app: Flask,
+    identifier: str,
+    ip: str | None,
+    policy: _VerificationChallengePolicy,
+    deliver: Callable[[_PreparedVerificationChallenge], bool],
+) -> _PreparedVerificationChallenge:
+    # Two-step contract (durable record -> provider delivery -> mark sent):
+    # the steps below are real commits only when no caller owns the
+    # transaction, so a nested caller is rejected up front.
+    uow.require_transaction_owner("verification challenge issuance", app)
+    _enforce_verification_ip_limit(app, ip, policy)
+    kind = "email" if policy.verify_code_type == 2 else "sms"
+    challenge_cache = verification_cache_provider()
+    with verification_code_lock(
+        app,
+        kind=kind,
+        identifier=identifier,
+        cache_provider=challenge_cache,
+    ) as challenge_cache:
+        identifier_limit_key = (
+            _redis_prefix(app, policy.identifier_limit_prefix_config) + identifier
+        )
+        last_send_time = challenge_cache.get(identifier_limit_key)
+        interval = int(app.config[policy.interval_config])
+        if last_send_time and int(time.time()) - int(last_send_time) < interval:
+            raise_error(policy.rate_limit_error)
+
+        code = "".join(secrets.choice(string.digits) for _ in range(4))
+        expire_in = int(app.config[policy.expire_time_config])
+        clear_verification_attempts(
+            app,
+            kind=kind,
+            identifier=identifier,
+            cache_provider=challenge_cache,
+        )
+        code_key = _redis_prefix(app, policy.code_prefix_config) + identifier
+        challenge_cache.set(code_key, code, ex=expire_in)
+        challenge_cache.set(identifier_limit_key, int(time.time()), ex=interval)
+
+        is_email = policy.verify_code_type == 2
+        # Step 1 - the code record must be durable before delivery is
+        # attempted, so an audit row exists even when delivery fails.
+        with unit_of_work():
+            record = create_user_verify_code(
+                mail=identifier if is_email else None,
+                phone=None if is_email else identifier,
+                verify_code=code,
+                verify_code_type=policy.verify_code_type,
+                ip=ip,
+            )
+        challenge = _PreparedVerificationChallenge(
+            code=code,
+            expire_in=expire_in,
+            record=record,
+        )
+        try:
+            delivered = deliver(challenge)
+        except Exception:
+            challenge_cache.delete(code_key, identifier_limit_key)
+            raise
+        if not delivered:
+            challenge_cache.delete(code_key, identifier_limit_key)
+            raise_error("server.common.unknownError")
+        # Step 2 - mark the record as sent once the provider accepted it.
+        with unit_of_work():
+            challenge.record.verify_code_send = 1
+        return challenge
+
+
 # send sms code
 def send_sms_code(
     app: Flask,
     phone: str,
-    ip: str = None,
-    captcha_ticket: str = None,
+    ip: str | None = None,
+    captcha_ticket: str | None = None,
     require_captcha: bool = True,
-):
+) -> dict[str, int]:
+    """Send and persist an SMS verification code for a phone number."""
     phone = normalize_phone_identifier(phone)
     with app.app_context():
         if not phone:
@@ -166,171 +562,100 @@ def send_sms_code(
             raise_param_error("mobile format invalid")
         if require_captcha:
             consume_captcha_ticket(app, captcha_ticket)
-
-        # Check IP ban status
-        if ip:
-            ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
-            if redis.get(ip_ban_key):
-                # Development, debugging and use
-                # redis.delete(ip_ban_key)
-                raise_error("server.user.ipBanned")
-
-            # Check IP sending frequency
-            ip_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_LIMIT") + ip
-            ip_send_count = redis.get(ip_limit_key)
-
-            if ip_send_count:
-                ip_send_count = int(ip_send_count)
-                if ip_send_count >= int(app.config["IP_SMS_LIMIT_COUNT"]):
-                    # Ban the IP
-                    redis.set(ip_ban_key, 1, ex=int(app.config["IP_BAN_TIME"]))
-                    raise_error("server.user.ipBanned")
-                else:
-                    redis.incr(ip_limit_key)
-            else:
-                redis.set(ip_limit_key, 1, ex=int(app.config["IP_SMS_LIMIT_TIME"]))
-
-        # Check phone sending frequency limit
-        phone_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_PHONE_LIMIT") + phone
-        last_send_time = redis.get(phone_limit_key)
-
-        if last_send_time:
-            last_send_time = int(last_send_time)
-            current_time = int(time.time())
-            time_diff = current_time - last_send_time
-
-            interval = int(app.config["SMS_CODE_INTERVAL"])
-            if time_diff < interval:
-                raise_error("server.user.smsSendTooFrequent")
-
-        characters = string.digits
-        # Generate a random string of length 4
-        random_string = "".join(random.choices(characters, k=4))
-        # 发送短信验证码
-        redis.set(
-            _redis_prefix(app, "REDIS_KEY_PREFIX_PHONE_CODE") + phone,
-            random_string,
-            ex=app.config["PHONE_CODE_EXPIRE_TIME"],
+        challenge = _prepare_verification_challenge(
+            app,
+            phone,
+            ip,
+            _SMS_CHALLENGE_POLICY,
+            lambda prepared: bool(
+                send_sms_code_ali(app, phone, prepared.code)
+                or app.config.get("UNIVERSAL_VERIFICATION_CODE")
+            ),
         )
-
-        # Record the sending time
-        redis.set(
-            phone_limit_key, int(time.time()), ex=int(app.config["SMS_CODE_INTERVAL"])
-        )
-
-        user_verify_code = create_and_commit_user_verify_code(
-            mail=None,
-            phone=phone,
-            verify_code=random_string,
-            verify_code_type=1,  # 1: SMS, 2: Email
-            ip=ip,
-        )
-
-        send_res = send_sms_code_ali(app, phone, random_string)
-        if send_res:
-            user_verify_code.verify_code_send = 1
-            db.session.commit()
-        return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
+        return {"expire_in": challenge.expire_in}
 
 
-def send_email_code(app: Flask, email: str, ip: str = None, language: str = None):
+def send_email_code(
+    app: Flask, email: str, ip: str | None = None, language: str | None = None
+) -> dict[str, int]:
+    """Send and persist an email verification code for an address."""
     with app.app_context():
-        email = str(email or "").strip().lower()
-        if not email:
-            raise_error("server.common.unknownError")
+        email = validate_contact_identifier(
+            email,
+            CONTACT_TYPE_EMAIL,
+            empty_error="email",
+        )
 
-        # Check IP ban status
-        if ip:
-            ip_ban_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_BAN") + ip
-            if redis.get(ip_ban_key):
-                # Development, debugging and use
-                # redis.delete(ip_ban_key)
-                raise_error("server.user.ipBanned")
+        def _deliver_email(challenge: _PreparedVerificationChallenge) -> bool:
+            msg = MIMEMultipart("alternative")
+            msg["From"] = app.config["SMTP_SENDER"]
+            msg["To"] = email
+            msg["X-Auto-Response-Suppress"] = "All"
+            subject, plain_body, html_body = _format_email_verification_message(
+                challenge.code,
+                challenge.expire_in,
+                language=language,
+            )
+            msg["Subject"] = subject
+            msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+            msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-            # Check IP sending frequency
-            ip_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_IP_LIMIT") + ip
-            ip_send_count = redis.get(ip_limit_key)
+            server = None
+            try:
+                smtp_port = int(app.config["SMTP_PORT"])
+                smtp_server = app.config["SMTP_SERVER"]
+                smtp_username = app.config["SMTP_USERNAME"]
+                smtp_password = app.config["SMTP_PASSWORD"]
+                smtp_sender = app.config["SMTP_SENDER"]
 
-            if ip_send_count:
-                ip_send_count = int(ip_send_count)
-                if ip_send_count >= int(app.config["IP_MAIL_LIMIT_COUNT"]):
-                    # Ban the IP
-                    redis.set(ip_ban_key, 1, ex=int(app.config["IP_BAN_TIME"]))
-                    raise_error("server.user.ipBanned")
+                # Port 465 uses implicit SSL; 587 uses STARTTLS
+                if smtp_port == 465:
+                    server = smtplib.SMTP_SSL(
+                        smtp_server,
+                        smtp_port,
+                        timeout=SMTP_TIMEOUT_SECONDS,
+                    )
                 else:
-                    redis.incr(ip_limit_key)
+                    server = smtplib.SMTP(
+                        smtp_server,
+                        smtp_port,
+                        timeout=SMTP_TIMEOUT_SECONDS,
+                    )
+                    server.starttls()
+                server.login(smtp_username, smtp_password)
+                server.sendmail(smtp_sender, email, msg.as_string())
+                app.logger.info("auth_event=email_verification_code_sent")
+            except Exception as error:
+                app.logger.warning(
+                    "auth_event=email_verification_code_failed error_type=%s",
+                    type(error).__name__,
+                )
+                raise_error("server.user.emailSendFailed")
             else:
-                redis.set(ip_limit_key, 1, ex=int(app.config["IP_MAIL_LIMIT_TIME"]))
+                return True
+            finally:
+                if server:
+                    with contextlib.suppress(Exception):
+                        server.quit()
 
-        # Check the transmission frequency limit
-        email_limit_key = _redis_prefix(app, "REDIS_KEY_PREFIX_MAIL_LIMIT") + email
-        last_send_time = redis.get(email_limit_key)
-
-        if last_send_time:
-            last_send_time = int(last_send_time)
-            current_time = int(time.time())
-            time_diff = current_time - last_send_time
-
-            interval = int(app.config["MAIL_CODE_INTERVAL"])
-            if time_diff < interval:
-                raise_error("server.user.emailSendTooFrequent")
-
-        # Create the email content
-        msg = MIMEMultipart()
-        msg["From"] = app.config["SMTP_SENDER"]
-        msg["To"] = email
-        msg["Subject"] = _("server.user.emailVerificationSubject")
-        characters = string.digits
-        random_string = "".join(random.choices(characters, k=4))
-        # to set redis
-        redis.set(
-            _redis_prefix(app, "REDIS_KEY_PREFIX_MAIL_CODE") + email,
-            random_string,
-            ex=app.config["MAIL_CODE_EXPIRE_TIME"],
+        challenge = _prepare_verification_challenge(
+            app,
+            email,
+            ip,
+            _EMAIL_CHALLENGE_POLICY,
+            _deliver_email,
         )
-
-        # Record the sending time of this time
-        redis.set(
-            email_limit_key, int(time.time()), ex=int(app.config["MAIL_CODE_INTERVAL"])
-        )
-
-        body = f"Your verification code is: {random_string}"
-        msg.attach(MIMEText(body, "plain"))
-
-        user_verify_code = create_and_commit_user_verify_code(
-            mail=email,
-            phone=None,
-            verify_code=random_string,
-            verify_code_type=2,  # 1: SMS, 2: Email
-            ip=ip,
-        )
-
-        try:
-            # Connect to the SMTP server
-            server = smtplib.SMTP(app.config["SMTP_SERVER"], app.config["SMTP_PORT"])
-            server.starttls()
-            server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
-
-            # Send the email
-            server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
-            server.quit()
-
-            app.logger.info(f"Verification code sent to {email}")
-            user_verify_code.verify_code_send = 1
-            db.session.commit()
-        except Exception as e:
-            app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
-            raise_error("server.user.emailSendFailed")
-        return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
+        return {"expire_in": challenge.expire_in}
 
 
-def create_and_commit_user_verify_code(
+def create_user_verify_code(
     mail: str | None,
     phone: str | None,
     verify_code: str,
     verify_code_type: int,
     ip: str | None,
-):
+) -> UserVerifyCode:
+    """Stage a verification-code record; the caller's unit of work commits it."""
     user_verify_code = UserVerifyCode(
         phone=phone or "",
         mail=mail or "",
@@ -341,25 +666,26 @@ def create_and_commit_user_verify_code(
         user_ip=ip or "",
     )
     db.session.add(user_verify_code)
-    db.session.commit()
+    db.session.flush()
     return user_verify_code
 
 
 def ensure_creator_demo_permissions_and_first_lesson(
     app: Flask, user_id: str, language: str
 ) -> bool:
-    """
-    Ensure that a user is marked as creator and has demo course permissions.
+    """Ensure that a user is marked as creator and has demo course permissions.
 
     The function name is kept for compatibility. First lesson draft creation
     is handled by course creation flows.
     """
+    del language
     creator_granted_now = mark_creator_role_if_needed(user_id)
     ensure_demo_course_permissions(app, user_id)
     return creator_granted_now
 
 
 def load_existing_demo_shifu_ids() -> set[str]:
+    """Return configured demo course identifiers that still exist."""
     configured_bids = {
         str(get_dynamic_config(key) or "").strip()
         for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID")
@@ -391,7 +717,7 @@ def load_existing_demo_shifu_ids() -> set[str]:
     return published_bids.union(draft_bids)
 
 
-def _is_empty_auth_type(raw_auth_type) -> bool:
+def _is_empty_auth_type(raw_auth_type: object) -> bool:
     text = str(raw_auth_type or "").strip()
     if not text:
         return True
@@ -451,8 +777,7 @@ def ensure_demo_course_permissions(
 def ensure_admin_creator_and_demo_permissions(
     app: Flask, user_id: str, language: str, login_context: str | None = None
 ) -> bool:
-    """
-    Ensure that an admin-login user is a creator and has demo course permissions.
+    """Ensure that an admin-login user is a creator and has demo course permissions.
 
     This helper is controlled by the ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO flag and
     is intended for demo/staging environments.

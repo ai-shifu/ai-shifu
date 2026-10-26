@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Migrate OSS domain names in the database.
+r"""Migrate OSS domain names in the database.
 
 Replaces occurrences of the old OSS base URL with a new one across all
 relevant tables and columns.
@@ -26,6 +25,7 @@ Notes:
     - DB credentials are masked in terminal output.
     - After running, remember to flush any application-layer / CDN caches that
       may still hold the old URLs.
+
 """
 
 import argparse
@@ -47,7 +47,7 @@ log = logging.getLogger(__name__)
 #   is_content=False -> column stores a bare URL
 # ---------------------------------------------------------------------------
 TARGETS: list[tuple[str, str, bool]] = [
-    # course outline content (MarkdownFlow – may embed multiple image URLs)
+    # course outline content (MarkdownFlow, may embed multiple image URLs)
     ("shifu_draft_outline_items", "content", True),
     ("shifu_published_outline_items", "content", True),
     # course resource references
@@ -77,6 +77,7 @@ def _mask_url(url: str) -> str:
 
 
 def get_db_url(args: argparse.Namespace) -> str:
+    """Return database URL."""
     if args.db_url:
         return args.db_url
     explicit = os.getenv("DATABASE_URL")
@@ -108,6 +109,7 @@ def migrate(
     db_url: str,
     batch_size: int,
 ) -> None:
+    """Replace legacy OSS domains in persisted content."""
     try:
         import sqlalchemy as sa
     except ImportError:
@@ -121,8 +123,12 @@ def migrate(
     with engine.begin() as conn:
         for table, column, is_content in TARGETS:
             # Whitelist check (defence-in-depth; values come from the constant above)
-            assert table in _ALLOWED_TABLES, f"Unknown table: {table!r}"
-            assert column in _ALLOWED_COLUMNS, f"Unknown column: {column!r}"
+            if table not in _ALLOWED_TABLES:
+                message = f"Unknown table: {table!r}"
+                raise ValueError(message)
+            if column not in _ALLOWED_COLUMNS:
+                message = f"Unknown column: {column!r}"
+                raise ValueError(message)
 
             # Check table exists in this deployment
             exists = conn.execute(
@@ -135,7 +141,8 @@ def migrate(
             count: int = (
                 conn.execute(
                     sa.text(
-                        f"SELECT COUNT(*) FROM `{table}` WHERE `{column}` LIKE :pat"
+                        # Identifiers come from the whitelisted TARGETS constant
+                        f"SELECT COUNT(*) FROM `{table}` WHERE `{column}` LIKE :pat"  # noqa: S608
                     ),
                     {"pat": pat},
                 ).scalar()
@@ -161,7 +168,8 @@ def migrate(
                 while True:
                     result = conn.execute(
                         sa.text(
-                            f"UPDATE `{table}` SET `{column}` = "
+                            # Identifiers come from the whitelisted TARGETS constant
+                            f"UPDATE `{table}` SET `{column}` = "  # noqa: S608
                             f"REPLACE(`{column}`, :old, :new) "
                             f"WHERE `{column}` LIKE :pat "
                             f"LIMIT :lim"
@@ -196,6 +204,7 @@ def migrate(
 
 
 def main() -> None:
+    """Migrate legacy OSS domains in persisted content."""
     parser = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,

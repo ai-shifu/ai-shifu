@@ -48,6 +48,10 @@ LANGUAGE_NAME_MAP = {
     "ar-SA": "العربية",  # Arabic (Saudi Arabia)
     "ar-AE": "العربية",  # Arabic (UAE)
     "ar": "العربية",
+    # Urdu
+    "ur-PK": "اردو",
+    "ur-IN": "اردو",
+    "ur": "اردو",
     # Hindi
     "hi-IN": "हिन्दी",
     "hi": "हिन्दी",
@@ -146,13 +150,13 @@ def resolve_markdownflow_output_language(language: str | None = None) -> str:
 
 
 def get_markdownflow_output_language() -> str:
-    """
-    Get the output language string for MarkdownFlow based on current user language.
+    """Get the output language string for MarkdownFlow based on current user language.
 
     Returns:
         str: The full language name for MarkdownFlow output in native form.
              Examples: "简体中文" for zh-CN, "English" for en-US,
              and "Français" for fr-FR.
              Defaults to "English" if language not found, otherwise returns the input.
+
     """
     return resolve_markdownflow_output_language()

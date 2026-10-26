@@ -6,10 +6,13 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, Optional, Sequence
-from flask import Flask
-from flaskr.common.umami_client import get_course_visit_count_30d
+from typing import TYPE_CHECKING
+
 from flaskr.dao import db
+from flaskr.service.common.models import (
+    raise_error,
+    raise_param_error,
+)
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
     ROLE_STUDENT,
@@ -18,10 +21,6 @@ from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
     LearnProgressRecord,
-)
-from flaskr.service.common.models import (
-    raise_error,
-    raise_param_error,
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
@@ -33,17 +32,9 @@ from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseDetailMetricsDTO,
     AdminOperationCoursePromptDTO,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDASK_VALUE,
-    UNIT_TYPE_VALUE_GUEST,
-    UNIT_TYPE_VALUE_NORMAL,
-    UNIT_TYPE_VALUE_TRIAL,
+from flaskr.service.shifu.admin_operations.courses_credit_estimate import (
+    build_operator_course_estimated_credit_cost,
 )
-from flaskr.service.shifu.models import (
-    DraftOutlineItem,
-    PublishedOutlineItem,
-)
-
 from flaskr.service.shifu.admin_operations.courses_credit_usage import (
     _build_operator_course_credit_metrics,
 )
@@ -54,15 +45,29 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _build_course_order_amount_expr,
     _format_average_score,
     _format_decimal,
-    _get_legacy_admin_symbol,
     _load_operator_course_detail_source,
     _load_operator_course_outline_items,
     _load_user_map,
     _resolve_visible_leaf_outline_bids,
 )
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDASK_VALUE,
+    UNIT_TYPE_VALUE_GUEST,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_TRIAL,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from flask import Flask
+    from flaskr.service.shifu.models import (
+        DraftOutlineItem,
+        PublishedOutlineItem,
+    )
 
 
-def _resolve_learning_permission(item_type: Optional[int]) -> str:
+def _resolve_learning_permission(item_type: int | None) -> str:
     if item_type == UNIT_TYPE_VALUE_GUEST:
         return "guest"
     if item_type == UNIT_TYPE_VALUE_TRIAL:
@@ -72,13 +77,13 @@ def _resolve_learning_permission(item_type: Optional[int]) -> str:
     return "unknown"
 
 
-def _resolve_content_status(item) -> str:
+def _resolve_content_status(item: object) -> str:
     if str(getattr(item, "content", "") or "").strip():
         return "has"
     return "empty"
 
 
-def _resolve_outline_prompt_source(item) -> str:
+def _resolve_outline_prompt_source(item: object) -> str:
     parent_bid = str(getattr(item, "parent_bid", "") or "").strip()
     if parent_bid:
         return PROMPT_SOURCE_LESSON
@@ -87,9 +92,9 @@ def _resolve_outline_prompt_source(item) -> str:
 
 def _resolve_prompt_with_fallback(
     *,
-    outline_item,
-    outline_item_map: Dict[str, DraftOutlineItem | PublishedOutlineItem],
-    course,
+    outline_item: object,
+    outline_item_map: dict[str, DraftOutlineItem | PublishedOutlineItem],
+    course: object,
     field_name: str,
 ) -> tuple[str, str]:
     current_item = outline_item
@@ -114,14 +119,14 @@ def _resolve_prompt_with_fallback(
 
 
 def _build_chapter_tree(
-    items,
-    user_map: Dict[str, Dict[str, str]],
+    items: object,
+    user_map: dict[str, dict[str, str]],
     *,
-    follow_up_count_map: Dict[str, int],
-    rating_count_map: Dict[str, int],
-    rating_score_map: Dict[str, str],
+    follow_up_count_map: dict[str, int],
+    rating_count_map: dict[str, int],
+    rating_score_map: dict[str, str],
 ) -> list[AdminOperationCourseDetailChapterDTO]:
-    node_map: Dict[str, AdminOperationCourseDetailChapterDTO] = {}
+    node_map: dict[str, AdminOperationCourseDetailChapterDTO] = {}
     ordered_nodes: list[AdminOperationCourseDetailChapterDTO] = []
     for item in items:
         bid = str(item.outline_item_bid or "").strip()
@@ -183,7 +188,7 @@ def _build_chapter_tree(
 def _load_outline_learning_stats(
     shifu_bid: str,
     outline_item_bids: Sequence[str],
-) -> tuple[Dict[str, int], Dict[str, int], Dict[str, str]]:
+) -> tuple[dict[str, int], dict[str, int], dict[str, str]]:
     normalized_outline_item_bids = [
         str(outline_item_bid or "").strip()
         for outline_item_bid in outline_item_bids
@@ -228,8 +233,8 @@ def _load_outline_learning_stats(
         .group_by(LearnLessonFeedback.outline_item_bid)
         .all()
     )
-    rating_count_map: Dict[str, int] = {}
-    rating_score_map: Dict[str, str] = {}
+    rating_count_map: dict[str, int] = {}
+    rating_score_map: dict[str, str] = {}
     for outline_item_bid, count, score in rating_rows:
         normalized_outline_item_bid = str(outline_item_bid or "").strip()
         if not normalized_outline_item_bid:
@@ -245,6 +250,7 @@ def get_operator_course_detail(
     *,
     shifu_bid: str,
 ) -> AdminOperationCourseDetailDTO:
+    """Return operator course detail."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -257,9 +263,6 @@ def get_operator_course_detail(
         course_status = detail_source["course_status"]
 
         creator_user_bid = str(course.created_user_bid or "").strip()
-        visit_count_30d = _get_legacy_admin_symbol(
-            "get_course_visit_count_30d", get_course_visit_count_30d
-        )(app, normalized_shifu_bid)
         learner_count = (
             db.session.query(db.func.count(db.distinct(LearnProgressRecord.user_bid)))
             .filter(
@@ -329,6 +332,12 @@ def get_operator_course_detail(
             normalized_shifu_bid,
             visible_leaf_outline_bids,
         )
+        estimated_credit_cost = build_operator_course_estimated_credit_cost(
+            app,
+            course=course,
+            outline_items=outline_items,
+            visible_leaf_outline_bids=visible_leaf_outline_bids,
+        )
 
         return AdminOperationCourseDetailDTO(
             basic_info=AdminOperationCourseDetailBasicInfoDTO(
@@ -343,7 +352,6 @@ def get_operator_course_detail(
                 updated_at=course.updated_at,
             ),
             metrics=AdminOperationCourseDetailMetricsDTO(
-                visit_count_30d=int(visit_count_30d),
                 learner_count=int(learner_count),
                 order_count=int(getattr(order_summary, "order_count", 0) or 0),
                 order_amount=_format_decimal(
@@ -359,6 +367,7 @@ def get_operator_course_detail(
                 ],
                 completed_user_avg_credits=credit_metrics["completed_user_avg_credits"],
             ),
+            estimated_credit_cost=estimated_credit_cost,
             chapters=_build_chapter_tree(
                 outline_items,
                 detail_user_map,
@@ -374,6 +383,7 @@ def get_operator_course_prompt(
     *,
     shifu_bid: str,
 ) -> AdminOperationCoursePromptDTO:
+    """Return operator course prompt."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -395,6 +405,7 @@ def get_operator_course_chapter_detail(
     shifu_bid: str,
     outline_item_bid: str,
 ) -> AdminOperationCourseChapterDetailDTO:
+    """Return operator course chapter detail."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_outline_item_bid = str(outline_item_bid or "").strip()

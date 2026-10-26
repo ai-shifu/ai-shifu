@@ -1,9 +1,14 @@
+"""Handle raw snapshots for legacy orders."""
+
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING
 
 from .models import AlipayOrder, PingxxOrder, StripeOrder, WechatPayOrder
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Query
 
 RAW_BIZ_DOMAIN_ORDER = "order"
 RAW_BIZ_DOMAIN_BILLING = "billing"
@@ -27,51 +32,60 @@ _NATIVE_PAYMENT_BID_ATTRS = {
 }
 
 
-def legacy_stripe_snapshot_query():
+def legacy_stripe_snapshot_query() -> Query:
+    """Return legacy stripe snapshot query."""
     return StripeOrder.query.filter(
         StripeOrder.deleted == 0,
         StripeOrder.biz_domain == RAW_BIZ_DOMAIN_ORDER,
     )
 
 
-def legacy_pingxx_snapshot_query():
+def legacy_pingxx_snapshot_query() -> Query:
+    """Return legacy pingxx snapshot query."""
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
         PingxxOrder.biz_domain == RAW_BIZ_DOMAIN_ORDER,
     )
 
 
-def billing_stripe_snapshot_query():
+def billing_stripe_snapshot_query() -> Query:
+    """Return billing stripe snapshot query."""
     return StripeOrder.query.filter(
         StripeOrder.deleted == 0,
         StripeOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
     )
 
 
-def billing_pingxx_snapshot_query():
+def billing_pingxx_snapshot_query() -> Query:
+    """Return billing pingxx snapshot query."""
     return PingxxOrder.query.filter(
         PingxxOrder.deleted == 0,
         PingxxOrder.biz_domain == RAW_BIZ_DOMAIN_BILLING,
     )
 
 
-def native_snapshot_model(payment_provider: str):
+def native_snapshot_model(payment_provider: str) -> type[AlipayOrder | WechatPayOrder]:
+    """Return native snapshot model."""
     provider = str(payment_provider or "").strip().lower()
     model = _NATIVE_PAYMENT_MODELS.get(provider)
     if model is None:
-        raise ValueError(f"Unsupported native payment provider: {payment_provider}")
+        message = f"Unsupported native payment provider: {payment_provider}"
+        raise ValueError(message)
     return model
 
 
 def native_snapshot_bid_attr(payment_provider: str) -> str:
+    """Return native snapshot BID attr."""
     provider = str(payment_provider or "").strip().lower()
     attr = _NATIVE_PAYMENT_BID_ATTRS.get(provider)
     if attr is None:
-        raise ValueError(f"Unsupported native payment provider: {payment_provider}")
+        message = f"Unsupported native payment provider: {payment_provider}"
+        raise ValueError(message)
     return attr
 
 
-def native_snapshot_query(payment_provider: str, biz_domain: str):
+def native_snapshot_query(payment_provider: str, biz_domain: str) -> Query:
+    """Return native snapshot query."""
     model = native_snapshot_model(payment_provider)
     return model.query.filter(
         model.deleted == 0,
@@ -79,11 +93,13 @@ def native_snapshot_query(payment_provider: str, biz_domain: str):
     )
 
 
-def legacy_native_snapshot_query(payment_provider: str):
+def legacy_native_snapshot_query(payment_provider: str) -> Query:
+    """Return legacy native snapshot query."""
     return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_ORDER)
 
 
-def billing_native_snapshot_query(payment_provider: str):
+def billing_native_snapshot_query(payment_provider: str) -> Query:
+    """Return billing native snapshot query."""
     return native_snapshot_query(payment_provider, RAW_BIZ_DOMAIN_BILLING)
 
 
@@ -104,11 +120,12 @@ def upsert_native_snapshot(
     shifu_bid: str = "",
     transaction_id: str = "",
     channel: str = "",
-    raw_request: Any | None = None,
-    raw_response: Any | None = None,
-    raw_notification: Any | None = None,
-    metadata: Any | None = None,
+    raw_request: object | None = None,
+    raw_response: object | None = None,
+    raw_notification: object | None = None,
+    metadata: object | None = None,
 ) -> AlipayOrder | WechatPayOrder:
+    """Create or update native snapshot."""
     model = native_snapshot_model(payment_provider)
     provider_bid_attr = native_snapshot_bid_attr(payment_provider)
     provider_bid_value = str(native_payment_order_bid or "").strip()
@@ -121,7 +138,8 @@ def upsert_native_snapshot(
         or order_bid_value
         or bill_order_bid_value
     ):
-        raise ValueError("Native payment snapshot requires a stable identifier")
+        message = "Native payment snapshot requires a stable identifier"
+        raise ValueError(message)
 
     query = model.query.filter(
         model.deleted == 0,
@@ -212,6 +230,7 @@ def should_update_native_snapshot_status(
     existing_status: int | None,
     incoming_status: int | None,
 ) -> bool:
+    """Return whether to update native snapshot status."""
     existing = int(existing_status or 0)
     incoming = int(incoming_status or 0)
     return _NATIVE_STATUS_PRECEDENCE.get(incoming, 0) >= _NATIVE_STATUS_PRECEDENCE.get(
@@ -226,15 +245,16 @@ def upsert_billing_stripe_snapshot(
     amount: int,
     currency: str,
     raw_status: int,
-    metadata: Any | None = None,
+    metadata: object | None = None,
     checkout_session_id: str = "",
-    checkout_object: Any | None = None,
+    checkout_object: object | None = None,
     payment_intent_id: str = "",
-    payment_object: Any | None = None,
+    payment_object: object | None = None,
     latest_charge_id: str = "",
     receipt_url: str = "",
     payment_method: str = "",
 ) -> StripeOrder:
+    """Create or update billing stripe snapshot."""
     snapshot = (
         billing_stripe_snapshot_query()
         .filter(StripeOrder.bill_order_bid == bill_order_bid)
@@ -314,15 +334,16 @@ def upsert_billing_pingxx_snapshot(
     currency: str,
     raw_status: int,
     charge_id: str = "",
-    charge_object: Any | None = None,
+    charge_object: object | None = None,
     transaction_no: str = "",
     app_id: str = "",
     channel: str = "",
     subject: str = "",
     body: str = "",
     client_ip: str = "",
-    extra: Any | None = None,
+    extra: object | None = None,
 ) -> PingxxOrder:
+    """Create or update billing pingxx snapshot."""
     snapshot = (
         billing_pingxx_snapshot_query()
         .filter(PingxxOrder.bill_order_bid == bill_order_bid)
@@ -392,7 +413,7 @@ def upsert_billing_pingxx_snapshot(
     return snapshot
 
 
-def _extract_object_id(payload: Any, *, prefix: str) -> str:
+def _extract_object_id(payload: object, *, prefix: str) -> str:
     if not isinstance(payload, dict):
         return ""
     value = str(payload.get("id") or "")
@@ -401,13 +422,13 @@ def _extract_object_id(payload: Any, *, prefix: str) -> str:
     return ""
 
 
-def _extract_order_no(payload: Any) -> str:
+def _extract_order_no(payload: object) -> str:
     if not isinstance(payload, dict):
         return ""
     return str(payload.get("order_no") or "")
 
 
-def _extract_pingxx_app_id(payload: Any) -> str:
+def _extract_pingxx_app_id(payload: object) -> str:
     if not isinstance(payload, dict):
         return ""
     value = payload.get("app")
@@ -416,13 +437,13 @@ def _extract_pingxx_app_id(payload: Any) -> str:
     return str(value or "")
 
 
-def _extract_object_value(payload: Any, key: str) -> str:
+def _extract_object_value(payload: object, key: str) -> str:
     if not isinstance(payload, dict):
         return ""
     return str(payload.get(key) or "")
 
 
-def _parse_json_payload(value: Any) -> Any:
+def _parse_json_payload(value: object) -> object:
     if not value:
         return {}
     if isinstance(value, (dict, list)):
@@ -435,7 +456,7 @@ def _parse_json_payload(value: Any) -> Any:
     return value
 
 
-def _stringify_payload(payload: Any) -> str:
+def _stringify_payload(payload: object) -> str:
     if not payload:
         return "{}"
     if hasattr(payload, "to_dict"):

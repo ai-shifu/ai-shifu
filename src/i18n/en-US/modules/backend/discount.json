@@ -2,12 +2,12 @@
   "__namespace__": "server.discount",
   "__flat__": {
     "couponCodeGenerationFailed": "Failed to generate coupon codes. Please try again later.",
-    "discountAlreadyExpired": "The voucher code is invalid.",
+    "discountAlreadyExpired": "The redemption code has expired.",
     "discountAlreadyUsed": "The voucher code has been used.",
     "discountLimitExceeded": "The voucher code limit exceeded.",
     "discountNotApply": "The voucher code does not apply to this course.",
     "discountNotFound": "The voucher code does not exist.",
-    "discountNotStart": "The voucher code has not started.",
-    "orderDiscountAlreadyUsed": "Order Already Used Discount"
+    "discountNotStart": "The redemption code is not active yet.",
+    "orderDiscountAlreadyUsed": "A redemption code has already been used for this order."
   }
 }

@@ -1,0 +1,3748 @@
+"""Cover one turn of a 2.0 lesson: what it asks the engine for, and what it writes when.
+
+The orderings are the point here. A turn that told the learner it finished before its session was
+written loses the answers on the next request, and memory that outlived a failed save describes a
+learner who never said it. Each of those is asserted by recording the order of the calls rather
+than by checking the end state, which looks identical either way.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from pydantic_ai.messages import ModelMessage
+
+import pytest
+from flaskr.service.learn.agent import run_agent
+from flaskr.service.learn.agent.session_store import StoredSessionUnusable
+from flaskr.service.learn.learn_dtos import GeneratedType, LearnStatus
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW
+from markdownflow.engine.events import (
+    ContentDelta,
+    ErrorEvent,
+    InteractionRequest,
+    MemoryUpdated,
+    ToolCall,
+    ToolResult,
+    TurnDone,
+)
+from markdownflow.engine.interaction import (
+    InteractionSpec,
+    Option,
+    answer_is_usable,
+    normalize_answer,
+)
+
+USER = "user-bid"
+SHIFU = "shifu-bid"
+OUTLINE = "outline-bid"
+PROGRESS = "progress-record-bid"
+SCRIPT = "# Lesson\n\nSome content."
+
+
+class _Session:
+    """Stands in for an engine session: only the fields the host reads."""
+
+    def __init__(self, *, started: bool = False, pending: list | None = None) -> None:
+        """Build a session, carrying the script bundle a real one holds."""
+        from markdownflow.engine.script import ScriptBundle
+
+        self.started = started
+        self.pending = pending or []
+        self.user_memory: dict = {}
+        self.turn = 0
+        self.finished = False
+        self.script = ScriptBundle(script=SCRIPT)
+        self.messages: list = []
+        self.memory: dict = {}
+        self.answer_hashes: dict = {}
+        self.answers: dict = {}
+        self.initial_variables: dict | None = None
+
+    def all_memory(self) -> dict:
+        """Expose the merged snapshot used by host-owned reference refresh."""
+        return {**self.user_memory, **self.memory}
+
+    def answered_memory_keys(self) -> frozenset[str]:
+        """Report no accepted interaction history in this host test double."""
+        return frozenset()
+
+    def to_dict(self) -> dict:
+        """Return the fields a checkpoint reads, the way a real session serializes them."""
+        return {
+            "memory": self.memory,
+            "pending": [repr(item) for item in self.pending],
+            "answers": self.answers,
+            "turn": self.turn,
+            "finished": self.finished,
+        }
+
+
+class _Record:
+    """Stands in for the locked progress record a turn writes under."""
+
+    def __init__(self) -> None:
+        self.status = 602
+
+
+class _Memory:
+    """Stands in for a memory snapshot: the host only projects it to variables."""
+
+    def __init__(self, variables: dict) -> None:
+        self._variables = variables
+
+    def as_variables(self) -> dict:
+        return dict(self._variables)
+
+
+class _Engine:
+    """Records the turn it was asked for and replays a fixed script of events."""
+
+    def __init__(self, events: list, session: _Session | None = None) -> None:
+        self._events = events
+        self._session = session or _Session()
+        self.turns: list = []
+        self.new_session_calls: list[dict] = []
+
+    async def new_session(self, script: str, **kwargs: object) -> _Session:
+        self.new_session_calls.append({"script": script, **kwargs})
+        return self._session
+
+    def run_turn(self, _session: _Session, turn: object = None) -> object:
+        self.turns.append(turn)
+
+        async def events() -> object:
+            for event in self._events:
+                yield event
+
+        return events()
+
+
+def _drive(make_events: object, **_kwargs: object) -> object:
+    """Run the async iterator to completion on this thread, standing in for the bridge."""
+    import asyncio
+
+    async def collect() -> list:
+        return [event async for event in make_events()]
+
+    return iter(asyncio.run(collect()))
+
+
+@pytest.fixture
+def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, object]]:
+    """Record every write the host makes, in order."""
+    recorded: list[tuple[str, object]] = []
+
+    def _stage(_app: object, _user: str, _shifu: str, update: object) -> bool:
+        recorded.append(("stage_memory", update))
+        return True
+
+    def _save(_app: object, _session: object, **kwargs: object) -> None:
+        stage = kwargs.pop("stage", None)
+        if stage is not None:
+            stage()
+        recorded.append(("save_session", kwargs))
+
+    def _record_content(**kwargs: object) -> None:
+        recorded.append(("record_content", kwargs))
+
+    monkeypatch.setattr(run_agent, "stage_memory", _stage)
+    monkeypatch.setattr(run_agent, "save_agent_session", _save)
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: None)
+    monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory({}))
+    monkeypatch.setattr(
+        run_agent, "course_memory_deletion_state", lambda *_a, **_k: ({}, frozenset())
+    )
+    monkeypatch.setattr(run_agent, "record_turn_content", _record_content)
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: (PROGRESS, None))
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: _Record())
+    monkeypatch.setattr(run_agent, "mark_lesson_finished", lambda _r: None)
+
+    def _resolve(_app: object, **kwargs: object) -> list:
+        recorded.append(("resolve_outline", kwargs))
+        return []
+
+    def _apply(_app: object, **kwargs: object) -> bool:
+        recorded.append(("apply_outline", kwargs))
+        return True
+
+    monkeypatch.setattr(run_agent, "resolve_outline_progression", _resolve)
+    monkeypatch.setattr(run_agent, "apply_outline_progression", _apply)
+    return recorded
+
+
+def _run(
+    engine: _Engine,
+    *,
+    user_input: str | None = None,
+    app: object = None,
+    listen: bool = False,
+    on_turn_opened: object = None,
+) -> list:
+    return list(
+        run_agent.run_agent_lesson(
+            app,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=user_input,
+            listen=listen,
+            iter_turn=_drive,
+            on_turn_opened=on_turn_opened,
+        )
+    )
+
+
+@pytest.mark.usefixtures("calls")
+def test_default_course_runner_uses_the_shared_application_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.api import markdownflow as application
+
+    driven: list[object] = []
+
+    def drive(make_events: object, **kwargs: object) -> object:
+        driven.append(make_events)
+        return _drive(make_events, **kwargs)
+
+    monkeypatch.setattr(application, "iter_turn", drive)
+    engine = _Engine([ContentDelta(text="Shared runtime."), TurnDone(reason="end")])
+    events = list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+        )
+    )
+    assert len(driven) == 1
+    assert engine.turns
+    assert "Shared runtime." in "".join(
+        str(event.content) for event in events if event.type == GeneratedType.CONTENT
+    )
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True])
+def test_a_first_turn_updates_the_catalog_before_teaching(
+    monkeypatch: pytest.MonkeyPatch, listen: bool
+) -> None:
+    """A newly started lesson exposes its retake action before any model content arrives."""
+    update = _outline_update(OUTLINE, LearnStatus.IN_PROGRESS)
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: (PROGRESS, update))
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    bound: list[tuple[str, str]] = []
+    engine = _Engine([ContentDelta(text="Teaching."), TurnDone(reason="end")])
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        listen=listen,
+        on_turn_opened=lambda *ids: bound.append(ids),
+        iter_turn=_drive,
+    )
+
+    first = next(stream)
+    assert first.type == GeneratedType.OUTLINE_ITEM_UPDATE
+    assert first.outline_bid == OUTLINE
+    assert first.generated_block_bid == ""
+    assert first.content.model_dump(mode="json") == {
+        "outline_bid": OUTLINE,
+        "title": OUTLINE,
+        "status": "in_progress",
+        "has_children": False,
+    }
+    assert bound[0][0] == PROGRESS
+    assert engine.turns == []
+    remaining = list(stream)
+    assert any(event.type == GeneratedType.CONTENT for event in remaining)
+    assert not any(
+        event.type == GeneratedType.OUTLINE_ITEM_UPDATE for event in remaining
+    )
+
+
+@pytest.mark.usefixtures("calls")
+def test_closing_after_the_catalog_update_retires_the_unstarted_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The new first event must remain inside the runner's disconnect cleanup."""
+    update = _outline_update(OUTLINE, LearnStatus.IN_PROGRESS)
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: (PROGRESS, update))
+    retired: list[dict] = []
+    monkeypatch.setattr(
+        run_agent, "_retire_block", lambda *_a, **kw: retired.append(kw)
+    )
+    engine = _Engine([TurnDone(reason="end")])
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    assert next(stream).type == GeneratedType.OUTLINE_ITEM_UPDATE
+    stream.close()
+
+    assert len(retired) == 1
+    assert retired[0]["generated_block_bid"]
+    assert engine.turns == []
+
+
+# --- what the turn is --------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("source", "scope"), [("interaction", "session"), ("tool", "user")]
+)
+@pytest.mark.parametrize("replaying", [True, False])
+def test_deleted_named_answer_requires_new_submission_not_regeneration(
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+    replaying: bool,
+    source: str,
+    scope: str,
+) -> None:
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    monkeypatch.setattr(
+        run_agent,
+        "course_memory_deletion_state",
+        lambda *_a, **_k: ({"goal": 1}, frozenset({"goal"})),
+    )
+    monkeypatch.setattr(run_agent, "stage_retirement", lambda *_a, **_k: None)
+    run_agent._persist(
+        None,
+        _Session(),
+        memory=[MemoryUpdated(key="goal", value="answer", source=source, scope=scope)],
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        preview_mode=False,
+        progress_record_bid=PROGRESS,
+        generated_block_bid="block",
+        taught="Lesson",
+        rewind=RewindPlan(checkpoint={}, replay_values=["old"] if replaying else None),
+        memory_generations={"goal": 1},
+    )
+    assert len([entry for entry in calls if entry[0] == "stage_memory"]) == int(
+        not replaying
+    )
+
+
+def test_a_learner_who_has_not_started_begins_the_lesson(
+    calls: list,
+) -> None:
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine)
+    assert engine.turns[0].type == "start"
+    assert calls  # the session was written
+
+
+def test_a_started_lesson_with_nothing_said_carries_on(calls: list) -> None:
+    engine = _Engine([TurnDone(reason="end")], session=_Session(started=True))
+    _run(engine)
+    assert engine.turns[0].type == "continue"
+    assert calls
+
+
+def test_a_finished_lesson_asked_for_a_turn_says_it_is_over_and_writes_nothing(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Opening a finished lesson used to write an empty block and an element on every visit.
+
+    The browser asks for a turn whenever a lesson's history ends on text, and a finished lesson's
+    does. Seen on the simulation environment, 2026-09-24: boundary lessons 3-2 and 3-3 gained an
+    empty block, an empty element and the outline's rows each time they were revisited.
+    """
+    finished = _Session(started=True)
+    finished.finished = True
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: finished)
+    opened: list = []
+    monkeypatch.setattr(
+        run_agent, "_open_turn", lambda *_a, **k: opened.append(k) or (PROGRESS, None)
+    )
+    engine = _Engine([TurnDone(reason="end")], session=finished)
+
+    events = _run(
+        engine, on_turn_opened=lambda *_ids: pytest.fail("opened a finished turn")
+    )
+
+    # Not even a terminal event: the stream closes the lesson's events itself, and one yielded
+    # here was written down as an element belonging to no block.
+    assert events == []
+    assert engine.turns == []
+    assert opened == []
+    assert calls == []
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize("resuming", [False, True])
+def test_usage_binding_precedes_session_creation_and_the_producer(
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    resuming: bool,
+) -> None:
+    """The first model request must already carry the host's opened IDs."""
+    session = _Session(started=resuming)
+    if resuming:
+        monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: session)
+    bound: list[tuple[str, str]] = []
+    opened: list[dict] = []
+    monkeypatch.setattr(
+        run_agent, "_open_turn", lambda *_a, **kw: opened.append(kw) or (PROGRESS, None)
+    )
+    monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-attempt")
+
+    class Engine(_Engine):
+        async def new_session(self, *args: object, **kwargs: object) -> _Session:
+            assert len(bound) == 1
+            return await super().new_session(*args, **kwargs)
+
+    def drive(make_events: object, **kwargs: object) -> object:
+        assert len(bound) == 1
+        return _drive(make_events, **kwargs)
+
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=Engine([TurnDone(reason="end")], session),
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=preview_mode,
+            on_turn_opened=lambda *ids: bound.append(ids),
+            iter_turn=drive,
+        )
+    )
+    assert bound[0][0] == ("preview-attempt" if preview_mode else PROGRESS)
+    if preview_mode:
+        assert opened == []
+    else:
+        assert bound[0][1] == opened[0]["generated_block_bid"]
+        assert (
+            next(kw for name, kw in calls if name == "record_content")[
+                "generated_block_bid"
+            ]
+            == bound[0][1]
+        )
+
+
+def test_usage_binding_failure_retires_the_reserved_block(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    retired: list[dict] = []
+    monkeypatch.setattr(
+        run_agent, "_retire_block", lambda *_a, **kw: retired.append(kw)
+    )
+    engine = _Engine([TurnDone(reason="end")])
+
+    def fail(*_ids: str) -> None:
+        message = "binding failed"
+        raise RuntimeError(message)
+
+    with pytest.raises(RuntimeError, match="binding failed"):
+        _run(engine, on_turn_opened=fail)
+    assert len(retired) == 1
+    assert engine.turns == []
+    assert calls == []
+
+
+def test_input_while_a_question_is_pending_is_read_as_its_answer(calls: list) -> None:
+    """That is what the learner was asked for, so it must not arrive as a side remark."""
+    engine = _Engine(
+        [TurnDone(reason="end")],
+        session=_Session(started=True, pending=[object()]),
+    )
+    _run(engine, user_input="B")
+    turn = engine.turns[0]
+    assert turn.type == "interaction.response"
+    assert turn.values == ["B"]
+    assert calls
+
+
+def test_input_with_no_question_pending_is_a_remark_to_react_to(calls: list) -> None:
+    engine = _Engine([TurnDone(reason="end")], session=_Session(started=True))
+    _run(engine, user_input="why?")
+    turn = engine.turns[0]
+    assert turn.type == "message"
+    assert turn.text == "why?"
+    assert calls
+
+
+def test_blank_input_still_answers_the_pending_question_with_nothing(
+    calls: list,
+) -> None:
+    """Blank input answers the pending question with nothing rather than skipping it.
+
+    The engine refuses every other turn type while one is pending, so a continue would end the turn
+    with an error and leave the question unasked. An empty answer is unusable, so the engine asks
+    it again -- which is what pressing send on an empty box should do.
+    """
+    engine = _Engine(
+        [TurnDone(reason="end")],
+        session=_Session(started=True, pending=[object()]),
+    )
+    _run(engine, user_input="   ")
+    turn = engine.turns[0]
+    assert turn.type == "interaction.response"
+    assert turn.values == []
+    assert calls
+
+
+def test_a_learner_who_says_something_on_the_first_turn_is_heard(calls: list) -> None:
+    """The engine joins a first-turn message to the opening prompt; a start turn drops it."""
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine, user_input="explain this simply")
+    turn = engine.turns[0]
+    assert turn.type == "message"
+    assert turn.text == "explain this simply"
+    assert calls
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_lesson_resumed_from_storage_is_not_started_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stored = _Session(started=True)
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine)
+    assert engine.new_session_calls == []
+    assert engine.turns[0].type == "continue"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_session_this_code_cannot_read_starts_the_lesson_over(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Comparing versions is only worth doing if an unreadable row leads somewhere."""
+
+    def _raise(*_a: object, **_k: object) -> None:
+        raise StoredSessionUnusable
+
+    monkeypatch.setattr(run_agent, "load_agent_session", _raise)
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine)
+    assert engine.new_session_calls
+    assert engine.turns[0].type == "start"
+
+
+# --- what reaches the learner ------------------------------------------------------------
+
+
+@pytest.mark.usefixtures("calls")
+def test_lesson_text_reaches_the_learner_as_content() -> None:
+    engine = _Engine([ContentDelta(text="hello"), TurnDone(reason="end")])
+    events = _run(engine)
+    assert [e.type for e in events] == [GeneratedType.CONTENT, GeneratedType.BREAK]
+    assert events[0].content == "hello"
+
+
+@pytest.mark.usefixtures("calls")
+def test_every_event_of_a_turn_shares_one_generated_block() -> None:
+    """Element rows and TTS audio hang off it, so a turn has to be one block to a learner."""
+    engine = _Engine(
+        [ContentDelta(text="a"), ContentDelta(text="b"), TurnDone(reason="finished")]
+    )
+    events = _run(engine)
+    assert len({e.generated_block_bid for e in events}) == 1
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_memory_write_does_not_reach_the_learner_as_an_event() -> None:
+    """It is a write, not something to render; 1.0 sends variable updates from its own path."""
+    engine = _Engine([MemoryUpdated(key="name", value="Ada"), TurnDone(reason="end")])
+    events = _run(engine)
+    assert [e.type for e in events] == [GeneratedType.BREAK]
+
+
+class _App:
+    """Only what this module touches on the app: somewhere to log a refused interaction.
+
+    The shared `app` fixture yields None when SKIP_APP_FIXTURE is set, and this path dereferences
+    `app.logger`, so the test would fail on the attribute rather than on the behaviour.
+    """
+
+    logger = logging.getLogger("test_run_agent")
+
+
+@pytest.mark.usefixtures("calls")
+def test_an_interaction_the_grammar_cannot_carry_does_not_stop_the_turn() -> None:
+    """The rest of the turn still stands; the learner loses the controls, not the lesson.
+
+    The delimiters are escapable now, so what is left are shapes the grammar cannot carry at
+    all: an option with a newline in it is read as far as the end of its first line.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="before"),
+            InteractionRequest(
+                id="i1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="pick",
+                    options=[Option(display="A\nB")],
+                    variable="v",
+                ),
+            ),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine, app=_App())
+    # The prompt joins the text and stands in for the controls; the text's block closes after it.
+    assert [e.type for e in events] == [
+        GeneratedType.CONTENT,
+        GeneratedType.CONTENT,
+        GeneratedType.BREAK,
+        GeneratedType.BREAK,
+    ]
+    assert [e.content for e in events[:2]] == ["before", "pick"]
+
+
+# --- when things are written -------------------------------------------------------------
+
+
+def test_the_session_is_written_before_the_turn_says_it_is_over(calls: list) -> None:
+    """Otherwise the learner is told a turn succeeded that the next request will not find."""
+    engine = _Engine([ContentDelta(text="a"), TurnDone(reason="finished")])
+    events = _run(engine)
+    assert [name for name, _ in calls] == ["record_content", "save_session"]
+    assert events[-1].type == GeneratedType.DONE
+
+
+def test_memory_is_staged_before_the_session_that_commits_it(calls: list) -> None:
+    """`stage_memory` does not commit; `save_agent_session` owns the transaction they share."""
+    engine = _Engine(
+        [
+            MemoryUpdated(key="name", value="Ada", scope="user"),
+            TurnDone(reason="finished"),
+        ]
+    )
+    _run(engine)
+    # The block is staged inside the session's own transaction, so a turn's elements can never
+    # reference a block that landed without the session they belong to.
+    assert [name for name, _ in calls] == [
+        "stage_memory",
+        "record_content",
+        "save_session",
+    ]
+
+
+def test_every_memory_write_of_a_turn_lands_in_one_patch(calls: list) -> None:
+    engine = _Engine(
+        [
+            MemoryUpdated(key="a", value="1", scope="user"),
+            MemoryUpdated(key="b", value="2", scope="user"),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+    (staged,) = [update for name, update in calls if name == "stage_memory"]
+    assert [(v.key, v.value) for v in staged.variables] == [("a", "1"), ("b", "2")]
+
+
+def test_a_memory_value_is_stored_as_text(calls: list) -> None:
+    """The variable writer takes strings; anything else has to be rendered as one."""
+    engine = _Engine(
+        [MemoryUpdated(key="n", value=42, scope="user"), TurnDone(reason="end")]
+    )
+    _run(engine)
+    (staged,) = [update for name, update in calls if name == "stage_memory"]
+    assert staged.variables[0].value == "42"
+
+
+def test_a_failed_turn_still_writes_what_it_produced(calls: list) -> None:
+    """The learner said it and the model heard it; losing that would replay a finished exchange."""
+    engine = _Engine(
+        [
+            MemoryUpdated(key="name", value="Ada", scope="user"),
+            ErrorEvent(message="boom"),
+        ]
+    )
+    events = _run(engine)
+    assert [name for name, _ in calls] == [
+        "stage_memory",
+        "record_content",
+        "save_session",
+    ]
+    assert events == []
+
+
+def test_the_session_is_written_for_the_lesson_the_learner_is_on(calls: list) -> None:
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine)
+    kwargs = next(kw for name, kw in calls if name == "save_session")
+    assert kwargs["user_bid"] == USER
+    assert kwargs["shifu_bid"] == SHIFU
+    assert kwargs["outline_item_bid"] == OUTLINE
+
+
+# --- what is worth keeping ---------------------------------------------------------------
+
+
+def test_only_what_outlives_the_session_is_written_to_the_profile(calls: list) -> None:
+    """`remember` defaults to session scope: a turn's working notes are not facts about a learner.
+
+    Writing them through the profile would leak into preview, Ask and follow-up prompts and
+    outlive the session that made sense of them.
+    """
+    engine = _Engine(
+        [
+            MemoryUpdated(key="current_exercise", value="fractions", scope="session"),
+            MemoryUpdated(key="pace", value="slow", scope="user"),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+    (staged,) = [update for name, update in calls if name == "stage_memory"]
+    assert [(v.key, v.value) for v in staged.variables] == [("pace", "slow")]
+
+
+def test_an_answer_to_a_scripted_question_is_written_to_the_profile(
+    calls: list,
+) -> None:
+    """A script collects `%{{purpose}}` in one lesson and uses `{{purpose}}` in the next.
+
+    1.0 writes every answer a question collects to the learner's profile, which is what a later
+    lesson reads. Kept only in the session, the answer never left the lesson that asked it: on
+    the general-education course the second lesson showed the learner "你的学习目标是 {{purpose}}"
+    word for word, and a later lesson asked for the purpose again.
+    """
+    engine = _Engine(
+        [
+            MemoryUpdated(key="purpose", value="还没想好", source="interaction"),
+            MemoryUpdated(key="current_exercise", value="fractions", scope="session"),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+    (staged,) = [update for name, update in calls if name == "stage_memory"]
+    assert [(v.key, v.value) for v in staged.variables] == [("purpose", "还没想好")]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_turn_that_only_notes_something_for_itself_writes_no_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded: list[str] = []
+    monkeypatch.setattr(
+        run_agent, "stage_memory", lambda *_a, **_k: recorded.append("staged")
+    )
+    engine = _Engine(
+        [
+            MemoryUpdated(key="note", value="x", scope="session"),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+    assert recorded == []
+
+
+def test_what_the_course_knows_about_the_learner_reaches_a_new_session(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """The engine has no memory store to read it for itself."""
+    monkeypatch.setattr(
+        run_agent, "load_memory", lambda *_a, **_k: _Memory({"pace": "slow"})
+    )
+    session = _Session()
+    engine = _Engine([TurnDone(reason="end")], session=session)
+    _run(engine)
+    assert session.user_memory == {"pace": "slow"}
+    assert calls
+
+
+def test_a_resumed_session_sees_a_profile_edited_since_it_was_saved(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """A stored session carries the snapshot taken when it was saved, which may be hours old."""
+    stored = _Session(started=True)
+    stored.user_memory = {"pace": "slow"}
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    monkeypatch.setattr(
+        run_agent, "load_memory", lambda *_a, **_k: _Memory({"pace": "fast"})
+    )
+    _run(_Engine([TurnDone(reason="end")], session=stored))
+    assert stored.user_memory == {"pace": "fast"}
+    assert calls
+
+
+@pytest.mark.parametrize("nickname", ["", "Alex"])
+def test_a_resumed_session_refreshes_a_cleared_or_updated_nickname(
+    monkeypatch: pytest.MonkeyPatch, calls: list, nickname: str
+) -> None:
+    """An old session snapshot cannot undo the canonical nickname or its blank fallback."""
+    from flask import Flask
+    from flaskr.i18n import load_translations
+
+    load_translations(Flask(__name__))
+    stored = _Session(started=True)
+    stored.user_memory = {"sys_user_nickname": "Previous name"}
+    snapshot = {"sys_user_nickname": nickname, "sys_user_language": "en-US"}
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory(snapshot))
+    _run(_Engine([TurnDone(reason="end")], session=stored))
+    assert stored.user_memory["sys_user_nickname"] == (nickname or "Learner")
+    assert snapshot["sys_user_nickname"] == nickname
+    assert not any(name == "stage_memory" for name, _ in calls)
+
+
+# --- what the browser actually sends -----------------------------------------------------
+#
+# Every lesson input arrives as a map: the study client normalises even a plain string to
+# `{"input": ["..."]}` before sending it, so a path that only accepts `str` receives nothing.
+
+
+@pytest.mark.parametrize(
+    ("sent", "expected"),
+    [
+        pytest.param(
+            {"input": ["hello"]}, ["hello"], id="free-text-as-the-client-sends-it"
+        ),
+        pytest.param({"feeling": ["Good"]}, ["Good"], id="a-named-answer"),
+        pytest.param(
+            {"topics": ["a", "b"]}, ["a", "b"], id="multi-select-keeps-every-choice"
+        ),
+        pytest.param({"input": []}, [], id="nothing-chosen"),
+        pytest.param({"input": ["   "]}, [], id="whitespace-is-not-an-answer"),
+        pytest.param({"a": "x"}, ["x"], id="an-unwrapped-value"),
+        pytest.param("plain", ["plain"], id="a-bare-string-still-works"),
+        pytest.param(None, [], id="nothing-sent"),
+        pytest.param(42, [], id="not-an-input-shape"),
+    ],
+)
+def test_the_values_a_learner_chose_survive_the_wire_format(
+    sent: object, expected: list[str]
+) -> None:
+    assert run_agent.learner_values(sent) == expected
+
+
+def test_a_selected_answer_reaches_the_pending_interaction(calls: list) -> None:
+    """A clicked choice arrives in the shape the browser sends."""
+    engine = _Engine(
+        [TurnDone(reason="end")],
+        session=_Session(started=True, pending=[object()]),
+    )
+    _run(engine, user_input={"feeling": ["Good"]})
+    turn = engine.turns[0]
+    assert turn.type == "interaction.response"
+    assert turn.values == ["Good"]
+    assert calls
+
+
+def test_every_choice_of_a_multi_select_reaches_the_engine(calls: list) -> None:
+    """Joining them into one string would leave the engine matching a value no option has."""
+    engine = _Engine(
+        [TurnDone(reason="end")],
+        session=_Session(started=True, pending=[object()]),
+    )
+    _run(engine, user_input={"topics": ["a", "b"]})
+    assert engine.turns[0].values == ["a", "b"]
+    assert calls
+
+
+# --- a lesson reset while the turn was running -------------------------------------------
+
+
+def test_a_turn_whose_lesson_was_reset_while_it_ran_writes_nothing(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """A first turn holds no session row, so the reset had nothing to clear.
+
+    Writing it afterwards would hand the learner back the conversation they had just cleared. The
+    check runs before anything is staged, because staged-and-abandoned memory would be committed
+    by whoever commits next.
+    """
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: None)
+    engine = _Engine(
+        [
+            MemoryUpdated(key="name", value="Ada", scope="user"),
+            TurnDone(reason="finished"),
+        ]
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    _run(engine, app=_App())
+
+    assert calls == []
+
+
+@pytest.mark.parametrize("reset", [False, True])
+def test_a_failed_turn_reports_whether_a_reset_discarded_it(
+    monkeypatch: pytest.MonkeyPatch, calls: list, reset: bool
+) -> None:
+    """The stream must not keep shown text from a turn whose save a reset rejected."""
+    if reset:
+        monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: None)
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    turn = run_agent.run_agent_lesson(
+        _App(),
+        engine=_Engine([ContentDelta(text="a"), ErrorEvent(message="boom")]),
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    outcome = None
+    while outcome is None:
+        try:
+            next(turn)
+        except StopIteration as done:
+            outcome = done.value
+    assert outcome.reason is None
+    assert outcome.discarded is reset
+    assert ([name for name, _ in calls].count("save_session") == 1) is not reset
+
+
+def test_the_block_a_turn_records_is_the_one_its_elements_reference(
+    calls: list,
+) -> None:
+    """A different identifier here would leave every element of the turn orphaned."""
+    engine = _Engine([ContentDelta(text="a"), TurnDone(reason="end")])
+    events = _run(engine)
+
+    staged = next(kw for name, kw in calls if name == "record_content")
+    assert staged["generated_block_bid"] == events[0].generated_block_bid
+
+
+# --- a turn is written once -------------------------------------------------------------
+
+
+def test_an_error_followed_by_a_proper_ending_writes_the_turn_once(
+    calls: list,
+) -> None:
+    """The engine does exactly this when a pending question gets a blank answer.
+
+    It emits a retryable error, re-asks the question, and ends the turn properly. Treating the
+    error as terminal would write the turn twice and stage its block twice under one identifier.
+    """
+    engine = _Engine(
+        [
+            ErrorEvent(message="needs an answer", retryable=True),
+            InteractionRequest(
+                id="i1",
+                spec=InteractionSpec(
+                    type="single", prompt="q", options=[Option(display="A")]
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    _run(engine)
+
+    assert [name for name, _ in calls].count("record_content") == 1
+    assert [name for name, _ in calls].count("save_session") == 1
+
+
+def test_a_turn_that_only_fails_is_still_written(calls: list) -> None:
+    """The engine returns after a bare error for failures it cannot continue past.
+
+    What the turn produced still has to land, or the learner replays an exchange that happened.
+    """
+    engine = _Engine([ErrorEvent(message="boom")])
+    _run(engine)
+
+    assert [name for name, _ in calls].count("save_session") == 1
+
+
+def test_a_finished_lesson_is_marked_where_progress_is_read(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """Progress comes from the record's status, not from the session's own flag."""
+    marked: list[object] = []
+    monkeypatch.setattr(run_agent, "mark_lesson_finished", marked.append)
+
+    session = _Session()
+    session.finished = True
+    engine = _Engine([TurnDone(reason="finished")], session=session)
+    _run(engine)
+
+    assert len(marked) == 1
+    assert calls
+
+
+def test_a_lesson_still_in_progress_is_not_marked_finished(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    marked: list[object] = []
+    monkeypatch.setattr(run_agent, "mark_lesson_finished", marked.append)
+
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine)
+
+    assert marked == []
+    assert calls
+
+
+# --- previewing writes no learner progress -----------------------------------------------
+
+
+def test_previewing_a_lesson_writes_no_progress_for_the_learner(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """The author is the same person as the learner, with the same lesson identifier.
+
+    A progress record, a block or a completion written here would show up as a lesson they took.
+    """
+    resolved: list[bool] = []
+    monkeypatch.setattr(
+        run_agent,
+        "_open_turn",
+        lambda *_a, **_k: resolved.append(True) or (PROGRESS, None),
+    )
+
+    session = _Session()
+    session.finished = True
+    engine = _Engine([ContentDelta(text="draft"), TurnDone(reason="finished")], session)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            iter_turn=_drive,
+        )
+    )
+
+    assert resolved == []
+    assert [name for name, _ in calls] == ["save_session"]
+
+
+def test_previewing_still_stores_its_own_session(calls: list) -> None:
+    """Otherwise the preview would restart from the top on every turn."""
+    engine = _Engine([TurnDone(reason="end")])
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            iter_turn=_drive,
+        )
+    )
+
+    kwargs = next(kw for name, kw in calls if name == "save_session")
+    assert kwargs["preview_mode"] is True
+
+
+def test_editor_debug_reuses_the_lesson_runner_without_durable_writes(
+    calls: list,
+) -> None:
+    class DebugStore:
+        def __init__(self) -> None:
+            self.saved: list[_Session] = []
+
+        def load(self, *, script: str) -> None:
+            assert script == SCRIPT
+
+        def save(self, session: _Session) -> None:
+            self.saved.append(session)
+
+    store = DebugStore()
+    session = _Session()
+    session.finished = True
+    engine = _Engine(
+        [ContentDelta(text="debug text"), TurnDone(reason="finished")], session
+    )
+    events = list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            debug_store=store,
+            preview_variables={"purpose": "test"},
+            iter_turn=_drive,
+        )
+    )
+
+    assert store.saved == [session]
+    assert session.user_memory == {"purpose": "test"}
+    assert calls == []
+    assert any(event.type == GeneratedType.CONTENT for event in events)
+
+
+def test_editor_debug_answer_resumes_its_pending_agent_interaction(
+    calls: list,
+) -> None:
+    class DebugStore:
+        def __init__(self, stored: _Session) -> None:
+            self.stored = stored
+            self.saved: list[_Session] = []
+
+        def load(self, *, script: str) -> _Session:
+            assert script == SCRIPT
+            return self.stored
+
+        def save(self, session: _Session) -> None:
+            self.saved.append(session)
+
+    pending = _Session(started=True, pending=[object()])
+    pending.user_memory = {"learned": "persisted"}
+    store = DebugStore(pending)
+    engine = _Engine([TurnDone(reason="interaction")])
+
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input={"answer": ["yes"]},
+            preview_mode=True,
+            debug_store=store,
+            preview_variables={"goal": "new"},
+            iter_turn=_drive,
+        )
+    )
+
+    assert engine.new_session_calls == []
+    assert engine.turns[0].type == "interaction.response"
+    assert engine.turns[0].values == ["yes"]
+    assert store.saved == [pending]
+    assert pending.user_memory == {"learned": "persisted", "goal": "new"}
+    assert calls == []
+
+
+# --- what the turn taught ----------------------------------------------------------------
+
+
+def test_the_block_records_what_the_turn_taught(calls: list) -> None:
+    """The 1.0 run reads this column for the assistant's side when it builds model context.
+
+    It does not fall back to the element rows, so a course moving back off the allowlist would
+    otherwise resume with its own questions answered by silence.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="Hello "),
+            ContentDelta(text="world."),
+            TurnDone(reason="end"),
+        ]
+    )
+    _run(engine)
+
+    staged = next(kw for name, kw in calls if name == "record_content")
+    assert staged["content"] == "Hello world."
+
+
+# --- a turn that dies before it finishes -------------------------------------------------
+
+
+def test_a_turn_that_fails_before_any_event_retires_its_block(
+    monkeypatch: pytest.MonkeyPatch, calls: list
+) -> None:
+    """The block is reserved before the turn streams, so a turn that dies leaves it behind.
+
+    An empty block is an empty assistant turn, which the 1.0 run would read as part of the
+    conversation if the course moved back off the allowlist.
+    """
+    retired: list[str] = []
+    monkeypatch.setattr(
+        run_agent,
+        "_retire_block",
+        lambda _app, **kwargs: retired.append(kwargs["generated_block_bid"]),
+    )
+
+    def _explodes(_make_events: object, **_kwargs: object) -> object:
+        message = "provider is down"
+        raise RuntimeError(message)
+
+    engine = _Engine([])
+    with pytest.raises(RuntimeError):
+        list(
+            run_agent.run_agent_lesson(
+                None,
+                engine=engine,
+                script=SCRIPT,
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_bid=OUTLINE,
+                iter_turn=_explodes,
+            )
+        )
+
+    assert len(retired) == 1
+    assert calls == []
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_learner_closing_the_page_retires_the_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A disconnect is the common case, so GeneratorExit has to reach the cleanup too."""
+    retired: list[str] = []
+    monkeypatch.setattr(
+        run_agent,
+        "_retire_block",
+        lambda _app, **kwargs: retired.append(kwargs["generated_block_bid"]),
+    )
+
+    engine = _Engine([ContentDelta(text="a"), TurnDone(reason="end")])
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    next(stream)
+    stream.close()
+
+    assert len(retired) == 1
+
+
+def test_a_preview_has_no_block_to_retire(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A preview reserves nothing, so there is nothing to clean up."""
+    retired: list[str] = []
+    monkeypatch.setattr(
+        run_agent, "_retire_block", lambda *_a, **_k: retired.append("called")
+    )
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: None)
+    monkeypatch.setattr(run_agent, "load_memory", lambda *_a, **_k: _Memory({}))
+
+    def _explodes(_make_events: object, **_kwargs: object) -> object:
+        message = "provider is down"
+        raise RuntimeError(message)
+
+    with pytest.raises(RuntimeError):
+        list(
+            run_agent.run_agent_lesson(
+                None,
+                engine=_Engine([]),
+                script=SCRIPT,
+                user_bid=USER,
+                shifu_bid=SHIFU,
+                outline_bid=OUTLINE,
+                preview_mode=True,
+                iter_turn=_explodes,
+            )
+        )
+
+    assert retired == []
+
+
+# --- listening is delivery, not a generation mode ------------------------------------------
+
+
+@pytest.mark.usefixtures("calls")
+def test_the_engine_is_never_put_into_its_own_listen_mode() -> None:
+    """The whole approach rests on this: the engine teaches, the host speaks.
+
+    Its listen mode keeps author-marked verbatim content only 64% of the time against 99% in
+    ordinary mode, and drops images the author marked to keep. A session also stores the flag, so
+    switching it on once would keep it on for every later read-mode turn.
+    """
+    engine = _Engine([TurnDone(reason="end")])
+    _run(engine, listen=True)
+
+    (call,) = engine.new_session_calls
+    assert call["listen_mode"] is False
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_lesson_whose_course_has_no_tts_is_taught_in_silence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A course with TTS switched off still teaches; the learner just hears nothing."""
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: None,
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine([ContentDelta(text="a"), TurnDone(reason="end")])
+    events = _run(engine, listen=True, app=_App())
+
+    assert [e.type for e in events] == [GeneratedType.CONTENT, GeneratedType.BREAK]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_sentence_is_shown_before_it_is_spoken(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Text first, then its audio -- the order the 1.0 lesson sends them in.
+
+    The browser treats a passage marked speakable with no audio yet as buffering and waits rather
+    than moving on. An audio event that arrives before the text it belongs to has no element to
+    attach to, so it is dropped; the text then arrives marked speakable and its audio never comes,
+    and the learner watches a spinner for the rest of the lesson.
+    """
+
+    class _Processor:
+        def process_chunk(self, text: str) -> list[str]:
+            return [f"audio:{text}"]
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine([ContentDelta(text="Hello."), TurnDone(reason="end")])
+    events = _run(engine, listen=True, app=_App())
+
+    kinds = [
+        "audio" if isinstance(e, str) else e.type.value if e.type else "?"
+        for e in events
+    ]
+    assert kinds.index(GeneratedType.CONTENT.value) < kinds.index("audio"), kinds
+
+
+@pytest.mark.usefixtures("calls")
+def test_audio_finished_while_the_lesson_wrote_on_is_collected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Synthesis runs behind the text, so finished segments have to be picked up as it goes.
+
+    `process_chunk` can only emit what is ready at the instant it is called. Segments that finish
+    afterwards sit in the processor until something drains them, and a lesson that only drained at
+    the end would leave the learner silent through the whole turn.
+    """
+    drained: list[int] = []
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            drained.append(1)
+            return [f"audio:ready-{len(drained)}"]
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [ContentDelta(text="a"), ContentDelta(text="b"), TurnDone(reason="end")]
+    )
+    events = _run(engine, listen=True, app=_App())
+
+    assert drained, "audio that finished between chunks was never collected"
+    assert "audio:ready-1" in [e for e in events if isinstance(e, str)]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_listening_lesson_is_sent_as_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Each page of a listening lesson is its own element, so its audio can be bound to it.
+
+    Audio binding keeps one page per element. A lesson sent as a single undivided element
+    therefore keeps only one page's audio and leaves every other page marked speakable with
+    nothing to play, which the browser waits on rather than skipping.
+    """
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [
+            ContentDelta(text="First page.\n\n"),
+            ContentDelta(text='<div class="card">shown</div>\n\n'),
+            ContentDelta(text="Second page."),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine, listen=True, app=_App())
+
+    pages = [
+        part[2]
+        for e in events
+        if not isinstance(e, str)
+        for part in (e.get_mdflow_stream_parts() or [])
+    ]
+    assert pages, "a listening lesson carried no page numbers at all"
+    assert len(set(pages)) > 1, f"the whole lesson landed on one page: {pages}"
+    assert pages == sorted(pages), f"pages went backwards: {pages}"
+
+    said = "".join(
+        str(e.content)
+        for e in events
+        if not isinstance(e, str) and e.type == GeneratedType.CONTENT
+    )
+    assert said == 'First page.\n\n<div class="card">shown</div>\n\nSecond page.'
+
+
+@pytest.mark.usefixtures("calls")
+def test_reading_and_classroom_receive_the_same_typed_pieces_as_listening(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The non-listening request must expose HTML without starting speech synthesis."""
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: pytest.fail("A non-listening lesson requested TTS"),
+    )
+    engine = _Engine(
+        [ContentDelta(text="a\n\n<div>b</div>\n\nc"), TurnDone(reason="end")]
+    )
+    events = _run(engine, listen=False)
+
+    parts = [
+        part
+        for e in events
+        if not isinstance(e, str)
+        for part in (e.get_mdflow_stream_parts() or [])
+    ]
+    # Transport chunks can split blank lines, but element identity and source agree.
+    grouped: dict[tuple[str, int], str] = {}
+    for content, kind, number in parts:
+        grouped[kind, number] = grouped.get((kind, number), "") + content
+    assert list(grouped.items()) == [
+        (("text", 0), "a\n\n"),
+        (("html", 1), "<div>b</div>\n\n"),
+        (("text", 2), "c"),
+    ]
+
+
+@pytest.mark.usefixtures("calls")
+def test_no_lesson_text_escapes_a_listening_turn_unpaged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every piece of text in a listening turn carries a page, whichever path produced it.
+
+    Paged and unpaged text cannot share a turn: the unpaged kind is gathered into one element
+    holding the whole lesson, which sits beside the paged ones marked speakable, is never
+    finalised, and is retired at the end without notifying the browser. The learner then waits on
+    audio for it forever. One unpaged line does it -- the prompt beside a question was exactly
+    that, and it is why this is asserted over the whole turn rather than per call site.
+    """
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [
+            ContentDelta(text="Teaching.\n\n"),
+            InteractionRequest(
+                id="i1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="Which of these do you agree with?",
+                    options=[Option(display="Yes"), Option(display="No")],
+                    variable="v",
+                ),
+            ),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine, listen=True, app=_App())
+
+    unpaged = [
+        str(e.content)[:60]
+        for e in events
+        if not isinstance(e, str)
+        and e.type == GeneratedType.CONTENT
+        and not e.get_mdflow_stream_parts()
+    ]
+    assert not unpaged, f"text left a listening turn without a page: {unpaged}"
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize(
+    "listen", [False, True], ids=["reading-classroom", "listening"]
+)
+@pytest.mark.parametrize("cut", [3, 8, 75])
+def test_tool_events_do_not_split_formatted_content(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    cut: int,
+) -> None:
+    """Tool events inside a tag or fence must not turn a visual into fallback text."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    lesson = (
+        '<div class="card">===Card===<script>const equal = a === b;</script></div>\n'
+        '```js\nconst sample = "===literal===";\n```'
+    )
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[:cut]),
+            ToolCall(id="t1", name="recall", args={}),
+            ToolResult(id="t1", name="recall", content={}),
+            ContentDelta(text=lesson[cut:]),
+            TurnDone(reason="end"),
+        ]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert "".join(text for text, _, _ in parts) == lesson
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    assert saved == lesson
+    assert [(kind, number) for _, kind, number in parts] == [
+        ("html", 0),
+        ("code", 1),
+        ("code", 1),
+        ("code", 1),
+    ]
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+def test_verbatim_markers_never_reach_the_learner(
+    monkeypatch: pytest.MonkeyPatch, listen: bool
+) -> None:
+    """The script's `===` markers come back in the engine's text; a 1.0 lesson never shows them.
+
+    They were rendered, spoken and subtitled. What they wrap is the lesson and is kept.
+    """
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [
+            ContentDelta(text="My goal: ==="),
+            ContentDelta(text="=help a million people=="),
+            ContentDelta(text="= and that is why.\n"),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine, listen=listen, app=_App())
+
+    said = "".join(
+        str(e.content)
+        for e in events
+        if not isinstance(e, str) and e.type == GeneratedType.CONTENT
+    )
+    assert "===" not in said
+    assert "help a million people" in said
+    assert said.startswith("My goal: help a million people and that is why.")
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("wrapper", ["", "===", "!===\n"])
+def test_html_script_operators_survive_delivery_and_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    wrapper: str,
+) -> None:
+    """An HTML element is opaque, including operators, attributes and visible markers."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = (
+        '<div data-value="===attribute===">===Visible===\r\n'
+        '<button id="nextBtn">Next</button>\r\n<script>\r\n'
+        "const isPick = (candidate === selected);\r\n"
+        'const sample = "?[literal]";\r\n'
+        'document.getElementById("nextBtn").onclick = () => isPick;\r\n'
+        "</script>\r\n</div>"
+    )
+    suffix = "\n!===" if wrapper == "!===\n" else wrapper
+    lesson = f"===Before===\n\n{wrapper}{visual}{suffix}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    events = _run(engine, listen=listen)
+    parts = [part for event in events for part in event.get_mdflow_stream_parts()]
+    delivered = "".join(text for text, _, _ in parts)
+    html = "".join(text for text, kind, _ in parts if kind == "html")
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    assert visual in html
+    assert saved == delivered == f"Before\n\n{visual}\n\nAfter"
+    assert not _interactions(events)
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    ("kind", "visual"),
+    [
+        ("svg", "<svg><text>===Visible===</text><script>a === b;</script></svg>"),
+        ("code", '```js\nconst sample = "?[literal]"; const equal = a === b;\n```'),
+        ("mermaid", "```mermaid\ngraph TD\nA[===label===] --> B\n```"),
+    ],
+)
+def test_other_opaque_elements_match_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    kind: str,
+    visual: str,
+) -> None:
+    """Every existing visual classification bypasses prose and interaction cleanup."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    lesson = f"===Before===\n{visual}\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    events = _run(engine, listen=listen)
+    parts = [part for event in events for part in event.get_mdflow_stream_parts()]
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    assert visual in "".join(
+        text for text, stream_type, _ in parts if stream_type == kind
+    )
+    assert saved == delivered == f"Before\n{visual}\nAfter"
+    assert not _interactions(events)
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunking", ["whole", "split", "characters"])
+def test_a_partial_marker_fence_inside_inline_code_survives_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunking: str,
+) -> None:
+    """A partial marker-fence lookalike cannot break a valid multiline code span."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    span = "``\n!=== =``"
+    lesson = f"===Before=== {span} ===After==="
+    chunks = {
+        "whole": [lesson],
+        "split": ["===Before=== ``\n!=== =", "`` ===After==="],
+        "characters": list(lesson),
+    }[chunking]
+    engine = _Engine(
+        [ContentDelta(text=chunk) for chunk in chunks] + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert f"Before {span} After" in content
+        assert "===Before===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("indent", ["\t", "    "], ids=["tab", "spaces"])
+def test_indented_marker_fences_are_removed_before_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    indent: str,
+) -> None:
+    """Authored marker fences keep priority over indentation in every learning mode."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = "<div><script>const equal = a === b;</script></div>"
+    lesson = f"{indent}!===\n===Lesson===\n{indent}!===\n{visual}\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert "Lesson" in content
+        assert visual in content
+        assert "!===" not in content
+        assert "===Lesson===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    "literal",
+    [
+        "<noscript><script>===Literal===</noscript>",
+        "<plaintext><script>===Literal===</script></plaintext>",
+    ],
+    ids=["noscript", "plaintext"],
+)
+def test_html_text_parents_keep_literal_tags_out_of_scripts_in_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    literal: str,
+) -> None:
+    """The learner browser's text parents must not activate nested script syntax."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = "<div><script>const equal = a === b;</script></div>"
+    lesson = f"===Before===\n\n{visual}\n\n{literal}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert visual in "".join(text for text, kind, _ in parts if kind == "html")
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert visual in content
+        assert literal.replace("===Literal===", "Literal") in content
+        for marker in ("===Before===", "===Literal===", "===After==="):
+            assert marker not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    ("namespace", "parent"),
+    [("svg", "textarea"), ("svg", "iframe"), ("math", "title")],
+    ids=["svg-textarea", "svg-iframe", "math-title"],
+)
+def test_foreign_text_parent_names_keep_real_child_scripts_in_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    namespace: str,
+    parent: str,
+) -> None:
+    """Foreign elements with HTML text-parent names still have real child tags."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = (
+        f"<div><{namespace}><{parent}><script>const equal = a === b;</script>"
+        '<style>.node::after { content: "==="; }</style>'
+        f"</{parent}></{namespace}></div>"
+    )
+    lesson = f"===Before===\n\n{visual}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    visual_kind = "svg" if namespace == "svg" else "html"
+    assert visual in "".join(text for text, kind, _ in parts if kind == visual_kind)
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert visual in content
+        assert "===Before===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize(
+    ("opening", "closing"),
+    [
+        ("<svg><div>", "</div></svg>"),
+        ("<math><p>", "</p></math>"),
+        ('<svg><font COLOR="red">', "</font></svg>"),
+        ("<svg></br>", "</svg>"),
+    ],
+    ids=["svg-div", "math-paragraph", "font-attribute", "closing-break"],
+)
+def test_foreign_html_breakouts_preserve_scripts_in_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    opening: str,
+    closing: str,
+) -> None:
+    """Browser recovery returns breakout children to HTML raw-text behavior."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = (
+        f"<div>{opening}<script/>const equal = a === b;</script>"
+        '<style/>.node::after { content: "==="; }</style>'
+        f"{closing}</div>"
+    )
+    lesson = f"===Before===\n\n{visual}\n\n===After==="
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    visual_kind = "svg" if "<svg>" in opening else "html"
+    assert visual in "".join(text for text, kind, _ in parts if kind == visual_kind)
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    for content in (delivered, saved):
+        assert visual in content
+        assert "===Before===" not in content
+        assert "===After===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("opening", ["``` `", "````lang`info"])
+def test_invalid_backtick_fence_info_cleans_prose_in_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    opening: str,
+) -> None:
+    """Invalid fence info stays prose while the following real fence keeps its code."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    visual = "<div><script>const choice = a === b;</script></div>"
+    lesson = (
+        f"===Before===\n\nUse `a === b`.\n\n{visual}\n\n{opening}\n===AfterInvalid===\n"
+        "```\nconst equal = a === b;\n```\n\n===After==="
+    )
+    expected = lesson
+    for label in ("Before", "AfterInvalid", "After"):
+        expected = expected.replace(f"==={label}===", label)
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert visual in "".join(text for text, kind, _ in parts if kind == "html")
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    assert expected in saved
+    for content in (delivered, saved):
+        assert visual in content
+        assert "`a === b`" in content
+        assert "const equal = a === b;" in content
+        for label in ("Before", "AfterInvalid", "After"):
+            assert f"==={label}===" not in content
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+def test_the_closing_sentence_comes_before_the_question_it_leads_to(
+    monkeypatch: pytest.MonkeyPatch, listen: bool
+) -> None:
+    """A lesson's last line usually has no newline after it, and the question follows it.
+
+    Held until the end of the turn, that line was sent after the question's controls, so the last
+    thing in the learner's history was text. The browser reads a history that does not end in a
+    question as a lesson to continue, and asked the engine to go on with nothing -- which re-asked
+    the question, and again on the next reload.
+    """
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor",
+        lambda *_a, **_k: _Processor(),
+    )
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine(
+        [
+            ContentDelta(text="Which of these do you agree with?"),
+            InteractionRequest(
+                id="i1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="",
+                    options=[Option(display="Yes"), Option(display="No")],
+                    variable="v",
+                ),
+            ),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = [
+        e for e in _run(engine, listen=listen, app=_App()) if not isinstance(e, str)
+    ]
+
+    kinds = [e.type for e in events]
+    assert GeneratedType.CONTENT in kinds
+    assert GeneratedType.INTERACTION in kinds
+    question = kinds.index(GeneratedType.INTERACTION)
+    assert question > max(
+        i for i, k in enumerate(kinds) if k == GeneratedType.CONTENT
+    ), "lesson text was sent after the question it leads to"
+    # The text's block is closed before the question, as a 1.0 lesson closes it: history is
+    # ordered by the moment of writing, and the question must be the last thing written.
+    assert GeneratedType.BREAK in kinds[:question]
+
+
+@pytest.mark.usefixtures("calls")
+def test_an_author_previewing_in_listening_mode_hears_the_lesson(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A preview gets an identifier for its audio, unwritten, as the 1.0 run's preview does.
+
+    The spoken track hangs each piece of audio off a progress record. A preview writes none, and
+    an empty identifier left the author listening to silence with nothing to show for it.
+    """
+    spoken: list[str] = []
+
+    class _Processor:
+        def process_chunk(self, text: str) -> list[str]:
+            spoken.append(text)
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    asked: dict = {}
+
+    def _factory(_app: object, **kwargs: object) -> object:
+        asked.update(kwargs)
+        return _Processor()
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor", _factory
+    )
+    monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-progress")
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine([ContentDelta(text="Teaching.\n"), TurnDone(reason="end")])
+    list(
+        run_agent.run_agent_lesson(
+            _App(),
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=True,
+            listen=True,
+            iter_turn=_drive,
+        )
+    )
+
+    assert spoken, "the preview was silent"
+    assert asked["progress_record_bid"] == "preview-progress"
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize(
+    ("preview_mode", "expected"),
+    [
+        pytest.param(True, BILL_USAGE_SCENE_PREVIEW, id="preview"),
+        pytest.param(False, None, id="learner"),
+    ],
+)
+def test_a_preview_s_audio_is_not_billed_as_a_lesson_taken(
+    monkeypatch: pytest.MonkeyPatch, preview_mode: bool, expected: object
+) -> None:
+    """An author previewing is not a learner taking the course.
+
+    Counting their listening as production overstates what the course cost to teach, in the
+    billing record and in every report drawn from it.
+    """
+    asked: dict = {}
+
+    class _Processor:
+        def process_chunk(self, _text: str) -> list[str]:
+            return []
+
+        def drain_ready_segments(self) -> list[str]:
+            return []
+
+        def finalize(self, *, commit: bool) -> list[str]:  # noqa: ARG002
+            return []
+
+    def _factory(_app: object, **kwargs: object) -> object:
+        asked.update(kwargs)
+        return _Processor()
+
+    monkeypatch.setattr(
+        "flaskr.service.learn.agent.listen.create_tts_processor", _factory
+    )
+    monkeypatch.setattr(run_agent, "generate_id", lambda _app: "preview-progress")
+    monkeypatch.setattr(run_agent, "_open_turn", lambda *_a, **_k: (PROGRESS, None))
+
+    class _App:
+        import logging
+
+        logger = logging.getLogger("test_run_agent")
+
+    engine = _Engine([ContentDelta(text="Teaching.\n"), TurnDone(reason="end")])
+    list(
+        run_agent.run_agent_lesson(
+            _App(),
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            preview_mode=preview_mode,
+            listen=True,
+            iter_turn=_drive,
+        )
+    )
+
+    assert asked["usage_scene"] == expected
+
+
+# --- a question asked twice ---------------------------------------------------------------
+
+
+def _contents(events: list) -> list[str]:
+    return [str(e.content) for e in events if e.type == GeneratedType.CONTENT]
+
+
+def _narration(events: list) -> str:
+    """Return the turn's lesson text as one string.
+
+    The stream is cut wherever the network cut it, and the filter that watches for a question
+    typed into the narration may hold a character back across one of those cuts, so which piece
+    a passage arrives in is not something to assert on. Consecutive pieces are written as one
+    element, so the learner sees it whole either way.
+    """
+    return "".join(_contents(events))
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_lesson_just_asked_is_not_asked_again() -> None:
+    """The model writes the question into the lesson and passes it to `interact` as well.
+
+    Both reached the learner, one after the other: the narration ended on the question and the
+    same sentence appeared again on its own line above the buttons.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="第一个问题：你会编程吗？"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="你会编程吗？",
+                    options=[Option(display="会", value="会")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["第一个问题：你会编程吗？"]
+    assert any(e.type == GeneratedType.INTERACTION for e in events)
+
+
+def _asked_after(narration: str, prompt: str) -> list[str]:
+    engine = _Engine(
+        [
+            ContentDelta(text=narration),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="text", prompt=prompt, placeholder="写下来", options=[]
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    return _contents(_run(engine))
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_just_asked_in_other_words_is_not_asked_again() -> None:
+    """The narration ends on the question; the prompt says it with a word or two changed.
+
+    General-education course (2026-09-24): the learner read the question the narration ended
+    on and, right under it, the prompt asking it again with three characters dropped -- the
+    same question twice, missed because the two were not character for character the same.
+    """
+    narration = (
+        "任何一项复杂工作，都能拆成一条工作流。\n\n"
+        "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。"
+    )
+    prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
+    assert "".join(_asked_after(narration, prompt)) == narration
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_different_question_after_the_narration_is_still_asked() -> None:
+    """Only a near copy of the question the narration ends on is dropped, not a related one."""
+    narration = "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。"
+    prompt = "这件事里，哪一步最适合交给 AI？"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_with_one_word_changed_is_still_asked() -> None:
+    """A changed word can turn the question around; dropped, its controls would sit under the wrong one.
+
+    Review of #2958: "largest" and "smallest" are alike by character, not by meaning.
+    """
+    narration = "我们看这组数：3、9、4。这组数里最大的数是哪一个？请从下面选。"
+    prompt = "这组数里最小的数是哪一个？请从下面选。"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_followed_by_a_short_aside_is_not_asked_again() -> None:
+    """The narration asks, adds a line of encouragement, and the prompt asks again."""
+    narration = "你平时主要在做哪一类事情？挑一件你觉得最费时间、最琐碎的说说。别担心，随便说说就行。"
+    prompt = "你平时主要在做哪一类事情？挑一件最费时间、最琐碎的说说。"
+    assert _asked_after(narration, prompt) == [narration]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_short_prompt_is_not_matched_loosely() -> None:
+    """A two-word prompt can resemble any ending; only an exact repeat of it is dropped."""
+    narration = "准备好了吗？我们继续。"
+    prompt = "准备好了？"
+    assert _asked_after(narration, prompt) == [narration, prompt]
+
+
+def test_the_model_s_copy_of_its_memory_never_reaches_the_learner(calls: list) -> None:
+    """A model wrote its memory note as text instead of calling `remember`, and it was shown.
+
+    Removed before anything shows, speaks or stores it: the block the turn records is what the
+    1.0 run reads back as the assistant's side, so leaving it there would show it again later.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="<memory>\n"),
+            ContentDelta(
+                text='{"key": "经验", "value": "完全没写过代码", "scope": "sess'
+            ),
+            ContentDelta(text='ion"}\n</memory>\n\n好，那我们用做菜来打比方。'),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine)
+
+    assert _narration(events) == "好，那我们用做菜来打比方。"
+    staged = next(kw for name, kw in calls if name == "record_content")
+    assert staged["content"] == "好，那我们用做菜来打比方。"
+
+
+def test_a_memory_block_interrupted_by_a_tool_call_is_still_removed(
+    calls: list,
+) -> None:
+    """A tool event between chunks is not the end of the text; the block is still open."""
+    engine = _Engine(
+        [
+            ContentDelta(text='<memory>\n{"key": "a"}\n'),
+            ToolCall(id="t1", name="remember", args={"key": "a", "value": "b"}),
+            ContentDelta(text="</memory>\n好，开始。"),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine)
+
+    assert _narration(events) == "好，开始。"
+    staged = next(kw for name, kw in calls if name == "record_content")
+    assert staged["content"] == "好，开始。"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_put_again_sends_its_controls_but_not_its_text_again() -> None:
+    """An unusable answer puts the same question again; its text is already on the screen.
+
+    Sent again, the question's text appeared as a second line under the first each time the
+    learner's answer was refused.
+    """
+    engine = _Engine(
+        [
+            ErrorEvent(message="interaction 'q1' needs an answer", retryable=True),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="multi",
+                    prompt="你读过哪些？",
+                    options=[Option(display="A"), Option(display="B")],
+                ),
+                asked_before=True,
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == []
+    assert any(e.type == GeneratedType.INTERACTION for e in events)
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_lesson_did_not_ask_still_reaches_the_learner() -> None:
+    """Often the prompt is the only place the model asks; suppressing it leaves nothing to answer."""
+    engine = _Engine(
+        [
+            ContentDelta(text="一人公司的第一课讲完了。"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="你会编程吗？",
+                    options=[Option(display="会", value="会")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["一人公司的第一课讲完了。", "你会编程吗？"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_the_same_words_earlier_in_the_turn_do_not_suppress_the_question() -> None:
+    """A repetition is what is dropped, not a phrase the lesson happened to use before.
+
+    The check looks only at the end of the narration: matching anywhere would silence a question
+    whose words the lesson used a paragraph ago, and the learner would face bare buttons.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="你会编程吗？这个问题我们稍后再谈。"),
+            ContentDelta(text="先说说我自己的经历，我做过很多年的研发工作，" * 6),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="你会编程吗？",
+                    options=[Option(display="会", value="会")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events)[-1] == "你会编程吗？"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_short_prompt_inside_a_longer_word_is_not_a_repetition() -> None:
+    """Matching characters is not matching what was said.
+
+    `rate` sits inside `separate`. Counted as a repetition, the lesson would drop the only place
+    it asks and leave the learner a set of controls with no question above them.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="We will separate the examples."),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="rate",
+                    options=[Option(display="good", value="good")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _contents(events) == ["We will separate the examples.", "rate"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_narration_ended_on_is_a_repetition_in_english_too() -> None:
+    """A space between words must not hide the repetition it separates."""
+    engine = _Engine(
+        [
+            ContentDelta(text="So, can you code?"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="can you code?",
+                    options=[Option(display="yes", value="yes")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _narration(events) == "So, can you code?"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_chinese_question_needs_no_space_before_it_to_count_as_repeated() -> None:
+    """Chinese does not separate words with spaces, so there is no boundary to require.
+
+    Demanding one refused the repetition on exactly the content it was reported on: a question
+    introduced by a phrase running straight into it, with no colon and no space between.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="第一个问题是你会编程吗？"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="你会编程吗？",
+                    options=[Option(display="会", value="会")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _contents(_run(engine)) == ["第一个问题是你会编程吗？"]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_window_opening_inside_a_word_does_not_invent_a_boundary() -> None:
+    """The character before a match decides it, and a slice would have thrown that character away.
+
+    The narration is sized so the window opens exactly at `rate`, inside `separate`. Handed only
+    the slice, the check sees nothing to the left of the match and calls it a word of its own, so
+    the only question in the turn is dropped and the learner is left with bare controls.
+    """
+    lead = "Intro separate "
+    # Place the window's first character on the `r` of `separate`.
+    padding = len("rate") + run_agent._ECHO_WINDOW_CHARS + lead.index("rate")
+    narration = lead + "x" * (padding - len(lead))
+    engine = _Engine(
+        [
+            ContentDelta(text=narration),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="rate",
+                    options=[Option(display="good", value="good")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _contents(_run(engine))[-1] == "rate"
+
+
+# --- telling the outline the lesson is over -----------------------------------------------
+
+
+class _LoggingApp:
+    """Just enough Flask for a path that only logs: the warning must not replace the failure."""
+
+    def __init__(self) -> None:
+        """Collect what was logged instead of writing it anywhere."""
+        self.warnings: list[str] = []
+        self.logger = self
+
+    def warning(self, message: str, *args: object, **_kwargs: object) -> None:
+        """Record a warning the way the app's logger would emit one."""
+        self.warnings.append(message % args if args else message)
+
+    def info(self, message: str, *args: object, **_kwargs: object) -> None:
+        """Swallow an informational line, which no test asserts on."""
+
+
+def _finished_engine() -> _Engine:
+    session = _Session()
+    session.finished = True
+    return _Engine([TurnDone(reason="finished")], session=session)
+
+
+def _outline_update(bid: str, status: object, *, has_children: bool = False) -> object:
+    from flaskr.service.learn.learn_dtos import OutlineItemUpdateDTO
+
+    return OutlineItemUpdateDTO(
+        outline_bid=bid, title=bid, status=status, has_children=has_children
+    )
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_finished_lesson_tells_the_outline_before_the_stream_ends(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The browser stops reading on the terminal event, so anything after it is never seen.
+
+    Sent at all, these are what ticks the lesson off, ends its chapter and hands the learner on;
+    without them a finished lesson still called itself unfinished and the page kept asking for
+    more of it.
+    """
+    from flaskr.service.learn.learn_dtos import LearnStatus
+
+    updates = [
+        _outline_update("outline-bid", LearnStatus.COMPLETED),
+        _outline_update("next-lesson", LearnStatus.IN_PROGRESS),
+    ]
+    monkeypatch.setattr(
+        run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
+    )
+    recorded: list[dict] = []
+
+    def _record(_app: object, **kwargs: object) -> str:
+        recorded.append(kwargs)
+        return "next-control"
+
+    monkeypatch.setattr(run_agent, "record_next_lesson_interaction", _record)
+    events = _run(_finished_engine())
+    types = [e.type for e in events]
+    assert types == [
+        GeneratedType.OUTLINE_ITEM_UPDATE,
+        GeneratedType.OUTLINE_ITEM_UPDATE,
+        GeneratedType.INTERACTION,
+        GeneratedType.DONE,
+    ]
+    assert [e.outline_bid for e in events[:2]] == ["outline-bid", "next-lesson"]
+    assert events[2].generated_block_bid == "next-control"
+    assert "_sys_next_chapter" in events[2].content
+    assert len(recorded) == 1
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_finished_lesson_records_what_it_changed_in_the_outline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A learner who comes back tomorrow is told by the database, not by the stream."""
+    from flaskr.service.learn.learn_dtos import LearnStatus
+
+    updates = [_outline_update("outline-bid", LearnStatus.COMPLETED)]
+    monkeypatch.setattr(
+        run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
+    )
+    applied: list[object] = []
+
+    def _apply(_app: object, **kwargs: object) -> bool:
+        applied.append((kwargs["outline_bid"], kwargs["updates"]))
+        return True
+
+    monkeypatch.setattr(run_agent, "apply_outline_progression", _apply)
+    _run(_finished_engine())
+    # The lesson that ended is named alongside the changes: its own record is only ever found,
+    # never created, so a reset landing in between cannot be undone by this write.
+    assert applied == [(OUTLINE, updates)]
+
+
+@pytest.mark.usefixtures("calls")
+def test_changes_the_database_refused_are_not_reported_to_the_browser(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A reset that landed after the turn committed leaves nothing to complete.
+
+    The browser stops reading on the terminal event and trusts what came before it; shown a
+    completion the database dropped, it would tick off the lesson the learner just asked to retake.
+    """
+    from flaskr.service.learn.learn_dtos import LearnStatus
+
+    updates = [
+        _outline_update("outline-bid", LearnStatus.COMPLETED),
+        _outline_update("next-lesson", LearnStatus.IN_PROGRESS),
+    ]
+    monkeypatch.setattr(
+        run_agent, "resolve_outline_progression", lambda *_a, **_k: updates
+    )
+    monkeypatch.setattr(
+        run_agent, "apply_outline_progression", lambda _app, **_k: False
+    )
+    events = _run(_finished_engine())
+    assert [e.type for e in events] == [GeneratedType.DONE]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_preview_does_not_move_the_author_through_their_own_course(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The author is looking at a lesson, not taking one."""
+    asked: list[object] = []
+    monkeypatch.setattr(
+        run_agent,
+        "resolve_outline_progression",
+        lambda *_a, **_k: asked.append(1) or [],
+    )
+    events = list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=_finished_engine(),
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            preview_mode=True,
+            iter_turn=_drive,
+        )
+    )
+    assert asked == []
+    assert [e.type for e in events] == [GeneratedType.DONE]
+
+
+_UNAVAILABLE = "outline unavailable"
+
+
+@pytest.mark.usefixtures("calls")
+def test_an_outline_that_cannot_be_read_does_not_cost_the_learner_the_lesson(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """They finished it and the turn is saved; a missing tick is the cheaper loss."""
+
+    def _boom(*_a: object, **_k: object) -> list:
+        raise RuntimeError(_UNAVAILABLE)
+
+    monkeypatch.setattr(run_agent, "resolve_outline_progression", _boom)
+    events = _run(_finished_engine(), app=_LoggingApp())
+    assert [e.type for e in events] == [GeneratedType.DONE]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_turn_a_reset_discarded_does_not_advance_the_outline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The learner asked to take the lesson again; the turn in flight must not undo that.
+
+    A reset clears the progress the turn started from, and the turn is dropped. Advancing the
+    outline anyway would write the completion straight back and carry the learner past the lesson
+    they had just asked to retake.
+    """
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: None)
+    asked: list[object] = []
+    monkeypatch.setattr(
+        run_agent,
+        "resolve_outline_progression",
+        lambda *_a, **_k: asked.append(1) or [],
+    )
+    events = _run(_finished_engine(), app=_LoggingApp())
+    assert asked == []
+    assert [e.type for e in events] == [GeneratedType.DONE]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_prompt_that_is_the_start_of_a_longer_word_is_not_a_repetition() -> None:
+    """`rate` at the start of `rated` is not the word `rate`; the character after decides too."""
+    engine = _Engine(
+        [
+            ContentDelta(text="Here is how the examples were rated."),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="rate",
+                    options=[Option(display="good", value="good")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _contents(_run(engine))[-1] == "rate"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_line_break_inside_the_question_does_not_hide_the_repetition() -> None:
+    """The narration wraps the question across two lines; the prompt has it on one."""
+    engine = _Engine(
+        [
+            ContentDelta(text="One last thing. Can you\ncode?"),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="Can you code?",
+                    options=[Option(display="yes", value="yes")],
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    assert _narration(_run(engine)) == "One last thing. Can you\ncode?"
+
+
+# --- a question the model typed instead of asking for one ----------------------------------
+
+
+def _interactions(events: list) -> list[str]:
+    return [str(e.content) for e in events if e.type == GeneratedType.INTERACTION]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_typed_into_the_narration_is_asked_as_a_question() -> None:
+    """The model writes the notation instead of calling the tool: 11 of 12 turns that carried it.
+
+    The browser renders any `?[...]` it finds in content, so the learner saw controls and could
+    press them -- but the turn ended on text, which is the host's signal to carry on, and the
+    lesson ran past its own question while the learner was still reading it.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="想清楚再选。?[A. 可复现 | B. 防电脑坏 | C. 形式主义]"),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine)
+    assert _narration(events) == "想清楚再选。"
+    assert _interactions(events) == ["?[A. 可复现 | B. 防电脑坏 | C. 形式主义]"]
+    # The last thing the browser is shown, so nothing reads the turn as one to carry on from.
+    # The boundary event after it is suppressed on the way out; it is what closes the block.
+    shown = [
+        e.type
+        for e in events
+        if e.type not in (GeneratedType.BREAK, GeneratedType.DONE)
+    ]
+    assert shown[-1] == GeneratedType.INTERACTION
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_typed_alongside_a_real_one_is_dropped() -> None:
+    """Writing it *and* calling the tool put two sets of controls up, the question between them.
+
+    The tool call is the question the engine is waiting on an answer to; the typed copy answers
+    to nothing.
+    """
+    engine = _Engine(
+        [
+            ContentDelta(text="先来一道。?[%{{对照组}}甲 | 乙]请选择一项："),
+            InteractionRequest(
+                id="q1",
+                spec=InteractionSpec(
+                    type="single",
+                    prompt="",
+                    options=[
+                        Option(display="甲", value="甲"),
+                        Option(display="乙", value="乙"),
+                    ],
+                    variable="对照组",
+                ),
+            ),
+            TurnDone(reason="interaction"),
+        ]
+    )
+    events = _run(engine)
+    assert _narration(events) == "先来一道。请选择一项："
+    assert len(_interactions(events)) == 1
+    assert "对照组" in _interactions(events)[0]
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_lesson_about_the_notation_may_show_the_notation() -> None:
+    """An escaped opener is text by the grammar's own rule, and a lesson may teach it."""
+    engine = _Engine(
+        [
+            ContentDelta(text="交互这样写：\\?[甲 | 乙]"),
+            TurnDone(reason="end"),
+        ]
+    )
+    events = _run(engine)
+    assert _narration(events) == "交互这样写：\\?[甲 | 乙]"
+    assert _interactions(events) == []
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_typed_on_the_way_out_is_not_put_to_the_learner() -> None:
+    """The engine refuses a turn on a finished session, so it could never be answered."""
+    session = _Session()
+    session.finished = True
+    engine = _Engine(
+        [
+            ContentDelta(text="就到这里。?[还想再看一遍吗 | 不用了]"),
+            TurnDone(reason="finished"),
+        ],
+        session=session,
+    )
+    events = _run(engine)
+    assert _interactions(events) == []
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_typed_before_a_failure_is_not_swallowed() -> None:
+    """A turn that dies has no boundary event, so nothing asks what the model typed.
+
+    Put back as text it is at least still there; removed and never sent, the learner would be
+    shown a failure with part of the lesson quietly missing from it.
+    """
+    engine = _Engine(
+        [ContentDelta(text="先想想。?[甲 | 乙]"), ErrorEvent(message="boom")]
+    )
+    assert "?[甲 | 乙]" in _narration(_run(engine))
+
+
+def test_a_link_is_not_a_question() -> None:
+    """`?[text](url)` is a link; the grammar's own pattern ends in a lookahead for the bracket."""
+    from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+
+    link = "想了解更多?[点这里](https://example.com)"
+    whole = InteractionSyntaxFilter()
+    assert whole.feed(link) + whole.flush() == link
+    assert whole.spans == []
+
+    # And when the stream is cut between the bracket and the parenthesis, which is the only way
+    # to reach the check that reads the character after a closed span.
+    piecewise = InteractionSyntaxFilter()
+    out = "".join(piecewise.feed(link[at : at + 3]) for at in range(0, len(link), 3))
+    assert out + piecewise.flush() == link
+    assert piecewise.spans == []
+
+
+def test_an_example_inside_a_code_block_is_not_a_question() -> None:
+    """A lesson about the notation shows it in a code block, and the grammar reads it as text."""
+    from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+
+    lesson = "写法如下：\n```\n?[甲 | 乙]\n```\n就这样。"
+    syntax = InteractionSyntaxFilter()
+    assert syntax.feed(lesson) + syntax.flush() == lesson
+    assert syntax.spans == []
+
+
+def _filtered(text: str) -> tuple[str, list[str]]:
+    """Push `text` through the filter whole and at every cut, requiring one answer.
+
+    Where the stream breaks is the network's business, so a filter that answers differently
+    depending on it is wrong however good each answer looks. Every split is checked, not a
+    sample: the cuts that matter fall inside the notation being recognised.
+    """
+    from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
+
+    answers = set()
+    for cut in range(len(text) + 1):
+        one = InteractionSyntaxFilter()
+        out = one.feed(text[:cut]) + one.feed(text[cut:]) + one.flush()
+        answers.add((out, tuple(one.spans)))
+    assert len(answers) == 1, f"{len(answers)} different answers for {text!r}"
+    out, spans = answers.pop()
+    return out, list(spans)
+
+
+def test_code_is_read_as_code_however_it_is_written() -> None:
+    """The browser renders a fenced or indented block as code, so a question there is not one."""
+    fenced = "写法：\n```\n?[甲 | 乙]\n```\n完。"
+    assert _filtered(fenced) == (fenced, [])
+
+    indented_fence = "  ```\n?[x]\n  ```\n后"
+    assert _filtered(indented_fence) == (indented_fence, [])
+
+    # Four spaces is a code block in its own right, with no fence around it.
+    assert _filtered("示例：\n    ?[y]\n后面?[甲|乙]") == (
+        "示例：\n    ?[y]\n后面",
+        ["?[甲|乙]"],
+    )
+
+
+def test_a_line_that_only_looks_like_a_fence_does_not_open_or_close_one() -> None:
+    """A block closes on a line of its own fence and nothing else; the rest is its contents."""
+    # Trailing text means this is code, not a closer, so what follows stays inside the block.
+    text = "```\n?[甲 | 乙]\n```not-a-close\n?[丙 | 丁]\n"
+    assert _filtered(text) == (text, [])
+
+    # Backticks partway along a line start nothing, so the question after them is a question.
+    assert _filtered("前缀```\n?[q]\n```") == ("前缀```\n\n```", ["?[q]"])
+
+
+@pytest.mark.usefixtures("calls")
+def test_the_author_s_brief_travels_with_the_script() -> None:
+    """Beside the script as author material, never in the engine's own rules.
+
+    The system prompt is the contract that makes the engine work -- call the tool, never
+    narrate, finish when done. Author text placed there carries the same authority, so a brief
+    saying "don't ask, just teach" would switch the tool protocol off. It is also the stable
+    prefix every turn of every lesson shares, and per-lesson text there costs the prefix cache.
+    """
+    seen: dict[str, object] = {}
+
+    class _Recorder(_Engine):
+        async def new_session(self, script: object, **kwargs: object) -> object:
+            seen["script"] = script
+            return await super().new_session(script, **kwargs)
+
+    engine = _Recorder([TurnDone(reason="end")])
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            teaching_brief="speak to a final-year student",
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            iter_turn=_drive,
+        )
+    )
+    bundle = seen["script"]
+    assert bundle.script == SCRIPT
+    assert bundle.constraints == "speak to a final-year student"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_lesson_with_no_brief_sends_none() -> None:
+    """An empty field is no instruction, not an empty one for the model to puzzle over."""
+    seen: dict[str, object] = {}
+
+    class _Recorder(_Engine):
+        async def new_session(self, script: object, **kwargs: object) -> object:
+            seen["script"] = script
+            return await super().new_session(script, **kwargs)
+
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=_Recorder([TurnDone(reason="end")]),
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            iter_turn=_drive,
+        )
+    )
+    assert seen["script"].constraints is None
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_resumed_lesson_sees_a_brief_written_since_it_was_saved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A stored session carries the snapshot taken when it was last saved.
+
+    A lesson already in progress when an author writes or edits a brief would otherwise never
+    see it, and one begun before briefs reached this engine would never see a brief at all.
+    """
+    stored = _Session(started=True)
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    engine = _Engine([TurnDone(reason="end")], session=stored)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            teaching_brief="speak to a final-year student",
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            iter_turn=_drive,
+        )
+    )
+    assert stored.script.constraints == "speak to a final-year student"
+    # The script itself is left alone: swapping it under a conversation already taught from it
+    # would leave the two disagreeing about what was said.
+    assert stored.script.script == SCRIPT
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_brief_an_author_deleted_stops_reaching_a_resumed_lesson(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Re-reading has to carry a removal too, or a cleared field would live on in the session."""
+    from markdownflow.engine.script import ScriptBundle
+
+    stored = _Session(started=True)
+    stored.script = ScriptBundle(script=SCRIPT, constraints="an old brief")
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: stored)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=_Engine([TurnDone(reason="end")], session=stored),
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=None,
+            listen=False,
+            iter_turn=_drive,
+        )
+    )
+    assert stored.script.constraints is None
+
+
+# --- going back to an earlier turn ----------------------------------------------------------
+
+
+def _waiting_session() -> object:
+    """Build a real session that has just asked "Which way?"."""
+    from markdownflow.engine.script import ScriptBundle
+    from markdownflow.engine.session import PendingInteraction, Session
+    from pydantic_ai.messages import (
+        ModelRequest,
+        ModelResponse,
+        TextPart,
+        UserPromptPart,
+    )
+
+    return Session(
+        script=ScriptBundle(script=SCRIPT),
+        messages=[
+            ModelRequest(parts=[UserPromptPart(content="start")]),
+            ModelResponse(parts=[TextPart(content="Pick one.")]),
+        ],
+        pending=[
+            PendingInteraction(
+                "q1",
+                InteractionSpec(
+                    type="single",
+                    prompt="Which way?",
+                    options=[Option(display="Left"), Option(display="Right")],
+                ),
+            )
+        ],
+        turn=1,
+    )
+
+
+def _rewind_run(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list,
+    *,
+    plan: object,
+    user_input: object = None,
+    stored: object = "session",
+) -> tuple[_Engine, object]:
+    from flaskr.service.learn.agent.rewind import checkpoint_of
+
+    session = _waiting_session()
+    if plan is not None and getattr(plan, "checkpoint", None) == "waiting":
+        plan.checkpoint = checkpoint_of(session)
+    # The lesson went on after the question: answered, taught further, finished.
+    from pydantic_ai.messages import ModelResponse, TextPart
+
+    session.messages.append(ModelResponse(parts=[TextPart(content="You went left.")]))
+    session.pending = []
+    session.turn = 3
+    session.finished = True
+    loaded = session if stored == "session" else None
+    monkeypatch.setattr(run_agent, "load_agent_session", lambda *_a, **_k: loaded)
+    monkeypatch.setattr(
+        run_agent,
+        "stage_retirement",
+        lambda plan, **_kw: calls.append(("stage_retirement", plan.retired_block_bids)),
+    )
+    engine = _Engine([TurnDone(reason="end")], session=session)
+    list(
+        run_agent.run_agent_lesson(
+            None,
+            engine=engine,
+            script=SCRIPT,
+            user_bid=USER,
+            shifu_bid=SHIFU,
+            outline_bid=OUTLINE,
+            user_input=user_input,
+            iter_turn=_drive,
+            rewind=plan,
+        )
+    )
+    return engine, session
+
+
+def test_answering_again_restores_the_question_and_sends_the_new_answer(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.agent.rewind import RewindPlan
+    from markdownflow.engine.engine import InteractionResponseTurn
+
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    engine, session = _rewind_run(
+        monkeypatch, calls, plan=plan, user_input={"way": ["Right"]}
+    )
+
+    # The engine was handed the lesson as it stood when the question was asked.
+    assert len(session.messages) == 2
+    assert [p.tool_call_id for p in session.pending] == ["q1"]
+    assert session.finished is False
+    assert isinstance(engine.turns[0], InteractionResponseTurn)
+    assert engine.turns[0].values == ["Right"]
+    # Written with the turn: the superseded rows retired.
+    assert ("stage_retirement", ["B2"]) in calls
+
+
+def test_going_back_does_not_reopen_a_completed_lesson(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The completion was earned; reopening only this lesson would leave its chapter ahead of it."""
+    from flaskr.service.learn.agent.rewind import RewindPlan
+
+    record = _Record()
+    record.status = 603  # LEARN_STATUS_COMPLETED
+    monkeypatch.setattr(run_agent, "claim_for_writing", lambda **_k: record)
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    _rewind_run(monkeypatch, calls, plan=plan, user_input={"way": ["Right"]})
+    assert record.status == 603
+
+
+def test_regenerating_runs_the_turn_again_with_the_input_it_had(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.agent.rewind import RewindPlan
+    from markdownflow.engine.engine import InteractionResponseTurn
+
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=["Left"], retired_block_bids=["B2"]
+    )
+    engine, _session = _rewind_run(monkeypatch, calls, plan=plan, user_input="")
+
+    assert isinstance(engine.turns[0], InteractionResponseTurn)
+    assert engine.turns[0].values == ["Left"]
+
+
+def test_going_back_without_a_stored_session_is_refused(
+    calls: list, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.learn.agent.rewind import RewindPlan, RewindUnavailableError
+
+    plan = RewindPlan(
+        checkpoint="waiting", replay_values=None, retired_block_bids=["B2"]
+    )
+    with pytest.raises(RewindUnavailableError):
+        _rewind_run(monkeypatch, calls, plan=plan, user_input="x", stored=None)
+    assert not [c for c in calls if c[0] in {"stage_retirement", "save_session"}]
+
+
+def test_every_turn_keeps_the_state_it_started_from_on_its_block(calls: list) -> None:
+    """Without it, the turn could never be gone back to."""
+    import json
+
+    engine = _Engine([ContentDelta(text="Hello."), TurnDone(reason="end")])
+    _run(engine, user_input="hi")
+
+    staged = next(kw for name, kw in calls if name == "record_content")
+    record = json.loads(staged["turn_record"])["agent_turn"]
+    assert record["values"] == ["hi"]
+    assert record["checkpoint"]["messages"] == 0
+
+
+# --- how the turn ended, for the caller -------------------------------------------------------
+
+
+def _outcome(engine: _Engine) -> run_agent.TurnOutcome | None:
+    """Drain a turn and return what it hands back, the way `yield from` would."""
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        iter_turn=_drive,
+    )
+    while True:
+        try:
+            next(stream)
+        except StopIteration as stop:
+            return stop.value
+
+
+def test_input_budget_error_is_reported_only_after_session_save(calls: list) -> None:
+    outcome = _outcome(
+        _Engine(
+            [ErrorEvent(message="input too large", code="input_budget_exceeded")],
+            session=_Session(started=True),
+        )
+    )
+    assert outcome.error_code == "input_budget_exceeded"
+    assert outcome.reason is None
+    assert any(name == "save_session" for name, _ in calls)
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_turn_reports_how_it_ended_and_whether_it_said_anything() -> None:
+    """What the entry point reads to decide whether the lesson goes on in this request."""
+    said = _outcome(
+        _Engine(
+            [ContentDelta(text="Part one.\n"), TurnDone(reason="end")],
+            session=_Session(started=True),
+        )
+    )
+    assert said == run_agent.TurnOutcome(reason="end", taught=True)
+
+    silent = _outcome(_Engine([TurnDone(reason="end")], session=_Session(started=True)))
+    assert silent == run_agent.TurnOutcome(reason="end", taught=False)
+
+    over = _outcome(
+        _Engine(
+            [ContentDelta(text="Bye.\n"), TurnDone(reason="finished")],
+            session=_Session(started=True),
+        )
+    )
+    assert over.reason == "finished"
+
+
+@pytest.mark.usefixtures("calls")
+def test_a_question_the_model_typed_is_reported_as_a_wait() -> None:
+    """The engine ended the turn out of content, but the learner has a question to answer.
+
+    The host shows the last `?[...]` the model wrote as a question; a caller reading the
+    engine's "end" would carry the lesson on past it before the learner could answer.
+    """
+    outcome = _outcome(
+        _Engine(
+            [
+                ContentDelta(text="Pick one.\n\n?[Left | Right]\n"),
+                TurnDone(reason="end"),
+            ],
+            session=_Session(started=True),
+        )
+    )
+    assert outcome.reason == "interaction"
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+def test_failed_native_teaching_is_saved_and_resumed_through_the_host(
+    app: object, calls: list, monkeypatch: pytest.MonkeyPatch, preview_mode: bool
+) -> None:
+    """Persist a real interrupted engine run before reloading it through the host."""
+    from flaskr.service.learn.agent import session_store
+    from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+    from markdownflow.engine import Engine
+    from pydantic_ai.messages import TextPart
+    from pydantic_ai.models.function import AgentInfo, FunctionModel
+
+    partial = (
+        "First identify the learner's problem. Then choose a single useful outcome."
+    )
+    requests = 0
+
+    async def stream(
+        messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str]:
+        """Raise after visible teaching, then require that teaching in the next request."""
+        nonlocal requests
+        requests += 1
+        if requests == 1:
+            yield partial
+            message = "injected provider failure"
+            raise RuntimeError(message)
+        assert partial in "".join(
+            part.content
+            for message in messages
+            for part in message.parts
+            if isinstance(part, TextPart)
+        )
+        yield "Next choose how to measure that outcome."
+
+    monkeypatch.setattr(
+        run_agent, "save_agent_session", session_store.save_agent_session
+    )
+    monkeypatch.setattr(
+        run_agent, "load_agent_session", session_store.load_agent_session
+    )
+
+    def run(revision: int) -> list:
+        """Construct a fresh engine as a later HTTP request would."""
+        return list(
+            run_agent.run_agent_lesson(
+                app,
+                engine=Engine(FunctionModel(stream_function=stream), render="none"),
+                script=SCRIPT,
+                content_revision=revision,
+                user_bid="interrupted-host-learner",
+                shifu_bid=SHIFU,
+                outline_bid="interrupted-host-lesson",
+                preview_mode=preview_mode,
+                iter_turn=_drive,
+            )
+        )
+
+    events = run(11)
+    saved = session_store.load_agent_session(
+        app,
+        "interrupted-host-learner",
+        "interrupted-host-lesson",
+        preview_mode=preview_mode,
+    )
+    with app.app_context():
+        assert (
+            LearnAgentSession.query.filter_by(
+                active_key=active_key_for(
+                    "interrupted-host-learner",
+                    "interrupted-host-lesson",
+                    preview_mode=preview_mode,
+                )
+            )
+            .one()
+            .content_revision
+            == 11
+        )
+    assert saved is not None
+    assert saved.interrupted
+    assert not saved.finished
+    assert (
+        "".join(
+            str(event.content)
+            for event in events
+            if event.type == GeneratedType.CONTENT
+        )
+        == partial
+    )
+    if not preview_mode:
+        assert (
+            next(kw for name, kw in calls if name == "record_content")["content"]
+            == partial
+        )
+    calls.clear()
+    events = run(12)
+    saved = session_store.load_agent_session(
+        app,
+        "interrupted-host-learner",
+        "interrupted-host-lesson",
+        preview_mode=preview_mode,
+    )
+    assert saved is not None
+    with app.app_context():
+        assert (
+            LearnAgentSession.query.filter_by(
+                active_key=active_key_for(
+                    "interrupted-host-learner",
+                    "interrupted-host-lesson",
+                    preview_mode=preview_mode,
+                )
+            )
+            .one()
+            .content_revision
+            == 11
+        )
+    assert not saved.interrupted
+    assert requests == 2
+    assert "".join(
+        str(event.content) for event in events if event.type == GeneratedType.CONTENT
+    ) == ("Next choose how to measure that outcome.")
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+def test_invalid_interaction_markup_stays_unfinished_and_recovers_after_reload(
+    app: object, calls: list, monkeypatch: pytest.MonkeyPatch, preview_mode: bool
+) -> None:
+    """A failed tool correction must not persist completion or advance the outline."""
+    import json
+
+    from flaskr.service.learn.agent import session_store
+    from markdownflow.engine import Engine
+    from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+    recover = False
+
+    async def stream(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        if not recover:
+            yield 'Answer this question.\n<interact type="text" placeholder="Your answer" />'
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(
+                        {
+                            "type": "text",
+                            "prompt": "Answer this question.",
+                            "placeholder": "Your answer",
+                        }
+                    ),
+                    tool_call_id="recovered-question",
+                )
+            }
+
+    monkeypatch.setattr(
+        run_agent, "save_agent_session", session_store.save_agent_session
+    )
+    monkeypatch.setattr(
+        run_agent, "load_agent_session", session_store.load_agent_session
+    )
+
+    def run() -> list:
+        return list(
+            run_agent.run_agent_lesson(
+                app,
+                engine=Engine(FunctionModel(stream_function=stream), render="none"),
+                script=SCRIPT,
+                user_bid="markup-host-learner",
+                shifu_bid=SHIFU,
+                outline_bid="markup-host-lesson",
+                preview_mode=preview_mode,
+                iter_turn=_drive,
+            )
+        )
+
+    events = run()
+    saved = session_store.load_agent_session(
+        app, "markup-host-learner", "markup-host-lesson", preview_mode=preview_mode
+    )
+    assert saved is not None
+    assert not saved.finished
+    assert not saved.pending
+    assert not any(name == "resolve_outline" for name, _ in calls)
+    assert "<interact" not in "".join(
+        str(e.content) for e in events if e.type == GeneratedType.CONTENT
+    )
+    recover = True
+    calls.clear()
+    events = run()
+    saved = session_store.load_agent_session(
+        app, "markup-host-learner", "markup-host-lesson", preview_mode=preview_mode
+    )
+    assert saved is not None
+    assert not saved.finished
+    assert len(saved.pending) == 1
+    assert saved.pending[0].spec.type == "text"
+    assert not any(name == "resolve_outline" for name, _ in calls)
+    assert any(e.type == GeneratedType.INTERACTION for e in events)
+
+
+@pytest.mark.parametrize("kind", ["single_or_text", "multi_or_text"])
+@pytest.mark.parametrize("sent", [{"input": [""]}, {"input": [" \t", "\n"]}, " "])
+def test_blank_browser_text_cannot_select_an_empty_valued_option(
+    kind: str, sent: str | dict
+) -> None:
+    question = InteractionSpec(
+        type=kind,
+        prompt="Choose or describe.",
+        options=[Option(display="Skip", value="")],
+    )
+    pending = _Session(started=True, pending=[object()])
+    turn = run_agent._turn_input(pending, run_agent.learner_values(sent))
+    assert turn.values == []
+    assert not answer_is_usable(question, normalize_answer(question, turn.answer()))
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize(
+    "span",
+    ["?[...]", "?[... ]", "?[%{{project}} ...]", "?[A//a | ...]", "?[A//a || ... ]"],
+)
+def test_narrated_text_question_without_a_hint_remains_writable(span: str) -> None:
+    from flaskr.i18n import _
+    from markdown_flow import InteractionParser
+
+    events = _run(
+        _Engine(
+            [ContentDelta(text="Describe your project." + span), TurnDone(reason="end")]
+        )
+    )
+    interaction = _interactions(events)[0]
+    original = InteractionParser().parse(span)
+    parsed = InteractionParser().parse(interaction)
+    assert parsed.pop("question") == _("server.learn.freeTextPlaceholder")
+    original.pop("question")
+    assert parsed == original
+    assert _narration(events) == "Describe your project."
+
+
+@pytest.mark.parametrize(
+    "span",
+    [
+        "?[Continue]",
+        "?[%{{project}} A//a | ...Your own answer]",
+        r"?[A\|B//a | ...Answer\]here]",
+        "?[A || B]",
+    ],
+)
+def test_narrated_controls_with_authored_hints_or_choices_stay_exact(span: str) -> None:
+    events = list(
+        run_agent._narrated_question(
+            span, voice=None, outline_bid="outline", generated_block_bid="block"
+        )
+    )
+    assert _interactions(events) == [span]
+
+
+@pytest.mark.parametrize("preview_mode", [False, True])
+@pytest.mark.parametrize("disconnect", [False, True])
+@pytest.mark.parametrize("prefix", [False, True])
+@pytest.mark.parametrize("filter_buffered", [False, True])
+def test_validated_direction_is_durable_before_first_visible_feedback(
+    app: object,
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+    preview_mode: bool,
+    disconnect: bool,
+    prefix: bool,
+    filter_buffered: bool,
+) -> None:
+    """Use the real bridge/store so a disconnect restores the correction, not its old input."""
+    import json
+
+    from flaskr.service.learn.agent import session_store
+    from markdownflow import bridge
+    from markdownflow.engine import Engine
+    from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+    rule = "First give one checking direction, one aspect per round."
+    criterion = "Require prior memory storage."
+    script = (
+        "# Lesson\n" + rule + "\n## Memory\nExplain memory preparation.\n"
+        "?[...Answer]\n### Acceptance\n" + criterion + "\n?[Next]\n"
+    )
+    wrong = "A program executes without prior memory storage."
+    question = "Where does the processor obtain its first instruction?"
+    rendered = "> " + wrong + "\n\n" + question
+    if filter_buffered:
+        rendered = "<memory>\n" + question
+    requests = 0
+    learner = f"direction-host-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
+    lesson = f"direction-lesson-{preview_mode}-{disconnect}-{prefix}-{filter_buffered}"
+    monkeypatch.setattr(bridge, "BUFFER_LIMIT", 1)
+    monkeypatch.setattr(
+        run_agent, "save_agent_session", session_store.save_agent_session
+    )
+    monkeypatch.setattr(
+        run_agent, "load_agent_session", session_store.load_agent_session
+    )
+
+    async def stream(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Return a validated direction, then accept the complete restored correction."""
+        nonlocal requests
+        requests += 1
+        args = {"type": "text", "prompt": "", "placeholder": "Answer"}
+        call_id = "original"
+        if requests == 2 and prefix:
+            yield "Review submitted evidence.\n\n"
+            yield {
+                0: DeltaToolCall(
+                    name="recall", json_args='{"key":"unused"}', tool_call_id="read"
+                )
+            }
+            return
+        if requests == (3 if prefix else 2):
+            args["direction"] = {
+                "answer_id": "original",
+                "rule_quote": rule,
+                "aspect_limit": 1,
+                "accepted_quotes": [],
+                "focuses": [
+                    {
+                        "criterion_quote": criterion,
+                        "submission_quote": None if filter_buffered else wrong,
+                        "observed_issue": "Your answer denies prior storage.",
+                        "guiding_question": ("<memory>\n" if filter_buffered else "")
+                        + question,
+                    }
+                ],
+            }
+            call_id = "correction"
+        elif requests == (4 if prefix else 3):
+            yield "Accepted."
+            args = {"type": "single", "prompt": "", "options": [{"display": "Next"}]}
+            call_id = "next"
+        yield {
+            0: DeltaToolCall(
+                name="interact", json_args=json.dumps(args), tool_call_id=call_id
+            )
+        }
+
+    def run(answer: str | None = None) -> object:
+        """Start a new production host request with its own model producer thread."""
+        return run_agent.run_agent_lesson(
+            app,
+            engine=Engine(
+                FunctionModel(stream_function=stream), render="none", memory_recall=True
+            ),
+            script=script,
+            user_bid=learner,
+            shifu_bid=SHIFU,
+            outline_bid=lesson,
+            user_input=answer,
+            preview_mode=preview_mode,
+        )
+
+    list(run())
+    calls.clear()
+    response = run(wrong)
+    for event in response:
+        if event.type == GeneratedType.CONTENT and (
+            question if filter_buffered else wrong
+        ) in str(event.content):
+            break
+    else:
+        pytest.fail("No visible validated feedback")
+    saved = session_store.load_agent_session(
+        app, learner, lesson, preview_mode=preview_mode
+    )
+    assert saved is not None
+    assert saved.pending[0].tool_call_id == "correction"
+    assert not saved.answers
+    assert not saved.finished
+    if not preview_mode:
+        assert (
+            next(kw for name, kw in calls if name == "record_content")["content"]
+            == ("Review submitted evidence.\n\n" if prefix else "") + rendered
+        )
+    if disconnect:
+        response.close()
+    else:
+        list(response)
+    restored = session_store.load_agent_session(
+        app, learner, lesson, preview_mode=preview_mode
+    )
+    assert restored is not None
+    assert restored.pending[0].tool_call_id == "correction"
+    if not preview_mode:
+        assert len([c for c in calls if c[0] == "record_content"]) == 1
+    list(run("Prepare the program in memory before automatic execution."))
+    accepted = session_store.load_agent_session(
+        app, learner, lesson, preview_mode=preview_mode
+    )
+    assert accepted is not None
+    assert accepted.pending[0].tool_call_id == "next"
+    assert requests == (4 if prefix else 3)
+
+
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("disconnect", [False, True], ids=["complete", "disconnect"])
+def test_prepared_html_feedback_is_saved_before_any_typed_content(
+    calls: list[tuple[str, object]],
+    monkeypatch: pytest.MonkeyPatch,
+    listen: bool,
+    chunk_size: int,
+    disconnect: bool,
+) -> None:
+    """Commit the full typed projection before even a buffered response starts displaying."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    monkeypatch.setattr(run_agent, "_retire_block", lambda *_a, **_k: None)
+    visual = (
+        "<div>\n<p>===Visual===</p>\n"
+        '<script>const question = "?[A|B]"; const equal = a === b;</script>\n'
+        "</div>"
+    )
+    lesson = "===Before===\n\n" + visual + "\n\n===After===" + "?"
+    expected = "Before\n\n" + visual + "\n\nAfter?"
+    engine = _Engine(
+        [ContentDelta(text="", prepared_content=lesson)]
+        + [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    stream = run_agent.run_agent_lesson(
+        None,
+        engine=engine,
+        script=SCRIPT,
+        user_bid=USER,
+        shifu_bid=SHIFU,
+        outline_bid=OUTLINE,
+        listen=listen,
+        iter_turn=_drive,
+    )
+    first = next(stream)
+    assert first.type == GeneratedType.CONTENT
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")
+    assert saved["content"] == expected
+    names = [name for name, _ in calls]
+    assert names.index("record_content") < names.index("save_session")
+    if disconnect:
+        stream.close()
+    else:
+        events = [first, *stream]
+        pieces = [
+            piece for event in events for piece in event.get_mdflow_stream_parts()
+        ]
+        assert "".join(content for content, _, _ in pieces) == expected
+        assert visual in "".join(
+            content for content, kind, _ in pieces if kind == "html"
+        )
+        assert not any(event.type == GeneratedType.INTERACTION for event in events)
+    assert len([name for name, _ in calls if name == "record_content"]) == 1
+
+
+@pytest.mark.usefixtures("calls")
+@pytest.mark.parametrize("listen", [False, True], ids=["reading", "listening"])
+@pytest.mark.parametrize("chunk_size", [1, 500], ids=["streamed", "whole"])
+@pytest.mark.parametrize("scheme", ["git+ssh", "example.v1"])
+@pytest.mark.parametrize("ending", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_native_uri_autolinks_keep_typed_delivery_and_history(
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[tuple[str, object]],
+    listen: bool,
+    chunk_size: int,
+    scheme: str,
+    ending: str,
+) -> None:
+    """Keep URI source beside prose and HTML in both delivery and saved history."""
+    monkeypatch.setattr(run_agent, "LessonVoice", lambda *_a, **_k: None)
+    autolink = f"<{scheme}://example/a===b?literal=!===>"
+    visual = "<div><script>const equal = a === b;</script></div>"
+    lesson = ending.join([f"===Before=== {autolink}", "", visual, "", "===After==="])
+    engine = _Engine(
+        [
+            ContentDelta(text=lesson[index : index + chunk_size])
+            for index in range(0, len(lesson), chunk_size)
+        ]
+        + [TurnDone(reason="end")]
+    )
+    parts = [
+        part
+        for event in _run(engine, listen=listen)
+        for part in event.get_mdflow_stream_parts()
+    ]
+    assert visual in "".join(text for text, kind, _ in parts if kind == "html")
+    delivered = "".join(text for text, _, _ in parts)
+    saved = next(kwargs for name, kwargs in calls if name == "record_content")[
+        "content"
+    ]
+    expected = lesson.replace("===Before===", "Before").replace("===After===", "After")
+    for content in (delivered, saved):
+        assert content == expected

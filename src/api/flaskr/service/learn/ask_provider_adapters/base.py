@@ -1,20 +1,22 @@
 """Base contracts and errors for ask provider adapters."""
 
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Any, Callable, Generator, Protocol
+from typing import Any, Protocol
 
 from flask import Flask
 
 
 @dataclass
 class AskProviderChunk:
+    """Represent one normalized chunk from an ask provider."""
+
     content: str
 
 
 @dataclass
 class AskProviderRuntime:
-    """
-    Runtime-only data injected by caller.
+    """Runtime-only data injected by caller.
 
     ``llm_stream_factory`` is used by the built-in LLM adapter.
     ``llm_context_stream_factory`` lets retrieval-style adapters synthesize a
@@ -35,7 +37,8 @@ class AskProviderError(Exception):
     description safe to surface in the UI; the raw message stays for logs.
     """
 
-    def __init__(self, message: str = "", user_message: str | None = None):
+    def __init__(self, message: str = "", user_message: str | None = None) -> None:
+        """Store the raw provider error and optional UI-safe message."""
         super().__init__(message)
         self.user_message = user_message
 
@@ -49,6 +52,8 @@ class AskProviderTimeoutError(AskProviderError):
 
 
 class AskProviderAdapter(Protocol):
+    """Define the streaming contract for ask-provider adapters."""
+
     provider: str
 
     def stream_answer(
@@ -56,7 +61,9 @@ class AskProviderAdapter(Protocol):
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
-    ) -> Generator[AskProviderChunk, None, None]: ...
+    ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
+        ...

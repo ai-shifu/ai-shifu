@@ -1,4 +1,4 @@
-"""add system profile
+"""add system profile.
 
 Revision ID: 6b603528dac8
 Revises: 185e37df3252
@@ -8,8 +8,8 @@ Create Date: 2025-11-05 16:06:29.428922
 
 import uuid
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "6b603528dac8"

@@ -6,21 +6,19 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-
-from flaskr.util.datetime import now_utc
 from decimal import Decimal
-from typing import Any, Dict, Optional, Sequence, Set
-from sqlalchemy import case, or_
+from typing import TYPE_CHECKING, Any
+
 from flaskr.dao import db
+from flaskr.service.common.models import (
+    raise_error,
+    raise_param_error,
+)
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
 )
 from flaskr.service.learn.models import (
     LearnProgressRecord,
-)
-from flaskr.service.common.models import (
-    raise_error,
-    raise_param_error,
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
@@ -28,21 +26,6 @@ from flaskr.service.shifu.admin_dtos_users import (
     AdminOperationUserCourseSummaryDTO,
     AdminOperationUserSummaryDTO,
 )
-from flaskr.service.shifu.models import (
-    AiCourseAuth,
-)
-from flaskr.service.user.consts import (
-    CREDENTIAL_STATE_VERIFIED,
-    USER_STATE_PAID,
-    USER_STATE_REGISTERED,
-    USER_STATE_TRAIL,
-)
-from flaskr.service.user.models import (
-    AuthCredential,
-    UserInfo as UserEntity,
-    UserToken,
-)
-
 from flaskr.service.shifu.admin_shared import (
     COURSE_USER_LEARNING_STATUS_COMPLETED,
     COURSE_USER_LEARNING_STATUS_LEARNING,
@@ -62,17 +45,42 @@ from flaskr.service.shifu.admin_shared import (
     OPERATOR_USER_ROLE_LEARNER,
     OPERATOR_USER_ROLE_OPERATOR,
     OPERATOR_USER_ROLE_REGULAR,
+    OPERATOR_USER_STATUS_CANCELLED,
     OPERATOR_USER_STATUS_UNKNOWN,
     OPERATOR_USER_SUPPORTED_LOGIN_METHOD_PROVIDERS,
     USER_STATE_TO_OPERATOR_STATUS,
     _format_decimal,
     _normalize_identifier,
 )
+from flaskr.service.shifu.models import (
+    AiCourseAuth,
+)
+from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_VERIFIED,
+    USER_STATE_PAID,
+    USER_STATE_REGISTERED,
+    USER_STATE_TRAIL,
+)
+from flaskr.service.user.models import (
+    AuthCredential,
+    UserToken,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
+from sqlalchemy import case, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from sqlalchemy.sql.elements import ColumnElement
+    from sqlalchemy.sql.selectable import Subquery
 
 
 def _load_course_user_contact_map(
     user_bids: Sequence[str],
-) -> Dict[str, Dict[str, str]]:
+) -> dict[str, dict[str, str]]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -90,7 +98,7 @@ def _load_course_user_contact_map(
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    contact_map: Dict[str, Dict[str, str]] = {
+    contact_map: dict[str, dict[str, str]] = {
         user_bid: {"mobile": "", "email": ""} for user_bid in normalized_user_bids
     }
     for credential in credential_rows:
@@ -133,7 +141,7 @@ def _load_course_user_contact_map(
     return contact_map
 
 
-def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
+def _load_user_map(user_bids: Sequence[str]) -> dict[str, dict[str, str]]:
     if not user_bids:
         return {}
 
@@ -146,8 +154,8 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    phone_map: Dict[str, str] = {}
-    email_map: Dict[str, str] = {}
+    phone_map: dict[str, str] = {}
+    email_map: dict[str, str] = {}
     for credential in credentials:
         user_bid = credential.user_bid or ""
         if not user_bid:
@@ -168,7 +176,7 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
         .order_by(UserEntity.id.asc())
         .all()
     )
-    user_map: Dict[str, Dict[str, str]] = {}
+    user_map: dict[str, dict[str, str]] = {}
     for user in users:
         mobile = phone_map.get(user.user_bid, "")
         email = email_map.get(user.user_bid, "")
@@ -188,7 +196,7 @@ def _load_user_map(user_bids: Sequence[str]) -> Dict[str, Dict[str, str]]:
 
 def _load_operator_user_last_login_map(
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -243,7 +251,7 @@ def _resolve_course_user_learning_status(
     return COURSE_USER_LEARNING_STATUS_NOT_STARTED
 
 
-def _build_course_order_amount_expr():
+def _build_course_order_amount_expr() -> ColumnElement[Any]:
     return case(
         (Order.paid_price > 0, Order.paid_price),
         (Order.payable_price > 0, Order.payable_price),
@@ -251,7 +259,7 @@ def _build_course_order_amount_expr():
     )
 
 
-def _find_matching_creator_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_creator_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None
@@ -306,7 +314,7 @@ def _resolve_operator_user_quick_filter(value: str) -> str:
 
 def _resolve_recent_days_window(
     days: int,
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> tuple[datetime, datetime]:
     safe_days = max(int(days or 0), 1)
     current = now or now_utc()
@@ -349,7 +357,7 @@ def _resolve_operator_user_role(
     )[0]
 
 
-def _build_learner_user_bid_subquery():
+def _build_learner_user_bid_subquery() -> Subquery:
     order_query = db.session.query(Order.user_bid.label("user_bid")).filter(
         Order.deleted == 0,
         Order.status == ORDER_STATUS_SUCCESS,
@@ -373,7 +381,7 @@ def _build_recent_learning_active_user_bid_subquery(
     *,
     since: datetime,
     until: datetime,
-):
+) -> Subquery:
     activity_at = db.func.coalesce(
         LearnProgressRecord.updated_at,
         LearnProgressRecord.created_at,
@@ -396,7 +404,7 @@ def _build_recent_paid_user_bid_subquery(
     *,
     since: datetime,
     until: datetime,
-):
+) -> Subquery:
     return (
         db.session.query(Order.user_bid.label("user_bid"))
         .filter(
@@ -411,7 +419,7 @@ def _build_recent_paid_user_bid_subquery(
     )
 
 
-def _build_registered_user_timestamp_subquery():
+def _build_registered_user_timestamp_subquery() -> Subquery:
     registered_states = [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
     credential_subquery = (
         db.session.query(
@@ -448,7 +456,7 @@ def _build_registered_user_timestamp_subquery():
     )
 
 
-def _load_learner_user_bids(user_bids: Optional[Sequence[str]] = None) -> Set[str]:
+def _load_learner_user_bids(user_bids: Sequence[str] | None = None) -> set[str]:
     learner_subquery = _build_learner_user_bid_subquery()
     query = db.session.query(learner_subquery.c.user_bid)
     normalized_user_bids = [
@@ -498,9 +506,9 @@ def _load_operator_user_auth_credentials(
 def _load_operator_user_registration_source_map(
     user_bids: Sequence[str],
     *,
-    users: Optional[Sequence[UserEntity]] = None,
-    credential_rows: Optional[Sequence[AuthCredential]] = None,
-) -> Dict[str, str]:
+    users: Sequence[UserEntity] | None = None,
+    credential_rows: Sequence[AuthCredential] | None = None,
+) -> dict[str, str]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -508,17 +516,15 @@ def _load_operator_user_registration_source_map(
         return {}
 
     resolved_credential_rows = sorted(
-        list(
-            credential_rows
-            if credential_rows is not None
-            else _load_operator_user_auth_credentials(normalized_user_bids)
-        ),
+        credential_rows
+        if credential_rows is not None
+        else _load_operator_user_auth_credentials(normalized_user_bids),
         key=lambda credential: (
-            getattr(credential, "created_at", None) or datetime.min,
+            getattr(credential, "created_at", None) or NAIVE_DATETIME_MIN,
             int(getattr(credential, "id", 0) or 0),
         ),
     )
-    registration_source_map: Dict[str, str] = {}
+    registration_source_map: dict[str, str] = {}
     for credential in resolved_credential_rows:
         user_bid = str(credential.user_bid or "").strip()
         if not user_bid or user_bid in registration_source_map:
@@ -562,7 +568,7 @@ def _load_operator_user_registration_source_map(
 
 def _load_operator_user_last_login_map(
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -590,7 +596,7 @@ def _load_operator_user_last_login_map(
 
 def _load_operator_user_total_paid_amount_map(
     user_bids: Sequence[str],
-) -> Dict[str, Decimal]:
+) -> dict[str, Decimal]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -622,7 +628,7 @@ def _load_operator_user_total_paid_amount_map(
 
 def _load_operator_user_last_learning_map(
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip() for user_bid in user_bids if user_bid
     ]
@@ -652,22 +658,20 @@ def _load_operator_user_last_learning_map(
 def _load_operator_user_contact_map(
     user_bids: Sequence[str],
     *,
-    users: Optional[Sequence[UserEntity]] = None,
-    credential_rows: Optional[Sequence[AuthCredential]] = None,
-) -> Dict[str, Dict[str, Any]]:
+    users: Sequence[UserEntity] | None = None,
+    credential_rows: Sequence[AuthCredential] | None = None,
+) -> dict[str, dict[str, object]]:
     if not user_bids:
         return {}
 
     resolved_credential_rows = sorted(
-        list(
-            credential_rows
-            if credential_rows is not None
-            else _load_operator_user_auth_credentials(user_bids)
-        ),
+        credential_rows
+        if credential_rows is not None
+        else _load_operator_user_auth_credentials(user_bids),
         key=lambda credential: int(getattr(credential, "id", 0) or 0),
         reverse=True,
     )
-    contact_map: Dict[str, Dict[str, Any]] = {
+    contact_map: dict[str, dict[str, Any]] = {
         user_bid: {"mobile": "", "email": "", "login_methods": []}
         for user_bid in user_bids
     }
@@ -727,7 +731,7 @@ def _load_operator_user_contact_map(
     return contact_map
 
 
-def _find_matching_user_bids_by_identifier(keyword: str) -> Optional[Set[str]]:
+def _find_matching_user_bids_by_identifier(keyword: str) -> set[str] | None:
     normalized = str(keyword or "").strip()
     if not normalized:
         return None
@@ -756,22 +760,21 @@ def _find_matching_user_bids_by_identifier(keyword: str) -> Optional[Set[str]]:
 
 def _build_operator_user_summary(
     user: UserEntity,
-    contact_map: Dict[str, Dict[str, Any]],
-    learner_user_bids: Set[str],
-    registration_source_map: Dict[str, str],
-    last_login_map: Dict[str, datetime],
-    total_paid_amount_map: Dict[str, Decimal],
-    last_learning_map: Dict[str, datetime],
-    credit_summary_map: Dict[str, Dict[str, Any]],
+    contact_map: dict[str, dict[str, object]],
+    learner_user_bids: set[str],
+    registration_source_map: dict[str, str],
+    last_login_map: dict[str, datetime],
+    total_paid_amount_map: dict[str, Decimal],
+    last_learning_map: dict[str, datetime],
+    credit_summary_map: dict[str, dict[str, object]],
     *,
-    learning_courses_map: Optional[
-        Dict[str, list[AdminOperationUserCourseSummaryDTO]]
-    ] = None,
-    created_courses_map: Optional[
-        Dict[str, list[AdminOperationUserCourseSummaryDTO]]
-    ] = None,
-    learning_course_count_map: Optional[Dict[str, int]] = None,
-    created_course_count_map: Optional[Dict[str, int]] = None,
+    learning_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]]
+    | None = None,
+    created_courses_map: dict[str, list[AdminOperationUserCourseSummaryDTO]]
+    | None = None,
+    learning_course_count_map: dict[str, int] | None = None,
+    created_course_count_map: dict[str, int] | None = None,
+    cancellation_map: dict[str, dict[str, object]] | None = None,
 ) -> AdminOperationUserSummaryDTO:
     user_bid = str(user.user_bid or "").strip()
     contact = contact_map.get(user.user_bid or "", {})
@@ -780,12 +783,17 @@ def _build_operator_user_summary(
     has_credit_account = bool(user.is_creator) or credit_summary is not None
     learning_courses = list((learning_courses_map or {}).get(user_bid, []) or [])
     created_courses = list((created_courses_map or {}).get(user_bid, []) or [])
+    cancellation = (cancellation_map or {}).get(user_bid, {})
     return AdminOperationUserSummaryDTO(
         user_bid=user_bid,
         mobile=str(contact.get("mobile", "") or ""),
         email=str(contact.get("email", "") or ""),
         nickname=user.nickname or "",
-        user_status=_resolve_operator_user_status(user.state),
+        user_status=(
+            OPERATOR_USER_STATUS_CANCELLED
+            if bool(user.deleted)
+            else _resolve_operator_user_status(user.state)
+        ),
         user_role=_resolve_operator_user_role(
             is_creator=bool(user.is_creator),
             is_operator=bool(user.is_operator),
@@ -852,22 +860,29 @@ def _build_operator_user_summary(
         last_learning_at=last_learning_map.get(user_bid),
         created_at=user.created_at,
         updated_at=user.updated_at,
+        cancelled_at=user.cancelled_at,
+        cancellation_reason=str(cancellation.get("reason", "") or ""),
+        cancellation_operator_user_bid=str(
+            cancellation.get("operator_user_bid", "") or ""
+        ),
+        cancellation_operator_mobile=str(cancellation.get("operator_mobile", "") or ""),
+        cancellation_operator_nickname=str(
+            cancellation.get("operator_nickname", "") or ""
+        ),
     )
 
 
-def _load_operator_user_or_raise(user_bid: str) -> UserEntity:
+def _load_operator_user_or_raise(
+    user_bid: str, *, include_cancelled: bool = False
+) -> UserEntity:
     normalized_user_bid = str(user_bid or "").strip()
     if not normalized_user_bid:
         raise_param_error("user_bid is required")
 
-    user = (
-        UserEntity.query.filter(
-            UserEntity.user_bid == normalized_user_bid,
-            UserEntity.deleted == 0,
-        )
-        .order_by(UserEntity.id.desc())
-        .first()
-    )
+    query = UserEntity.query.filter(UserEntity.user_bid == normalized_user_bid)
+    if not include_cancelled:
+        query = query.filter(UserEntity.deleted == 0)
+    user = query.order_by(UserEntity.id.desc()).first()
     if user is None:
         raise_error("server.user.userNotFound")
     return user

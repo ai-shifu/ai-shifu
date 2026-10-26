@@ -1,24 +1,11 @@
+"""Verify generated block TTS AV mode behavior."""
+
 from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
-
-if dao.db is None:
-    _test_app = Flask("test-generated-block-tts-av-mode")
-    _test_app.config.update(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
-
-if not hasattr(dao, "redis_client"):
-    dao.redis_client = None
+from flaskr import dao
 
 
 @dataclass
@@ -37,11 +24,11 @@ class _FakeAudioSettings:
 
 
 def _patch_run_tts_processor(
-    monkeypatch,
+    monkeypatch: object,
     *,
     voice_settings: _FakeVoiceSettings | None = None,
     tts_model: str = "test-model",
-):
+) -> object:
     synthesized_texts = []
     resolved_voice_settings = voice_settings or _FakeVoiceSettings()
 
@@ -67,10 +54,10 @@ def _patch_run_tts_processor(
         lambda _provider: False,
     )
 
-    def _fake_synthesize_text(**kwargs):
+    def _fake_synthesize_text(**kwargs: object) -> object:
         synthesized_texts.append(kwargs["text"])
         return SimpleNamespace(
-            audio_data=f"fake-audio:{kwargs['text']}".encode("utf-8"),
+            audio_data=f"fake-audio:{kwargs['text']}".encode(),
             duration_ms=123,
             word_count=1,
         )
@@ -85,11 +72,11 @@ def _patch_run_tts_processor(
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.concat_audio_best_effort",
-        lambda parts: b"".join(parts),
+        b"".join,
     )
     monkeypatch.setattr(
         "flaskr.service.learn.learn_funcs.concat_audio_best_effort",
-        lambda parts: b"".join(parts),
+        b"".join,
     )
     monkeypatch.setattr(
         "flaskr.service.tts.streaming_tts.get_audio_duration_ms",
@@ -130,8 +117,10 @@ def _patch_run_tts_processor(
 
 
 class TestGeneratedBlockListenTtsElementFirst:
+    """Verify generated block listen TTS element first behavior."""
+
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.app = Flask("generated-block-listen-tts")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -157,8 +146,8 @@ class TestGeneratedBlockListenTtsElementFirst:
             dao.db.create_all()
 
     def test_stream_generated_block_audio_non_listen_uses_run_tts_processor(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -233,8 +222,8 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert records[0].subtitle_cues[0]["text"] == ("Manual audio backfill.")
 
     def test_stream_generated_block_audio_non_listen_ignores_cache_with_stale_voice(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -340,8 +329,8 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert newest_record.voice_id == "new-voice"
 
     def test_stream_generated_block_audio_non_listen_ignores_segmented_listen_cache(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -469,8 +458,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         )
 
     def test_stream_generated_block_audio_listen_uses_text_elements_only(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -676,8 +665,8 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert records[1].subtitle_cues[0]["text"] == "Second."
 
     def test_stream_generated_block_audio_listen_falls_back_to_legacy_block_text(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -739,8 +728,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_finishes_non_speakable_legacy_block(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -790,8 +779,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert [event.type for event in events] == [GeneratedType.DONE]
 
     def test_stream_generated_block_audio_listen_finishes_markup_only_legacy_block(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -841,8 +830,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert [event.type for event in events] == [GeneratedType.DONE]
 
     def test_stream_generated_block_audio_listen_fast_path_skips_markup_positions(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -946,10 +935,9 @@ class TestGeneratedBlockListenTtsElementFirst:
 
         synthesized_texts = _patch_run_tts_processor(monkeypatch)
 
-        def _fail_sem_acquire(*_args, **_kwargs):
-            raise AssertionError(
-                "cache fast-path should not acquire the synthesis semaphore"
-            )
+        def _fail_sem_acquire(*_args: object, **_kwargs: object) -> None:
+            message = "cache fast-path should not acquire the synthesis semaphore"
+            raise AssertionError(message)
 
         monkeypatch.setattr(
             "flaskr.service.learn.learn_funcs._tts_synth_sem_acquire",
@@ -978,8 +966,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_ignores_cached_markup_position(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1104,8 +1092,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_finishes_markup_only_elements(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1171,10 +1159,9 @@ class TestGeneratedBlockListenTtsElementFirst:
 
         synthesized_texts = _patch_run_tts_processor(monkeypatch)
 
-        def _fail_sem_acquire(*_args, **_kwargs):
-            raise AssertionError(
-                "markup-only blocks should not acquire the synthesis semaphore"
-            )
+        def _fail_sem_acquire(*_args: object, **_kwargs: object) -> None:
+            message = "markup-only blocks should not acquire the synthesis semaphore"
+            raise AssertionError(message)
 
         monkeypatch.setattr(
             "flaskr.service.learn.learn_funcs._tts_synth_sem_acquire",
@@ -1196,8 +1183,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert [event.type for event in events] == [GeneratedType.DONE]
 
     def test_stream_generated_block_audio_preview_listen_falls_back_to_block_tts_without_final_elements(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1270,8 +1257,8 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert records == []
 
     def test_stream_generated_block_audio_preview_listen_reuses_cached_block_audio(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1367,8 +1354,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_preserves_position_after_short_text(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1480,8 +1467,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_reuses_partial_segment_cache(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1644,8 +1631,8 @@ class TestGeneratedBlockListenTtsElementFirst:
             assert records[0].audio_bid == "audio-cache-0"
 
     def test_stream_generated_block_audio_listen_ignores_cache_with_stale_voice(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1766,8 +1753,8 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_ignores_cache_with_mismatched_subtitles(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import GeneratedType
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
@@ -1886,10 +1873,10 @@ class TestGeneratedBlockListenTtsElementFirst:
         assert events[-1].type == GeneratedType.DONE
 
     def test_stream_generated_block_audio_listen_raises_when_finalize_has_no_complete(
-        self, monkeypatch
-    ):
+        self, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
-        from flaskr.service.common.models import AppException
+        from flaskr.service.common.models import AppError
         from flaskr.service.learn.learn_funcs import stream_generated_block_audio
 
         user_bid = "user-finalize-no-complete-1"
@@ -1954,7 +1941,7 @@ class TestGeneratedBlockListenTtsElementFirst:
             lambda _parts: b"",
         )
 
-        with pytest.raises(AppException):
+        with pytest.raises(AppError):
             list(
                 stream_generated_block_audio(
                     self.app,

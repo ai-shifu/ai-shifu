@@ -11,7 +11,7 @@ validation.
 
 - `src/api/`: Flask backend, service modules, persistence, provider
   integration, shared backend tests, and backend maintenance scripts.
-- `src/cook-web/`: Next.js frontend for learner flows, admin/operator tools,
+- `src/web/`: Next.js frontend for learner flows, admin/operator tools,
   authoring, and shared frontend tests.
 - `src/i18n/`: Shared translation inventory consumed by backend and frontend.
 - `docker/`: Local dev, latest-image, and pinned-release runtime packaging.
@@ -30,8 +30,11 @@ validation.
 - `docs/exec-plans/active/`: current complex work tracked as living ExecPlans
 - `docs/exec-plans/completed/`: archived execution plans
 - `docs/generated/`: generated knowledge indexes and inventories
-- `docs/generated/harness-health.md`: generated summary of harness assets and
-  boundary baseline state
+- `docs/generated/harness-health.md`: optional, ignored snapshot of harness
+  assets and boundary baseline state; regenerate locally with
+  `python scripts/build_repo_knowledge_index.py --health-only` or read the
+  current CI run summary and artifact. See
+  [harness health snapshots](docs/README.md#harness-health-snapshots).
 
 ## Runtime Flow
 
@@ -42,15 +45,23 @@ validation.
   `src/api/flaskr/common/log.py`.
 - Langfuse tracing helpers live in `src/api/flaskr/api/langfuse.py`.
 - Business behavior is grouped under `src/api/flaskr/service/<module>/`.
+- MarkdownFlow 2.0 execution lives in the application-independent
+  `src/api/markdownflow/` library. Course and Profile runtimes use
+  `src/api/flaskr/api/markdownflow.py` for model and locale bindings. The
+  foundation is extracted from `main` in PR #3163; the Profile migration in
+  PR #3161 depends on it. See the
+  [library design](docs/design-docs/markdownflow-engine-library.md).
 
 ### Frontend
 
-- Route entrypoints live in `src/cook-web/src/app/**/page.tsx`,
+- Route entrypoints live in `src/web/src/app/**/page.tsx`,
   `layout.tsx`, and `route.ts`.
 - Shared request transport and business-code handling live in
-  `src/cook-web/src/lib/request.ts` and `src/cook-web/src/lib/api.ts`.
-- Legacy `c-*` paths remain active compatibility surfaces and must still be
-  treated as maintained code.
+  `src/web/src/lib/request.ts` and `src/web/src/lib/api.ts`.
+- Learner and teacher code shares responsibility-based source directories:
+  `api`, `assets`, `components`, `constants`, `hooks`, `lib`, `store`, and `types`.
+- Shared analytics uses `hooks/useTracking.ts` and `lib/tracking.ts`; course
+  orchestration helpers live in `lib/shifu`.
 
 ## Harness Model
 

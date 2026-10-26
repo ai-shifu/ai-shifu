@@ -1,7 +1,12 @@
-import typing
+"""Generate Swagger schemas from annotated DTOs."""
+
 import ast
 import inspect
+import typing
 from enum import Enum
+
+from flasgger.base import BR_SANITIZER
+from pydantic import BaseModel
 
 swagger_config = {
     "openapi": "3.0.2",
@@ -31,7 +36,21 @@ swagger_config = {
 }
 
 
-def parse_comments(cls):
+def sanitize_swagger_docstring(text: str) -> str:
+    """Preserve Flasgger formatting without inventing blank descriptions.
+
+    D205 requires a blank line after a one-line summary. Flasgger passes that
+    whitespace through its sanitizer and otherwise emits ``<br/>`` as an
+    operation description.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return ""
+    return BR_SANITIZER(stripped)
+
+
+def parse_comments(cls: object) -> dict[str, str]:
+    """Extract field descriptions from a DTO's source comments."""
     source = inspect.getsource(cls)
     tree = ast.parse(source)
     comments = {}
@@ -47,12 +66,14 @@ def parse_comments(cls):
                     else:  # ast.Assign
                         field_name = item.targets[0].id
 
-                    line_num = item.lineno - 1  # ast 行号从1开始，列表索引从0开始
+                    # ast line numbers are 1-based, list indexes are 0-based
+                    line_num = item.lineno - 1
                     line = source_lines[line_num].strip()
 
                     if "#" in line:
                         comment = line.split("#", 1)[1].strip()
-                        comments[field_name] = comment
+                        if not comment.lower().startswith("noqa"):
+                            comments[field_name] = comment
                     elif item.value and isinstance(item.value, (ast.Str, ast.Constant)):
                         if isinstance(item.value, ast.Str):
                             comments[field_name] = item.value.s
@@ -64,7 +85,8 @@ def parse_comments(cls):
     return comments
 
 
-def get_field_schema(typ, description: str = ""):
+def get_field_schema(typ: object, description: str = "") -> dict[str, object]:
+    """Build the Swagger schema for an annotated DTO field."""
     field_schema = {}
     origin = typing.get_origin(typ)
     args = typing.get_args(typ)
@@ -90,25 +112,21 @@ def get_field_schema(typ, description: str = ""):
         elif typ is float:
             field_schema["type"] = "number"
     elif origin in (typing.Union, getattr(__import__("types"), "UnionType", ())):
-        if hasattr(typ, "__args__"):
-            union_types = typ.__args__
-        else:
-            union_types = args
+        union_types = typ.__args__ if hasattr(typ, "__args__") else args
 
         non_none_types = [t for t in union_types if t is not type(None)]
 
         if len(non_none_types) == 1:
             return get_field_schema(non_none_types[0], description)
-        else:
-            field_schema["oneOf"] = []
-            for union_type in non_none_types:
-                field_schema["oneOf"].append(get_field_schema(union_type))
+        field_schema["oneOf"] = []
+        for union_type in non_none_types:
+            field_schema["oneOf"].append(get_field_schema(union_type))
     elif origin is list:
         item_type = args[0]
         field_schema["type"] = "array"
         field_schema["items"] = get_field_schema(item_type)
     elif origin is dict:
-        key_type, value_type = args
+        _key_type, value_type = args
         field_schema["type"] = "object"
         field_schema["additionalProperties"] = get_field_schema(value_type)
     elif hasattr(typ, "__annotations__"):
@@ -121,7 +139,8 @@ def get_field_schema(typ, description: str = ""):
     return field_schema
 
 
-def register_schema_to_swagger(cls):
+def register_schema_to_swagger(cls: object) -> object:
+    """Register schema to swagger."""
     if swagger_config["components"]["schemas"].get(cls.__name__, None):
         return swagger_config["components"]["schemas"].get(cls.__name__)
 
@@ -137,16 +156,20 @@ def register_schema_to_swagger(cls):
     properties = {}
     required = []
     comments = parse_comments(cls)
+    model_fields = cls.model_fields if issubclass(cls, BaseModel) else {}
     for name, typ in cls.__annotations__.items():
         field_schema = get_field_schema(typ, description=comments.get(name, ""))
         properties[name] = field_schema
-        required.append(name)
+        field = model_fields.get(name)
+        if field is None or field.is_required():
+            required.append(name)
     schema = {
         "type": "object",
         "description": comments.get(cls.__name__, ""),
         "properties": properties,
-        "required": required,
     }
+    if required:
+        schema["required"] = required
     swagger_config["components"]["schemas"][cls.__name__] = schema
 
     return cls

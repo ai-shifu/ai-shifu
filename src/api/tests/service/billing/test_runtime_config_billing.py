@@ -1,12 +1,14 @@
+"""Verify runtime config billing behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
-import flaskr.common.public_urls as public_urls
+from flask import Flask
+from flaskr import dao
+from flaskr.common import public_urls
 from flaskr.common.config import ENV_VARS
 from flaskr.route import config as config_route
 from flaskr.service.billing.consts import (
@@ -22,9 +24,14 @@ from flaskr.service.billing.runtime_config import (
     build_runtime_billing_context,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flask.testing import FlaskClient
+
 
 @pytest.fixture
-def runtime_config_client(monkeypatch):
+def runtime_config_client(monkeypatch: object) -> Iterator[FlaskClient]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -39,7 +46,6 @@ def runtime_config_client(monkeypatch):
 
     dao.db.init_app(app)
     config_values = {
-        "DEFAULT_LLM_MODEL": "gpt-5.4",
         "WECHAT_APP_ID": "wechat-app-1",
         "BILL_ENABLED": True,
         "BILL_CREDIT_PRECISION": 4,
@@ -63,10 +69,16 @@ def runtime_config_client(monkeypatch):
         "CURRENCY_SYMBOL": "¥",
         "LEGAL_AGREEMENT_URL_ZH_CN": "/legal/agreement/zh",
         "LEGAL_AGREEMENT_URL_EN_US": "/legal/agreement/en",
+        "LEGAL_AGREEMENT_URL_DE_DE": "/legal/agreement/de",
+        "LEGAL_AGREEMENT_URL_ES_ES": "/legal/agreement/es",
         "LEGAL_AGREEMENT_URL_FR_FR": "/legal/agreement/fr",
+        "LEGAL_AGREEMENT_URL_UR_PK": "/legal/agreement/ur",
         "LEGAL_PRIVACY_URL_ZH_CN": "/legal/privacy/zh",
         "LEGAL_PRIVACY_URL_EN_US": "/legal/privacy/en",
+        "LEGAL_PRIVACY_URL_DE_DE": "/legal/privacy/de",
+        "LEGAL_PRIVACY_URL_ES_ES": "/legal/privacy/es",
         "LEGAL_PRIVACY_URL_FR_FR": "",
+        "LEGAL_PRIVACY_URL_UR_PK": "/legal/privacy/ur",
     }
 
     monkeypatch.setattr(
@@ -89,7 +101,7 @@ def runtime_config_client(monkeypatch):
     )
     monkeypatch.setattr(
         "flaskr.common.shifu_context._get_shifu_creator_bid_cached",
-        lambda app, shifu_bid: "creator-1" if shifu_bid == "shifu-1" else None,
+        lambda _app, shifu_bid: "creator-1" if shifu_bid == "shifu-1" else None,
     )
 
     config_route.register_config_handler(app, "/api")
@@ -165,7 +177,7 @@ def runtime_config_client(monkeypatch):
 
 
 def test_runtime_config_returns_billing_extensions_for_custom_domain(
-    runtime_config_client,
+    runtime_config_client: object,
 ) -> None:
     response = runtime_config_client.get(
         "/api/runtime-config",
@@ -205,10 +217,16 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
         "home_url": "https://creator.example.com/home",
         "contact_us_url": "https://creator.example.com/contact",
     }
+    assert payload["legalUrls"]["privacy"]["ur-PK"] == "/legal/privacy/ur"
     assert payload["legalUrls"]["agreement"] == {
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
+        "de-DE": "/legal/agreement/de",
+        "es-ES": "/legal/agreement/es",
         "fr-FR": "/legal/agreement/fr",
+        "ar-SA": "",
+        "th-TH": "",
+        "ur-PK": "/legal/agreement/ur",
     }
     assert payload["domain"] == {
         "request_host": "creator.example.com",
@@ -222,14 +240,14 @@ def test_runtime_config_returns_billing_extensions_for_custom_domain(
 
 
 def test_runtime_config_hides_creator_keys_without_matching_capability(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: object,
+    monkeypatch: object,
 ) -> None:
     monkeypatch.setattr(config_route, "is_creator_customization_enabled", lambda: True)
     monkeypatch.setattr(
         config_route,
         "resolve_creator_public_integrations",
-        lambda creator_bid: {
+        lambda _creator_bid: {
             "wechat_oauth": {"app_id": "wx-custom"},
             "stripe": {"publishable_key": "pk_creator"},
         },
@@ -251,12 +269,12 @@ def test_runtime_config_hides_creator_keys_without_matching_capability(
 
 
 def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_missing(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: object,
+    monkeypatch: object,
 ) -> None:
     original_route_get_config = config_route.get_config
 
-    def get_config_override(key, default=""):
+    def get_config_override(key: object, default: object = "") -> object:
         if key == "HOST_URL":
             return ""
         return original_route_get_config(key, default)
@@ -281,12 +299,12 @@ def test_runtime_config_uses_origin_header_for_google_redirect_when_host_url_mis
 
 
 def test_runtime_config_returns_empty_official_site_url_when_unconfigured(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: object,
+    monkeypatch: object,
 ) -> None:
     original_route_get_config = config_route.get_config
 
-    def get_config_override(key, default=""):
+    def get_config_override(key: object, default: object = "") -> object:
         if key == "OFFICIAL_SITE_URL":
             return ""
         return original_route_get_config(key, default)
@@ -301,12 +319,12 @@ def test_runtime_config_returns_empty_official_site_url_when_unconfigured(
 
 
 def test_runtime_config_uses_registered_home_url_default_on_config_lock_miss(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: object,
+    monkeypatch: object,
 ) -> None:
     original_route_get_config = config_route.get_config
 
-    def get_config_override(key, default=None):
+    def get_config_override(key: object, default: object = None) -> object:
         if key == "HOME_URL":
             return default
         return original_route_get_config(key, default)
@@ -322,7 +340,7 @@ def test_runtime_config_uses_registered_home_url_default_on_config_lock_miss(
 
 
 def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective(
-    runtime_config_client,
+    runtime_config_client: object,
 ) -> None:
     response = runtime_config_client.get(
         "/api/runtime-config",
@@ -368,7 +386,7 @@ def test_runtime_config_keeps_global_branding_when_host_binding_is_not_effective
 
 
 def test_runtime_config_uses_shifu_context_for_creator_branding(
-    runtime_config_client,
+    runtime_config_client: object,
 ) -> None:
     response = runtime_config_client.get(
         "/api/runtime-config?shifu_bid=shifu-1",
@@ -393,7 +411,7 @@ def test_runtime_config_uses_shifu_context_for_creator_branding(
 
 
 def test_runtime_config_uses_explicit_creator_bid_param(
-    runtime_config_client,
+    runtime_config_client: object,
 ) -> None:
     # The /admin backend has no shifu_bid in the path; an explicit creator_bid
     # query param must resolve that creator's branding directly.
@@ -409,7 +427,7 @@ def test_runtime_config_uses_explicit_creator_bid_param(
 
 
 def test_runtime_config_without_creator_param_keeps_global_defaults(
-    runtime_config_client,
+    runtime_config_client: object,
 ) -> None:
     # No shifu_bid and no creator_bid -> existing behavior unchanged (global).
     response = runtime_config_client.get(
@@ -423,7 +441,7 @@ def test_runtime_config_without_creator_param_keeps_global_defaults(
 
 
 def test_runtime_billing_builder_and_route_config_use_dto_outputs(
-    runtime_config_client,
+    runtime_config_client: object,
 ) -> None:
     app = runtime_config_client.application
 
@@ -443,25 +461,30 @@ def test_runtime_billing_builder_and_route_config_use_dto_outputs(
     config = RuntimeConfigDTO(**route_payload)
 
     assert isinstance(config, RuntimeConfigDTO)
-    assert config.billingEnabled is True
-    assert config.officialSiteUrl == "https://official.example.com"
+    assert config.billing_enabled is True
+    assert config.official_site_url == "https://official.example.com"
     assert config.__json__()["legalUrls"]["privacy"] == {
         "zh-CN": "/legal/privacy/zh",
         "en-US": "/legal/privacy/en",
+        "de-DE": "/legal/privacy/de",
+        "es-ES": "/legal/privacy/es",
         "fr-FR": "",
+        "ar-SA": "",
+        "th-TH": "",
+        "ur-PK": "/legal/privacy/ur",
     }
 
 
-def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
+def test_default_runtime_billing_context_is_database_free(monkeypatch: object) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.runtime_config.resolve_creator_entitlement_state",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("entitlement resolver must not run in default builder")
         ),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.runtime_config.resolve_runtime_domain_result",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("domain resolver must not run in default builder")
         ),
     )
@@ -500,8 +523,8 @@ def test_default_runtime_billing_context_is_database_free(monkeypatch) -> None:
 
 
 def test_runtime_config_reports_disabled_billing_flag(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: object,
+    monkeypatch: object,
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.primitives.get_config",
@@ -514,7 +537,7 @@ def test_runtime_config_reports_disabled_billing_flag(
     monkeypatch.setattr(
         config_route,
         "build_runtime_billing_context",
-        lambda *args, **kwargs: (_ for _ in ()).throw(
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("billing builder should not run when disabled")
         ),
     )
@@ -548,13 +571,13 @@ def test_runtime_config_reports_disabled_billing_flag(
 
 
 def test_runtime_config_falls_back_when_billing_context_build_fails(
-    runtime_config_client,
-    monkeypatch,
+    runtime_config_client: object,
+    monkeypatch: object,
 ) -> None:
     monkeypatch.setattr(
         config_route,
         "build_runtime_billing_context",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
     )
 
     response = runtime_config_client.get(

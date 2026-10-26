@@ -1,30 +1,31 @@
-from flask import Flask
+"""Implement the update shifu demo CLI command."""
+
 import hashlib
-import os
+import json
 from io import BytesIO
+from pathlib import Path
+
+from flask import Flask
 from werkzeug.datastructures import FileStorage
-from flaskr.service.user.models import UserInfo
-from flaskr.dao import db
-from flaskr.service.shifu.models import AiCourseAuth
-from flaskr.util import generate_id
+
 from flaskr.common.config import get_config as get_env_config
+from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.config.funcs import add_config, get_config, update_config
+from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
 from flaskr.service.shifu.shifu_publish_funcs import publish_shifu_draft
-
-import json
-from pathlib import Path
+from flaskr.service.user.models import UserInfo
+from flaskr.util import generate_id
 
 
 def _calculate_hash(content: bytes) -> str:
     """Calculate SHA256 hash for the given content."""
-
     return hashlib.sha256(content).hexdigest()
 
 
 def _upsert_config(app: Flask, key: str, value: str, remark: str) -> None:
     """Update config if it exists, otherwise add it."""
-
     updated = update_config(app, key, value, is_secret=False, remark=remark)
     if not updated:
         add_config(app, key, value, is_secret=False, remark=remark)
@@ -38,9 +39,7 @@ def _process_demo_shifu(
     hash_config_key: str,
     hash_config_remark: str,
 ) -> str:
-    """
-    Process demo shifu: skip import if file unchanged, otherwise import/update and
-    upsert configs for shifu bid and file hash.
+    """Process demo shifu: skip import if file unchanged, otherwise import/update and upsert configs for shifu bid and file hash.
 
     Args:
         app: Flask application instance
@@ -52,13 +51,14 @@ def _process_demo_shifu(
 
     Returns:
         str: The shifu_bid of the processed shifu
+
     """
     # Read file content
     # File is in src/api/demo_shifus/ directory, command is in src/api/flaskr/command/
     current_file = Path(__file__).resolve()
     # From src/api/flaskr/command/ to src/api/: go up 2 levels (command -> flaskr -> api)
     demo_file_path = current_file.parent.parent.parent / "demo_shifus" / demo_file
-    with open(demo_file_path, "rb") as f:
+    with demo_file_path.open("rb") as f:
         file_content = f.read()
 
     file_hash = _calculate_hash(file_content)
@@ -75,7 +75,7 @@ def _process_demo_shifu(
     # Create FileStorage from bytes
     file_storage = FileStorage(
         stream=BytesIO(file_content),
-        filename=os.path.basename(demo_file_path),
+        filename=demo_file_path.name,
         name="file",
     )
 
@@ -99,13 +99,13 @@ def _process_demo_shifu(
     return shifu_bid
 
 
-def _ensure_creator_permissions(app: Flask, shifu_bid: str):
-    """
-    Ensure all creator users have permissions for the given shifu.
+def _ensure_creator_permissions(app: Flask, shifu_bid: str) -> None:
+    """Ensure all creator users have permissions for the given shifu.
 
     Args:
         app: Flask application instance
         shifu_bid: Shifu business identifier
+
     """
     users = UserInfo.query.filter(UserInfo.is_creator == 1).all()
     for user in users:
@@ -125,38 +125,39 @@ def _ensure_creator_permissions(app: Flask, shifu_bid: str):
         else:
             auth.auth_type = json.dumps(["view"])
             auth.status = 1
-        db.session.commit()
 
 
-def update_demo_shifu(app: Flask):
-    """Update demo shifu for both Chinese and English versions"""
+def update_demo_shifu(app: Flask) -> None:
+    """Update demo shifu for both Chinese and English versions."""
     if get_env_config("SKIP_DEMO_SHIFU_IMPORT"):
         app.logger.info("Skip demo shifu import due to SKIP_DEMO_SHIFU_IMPORT")
         return
 
-    with app.app_context():
+    with app_context_scope(app):
+        # Each demo course is one unit of work: import, publish, config
+        # upsert and creator permissions land together or not at all.
         # Process Chinese demo shifu (cn_demo.json -> DEMO_SHIFU_BID)
-        cn_shifu_bid = _process_demo_shifu(
-            app,
-            "cn_demo.json",
-            "DEMO_SHIFU_BID",
-            "Demo shifu business identifier (Chinese)",
-            "DEMO_SHIFU_HASH",
-            "Demo shifu file hash (Chinese)",
-        )
-        app.logger.info(f"Chinese demo shifu bid: {cn_shifu_bid}")
-        _ensure_creator_permissions(app, cn_shifu_bid)
+        with unit_of_work():
+            cn_shifu_bid = _process_demo_shifu(
+                app,
+                "cn_demo.json",
+                "DEMO_SHIFU_BID",
+                "Demo shifu business identifier (Chinese)",
+                "DEMO_SHIFU_HASH",
+                "Demo shifu file hash (Chinese)",
+            )
+            app.logger.info("Chinese demo shifu bid: %s", cn_shifu_bid)
+            _ensure_creator_permissions(app, cn_shifu_bid)
 
         # Process English demo shifu (en_demo.json -> DEMO_EN_SHIFU_BID)
-        en_shifu_bid = _process_demo_shifu(
-            app,
-            "en_demo.json",
-            "DEMO_EN_SHIFU_BID",
-            "Demo shifu business identifier (English)",
-            "DEMO_EN_SHIFU_HASH",
-            "Demo shifu file hash (English)",
-        )
-        app.logger.info(f"English demo shifu bid: {en_shifu_bid}")
-        _ensure_creator_permissions(app, en_shifu_bid)
-
-        db.session.commit()
+        with unit_of_work():
+            en_shifu_bid = _process_demo_shifu(
+                app,
+                "en_demo.json",
+                "DEMO_EN_SHIFU_BID",
+                "Demo shifu business identifier (English)",
+                "DEMO_EN_SHIFU_HASH",
+                "Demo shifu file hash (English)",
+            )
+            app.logger.info("English demo shifu bid: %s", en_shifu_bid)
+            _ensure_creator_permissions(app, en_shifu_bid)

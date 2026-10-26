@@ -1,0 +1,10 @@
+{
+  "__namespace__": "module.user",
+  "confirmLogoutContent": "هل تريد تأكيد تسجيل الخروج؟",
+  "confirmLogoutTitle": "تأكيد تسجيل الخروج؟",
+  "defaultUserName": "مستخدم مجهول",
+  "login": "تسجيل الدخول",
+  "loginMainButton": "تسجيل الدخول / التسجيل",
+  "logout": "تسجيل الخروج",
+  "notLogin": "غير مسجل الدخول"
+}

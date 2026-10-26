@@ -1,4 +1,4 @@
-"""backfill promo tables from active tables
+"""backfill promo tables from active tables.
 
 Revision ID: ef7dbc5a8be3
 Revises: c221d355ffb7
@@ -6,8 +6,8 @@ Create Date: 2026-01-27
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "ef7dbc5a8be3"

@@ -1,0 +1,10 @@
+{
+  "__namespace__": "server.llm",
+  "__flat__": {
+    "modelNotSupported": "Modell {model} wird nicht unterstützt",
+    "requestFailed": "Modell {model} Invokation fehlgeschlagen: {message}",
+    "specifiedLlmNotConfigured": "Modell {model} ist nicht konfiguriert. Überprüfen Sie die Variable .env-Datei: {config_var}"
+  },
+  "modelSelectionNotConfigured": "Das Modell ist nicht konfiguriert. Bitte kontaktieren Sie Ihren Administrator.",
+  "modelUnavailable": "Dieses Modell ist derzeit nicht verfügbar. Bitte kontaktieren Sie Ihren Administrator."
+}

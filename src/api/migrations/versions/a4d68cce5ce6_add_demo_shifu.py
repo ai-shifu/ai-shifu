@@ -1,4 +1,4 @@
-"""add demo shifu json file
+"""add demo shifu json file.
 
 Revision ID: a4d68cce5ce6
 Revises: 21a3e778ef01
@@ -24,7 +24,6 @@ def upgrade():
 
     Demo shifu import/update is now executed at container startup.
     """
-    pass
 
 
 def downgrade():

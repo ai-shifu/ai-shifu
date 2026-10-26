@@ -1,6 +1,9 @@
-from decimal import Decimal
-from datetime import datetime, timedelta
+"""Verify learning APIs expose draft and published course state."""
 
+from datetime import datetime, timedelta
+from decimal import Decimal
+
+import pytest
 from flaskr.dao import db
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, get_shifu_info
 from flaskr.service.learn.models import LearnProgressRecord
@@ -15,7 +18,7 @@ from flaskr.service.shifu.models import (
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 
-def test_get_shifu_info_returns_dto(app):
+def test_get_shifu_info_returns_dto(app: object) -> None:
     with app.app_context():
         shifu = PublishedShifu(
             shifu_bid="shifu-learn-1",
@@ -23,6 +26,8 @@ def test_get_shifu_info_returns_dto(app):
             description="Desc",
             price=Decimal("9.99"),
             keywords="a,b",
+            tts_enabled=1,
+            default_listen_mode_enabled=1,
         )
         db.session.add(shifu)
         db.session.commit()
@@ -32,9 +37,42 @@ def test_get_shifu_info_returns_dto(app):
     assert dto.title == "Test Shifu"
     assert dto.price == "9.99"
     assert dto.keywords == ["a", "b"]
+    assert dto.tts_enabled is True
+    assert dto.default_listen_mode_enabled is True
+    assert dto.__json__()["default_listen_mode_enabled"] is True
+    assert dto.is_owner is False
 
 
-def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
+def test_get_shifu_info_marks_matching_preview_viewer_as_owner(app: object) -> None:
+    with app.app_context():
+        shifu = DraftShifu(
+            shifu_bid="shifu-preview-owner",
+            title="Owner Preview",
+            description="Desc",
+            price=Decimal(0),
+            created_user_bid="owner-1",
+        )
+        db.session.add(shifu)
+        db.session.commit()
+
+    owner_dto = get_shifu_info(
+        app,
+        "shifu-preview-owner",
+        preview_mode=True,
+        viewer_user_bid="owner-1",
+    )
+    collaborator_dto = get_shifu_info(
+        app,
+        "shifu-preview-owner",
+        preview_mode=True,
+        viewer_user_bid="collaborator-1",
+    )
+
+    assert owner_dto.is_owner is True
+    assert collaborator_dto.is_owner is False
+
+
+def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app: object) -> None:
     with app.app_context():
         draft = DraftShifu(
             shifu_bid="shifu-learn-tts",
@@ -43,6 +81,7 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
             price=Decimal("1.00"),
             keywords="listen",
             tts_enabled=1,
+            default_listen_mode_enabled=1,
         )
         published = PublishedShifu(
             shifu_bid="shifu-learn-tts",
@@ -51,6 +90,7 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
             price=Decimal("2.00"),
             keywords="listen",
             tts_enabled=0,
+            default_listen_mode_enabled=0,
         )
         db.session.add_all([draft, published])
         db.session.commit()
@@ -60,11 +100,22 @@ def test_get_shifu_info_preview_mode_uses_draft_tts_flag(app):
 
     assert preview_dto.title == "Draft Shifu"
     assert preview_dto.tts_enabled is True
+    assert preview_dto.default_listen_mode_enabled is True
     assert live_dto.title == "Published Shifu"
     assert live_dto.tts_enabled is False
+    assert live_dto.default_listen_mode_enabled is False
 
 
-def test_get_outline_item_tree_preview_mode(app):
+def test_get_outline_item_tree_preview_mode(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": (
+            "shifu-learn-1" if key == "DEMO_EN_SHIFU_BID" else default
+        ),
+    )
     with app.app_context():
         outline = DraftOutlineItem(
             outline_item_bid="outline-learn-1",
@@ -103,9 +154,229 @@ def test_get_outline_item_tree_preview_mode(app):
     assert result.outline_items[0].bid == "outline-learn-1"
     assert result.outline_items[0].is_paid is True
     assert result.outline_items[0].has_content_update_for_current_user is False
+    assert result.outline_items[0].follow_up_mode == "text"
+    assert result.title_language == "en-US"
+    assert result.__json__()["title_language"] == "en-US"
+    assert result.content_language == "en-US"
+    assert result.__json__()["content_language"] == "en-US"
 
 
-def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(app):
+def test_get_outline_item_tree_uses_course_model_with_outline_ask_status(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+
+    live_availability = {"enabled": True}
+    monkeypatch.setattr(
+        "flaskr.service.learn.learn_funcs.is_live_follow_up_model_available",
+        lambda model: live_availability["enabled"] and model == GEMINI_LIVE_MODEL_ID,
+    )
+
+    shifu_bid = "shifu-live-follow-up-tree"
+    with app.app_context():
+        course = DraftShifu(
+            shifu_bid=shifu_bid,
+            title="Live Follow-up Course",
+            description="Desc",
+            price=Decimal("1.00"),
+            llm="gpt-main",
+            ask_llm=GEMINI_LIVE_MODEL_ID,
+            ask_enabled_status=5103,
+        )
+        text_chapter = DraftOutlineItem(
+            outline_item_bid="chapter-text-follow-up",
+            shifu_bid=shifu_bid,
+            title="Text Chapter",
+            position="1",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5103,
+        )
+        inherited_lesson = DraftOutlineItem(
+            outline_item_bid="lesson-inherited-text-follow-up",
+            shifu_bid=shifu_bid,
+            title="Inherited Text Lesson",
+            position="1.1",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5101,
+        )
+        live_lesson = DraftOutlineItem(
+            outline_item_bid="lesson-live-follow-up",
+            shifu_bid=shifu_bid,
+            title="Live Lesson",
+            position="2",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5101,
+        )
+        disabled_lesson = DraftOutlineItem(
+            outline_item_bid="lesson-disabled-follow-up",
+            shifu_bid=shifu_bid,
+            title="Disabled Lesson",
+            position="3",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5102,
+        )
+        db.session.add_all(
+            [course, text_chapter, inherited_lesson, live_lesson, disabled_lesson]
+        )
+        db.session.commit()
+
+        struct = HistoryItem(
+            bid=shifu_bid,
+            id=0,
+            type="shifu",
+            children=[
+                HistoryItem(
+                    bid=text_chapter.outline_item_bid,
+                    id=text_chapter.id,
+                    type="outline",
+                    children=[
+                        HistoryItem(
+                            bid=inherited_lesson.outline_item_bid,
+                            id=inherited_lesson.id,
+                            type="outline",
+                            children=[],
+                        )
+                    ],
+                ),
+                HistoryItem(
+                    bid=live_lesson.outline_item_bid,
+                    id=live_lesson.id,
+                    type="outline",
+                    children=[],
+                ),
+                HistoryItem(
+                    bid=disabled_lesson.outline_item_bid,
+                    id=disabled_lesson.id,
+                    type="outline",
+                    children=[],
+                ),
+            ],
+        ).to_json()
+        db.session.add(
+            LogDraftStruct(
+                struct_bid="struct-live-follow-up-tree",
+                shifu_bid=shifu_bid,
+                struct=struct,
+            )
+        )
+        db.session.commit()
+
+    result = get_outline_item_tree(app, shifu_bid, "teacher-1", preview_mode=True)
+
+    assert result.outline_items[0].follow_up_mode == "live_voice"
+    assert result.outline_items[0].children[0].follow_up_mode == "live_voice"
+    assert result.outline_items[1].follow_up_mode == "live_voice"
+    assert result.outline_items[2].follow_up_mode == "disabled"
+    assert result.content_language is None
+    assert "content_language" not in result.__json__()
+
+    live_availability["enabled"] = False
+    unavailable_result = get_outline_item_tree(
+        app, shifu_bid, "teacher-1", preview_mode=True
+    )
+
+    assert unavailable_result.outline_items[0].follow_up_mode == "disabled"
+    assert unavailable_result.outline_items[1].follow_up_mode == "disabled"
+    assert unavailable_result.outline_items[2].follow_up_mode == "disabled"
+
+    live_availability["enabled"] = True
+    for unsupported_model in (
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ):
+        with app.app_context():
+            stored_course = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+            stored_course.ask_llm = unsupported_model
+            db.session.commit()
+
+        unsupported_result = get_outline_item_tree(
+            app, shifu_bid, "teacher-1", preview_mode=True
+        )
+        assert unsupported_result.outline_items[0].follow_up_mode == "disabled"
+        assert unsupported_result.outline_items[1].follow_up_mode == "disabled"
+        assert unsupported_result.outline_items[2].follow_up_mode == "disabled"
+
+    with app.app_context():
+        stored_course = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        stored_course.ask_llm = GEMINI_LIVE_MODEL_ID
+        stored_course.ask_enabled_status = 5102
+        db.session.commit()
+
+    course_disabled_result = get_outline_item_tree(
+        app, shifu_bid, "teacher-1", preview_mode=True
+    )
+
+    assert course_disabled_result.outline_items[0].follow_up_mode == "live_voice"
+    assert (
+        course_disabled_result.outline_items[0].children[0].follow_up_mode
+        == "live_voice"
+    )
+    assert course_disabled_result.outline_items[1].follow_up_mode == "disabled"
+    assert course_disabled_result.outline_items[2].follow_up_mode == "disabled"
+
+
+def test_get_outline_item_tree_never_infers_live_mode_from_primary_model(
+    app: object,
+) -> None:
+    from flaskr.api.llm.live_catalog import GEMINI_LIVE_MODEL_ID
+
+    shifu_bid = "shifu-invalid-live-primary-tree"
+    with app.app_context():
+        course = DraftShifu(
+            shifu_bid=shifu_bid,
+            title="Legacy invalid Live primary",
+            description="Desc",
+            price=Decimal("1.00"),
+            llm=GEMINI_LIVE_MODEL_ID,
+            ask_llm="",
+            ask_enabled_status=5103,
+        )
+        lesson = DraftOutlineItem(
+            outline_item_bid="legacy-live-primary-lesson",
+            shifu_bid=shifu_bid,
+            title="Lesson",
+            position="1",
+            type=401,
+            hidden=0,
+            ask_enabled_status=5101,
+        )
+        db.session.add_all([course, lesson])
+        db.session.commit()
+        struct = HistoryItem(
+            bid=shifu_bid,
+            id=course.id,
+            type="shifu",
+            children=[
+                HistoryItem(
+                    bid=lesson.outline_item_bid,
+                    id=lesson.id,
+                    type="outline",
+                    children=[],
+                )
+            ],
+        ).to_json()
+        db.session.add(
+            LogDraftStruct(
+                struct_bid="struct-invalid-live-primary-tree",
+                shifu_bid=shifu_bid,
+                struct=struct,
+            )
+        )
+        db.session.commit()
+
+    result = get_outline_item_tree(app, shifu_bid, "teacher-1", preview_mode=True)
+
+    assert result.outline_items[0].follow_up_mode == "text"
+
+
+def test_get_outline_item_tree_does_not_infer_legacy_updates_from_timestamps(
+    app: object,
+) -> None:
     with app.app_context():
         chapter = PublishedOutlineItem(
             outline_item_bid="chapter-learn-1",
@@ -184,11 +455,13 @@ def test_get_outline_item_tree_marks_published_lesson_updates_for_current_user(a
     assert result.outline_items
     assert result.outline_items[0].has_content_update_for_current_user is False
     assert (
-        result.outline_items[0].children[0].has_content_update_for_current_user is True
+        result.outline_items[0].children[0].has_content_update_for_current_user is False
     )
 
 
-def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lessons(app):
+def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lessons(
+    app: object,
+) -> None:
     with app.app_context():
         lesson = PublishedOutlineItem(
             outline_item_bid="lesson-learn-not-started-1",
@@ -254,7 +527,9 @@ def test_get_outline_item_tree_keeps_update_notice_hidden_for_not_started_lesson
     assert result.outline_items[0].has_content_update_for_current_user is False
 
 
-def test_get_outline_item_tree_uses_normalized_published_effective_time(app):
+def test_get_outline_item_tree_does_not_infer_unknown_baselines_from_timezones(
+    app: object,
+) -> None:
     with app.app_context():
         lesson = PublishedOutlineItem(
             outline_item_bid="lesson-learn-published-timezone-1",
@@ -313,10 +588,12 @@ def test_get_outline_item_tree_uses_normalized_published_effective_time(app):
     )
 
     assert result.outline_items
-    assert result.outline_items[0].has_content_update_for_current_user is True
+    assert result.outline_items[0].has_content_update_for_current_user is False
 
 
-def test_get_outline_item_tree_ignores_published_copy_created_at_for_updates(app):
+def test_get_outline_item_tree_ignores_published_copy_created_at_for_updates(
+    app: object,
+) -> None:
     with app.app_context():
         lesson = PublishedOutlineItem(
             outline_item_bid="lesson-learn-published-copy-created-1",

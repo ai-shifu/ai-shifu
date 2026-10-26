@@ -3,31 +3,38 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
 
 from .consts import CREDIT_BUCKET_STATUS_EXHAUSTED, CREDIT_BUCKET_STATUS_EXPIRED
-from .models import CreditLedgerEntry, CreditWalletBucket
 from .primitives import normalize_json_object, quantize_credit_amount, to_decimal
 from .wallets import sync_credit_bucket_status
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from .models import CreditLedgerEntry, CreditWalletBucket
 
 
 @dataclass(slots=True, frozen=True)
 class CreditMutationResult:
+    """Capture wallet and ledger changes from one credit mutation."""
+
     mutation_type: str
     completed: bool
     status: str
     ledger_bid: str | None = None
     wallet_bucket_bid: str | None = None
-    expected_amount: Decimal = Decimal("0")
-    moved_amount: Decimal = Decimal("0")
+    expected_amount: Decimal = Decimal(0)
+    moved_amount: Decimal = Decimal(0)
     failure_reason: str | None = None
 
 
 def reserved_grant_state(grant_entry: CreditLedgerEntry) -> str:
+    """Return reserved grant state."""
     metadata = normalize_json_object(grant_entry.metadata_json)
     return str(metadata.get("bucket_credit_state") or "").strip().lower()
 
@@ -41,7 +48,6 @@ def activate_reserved_grant_credit(
     now: datetime | None = None,
 ) -> CreditMutationResult:
     """Move a reserved grant amount from bucket reserved credits to available."""
-
     mutation_type = "reserved_grant_activate"
     if grant_entry is None:
         return CreditMutationResult(

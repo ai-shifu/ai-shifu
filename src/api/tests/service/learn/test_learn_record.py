@@ -1,47 +1,34 @@
+"""Verify completed learning records expose the correct next action."""
+
 import types
 import unittest
 
 from flask import Flask, request
-from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
-
-if dao.db is None:
-    _test_app = Flask("test-learn-record")
-    _test_app.config.update(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_BINDS={
-            "ai_shifu_saas": "sqlite:///:memory:",
-            "ai_shifu_admin": "sqlite:///:memory:",
-        },
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
-
+from flaskr import dao
 from flaskr.i18n import _
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 from flaskr.service.learn.learn_dtos import BlockType
+from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
     is_lesson_feedback_interaction,
 )
-from flaskr.service.learn.learn_funcs import get_learn_record
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
 )
+from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.service.shifu.models import LogPublishedStruct, PublishedOutlineItem
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.util import generate_id
 
 
 class LearnRecordFallbackTests(unittest.TestCase):
+    """Verify learn record fallback behavior."""
+
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("learn-record-fallback")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -55,7 +42,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.app = self.__class__.app
         self.ctx = self.app.app_context()
         self.ctx.push()
@@ -65,7 +52,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         dao.db.session.query(LogPublishedStruct).delete()
         dao.db.session.commit()
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         dao.db.session.remove()
         self.ctx.pop()
 
@@ -83,10 +70,10 @@ class LearnRecordFallbackTests(unittest.TestCase):
         dao.db.session.commit()
         return progress
 
-    def _set_request_user(self, mobile: str = ""):
+    def _set_request_user(self, mobile: str = "") -> None:
         request.user = types.SimpleNamespace(mobile=mobile, user_id="user-1")
 
-    def _seed_struct(self, outline_bids: list[str]):
+    def _seed_struct(self, outline_bids: list[str]) -> None:
         struct = HistoryItem(
             bid="shifu-1",
             id=1,
@@ -137,7 +124,7 @@ class LearnRecordFallbackTests(unittest.TestCase):
         dao.db.session.commit()
         return block
 
-    def test_appends_virtual_button_when_completed(self):
+    def test_appends_virtual_button_when_completed(self) -> None:
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
 
@@ -148,15 +135,15 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertEqual(result.records[0].block_type, BlockType.INTERACTION)
-        self.assertIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert result.records[0].block_type == BlockType.INTERACTION
+        assert CONTEXT_INTERACTION_NEXT in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_uses_persisted_button_when_present(self):
+    def test_uses_persisted_button_when_present(self) -> None:
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
         button_label = _("server.learn.nextChapterButton")
@@ -185,16 +172,42 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
-        self.assertEqual(len(result.records), 2)
+        assert len(result.records) == 2
         record = result.records[0]
-        self.assertEqual(record.generated_block_bid, block.generated_block_bid)
-        self.assertIn(CONTEXT_INTERACTION_NEXT, record.content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert record.generated_block_bid == block.generated_block_bid
+        assert CONTEXT_INTERACTION_NEXT in record.content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_no_button_when_not_completed(self):
+    def test_hiding_the_successor_removes_a_persisted_button(self) -> None:
+        """A saved navigation block cannot override the current outline."""
+        self._seed_struct(["outline-1", "outline-2"])
+        progress = self._create_progress(LEARN_STATUS_COMPLETED)
+        self._add_interaction_block(progress, "?[Next lesson//_sys_next_chapter]")
+        successor = PublishedOutlineItem.query.filter_by(
+            outline_item_bid="outline-2"
+        ).first()
+        successor.hidden = True
+        dao.db.session.commit()
+
+        with self.app.test_request_context():
+            self._set_request_user()
+            result = get_learn_record(
+                self.app,
+                progress.shifu_bid,
+                progress.outline_item_bid,
+                progress.user_bid,
+                preview_mode=False,
+                progress_record_bid=progress.progress_record_bid,
+            )
+
+        assert all(
+            CONTEXT_INTERACTION_NEXT not in record.content for record in result.records
+        )
+
+    def test_no_button_when_not_completed(self) -> None:
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_IN_PROGRESS)
 
@@ -205,12 +218,34 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
-        self.assertEqual(result.records, [])
+        assert result.records == []
 
-    def test_feedback_when_completed_without_next(self):
+    def test_progress_selector_does_not_read_an_older_completed_attempt(self) -> None:
+        """The listen history must request the attempt whose elements it is returning."""
+        self._seed_struct(["outline-1", "outline-2"])
+        old_progress = self._create_progress(LEARN_STATUS_COMPLETED)
+        new_progress = self._create_progress(LEARN_STATUS_IN_PROGRESS)
+        new_progress.progress_record_bid = "progress-2"
+        dao.db.session.commit()
+
+        with self.app.test_request_context():
+            self._set_request_user()
+            result = get_learn_record(
+                self.app,
+                new_progress.shifu_bid,
+                new_progress.outline_item_bid,
+                new_progress.user_bid,
+                preview_mode=False,
+                progress_record_bid=new_progress.progress_record_bid,
+            )
+
+        assert old_progress.progress_record_bid != new_progress.progress_record_bid
+        assert result.records == []
+
+    def test_feedback_when_completed_without_next(self) -> None:
         self._seed_struct(["outline-1"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
 
@@ -221,13 +256,13 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
-        self.assertEqual(len(result.records), 1)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[0].content))
+        assert len(result.records) == 1
+        assert is_lesson_feedback_interaction(result.records[0].content)
 
-    def test_feedback_after_pay_gate_when_in_progress(self):
+    def test_feedback_after_pay_gate_when_in_progress(self) -> None:
         self._seed_struct(["outline-1"])
         progress = self._create_progress(LEARN_STATUS_IN_PROGRESS)
         self._add_interaction_block(progress, "?[去支付//_sys_pay]")
@@ -239,14 +274,14 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn("_sys_pay", result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert "_sys_pay" in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_feedback_after_login_gate_when_in_progress(self):
+    def test_feedback_after_login_gate_when_in_progress(self) -> None:
         self._seed_struct(["outline-1"])
         progress = self._create_progress(LEARN_STATUS_IN_PROGRESS)
         self._add_interaction_block(progress, "?[去登录//_sys_login]")
@@ -258,14 +293,14 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn("_sys_login", result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert "_sys_login" in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_no_next_button_when_completed_with_pay_gate(self):
+    def test_no_next_button_when_completed_with_pay_gate(self) -> None:
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
         self._add_interaction_block(progress, "?[去支付//_sys_pay]")
@@ -277,15 +312,15 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn("_sys_pay", result.records[0].content)
-        self.assertNotIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert "_sys_pay" in result.records[0].content
+        assert CONTEXT_INTERACTION_NEXT not in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_inserts_fallback_next_before_existing_feedback(self):
+    def test_inserts_fallback_next_before_existing_feedback(self) -> None:
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
         self._add_interaction_block(
@@ -301,14 +336,14 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert CONTEXT_INTERACTION_NEXT in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
-    def test_moves_existing_feedback_to_tail_when_next_already_persisted(self):
+    def test_moves_existing_feedback_to_tail_when_next_already_persisted(self) -> None:
         self._seed_struct(["outline-1", "outline-2"])
         progress = self._create_progress(LEARN_STATUS_COMPLETED)
         button_label = _("server.learn.nextChapterButton")
@@ -330,12 +365,12 @@ class LearnRecordFallbackTests(unittest.TestCase):
                 progress.shifu_bid,
                 progress.outline_item_bid,
                 progress.user_bid,
-                False,
+                preview_mode=False,
             )
 
-        self.assertEqual(len(result.records), 2)
-        self.assertIn(CONTEXT_INTERACTION_NEXT, result.records[0].content)
-        self.assertTrue(is_lesson_feedback_interaction(result.records[1].content))
+        assert len(result.records) == 2
+        assert CONTEXT_INTERACTION_NEXT in result.records[0].content
+        assert is_lesson_feedback_interaction(result.records[1].content)
 
 
 if __name__ == "__main__":

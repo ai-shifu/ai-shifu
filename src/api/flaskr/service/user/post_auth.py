@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from flask import Flask
+from flaskr.framework.plugin.plugin_manager import get_plugin_manager
 
-from flaskr.framework.plugin import plugin_manager as plugin_manager_module
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass(slots=True, frozen=True)
 class PostAuthContext:
+    """Carry context for post auth."""
+
     user_id: str
     source: str
     login_context: str | None = None
@@ -26,8 +30,7 @@ class PostAuthContext:
 
 def run_post_auth_extensions(app: Flask, context: PostAuthContext) -> PostAuthContext:
     """Execute registered post-auth handlers without blocking login success."""
-
-    manager = plugin_manager_module.plugin_manager
+    manager = get_plugin_manager()
     if manager is None:
         return context
 

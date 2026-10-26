@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate/refresh src/i18n/locales.json
+"""Generate/refresh src/i18n/locales.json.
 
 - Updates locale labels from common/language.json
 - Rebuilds the namespaces list by scanning JSON and honoring __namespace__
@@ -16,6 +16,7 @@ LOCALES_FILE = I18N_DIR / "locales.json"
 
 
 def collect_json_files(dir_path: Path) -> list[Path]:
+    """Collect JSON files."""
     files: list[Path] = []
     for entry in sorted(dir_path.rglob("*.json")):
         # Ignore hidden files/dirs
@@ -25,11 +26,13 @@ def collect_json_files(dir_path: Path) -> list[Path]:
     return files
 
 
-def read_json(path: Path):
+def read_json(path: Path) -> dict[str, object]:
+    """Read JSON."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def main() -> int:
+    """Regenerate the shared language catalog from locale files."""
     if not I18N_DIR.exists():
         print(f"Shared i18n directory not found: {I18N_DIR}")
         return 1
@@ -37,7 +40,7 @@ def main() -> int:
     if LOCALES_FILE.exists():
         try:
             locales_meta = read_json(LOCALES_FILE)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"Failed to parse {LOCALES_FILE}: {exc}")
             return 1
     else:
@@ -68,7 +71,7 @@ def main() -> int:
         for file_path in collect_json_files(code_dir):
             try:
                 data = read_json(file_path)
-            except Exception:
+            except (OSError, ValueError):
                 continue
             declared = data.get("__namespace__")
             if isinstance(declared, str) and declared:
@@ -77,7 +80,7 @@ def main() -> int:
                 rel = str(file_path.relative_to(code_dir).with_suffix(""))
                 namespaces.add(rel.replace("/", "."))
 
-    locales_meta["namespaces"] = sorted(list(namespaces))
+    locales_meta["namespaces"] = sorted(namespaces)
 
     LOCALES_FILE.write_text(
         json.dumps(locales_meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

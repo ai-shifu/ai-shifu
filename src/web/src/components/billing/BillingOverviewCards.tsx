@@ -1,0 +1,163 @@
+import { Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import type { BillingPlan } from '@/types/billing';
+import { cn } from '@/lib/utils';
+import styles from './BillingOverviewCards.module.scss';
+
+export type ShowcaseTab = 'plans' | 'topup';
+
+type PlanFeatureData = {
+  includesLabel?: string;
+  items: string[];
+};
+
+const COMMON_FEATURE_KEYS: string[] = [
+  'module.billing.package.features.common.allTeachingAndLearning',
+];
+
+const DEFAULT_FREE_FEATURE_KEYS: string[] = COMMON_FEATURE_KEYS;
+
+const PLAN_FEATURE_INCLUDE_LABELS: Record<string, string> = {
+  'creator-plan-yearly': 'module.billing.package.features.pro.includesLabel',
+  'creator-plan-yearly-premium':
+    'module.billing.package.features.premium.includesLabel',
+};
+
+const PLAN_FEATURE_FALLBACK_KEYS: Record<string, string[]> = {
+  'creator-plan-monthly': COMMON_FEATURE_KEYS,
+  'creator-plan-monthly-pro': COMMON_FEATURE_KEYS,
+  'creator-plan-yearly-lite': [
+    ...COMMON_FEATURE_KEYS,
+    'module.billing.package.features.common.higherConcurrency',
+  ],
+  'creator-plan-yearly': [
+    'module.billing.package.features.yearly.pro.branding',
+    'module.billing.package.features.yearly.pro.domain',
+  ],
+  'creator-plan-yearly-premium': [
+    'module.billing.package.features.yearly.premium.priority',
+    'module.billing.package.features.yearly.premium.support',
+  ],
+};
+
+export function getPlanFeatureData(product: BillingPlan): PlanFeatureData {
+  if (PLAN_FEATURE_FALLBACK_KEYS[product.product_code]) {
+    return {
+      includesLabel: PLAN_FEATURE_INCLUDE_LABELS[product.product_code],
+      items: PLAN_FEATURE_FALLBACK_KEYS[product.product_code],
+    };
+  }
+
+  const productHighlights = product.highlights?.filter(item => Boolean(item));
+  if (productHighlights && productHighlights.length > 0) {
+    return {
+      includesLabel: PLAN_FEATURE_INCLUDE_LABELS[product.product_code],
+      items: productHighlights,
+    };
+  }
+
+  if (product.billing_interval === 'day') {
+    return {
+      items: [
+        'module.billing.package.features.daily.publish',
+        'module.billing.package.features.daily.preview',
+        'module.billing.package.features.daily.support',
+      ],
+    };
+  }
+
+  if (product.billing_interval === 'year') {
+    return {
+      items: PLAN_FEATURE_FALLBACK_KEYS['creator-plan-yearly'],
+    };
+  }
+
+  return {
+    items: PLAN_FEATURE_FALLBACK_KEYS['creator-plan-monthly'],
+  };
+}
+
+export function getFreeFeatureData(_highlights?: string[]): PlanFeatureData {
+  return {
+    items: DEFAULT_FREE_FEATURE_KEYS,
+  };
+}
+
+type TopupCardProps = {
+  actionClassName?: string;
+  actionLabel: string;
+  actionLoading?: boolean;
+  campaignLabel?: string;
+  campaignLabelVariant?: 'pill' | 'ribbon';
+  creditsLabel: string;
+  description?: string;
+  disabled?: boolean;
+  featured?: boolean;
+  onAction?: () => void;
+  originalPriceLabel?: string;
+  priceLabel: string;
+  testId: string;
+};
+
+export function TopupCard({
+  actionClassName,
+  actionLabel,
+  actionLoading = false,
+  campaignLabel,
+  campaignLabelVariant = 'pill',
+  creditsLabel,
+  description,
+  disabled = false,
+  featured = false,
+  onAction,
+  originalPriceLabel,
+  priceLabel,
+  testId,
+}: TopupCardProps) {
+  return (
+    <div
+      className={cn(styles.topupCard, featured && styles.topupCardFeatured)}
+      data-testid={testId}
+    >
+      {campaignLabel && campaignLabelVariant === 'ribbon' ? (
+        <div className={styles.topupCardCampaignRibbon}>{campaignLabel}</div>
+      ) : null}
+      <div className={styles.topupCardBody}>
+        <div className={styles.topupCardHeader}>
+          <div className={styles.topupCardHeading}>
+            <Sparkles className={styles.topupCardIcon} />
+            <div className={styles.topupCardTitle}>{creditsLabel}</div>
+          </div>
+          {description ? (
+            <div className={styles.topupCardDescription}>{description}</div>
+          ) : null}
+        </div>
+
+        <div className={styles.topupCardFooter}>
+          <div className={styles.topupCardPriceGroup}>
+            {originalPriceLabel ? (
+              <div className={styles.topupCardOriginalPrice}>
+                {originalPriceLabel}
+              </div>
+            ) : null}
+            <div className={styles.topupCardPrice}>{priceLabel}</div>
+            {campaignLabel && campaignLabelVariant === 'pill' ? (
+              <div className={styles.topupCardCampaignLabel}>
+                {campaignLabel}
+              </div>
+            ) : null}
+          </div>
+          <Button
+            className={cn(styles.topupCardAction, actionClassName)}
+            data-testid={`${testId}-action`}
+            disabled={disabled || actionLoading}
+            onClick={onAction}
+            type='button'
+          >
+            {actionLoading ? '...' : actionLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -135,8 +135,8 @@ self-serve flows or generic import/export behavior.
     - returns the new course and target-creator summary.
   - Add `POST /api/shifu/admin/operations/courses/{shifu_bid}/copy` route.
 - Frontend
-  - Add `copyAdminOperationCourse` to `src/cook-web/src/api/api.ts`.
-  - Extend `src/cook-web/src/app/admin/operations/page.tsx` with copy dialog
+  - Add `copyAdminOperationCourse` to `src/web/src/api/api.ts`.
+  - Extend `src/web/src/app/admin/operations/page.tsx` with copy dialog
     state and confirmation flow, reusing the existing identifier validation
     rules.
   - Add the new menu item in the course row "more" menu.
@@ -151,8 +151,8 @@ self-serve flows or generic import/export behavior.
 ## Validation and Acceptance
 
 - `cd src/api && pytest tests/service/shifu/test_course_copy.py -q`
-- `cd src/cook-web && npm run test -- src/app/admin/operations/page.test.tsx`
-- `cd src/cook-web && npm run type-check`
+- `cd src/web && npm run test -- src/app/admin/operations/page.test.tsx`
+- `cd src/web && npm run type-check`
 
 Acceptance is met when operators can copy a non-demo course into a fresh draft
 owned by the target creator, the copied course keeps draft content/config, and
@@ -168,12 +168,12 @@ no partially copied course should remain committed.
 ## Interfaces and Dependencies
 
 - Backend route: `POST /api/shifu/admin/operations/courses/{shifu_bid}/copy`
-- Frontend caller: `src/cook-web/src/api/api.ts`
-- Operator UI: `src/cook-web/src/app/admin/operations/page.tsx`
+- Frontend caller: `src/web/src/api/api.ts`
+- Operator UI: `src/web/src/app/admin/operations/page.tsx`
 - i18n namespaces:
   `src/i18n/zh-CN/modules/operations-course.json`,
   `src/i18n/en-US/modules/operations-course.json`, and
   `src/i18n/fr-FR/modules/operations-course.json`
 - Focused backend tests under `src/api/tests/service/shifu/`
 - Focused frontend tests in
-  `src/cook-web/src/app/admin/operations/page.test.tsx`
+  `src/web/src/app/admin/operations/page.test.tsx`

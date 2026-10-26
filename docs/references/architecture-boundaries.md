@@ -13,18 +13,19 @@ by `python scripts/check_architecture_boundaries.py`.
 
 ### Route locality
 
-- Files under `src/cook-web/src/app/**` may import route-local implementation
+- Files under `src/web/src/app/**` may import route-local implementation
   files under the same top-level route scope.
 - New imports from one top-level route scope into another top-level route scope
   are disallowed.
 - Shared code should live under `src/components/`, `src/hooks/`, `src/store/`,
-  `src/lib/`, `src/config/`, `src/types/`, `src/api/`, or maintained `c-*`
-  compatibility layers instead of inside route directories.
+  `src/lib/`, `src/config/`, `src/types/`, `src/api/`, or `src/constants/`
+  instead of inside route directories. Learner and teacher routes share these
+  modules.
 
 ### Components must not depend on route internals
 
-- Files under `src/cook-web/src/components/**` must not add new imports from
-  `src/cook-web/src/app/**` route-internal implementation files.
+- Files under `src/web/src/components/**` must not add new imports from
+  `src/web/src/app/**` route-internal implementation files.
 - Existing violations are tracked in
   `docs/generated/architecture-boundary-baseline.json` until they are migrated
   into shared layers.
@@ -33,16 +34,25 @@ by `python scripts/check_architecture_boundaries.py`.
 
 - New direct `fetch(...)` call sites are only allowed in the existing request
   transport and bootstrap files:
-  - `src/cook-web/src/lib/request.ts`
-  - `src/cook-web/src/lib/api.ts`
-  - `src/cook-web/src/lib/file.ts`
-  - `src/cook-web/src/lib/initializeEnvData.ts`
-  - `src/cook-web/src/lib/mock-fixture.ts`
-  - `src/cook-web/src/lib/unified-i18n-backend.ts`
-  - `src/cook-web/src/config/environment.ts`
+  - `src/web/src/lib/request.ts`
+  - `src/web/src/lib/api.ts`
+  - `src/web/src/lib/file.ts`
+  - `src/web/src/lib/initializeEnvData.ts`
+  - `src/web/src/lib/mock-fixture.ts`
+  - `src/web/src/lib/unified-i18n-backend.ts`
+  - `src/web/src/config/environment.ts`
 - New fetch-based request paths elsewhere are treated as architectural drift.
 
 ## Backend Rules
+
+### MarkdownFlow is application-independent
+
+- Files under `src/api/markdownflow/` must not import `flaskr`, Flask,
+  Flask-SQLAlchemy or SQLAlchemy, including imports guarded by `TYPE_CHECKING`.
+- Application model gateways and localization belong in `flaskr/api/`;
+  persistence and business policy belong in their owning services. See the
+  [library design](../design-docs/markdownflow-engine-library.md).
+- The checker reports these imports as `backend.engine_imports_application`.
 
 ### Service modules must not depend on root routes
 

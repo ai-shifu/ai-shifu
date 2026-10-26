@@ -1,6 +1,10 @@
+"""Verify handle input ask provider behavior."""
+
 import importlib
 import sys
 import types
+
+import pytest
 
 
 def _install_litellm_stub() -> None:
@@ -8,8 +12,16 @@ def _install_litellm_stub() -> None:
         return
 
     litellm_stub = types.ModuleType("litellm")
+
+    def get_model_info(*args: object, **kwargs: object) -> None:
+        _ = args, kwargs
+        message = "unknown model"
+        raise ValueError(message)
+
     litellm_stub.get_max_tokens = lambda _model: 4096
-    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    litellm_stub.get_model_info = get_model_info
+    litellm_stub.get_supported_openai_params = lambda **_kwargs: []
+    litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
 
@@ -74,26 +86,28 @@ GeneratedType = importlib.import_module("flaskr.service.learn.learn_dtos").Gener
 
 
 class _DummyColumn:
-    def __eq__(self, _other):
+    __hash__ = None
+
+    def __eq__(self, _other: object) -> bool:
         return True
 
 
 class _DummyOrderColumn(_DummyColumn):
-    def desc(self):
+    def desc(self) -> object:
         return self
 
 
 class _DummyQuery:
-    def filter(self, *_args, **_kwargs):
+    def filter(self, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def order_by(self, *_args, **_kwargs):
+    def order_by(self, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def limit(self, *_args, **_kwargs):
+    def limit(self, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def all(self):
+    def all(self) -> object:
         return []
 
 
@@ -107,10 +121,10 @@ class _DummyLearnGeneratedBlockModel:
 class _DummyNoneQuery:
     """Query that always returns None for .first()."""
 
-    def filter(self, *_args, **_kwargs):
+    def filter(self, *_args: object, **_kwargs: object) -> object:
         return self
 
-    def first(self):
+    def first(self) -> None:
         return None
 
 
@@ -121,13 +135,13 @@ class _DummyLearnGeneratedElementModel:
 
 
 class _DummyFollowUpInfo:
-    def __init__(self, ask_provider_config):
+    def __init__(self, ask_provider_config: object) -> None:
         self.ask_prompt = "ASK_PROMPT::{shifu_system_message}::{knowledge_section}"
         self.ask_model = "gpt-test"
         self.model_args = {"temperature": 0.2}
         self.ask_provider_config = ask_provider_config
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "ask_model": self.ask_model,
             "ask_provider_config": self.ask_provider_config,
@@ -135,16 +149,16 @@ class _DummyFollowUpInfo:
 
 
 class _DummyGeneration:
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: object) -> None:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self, **kwargs):
+    def end(self, **kwargs: object) -> None:
         self.end_kwargs = kwargs
 
 
 class _DummySpan:
-    def __init__(self):
+    def __init__(self) -> None:
         self.output = ""
         self.generations = []
         self.updated = {}
@@ -153,66 +167,124 @@ class _DummySpan:
         self.end_kwargs = {}
         self.events = []
 
-    def generation(self, **kwargs):
+    def generation(self, **kwargs: object) -> object:
         generation = _DummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation
 
-    def span(self, **kwargs):
+    def span(self, **kwargs: object) -> object:
         self.span_calls.append(kwargs)
         self.last_span = _DummySpan()
         return self.last_span
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
-    def event(self, **kwargs):
+    def event(self, **kwargs: object) -> None:
         self.events.append(kwargs)
 
-    def end(self, output=None, **kwargs):
+    def end(self, output: object = None, **kwargs: object) -> None:
         self.output = output or ""
         self.end_kwargs = {"output": output, **kwargs}
 
 
 class _DummyTrace:
-    def __init__(self):
+    def __init__(self) -> None:
         self.span_output = None
         self.updated = {}
         self.last_span = None
 
-    def span(self, **_kwargs):
+    def span(self, **_kwargs: object) -> object:
         self.last_span = _DummySpan()
         return self.last_span
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
 
 class _LLMChunk:
-    def __init__(self, result: str):
+    def __init__(self, result: str) -> None:
         self.result = result
 
 
 class _Context:
-    def __init__(self):
+    def __init__(self) -> None:
         self._shifu_info = types.SimpleNamespace(use_learner_language=0)
         self.langfuse_outputs = []
 
-    def get_system_prompt(self, _outline_bid: str):
+    def get_system_prompt(self, _outline_bid: str) -> object:
         return "COURSE_PROMPT"
 
-    def append_langfuse_output(self, value: str):
+    def append_langfuse_output(self, value: str) -> None:
         self.langfuse_outputs.append(value)
 
 
-def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gemini-3.8-live",
+        "gemini-3.1-flash-live-preview",
+        "gemini-3.8-live-extended-thinking",
+    ],
+)
+def test_live_follow_up_is_rejected_before_legacy_text_path_side_effects(
+    app: object,
+    monkeypatch: object,
+    model: str,
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.learn import handle_input_ask as module
+
+    monkeypatch.setattr(
+        module,
+        "get_follow_up_info_v2",
+        lambda *_args, **_kwargs: types.SimpleNamespace(ask_model=model),
+    )
+    monkeypatch.setattr(
+        module,
+        "build_follow_up_conversation_context",
+        lambda *_args, **_kwargs: pytest.fail(
+            "Live model entered legacy text conversation building"
+        ),
+    )
+
+    with pytest.raises(AppError):
+        list(
+            module.handle_input_ask(
+                app=app,
+                context=_Context(),
+                user_info=types.SimpleNamespace(user_id="user-1"),
+                attend_id="attend-1",
+                user_input="must stay voice-only",
+                outline_item_info=types.SimpleNamespace(
+                    shifu_bid="shifu-1",
+                    bid="outline-1",
+                    title="Outline",
+                    position=1,
+                ),
+                trace_args={},
+                trace=_DummyTrace(),
+            )
+        )
+
+
+def _setup_handle_input_ask_patches(
+    monkeypatch: object, module: object, ask_provider_config: object
+) -> None:
     class _DummyLLMSettings:
-        def __init__(self, model, temperature):
+        def __init__(
+            self, model: object, temperature: object, usage_metadata: object = None
+        ) -> None:
             self.model = model
+            self.usage_metadata = usage_metadata
             self.temperature = temperature
 
     class _DummyAskProviderRuntime:
-        def __init__(self, llm_stream_factory=None, llm_context_stream_factory=None):
+        def __init__(
+            self,
+            llm_stream_factory: object = None,
+            llm_context_stream_factory: object = None,
+        ) -> None:
             self.llm_stream_factory = llm_stream_factory
             self.llm_context_stream_factory = llm_context_stream_factory
 
@@ -264,7 +336,7 @@ def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
 
     call_counter = {"index": 0}
 
-    def _fake_init_generated_block(*_args, **_kwargs):
+    def _fake_init_generated_block(*_args: object, **_kwargs: object) -> object:
         call_counter["index"] += 1
         return types.SimpleNamespace(
             generated_block_bid=f"gb-{call_counter['index']}",
@@ -277,13 +349,13 @@ def _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config):
     monkeypatch.setattr(module, "init_generated_block", _fake_init_generated_block)
 
 
-def _collect_content_chunks(events):
+def _collect_content_chunks(events: object) -> object:
     return [event.content for event in events if event.type == GeneratedType.CONTENT]
 
 
 def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -298,16 +370,17 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
 
     llm_call_counter = {"count": 0}
 
-    def _fake_chat_llm(*_args, **_kwargs):
+    def _fake_chat_llm(*_args: object, **_kwargs: object) -> object:
         llm_call_counter["count"] += 1
         yield _LLMChunk("should-not-run")
 
     monkeypatch.setattr(module, "chat_llm", _fake_chat_llm)
 
-    def _raise_provider_error(**_kwargs):
+    def _raise_provider_error(**_kwargs: object) -> object:
         if False:
             yield None
-        raise AskProviderError("provider failed")
+        message = "provider failed"
+        raise AskProviderError(message)
 
     monkeypatch.setattr(module, "stream_ask_provider_response", _raise_provider_error)
 
@@ -318,7 +391,7 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -351,7 +424,9 @@ def test_handle_input_ask_provider_only_returns_provider_error_without_llm(
     ] == ("[REDACTED]")
 
 
-def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
+def test_handle_input_ask_provider_then_llm_falls_back_to_llm(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -363,13 +438,13 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
 
     llm_call_counter = {"count": 0}
 
-    def _fake_chat_llm(*_args, **_kwargs):
+    def _fake_chat_llm(*_args: object, **_kwargs: object) -> object:
         llm_call_counter["count"] += 1
         yield _LLMChunk("llm-fallback-answer")
 
     monkeypatch.setattr(module, "chat_llm", _fake_chat_llm)
 
-    def _provider_then_llm_stream(**kwargs):
+    def _provider_then_llm_stream(**kwargs: object) -> object:
         if kwargs.get("provider") == "llm":
             runtime = kwargs.get("runtime")
             if runtime is None or runtime.llm_stream_factory is None:
@@ -378,7 +453,8 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
                 types.SimpleNamespace(content=chunk.result)
                 for chunk in runtime.llm_stream_factory()
             )
-        raise AskProviderError("provider failed")
+        message = "provider failed"
+        raise AskProviderError(message)
 
     monkeypatch.setattr(
         module,
@@ -392,7 +468,7 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -418,8 +494,14 @@ def test_handle_input_ask_provider_then_llm_falls_back_to_llm(app, monkeypatch):
     assert events[-1].type == GeneratedType.BREAK
 
 
-def test_handle_input_ask_get_biji_synthesizes_via_context_factory(app, monkeypatch):
+def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
+    app: object, monkeypatch: object
+) -> None:
+    """Pass retrieved knowledge and stored course notes through the real LLM factory."""
     from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.agent import routing
+
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
 
     ask_provider_config = {
         "provider": "get_biji_knowledge",
@@ -434,13 +516,13 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(app, monkeypa
 
     llm_calls = []
 
-    def _fake_chat_llm(*_args, **kwargs):
+    def _fake_chat_llm(*_args: object, **kwargs: object) -> object:
         llm_calls.append(kwargs)
         yield _LLMChunk("synthesized-answer")
 
     monkeypatch.setattr(module, "chat_llm", _fake_chat_llm)
 
-    def _retrieval_provider_stream(**kwargs):
+    def _retrieval_provider_stream(**kwargs: object) -> object:
         # Mimic a retrieval adapter: synthesize through the runtime factory.
         runtime = kwargs.get("runtime")
         assert runtime is not None
@@ -462,7 +544,7 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(app, monkeypa
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -471,6 +553,7 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(app, monkeypa
             ),
             trace_args={"output": ""},
             trace=_DummyTrace(),
+            runtime_profiles={"practice_code": "STORED COURSE CODE"},
         )
     )
 
@@ -488,13 +571,24 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(app, monkeypa
         "<knowledge>\n\nknowledge snippets\n\n</knowledge>" in content
         for content in system_contents
     )
+    assert any("STORED COURSE CODE" in content for content in system_contents)
     assert all("{knowledge_section}" not in content for content in system_contents)
     assert context_messages[-1]["role"] == "user"
     assert events[-1].type == GeneratedType.BREAK
 
 
-def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
+def test_handle_input_ask_provider_response_skips_llm(
+    app: object, monkeypatch: object
+) -> None:
+    """Preserve successful provider streaming without logging the memory context."""
     from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.agent import routing
+
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "info", lambda *args, **kwargs: logged.append((args, kwargs))
+    )
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
 
     ask_provider_config = {
         "provider": "coze",
@@ -505,7 +599,7 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
 
     llm_call_counter = {"count": 0}
 
-    def _fake_chat_llm(*_args, **_kwargs):
+    def _fake_chat_llm(*_args: object, **_kwargs: object) -> object:
         llm_call_counter["count"] += 1
         yield _LLMChunk("should-not-run")
 
@@ -528,7 +622,7 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -537,6 +631,7 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
             ),
             trace_args={"output": ""},
             trace=dummy_trace,
+            runtime_profiles={"private_note": "STORED NOTE MUST NOT BE LOGGED"},
         )
     )
 
@@ -558,8 +653,12 @@ def test_handle_input_ask_provider_response_skips_llm(app, monkeypatch):
     assert generation.end_kwargs["output"] == "provider-answer"
     assert generation.end_kwargs["metadata"]["status"] == "success"
 
+    assert "STORED NOTE MUST NOT BE LOGGED" not in repr(logged)
 
-def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkeypatch):
+
+def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -571,7 +670,7 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
 
     captured = {"messages": None}
 
-    def _fake_stream_ask_provider_response(**kwargs):
+    def _fake_stream_ask_provider_response(**kwargs: object) -> object:
         if kwargs.get("provider") == "dify":
             captured["messages"] = kwargs.get("messages")
             return iter([types.SimpleNamespace(content="provider-answer")])
@@ -584,13 +683,26 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
     )
     monkeypatch.setattr(module, "chat_llm", lambda *_args, **_kwargs: iter([]))
 
+    nickname = "Ask Learner"
+    learner_profile = "ASK LEARNER PROFILE"
+    profiles = {
+        "sys_user_nickname": nickname,
+        "sys_user_background": learner_profile,
+    }
+    context = _Context()
+    context.get_system_prompt = lambda _outline_bid: "COURSE_PROMPT"
+    from flaskr.service.learn.utils_v2 import get_fmt_prompt
+
+    monkeypatch.setattr(module, "get_fmt_prompt", get_fmt_prompt)
+    dummy_trace = _DummyTrace()
+
     events = list(
         module.handle_input_ask(
             app=app,
-            context=_Context(),
+            context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -598,7 +710,8 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
                 position=1,
             ),
             trace_args={"output": ""},
-            trace=_DummyTrace(),
+            trace=dummy_trace,
+            runtime_profiles=profiles,
         )
     )
 
@@ -613,16 +726,24 @@ def test_handle_input_ask_dify_uses_context_without_follow_up_prompt(app, monkey
         if event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
     )
     assert len(captured["messages"]) == 2
-    assert captured["messages"][0] == {"role": "system", "content": "COURSE_PROMPT"}
+    assert captured["messages"][0]["role"] == "system"
+    assert nickname in captured["messages"][0]["content"]
+    assert learner_profile in captured["messages"][0]["content"]
+    assert "{{sys_user_nickname}}" not in captured["messages"][0]["content"]
+    assert "{{sys_user_background}}" not in captured["messages"][0]["content"]
+    assert "<learner_profile>" in captured["messages"][0]["content"]
+    assert "<learner_background>" not in captured["messages"][0]["content"]
     assert captured["messages"][1]["role"] == "user"
     user_content = captured["messages"][1]["content"]
     assert user_content.endswith("hello")
     assert "plain text or standard Markdown" in user_content
+    provider_generation_input = dummy_trace.last_span.generations[0].kwargs["input"]
+    assert learner_profile in provider_generation_input["messages"][0]["content"]
 
 
 def test_handle_input_ask_formats_provider_prompt_with_request_language(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -637,29 +758,15 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
     context.get_system_prompt = lambda _outline_bid: (
         "Course language: {language}; learner language: {sys_user_language}"
     )
-    captured = {"messages": None, "profile_overrides": None}
+    captured = {"messages": None}
 
-    def _fake_get_fmt_prompt(
-        _app,
-        _user_id,
-        _course_id,
-        template,
-        *,
-        profile_overrides=None,
-    ):
-        captured["profile_overrides"] = profile_overrides
-        profiles = {
-            "language": "zh-CN",
-            "sys_user_language": "zh-CN",
-            **(profile_overrides or {}),
-        }
-        return template.format(**profiles)
-
-    def _fake_stream_ask_provider_response(**kwargs):
+    def _fake_stream_ask_provider_response(**kwargs: object) -> object:
         captured["messages"] = kwargs.get("messages")
         return iter([types.SimpleNamespace(content="provider-answer")])
 
-    monkeypatch.setattr(module, "get_fmt_prompt", _fake_get_fmt_prompt)
+    from flaskr.service.learn.utils_v2 import get_fmt_prompt
+
+    monkeypatch.setattr(module, "get_fmt_prompt", get_fmt_prompt)
     monkeypatch.setattr(module, "get_current_language", lambda: "fr-FR")
     monkeypatch.setattr(module, "get_markdownflow_output_language", lambda: "Français")
     monkeypatch.setattr(
@@ -675,7 +782,7 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
             context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -687,14 +794,16 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
         )
     )
 
-    assert captured["profile_overrides"] == {
-        "language": "fr-FR",
-        "sys_user_language": "fr-FR",
-    }
-    assert captured["messages"][0] == {
-        "role": "system",
-        "content": "Course language: fr-FR; learner language: fr-FR",
-    }
+    assert captured["messages"][0]["role"] == "system"
+    assert (
+        "<course_prompt>\n"
+        "Course language: fr-FR; learner language: fr-FR\n"
+        "</course_prompt>" in captured["messages"][0]["content"]
+    )
+    assert '"UNKNOWN"' in captured["messages"][0]["content"]
+    assert "{{sys_user_background}}" not in captured["messages"][0]["content"]
+    assert "<learner_profile>" in captured["messages"][0]["content"]
+    assert "<learner_background>" not in captured["messages"][0]["content"]
     assert captured["messages"][1]["content"].endswith(
         "(IMPORTANT: You MUST respond in Français.)"
     )
@@ -705,18 +814,20 @@ def test_handle_input_ask_formats_provider_prompt_with_request_language(
 # ---------------------------------------------------------------------------
 
 
-def _setup_llm_only_patches(monkeypatch, module, llm_chunks):
+def _setup_llm_only_patches(
+    monkeypatch: object, module: object, llm_chunks: object
+) -> None:
     ask_provider_config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
     _setup_handle_input_ask_patches(monkeypatch, module, ask_provider_config)
 
-    def _fake_stream(**_kwargs):
+    def _fake_stream(**_kwargs: object) -> object:
         for chunk in llm_chunks:
             yield types.SimpleNamespace(content=chunk)
 
     monkeypatch.setattr(module, "stream_ask_provider_response", _fake_stream)
 
 
-def test_answer_content_uses_answer_block_bid(app, monkeypatch):
+def test_answer_content_uses_answer_block_bid(app: object, monkeypatch: object) -> None:
     """All teacher-side CONTENT events should use answer block's bid (gb-2)."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -728,7 +839,7 @@ def test_answer_content_uses_answer_block_bid(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="question",
+            user_input="question",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1", bid="o1", title="T", position=1
             ),
@@ -743,7 +854,7 @@ def test_answer_content_uses_answer_block_bid(app, monkeypatch):
         assert e.generated_block_bid == "gb-2"
 
 
-def test_ask_event_emitted(app, monkeypatch):
+def test_ask_event_emitted(app: object, monkeypatch: object) -> None:
     """An ASK event should be emitted with anchor_element_bid."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -755,7 +866,7 @@ def test_ask_event_emitted(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="my question",
+            user_input="my question",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1", bid="o1", title="T", position=1
             ),
@@ -771,7 +882,7 @@ def test_ask_event_emitted(app, monkeypatch):
     assert ask_events[0].anchor_element_bid == "elem_anchor_123"
 
 
-def test_ask_event_uses_ask_block_bid(app, monkeypatch):
+def test_ask_event_uses_ask_block_bid(app: object, monkeypatch: object) -> None:
     """ASK and teacher content both use the answer block bid."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -783,7 +894,7 @@ def test_ask_event_uses_ask_block_bid(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="my question",
+            user_input="my question",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1", bid="o1", title="T", position=1
             ),
@@ -802,7 +913,7 @@ def test_ask_event_uses_ask_block_bid(app, monkeypatch):
     assert content_events[0].generated_block_bid == "gb-2"
 
 
-def test_guardrail_uses_answer_block_bid(app, monkeypatch):
+def test_guardrail_uses_answer_block_bid(app: object, monkeypatch: object) -> None:
     """When guardrail triggers, CONTENT events should still use answer block bid."""
     from flaskr.service.learn import handle_input_ask as module
 
@@ -820,7 +931,7 @@ def test_guardrail_uses_answer_block_bid(app, monkeypatch):
             context=_Context(),
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="bad input",
+            user_input="bad input",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1", bid="o1", title="T", position=1
             ),
@@ -840,8 +951,8 @@ def test_guardrail_uses_answer_block_bid(app, monkeypatch):
 
 
 def test_handle_input_ask_nests_follow_up_span_under_parent_observation(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {
@@ -867,7 +978,7 @@ def test_handle_input_ask_nests_follow_up_span_under_parent_observation(
             context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="hello",
+            user_input="hello",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="shifu-1",
                 bid="outline-1",
@@ -893,7 +1004,9 @@ def test_handle_input_ask_nests_follow_up_span_under_parent_observation(
     assert context.langfuse_outputs == ["provider-answer"]
 
 
-def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(app, monkeypatch):
+def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(
+    app: object, monkeypatch: object
+) -> None:
     from flaskr.service.learn import handle_input_ask as module
 
     ask_provider_config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
@@ -914,7 +1027,7 @@ def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(app, monkeypat
             context=context,
             user_info=types.SimpleNamespace(user_id="user-1"),
             attend_id="attend-1",
-            input="blocked",
+            user_input="blocked",
             outline_item_info=types.SimpleNamespace(
                 shifu_bid="s1",
                 bid="o1",
@@ -933,3 +1046,621 @@ def test_handle_input_ask_guardrail_finalizes_trace_and_root_span(app, monkeypat
     assert root_span.updated["output"] == "guardrail response"
     assert trace.updated["output"] == "guardrail response"
     assert context.langfuse_outputs == ["guardrail response"]
+
+
+def _run_numbered_ask(app: object, module: object, *, preview: bool = False) -> list:
+    return list(
+        module.handle_input_ask(
+            app=app,
+            context=_Context(),
+            user_info=types.SimpleNamespace(user_id="selection-user"),
+            attend_id="selection-attend",
+            user_input="hello",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="selection-course",
+                bid="selection-outline",
+                title="Outline",
+                position=1,
+            ),
+            trace_args={},
+            trace=_DummyTrace(),
+            is_preview=preview,
+        )
+    )
+
+
+def _use_follow_up_selection(monkeypatch: object, module: object, config: dict) -> None:
+    info = _DummyFollowUpInfo(config)
+    info.ask_model = "fast"
+    info.usage_metadata = {
+        "model_selection_scope": "course",
+        "model_selection_record_id": 42,
+    }
+    monkeypatch.setattr(module, "get_follow_up_info_v2", lambda *_args: info)
+
+
+@pytest.mark.parametrize("provider", ["dify", "coze"])
+@pytest.mark.parametrize("mode", ["provider_only", "provider_then_llm"])
+@pytest.mark.parametrize("provider_fails", [False, True])
+def test_external_answers_only_require_a_selection_for_actual_fallback(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    mode: str,
+    provider_fails: bool,
+) -> None:
+    from flaskr.api.llm import model_selection
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.learn import handle_input_ask as module
+
+    config = {"provider": provider, "mode": mode, "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
+    provider_calls = []
+
+    def stream(**kwargs: object) -> object:
+        provider_calls.append(kwargs["provider"])
+        if kwargs["provider"] == "llm":
+            return kwargs["runtime"].llm_stream_factory()
+        if provider_fails:
+            message = "provider failed"
+            raise AskProviderError(message)
+        return iter([types.SimpleNamespace(content="external-answer")])
+
+    monkeypatch.setattr(module, "stream_ask_provider_response", stream)
+    monkeypatch.setattr(
+        module,
+        "chat_llm",
+        lambda *_args, **_kwargs: pytest.fail("unconfigured LLM invoked"),
+    )
+    with app.app_context():
+        if provider_fails and mode == "provider_then_llm":
+            with pytest.raises(AppError) as captured:
+                _run_numbered_ask(app, module)
+            assert (
+                captured.value.code
+                == ERROR_CODE["server.llm.modelSelectionNotConfigured"]
+            )
+            assert provider_calls == [provider, "llm"]
+        else:
+            events = _run_numbered_ask(app, module)
+            expected = (
+                "server.learn.askProviderUnavailable"
+                if provider_fails
+                else "external-answer"
+            )
+            assert _collect_content_chunks(events) == [expected]
+            assert provider_calls == [provider]
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("route", ["llm", "fallback", "synthesis"])
+def test_actual_llm_routes_snapshot_selection_model_and_metadata(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    route: str,
+    preview: bool,
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.api.llm import model_selection
+    from flaskr.service.learn import handle_input_ask as module
+
+    config = {
+        "provider": {
+            "llm": "llm",
+            "fallback": "dify",
+            "synthesis": "get_biji_knowledge",
+        }[route],
+        "mode": "provider_then_llm" if route == "fallback" else "provider_only",
+        "config": {},
+    }
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
+    resolve = Mock(return_value="mapped-fast")
+    monkeypatch.setattr(model_selection, "resolve_model_slot", resolve)
+    llm_calls = []
+
+    def chat(*_args: object, **kwargs: object) -> object:
+        llm_calls.append(kwargs)
+        yield _LLMChunk("selection-answer")
+
+    def stream(**kwargs: object) -> object:
+        if route == "fallback" and kwargs["provider"] == "dify":
+            message = "provider failed"
+            raise AskProviderError(message)
+        runtime = kwargs["runtime"]
+        chunks = (
+            runtime.llm_context_stream_factory("knowledge")
+            if route == "synthesis"
+            else runtime.llm_stream_factory()
+        )
+        return (types.SimpleNamespace(content=chunk.result) for chunk in chunks)
+
+    monkeypatch.setattr(module, "chat_llm", chat)
+    monkeypatch.setattr(module, "stream_ask_provider_response", stream)
+    with app.app_context():
+        events = _run_numbered_ask(app, module, preview=preview)
+        assert _collect_content_chunks(events) == ["selection-answer"]
+    resolve.assert_called_once_with("1")
+    assert llm_calls[0]["model"] == "mapped-fast"
+    usage_context = llm_calls[0]["usage_context"]
+    assert usage_context.generated_block_bid == events[0].generated_block_bid == "gb-2"
+    assert usage_context.progress_record_bid == "selection-attend"
+    assert usage_context.user_bid == "selection-user"
+    assert usage_context.shifu_bid == "selection-course"
+    assert usage_context.outline_item_bid == "selection-outline"
+    assert usage_context.learning_mode == "read"
+    from flaskr.service.metering.consts import (
+        BILL_USAGE_SCENE_PREVIEW,
+        BILL_USAGE_SCENE_PROD,
+    )
+
+    assert usage_context.usage_scene == (
+        BILL_USAGE_SCENE_PREVIEW if preview else BILL_USAGE_SCENE_PROD
+    )
+    assert llm_calls[0]["usage_metadata"] == {
+        "model_selection_scope": "course",
+        "model_selection_original": "fast",
+        "model_selection_record_id": 42,
+        "model_index": "1",
+        "model_selection_fallback": True,
+        "model_selection_fallback_reason": "invalid_selection",
+        "resolved_model": "mapped-fast",
+    }
+
+
+@pytest.mark.no_mock_llm
+@pytest.mark.parametrize("reject", [False, True])
+def test_guardrail_only_resolves_a_selection_when_it_needs_an_llm_response(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    reject: bool,
+) -> None:
+    from unittest.mock import Mock
+
+    from flaskr.api import llm
+    from flaskr.api.llm import model_selection
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.learn import check_text
+    from flaskr.service.learn import handle_input_ask as module
+
+    config = {"provider": "dify", "mode": "provider_only", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    _use_follow_up_selection(monkeypatch, module, config)
+    monkeypatch.setattr(model_selection, "get_config", lambda *_args: "")
+    monkeypatch.setattr(
+        module, "check_text_with_llm_response", check_text.check_text_with_llm_response
+    )
+    monkeypatch.setattr(check_text, "invoke_llm", llm.invoke_llm)
+    monkeypatch.setattr(check_text, "add_risk_control_result", lambda *_args: None)
+    monkeypatch.setattr(
+        check_text,
+        "check_text",
+        lambda *_args: types.SimpleNamespace(
+            check_result=check_text.CHECK_RESULT_REJECT
+            if reject
+            else check_text.CHECK_RESULT_PASS,
+            provider="test",
+            raw_data={},
+            risk_labels=[],
+        ),
+    )
+    provider = Mock(
+        return_value=iter([types.SimpleNamespace(content="external-answer")])
+    )
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    with app.app_context():
+        if reject:
+            with pytest.raises(AppError) as captured:
+                _run_numbered_ask(app, module)
+            assert (
+                captured.value.code
+                == ERROR_CODE["server.llm.modelSelectionNotConfigured"]
+            )
+            provider.assert_not_called()
+        else:
+            assert _collect_content_chunks(_run_numbered_ask(app, module)) == [
+                "external-answer"
+            ]
+            provider.assert_called_once()
+
+
+@pytest.mark.parametrize("source", ["llm", "fallback", "get_biji_knowledge"])
+def test_actual_follow_up_factory_streams_remember_and_bills_admission_to_its_course(
+    app: object, monkeypatch: object, source: str
+) -> None:
+    """Exercise the handler, native Agent, gateway mapping and completed patch handoff together."""
+    import json
+
+    from flaskr.api.llm import LLMStreamResponse
+    from flaskr.api.llm import markdownflow_model as gateway_model
+    from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.follow_up_memory_writer import (
+        FollowUpMemoryPatch,
+        FollowUpMemoryPolicy,
+    )
+
+    request = "Please remember that my practice code is 7319."
+    config = {
+        "provider": "dify" if source == "fallback" else source,
+        "mode": "provider_then_llm",
+        "config": {},
+    }
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    monkeypatch.setattr(
+        module,
+        "load_follow_up_memory_policy",
+        lambda **_kwargs: FollowUpMemoryPolicy(
+            frozenset(), frozenset(), {"practice_code": 0}, frozenset()
+        ),
+    )
+    calls = []
+
+    def gateway(**kwargs: object) -> object:
+        """Exercise real gateway mapping with deterministic provider tool deltas."""
+        calls.append(kwargs)
+        generation = kwargs["generation_name"]
+        if generation == "follow_up_memory_admission":
+            name = kwargs["tools"][0]["function"]["name"]
+            args = {"allowed": True}
+        elif any(message["role"] == "tool" for message in kwargs["messages"]):
+            yield LLMStreamResponse(
+                "answer",
+                is_end=True,
+                is_truncated=False,
+                result="Remembered your code.",
+                finish_reason="stop",
+                usage=None,
+            )
+            return
+        else:
+            name, args = (
+                "remember",
+                {"key": "practice_code", "value": "7319", "request": request},
+            )
+        yield LLMStreamResponse(
+            "tool",
+            is_end=True,
+            is_truncated=False,
+            result="",
+            finish_reason="tool_calls",
+            usage=None,
+            tool_call_deltas=[
+                {
+                    "index": 0,
+                    "id": generation,
+                    "name": name,
+                    "arguments": json.dumps(args),
+                }
+            ],
+        )
+
+    monkeypatch.setattr(gateway_model, "chat_llm", gateway)
+    monkeypatch.setattr(
+        module,
+        "chat_llm",
+        lambda *_a, **_k: pytest.fail("2.0 bypassed the memory-enabled factory"),
+    )
+
+    def provider(**kwargs: object) -> object:
+        """Dispatch the selected external failure or contextual synthesis factory."""
+        if kwargs["provider"] == "get_biji_knowledge":
+            stream = kwargs["runtime"].llm_context_stream_factory("RETRIEVED KNOWLEDGE")
+        elif kwargs["provider"] == "llm":
+            stream = kwargs["runtime"].llm_stream_factory()
+        else:
+            message = "external unavailable"
+            raise AskProviderError(message)
+        return (types.SimpleNamespace(content=chunk.result) for chunk in stream)
+
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    patch = FollowUpMemoryPatch()
+    request_context = _Context()
+    request_context._learning_mode = "classroom"
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=request_context,
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            user_input=request,
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="shifu-1", bid="outline-1", title="Lesson", position=1
+            ),
+            trace_args={},
+            trace=_DummyTrace(),
+            runtime_profiles={},
+            memory_patch=patch,
+        )
+    )
+    assert "".join(_collect_content_chunks(events)) == "Remembered your code."
+    assert [(item.key, item.value) for item in patch.variables] == [
+        ("practice_code", "7319")
+    ]
+    assert patch.generations == {"practice_code": 0}
+    assert patch.value_versions == {}
+    system = calls[0]["messages"][0]["content"]
+    assert system.index("COURSE_PROMPT") < system.index("Follow-up memory capability:")
+    assert "undeclared current-course facts CAN be saved" in system
+    assert "never prohibit calling the available remember tool" in system
+    tools = {t["function"]["name"]: t["function"] for t in calls[0]["tools"]}
+    assert set(tools) == {"recall", "remember", "learner_quotes"}
+    assert set(tools["learner_quotes"]["parameters"]["properties"]) == {"offset"}
+    schema = tools["remember"]["parameters"]
+    assert "request" in schema["required"]
+    assert "EXACTLY" in schema["properties"]["request"]["description"]
+    assert len(calls) == 3
+    assert (
+        sum(call["generation_name"] == "follow_up_memory_admission" for call in calls)
+        == 1
+    )
+    for call in calls:
+        assert call["user_id"] == "user-1"
+        assert call["usage_context"].shifu_bid == "shifu-1"
+        assert call["usage_context"].outline_item_bid == "outline-1"
+        assert call["usage_context"].progress_record_bid == "attend-1"
+        assert call["usage_context"].learning_mode == "classroom"
+        assert call["usage_context"].generated_block_bid == "gb-2"
+        assert (
+            call["usage_context"].generated_block_bid == events[0].generated_block_bid
+        )
+    assert all(
+        event.type in {GeneratedType.ASK, GeneratedType.CONTENT, GeneratedType.BREAK}
+        for event in events
+    )
+    if source == "get_biji_knowledge":
+        assert "RETRIEVED KNOWLEDGE" in str(calls[0]["messages"])
+
+
+@pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
+def test_guardrail_reply_usage_belongs_to_the_current_answer(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    preview: bool,
+    learning_mode: str,
+) -> None:
+    from flaskr.service.learn import check_text
+    from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.metering.consts import (
+        BILL_USAGE_SCENE_PREVIEW,
+        BILL_USAGE_SCENE_PROD,
+    )
+
+    config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    monkeypatch.setattr(
+        module, "check_text_with_llm_response", check_text.check_text_with_llm_response
+    )
+    monkeypatch.setattr(check_text, "add_risk_control_result", lambda *_args: None)
+    checked = []
+
+    def reject(_app: object, block_bid: str, *_args: object) -> object:
+        """Keep moderation attached to the learner's question block."""
+        checked.append(block_bid)
+        return types.SimpleNamespace(
+            check_result=check_text.CHECK_RESULT_REJECT,
+            provider="test",
+            raw_data={},
+            risk_labels=[],
+        )
+
+    calls = []
+
+    def respond(*_args: object, **kwargs: object) -> object:
+        """Capture the actual guardrail model call, then stream its reply."""
+        calls.append(kwargs)
+        yield _LLMChunk("guardrail response")
+
+    monkeypatch.setattr(check_text, "check_text", reject)
+    monkeypatch.setattr(check_text, "invoke_llm", respond)
+    monkeypatch.setattr(check_text, "init_generated_block", module.init_generated_block)
+    monkeypatch.setattr(
+        module,
+        "stream_ask_provider_response",
+        lambda **_kwargs: pytest.fail("Rejected input entered the answer provider"),
+    )
+    context = _Context()
+    context._learning_mode = learning_mode
+    events = list(
+        module.handle_input_ask(
+            app=app,
+            context=context,
+            user_info=types.SimpleNamespace(user_id="user-1"),
+            attend_id="attend-1",
+            user_input="blocked question",
+            outline_item_info=types.SimpleNamespace(
+                shifu_bid="shifu-1", bid="outline-1", title="Lesson", position=1
+            ),
+            trace_args={},
+            trace=_DummyTrace(),
+            is_preview=preview,
+            anchor_element_bid="older-teaching-anchor",
+        )
+    )
+    assert checked == ["gb-1"]
+    assert _collect_content_chunks(events) == ["guardrail response"]
+    assert len(calls) == 1
+    usage = calls[0]["usage_context"]
+    assert usage.generated_block_bid == events[0].generated_block_bid == "gb-2"
+    assert usage.progress_record_bid == "attend-1"
+    assert usage.learning_mode == learning_mode
+    assert (
+        usage.usage_scene
+        == calls[0]["usage_scene"]
+        == (BILL_USAGE_SCENE_PREVIEW if preview else BILL_USAGE_SCENE_PROD)
+    )
+
+
+def test_interleaved_follow_ups_keep_distinct_answer_usage_snapshots(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import FrozenInstanceError
+
+    from flaskr.service.learn import handle_input_ask as module
+
+    config = {"provider": "llm", "mode": "provider_then_llm", "config": {}}
+    _setup_handle_input_ask_patches(monkeypatch, module, config)
+    calls = []
+
+    def chat(*_args: object, **kwargs: object) -> object:
+        """Retain each immutable usage context beyond the next handler's start."""
+        calls.append(kwargs["usage_context"])
+        yield _LLMChunk("answer")
+
+    def provider(**kwargs: object) -> object:
+        """Exercise the actual handler's deferred LLM factory."""
+        return (
+            types.SimpleNamespace(content=chunk.result)
+            for chunk in kwargs["runtime"].llm_stream_factory()
+        )
+
+    monkeypatch.setattr(module, "chat_llm", chat)
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    common = {
+        "app": app,
+        "context": _Context(),
+        "user_info": types.SimpleNamespace(user_id="user-1"),
+        "attend_id": "attend-1",
+        "user_input": "question",
+        "outline_item_info": types.SimpleNamespace(
+            shifu_bid="shifu-1", bid="outline-1", title="Lesson", position=1
+        ),
+        "anchor_element_bid": "same-old-teaching-anchor",
+    }
+    first = module.handle_input_ask(**common, trace_args={}, trace=_DummyTrace())
+    second = module.handle_input_ask(**common, trace_args={}, trace=_DummyTrace())
+    first_start = next(first)
+    second_start = next(second)
+    assert first_start.generated_block_bid == "gb-2"
+    assert second_start.generated_block_bid == "gb-4"
+    assert _collect_content_chunks(list(first)) == ["answer"]
+    assert _collect_content_chunks(list(second)) == ["answer"]
+    assert [usage.generated_block_bid for usage in calls] == ["gb-2", "gb-4"]
+    assert all(usage.progress_record_bid == "attend-1" for usage in calls)
+    with pytest.raises(FrozenInstanceError):
+        calls[0].generated_block_bid = "gb-4"
+
+
+@pytest.mark.parametrize(
+    "original",
+    ["Compare {cache} with RAM", "  Compare {{cache}} with {RAM}.\nKeep spacing.  "],
+)
+def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
+    app: object,
+    monkeypatch: object,
+    original: str,
+) -> None:
+    """Drive the real ask producer, sidecar storage and next request's quote source."""
+    import uuid
+
+    from flaskr.dao import db
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.follow_up_quotations import LearnerQuotationSource
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
+    from flaskr.service.shifu.consts import (
+        BLOCK_TYPE_MDASK_VALUE,
+        BLOCK_TYPE_MDCONTENT_VALUE,
+    )
+
+    real_add, real_flush, real_init = (
+        db.session.add,
+        db.session.flush,
+        module.init_generated_block,
+    )
+    real_latest, real_sidecars = (
+        module._load_latest_active_element_row,
+        module.find_follow_up_element_rows,
+    )
+    _setup_llm_only_patches(monkeypatch, module, ["Assistant suggestion differs."])
+    monkeypatch.setattr(db.session, "add", real_add)
+    monkeypatch.setattr(db.session, "flush", real_flush)
+    monkeypatch.setattr(module, "init_generated_block", real_init)
+    monkeypatch.setattr(module, "LearnGeneratedBlock", LearnGeneratedBlock)
+    monkeypatch.setattr(module, "_load_latest_active_element_row", real_latest)
+    monkeypatch.setattr(module, "find_follow_up_element_rows", real_sidecars)
+    seen = []
+    quote_contexts = []
+    real_context_builder = module.build_follow_up_conversation_context
+
+    def build_context(*args: object, **kwargs: object) -> object:
+        context = real_context_builder(*args, **kwargs)
+        quote_contexts.append(context.quotation_messages)
+        return context
+
+    monkeypatch.setattr(module, "build_follow_up_conversation_context", build_context)
+
+    def provider(**kwargs: object) -> object:
+        seen.append(kwargs["messages"])
+        yield types.SimpleNamespace(content="Assistant suggestion differs.")
+
+    monkeypatch.setattr(module, "stream_ask_provider_response", provider)
+    identity = uuid.uuid4().hex
+    fields = dict.fromkeys(
+        ("user_bid", "shifu_bid", "outline_item_bid", "progress_record_bid"), identity
+    )
+    with app.app_context(), unit_of_work():
+        block = LearnGeneratedBlock(
+            **fields,
+            generated_block_bid=uuid.uuid4().hex,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            generated_content="Anchor",
+            status=1,
+        )
+        db.session.add(block)
+        anchor = LearnGeneratedElement(
+            **fields,
+            element_bid=uuid.uuid4().hex,
+            generated_block_bid=block.generated_block_bid,
+            event_type="element",
+            element_type="text",
+            content_text="Anchor",
+            status=1,
+        )
+        db.session.add(anchor)
+        db.session.flush()
+        for current in [original, "What were my exact earlier words?"]:
+            events = list(
+                module.handle_input_ask(
+                    app=app,
+                    context=_Context(),
+                    user_info=types.SimpleNamespace(user_id=identity),
+                    attend_id=identity,
+                    user_input=current,
+                    outline_item_info=types.SimpleNamespace(
+                        shifu_bid=identity, bid=identity, title="Lesson", position=1
+                    ),
+                    trace_args={},
+                    trace=_DummyTrace(),
+                    anchor_element_bid=anchor.element_bid,
+                )
+            )
+            assert (
+                next(e.content for e in events if e.type == GeneratedType.ASK)
+                == current
+            )
+            adapter = ListenElementRunAdapter(
+                app, shifu_bid=identity, outline_bid=identity, user_bid=identity
+            )
+            list(adapter.process(events))
+            db.session.flush()
+        asks = (
+            LearnGeneratedBlock.query.filter_by(
+                user_bid=identity, type=BLOCK_TYPE_MDASK_VALUE
+            )
+            .order_by(LearnGeneratedBlock.id)
+            .all()
+        )
+        assert [r.generated_content for r in asks] == [
+            original,
+            "What were my exact earlier words?",
+        ]
+        source = LearnerQuotationSource(quote_contexts[1])
+        import json
+
+        assert json.loads(source.read())["messages"][0]["content"] == original
+        assert original.replace("{", "{{").replace("}", "}}") in seen[0][-1]["content"]

@@ -19,7 +19,6 @@
       "status": "Statut"
     },
     "queueTitle": "Invitations",
-    "refresh": "Actualiser",
     "rewardRecordValue": "{cycles} mois d’abonnement Basic ({credits} crédits inclus)",
     "rewardRulesTitle": "Règles de campagne",
     "rules": {
@@ -66,11 +65,11 @@
       "campaignBid": "BID de campagne",
       "inviteCode": "Code d’invitation",
       "invitee": "Invité",
-      "inviteeEmailPlaceholder": "Saisir l'e-mail de l'invité",
-      "inviteeMobilePlaceholder": "Saisir le mobile de l'invité",
+      "inviteeEmailPlaceholder": "E-mail de l’invité",
+      "inviteeMobilePlaceholder": "Mobile de l’invité",
       "inviter": "Invitant",
-      "inviterEmailPlaceholder": "Saisir l'e-mail de l'invitant",
-      "inviterMobilePlaceholder": "Saisir le mobile de l'invitant",
+      "inviterEmailPlaceholder": "E-mail de l’invitant",
+      "inviterMobilePlaceholder": "Mobile de l’invitant",
       "relationStatus": "Statut de la relation"
     },
     "loadFailed": "Échec du chargement des relations. Actualisez puis réessayez.",
@@ -87,9 +86,7 @@
       "prevAria": "Page précédente"
     },
     "refresh": "Actualiser",
-    "statusUpdated": "Statut mis à jour",
     "table": {
-      "action": "Action",
       "boundAt": "Date de liaison",
       "campaign": "Campagne",
       "inviteCode": "Code",

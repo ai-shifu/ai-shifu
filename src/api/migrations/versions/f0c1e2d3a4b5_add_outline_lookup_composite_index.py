@@ -1,4 +1,4 @@
-"""add composite index for draft outline lookup
+"""add composite index for draft outline lookup.
 
 Revision ID: f0c1e2d3a4b5
 Revises: 3ef04a9b5d37
@@ -6,10 +6,9 @@ Create Date: 2026-03-03 16:30:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.exc import SQLAlchemyError
-
 
 # revision identifiers, used by Alembic.
 revision = "f0c1e2d3a4b5"

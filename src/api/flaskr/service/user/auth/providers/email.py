@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import Flask
+from typing import TYPE_CHECKING
 
 from flaskr.service.user.auth.base import (
     AuthProvider,
@@ -15,21 +15,28 @@ from flaskr.service.user.auth.factory import (
     has_provider,
     register_provider,
 )
-from flaskr.service.user.repository import find_credential, load_user_aggregate
 from flaskr.service.user.email_flow import verify_email_code
+from flaskr.service.user.repository import find_credential, load_user_aggregate
 from flaskr.service.user.utils import send_email_code
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class EmailAuthProvider(AuthProvider):
+    """Authenticate users through an email verification flow."""
+
     provider_name = "email"
     supports_challenge = True
 
     def send_challenge(
         self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
+        """Send an authentication challenge to the user."""
+        identifier = request.identifier.strip().lower()
         response = send_email_code(
             app,
-            request.identifier,
+            identifier,
             ip=request.metadata.get("ip"),
             language=request.metadata.get("language"),
         )
@@ -38,12 +45,13 @@ class EmailAuthProvider(AuthProvider):
             "language": request.metadata.get("language"),
         }
         return ChallengeResponse(
-            identifier=request.identifier,
+            identifier=identifier,
             expire_in=response.get("expire_in", 0),
             metadata=metadata,
         )
 
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
+        """Verify the supplied authentication credential."""
         user_token, created_user, context = verify_email_code(
             app,
             request.metadata.get("user_id"),
@@ -51,11 +59,13 @@ class EmailAuthProvider(AuthProvider):
             request.code,
             course_id=request.metadata.get("course_id"),
             language=request.metadata.get("language"),
+            login_context=request.metadata.get("login_context"),
         )
 
         aggregate = load_user_aggregate(user_token.userInfo.user_id)
         if not aggregate:
-            raise RuntimeError("User aggregate missing after email verification")
+            message = "User aggregate missing after email verification"
+            raise RuntimeError(message)
 
         credential = find_credential(
             provider_name="email",

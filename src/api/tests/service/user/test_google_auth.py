@@ -1,8 +1,11 @@
-import uuid
+"""Verify Google sign-in preserves account trust and paid state."""
 
-import pytest
+import uuid
+from collections.abc import Iterator
+from types import SimpleNamespace
 
 import flaskr.common.config as common_config
+import pytest
 from flaskr.dao import db
 from flaskr.service.user.auth.base import OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
@@ -13,56 +16,68 @@ from flaskr.service.user.consts import (
 )
 from flaskr.service.user.models import (
     AuthCredential,
+)
+from flaskr.service.user.models import (
     UserInfo as UserEntity,
+)
+from flaskr.service.user.models import (
     UserToken as UserTokenModel,
 )
+from flaskr.service.user.token_store import token_store
+from sqlalchemy import Text
 
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
-        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 @pytest.fixture(autouse=True)
-def clear_google_public_url_config_cache():
+def clear_google_public_url_config_cache() -> Iterator[None]:
     _reset_config_cache("HOST_URL")
     yield
     _reset_config_cache("HOST_URL")
 
 
 class _FakeGoogleResponse:
-    def __init__(self, payload):
+    def __init__(self, payload: object) -> None:
         self._payload = payload
 
-    def raise_for_status(self):
+    def raise_for_status(self) -> None:
         return None
 
-    def json(self):
+    def json(self) -> object:
         return self._payload
 
 
 class _FakeGoogleSession:
-    def __init__(self, profile, *, fetch_token_error=None):
+    def __init__(self, profile: object, *, fetch_token_error: object = None) -> None:
         self._profile = profile
         self._fetch_token_error = fetch_token_error
 
-    def fetch_token(self, *_args, **_kwargs):
+    def fetch_token(self, *_args: object, **_kwargs: object) -> object:
         if self._fetch_token_error is not None:
             raise self._fetch_token_error
         return {"access_token": "fake-access-token"}
 
-    def get(self, *_args, **_kwargs):
+    def get(self, *_args: object, **_kwargs: object) -> object:
         return _FakeGoogleResponse(self._profile)
 
 
-def _reset_user_auth_tables():
+def _reset_user_auth_tables() -> None:
     UserTokenModel.query.delete()
     AuthCredential.query.delete()
     UserEntity.query.delete()
     db.session.commit()
 
 
-def _run_google_callback(app, monkeypatch, profile, *, fetch_token_error=None):
+def _run_google_callback(
+    app: object,
+    monkeypatch: object,
+    profile: object,
+    *,
+    fetch_token_error: object = None,
+) -> object:
     monkeypatch.setenv("HOST_URL", "http://localhost")
     _reset_config_cache("HOST_URL")
     provider = GoogleAuthProvider()
@@ -85,9 +100,52 @@ def _run_google_callback(app, monkeypatch, profile, *, fetch_token_error=None):
         return provider.handle_oauth_callback(app, callback)
 
 
+def test_google_callback_commit_failure_does_not_populate_token_cache(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
+    import flaskr.route.user as user_route
+
+    token = f"google-failed-{uuid.uuid4().hex}"
+    user_id = uuid.uuid4().hex
+
+    class FailingCommitProvider:
+        def handle_oauth_callback(self, route_app: object, _request: object) -> object:
+            token_store.save(
+                route_app,
+                user_id=user_id,
+                token=token,
+                ttl_seconds=60,
+            )
+            return SimpleNamespace(
+                user=SimpleNamespace(user_id=user_id, language="en-US"),
+                token=SimpleNamespace(token=token),
+                is_new_user=False,
+                metadata={},
+            )
+
+    def fail_commit() -> None:
+        message = "simulated Google login commit failure"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(
+        user_route, "get_provider", lambda _name: FailingCommitProvider()
+    )
+    monkeypatch.setattr(db.session, "commit", fail_commit)
+
+    response = test_client.get(
+        "/api/user/oauth/google/callback",
+        query_string={"state": "state", "code": "code"},
+    )
+    assert response.get_json(force=True)["code"] == -1
+
+    with app.app_context():
+        assert UserTokenModel.query.filter_by(token=token).count() == 0
+        assert token_store._cache.get(token_store._cache_key(app, token)) is None
+
+
 def test_google_unverified_email_does_not_consume_first_account_bootstrap(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     first_email = f"{uuid.uuid4().hex[:10]}@example.com"
     second_email = f"{uuid.uuid4().hex[:10]}@example.com"
 
@@ -140,7 +198,9 @@ def test_google_unverified_email_does_not_consume_first_account_bootstrap(
             _reset_user_auth_tables()
 
 
-def test_google_verified_login_does_not_downgrade_paid_user(app, monkeypatch):
+def test_google_verified_login_does_not_downgrade_paid_user(
+    app: object, monkeypatch: object
+) -> None:
     email = f"{uuid.uuid4().hex[:10]}@example.com"
 
     with app.app_context():
@@ -178,7 +238,116 @@ def test_google_verified_login_does_not_downgrade_paid_user(app, monkeypatch):
             _reset_user_auth_tables()
 
 
-def test_google_oauth_token_fetch_failure_propagates(app, monkeypatch):
+def test_google_existing_account_keeps_pre_profile_display_name_behavior(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    email = f"{uuid.uuid4().hex[:10]}@example.com"
+
+    with app.app_context():
+        _reset_user_auth_tables()
+        try:
+            existing_user = UserEntity(
+                user_bid=uuid.uuid4().hex[:32],
+                user_identify=email,
+                nickname="Canonical Name",
+                learner_profile="Please call me Canonical Name.",
+                language="en-US",
+                state=USER_STATE_UNREGISTERED,
+            )
+            db.session.add(existing_user)
+            db.session.commit()
+
+            query_type = type(UserEntity.query)
+            original_first = query_type.first
+            reads: list[tuple[str, str, bool, bool]] = []
+
+            def track_first(query: object) -> object:
+                statement = str(query.statement)
+                parameters = query.statement.compile().params
+                table = (
+                    "user_onboarding_states"
+                    if "user_onboarding_states" in statement
+                    else "user_users"
+                    if "user_users" in statement
+                    else "other"
+                )
+                reads.append(
+                    (
+                        table,
+                        str(parameters.get("user_bid_1", "")),
+                        query._for_update_arg is not None,
+                        bool(query.load_options._populate_existing),
+                    )
+                )
+                return original_first(query)
+
+            monkeypatch.setattr(query_type, "first", track_first)
+            result = _run_google_callback(
+                app,
+                monkeypatch,
+                {
+                    "sub": uuid.uuid4().hex,
+                    "email": email,
+                    "email_verified": False,
+                    "name": "Current Google Name",
+                },
+            )
+
+            assert not any(read[0] == "user_onboarding_states" for read in reads)
+            assert result.user.name == "Current Google Name"
+            db.session.expire_all()
+            stored = UserEntity.query.filter_by(user_bid=existing_user.user_bid).one()
+            assert stored.nickname == "Current Google Name"
+        finally:
+            _reset_user_auth_tables()
+
+
+def test_google_existing_account_accepts_long_avatar_url(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    email = f"{uuid.uuid4().hex[:10]}@example.com"
+    avatar_url = f"https://lh3.googleusercontent.com/a-/{'a' * 512}=s96-c"
+
+    assert len(avatar_url) > 255
+    assert isinstance(UserEntity.__table__.c.avatar.type, Text)
+
+    with app.app_context():
+        _reset_user_auth_tables()
+        try:
+            existing_user = UserEntity(
+                user_bid=uuid.uuid4().hex[:32],
+                user_identify=email,
+                nickname="Existing User",
+                avatar="",
+                language="en-US",
+                state=USER_STATE_UNREGISTERED,
+            )
+            db.session.add(existing_user)
+            db.session.commit()
+
+            result = _run_google_callback(
+                app,
+                monkeypatch,
+                {
+                    "sub": uuid.uuid4().hex,
+                    "email": email,
+                    "email_verified": True,
+                    "name": "Existing User",
+                    "picture": avatar_url,
+                },
+            )
+
+            stored = UserEntity.query.filter_by(user_bid=result.user.user_id).one()
+            assert stored.avatar == avatar_url
+        finally:
+            _reset_user_auth_tables()
+
+
+def test_google_oauth_token_fetch_failure_propagates(
+    app: object, monkeypatch: object
+) -> None:
     with app.app_context():
         _reset_user_auth_tables()
         try:

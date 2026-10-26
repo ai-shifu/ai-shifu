@@ -1,17 +1,39 @@
-from datetime import datetime, timezone
+"""Provide datetime utilities."""
+
+from datetime import UTC, datetime
+
 import pytz
 from flask import Flask
 
+# Sentinels for ordering and comparing the naive UTC timestamps stored in the
+# database, used where a nullable column takes part in a sort key or a range
+# check. They are naive on purpose: an aware sentinel raises `TypeError` as
+# soon as it meets a stored value.
+NAIVE_DATETIME_MIN = datetime.min  # noqa: DTZ901
+NAIVE_DATETIME_MAX = datetime.max  # noqa: DTZ901
+
 
 def now_utc() -> datetime:
-    """Current UTC time as a naive datetime.
+    """Return the current UTC time as a naive datetime.
 
     The database stores UTC. Returning a naive (tz-unaware) value keeps the
     same semantics as ``datetime.utcnow()`` used elsewhere, so it can be
     compared with existing naive timestamps without raising. It is computed
     from ``timezone.utc`` so it does not depend on the process ``TZ`` setting.
     """
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
+
+
+def parse_naive_utc(value: str, fmt: str) -> datetime:
+    """Parse a timestamp string as UTC and return it as a naive datetime.
+
+    The inbound counterpart of ``now_utc()``: API filters, CLI arguments and
+    admin payloads carry no offset, and the stored timestamps they are compared
+    with are naive UTC, so the parsed value has to stay naive as well.
+    Propagates ``ValueError`` from ``datetime.strptime`` when the value does
+    not match the format.
+    """
+    return datetime.strptime(value, fmt)  # noqa: DTZ007
 
 
 def to_utc_iso(value: datetime | None) -> str | None:
@@ -26,11 +48,12 @@ def to_utc_iso(value: datetime | None) -> str | None:
     if value is None:
         return None
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
-def get_now_time(app: Flask):
+def get_now_time(app: Flask) -> datetime:
+    """Return the current time in the application's configured timezone."""
     timezone_str = app.config.get("DEFAULT_TIMEZONE", "Asia/Shanghai")
     tz = pytz.timezone(timezone_str)
     return datetime.now(tz)

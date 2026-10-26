@@ -5,44 +5,57 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
-from flaskr.util.datetime import now_utc
-from typing import Any, Dict, Sequence
 from flask import Flask, current_app
+from flaskr.api.llm.model_selection import course_model_selection, selection_model
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
-from flaskr.i18n import _
+from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, on_commit, unit_of_work
+from flaskr.i18n import _
 from flaskr.service.common.models import (
     raise_error,
     raise_error_with_args,
     raise_param_error,
 )
+from flaskr.service.learn.api import (
+    normalize_live_follow_up_course_config,
+)
 from flaskr.service.profile.models import Variable
-from flaskr.util import generate_id
+from flaskr.service.shifu.admin_operations.courses_shared import (
+    OPERATOR_TARGET_CONTACT_MAX_LENGTH,
+    OPERATOR_TARGET_EMAIL_PATTERN,
+    OPERATOR_TARGET_PHONE_PATTERN,
+    _get_legacy_admin_symbol,
+    _is_operator_visible_course,
+    _normalize_identifier,
+)
 from flaskr.service.shifu.consts import (
     SHIFU_NAME_MAX_LENGTH,
-)
-from flaskr.service.shifu.shifu_draft_funcs import (
-    check_text_with_risk_control,
-    get_latest_shifu_draft,
-)
-from flaskr.service.shifu.shifu_history_manager import (
-    HistoryItem,
-    save_outline_tree_history,
-    save_shifu_history,
 )
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
     PublishedShifu,
 )
-from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.service.shifu.shifu_draft_funcs import (
+    check_text_with_risk_control,
+    get_latest_shifu_draft,
+    serialize_ask_provider_config,
+)
+from flaskr.service.shifu.shifu_history_manager import (
+    HistoryItem,
+    save_outline_tree_history,
+    save_shifu_history,
+)
+from flaskr.service.tts.models import TTSMiniMaxClonedVoice
 from flaskr.service.user.consts import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
 )
+from flaskr.service.user.models import UserInfo
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
     load_user_aggregate_by_identifier,
@@ -55,19 +68,18 @@ from flaskr.service.user.utils import (
     mark_creator_role_if_needed,
     run_creator_granted_post_auth,
 )
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
 from markdown_flow import MarkdownFlow
 
-from flaskr.service.shifu.admin_operations.courses_shared import (
-    OPERATOR_TARGET_CONTACT_MAX_LENGTH,
-    OPERATOR_TARGET_EMAIL_PATTERN,
-    OPERATOR_TARGET_PHONE_PATTERN,
-    _get_legacy_admin_symbol,
-    _is_operator_visible_course,
-    _normalize_identifier,
-)
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
 
 
-def _load_latest_course_for_transfer(shifu_bid: str):
+def _load_latest_course_for_transfer(
+    shifu_bid: str,
+) -> DraftShifu | PublishedShifu | None:
     draft = (
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_bid,
@@ -135,7 +147,7 @@ def _resolve_course_copy_title(source_title: str, requested_title: str) -> str:
 def _build_outline_history_tree(
     outlines: Sequence[DraftOutlineItem],
 ) -> list[HistoryItem]:
-    outline_children_map: Dict[str, list[DraftOutlineItem]] = {}
+    outline_children_map: dict[str, list[DraftOutlineItem]] = {}
     for outline in outlines:
         parent_bid = str(outline.parent_bid or "").strip()
         outline_children_map.setdefault(parent_bid, []).append(outline)
@@ -151,17 +163,16 @@ def _build_outline_history_tree(
     def _build(parent_bid: str) -> list[HistoryItem]:
         children = outline_children_map.get(parent_bid, [])
         children.sort(key=lambda item: (item.position or "", item.id))
-        history_items: list[HistoryItem] = []
-        for child in children:
-            history_items.append(
-                HistoryItem(
-                    bid=str(child.outline_item_bid or "").strip(),
-                    id=int(child.id),
-                    type="outline",
-                    children=_build(str(child.outline_item_bid or "").strip()),
-                    child_count=_count_blocks(child.content or ""),
-                )
+        history_items: list[HistoryItem] = [
+            HistoryItem(
+                bid=str(child.outline_item_bid or "").strip(),
+                id=int(child.id),
+                type="outline",
+                children=_build(str(child.outline_item_bid or "").strip()),
+                child_count=_count_blocks(child.content or ""),
             )
+            for child in children
+        ]
         return history_items
 
     return _build("")
@@ -265,7 +276,7 @@ def _prepare_operator_target_creator(
     identifier: str,
     previous_creator_user_bid: str = "",
     allow_same_user: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     normalized_contact_type = str(contact_type or "").strip().lower()
     normalized_identifier = _validate_operator_target_contact(
         normalized_contact_type, identifier
@@ -369,6 +380,7 @@ def _update_course_creator_bid(
     shifu_bid: str,
     creator_user_bid: str,
     updated_user_bid: str = "",
+    expected_creator_user_bid: str = "",
 ) -> None:
     draft_values = {DraftShifu.created_user_bid: creator_user_bid}
     published_values = {PublishedShifu.created_user_bid: creator_user_bid}
@@ -379,11 +391,21 @@ def _update_course_creator_bid(
         draft_values[DraftShifu.updated_at] = updated_at
         published_values[PublishedShifu.updated_user_bid] = normalized_updated_user_bid
         published_values[PublishedShifu.updated_at] = updated_at
-    DraftShifu.query.filter(DraftShifu.shifu_bid == shifu_bid).update(
+    draft_query = DraftShifu.query.filter(DraftShifu.shifu_bid == shifu_bid)
+    published_query = PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_bid)
+    normalized_expected_creator = str(expected_creator_user_bid or "").strip()
+    if normalized_expected_creator:
+        draft_query = draft_query.filter(
+            DraftShifu.created_user_bid == normalized_expected_creator
+        )
+        published_query = published_query.filter(
+            PublishedShifu.created_user_bid == normalized_expected_creator
+        )
+    draft_query.update(
         draft_values,
         synchronize_session=False,
     )
-    PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_bid).update(
+    published_query.update(
         published_values,
         synchronize_session=False,
     )
@@ -396,8 +418,9 @@ def transfer_operator_course_creator(
     contact_type: str,
     identifier: str,
     operator_user_bid: str = "",
-) -> Dict[str, Any]:
-    with app.app_context():
+) -> dict[str, object]:
+    """Transfer operator course creator."""
+    with app_context_scope(app), unit_of_work():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()
         normalized_identifier = _normalize_identifier(identifier)
@@ -434,30 +457,164 @@ def transfer_operator_course_creator(
                 int(latest_course.id),
             )
 
-        db.session.commit()
-        if previous_creator_user_bid:
-            _clear_shifu_permission_cache(
-                app, previous_creator_user_bid, normalized_shifu_bid
-            )
-        _clear_shifu_permission_cache(app, target_user_bid, normalized_shifu_bid)
-        _clear_shifu_creator_cache(app, normalized_shifu_bid)
-        if creator_granted_now:
-            _get_legacy_admin_symbol(
-                "run_creator_granted_post_auth", run_creator_granted_post_auth
-            )(
-                app,
-                user_id=target_user_bid,
-                source="operator_transfer_creator",
-                login_context="admin",
-                created_new_user=created_new_user,
-                language=target_aggregate.user_language,
-            )
+        def finish_transfer() -> None:
+            if previous_creator_user_bid:
+                _clear_shifu_permission_cache(
+                    app, previous_creator_user_bid, normalized_shifu_bid
+                )
+            _clear_shifu_permission_cache(app, target_user_bid, normalized_shifu_bid)
+            _clear_shifu_creator_cache(app, normalized_shifu_bid)
+            if creator_granted_now:
+                _get_legacy_admin_symbol(
+                    "run_creator_granted_post_auth", run_creator_granted_post_auth
+                )(
+                    app,
+                    user_id=target_user_bid,
+                    source="operator_transfer_creator",
+                    login_context="admin",
+                    created_new_user=created_new_user,
+                    language=target_aggregate.user_language,
+                )
+
+        # Cache invalidation and the post-auth chain run only once the new
+        # creator is durable; a rollback drops them.
+        on_commit(finish_transfer)
         return {
             "shifu_bid": normalized_shifu_bid,
             "previous_creator_user_bid": previous_creator_user_bid,
             "target_creator_user_bid": target_user_bid,
             "created_new_user": created_new_user,
             "granted_demo_permissions": granted_demo_permissions,
+        }
+
+
+def transfer_operator_published_courses(
+    app: Flask,
+    *,
+    previous_creator_user_bid: str,
+    contact_type: str,
+    identifier: str,
+    operator_user_bid: str,
+) -> dict[str, object]:
+    """Atomically transfer every published course owned by one user."""
+    with app.app_context():
+        source_user_bid = str(previous_creator_user_bid or "").strip()
+        normalized_operator_user_bid = str(operator_user_bid or "").strip()
+        if not source_user_bid:
+            raise_param_error("previous_creator_user_bid")
+        if not normalized_operator_user_bid:
+            raise_param_error("operator_user_bid")
+        source_user = UserInfo.query.filter(
+            UserInfo.user_bid == source_user_bid,
+            UserInfo.deleted == 0,
+        ).first()
+        if source_user is None:
+            raise_error("server.user.userNotFound")
+        if source_user_bid == normalized_operator_user_bid or bool(
+            source_user.is_operator
+        ):
+            raise_error("server.user.accountCancellationBlocked")
+
+        course_rows = (
+            PublishedShifu.query.filter(
+                PublishedShifu.created_user_bid == source_user_bid,
+                PublishedShifu.deleted == 0,
+            )
+            .order_by(PublishedShifu.id.desc())
+            .all()
+        )
+        course_bids: list[str] = []
+        latest_by_bid: dict[str, PublishedShifu] = {}
+        for course in course_rows:
+            shifu_bid = str(course.shifu_bid or "").strip()
+            if not shifu_bid or shifu_bid in latest_by_bid:
+                continue
+            if not _is_operator_visible_course(course):
+                continue
+            latest_by_bid[shifu_bid] = course
+            course_bids.append(shifu_bid)
+        if not course_bids:
+            return {
+                "previous_creator_user_bid": source_user_bid,
+                "target_creator_user_bid": "",
+                "transferred_course_count": 0,
+                "transferred_course_bids": [],
+                "created_new_user": False,
+            }
+
+        target_result = _prepare_operator_target_creator(
+            app,
+            contact_type=contact_type,
+            identifier=identifier,
+            previous_creator_user_bid=source_user_bid,
+        )
+        target_aggregate = target_result["target_aggregate"]
+        target_user_bid = str(target_result["target_user_bid"] or "")
+        created_new_user = bool(target_result["created_new_user"])
+        creator_granted_now = bool(target_result["creator_granted_now"])
+
+        with unit_of_work():
+            locked_rows = (
+                PublishedShifu.query.filter(
+                    PublishedShifu.shifu_bid.in_(course_bids),
+                    PublishedShifu.created_user_bid == source_user_bid,
+                    PublishedShifu.deleted == 0,
+                )
+                .with_for_update()
+                .all()
+            )
+            still_owned_bids = {str(row.shifu_bid or "").strip() for row in locked_rows}
+            if still_owned_bids != set(course_bids):
+                raise_error("server.user.accountCancellationConflict")
+            for shifu_bid in course_bids:
+                _update_course_creator_bid(
+                    shifu_bid,
+                    target_user_bid,
+                    updated_user_bid=normalized_operator_user_bid,
+                    expected_creator_user_bid=source_user_bid,
+                )
+                latest_course = latest_by_bid[shifu_bid]
+                if getattr(latest_course, "id", 0):
+                    save_shifu_history(
+                        app,
+                        normalized_operator_user_bid,
+                        shifu_bid,
+                        int(latest_course.id),
+                    )
+
+            TTSMiniMaxClonedVoice.query.filter(
+                TTSMiniMaxClonedVoice.owner_user_bid == source_user_bid,
+                TTSMiniMaxClonedVoice.shifu_bid.in_(course_bids),
+                TTSMiniMaxClonedVoice.deleted == 0,
+            ).update(
+                {TTSMiniMaxClonedVoice.owner_user_bid: target_user_bid},
+                synchronize_session=False,
+            )
+
+            def finish_transfer() -> None:
+                for transferred_bid in course_bids:
+                    _clear_shifu_permission_cache(app, source_user_bid, transferred_bid)
+                    _clear_shifu_permission_cache(app, target_user_bid, transferred_bid)
+                    _clear_shifu_creator_cache(app, transferred_bid)
+                if creator_granted_now:
+                    _get_legacy_admin_symbol(
+                        "run_creator_granted_post_auth", run_creator_granted_post_auth
+                    )(
+                        app,
+                        user_id=target_user_bid,
+                        source="operator_transfer_creator",
+                        login_context="admin",
+                        created_new_user=created_new_user,
+                        language=target_aggregate.user_language,
+                    )
+
+            on_commit(finish_transfer)
+        return {
+            "previous_creator_user_bid": source_user_bid,
+            "target_creator_user_bid": target_user_bid,
+            "transferred_course_count": len(course_bids),
+            "transferred_course_bids": course_bids,
+            "created_new_user": created_new_user,
         }
 
 
@@ -469,8 +626,9 @@ def copy_operator_course(
     identifier: str,
     operator_user_bid: str,
     new_course_name: str = "",
-) -> Dict[str, Any]:
-    with app.app_context():
+) -> dict[str, object]:
+    """Copy operator course."""
+    with app_context_scope(app), unit_of_work():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_contact_type = str(contact_type or "").strip().lower()
         normalized_identifier = _normalize_identifier(identifier)
@@ -492,7 +650,25 @@ def copy_operator_course(
             new_course_name,
         )
         source_outlines = _load_latest_active_draft_outlines(normalized_shifu_bid)
-        outline_bid_map: Dict[str, str] = {
+        normalized_provider_config, live_contract_error = (
+            normalize_live_follow_up_course_config(
+                course_model=course_model_selection(selection_model(source_draft))[
+                    "index"
+                ],
+                course_follow_up_model=selection_model(source_draft, follow_up=True),
+                provider_config=getattr(source_draft, "ask_provider_config", "{}"),
+            )
+        )
+        if live_contract_error is not None:
+            field = (
+                live_contract_error
+                if live_contract_error == "model"
+                else f"ask_provider_config.{live_contract_error}"
+                if live_contract_error in {"provider", "mode"}
+                else f"ask_provider_config.config.{live_contract_error}"
+            )
+            raise_param_error(field)
+        outline_bid_map: dict[str, str] = {
             str(item.outline_item_bid or "").strip(): generate_id(app)
             for item in source_outlines
         }
@@ -534,13 +710,16 @@ def copy_operator_course(
         new_draft.created_user_bid = target_user_bid
         new_draft.updated_user_bid = action_user_bid
         new_draft.deleted = 0
+        new_draft.ask_provider_config = serialize_ask_provider_config(
+            normalized_provider_config
+        )
         db.session.add(new_draft)
         db.session.flush()
 
         source_outline_map = {
             str(item.outline_item_bid or "").strip(): item for item in source_outlines
         }
-        copied_outlines: Dict[str, DraftOutlineItem] = {}
+        copied_outlines: dict[str, DraftOutlineItem] = {}
 
         for source_outline in source_outlines:
             old_outline_bid = str(source_outline.outline_item_bid or "").strip()
@@ -594,18 +773,21 @@ def copy_operator_course(
             now=now,
         )
 
-        db.session.commit()
         if creator_granted_now:
-            _get_legacy_admin_symbol(
-                "run_creator_granted_post_auth", run_creator_granted_post_auth
-            )(
-                app,
-                user_id=target_user_bid,
-                source="operator_copy_course",
-                login_context="admin",
-                created_new_user=created_new_user,
-                language=target_aggregate.user_language,
-            )
+
+            def finish_copy() -> None:
+                _get_legacy_admin_symbol(
+                    "run_creator_granted_post_auth", run_creator_granted_post_auth
+                )(
+                    app,
+                    user_id=target_user_bid,
+                    source="operator_copy_course",
+                    login_context="admin",
+                    created_new_user=created_new_user,
+                    language=target_aggregate.user_language,
+                )
+
+            on_commit(finish_copy)
 
         return {
             "source_shifu_bid": normalized_shifu_bid,

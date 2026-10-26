@@ -1,20 +1,23 @@
+"""Verify learn DTOs slide behavior."""
+
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
+    BlockType,
     GeneratedType,
+    LikeStatus,
 )
-from flaskr.service.learn.learn_dtos import BlockType, LikeStatus
 from flaskr.service.learn.legacy_record_builder import (
     LegacyGeneratedBlockRecord,
     LegacyLearnRecord,
 )
 
 
-def test_generated_type_excludes_new_slide():
+def test_generated_type_excludes_new_slide() -> None:
     assert "new_slide" not in {item.value for item in GeneratedType}
 
 
-def test_audio_segment_dto_payload_has_no_legacy_fields():
+def test_audio_segment_dto_payload_has_no_legacy_fields() -> None:
     dto = AudioSegmentDTO(
         segment_index=0,
         audio_data="ZmFrZS1hdWRpbw==",
@@ -28,7 +31,7 @@ def test_audio_segment_dto_payload_has_no_legacy_fields():
     assert "slide_id" not in payload
 
 
-def test_audio_segment_dto_payload_can_include_subtitle_cues():
+def test_audio_segment_dto_payload_can_include_subtitle_cues() -> None:
     dto = AudioSegmentDTO(
         segment_index=0,
         audio_data="ZmFrZS1hdWRpbw==",
@@ -51,7 +54,7 @@ def test_audio_segment_dto_payload_can_include_subtitle_cues():
     assert payload["subtitle_cues"][0]["position"] == 2
 
 
-def test_audio_complete_dto_payload_has_no_legacy_fields():
+def test_audio_complete_dto_payload_has_no_legacy_fields() -> None:
     dto = AudioCompleteDTO(
         audio_url="https://example.com/a.mp3",
         audio_bid="audio-1",
@@ -73,7 +76,7 @@ def test_audio_complete_dto_payload_has_no_legacy_fields():
     assert payload["subtitle_cues"][0]["text"] == "Hello world."
 
 
-def test_audio_dto_payload_can_include_stream_binding_fields():
+def test_audio_dto_payload_can_include_stream_binding_fields() -> None:
     segment = AudioSegmentDTO(
         segment_index=0,
         audio_data="ZmFrZS1hdWRpbw==",
@@ -101,7 +104,7 @@ def test_audio_dto_payload_can_include_stream_binding_fields():
     assert complete_payload["stream_element_type"] == "text"
 
 
-def test_legacy_learn_record_payload_has_no_legacy_fields():
+def test_legacy_learn_record_payload_has_no_legacy_fields() -> None:
     record = LegacyGeneratedBlockRecord(
         generated_block_bid="gen-1",
         content="hello",

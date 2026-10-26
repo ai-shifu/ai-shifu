@@ -1,10 +1,11 @@
+"""Verify referral campaign admin HTTP route behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.billing.consts import BILLING_PRODUCT_TYPE_PLAN
 from flaskr.service.billing.models import BillingProduct
@@ -27,7 +28,7 @@ from flaskr.service.referral.models import (
 
 
 @pytest.fixture(autouse=True)
-def _isolate_referral_campaign_tables(app):
+def _isolate_referral_campaign_tables(app: object) -> object:
     with app.app_context():
         db.session.query(ReferralInviteEvent).delete()
         db.session.query(ReferralInviteReward).delete()
@@ -55,7 +56,7 @@ def _isolate_referral_campaign_tables(app):
         db.session.remove()
 
 
-def _mock_operator(monkeypatch, user_id: str = "operator-1") -> None:
+def _mock_operator(monkeypatch: object, user_id: str = "operator-1") -> None:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_operator=True,
@@ -82,7 +83,7 @@ def _seed_plan_product() -> None:
     db.session.commit()
 
 
-def _payload():
+def _payload() -> object:
     return {
         "campaign_code": "domestic_creator_invite_202606",
         "campaign_name": "Domestic creator invite",
@@ -107,10 +108,10 @@ def _payload():
 
 
 def test_admin_operations_promotions_referral_campaign_routes_round_trip(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     with app.app_context():
         _seed_plan_product()
@@ -161,10 +162,10 @@ def test_admin_operations_promotions_referral_campaign_routes_round_trip(
 
 
 def test_admin_operations_referral_campaign_record_routes_are_campaign_scoped(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     with app.app_context():
         _seed_plan_product()
@@ -284,9 +285,9 @@ def test_admin_operations_referral_campaign_record_routes_are_campaign_scoped(
 
 
 def test_admin_operations_promotions_referral_campaign_rejects_invalid_status_filter(
-    test_client,
-    monkeypatch,
-):
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
 
     response = test_client.get(

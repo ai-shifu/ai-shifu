@@ -1,31 +1,42 @@
+"""Reload plugin modules during development."""
+
 import importlib
 import time
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
+
 from flask import Flask
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 
 class PluginHotReloader:
-    def __init__(self, app: Flask):
+    """Reload backend plugins when their source files change."""
+
+    def __init__(self, app: Flask) -> None:
+        """Initialize plugin reloader state without starting file watching.
+
+        Stores the Flask app and plugin directory, creates an empty watched-file
+        registry, and instantiates an unscheduled observer. Call ``start()`` to
+        schedule the directory and begin watching.
+        """
         self.app = app
         self.plugin_dir = "flaskr/plugins"  # plugin dir
         self.watched_files = {}
         self.observer = Observer()
 
-    def start(self):
-        """1111111"""
+    def start(self) -> None:
+        """1111111."""
         event_handler = PluginFileHandler(self)
         self.observer.schedule(event_handler, self.plugin_dir, recursive=True)
         self.observer.start()
         self.app.logger.info("Plugin hot reload started")
 
-    def stop(self):
-        """停止热加载监听"""
+    def stop(self) -> None:
+        """Stop watching for hot reloads."""
         self.observer.stop()
         self.observer.join()
 
-    def reload_plugin(self, plugin_path: str):
-        """重新加载单个插件"""
+    def reload_plugin(self, plugin_path: str) -> None:
+        """Reload a single plugin."""
         try:
             # 1. unload plugin
             self._unload_plugin(plugin_path)
@@ -38,14 +49,12 @@ class PluginHotReloader:
             # 3. register plugin
             self._register_plugin(module)
 
-            self.app.logger.info(f"Hot reload plugin success: {plugin_path}")
-        except Exception as e:
-            self.app.logger.error(
-                f"Hot reload plugin failed: {plugin_path}, error: {str(e)}"
-            )
+            self.app.logger.info("Hot reload plugin success: %s", plugin_path)
+        except Exception:
+            self.app.logger.exception("Hot reload plugin failed: %s", plugin_path)
 
-    def _unload_plugin(self, plugin_path: str):
-        """Unload a plugin and clean up its resources
+    def _unload_plugin(self, plugin_path: str) -> None:
+        """Unload a plugin and clean up its resources.
 
         Args:
             plugin_path: Path to the plugin file
@@ -56,10 +65,19 @@ class PluginHotReloader:
             3. Call lifecycle hooks
             4. Clean up registered extensions
             5. Remove from sys.modules
+
         """
         try:
             import sys
-            from .plugin_manager import plugin_manager
+
+            from .plugin_manager import get_plugin_manager
+
+            plugin_manager = get_plugin_manager()
+            if plugin_manager is None:
+                self.app.logger.warning(
+                    "Plugin unload skipped because the plugin manager is not enabled"
+                )
+                return
 
             # Convert path to module name
             module_name = plugin_path.replace("/", ".").replace(".py", "")
@@ -79,13 +97,13 @@ class PluginHotReloader:
                 # Remove module from sys.modules
                 del sys.modules[module_name]
 
-            self.app.logger.info(f"Plugin unloaded: {module_name}")
+            self.app.logger.info("Plugin unloaded: %s", module_name)
 
-        except Exception as e:
-            self.app.logger.error(f"Failed to unload plugin {plugin_path}: {str(e)}")
+        except Exception:
+            self.app.logger.exception("Failed to unload plugin %s", plugin_path)
 
-    def _register_plugin(self, module):
-        """Register a newly loaded plugin
+    def _register_plugin(self, module: object) -> None:
+        """Register a newly loaded plugin.
 
         Args:
             module: The reloaded module object
@@ -94,6 +112,7 @@ class PluginHotReloader:
             1. Initialize plugin class if exists
             2. Call lifecycle hooks
             3. Register new extensions
+
         """
         try:
             # Initialize plugin if Plugin class exists
@@ -106,21 +125,27 @@ class PluginHotReloader:
                 if hasattr(plugin, "on_reload"):
                     plugin.on_reload()
 
-            self.app.logger.info(f"Plugin registered: {module.__name__}")
+            self.app.logger.info("Plugin registered: %s", module.__name__)
 
-        except Exception as e:
-            self.app.logger.error(
-                f"Failed to register plugin {module.__name__}: {str(e)}"
-            )
+        except Exception:
+            self.app.logger.exception("Failed to register plugin %s", module.__name__)
 
 
 class PluginFileHandler(FileSystemEventHandler):
-    def __init__(self, reloader: PluginHotReloader):
+    """Handle plugin source changes reported by the file watcher."""
+
+    def __init__(self, reloader: PluginHotReloader) -> None:
+        """Bind a reloader and initialize per-file reload throttling.
+
+        Stores the reloader, starts an empty last-reload registry, and sets a
+        one-second minimum interval between reloads.
+        """
         self.reloader = reloader
         self.last_reload_time = {}  # Track last reload time per file
         self.min_reload_interval = 1.0  # Minimum seconds between reloads
 
-    def on_modified(self, event):
+    def on_modified(self, event: object) -> None:
+        """Reload the plugin affected by a file change."""
         if event.is_directory:
             return
 

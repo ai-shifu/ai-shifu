@@ -1,19 +1,28 @@
 """Route package entrypoints."""
 
+from flask import Flask
 
-def register_route(app):
+
+def register_route(app: Flask) -> Flask:
+    """Register every API route group on the Flask application."""
+    from flaskr.service.common.skill_request_analytics import (
+        register_skill_request_analytics,
+    )
+    from flaskr.service.referral.routes import register_referral_routes
+
     from .callback import register_callback_handler
     from .common import register_common_handler
     from .config import register_config_handler
     from .creator_analytics import register_creator_analytics_handler
     from .dicts import register_dict_handler
+    from .model_gateway import register_model_gateway_handler
     from .open_api import register_open_api_handler
     from .order import register_order_handler
     from .storage import register_storage_handler
     from .user import register_user_handler
-    from flaskr.service.referral.routes import register_referral_routes
 
     prefix = app.config.get("PATH_PREFIX", "")
+    app = register_skill_request_analytics(app)
     app = register_common_handler(app)
     app = register_config_handler(app, prefix)
     app = register_storage_handler(app, prefix)
@@ -22,6 +31,7 @@ def register_route(app):
     app = register_order_handler(app, prefix + "/order")
     app = register_callback_handler(app, prefix + "/callback")
     app = register_open_api_handler(app, prefix + "/open-api/v1")
+    app = register_model_gateway_handler(app, prefix + "/gateway")
     app = register_creator_analytics_handler(app, prefix + "/creator-analytics")
     register_referral_routes(app, prefix + "/referral")
     return app

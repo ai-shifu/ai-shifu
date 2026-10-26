@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import re
 
-
 # Mainland China mobile numbers (11 digits, start with 1, second digit 3-9).
 # Surrounded by word boundaries to avoid clipping out of order-numbers etc.
 _PHONE_CN_RE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
@@ -33,13 +32,11 @@ def redact_pii(text: str) -> str:
     Empty or non-string input is returned unchanged so callers can apply this
     over heterogeneous result rows without type-guarding every value.
     """
-
     if not isinstance(text, str) or not text:
         return text
     text = _PHONE_CN_RE.sub("[REDACTED-PHONE]", text)
     text = _EMAIL_RE.sub("[REDACTED-EMAIL]", text)
-    text = _ID_CARD_RE.sub("[REDACTED-IDCARD]", text)
-    return text
+    return _ID_CARD_RE.sub("[REDACTED-IDCARD]", text)
 
 
 # ---------------------------------------------------------------------------

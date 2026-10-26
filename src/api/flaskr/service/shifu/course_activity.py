@@ -1,31 +1,36 @@
+"""Handle course activity for course authoring."""
+
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Dict, Iterable, Optional, Set
-
-from sqlalchemy import and_, or_
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.util.datetime import NAIVE_DATETIME_MIN
+from sqlalchemy import and_, or_
 
 from .models import DraftOutlineItem, DraftShifu, PublishedOutlineItem, PublishedShifu
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from datetime import datetime
+
 
 def _record_course_activity(
-    activity_map: Dict[str, Dict[str, Any]],
+    activity_map: dict[str, dict[str, object]],
     *,
     shifu_bid: str,
-    updated_at: Optional[datetime],
+    updated_at: datetime | None,
     updated_user_bid: str,
     prefer_on_equal: bool = False,
 ) -> None:
     if not shifu_bid:
         return
     current = activity_map.get(shifu_bid)
-    candidate_time = updated_at or datetime.min
+    candidate_time = updated_at or NAIVE_DATETIME_MIN
     current_time = (
         current.get("updated_at")
         if current and current.get("updated_at")
-        else datetime.min
+        else NAIVE_DATETIME_MIN
     )
     should_replace = current is None or candidate_time > current_time
     if (
@@ -47,9 +52,10 @@ def load_course_activity_map(
     published: Iterable[PublishedShifu],
     *,
     include_published_outline: bool = True,
-) -> Dict[str, Dict[str, Any]]:
-    activity_map: Dict[str, Dict[str, Any]] = {}
-    shifu_bids: Set[str] = set()
+) -> dict[str, dict[str, object]]:
+    """Load course activity map."""
+    activity_map: dict[str, dict[str, Any]] = {}
+    shifu_bids: set[str] = set()
 
     for course in list(drafts) + list(published):
         shifu_bid = str(course.shifu_bid or "").strip()

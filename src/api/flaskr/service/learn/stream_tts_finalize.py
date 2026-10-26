@@ -1,16 +1,22 @@
+"""Drain asynchronous TTS finalization jobs."""
+
 from __future__ import annotations
 
 import queue
 import threading
-from typing import Any, Generator
+from typing import TYPE_CHECKING
 
-from flaskr.dao import cleanup_session_after, invalidate_session
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,
     get_shifu_context_snapshot,
 )
+from flaskr.dao import cleanup_session_after, invalidate_session
 from flaskr.i18n import get_current_language, set_language
-from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
 
 
 class _StreamTTSFinalizeJob:
@@ -19,7 +25,7 @@ class _StreamTTSFinalizeJob:
         *,
         event_queue: queue.Queue,
         thread: threading.Thread,
-    ):
+    ) -> None:
         self.event_queue = event_queue
         self.thread = thread
         self.done = False
@@ -28,13 +34,19 @@ class _StreamTTSFinalizeJob:
 class StreamTTSFinalizeDrainer:
     """Finalize switched-out text TTS without blocking mdflow visual chunks."""
 
-    def __init__(self, run_context: Any, *, log_prefix: str):
+    def __init__(self, run_context: object, *, log_prefix: str) -> None:
+        """Bind run finalization dependencies and create an empty job queue.
+
+        Stores the run context, its Flask app, and the log prefix used by deferred
+        workers before any TTS finalization job is submitted.
+        """
         self._run_context = run_context
         self._app = run_context.app
         self._log_prefix = log_prefix
         self._jobs: list[_StreamTTSFinalizeJob] = []
 
-    def submit(self, processor) -> None:
+    def submit(self, processor: object) -> None:
+        """Submit a streaming TTS finalization job."""
         if not processor:
             return
 
@@ -80,6 +92,7 @@ class StreamTTSFinalizeDrainer:
         thread.start()
 
     def drain(self, *, wait: bool = False) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Drain once without waiting, or wait for all jobs when requested."""
         while self._jobs:
             for job in list(self._jobs):
                 yield from self._drain_job(job, wait=wait)
@@ -90,6 +103,7 @@ class StreamTTSFinalizeDrainer:
                 break
 
     def close(self) -> None:
+        """Make a short, best-effort join attempt for active finalizer jobs."""
         for job in list(self._jobs):
             job.thread.join(timeout=0.1)
 

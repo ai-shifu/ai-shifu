@@ -1,12 +1,15 @@
+"""Verify runscript v2 lock behavior."""
+
+import contextlib
 import json
+from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
 from flask import Flask, has_app_context
-
+from flaskr.service.common.models import AppError
 from flaskr.service.learn import runscript_v2
-from flaskr.service.common.models import AppException
 from flaskr.service.learn.learn_dtos import (
     ElementDTO,
     ElementType,
@@ -17,7 +20,24 @@ from flaskr.service.learn.learn_dtos import (
 
 
 @pytest.fixture(autouse=True)
-def _skip_connection_probe(monkeypatch):
+def _route_checkpoint_commit_to_patched_session(monkeypatch: object) -> None:
+    """Make the step checkpoint call ``runscript_v2.db.session.commit()``.
+
+    The checkpoint goes through ``unit_of_work()`` (which commits the real
+    scoped session); tests here observe commits on a patched
+    ``runscript_v2.db`` instead, so route the commit there.
+    """
+
+    @contextlib.contextmanager
+    def _fake_unit_of_work() -> Iterator[None]:
+        yield
+        runscript_v2.db.session.commit()
+
+    monkeypatch.setattr(runscript_v2, "unit_of_work", _fake_unit_of_work)
+
+
+@pytest.fixture(autouse=True)
+def _skip_connection_probe(monkeypatch: object) -> None:
     # These tests exercise run-script locking and orchestration with minimal
     # fake sessions; the connection health probe has its own dedicated tests
     # in test_runscript_v2_connection_probe.py.
@@ -27,38 +47,42 @@ def _skip_connection_probe(monkeypatch):
 
 
 class FakeLock:
-    def __init__(self, acquire_results: list[bool]):
+    """Simulate lock behavior for tests."""
+
+    def __init__(self, acquire_results: list[bool]) -> None:
+        """Queue acquisition outcomes and reset acquire and release counters."""
         self._acquire_results = list(acquire_results)
         self.acquire_calls = 0
         self.release_calls = 0
 
-    def acquire(self, blocking=True):
+    def acquire(self, blocking: object = True) -> object:
+        _ = blocking
         self.acquire_calls += 1
         if self._acquire_results:
             return self._acquire_results.pop(0)
         return False
 
-    def release(self):
+    def release(self) -> None:
         self.release_calls += 1
 
 
 class FakeCacheProvider:
-    def __init__(self, lock: FakeLock):
+    """Simulate cache provider behavior for tests."""
+
+    def __init__(self, lock: FakeLock) -> None:
+        """Bind a test lock and initialize the cached byte values."""
         self._lock = lock
         self.values: dict[str, bytes] = {}
 
-    def lock(self, *_args, **_kwargs):
+    def lock(self, *_args: object, **_kwargs: object) -> object:
         return self._lock
 
-    def setex(self, key: str, _time_in_seconds: int, value):
-        if isinstance(value, bytes):
-            encoded = value
-        else:
-            encoded = str(value).encode("utf-8")
+    def setex(self, key: str, _time_in_seconds: int, value: object) -> object:
+        encoded = value if isinstance(value, bytes) else str(value).encode("utf-8")
         self.values[key] = encoded
         return True
 
-    def get(self, key: str):
+    def get(self, key: str) -> object:
         return self.values.get(key)
 
     def delete(self, *keys: str) -> int:
@@ -71,11 +95,14 @@ class FakeCacheProvider:
 
 
 class FakeListenElementAdapter:
-    def __init__(self, *_args, **_kwargs):
+    """Simulate listen element adapter behavior for tests."""
+
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        """Initialize event sequencing for a fixed run session."""
         self._seq = 0
         self._run_session_bid = "run-session-1"
 
-    def process(self, events):
+    def process(self, events: object) -> Iterator[RunElementSSEMessageDTO]:
         for event in events:
             if event.type == GeneratedType.ASK:
                 continue
@@ -96,7 +123,7 @@ class FakeListenElementAdapter:
         self,
         *,
         event_type: str,
-        content,
+        content: object,
         is_terminal: bool | None = None,
     ) -> RunElementSSEMessageDTO:
         self._seq += 1
@@ -130,7 +157,7 @@ def _make_test_app() -> Flask:
     return app
 
 
-def test_sse_chunk_serializes_datetime_as_utc_iso_z():
+def test_sse_chunk_serializes_datetime_as_utc_iso_z() -> None:
     chunk = runscript_v2._to_sse_chunk(
         {
             "created_at": datetime(
@@ -144,13 +171,13 @@ def test_sse_chunk_serializes_datetime_as_utc_iso_z():
     assert events == [{"created_at": "2026-06-30T11:57:03Z"}]
 
 
-def _patch_fake_element_adapter(monkeypatch):
+def _patch_fake_element_adapter(monkeypatch: object) -> None:
     monkeypatch.setattr(
         runscript_v2, "ListenElementRunAdapter", FakeListenElementAdapter
     )
 
 
-def test_run_script_retries_lock_then_streams(monkeypatch):
+def test_run_script_retries_lock_then_streams(monkeypatch: object) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -159,7 +186,7 @@ def test_run_script_retries_lock_then_streams(monkeypatch):
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2.time, "sleep", lambda *_args, **_kwargs: None)
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             with app.app_context():
                 yield from [
                     RunMarkdownFlowDTO(
@@ -184,7 +211,7 @@ def test_run_script_retries_lock_then_streams(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -198,7 +225,7 @@ def test_run_script_retries_lock_then_streams(monkeypatch):
         assert events[-1]["is_terminal"] is True
 
 
-def test_run_script_producer_owns_app_context(monkeypatch):
+def test_run_script_producer_owns_app_context(monkeypatch: object) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -207,7 +234,7 @@ def test_run_script_producer_owns_app_context(monkeypatch):
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         observed = {"has_app_context": None, "manage_app_context": None}
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             observed["has_app_context"] = has_app_context()
             observed["manage_app_context"] = _kwargs.get("manage_app_context")
             yield RunMarkdownFlowDTO(
@@ -225,7 +252,7 @@ def test_run_script_producer_owns_app_context(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -238,7 +265,7 @@ def test_run_script_producer_owns_app_context(monkeypatch):
         assert [event["type"] for event in events] == ["element", "done"]
 
 
-def test_run_script_removes_producer_db_session(monkeypatch):
+def test_run_script_removes_producer_db_session(monkeypatch: object) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -254,7 +281,7 @@ def test_run_script_removes_producer_db_session(monkeypatch):
             ),
         )
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
                 generated_block_bid="generated-1",
@@ -270,7 +297,7 @@ def test_run_script_removes_producer_db_session(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -279,7 +306,9 @@ def test_run_script_removes_producer_db_session(monkeypatch):
         assert remove_calls == ["remove"]
 
 
-def test_run_script_producer_done_survives_db_session_remove_failure(monkeypatch):
+def test_run_script_producer_done_survives_db_session_remove_failure(
+    monkeypatch: object,
+) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -288,9 +317,10 @@ def test_run_script_producer_done_survives_db_session_remove_failure(monkeypatch
         remove_calls = []
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def _remove():
+        def _remove() -> None:
             remove_calls.append("remove")
-            raise RuntimeError("remove failed")
+            message = "remove failed"
+            raise RuntimeError(message)
 
         monkeypatch.setattr(
             runscript_v2,
@@ -298,7 +328,7 @@ def test_run_script_producer_done_survives_db_session_remove_failure(monkeypatch
             SimpleNamespace(session=SimpleNamespace(remove=_remove)),
         )
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
                 generated_block_bid="generated-1",
@@ -314,7 +344,7 @@ def test_run_script_producer_done_survives_db_session_remove_failure(monkeypatch
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -324,7 +354,9 @@ def test_run_script_producer_done_survives_db_session_remove_failure(monkeypatch
         assert remove_calls == ["remove"]
 
 
-def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
+def test_run_script_read_mode_keeps_interaction_after_block_break(
+    monkeypatch: object,
+) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -332,7 +364,7 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             with app.app_context():
                 yield from [
                     RunMarkdownFlowDTO(
@@ -363,7 +395,7 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=False,
             )
@@ -378,7 +410,7 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(monkeypatch):
         assert events[1]["content"] == "?[%{{name}}...How should I call you?]"
 
 
-def test_run_script_ask_mode_uses_element_protocol(monkeypatch):
+def test_run_script_ask_mode_uses_element_protocol(monkeypatch: object) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -386,7 +418,7 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch):
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             with app.app_context():
                 element_adapter = _kwargs["element_adapter"]
                 yield from element_adapter.process(
@@ -421,7 +453,7 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input="follow-up question",
+                user_input="follow-up question",
                 input_type="ask",
                 listen=False,
             )
@@ -432,7 +464,7 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch):
         assert events[1]["is_terminal"] is True
 
 
-def test_run_script_ask_mode_ignores_listen_flag(monkeypatch):
+def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -441,7 +473,7 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch):
         observed: dict[str, object] = {}
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             observed["listen"] = _kwargs["listen"]
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
@@ -464,7 +496,7 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input="follow-up question",
+                user_input="follow-up question",
                 input_type="ask",
                 listen=True,
             )
@@ -476,7 +508,9 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch):
         assert events[-1]["is_terminal"] is True
 
 
-def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeypatch):
+def test_run_script_inner_ask_mode_routes_events_through_element_adapter(
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
 
     monkeypatch.setattr(
@@ -519,22 +553,22 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
     )
 
     class FakeRunScriptContext:
-        def __init__(self, **_kwargs):
+        def __init__(self, **_kwargs: object) -> None:
             self._has_next = True
 
-        def set_input(self, *_args, **_kwargs):
+        def set_input(self, *_args: object, **_kwargs: object) -> None:
             return None
 
-        def reload(self, *_args, **_kwargs):
+        def reload(self, *_args: object, **_kwargs: object) -> object:
             return []
 
-        def has_next(self):
+        def has_next(self) -> object:
             if self._has_next:
                 self._has_next = False
                 return True
             return False
 
-        def run(self, _app):
+        def run(self, _app: object) -> object:
             return [
                 RunMarkdownFlowDTO(
                     outline_bid="outline-1",
@@ -560,10 +594,10 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 
     class FakeElementAdapter:
-        def __init__(self):
+        def __init__(self) -> None:
             self.calls = []
 
-        def process(self, events):
+        def process(self, events: object) -> object:
             captured = list(events)
             self.calls.append(captured)
             return iter([f"converted:{event.type.value}" for event in captured])
@@ -576,7 +610,7 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
             user_bid="user-1",
             shifu_bid="shifu-1",
             outline_bid="outline-1",
-            input="follow-up question",
+            user_input="follow-up question",
             input_type="ask",
             listen=False,
             element_adapter=element_adapter,
@@ -592,15 +626,15 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(monkeyp
     ]
 
 
-def test_log_run_script_stream_error_does_not_error_for_app_exception():
+def test_log_run_script_stream_error_does_not_error_for_app_exception() -> None:
     app = Flask(__name__)
     info_calls = []
     error_calls = []
-    app.logger.info = lambda *args, **kwargs: info_calls.append(args)
-    app.logger.error = lambda *args, **kwargs: error_calls.append(args)
+    app.logger.info = lambda *args, **_kwargs: info_calls.append(args)
+    app.logger.error = lambda *args, **_kwargs: error_calls.append(args)
 
     runscript_v2._log_run_script_stream_error(
-        app, AppException("outline unit does not exist", status_code=1001)
+        app, AppError("outline unit does not exist", status_code=1001)
     )
 
     assert error_calls == []
@@ -608,12 +642,12 @@ def test_log_run_script_stream_error_does_not_error_for_app_exception():
     assert info_calls[1][0]["description"] == "outline unit does not exist"
 
 
-def test_log_run_script_stream_error_keeps_error_for_unexpected_exception():
+def test_log_run_script_stream_error_keeps_error_for_unexpected_exception() -> None:
     app = Flask(__name__)
     info_calls = []
     error_calls = []
-    app.logger.info = lambda *args, **kwargs: info_calls.append(args)
-    app.logger.error = lambda *args, **kwargs: error_calls.append(args)
+    app.logger.info = lambda *args, **_kwargs: info_calls.append(args)
+    app.logger.error = lambda *args, **_kwargs: error_calls.append(args)
 
     runscript_v2._log_run_script_stream_error(app, RuntimeError("boom"))
 
@@ -622,7 +656,9 @@ def test_log_run_script_stream_error_keeps_error_for_unexpected_exception():
     assert error_calls[1][0]["description"] == "boom"
 
 
-def test_run_script_inner_rejects_missing_course_without_default(monkeypatch):
+def test_run_script_inner_rejects_missing_course_without_default(
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     rollback_calls = []
     remove_calls = []
@@ -650,7 +686,7 @@ def test_run_script_inner_rejects_missing_course_without_default(monkeypatch):
         ),
     )
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         list(
             runscript_v2.run_script_inner(
                 app=app,
@@ -665,7 +701,9 @@ def test_run_script_inner_rejects_missing_course_without_default(monkeypatch):
     assert remove_calls == ["remove"]
 
 
-def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
+def test_run_script_inner_rolls_back_on_unexpected_exception(
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     session_spy = SimpleNamespace(
         commit=lambda: None,
@@ -676,15 +714,16 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
     commit_calls = []
     remove_calls = []
 
-    def _commit():
+    def _commit() -> None:
         commit_calls.append("commit")
 
-    def _rollback():
+    def _rollback() -> None:
         rollback_calls.append("rollback")
 
-    def _remove():
+    def _remove() -> None:
         remove_calls.append("remove")
-        raise RuntimeError("remove failed")
+        message = "remove failed"
+        raise RuntimeError(message)
 
     session_spy.commit = _commit
     session_spy.rollback = _rollback
@@ -720,23 +759,24 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
     )
 
     class FakeRunScriptContext:
-        def __init__(self, **_kwargs):
+        def __init__(self, **_kwargs: object) -> None:
             self._has_next = True
 
-        def set_input(self, *_args, **_kwargs):
+        def set_input(self, *_args: object, **_kwargs: object) -> None:
             return None
 
-        def reload(self, *_args, **_kwargs):
+        def reload(self, *_args: object, **_kwargs: object) -> object:
             return []
 
-        def has_next(self):
+        def has_next(self) -> object:
             if self._has_next:
                 self._has_next = False
                 return True
             return False
 
-        def run(self, _app):
-            raise RuntimeError("boom")
+        def run(self, _app: object) -> None:
+            message = "boom"
+            raise RuntimeError(message)
 
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 
@@ -747,7 +787,7 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
                 user_bid="user-1",
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -759,7 +799,7 @@ def test_run_script_inner_rolls_back_on_unexpected_exception(monkeypatch):
     assert remove_calls == ["remove"]
 
 
-def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
+def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch: object) -> None:
     app = Flask(__name__)
     commit_calls = []
 
@@ -805,24 +845,24 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
     class FakeRunScriptContext:
         last_instance = None
 
-        def __init__(self, **_kwargs):
+        def __init__(self, **_kwargs: object) -> None:
             self._has_next = True
             self.finalize_calls = 0
             FakeRunScriptContext.last_instance = self
 
-        def set_input(self, *_args, **_kwargs):
+        def set_input(self, *_args: object, **_kwargs: object) -> None:
             return None
 
-        def reload(self, *_args, **_kwargs):
+        def reload(self, *_args: object, **_kwargs: object) -> object:
             return []
 
-        def has_next(self):
+        def has_next(self) -> object:
             if self._has_next:
                 self._has_next = False
                 return True
             return False
 
-        def run(self, _app):
+        def run(self, _app: object) -> object:
             return [
                 RunMarkdownFlowDTO(
                     outline_bid="outline-1",
@@ -838,7 +878,7 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
                 ),
             ]
 
-        def _finalize_langfuse_trace(self):
+        def _finalize_langfuse_trace(self) -> None:
             self.finalize_calls += 1
 
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
@@ -849,7 +889,7 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
             user_bid="user-1",
             shifu_bid="shifu-1",
             outline_bid="outline-1",
-            input="hello",
+            user_input="hello",
             input_type="text",
         )
     )
@@ -863,7 +903,9 @@ def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch):
     assert commit_calls == ["commit"]
 
 
-def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypatch):
+def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     sequence = []
 
@@ -907,22 +949,22 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypa
     )
 
     class FakeRunScriptContext:
-        def __init__(self, **_kwargs):
+        def __init__(self, **_kwargs: object) -> None:
             self._has_next = True
 
-        def set_input(self, *_args, **_kwargs):
+        def set_input(self, *_args: object, **_kwargs: object) -> None:
             return None
 
-        def reload(self, *_args, **_kwargs):
+        def reload(self, *_args: object, **_kwargs: object) -> object:
             return []
 
-        def has_next(self):
+        def has_next(self) -> object:
             if self._has_next:
                 self._has_next = False
                 return True
             return False
 
-        def run(self, _app):
+        def run(self, _app: object) -> object:
             return [
                 RunMarkdownFlowDTO(
                     outline_bid="outline-1",
@@ -941,7 +983,7 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypa
     monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
 
     class ElementAdapter:
-        def process(self, events):
+        def process(self, events: object) -> object:
             for event in events:
                 if event.type == GeneratedType.CONTENT:
                     yield RunElementSSEMessageDTO(
@@ -968,19 +1010,20 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypa
                         is_terminal=False,
                     )
 
-    emitted = list(
-        runscript_v2.run_script_inner(
-            app=app,
-            user_bid="user-1",
-            shifu_bid="shifu-1",
-            outline_bid="outline-1",
-            input="hello",
-            input_type="text",
-            element_adapter=ElementAdapter(),
-        )
-    )
-
-    for event in emitted:
+    # Record the marker while iterating. Consuming the generator first would
+    # make the ordering assertion pass even if the ready event were yielded
+    # before the commit, which is exactly what this test needs to rule out.
+    emitted = []
+    for event in runscript_v2.run_script_inner(
+        app=app,
+        user_bid="user-1",
+        shifu_bid="shifu-1",
+        outline_bid="outline-1",
+        user_input="hello",
+        input_type="text",
+        element_adapter=ElementAdapter(),
+    ):
+        emitted.append(event)
         if getattr(event, "type", "") == GeneratedType.AUDIO_BACKFILL_READY.value:
             sequence.append("ready")
 
@@ -991,7 +1034,126 @@ def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(monkeypa
     assert ready_event.content.element_bids == ["element-1"]
 
 
-def test_run_script_listen_keeps_interaction_after_block_done(monkeypatch):
+def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(
+    monkeypatch: object,
+) -> None:
+    app = Flask(__name__)
+    sequence = []
+
+    monkeypatch.setattr(
+        runscript_v2,
+        "db",
+        SimpleNamespace(
+            session=SimpleNamespace(
+                commit=lambda: sequence.append("commit"),
+                rollback=lambda: None,
+                remove=lambda: None,
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "load_user_aggregate",
+        lambda _user_bid: SimpleNamespace(user_id="user-1"),
+    )
+
+    outline_item_info = SimpleNamespace(
+        bid="outline-1",
+        shifu_bid="shifu-1",
+        title="Lesson",
+        __json__=lambda: {"bid": "outline-1"},
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_outline_item_dto",
+        lambda *_args, **_kwargs: outline_item_info,
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_dto",
+        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "get_shifu_struct",
+        lambda *_args, **_kwargs: object(),
+    )
+
+    class FakeRunScriptContext:
+        def __init__(self, **_kwargs: object) -> None:
+            self._has_next = True
+
+        def set_input(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        def reload(self, *_args: object, **_kwargs: object) -> object:
+            return []
+
+        def has_next(self) -> object:
+            if self._has_next:
+                self._has_next = False
+                return True
+            return False
+
+        def run(self, _app: object) -> object:
+            yield RunMarkdownFlowDTO(
+                outline_bid="outline-1",
+                generated_block_bid="generated-1",
+                type=GeneratedType.CONTENT,
+                content="hello",
+            )
+            raise runscript_v2.BreakError
+
+    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
+
+    class ElementAdapter:
+        def process(self, events: object) -> object:
+            for event in events:
+                if event.type == GeneratedType.CONTENT:
+                    yield RunElementSSEMessageDTO(
+                        type="element",
+                        event_type="element",
+                        generated_block_bid="generated-1",
+                        content=ElementDTO(
+                            element_bid="element-1",
+                            generated_block_bid="generated-1",
+                            element_index=0,
+                            role="assistant",
+                            element_type=ElementType.TEXT,
+                            element_type_code=1,
+                            is_final=True,
+                            is_speakable=True,
+                            content="hello",
+                        ),
+                    )
+
+    # Record the marker while iterating. Consuming the generator first would
+    # make the ordering assertion pass even if the ready event were yielded
+    # before the commit, which is exactly what this test needs to rule out.
+    emitted = []
+    for event in runscript_v2.run_script_inner(
+        app=app,
+        user_bid="user-1",
+        shifu_bid="shifu-1",
+        outline_bid="outline-1",
+        user_input="hello",
+        input_type="text",
+        element_adapter=ElementAdapter(),
+    ):
+        emitted.append(event)
+        if getattr(event, "type", "") == GeneratedType.AUDIO_BACKFILL_READY.value:
+            sequence.append("ready")
+
+    assert sequence == ["commit", "ready"]
+    ready_event = emitted[-1]
+    assert ready_event.type == GeneratedType.AUDIO_BACKFILL_READY.value
+    assert ready_event.generated_block_bid == "generated-1"
+    assert ready_event.content.element_bids == ["element-1"]
+
+
+def test_run_script_listen_keeps_interaction_after_block_done(
+    monkeypatch: object,
+) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -999,7 +1161,7 @@ def test_run_script_listen_keeps_interaction_after_block_done(monkeypatch):
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             with app.app_context():
                 element_adapter = _kwargs["element_adapter"]
                 yield from element_adapter.process(
@@ -1033,7 +1195,7 @@ def test_run_script_listen_keeps_interaction_after_block_done(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1044,7 +1206,7 @@ def test_run_script_listen_keeps_interaction_after_block_done(monkeypatch):
         assert events[2]["is_terminal"] is True
 
 
-def test_run_script_lock_busy_returns_busy_and_done(monkeypatch):
+def test_run_script_lock_busy_returns_busy_and_done(monkeypatch: object) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -1060,7 +1222,7 @@ def test_run_script_lock_busy_returns_busy_and_done(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
             )
         )
@@ -1074,7 +1236,9 @@ def test_run_script_lock_busy_returns_busy_and_done(monkeypatch):
         assert events[1]["is_terminal"] is True
 
 
-def test_run_script_listen_lock_busy_returns_element_protocol(monkeypatch):
+def test_run_script_listen_lock_busy_returns_element_protocol(
+    monkeypatch: object,
+) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -1090,7 +1254,7 @@ def test_run_script_listen_lock_busy_returns_element_protocol(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1109,8 +1273,8 @@ def test_run_script_listen_lock_busy_returns_element_protocol(monkeypatch):
 
 
 def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -1119,10 +1283,9 @@ def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
 
-        def fake_run_script_inner(**_kwargs):
-            raise RuntimeError(
-                "litellm.APIConnectionError: APIConnectionError: OpenAIException - [SSL] record layer failure (_ssl.c:2590)"
-            )
+        def fake_run_script_inner(**_kwargs: object) -> object:
+            message = "litellm.APIConnectionError: APIConnectionError: OpenAIException - [SSL] record layer failure (_ssl.c:2590)"
+            raise RuntimeError(message)
             yield  # pragma: no cover
 
         monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
@@ -1133,7 +1296,7 @@ def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1145,7 +1308,9 @@ def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
         assert events[2]["is_terminal"] is True
 
 
-def test_run_script_maps_standard_timeout_error_to_retryable_message(monkeypatch):
+def test_run_script_maps_standard_timeout_error_to_retryable_message(
+    monkeypatch: object,
+) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -1154,8 +1319,9 @@ def test_run_script_maps_standard_timeout_error_to_retryable_message(monkeypatch
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
 
-        def fake_run_script_inner(**_kwargs):
-            raise RuntimeError("stream failed") from TimeoutError(
+        def fake_run_script_inner(**_kwargs: object) -> object:
+            message = "stream failed"
+            raise RuntimeError(message) from TimeoutError(
                 "The read operation timed out"
             )
             yield  # pragma: no cover
@@ -1168,7 +1334,7 @@ def test_run_script_maps_standard_timeout_error_to_retryable_message(monkeypatch
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1180,7 +1346,7 @@ def test_run_script_maps_standard_timeout_error_to_retryable_message(monkeypatch
         assert events[2]["is_terminal"] is True
 
 
-def test_run_script_listen_done_uses_element_protocol(monkeypatch):
+def test_run_script_listen_done_uses_element_protocol(monkeypatch: object) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -1188,7 +1354,7 @@ def test_run_script_listen_done_uses_element_protocol(monkeypatch):
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             if False:
                 yield None
 
@@ -1200,7 +1366,7 @@ def test_run_script_listen_done_uses_element_protocol(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 listen=True,
             )
@@ -1217,7 +1383,9 @@ def test_run_script_listen_done_uses_element_protocol(monkeypatch):
         assert events[0]["is_terminal"] is True
 
 
-def test_get_run_status_ignores_lock_when_running_marker_missing(monkeypatch):
+def test_get_run_status_ignores_lock_when_running_marker_missing(
+    monkeypatch: object,
+) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -1237,7 +1405,7 @@ def test_get_run_status_ignores_lock_when_running_marker_missing(monkeypatch):
         assert lock.acquire_calls == 0
 
 
-def test_get_run_status_reports_true_while_stream_is_open(monkeypatch):
+def test_get_run_status_reports_true_while_stream_is_open(monkeypatch: object) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -1246,7 +1414,7 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch):
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2.time, "time", lambda: 120.0)
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             with app.app_context():
                 yield RunMarkdownFlowDTO(
                     outline_bid="outline-1",
@@ -1262,7 +1430,7 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch):
             shifu_bid="shifu-1",
             outline_bid="outline-1",
             user_bid="user-1",
-            input={"input": ["x"]},
+            user_input={"input": ["x"]},
             input_type="normal",
         )
 
@@ -1289,7 +1457,9 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch):
         assert status_after.running_time == 0
 
 
-def test_run_script_close_during_data_yield_does_not_raise_runtime_error(monkeypatch):
+def test_run_script_close_during_data_yield_does_not_raise_runtime_error(
+    monkeypatch: object,
+) -> None:
     app = _make_test_app()
     _patch_fake_element_adapter(monkeypatch)
     with app.app_context():
@@ -1297,7 +1467,7 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(monkeyp
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
                 generated_block_bid="generated-1",
@@ -1312,7 +1482,7 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(monkeyp
             shifu_bid="shifu-1",
             outline_bid="outline-1",
             user_bid="user-1",
-            input={"input": ["x"]},
+            user_input={"input": ["x"]},
             input_type="normal",
         )
 
@@ -1323,7 +1493,9 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(monkeyp
         assert lock.release_calls == 1
 
 
-def test_run_script_propagates_explicit_language_to_producer(monkeypatch):
+def test_run_script_propagates_explicit_language_to_producer(
+    monkeypatch: object,
+) -> None:
     """The route handler must hand the request language in explicitly.
 
     On Flask >= 3.1 the request teardown (which clears the request-scoped
@@ -1343,7 +1515,7 @@ def test_run_script_propagates_explicit_language_to_producer(monkeypatch):
 
         seen_languages: list[str] = []
 
-        def fake_run_script_inner(**_kwargs):
+        def fake_run_script_inner(**_kwargs: object) -> object:
             with app.app_context():
                 seen_languages.append(get_current_language())
                 yield RunMarkdownFlowDTO(
@@ -1364,7 +1536,7 @@ def test_run_script_propagates_explicit_language_to_producer(monkeypatch):
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
                 user_bid="user-1",
-                input={"input": ["x"]},
+                user_input={"input": ["x"]},
                 input_type="normal",
                 language="zh-CN",
             )

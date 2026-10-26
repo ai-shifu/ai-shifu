@@ -2,30 +2,33 @@
 
 from __future__ import annotations
 
-from io import BytesIO
-from dataclasses import dataclass
 import base64
 import binascii
 import hashlib
 import hmac
-from importlib import import_module
 import json
-from typing import Any
+from dataclasses import dataclass
+from importlib import import_module
+from io import BytesIO
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 from urllib.parse import urlsplit
 
 from cryptography import x509
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from flask import Flask, current_app, has_app_context
-from PIL import Image, ImageOps, UnidentifiedImageError
-from werkzeug.datastructures import FileStorage
-
+from flaskr.service.common.contact_identifiers import (
+    CONTACT_TYPE_EMAIL,
+    normalize_contact_identifier,
+    resolve_contact_type,
+)
+from flaskr.service.common.models import AppError, raise_error, raise_param_error
 from flaskr.service.common.oss_utils import OSS_PROFILE_COURSES
-from flaskr.service.common.models import AppException, raise_error, raise_param_error
 from flaskr.service.common.storage import upload_to_storage
 from flaskr.service.config.funcs import get_config
 from flaskr.util.datetime import now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .domains import build_creator_domain_bindings
 from .entitlements import (
@@ -34,6 +37,20 @@ from .entitlements import (
     serialize_creator_entitlements,
 )
 from .primitives import normalize_bid
+
+if TYPE_CHECKING:
+    from werkzeug.datastructures import FileStorage
+
+
+class _SaasUserConfigModel(Protocol):
+    query: ClassVar[Any]
+    user_bid: ClassVar[Any]
+    key: ClassVar[Any]
+    config_bid: ClassVar[Any]
+    deleted: ClassVar[Any]
+    created_at: ClassVar[Any]
+    id: ClassVar[Any]
+
 
 BRANDING_KEY = "CUSTOMIZATION.BRANDING"
 ADMIN_DRAFT_KEY = "CUSTOMIZATION.ADMIN_DRAFT"
@@ -143,6 +160,8 @@ _HOME_URL_MAX_LENGTH = 512
 
 @dataclass(slots=True, frozen=True)
 class ProviderCredentialContext:
+    """Carry context for provider credential."""
+
     integration_bid: str
     creator_bid: str
     provider: str
@@ -152,7 +171,8 @@ class ProviderCredentialContext:
 
 
 def is_creator_customization_enabled() -> bool:
-    return _to_bool(get_config("CREATOR_CUSTOMIZATION_ENABLED", False))
+    """Return whether creator customization enabled."""
+    return _to_bool(get_config("CREATOR_CUSTOMIZATION_ENABLED", default=False))
 
 
 def build_creator_customization(
@@ -160,7 +180,8 @@ def build_creator_customization(
     creator_bid: str,
     *,
     force_enabled: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Build creator customization."""
     creator_bid = normalize_bid(creator_bid)
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
@@ -186,7 +207,8 @@ def build_admin_creator_customization_draft(
     *,
     creator_bid: str = "",
     creator_mobile: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Build admin creator customization draft."""
     owner_bid, draft_key = _admin_draft_storage_identity(
         creator_bid=creator_bid,
         creator_mobile=creator_mobile,
@@ -209,8 +231,9 @@ def save_admin_creator_customization_draft(
     *,
     creator_bid: str = "",
     creator_mobile: str = "",
-    payload: dict[str, Any],
-) -> dict[str, Any]:
+    payload: dict[str, object],
+) -> dict[str, object]:
+    """Persist admin creator customization draft."""
     owner_bid, draft_key = _admin_draft_storage_identity(
         creator_bid=creator_bid,
         creator_mobile=creator_mobile,
@@ -242,6 +265,7 @@ def clear_admin_creator_customization_draft(
     creator_bid: str = "",
     creator_mobile: str = "",
 ) -> None:
+    """Clear admin creator customization draft."""
     if not normalize_bid(creator_bid) and not str(creator_mobile or "").strip():
         return
     owner_bid, draft_key = _admin_draft_storage_identity(
@@ -267,6 +291,7 @@ def upload_admin_creator_draft_logo(
     file: FileStorage,
     target: str = "wide",
 ) -> str:
+    """Upload admin creator draft logo."""
     owner_bid = _admin_draft_owner_bid(
         creator_bid=creator_bid,
         creator_mobile=creator_mobile,
@@ -287,10 +312,11 @@ def upload_admin_creator_draft_logo(
 
 
 def build_customization_capabilities(
-    entitlement,
+    entitlement: object,
     *,
     force_enabled: bool = False,
 ) -> dict[str, bool]:
+    """Build customization capabilities."""
     enabled = force_enabled or is_creator_customization_enabled()
     return {
         "branding": enabled and bool(entitlement.branding_enabled),
@@ -309,7 +335,6 @@ def upload_creator_brand_logo(
     allow_when_customization_disabled: bool = False,
 ) -> str:
     """Validate and upload a course-owner logo through managed storage."""
-
     creator_bid = normalize_bid(creator_bid)
     normalized_target = _normalize_logo_target(target)
     with app.app_context():
@@ -337,10 +362,11 @@ def upload_creator_brand_logo(
 def save_creator_branding(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     *,
     allow_when_customization_disabled: bool = False,
 ) -> dict[str, str]:
+    """Persist creator branding."""
     creator_bid = normalize_bid(creator_bid)
     with app.app_context():
         entitlement = resolve_creator_entitlement_state(creator_bid)
@@ -407,10 +433,11 @@ def save_creator_integration(
     app: Flask,
     creator_bid: str,
     provider: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     *,
     allow_when_customization_disabled: bool = False,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Persist creator integration."""
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     with app.app_context():
@@ -421,8 +448,12 @@ def save_creator_integration(
             else entitlement.custom_payment_enabled,
             allow_when_customization_disabled=allow_when_customization_disabled,
         )
-        public_config = _normalize_config(provider, payload.get("public_config"), False)
-        secret_config = _normalize_config(provider, payload.get("secret_config"), True)
+        public_config = _normalize_config(
+            provider, payload.get("public_config"), secret=False
+        )
+        secret_config = _normalize_config(
+            provider, payload.get("secret_config"), secret=True
+        )
         previous_record = _load_latest_record_or_active(app, creator_bid, provider)
         if previous_record:
             previous_secret_config = dict(previous_record.get("secret_config") or {})
@@ -450,18 +481,19 @@ def save_creator_integration(
             updated_by=creator_bid,
             config_bid=integration_bid,
         )
-        return _serialize_integration(app, creator_bid, record)
+        return _serialize_integration(record)
 
 
 def verify_creator_integration(
     app: Flask, creator_bid: str, provider: str, integration_bid: str = ""
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Verify creator integration."""
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     with app.app_context():
         record = _load_integration_record(
             app,
-            integration_bid or _latest_version_bid(app, creator_bid, provider),
+            integration_bid or _latest_version_bid(creator_bid, provider),
             expected_creator_bid=creator_bid,
             expected_provider=provider,
         )
@@ -477,7 +509,7 @@ def verify_creator_integration(
                 last_error_message=str(exc)[:255],
             )
             _save_integration_record(app, record)
-            return _serialize_integration(app, creator_bid, record)
+            return _serialize_integration(record)
 
         record.update(
             status="verified",
@@ -498,16 +530,17 @@ def verify_creator_integration(
             ),
         )
         _activate_provider_config(app, creator_bid, provider, record)
-        return _serialize_integration(app, creator_bid, record)
+        return _serialize_integration(record)
 
 
 def disable_creator_integration(
     app: Flask, creator_bid: str, provider: str
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Disable creator integration."""
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     with app.app_context():
-        active_bid = _active_version_bid(app, creator_bid, provider)
+        active_bid = _active_version_bid(creator_bid, provider)
         if not active_bid:
             raise_param_error("provider")
         record = _load_integration_record(
@@ -523,10 +556,11 @@ def disable_creator_integration(
             creator_bid,
             INTEGRATION_ACTIVE_KEY.format(provider=provider),
         )
-        return _serialize_integration(app, creator_bid, record)
+        return _serialize_integration(record)
 
 
 def resolve_creator_branding(creator_bid: str) -> dict[str, str]:
+    """Resolve creator branding."""
     funcs = _saas_funcs(required=False)
     if funcs is None:
         return _resolve_entitlement_branding(creator_bid)
@@ -552,7 +586,7 @@ def resolve_creator_branding(creator_bid: str) -> dict[str, str]:
     return _resolve_entitlement_branding(creator_bid)
 
 
-def _entitlement_branding_dict(entitlement) -> dict[str, Any]:
+def _entitlement_branding_dict(entitlement: object) -> dict[str, object]:
     feature_payload = entitlement.feature_payload.to_metadata_json()
     branding_payload = feature_payload.get("branding")
     return branding_payload if isinstance(branding_payload, dict) else {}
@@ -569,13 +603,36 @@ def _resolve_entitlement_branding(creator_bid: str) -> dict[str, str]:
     }
 
 
-def resolve_creator_public_integrations(creator_bid: str) -> dict[str, dict[str, Any]]:
+def resolve_creator_public_integrations(
+    creator_bid: str,
+) -> dict[str, dict[str, object]]:
+    """Resolve creator public integrations."""
     result = {}
     for provider in INTEGRATION_PROVIDERS:
         record = _load_active_record(creator_bid, provider)
         if record and record.get("status") == "verified":
             result[provider] = dict(record.get("public_config") or {})
     return result
+
+
+def resolve_creator_wechat_oauth_app_id(creator_bid: str) -> str:
+    """Resolve the WeChat OAuth app id a creator signs their learners in with.
+
+    Returns an empty string when the creator has no verified WeChat OAuth
+    integration of their own, meaning learners are signed in through the
+    platform app.
+    """
+    normalized = normalize_bid(creator_bid)
+    if not normalized:
+        return ""
+    custom_wechat = resolve_creator_public_integrations(normalized).get("wechat_oauth")
+    if not custom_wechat:
+        return ""
+    app_id = str(custom_wechat.get("app_id") or "").strip()
+    if not app_id:
+        message = "Custom WeChat OAuth integration is missing app_id"
+        raise RuntimeError(message)
+    return app_id
 
 
 def resolve_provider_credential_context(
@@ -586,12 +643,13 @@ def resolve_provider_credential_context(
     integration_bid: str = "",
     callback_token: str = "",
 ) -> ProviderCredentialContext | None:
+    """Resolve provider credential context."""
     with app.app_context():
         if callback_token:
             integration_bid = _verify_callback_token(app, callback_token)
         if not integration_bid:
             integration_bid = _active_version_bid(
-                app, normalize_bid(creator_bid), _normalize_provider(provider)
+                normalize_bid(creator_bid), _normalize_provider(provider)
             )
         if not integration_bid:
             return None
@@ -617,7 +675,6 @@ def resolve_payment_integration_for_new_order(
     app: Flask, creator_bid: str, provider: str
 ) -> ProviderCredentialContext | None:
     """Resolve an eligible active merchant config or preserve global behavior."""
-
     creator_bid = normalize_bid(creator_bid)
     provider = _normalize_provider(provider)
     if provider not in PAYMENT_PROVIDERS:
@@ -625,7 +682,7 @@ def resolve_payment_integration_for_new_order(
     entitlement = resolve_creator_entitlement_state(creator_bid)
     customization_enabled = is_creator_customization_enabled()
     if not customization_enabled or not entitlement.custom_payment_enabled:
-        if _has_any_active_payment_integration(app, creator_bid):
+        if _has_any_active_payment_integration(creator_bid):
             raise_error("server.pay.payChannelNotSupport")
         return None
     context = resolve_provider_credential_context(
@@ -636,16 +693,16 @@ def resolve_payment_integration_for_new_order(
     return context
 
 
-def _has_any_active_payment_integration(app: Flask, creator_bid: str) -> bool:
+def _has_any_active_payment_integration(creator_bid: str) -> bool:
     return any(
-        _active_version_bid(app, creator_bid, provider)
-        for provider in PAYMENT_PROVIDERS
+        _active_version_bid(creator_bid, provider) for provider in PAYMENT_PROVIDERS
     )
 
 
 def build_provider_config_overrides(
     context: ProviderCredentialContext,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Build provider config overrides."""
     mapping = _PROVIDER_CONFIG_KEYS[context.provider]
     values: dict[str, Any] = {}
     for section, source in (
@@ -658,9 +715,7 @@ def build_provider_config_overrides(
     return values
 
 
-def _serialize_active_integration(
-    app: Flask, creator_bid: str, provider: str
-) -> dict[str, Any]:
+def _serialize_active_integration(creator_bid: str, provider: str) -> dict[str, object]:
     record = _load_active_record(creator_bid, provider)
     if record is None:
         return {
@@ -671,30 +726,28 @@ def _serialize_active_integration(
             "secret_configured_fields": [],
             "callback_url": "",
         }
-    return _serialize_integration(app, creator_bid, record)
+    return _serialize_integration(record)
 
 
 def _serialize_latest_management_integration(
     app: Flask, creator_bid: str, provider: str
-) -> dict[str, Any]:
+) -> dict[str, object]:
     if _saas_funcs(required=False) is None:
-        return _serialize_active_integration(app, creator_bid, provider)
+        return _serialize_active_integration(creator_bid, provider)
     try:
-        integration_bid = _latest_version_bid(app, creator_bid, provider)
-    except AppException:
-        return _serialize_active_integration(app, creator_bid, provider)
+        integration_bid = _latest_version_bid(creator_bid, provider)
+    except AppError:
+        return _serialize_active_integration(creator_bid, provider)
     record = _load_integration_record(
         app,
         integration_bid,
         expected_creator_bid=creator_bid,
         expected_provider=provider,
     )
-    return _serialize_integration(app, creator_bid, record)
+    return _serialize_integration(record)
 
 
-def _serialize_integration(
-    app: Flask, creator_bid: str, record: dict[str, Any]
-) -> dict[str, Any]:
+def _serialize_integration(record: dict[str, object]) -> dict[str, object]:
     callback_url = ""
     if record.get("provider") in PAYMENT_PROVIDERS:
         origin = str(get_config("HOST_URL", "") or "").rstrip("/")
@@ -721,10 +774,10 @@ def _serialize_integration(
     }
 
 
-def _load_active_record(creator_bid: str, provider: str) -> dict[str, Any] | None:
+def _load_active_record(creator_bid: str, provider: str) -> dict[str, object] | None:
     from flask import current_app
 
-    integration_bid = _active_version_bid(current_app, creator_bid, provider)
+    integration_bid = _active_version_bid(creator_bid, provider)
     if not integration_bid:
         return None
     return _load_integration_record(
@@ -737,12 +790,12 @@ def _load_active_record(creator_bid: str, provider: str) -> dict[str, Any] | Non
 
 def _load_latest_record_or_active(
     app: Flask, creator_bid: str, provider: str
-) -> dict[str, Any] | None:
+) -> dict[str, object] | None:
     if _saas_funcs(required=False) is None:
         return None
     try:
-        integration_bid = _latest_version_bid(app, creator_bid, provider)
-    except AppException:
+        integration_bid = _latest_version_bid(creator_bid, provider)
+    except AppError:
         return _load_active_record(creator_bid, provider)
     return _load_integration_record(
         app,
@@ -752,7 +805,7 @@ def _load_latest_record_or_active(
     )
 
 
-def _active_version_bid(app: Flask, creator_bid: str, provider: str) -> str:
+def _active_version_bid(creator_bid: str, provider: str) -> str:
     funcs = _saas_funcs(required=False)
     if funcs is None:
         return ""
@@ -766,7 +819,7 @@ def _active_version_bid(app: Flask, creator_bid: str, provider: str) -> str:
     ).strip()
 
 
-def _latest_version_bid(app: Flask, creator_bid: str, provider: str) -> str:
+def _latest_version_bid(creator_bid: str, provider: str) -> str:
     model = _saas_model()
     row = (
         model.query.filter(
@@ -788,7 +841,7 @@ def _load_integration_record(
     *,
     expected_creator_bid: str = "",
     expected_provider: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     value = _saas_funcs().get_saas_user_config_value_by_bid(app, integration_bid)
     if value is None:
         raise_param_error("integration_bid")
@@ -803,7 +856,7 @@ def _load_integration_record(
     return record
 
 
-def _save_integration_record(app: Flask, record: dict[str, Any]) -> None:
+def _save_integration_record(app: Flask, record: dict[str, object]) -> None:
     _saas_funcs().update_saas_user_config_version(
         app,
         config_bid=str(record["integration_bid"]),
@@ -813,7 +866,7 @@ def _save_integration_record(app: Flask, record: dict[str, Any]) -> None:
 
 
 def _activate_provider_config(
-    app: Flask, creator_bid: str, provider: str, record: dict[str, Any]
+    app: Flask, creator_bid: str, provider: str, record: dict[str, object]
 ) -> None:
     funcs = _saas_funcs()
     for section, encrypted in (("public", 0), ("secret", 1)):
@@ -861,8 +914,8 @@ def _activate_provider_config(
 def _probe_provider_credentials(
     app: Flask,
     provider: str,
-    public_config: dict[str, Any],
-    secret_config: dict[str, Any],
+    public_config: dict[str, object],
+    secret_config: dict[str, object],
 ) -> None:
     """Validate credentials before promoting an integration to active use."""
     if provider == "stripe":
@@ -879,78 +932,89 @@ def _probe_provider_credentials(
     if provider == "wechatpay":
         api_v3_key = str(secret_config.get("api_v3_key") or "").strip()
         if len(api_v3_key.encode("utf-8")) != 32:
-            raise ValueError("WeChat Pay API v3 key must be 32 bytes")
+            error_message = "WeChat Pay API v3 key must be 32 bytes"
+            raise ValueError(error_message)
         _parse_pem_private_key(secret_config.get("private_key"))
         _parse_x509_certificate(secret_config.get("platform_cert"))
         return
     if provider == "wechat_oauth":
         return
-    raise ValueError(f"Unsupported integration provider: {provider}")
+    message = f"Unsupported integration provider: {provider}"
+    raise ValueError(message)
 
 
 def _probe_stripe_credentials(
     app: Flask,
-    public_config: dict[str, Any],
-    secret_config: dict[str, Any],
+    public_config: dict[str, object],
+    secret_config: dict[str, object],
 ) -> None:
     publishable_key = str(public_config.get("publishable_key") or "").strip()
     secret_key = str(secret_config.get("secret_key") or "").strip()
     webhook_secret = str(secret_config.get("webhook_secret") or "").strip()
     if not publishable_key.startswith(("pk_live_", "pk_test_")):
-        raise ValueError("Stripe publishable key must start with pk_live_ or pk_test_")
+        message = "Stripe publishable key must start with pk_live_ or pk_test_"
+        raise ValueError(message)
     if not secret_key.startswith(("sk_live_", "sk_test_")):
-        raise ValueError("Stripe secret key must start with sk_live_ or sk_test_")
+        message = "Stripe secret key must start with sk_live_ or sk_test_"
+        raise ValueError(message)
     if not webhook_secret.startswith("whsec_"):
-        raise ValueError("Stripe webhook secret must start with whsec_")
+        message = "Stripe webhook secret must start with whsec_"
+        raise ValueError(message)
     if app.config.get("TESTING"):
         return
     try:
-        import stripe  # type: ignore
+        import stripe  # type: ignore[import-untyped]
 
         request_options: dict[str, Any] = {"api_key": secret_key}
         api_version = str(public_config.get("api_version") or "").strip()
         if api_version:
             request_options["stripe_version"] = api_version
         stripe.Account.retrieve(**request_options)
-    except Exception as exc:  # noqa: BLE001 - surface provider probe failure
-        raise ValueError("Stripe credentials could not be verified") from exc
+    except Exception as exc:
+        message = "Stripe credentials could not be verified"
+        raise ValueError(message) from exc
 
 
-def _parse_pem_private_key(value: Any) -> None:
+def _parse_pem_private_key(value: object) -> None:
     pem = _normalize_pem(value, "PRIVATE KEY")
     try:
         serialization.load_pem_private_key(pem, password=None)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Private key is not a valid PEM key") from exc
+        message = "Private key is not a valid PEM key"
+        raise ValueError(message) from exc
 
 
-def _parse_pem_public_key(value: Any) -> None:
+def _parse_pem_public_key(value: object) -> None:
     pem = _normalize_pem(value, "PUBLIC KEY")
     try:
         serialization.load_pem_public_key(pem)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Public key is not a valid PEM key") from exc
+        message = "Public key is not a valid PEM key"
+        raise ValueError(message) from exc
 
 
-def _parse_x509_certificate(value: Any) -> None:
+def _parse_x509_certificate(value: object) -> None:
     pem = _normalize_pem(value, "CERTIFICATE")
     try:
         x509.load_pem_x509_certificate(pem)
     except ValueError as exc:
-        raise ValueError("Certificate is not a valid PEM certificate") from exc
+        message = "Certificate is not a valid PEM certificate"
+        raise ValueError(message) from exc
 
 
-def _normalize_pem(value: Any, label: str) -> bytes:
+def _normalize_pem(value: object, label: str) -> bytes:
     text = str(value or "").strip()
     if not text:
-        raise ValueError(f"{label.title()} is required")
+        message = f"{label.title()} is required"
+        raise ValueError(message)
     if "-----BEGIN" in text:
         return text.encode("utf-8")
     compact = "".join(text.split())
     try:
         base64.b64decode(compact, validate=True)
     except binascii.Error as exc:
-        raise ValueError(f"{label.title()} is not valid PEM or base64") from exc
+        message = f"{label.title()} is not valid PEM or base64"
+        raise ValueError(message) from exc
     lines = "\n".join(compact[i : i + 64] for i in range(0, len(compact), 64))
     return f"-----BEGIN {label}-----\n{lines}\n-----END {label}-----\n".encode("ascii")
 
@@ -975,16 +1039,18 @@ def _build_callback_token(app: Flask, integration_bid: str) -> str:
 def _require_creator_integration_secret_key(app: Flask) -> str:
     key = str(app.config.get("CREATOR_INTEGRATION_ENCRYPTION_KEY") or "").strip()
     if not key:
-        raise RuntimeError("CREATOR_INTEGRATION_ENCRYPTION_KEY must be configured")
+        message = "CREATOR_INTEGRATION_ENCRYPTION_KEY must be configured"
+        raise RuntimeError(message)
     try:
         Fernet(key.encode("ascii"))
     except (ValueError, TypeError) as exc:
-        raise RuntimeError("CREATOR_INTEGRATION_ENCRYPTION_KEY is invalid") from exc
+        message = "CREATOR_INTEGRATION_ENCRYPTION_KEY is invalid"
+        raise RuntimeError(message) from exc
     return key
 
 
 def _verify_callback_token(app: Flask, token: str) -> str:
-    integration_bid, separator, signature = str(token or "").partition(".")
+    integration_bid, separator, _signature = str(token or "").partition(".")
     if (
         not separator
         or not integration_bid
@@ -994,14 +1060,14 @@ def _verify_callback_token(app: Flask, token: str) -> str:
     return integration_bid
 
 
-def _normalize_provider(value: Any) -> str:
+def _normalize_provider(value: object) -> str:
     provider = normalize_bid(value).lower()
     if provider not in INTEGRATION_PROVIDERS:
         raise_param_error("provider")
     return provider
 
 
-def _normalize_config(provider: str, value: Any, secret: bool) -> dict[str, Any]:
+def _normalize_config(provider: str, value: object, secret: bool) -> dict[str, object]:
     if not isinstance(value, dict):
         raise_param_error("secret_config" if secret else "public_config")
     public_fields, secret_fields = _PROVIDER_FIELDS[provider]
@@ -1020,7 +1086,7 @@ def _normalize_config(provider: str, value: Any, secret: bool) -> dict[str, Any]
 
 
 def _validate_required_config(
-    provider: str, public_config: dict[str, Any], secret_config: dict[str, Any]
+    provider: str, public_config: dict[str, object], secret_config: dict[str, object]
 ) -> None:
     public_fields, secret_fields = _PROVIDER_FIELDS[provider]
     missing = sorted(
@@ -1042,7 +1108,7 @@ def _require_capability(
         raise_error("server.shifu.noPermission")
 
 
-def _normalize_logo_url(value: Any, field: str) -> str:
+def _normalize_logo_url(value: object, field: str) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
@@ -1069,7 +1135,7 @@ def _normalize_logo_url(value: Any, field: str) -> str:
     return raw
 
 
-def _normalize_home_url(value: Any) -> str:
+def _normalize_home_url(value: object) -> str:
     raw = str(value or "").strip()
     if not raw:
         return ""
@@ -1081,16 +1147,15 @@ def _normalize_home_url(value: Any) -> str:
     return raw
 
 
-def _normalize_home_url_lenient(value: Any) -> str:
-    """Draft-side variant: drop invalid values instead of raising, so the
-    admin draft autosave never fails on a partially typed URL."""
+def _normalize_home_url_lenient(value: object) -> str:
+    """Draft-side variant: drop invalid values instead of raising, so the admin draft autosave never fails on a partially typed URL."""
     try:
         return _normalize_home_url(value)
-    except AppException:
+    except AppError:
         return ""
 
 
-def _entitlement_home_url(entitlement_state) -> str:
+def _entitlement_home_url(entitlement_state: object) -> str:
     feature_values = entitlement_state.feature_payload.to_metadata_json()
     branding_payload = feature_values.get("branding")
     if not isinstance(branding_payload, dict):
@@ -1183,7 +1248,7 @@ def _read_validated_brand_image(
     )
 
 
-def _normalize_logo_target(value: Any) -> str:
+def _normalize_logo_target(value: object) -> str:
     normalized = str(value or "wide").strip().lower()
     if normalized not in _LOGO_VARIANTS:
         raise_param_error("target")
@@ -1278,7 +1343,7 @@ def _save_logo_image(image: Image.Image, *, suffix: str) -> bytes:
     return output.getvalue()
 
 
-def _saas_funcs(*, required: bool = True):
+def _saas_funcs(*, required: bool = True) -> object | None:
     try:
         module = import_module(
             "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.funcs"
@@ -1287,7 +1352,8 @@ def _saas_funcs(*, required: bool = True):
         if not str(exc.name or "").startswith("flaskr.plugins.ai_shifu_saas_plugin"):
             raise
         if required:
-            raise RuntimeError("SaaS config plugin is not installed") from exc
+            message = "SaaS config plugin is not installed"
+            raise RuntimeError(message) from exc
         return None
     # The plugin ships with the image even on deployments that never
     # configure its dedicated database. Plugin initialization then leaves
@@ -1296,18 +1362,19 @@ def _saas_funcs(*, required: bool = True):
     # installed" and let callers fall back to entitlement-backed storage.
     if has_app_context() and not current_app.config.get("SAAS_PLUGIN_ENABLED"):
         if required:
-            raise RuntimeError("SaaS config plugin is not enabled")
+            message = "SaaS config plugin is not enabled"
+            raise RuntimeError(message)
         return None
     return module
 
 
-def _saas_model():
+def _saas_model() -> type[_SaasUserConfigModel]:
     return import_module(
         "flaskr.plugins.ai_shifu_saas_plugin.src.service.config.models"
     ).SaasUserConfig
 
 
-def _load_json(value: Any) -> dict[str, Any]:
+def _load_json(value: object) -> dict[str, object]:
     try:
         payload = json.loads(str(value or "{}"))
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -1315,14 +1382,32 @@ def _load_json(value: Any) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-def _dump_json(value: dict[str, Any]) -> str:
+def _dump_json(value: dict[str, object]) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 
-def _to_bool(value: Any) -> bool:
+def _to_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _admin_draft_contact_digest(creator_mobile: str) -> str:
+    """Digest the contact identifier an unsaved draft is keyed by.
+
+    Emails are lowercased first so a draft stored as ``A@x.com`` is still found
+    when the dialog is reopened with ``a@x.com``. Phone numbers keep their raw
+    trimmed form so drafts written before email support remain reachable.
+    """
+    normalized_creator_contact = str(creator_mobile or "").strip()
+    if not normalized_creator_contact:
+        raise_param_error("creator_mobile")
+    contact_type = resolve_contact_type(normalized_creator_contact)
+    if contact_type == CONTACT_TYPE_EMAIL:
+        normalized_creator_contact = normalize_contact_identifier(
+            normalized_creator_contact, contact_type
+        )
+    return hashlib.sha256(normalized_creator_contact.encode("utf-8")).hexdigest()
 
 
 def _admin_draft_owner_bid(*, creator_bid: str = "", creator_mobile: str = "") -> str:
@@ -1330,13 +1415,8 @@ def _admin_draft_owner_bid(*, creator_bid: str = "", creator_mobile: str = "") -
     if normalized_creator_bid:
         return f"billing-admin-draft:creator:{normalized_creator_bid}"
 
-    normalized_creator_mobile = str(creator_mobile or "").strip()
-    if not normalized_creator_mobile:
-        raise_param_error("creator_mobile")
-    mobile_digest = hashlib.sha256(
-        normalized_creator_mobile.encode("utf-8")
-    ).hexdigest()
-    return f"billing-admin-draft:mobile:{mobile_digest}"
+    contact_digest = _admin_draft_contact_digest(creator_mobile)
+    return f"billing-admin-draft:mobile:{contact_digest}"
 
 
 def _admin_draft_storage_identity(
@@ -1346,18 +1426,13 @@ def _admin_draft_storage_identity(
     if normalized_creator_bid:
         return normalized_creator_bid, f"{ADMIN_DRAFT_KEY}.CREATOR"
 
-    normalized_creator_mobile = str(creator_mobile or "").strip()
-    if not normalized_creator_mobile:
-        raise_param_error("creator_mobile")
-    mobile_digest = hashlib.sha256(
-        normalized_creator_mobile.encode("utf-8")
-    ).hexdigest()
-    return mobile_digest[:36], f"{ADMIN_DRAFT_KEY}.MOBILE"
+    contact_digest = _admin_draft_contact_digest(creator_mobile)
+    return contact_digest[:36], f"{ADMIN_DRAFT_KEY}.MOBILE"
 
 
 def _empty_admin_creator_customization_draft(
     *, creator_mobile: str = ""
-) -> dict[str, Any]:
+) -> dict[str, object]:
     return {
         "creator_mobile": str(creator_mobile or "").strip(),
         "branding_enabled": False,
@@ -1383,10 +1458,10 @@ def _empty_admin_creator_customization_draft(
 
 
 def _normalize_admin_creator_customization_draft(
-    payload: dict[str, Any],
+    payload: dict[str, object],
     *,
     creator_mobile: str = "",
-) -> dict[str, Any]:
+) -> dict[str, object]:
     base = _empty_admin_creator_customization_draft(creator_mobile=creator_mobile)
     result = dict(base)
     result["creator_mobile"] = str(
@@ -1441,10 +1516,10 @@ def _normalize_admin_creator_customization_draft(
             if isinstance(provider_payload, dict):
                 normalized_integrations[provider] = {
                     "public_config": _normalize_config(
-                        provider, provider_payload.get("public_config"), False
+                        provider, provider_payload.get("public_config"), secret=False
                     ),
                     "secret_config": _normalize_config(
-                        provider, provider_payload.get("secret_config"), True
+                        provider, provider_payload.get("secret_config"), secret=True
                     ),
                 }
             else:

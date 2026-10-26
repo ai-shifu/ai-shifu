@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-from typing import Any
-
-from flask import Flask
-from sqlalchemy import or_
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.pagination import normalize_pagination
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc, to_utc_iso
+from sqlalchemy import or_
 
+from .campaign_admin import _load_campaign_or_404
 from .consts import (
     REFERRAL_ABNORMAL_STATUS_CONFIRMED_ABNORMAL,
     REFERRAL_ABNORMAL_STATUS_NORMAL,
@@ -36,8 +35,12 @@ from .models import (
     ReferralInviteRelation,
     ReferralInviteReward,
 )
-from .campaign_admin import _load_campaign_or_404
 from .reward_queue import build_referral_reward_queue
+
+if TYPE_CHECKING:
+    from decimal import Decimal
+
+    from flask import Flask
 
 ABNORMAL_STATUS_BY_LABEL = {
     "normal": REFERRAL_ABNORMAL_STATUS_NORMAL,
@@ -64,7 +67,7 @@ def _serialize_decimal(value: Decimal | None) -> str | None:
     return str(value) if value is not None else None
 
 
-def _user_bid_or_identifier_filter(column: Any, value: str) -> Any:
+def _user_bid_or_identifier_filter(column: object, value: str) -> object:
     normalized = _normalize_text(value)
     candidates = {normalized}
     phone_normalized = normalize_phone_identifier(normalized)
@@ -130,7 +133,7 @@ def _serialize_relation(
     reward: ReferralInviteReward | None,
     users: dict[str, dict[str, str]],
     campaigns: dict[str, ReferralCampaign],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     campaign = campaigns.get(relation.campaign_bid)
     return {
         "relation_bid": relation.relation_bid,
@@ -156,7 +159,7 @@ def _serialize_relation(
     }
 
 
-def _serialize_reward(reward: ReferralInviteReward | None) -> dict[str, Any] | None:
+def _serialize_reward(reward: ReferralInviteReward | None) -> dict[str, object] | None:
     if reward is None:
         return None
     return {
@@ -186,8 +189,9 @@ def list_operator_referrals(
     *,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any],
-) -> dict[str, Any]:
+    filters: dict[str, object],
+) -> dict[str, object]:
+    """Return operator referrals."""
     with app.app_context():
         safe_page_index, safe_page_size = normalize_pagination(page_index, page_size)
         query = ReferralInviteRelation.query.filter(ReferralInviteRelation.deleted == 0)
@@ -265,8 +269,9 @@ def list_operator_referral_campaign_invitations(
     campaign_bid: str,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any],
-) -> dict[str, Any]:
+    filters: dict[str, object],
+) -> dict[str, object]:
+    """Return operator referral campaign invitations."""
     with app.app_context():
         normalized_campaign_bid = _normalize_text(campaign_bid)
         _load_campaign_or_404(normalized_campaign_bid)
@@ -338,7 +343,8 @@ def list_operator_referral_campaign_invitations(
         }
 
 
-def get_operator_referral_detail(app: Flask, *, relation_bid: str) -> dict[str, Any]:
+def get_operator_referral_detail(app: Flask, *, relation_bid: str) -> dict[str, object]:
+    """Return operator referral detail."""
     with app.app_context():
         relation = (
             ReferralInviteRelation.query.filter(
@@ -370,6 +376,7 @@ def get_operator_referral_detail(app: Flask, *, relation_bid: str) -> dict[str, 
 
 
 def get_operator_referral_overview(app: Flask) -> dict[str, int]:
+    """Return operator referral overview."""
     with app.app_context():
         total_relations = ReferralInviteRelation.query.filter(
             ReferralInviteRelation.deleted == 0
@@ -396,9 +403,10 @@ def update_operator_referral_status(
     *,
     relation_bid: str,
     operator_user_bid: str,
-    payload: dict[str, Any],
-) -> dict[str, Any]:
-    with app.app_context():
+    payload: dict[str, object],
+) -> dict[str, object]:
+    """Update operator referral status."""
+    with app_context_scope(app), unit_of_work():
         relation = (
             ReferralInviteRelation.query.filter(
                 ReferralInviteRelation.deleted == 0,
@@ -432,7 +440,7 @@ def update_operator_referral_status(
             reward.reward_status = REWARD_STATUS_BY_LABEL[reward_status]
         if note:
             metadata = (
-                relation.metadata_json
+                dict(relation.metadata_json)
                 if isinstance(relation.metadata_json, dict)
                 else {}
             )
@@ -446,8 +454,9 @@ def update_operator_referral_status(
         db.session.add(relation)
         if reward is not None:
             db.session.add(reward)
-        db.session.commit()
-        return get_operator_referral_detail(app, relation_bid=relation.relation_bid)
+        updated_relation_bid = relation.relation_bid
+    # The detail read opens its own app context, so it runs after the commit.
+    return get_operator_referral_detail(app, relation_bid=updated_relation_bid)
 
 
 def _page_count(total: int, page_size: int) -> int:
@@ -458,7 +467,7 @@ def _invite_event_stats_by_code(
     *,
     campaign_bid: str,
     invite_codes: list[str],
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, dict[str, object]]:
     if not invite_codes:
         return {}
     rows = (
@@ -480,9 +489,7 @@ def _invite_event_stats_by_code(
         stats = result.setdefault(
             invite_code,
             {
-                "event_counts": {
-                    event_type: 0 for event_type in REFERRAL_INVITE_EVENT_TYPES
-                },
+                "event_counts": dict.fromkeys(REFERRAL_INVITE_EVENT_TYPES, 0),
                 "total_event_count": 0,
                 "latest_event_at": None,
             },
@@ -530,18 +537,18 @@ def _serialize_invitation(
     invitation: ReferralInviteCode,
     *,
     users: dict[str, dict[str, str]],
-    event_stats: dict[str, Any],
+    event_stats: dict[str, object],
     relation_count: int,
-) -> dict[str, Any]:
-    event_counts = {
-        event_type: 0
-        for event_type in (
+) -> dict[str, object]:
+    event_counts = dict.fromkeys(
+        (
             REFERRAL_INVITE_EVENT_LINK_CLICKED,
             REFERRAL_INVITE_EVENT_REGISTRATION_PAGE_VIEWED,
             REFERRAL_INVITE_EVENT_CODE_ENTERED,
             REFERRAL_INVITE_EVENT_REGISTRATION_SUBMITTED,
-        )
-    }
+        ),
+        0,
+    )
     event_counts.update(event_stats.get("event_counts") or {})
     return {
         "invite_code_bid": invitation.invite_code_bid,

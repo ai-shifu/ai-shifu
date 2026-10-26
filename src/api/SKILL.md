@@ -2,7 +2,7 @@
 
 ## Layering
 
-- Keep durable structural rules in `AGENTS.md` and `CLAUDE.md`.
+- Keep durable structural rules in `AGENTS.md`.
 - Use `SKILL.md` only for repeatable workflows, debugging playbooks, and
   migration checklists that would otherwise bloat directory-level rules.
 - Backend module `AGENTS.md` files may point here or to focused skills under
@@ -10,8 +10,7 @@
 
 ## Backend Skill Index
 
-- `skills/shifu-authoring-flow/SKILL.md`
-- `skills/user-auth-flows/SKILL.md`
+Use the [metadata-derived catalog](skills/README.md) for available workflows.
 
 ## When To Add A Skill
 

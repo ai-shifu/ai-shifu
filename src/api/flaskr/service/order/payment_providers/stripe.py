@@ -1,21 +1,26 @@
+"""Integrate Stripe payments with legacy orders."""
+
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
-
+from flaskr.service.common.stripe_client import get_stripe_client_options
 from flaskr.service.config import get_config
 
+from . import register_payment_provider
 from .base import (
-    PaymentProvider,
-    PaymentRequest,
+    PaymentCancellationResult,
     PaymentCreationResult,
     PaymentNotificationResult,
+    PaymentProvider,
     PaymentRefundRequest,
     PaymentRefundResult,
+    PaymentRequest,
     SubscriptionUpdateResult,
 )
-from . import register_payment_provider
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 class StripeProvider(PaymentProvider):
@@ -23,33 +28,18 @@ class StripeProvider(PaymentProvider):
 
     channel = "stripe"
 
-    def _ensure_client(self, app: Flask):
-        try:
-            import stripe  # type: ignore
-        except ImportError as exc:  # pragma: no cover - surfaced during runtime
-            app.logger.error("Stripe SDK is not installed")
-            raise RuntimeError("Stripe SDK is required for Stripe payments") from exc
-        return stripe
+    def _ensure_client(self, app: Flask) -> object:
+        return get_stripe_client_options(app)[0]
 
-    def _client_options(self, app: Flask) -> tuple[Any, Dict[str, Any]]:
-        stripe = self._ensure_client(app)
-        secret_key = get_config("STRIPE_SECRET_KEY")
-        if not secret_key:
-            app.logger.error("STRIPE_SECRET_KEY configuration is missing")
-            raise RuntimeError("STRIPE_SECRET_KEY must be configured for Stripe")
-
-        request_options: Dict[str, Any] = {"api_key": secret_key}
-        api_version = get_config("STRIPE_API_VERSION")
-        if api_version:
-            request_options["stripe_version"] = api_version
-
-        return stripe, request_options
+    def _client_options(self, app: Flask) -> tuple[Any, dict[str, Any]]:
+        return get_stripe_client_options(app)
 
     def create_payment(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
+        """Create a payment through this provider."""
         stripe, request_options = self._client_options(app)
-        options: Dict[str, Any] = request.extra or {}
+        options: dict[str, Any] = request.extra or {}
         mode = (options.get("mode") or request.channel or "payment_intent").lower()
         metadata = options.get("metadata", {}) or {}
         if hasattr(metadata, "to_dict"):
@@ -62,12 +52,11 @@ class StripeProvider(PaymentProvider):
             success_url = options.get("success_url")
             cancel_url = options.get("cancel_url")
             if not success_url or not cancel_url:
-                raise RuntimeError(
-                    "Stripe checkout session requires success and cancel URLs"
-                )
+                message = "Stripe checkout session requires success and cancel URLs"
+                raise RuntimeError(message)
 
             session_params = options.get("session_params", {})
-            params: Dict[str, Any] = {
+            params: dict[str, Any] = {
                 "mode": "payment",
                 "success_url": success_url,
                 "cancel_url": cancel_url,
@@ -76,8 +65,12 @@ class StripeProvider(PaymentProvider):
 
             line_items = options.get("line_items")
             if not line_items:
-                raise RuntimeError("Stripe checkout session requires line items")
+                message = "Stripe checkout session requires line items"
+                raise RuntimeError(message)
             params["line_items"] = line_items
+            discounts = options.get("discounts")
+            if discounts:
+                params["discounts"] = discounts
             subscription_discount_amount = int(
                 options.get("subscription_one_time_discount_amount") or 0
             )
@@ -85,6 +78,7 @@ class StripeProvider(PaymentProvider):
             if (
                 params.get("mode") == "subscription"
                 and subscription_discount_amount > 0
+                and not discounts
             ):
                 coupon = stripe.Coupon.create(
                     amount_off=subscription_discount_amount,
@@ -106,18 +100,40 @@ class StripeProvider(PaymentProvider):
             if customer_email:
                 params["customer_email"] = customer_email
 
-            payment_intent_data = options.get("payment_intent_data", {})
-            existing_metadata = payment_intent_data.get("metadata")
-            if existing_metadata:
-                if hasattr(existing_metadata, "to_dict"):
-                    existing_metadata = existing_metadata.to_dict()
-                metadata.update(existing_metadata)
-            payment_intent_data["metadata"] = metadata
-            params["payment_intent_data"] = payment_intent_data
+            if params.get("mode") == "subscription":
+                subscription_data = dict(params.get("subscription_data") or {})
+                subscription_metadata = subscription_data.get("metadata") or {}
+                if hasattr(subscription_metadata, "to_dict"):
+                    subscription_metadata = subscription_metadata.to_dict()
+                subscription_data["metadata"] = {
+                    **metadata,
+                    **dict(subscription_metadata),
+                }
+                params["subscription_data"] = subscription_data
+            else:
+                payment_intent_data = options.get("payment_intent_data", {})
+                existing_metadata = payment_intent_data.get("metadata")
+                if existing_metadata:
+                    if hasattr(existing_metadata, "to_dict"):
+                        existing_metadata = existing_metadata.to_dict()
+                    # Caller keys are kept, but the order evidence wins: it is
+                    # what a later sync matches the order against.
+                    metadata = {**dict(existing_metadata), **metadata}
+                payment_intent_data["metadata"] = metadata
+                params["payment_intent_data"] = payment_intent_data
+            # The session itself has to carry the evidence as well. A
+            # payment-mode session has no PaymentIntent until the buyer starts
+            # paying, so a sync that runs before that can only read metadata
+            # from the session.
+            session_metadata = params.get("metadata")
+            if hasattr(session_metadata, "to_dict"):
+                session_metadata = session_metadata.to_dict()
+            params["metadata"] = {**dict(session_metadata or {}), **metadata}
+            is_subscription_mode = params.get("mode") == "subscription"
             params["payment_method_types"] = ["card"]
-            if get_config("STRIPE_ALIPAY_ENABLED"):
+            if not is_subscription_mode and get_config("STRIPE_ALIPAY_ENABLED"):
                 params["payment_method_types"].append("alipay")
-            if get_config("STRIPE_WECHAT_PAY_ENABLED"):
+            if not is_subscription_mode and get_config("STRIPE_WECHAT_PAY_ENABLED"):
                 params["payment_method_types"].append("wechat_pay")
                 params["payment_method_options"] = {"wechat_pay": {"client": "web"}}
 
@@ -137,7 +153,7 @@ class StripeProvider(PaymentProvider):
             session_dict = session.to_dict()
             payment_intent_id = session_dict.get("payment_intent")
             latest_charge_id = ""
-            payment_intent_object: Dict[str, Any] = {}
+            payment_intent_object: dict[str, Any] = {}
             if payment_intent_id:
                 payment_intent = stripe.PaymentIntent.retrieve(
                     payment_intent_id, **request_options
@@ -155,6 +171,7 @@ class StripeProvider(PaymentProvider):
                     "latest_charge_id": latest_charge_id,
                     "payment_intent_object": payment_intent_object,
                     "metadata": metadata,
+                    "discounts": params.get("discounts") or [],
                     "url": session_dict.get("url", ""),
                 },
             )
@@ -184,7 +201,8 @@ class StripeProvider(PaymentProvider):
     def create_subscription(
         self, *, request: PaymentRequest, app: Flask
     ) -> PaymentCreationResult:
-        options: Dict[str, Any] = dict(request.extra or {})
+        """Create a recurring subscription through this provider."""
+        options: dict[str, Any] = dict(request.extra or {})
         session_params = dict(options.get("session_params", {}) or {})
         session_params["mode"] = "subscription"
         options["mode"] = "checkout_session"
@@ -204,8 +222,13 @@ class StripeProvider(PaymentProvider):
         return self.create_payment(request=subscription_request, app=app)
 
     def cancel_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
+        """Schedule provider subscription cancellation at the current period end."""
         stripe, request_options = self._client_options(app)
         subscription = stripe.Subscription.modify(
             provider_subscription_id,
@@ -224,8 +247,13 @@ class StripeProvider(PaymentProvider):
         )
 
     def resume_subscription(
-        self, *, subscription_bid: str, provider_subscription_id: str, app: Flask
+        self,
+        *,
+        subscription_bid: str,
+        provider_subscription_id: str,
+        app: Flask,
     ) -> SubscriptionUpdateResult:
+        """Clear Stripe's scheduled cancellation for a subscription."""
         stripe, request_options = self._client_options(app)
         subscription = stripe.Subscription.modify(
             provider_subscription_id,
@@ -245,28 +273,88 @@ class StripeProvider(PaymentProvider):
 
     def retrieve_checkout_session(
         self, *, session_id: str, app: Flask
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
+        """Retrieve a Stripe checkout session."""
         stripe, request_options = self._client_options(app)
         return stripe.checkout.Session.retrieve(session_id, **request_options)
 
-    def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> Dict[str, Any]:
+    def expire_checkout_session(self, *, session_id: str, app: Flask) -> dict[str, Any]:
+        """Expire an open Stripe checkout session."""
+        stripe, request_options = self._client_options(app)
+        session = stripe.checkout.Session.expire(session_id, **request_options)
+        return session.to_dict() if hasattr(session, "to_dict") else session
+
+    def cancel_payment(
+        self,
+        *,
+        provider_reference: str,
+        reference_type: str,
+        app: Flask,
+    ) -> PaymentCancellationResult:
+        """Expire Checkout or cancel an uncaptured PaymentIntent."""
+        stripe, request_options = self._client_options(app)
+        normalized_type = str(reference_type or "").strip().lower()
+        if normalized_type not in {"checkout_session", "payment_intent"}:
+            message = f"Unsupported Stripe reference type: {reference_type}"
+            raise RuntimeError(message)
+        try:
+            if normalized_type == "checkout_session":
+                response = stripe.checkout.Session.expire(
+                    provider_reference, **request_options
+                )
+            else:
+                response = stripe.PaymentIntent.cancel(
+                    provider_reference, **request_options
+                )
+        except Exception:
+            if normalized_type == "checkout_session":
+                response = stripe.checkout.Session.retrieve(
+                    provider_reference, **request_options
+                )
+                recovered_status = str(response.get("status") or "").lower()
+                terminal = recovered_status in {"complete", "expired"}
+            elif normalized_type == "payment_intent":
+                response = stripe.PaymentIntent.retrieve(
+                    provider_reference, **request_options
+                )
+                terminal = str(response.get("status") or "").lower() == "canceled"
+            if not terminal:
+                raise
+        payload = response.to_dict() if hasattr(response, "to_dict") else dict(response)
+        cancellation_status = "cancelled"
+        if (
+            normalized_type == "checkout_session"
+            and str(payload.get("status") or "").lower() == "complete"
+        ):
+            cancellation_status = "completed"
+        return PaymentCancellationResult(
+            provider_reference=provider_reference,
+            raw_response=payload,
+            status=cancellation_status,
+        )
+
+    def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> dict[str, Any]:
+        """Retrieve a Stripe payment intent."""
         stripe, request_options = self._client_options(app)
         return stripe.PaymentIntent.retrieve(intent_id, **request_options)
 
     def retrieve_subscription(
         self, *, subscription_id: str, app: Flask
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
+        """Retrieve a Stripe subscription."""
         stripe, request_options = self._client_options(app)
         return stripe.Subscription.retrieve(subscription_id, **request_options)
 
     def verify_webhook(
-        self, *, headers: Dict[str, str], raw_body: bytes | str, app: Flask
+        self, *, headers: dict[str, str], raw_body: bytes | str, app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and decode a provider webhook payload."""
         stripe, _request_options = self._client_options(app)
         webhook_secret = get_config("STRIPE_WEBHOOK_SECRET")
         if not webhook_secret:
             app.logger.error("STRIPE_WEBHOOK_SECRET configuration is missing")
-            raise RuntimeError("STRIPE_WEBHOOK_SECRET must be configured for Stripe")
+            message = "STRIPE_WEBHOOK_SECRET must be configured for Stripe"
+            raise RuntimeError(message)
 
         if isinstance(raw_body, bytes):
             raw_body_str = raw_body.decode("utf-8")
@@ -276,21 +364,23 @@ class StripeProvider(PaymentProvider):
             "stripe-signature", ""
         )
         if not sig_header:
-            raise RuntimeError("Stripe signature header missing")
+            message = "Stripe signature header missing"
+            raise RuntimeError(message)
 
         try:
             event = stripe.Webhook.construct_event(
                 raw_body_str, sig_header, webhook_secret
             )
-        except Exception as exc:  # pragma: no cover - handled in caller
-            app.logger.error("Stripe webhook signature verification failed: %s", exc)
+        except Exception:  # pragma: no cover - handled in caller
+            app.logger.exception("Stripe webhook signature verification failed")
             raise
 
         return self._build_notification_from_event(event)
 
     def handle_notification(
-        self, *, payload: Dict[str, Any], app: Flask
+        self, *, payload: dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:
+        """Verify and normalize a Stripe provider notification."""
         headers = dict(payload.get("headers", {}) or {})
         sig_header = payload.get("sig_header", "")
         if sig_header and "Stripe-Signature" not in headers:
@@ -304,6 +394,7 @@ class StripeProvider(PaymentProvider):
     def sync_reference(
         self, *, provider_reference: str, reference_type: str, app: Flask
     ) -> PaymentNotificationResult:
+        """Retrieve and normalize Stripe state for local state application."""
         normalized_reference_type = str(reference_type or "").strip().lower()
         if normalized_reference_type in {"checkout_session", "session", "payment"}:
             session = self.retrieve_checkout_session(
@@ -326,6 +417,8 @@ class StripeProvider(PaymentProvider):
                     if charges:
                         charge_id = str(charges[0].get("id") or "")
             metadata = session.get("metadata", {}) or {}
+            if not metadata.get("order_bid") and intent:
+                metadata = intent.get("metadata", {}) or {}
             return PaymentNotificationResult(
                 order_bid=str(metadata.get("order_bid") or ""),
                 status="manual_sync",
@@ -354,21 +447,24 @@ class StripeProvider(PaymentProvider):
                 provider_payload={"subscription": subscription},
                 charge_id=None,
             )
-        raise RuntimeError(f"Unsupported Stripe reference type: {reference_type}")
+        message = f"Unsupported Stripe reference type: {reference_type}"
+        raise RuntimeError(message)
 
     def refund_payment(
         self, *, request: PaymentRefundRequest, app: Flask
     ) -> PaymentRefundResult:
+        """Refund a payment through this provider."""
         stripe, request_options = self._client_options(app)
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
         if request.amount is not None:
             params["amount"] = request.amount
         if request.reason:
             params["reason"] = request.reason
 
-        metadata = request.metadata or {}
+        metadata = dict(request.metadata or {})
         if hasattr(metadata, "to_dict"):
             metadata = metadata.to_dict()
+        idempotency_key = str(metadata.pop("idempotency_key", "") or "")
         metadata.setdefault("order_bid", request.order_bid)
         params["metadata"] = metadata
 
@@ -379,10 +475,14 @@ class StripeProvider(PaymentProvider):
         elif charge_id:
             params["charge"] = charge_id
         else:
-            raise RuntimeError(
-                "Stripe refund requires payment_intent_id or charge_id metadata"
-            )
+            message = "Stripe refund requires payment_intent_id or charge_id metadata"
+            raise RuntimeError(message)
 
+        if idempotency_key:
+            request_options = {
+                **request_options,
+                "idempotency_key": idempotency_key,
+            }
         refund = stripe.Refund.create(**params, **request_options)
         refund_dict = refund.to_dict()
 
@@ -393,7 +493,7 @@ class StripeProvider(PaymentProvider):
         )
 
     def _build_notification_from_event(
-        self, event: Dict[str, Any]
+        self, event: dict[str, Any]
     ) -> PaymentNotificationResult:
         data_object = event.get("data", {}).get("object", {}) or {}
         metadata = data_object.get("metadata", {}) or {}

@@ -1,24 +1,25 @@
+"""Implement administrative operations for legacy orders."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from decimal import Decimal
-from collections import defaultdict
 import hashlib
 import re
-from typing import Any, Dict, List, Optional
-
-from flask import Flask
-from sqlalchemy import case
+from collections import defaultdict
+from datetime import UTC, datetime
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
+from flaskr.i18n import _
 from flaskr.service.common.dtos import PageNationDTO
 from flaskr.service.common.models import (
-    AppException,
+    AppError,
     raise_error,
     raise_error_with_args,
     raise_param_error,
 )
-from flaskr.i18n import _
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.order.admin_dtos import (
     OrderAdminActivityDTO,
     OrderAdminCouponDTO,
@@ -27,7 +28,6 @@ from flaskr.service.order.admin_dtos import (
     OrderAdminPaymentDTO,
     OrderAdminSummaryDTO,
 )
-from flaskr.service.order.funs import init_buy_record, success_buy_record
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
     ORDER_STATUS_REFUND,
@@ -35,10 +35,14 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_TO_BE_PAID,
 )
+from flaskr.service.order.funs import init_buy_record, success_buy_record
 from flaskr.service.order.models import (
     Order,
     PingxxOrder,
     StripeOrder,
+)
+from flaskr.service.order.payment_channel_resolution import (
+    resolve_market_payment_provider,
 )
 from flaskr.service.order.raw_snapshots import (
     legacy_native_snapshot_query,
@@ -60,7 +64,9 @@ from flaskr.service.promo.models import CouponUsage, PromoRedemption
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.shifu.shifu_draft_funcs import get_user_created_shifu_bids
 from flaskr.service.shifu.utils import get_shifu_creator_bid
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     ensure_user_for_identifier,
     get_user_entity_by_bid,
@@ -68,10 +74,15 @@ from flaskr.service.user.repository import (
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.utils import ensure_demo_course_permissions
-from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.util.datetime import parse_naive_utc
+from sqlalchemy import case
 
+if TYPE_CHECKING:
+    from flask import Flask
+    from flask_sqlalchemy.query import Query
+    from sqlalchemy.sql.elements import ColumnElement
+    from sqlalchemy.sql.selectable import Subquery
 
 ORDER_STATUS_KEY_MAP = {
     ORDER_STATUS_INIT: "server.order.orderStatusInit",
@@ -163,7 +174,7 @@ def _mask_contact_identifier(identifier: str) -> str:
     return f"hash:{digest}"
 
 
-def _log_error_code(exc: AppException) -> str:
+def _log_error_code(exc: AppError) -> str:
     """Return a safe error identifier for logs without leaking PII."""
     if getattr(exc, "code", None) is not None:
         return str(exc.code)
@@ -177,22 +188,20 @@ def normalize_contact_identifier(identifier: str, contact_type: str) -> str:
     if contact_type == "phone":
         return normalize_mobile(identifier)
     raise_param_error("contact_type")
+    return None
 
 
-def _format_decimal(value: Optional[Decimal]) -> str:
+def _format_decimal(value: Decimal | None) -> str:
     """Format a Decimal or numeric string to trimmed two-decimal string."""
     if value is None:
         return "0"
-    if isinstance(value, str):
-        normalized = value
-    else:
-        normalized = "{0:.2f}".format(value)
+    normalized = value if isinstance(value, str) else f"{value:.2f}"
     if normalized.endswith(".00"):
         return normalized[:-3]
     return normalized
 
 
-def _format_cents(value: Optional[int]) -> str:
+def _format_cents(value: int | None) -> str:
     """Convert cents integer to string representation in units."""
     if value is None:
         return "0"
@@ -202,7 +211,7 @@ def _format_cents(value: Optional[int]) -> str:
         return "0"
 
 
-def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
+def _parse_datetime(value: str, is_end: bool = False) -> datetime | None:
     """Parse date/time string with multiple formats; auto fill day bounds."""
     if not value:
         return None
@@ -211,26 +220,27 @@ def _parse_datetime(value: str, is_end: bool = False) -> Optional[datetime]:
         return None
     for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
         try:
-            parsed = datetime.strptime(normalized, fmt)
+            parsed = parse_naive_utc(normalized, fmt)
             if fmt == "%Y-%m-%d":
                 if is_end:
                     parsed = parsed.replace(hour=23, minute=59, second=59)
                 else:
                     parsed = parsed.replace(hour=0, minute=0, second=0)
-            return parsed
         except ValueError:
             continue
+        else:
+            return parsed
     try:
-        parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(normalized)
     except ValueError:
         return None
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
     return None
 
 
-def _normalize_order_status_filter(value: Any) -> Optional[int]:
+def _normalize_order_status_filter(value: object) -> int | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
@@ -242,8 +252,8 @@ def _normalize_order_status_filter(value: Any) -> Optional[int]:
 
 
 def _normalize_order_datetime_filter(
-    value: Any, *, is_end: bool = False
-) -> Optional[datetime]:
+    value: object, *, is_end: bool = False
+) -> datetime | None:
     if isinstance(value, datetime):
         return value
     return _parse_datetime(str(value or "").strip(), is_end=is_end)
@@ -265,7 +275,7 @@ def _trim_import_activation_nickname(value: str) -> str:
 
 def parse_import_activation_entries(
     text: str, contact_type: str = "phone"
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """Parse contact identifiers and optional nicknames from raw text."""
     if not text:
         return []
@@ -277,12 +287,12 @@ def parse_import_activation_entries(
     return _parse_import_activation_mobiles(safe_text)
 
 
-def _parse_import_activation_mobiles(text: str) -> List[Dict[str, str]]:
+def _parse_import_activation_mobiles(text: str) -> list[dict[str, str]]:
     """Parse phone identifiers and optional nicknames from raw text."""
     matches = list(IMPORT_ACTIVATION_MOBILE_PATTERN.finditer(text))
     if not matches:
         return []
-    entries: List[Dict[str, str]] = []
+    entries: list[dict[str, str]] = []
     for index, match in enumerate(matches):
         start = match.start()
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
@@ -294,9 +304,9 @@ def _parse_import_activation_mobiles(text: str) -> List[Dict[str, str]]:
     return entries
 
 
-def _parse_import_activation_emails(text: str) -> List[Dict[str, str]]:
+def _parse_import_activation_emails(text: str) -> list[dict[str, str]]:
     """Parse email identifiers and optional nicknames from raw text."""
-    entries: List[Dict[str, str]] = []
+    entries: list[dict[str, str]] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line:
@@ -316,12 +326,12 @@ def _parse_import_activation_emails(text: str) -> List[Dict[str, str]]:
     return entries
 
 
-def _find_email_matches(line: str) -> List[tuple[int, int, str]]:
+def _find_email_matches(line: str) -> list[tuple[int, int, str]]:
     """Find email candidates in a line using linear scanning."""
     if "@" not in line:
         return []
     allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._%+-")
-    matches: List[tuple[int, int, str]] = []
+    matches: list[tuple[int, int, str]] = []
     seen: set[tuple[int, int]] = set()
     length = len(line)
     for index, char in enumerate(line):
@@ -349,11 +359,11 @@ def _find_email_matches(line: str) -> List[tuple[int, int, str]]:
 
 def _load_shifu_map(
     shifu_bids: list[str],
-) -> Dict[str, DraftShifu | PublishedShifu]:
+) -> dict[str, DraftShifu | PublishedShifu]:
     """Load shifu records for given bids, preferring published with draft fallback."""
     if not shifu_bids:
         return {}
-    shifu_map: Dict[str, DraftShifu | PublishedShifu] = {}
+    shifu_map: dict[str, DraftShifu | PublishedShifu] = {}
 
     published_shifus = (
         PublishedShifu.query.filter(
@@ -386,7 +396,7 @@ def _load_shifu_map(
     return shifu_map
 
 
-def _load_user_map(user_bids: list[str]) -> Dict[str, Dict[str, str]]:
+def _load_user_map(user_bids: list[str]) -> dict[str, dict[str, str]]:
     """Load user mobile/nickname info for given user bids."""
     if not user_bids:
         return {}
@@ -398,20 +408,18 @@ def _load_user_map(user_bids: list[str]) -> Dict[str, Dict[str, str]]:
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    phone_map: Dict[str, str] = {}
-    email_map: Dict[str, str] = {}
+    phone_map: dict[str, str] = {}
+    email_map: dict[str, str] = {}
     for credential in credentials:
         if not credential.user_bid:
             continue
-        if credential.provider_name == "phone":
-            if credential.user_bid not in phone_map:
-                phone_map[credential.user_bid] = credential.identifier or ""
-        if credential.provider_name == "email":
-            if credential.user_bid not in email_map:
-                email_map[credential.user_bid] = credential.identifier or ""
+        if credential.provider_name == "phone" and credential.user_bid not in phone_map:
+            phone_map[credential.user_bid] = credential.identifier or ""
+        if credential.provider_name == "email" and credential.user_bid not in email_map:
+            email_map[credential.user_bid] = credential.identifier or ""
 
     users = UserEntity.query.filter(UserEntity.user_bid.in_(user_bids)).all()
-    user_map: Dict[str, Dict[str, str]] = {}
+    user_map: dict[str, dict[str, str]] = {}
     for user in users:
         mobile = phone_map.get(user.user_bid, "")
         email = email_map.get(user.user_bid, "")
@@ -428,7 +436,7 @@ def _load_user_map(user_bids: list[str]) -> Dict[str, Dict[str, str]]:
     return user_map
 
 
-def _load_coupon_code_map(order_bids: list[str]) -> Dict[str, List[str]]:
+def _load_coupon_code_map(order_bids: list[str]) -> dict[str, list[str]]:
     """Load coupon codes for given orders and map by order bid."""
     if not order_bids:
         return {}
@@ -440,7 +448,7 @@ def _load_coupon_code_map(order_bids: list[str]) -> Dict[str, List[str]]:
         .order_by(CouponUsage.id.desc())
         .all()
     )
-    coupon_map: Dict[str, List[str]] = defaultdict(list)
+    coupon_map: dict[str, list[str]] = defaultdict(list)
     for record in records:
         order_bid = record.order_bid or ""
         code = record.code or ""
@@ -452,7 +460,7 @@ def _load_coupon_code_map(order_bids: list[str]) -> Dict[str, List[str]]:
     return dict(coupon_map)
 
 
-def _build_coupon_usage_order_bid_subquery():
+def _build_coupon_usage_order_bid_subquery() -> Subquery:
     return (
         db.session.query(CouponUsage.order_bid.label("order_bid"))
         .filter(
@@ -467,7 +475,7 @@ def _build_coupon_usage_order_bid_subquery():
 def _resolve_order_source(
     *,
     payment_channel: str,
-    coupon_codes: List[str],
+    coupon_codes: list[str],
     paid_price: Decimal | str | None,
 ) -> tuple[str, str]:
     normalized_payment_channel = str(payment_channel or "").strip()
@@ -479,7 +487,7 @@ def _resolve_order_source(
         return ORDER_SOURCE_OPEN_API, ORDER_SOURCE_KEY_MAP[ORDER_SOURCE_OPEN_API]
 
     normalized_paid_price = Decimal(str(paid_price or 0))
-    if coupon_codes and normalized_paid_price == Decimal("0"):
+    if coupon_codes and normalized_paid_price == Decimal(0):
         return ORDER_SOURCE_COUPON_REDEEM, ORDER_SOURCE_KEY_MAP[
             ORDER_SOURCE_COUPON_REDEEM
         ]
@@ -487,7 +495,7 @@ def _resolve_order_source(
     return ORDER_SOURCE_USER_PURCHASE, ORDER_SOURCE_KEY_MAP[ORDER_SOURCE_USER_PURCHASE]
 
 
-def _load_matching_user_bids_for_keyword(keyword: str) -> List[str]:
+def _load_matching_user_bids_for_keyword(keyword: str) -> list[str]:
     normalized_keyword = str(keyword or "").strip()
     if not normalized_keyword:
         return []
@@ -519,7 +527,7 @@ def _load_matching_user_bids_for_keyword(keyword: str) -> List[str]:
     return sorted(bid for bid in bids if bid)
 
 
-def _load_matching_shifu_bids_for_course_name(course_name: str) -> List[str]:
+def _load_matching_shifu_bids_for_course_name(course_name: str) -> list[str]:
     normalized_course_name = str(course_name or "").strip()
     if not normalized_course_name:
         return []
@@ -532,7 +540,7 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> List[str]:
             DraftShifu.title.like(like_value),
         )
         .yield_per(200)
-        .enable_eagerloads(False)
+        .enable_eagerloads(False)  # noqa: FBT003 -- SQLAlchemy takes the flag positionally
     ):
         shifu_bid = str(row.shifu_bid or "").strip()
         if shifu_bid:
@@ -544,7 +552,7 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> List[str]:
             PublishedShifu.title.like(like_value),
         )
         .yield_per(200)
-        .enable_eagerloads(False)
+        .enable_eagerloads(False)  # noqa: FBT003 -- SQLAlchemy takes the flag positionally
     ):
         shifu_bid = str(row.shifu_bid or "").strip()
         if shifu_bid:
@@ -553,7 +561,25 @@ def _load_matching_shifu_bids_for_course_name(course_name: str) -> List[str]:
     return sorted(matched_shifu_bids)
 
 
-def _apply_order_source_filter(query, order_source: str):
+def _build_course_query_shifu_bid_filter(course_query: str) -> ColumnElement[bool]:
+    normalized_course_query = str(course_query or "").strip()
+    like_value = f"%{normalized_course_query}%"
+    draft_course_bids = db.session.query(DraftShifu.shifu_bid).filter(
+        DraftShifu.deleted == 0,
+        DraftShifu.title.like(like_value),
+    )
+    published_course_bids = db.session.query(PublishedShifu.shifu_bid).filter(
+        PublishedShifu.deleted == 0,
+        PublishedShifu.title.like(like_value),
+    )
+    matching_course_bids = draft_course_bids.union(published_course_bids)
+    return db.or_(
+        Order.shifu_bid == normalized_course_query,
+        Order.shifu_bid.in_(matching_course_bids),
+    )
+
+
+def _apply_order_source_filter(query: Query, order_source: str) -> Query:
     normalized_order_source = str(order_source or "").strip()
     if not normalized_order_source:
         return query
@@ -577,7 +603,7 @@ def _apply_order_source_filter(query, order_source: str):
         return query.filter(
             non_special_payment_channel,
             Order.order_bid.in_(coupon_order_bid_query),
-            Order.paid_price == Decimal("0"),
+            Order.paid_price == Decimal(0),
         )
 
     if normalized_order_source == ORDER_SOURCE_USER_PURCHASE:
@@ -587,24 +613,58 @@ def _apply_order_source_filter(query, order_source: str):
             db.not_(
                 db.and_(
                     Order.order_bid.in_(coupon_order_bid_query),
-                    Order.paid_price == Decimal("0"),
+                    Order.paid_price == Decimal(0),
                 )
             )
         )
 
-    return query.filter(db.literal(False))
+    return query.filter(db.literal(False))  # noqa: FBT003 -- SQL literal value
+
+
+def _resolve_order_display_payment_channel(order: Order) -> str:
+    """Correct the legacy model default for free orders on non-Ping++ markets."""
+    payment_channel = str(order.payment_channel or "").strip()
+    if payment_channel != "pingxx" or Decimal(order.paid_price or 0) != Decimal(0):
+        return payment_channel
+    return resolve_market_payment_provider()
+
+
+def _apply_payment_channel_filter(query: Query, payment_channel: str) -> Query:
+    """Filter by the same effective channel exposed in order DTOs."""
+    normalized_channel = str(payment_channel or "").strip()
+    if not normalized_channel:
+        return query
+
+    market_provider = resolve_market_payment_provider()
+    if market_provider == "pingxx":
+        return query.filter(Order.payment_channel == normalized_channel)
+
+    legacy_free_order = db.and_(
+        Order.payment_channel == "pingxx",
+        Order.paid_price == Decimal(0),
+    )
+    if normalized_channel == market_provider:
+        return query.filter(
+            db.or_(Order.payment_channel == normalized_channel, legacy_free_order)
+        )
+    if normalized_channel == "pingxx":
+        return query.filter(
+            Order.payment_channel == "pingxx",
+            Order.paid_price != Decimal(0),
+        )
+    return query.filter(Order.payment_channel == normalized_channel)
 
 
 def _build_order_item(
     order: Order,
-    shifu_map: Dict[str, DraftShifu | PublishedShifu],
-    user_map: Dict[str, Dict[str, str]],
-    coupon_map: Optional[Dict[str, List[str]]] = None,
+    shifu_map: dict[str, DraftShifu | PublishedShifu],
+    user_map: dict[str, dict[str, str]],
+    coupon_map: dict[str, list[str]] | None = None,
 ) -> OrderAdminSummaryDTO:
     """Build admin order summary DTO from order plus shifu/user lookups."""
     shifu = shifu_map.get(order.shifu_bid)
     user = user_map.get(order.user_bid, {})
-    payment_channel = order.payment_channel or ""
+    payment_channel = _resolve_order_display_payment_channel(order)
     status_key = ORDER_STATUS_KEY_MAP.get(order.status, "server.order.orderStatusInit")
     coupon_codes = []
     if coupon_map is not None:
@@ -645,11 +705,11 @@ def import_activation_order(
     app: Flask,
     mobile: str,
     course_id: str,
-    user_nick_name: Optional[str] = None,
+    user_nick_name: str | None = None,
     contact_type: str = "phone",
     allow_empty_nickname: bool = False,
     payment_channel: str = "manual",
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Create activation order for a user identified by phone or email."""
     normalized_identifier = normalize_contact_identifier(mobile, contact_type)
 
@@ -671,88 +731,95 @@ def import_activation_order(
     existing_aggregate = load_user_aggregate_by_identifier(
         normalized_identifier, providers=[contact_type]
     )
-    aggregate, created_new_user = ensure_user_for_identifier(
-        app,
-        provider=contact_type,
-        identifier=normalized_identifier,
-        defaults=defaults,
-    )
-
-    if not aggregate:
-        raise_error("server.user.userNotFound")
-
-    user_id = aggregate.user_bid
-
-    existing_success_order = (
-        Order.query.filter(
-            Order.user_bid == user_id,
-            Order.shifu_bid == normalized_course_id,
-            Order.status == ORDER_STATUS_SUCCESS,
-            Order.deleted == 0,
+    # Step 1 - the account and its credential must exist before the order is
+    # created; ``init_buy_record`` owns its own retry-on-deadlock unit of
+    # work, so it stays outside this block instead of nesting.
+    with unit_of_work():
+        aggregate, created_new_user = ensure_user_for_identifier(
+            app,
+            provider=contact_type,
+            identifier=normalized_identifier,
+            defaults=defaults,
         )
-        .order_by(Order.id.desc())
-        .first()
-    )
-    if existing_success_order:
-        if contact_type == "email":
-            raise_error_with_args(
-                "server.order.emailAlreadyActivated", email=normalized_identifier
-            )
-        else:
-            raise_error_with_args(
-                "server.order.mobileAlreadyActivated",
-                mobile=normalized_identifier,
-            )
 
-    entity = get_user_entity_by_bid(user_id, include_deleted=True)
-    if entity:
-        updates = {"identify": normalized_identifier}
-        if normalized_nickname:
-            updates["nickname"] = normalized_nickname
-        if aggregate.state == USER_STATE_UNREGISTERED:
-            updates["state"] = USER_STATE_REGISTERED
-        update_user_entity_fields(entity, **updates)
-    if created_new_user or (
-        existing_aggregate and existing_aggregate.state == USER_STATE_UNREGISTERED
-    ):
-        ensure_demo_course_permissions(app, user_id)
+        if not aggregate:
+            raise_error("server.user.userNotFound")
 
-    upsert_credential(
-        app,
-        user_bid=user_id,
-        provider_name=contact_type,
-        subject_id=normalized_identifier,
-        subject_format=contact_type,
-        identifier=normalized_identifier,
-        metadata={"course_id": normalized_course_id},
-        verified=True,
-    )
-    db.session.commit()
+        user_id = aggregate.user_bid
+
+        existing_success_order = (
+            Order.query.filter(
+                Order.user_bid == user_id,
+                Order.shifu_bid == normalized_course_id,
+                Order.status == ORDER_STATUS_SUCCESS,
+                Order.deleted == 0,
+            )
+            .order_by(Order.id.desc())
+            .first()
+        )
+        if existing_success_order:
+            if contact_type == "email":
+                raise_error_with_args(
+                    "server.order.emailAlreadyActivated", email=normalized_identifier
+                )
+            else:
+                raise_error_with_args(
+                    "server.order.mobileAlreadyActivated",
+                    mobile=normalized_identifier,
+                )
+
+        entity = get_user_entity_by_bid(user_id, include_deleted=True)
+        if entity:
+            updates = {"identify": normalized_identifier}
+            if normalized_nickname:
+                updates["nickname"] = normalized_nickname
+            if aggregate.state == USER_STATE_UNREGISTERED:
+                updates["state"] = USER_STATE_REGISTERED
+            update_user_entity_fields(entity, **updates)
+        if created_new_user or (
+            existing_aggregate and existing_aggregate.state == USER_STATE_UNREGISTERED
+        ):
+            ensure_demo_course_permissions(app, user_id)
+
+        upsert_credential(
+            app,
+            user_bid=user_id,
+            provider_name=contact_type,
+            subject_id=normalized_identifier,
+            subject_format=contact_type,
+            identifier=normalized_identifier,
+            metadata={"course_id": normalized_course_id},
+            verified=True,
+        )
 
     buy_record = init_buy_record(app, user_id, normalized_course_id)
-    order = Order.query.filter(Order.order_bid == buy_record.order_id).first()
-    if not order:
-        raise_error("server.order.orderNotFound")
 
-    order.payable_price = Decimal("0")
-    order.paid_price = Decimal("0")
-    order.payment_channel = payment_channel
-    db.session.commit()
+    # Step 2 - zero the price and flip the order to SUCCESS together;
+    # ``success_buy_record`` joins this block and its notification fires
+    # only after the commit.
+    with unit_of_work():
+        order = Order.query.filter(Order.order_bid == buy_record.order_id).first()
+        if not order:
+            raise_error("server.order.orderNotFound")
 
-    success_buy_record(app, order.order_bid)
+        order.payable_price = Decimal(0)
+        order.paid_price = Decimal(0)
+        order.payment_channel = payment_channel
+        order_bid = order.order_bid
+        success_buy_record(app, order_bid)
 
-    return {"order_bid": order.order_bid}
+    return {"order_bid": order_bid}
 
 
 def import_activation_orders(
     app: Flask,
-    mobiles: List[str],
+    mobiles: list[str],
     course_id: str,
-    user_nick_name: Optional[str] = None,
+    user_nick_name: str | None = None,
     contact_type: str = "phone",
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     """Bulk import activation orders from a list of phone/email identifiers."""
-    results: Dict[str, Any] = {"success": [], "failed": []}
+    results: dict[str, Any] = {"success": [], "failed": []}
     for mobile in mobiles:
         normalized_mobile = str(mobile or "").strip()
         try:
@@ -764,7 +831,7 @@ def import_activation_orders(
                 contact_type=contact_type,
             )
             results["success"].append({"mobile": normalized_mobile, **order})
-        except AppException as exc:
+        except AppError as exc:
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(
@@ -775,7 +842,7 @@ def import_activation_orders(
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.exception(
@@ -793,12 +860,12 @@ def import_activation_orders(
 
 def import_activation_orders_from_entries(
     app: Flask,
-    entries: List[Dict[str, str]],
+    entries: list[dict[str, str]],
     course_id: str,
     contact_type: str = "phone",
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     """Bulk import activation orders from parsed phone/email+nickname entries."""
-    results: Dict[str, Any] = {"success": [], "failed": []}
+    results: dict[str, Any] = {"success": [], "failed": []}
     for entry in entries:
         normalized_mobile = str(entry.get("mobile", "")).strip()
         if not normalized_mobile:
@@ -814,7 +881,7 @@ def import_activation_orders_from_entries(
                 allow_empty_nickname=True,
             )
             results["success"].append({"mobile": normalized_mobile, **order})
-        except AppException as exc:
+        except AppError as exc:
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.warning(
@@ -825,7 +892,7 @@ def import_activation_orders_from_entries(
             results["failed"].append(
                 {"mobile": normalized_mobile, "message": exc.message}
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             if hasattr(app, "logger"):
                 masked_identifier = _mask_contact_identifier(normalized_mobile)
                 app.logger.exception(
@@ -846,7 +913,7 @@ def list_orders(
     user_id: str,
     page_index: int,
     page_size: int,
-    filters: Optional[Dict[str, Any]] = None,
+    filters: dict[str, object] | None = None,
 ) -> PageNationDTO:
     """List orders visible to the current operator with optional filters."""
     with app.app_context():
@@ -904,7 +971,7 @@ def list_orders(
 
         payment_channel = filters.get("payment_channel")
         if payment_channel:
-            query = query.filter(Order.payment_channel == payment_channel)
+            query = _apply_payment_channel_filter(query, str(payment_channel))
 
         start_time = _normalize_order_datetime_filter(filters.get("start_time"))
         if start_time:
@@ -940,7 +1007,7 @@ def list_operator_orders(
     app: Flask,
     page_index: int,
     page_size: int,
-    filters: Optional[Dict[str, Any]] = None,
+    filters: dict[str, object] | None = None,
 ) -> PageNationDTO:
     """List global orders for operator views with cross-course filters."""
     with app.app_context():
@@ -962,6 +1029,10 @@ def list_operator_orders(
             else:
                 query = query.filter(Order.user_bid == user_keyword)
 
+        course_query = str(filters.get("course_query", "") or "").strip()
+        if course_query:
+            query = query.filter(_build_course_query_shifu_bid_filter(course_query))
+
         shifu_bid = str(filters.get("shifu_bid", "") or "").strip()
         if shifu_bid:
             query = query.filter(Order.shifu_bid == shifu_bid)
@@ -979,7 +1050,7 @@ def list_operator_orders(
 
         payment_channel = str(filters.get("payment_channel", "") or "").strip()
         if payment_channel:
-            query = query.filter(Order.payment_channel == payment_channel)
+            query = _apply_payment_channel_filter(query, payment_channel)
 
         order_source = str(filters.get("order_source", "") or "").strip()
         if order_source:
@@ -1068,62 +1139,60 @@ def get_operator_order_overview(app: Flask) -> OrderAdminOverviewDTO:
         )
 
 
-def _load_order_activities(order_bid: str) -> List[OrderAdminActivityDTO]:
+def _load_order_activities(order_bid: str) -> list[OrderAdminActivityDTO]:
     """Load activity records tied to an order and format as DTOs."""
     records = PromoRedemption.query.filter(
         PromoRedemption.order_bid == order_bid,
         PromoRedemption.deleted == 0,
     ).all()
-    activities: List[OrderAdminActivityDTO] = []
-    for record in records:
-        activities.append(
-            OrderAdminActivityDTO(
-                active_id=record.promo_bid,
-                active_name=record.promo_name,
-                price=_format_decimal(record.discount_amount),
-                status=record.status,
-                status_key=ACTIVE_STATUS_KEY_MAP.get(
-                    record.status, "module.order.activeStatus.unknown"
-                ),
-                created_at=record.created_at,
-                updated_at=record.updated_at,
-            )
+    activities: list[OrderAdminActivityDTO] = [
+        OrderAdminActivityDTO(
+            active_id=record.promo_bid,
+            active_name=record.promo_name,
+            price=_format_decimal(record.discount_amount),
+            status=record.status,
+            status_key=ACTIVE_STATUS_KEY_MAP.get(
+                record.status, "module.order.activeStatus.unknown"
+            ),
+            created_at=record.created_at,
+            updated_at=record.updated_at,
         )
+        for record in records
+    ]
     return activities
 
 
-def _load_order_coupons(order_bid: str) -> List[OrderAdminCouponDTO]:
+def _load_order_coupons(order_bid: str) -> list[OrderAdminCouponDTO]:
     """Load coupon usage records tied to an order and format as DTOs."""
     records = CouponUsage.query.filter(
         CouponUsage.order_bid == order_bid,
         CouponUsage.deleted == 0,
     ).all()
-    coupons: List[OrderAdminCouponDTO] = []
-    for record in records:
-        coupons.append(
-            OrderAdminCouponDTO(
-                coupon_bid=record.coupon_bid,
-                code=record.code,
-                name=record.name,
-                discount_type=record.discount_type,
-                discount_type_key=COUPON_TYPE_KEY_MAP.get(
-                    record.discount_type, "module.order.couponType.unknown"
-                ),
-                value=_format_decimal(record.value),
-                status=record.status,
-                status_key=COUPON_STATUS_KEY_MAP.get(
-                    record.status, "module.order.couponStatus.unknown"
-                ),
-                created_at=record.created_at,
-                updated_at=record.updated_at,
-            )
+    coupons: list[OrderAdminCouponDTO] = [
+        OrderAdminCouponDTO(
+            coupon_bid=record.coupon_bid,
+            code=record.code,
+            name=record.name,
+            discount_type=record.discount_type,
+            discount_type_key=COUPON_TYPE_KEY_MAP.get(
+                record.discount_type, "module.order.couponType.unknown"
+            ),
+            value=_format_decimal(record.value),
+            status=record.status,
+            status_key=COUPON_STATUS_KEY_MAP.get(
+                record.status, "module.order.couponStatus.unknown"
+            ),
+            created_at=record.created_at,
+            updated_at=record.updated_at,
         )
+        for record in records
+    ]
     return coupons
 
 
-def _load_payment_detail(order: Order) -> Optional[OrderAdminPaymentDTO]:
+def _load_payment_detail(order: Order) -> OrderAdminPaymentDTO | None:
     """Build payment detail DTO from channel-specific order records."""
-    payment_channel = order.payment_channel or ""
+    payment_channel = _resolve_order_display_payment_channel(order)
     if payment_channel == "stripe":
         stripe_order = (
             legacy_stripe_snapshot_query()
@@ -1236,7 +1305,7 @@ def get_order_detail(app: Flask, user_id: str, order_bid: str) -> OrderAdminDeta
         summary = _build_order_item(order, shifu_map, user_map, coupon_map)
         payment_detail = _load_payment_detail(order)
         if not payment_detail:
-            payment_channel = order.payment_channel or ""
+            payment_channel = _resolve_order_display_payment_channel(order)
             payment_detail = OrderAdminPaymentDTO(
                 payment_channel=payment_channel,
                 payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(
@@ -1272,7 +1341,7 @@ def get_operator_order_detail(app: Flask, order_bid: str) -> OrderAdminDetailDTO
         summary = _build_order_item(order, shifu_map, user_map, coupon_map)
         payment_detail = _load_payment_detail(order)
         if not payment_detail:
-            payment_channel = order.payment_channel or ""
+            payment_channel = _resolve_order_display_payment_channel(order)
             payment_detail = OrderAdminPaymentDTO(
                 payment_channel=payment_channel,
                 payment_channel_key=PAYMENT_CHANNEL_KEY_MAP.get(

@@ -1,0 +1,1003 @@
+"""Operator-controlled user account cancellation lifecycle."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import timedelta
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Protocol
+
+from flaskr.common.cache_provider import cache as redis
+from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, on_commit, unit_of_work
+from flaskr.service.billing.api import (
+    cancel_billing_subscription,
+    cancel_subscription_renewal_events,
+    is_active_preorder_order,
+    persist_credit_wallet_snapshot,
+    refresh_credit_wallet_snapshot,
+    sync_credit_bucket_status,
+)
+from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_INIT,
+    BILLING_ORDER_STATUS_PAID,
+    BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
+    CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_LEDGER_ENTRY_TYPE_HOLD,
+    CREDIT_SOURCE_TYPE_MANUAL,
+)
+from flaskr.service.billing.models import (
+    BillingOrder,
+    BillingProduct,
+    BillingSubscription,
+    CreditLedgerEntry,
+    CreditWallet,
+    CreditWalletBucket,
+)
+from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.common.session_attribution import (
+    discard_session_skill_attribution,
+)
+from flaskr.service.order.consts import ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.models import Order
+from flaskr.service.profile.models import VariableValue
+from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+from flaskr.service.user.models import (
+    AuthCredential,
+    UserAccountCancellation,
+    UserInfo,
+    UserToken,
+    UserVerifyCode,
+)
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
+
+if TYPE_CHECKING:
+    from flask import Flask
+
+
+REASON_MIN_LENGTH = 5
+REASON_MAX_LENGTH = 500
+ACTIVE_RENEWAL_STATUSES = {
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
+}
+ACCOUNT_CANCELLATION_STATUS_PENDING = "pending"
+ACCOUNT_CANCELLATION_STATUS_PROCESSING = "processing"
+ACCOUNT_CANCELLATION_STATUS_RETRYING = "retrying"
+ACCOUNT_CANCELLATION_STATUS_COMPLETED = "completed"
+ACCOUNT_CANCELLATION_STATUS_FAILED = "failed"
+ACCOUNT_CANCELLATION_TASK_NAME = "user.execute_account_cancellation"
+ACCOUNT_CANCELLATION_STALE_AFTER = timedelta(minutes=10)
+
+
+class AccountCancellationTaskRegistrationError(RuntimeError):
+    """Signal that the account-cancellation worker task is unavailable."""
+
+
+class _TaskDispatcher(Protocol):
+    def apply_async(self, *, args: list[str]) -> object: ...
+
+
+class _CeleryTaskRegistry(Protocol):
+    tasks: dict[str, _TaskDispatcher]
+
+
+def _require_account_cancellation_task(
+    celery_app: _CeleryTaskRegistry,
+) -> _TaskDispatcher:
+    task = celery_app.tasks.get(ACCOUNT_CANCELLATION_TASK_NAME)
+    if task is None:
+        raise AccountCancellationTaskRegistrationError
+    return task
+
+
+def _mask_identifier(value: object) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return ""
+    if "@" in normalized:
+        local, domain = normalized.split("@", maxsplit=1)
+        return f"{local[:1]}***@{domain}" if local else f"***@{domain}"
+    if len(normalized) >= 7:
+        return f"{normalized[:3]}****{normalized[-4:]}"
+    return f"{normalized[:1]}***"
+
+
+def _latest_active_course_bids(model: object, user_bid: str) -> set[str]:
+    rows = (
+        db.session.query(model.shifu_bid)
+        .filter(
+            model.created_user_bid == user_bid,
+            model.deleted == 0,
+        )
+        .distinct()
+        .all()
+    )
+    return {str(row[0] or "").strip() for row in rows if str(row[0] or "").strip()}
+
+
+def _build_cancellation_state(user: UserInfo, operator_user_bid: str) -> dict[str, Any]:
+    user_bid = str(user.user_bid or "").strip()
+    draft_bids = _latest_active_course_bids(DraftShifu, user_bid)
+    published_bids = _latest_active_course_bids(PublishedShifu, user_bid)
+    draft_only_bids = draft_bids - published_bids
+
+    published_rows = (
+        PublishedShifu.query.filter(
+            PublishedShifu.shifu_bid.in_(published_bids),
+            PublishedShifu.deleted == 0,
+        )
+        .order_by(PublishedShifu.id.desc())
+        .all()
+        if published_bids
+        else []
+    )
+    published_courses: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for row in published_rows:
+        shifu_bid = str(row.shifu_bid or "").strip()
+        if not shifu_bid or shifu_bid in seen:
+            continue
+        seen.add(shifu_bid)
+        published_courses.append(
+            {"shifu_bid": shifu_bid, "course_name": str(row.title or "")}
+        )
+
+    active_subscriptions = BillingSubscription.query.filter(
+        BillingSubscription.creator_bid == user_bid,
+        BillingSubscription.status.in_(ACTIVE_RENEWAL_STATUSES),
+        BillingSubscription.cancel_at_period_end == 0,
+        BillingSubscription.deleted == 0,
+    ).all()
+    renewal_count = len(active_subscriptions)
+    paid_preorders = [
+        order
+        for order in BillingOrder.query.filter(
+            BillingOrder.creator_bid == user_bid,
+            BillingOrder.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            BillingOrder.deleted == 0,
+        ).all()
+        if is_active_preorder_order(order)
+    ]
+    paid_preorder_count = len(paid_preorders)
+    paid_subscription_bids = {
+        str(order.subscription_bid or "").strip()
+        for order in BillingOrder.query.filter(
+            BillingOrder.creator_bid == user_bid,
+            BillingOrder.order_type.in_(
+                [
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+                ]
+            ),
+            BillingOrder.status == BILLING_ORDER_STATUS_PAID,
+            BillingOrder.paid_amount > 0,
+            BillingOrder.deleted == 0,
+        ).all()
+        if str(order.subscription_bid or "").strip()
+        and not is_active_preorder_order(order)
+    }
+    product_bids = {
+        str(row.product_bid or "").strip()
+        for row in [*active_subscriptions, *paid_preorders]
+        if str(row.product_bid or "").strip()
+    }
+    products = {
+        str(product.product_bid): product
+        for product in (
+            BillingProduct.query.filter(
+                BillingProduct.product_bid.in_(product_bids),
+                BillingProduct.deleted == 0,
+            ).all()
+            if product_bids
+            else []
+        )
+    }
+
+    def product_payload(product_bid: object) -> dict[str, str]:
+        normalized_bid = str(product_bid or "").strip()
+        product = products.get(normalized_bid)
+        return {
+            "product_bid": normalized_bid,
+            "product_code": str(getattr(product, "product_code", "") or ""),
+            "product_name_i18n_key": str(
+                getattr(product, "display_name_i18n_key", "") or ""
+            ),
+        }
+
+    def unique_product_payloads(product_bids: list[object]) -> list[dict[str, str]]:
+        unique: dict[str, dict[str, str]] = {}
+        for product_bid in product_bids:
+            payload = product_payload(product_bid)
+            unique.setdefault(payload["product_bid"], payload)
+        return list(unique.values())
+
+    paid_packages = unique_product_payloads(
+        [
+            subscription.product_bid
+            for subscription in active_subscriptions
+            if str(subscription.subscription_bid or "").strip()
+            in paid_subscription_bids
+        ]
+    )
+    preorder_packages = unique_product_payloads(
+        [order.product_bid for order in paid_preorders]
+    )
+    renewing_packages = unique_product_payloads(
+        [
+            subscription.product_bid
+            for subscription in active_subscriptions
+            if str(subscription.billing_provider or "").strip().lower() != "manual"
+        ]
+    )
+    unsettled_billing_orders = BillingOrder.query.filter(
+        BillingOrder.creator_bid == user_bid,
+        BillingOrder.status.in_(
+            [BILLING_ORDER_STATUS_INIT, BILLING_ORDER_STATUS_PENDING]
+        ),
+        BillingOrder.deleted == 0,
+    ).count()
+    unsettled_legacy_orders = Order.query.filter(
+        Order.user_bid == user_bid,
+        Order.status.in_([ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID]),
+        Order.deleted == 0,
+    ).count()
+    wallet = CreditWallet.query.filter(
+        CreditWallet.creator_bid == user_bid,
+        CreditWallet.deleted == 0,
+    ).first()
+    available_credits = Decimal(str(getattr(wallet, "available_credits", 0) or 0))
+    reserved_credits = Decimal(str(getattr(wallet, "reserved_credits", 0) or 0))
+    active_session_count = UserToken.query.filter(UserToken.user_id == user_bid).count()
+
+    blockers: list[dict[str, object]] = []
+    if user_bid == str(operator_user_bid or "").strip():
+        blockers.append({"code": "self", "count": 1})
+    if bool(user.is_operator):
+        blockers.append({"code": "operator", "count": 1})
+    if published_courses:
+        blockers.append(
+            {
+                "code": "published_course_transfer_required",
+                "count": len(published_courses),
+            }
+        )
+    if renewal_count:
+        blockers.append(
+            {"code": "subscription_cancellation_required", "count": renewal_count}
+        )
+    unsettled_order_count = unsettled_billing_orders + unsettled_legacy_orders
+    if unsettled_order_count:
+        blockers.append({"code": "unsettled_payment", "count": unsettled_order_count})
+
+    warnings: list[dict[str, object]] = []
+    if paid_preorder_count:
+        warnings.append(
+            {"code": "paid_preorder_refund_required", "count": paid_preorder_count}
+        )
+    if draft_only_bids:
+        warnings.append({"code": "draft_courses_frozen", "count": len(draft_only_bids)})
+    if available_credits > 0 or reserved_credits > 0:
+        warnings.append({"code": "credits_forfeited", "count": 1})
+    if active_session_count:
+        warnings.append({"code": "sessions_revoked", "count": active_session_count})
+
+    version_payload = {
+        "user_bid": user_bid,
+        "updated_at": user.updated_at.isoformat() if user.updated_at else "",
+        "draft_only_bids": sorted(draft_only_bids),
+        "published_bids": sorted(published_bids),
+        "renewal_count": renewal_count,
+        "paid_preorder_count": paid_preorder_count,
+        "unsettled_order_count": unsettled_order_count,
+        "available_credits": str(available_credits),
+        "reserved_credits": str(reserved_credits),
+        "active_session_count": active_session_count,
+    }
+    preview_version = hashlib.sha256(
+        json.dumps(version_payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+
+    return {
+        "user": {
+            "user_bid": user_bid,
+            "identifier": str(user.user_identify or ""),
+            "masked_identifier": _mask_identifier(user.user_identify),
+            "nickname": str(user.nickname or ""),
+            "is_creator": bool(user.is_creator),
+            "is_operator": bool(user.is_operator),
+        },
+        "can_cancel": not blockers,
+        "blockers": blockers,
+        "warnings": warnings,
+        "draft_course_count": len(draft_only_bids),
+        "published_courses": published_courses,
+        "subscription_renewal_count": renewal_count,
+        "paid_packages": paid_packages,
+        "paid_preorder_count": paid_preorder_count,
+        "preorder_packages": preorder_packages,
+        "renewing_packages": renewing_packages,
+        "unsettled_order_count": unsettled_order_count,
+        "available_credits": float(available_credits),
+        "reserved_credits": float(reserved_credits),
+        "active_session_count": active_session_count,
+        "preview_version": preview_version,
+    }
+
+
+def get_account_cancellation_preview(
+    app: Flask, *, user_bid: str, operator_user_bid: str
+) -> dict[str, Any]:
+    """Return the authoritative operator preflight for one active account."""
+    with app_context_scope(app):
+        normalized_user_bid = str(user_bid or "").strip()
+        if not normalized_user_bid:
+            raise_param_error("user_bid")
+        user = UserInfo.query.filter(
+            UserInfo.user_bid == normalized_user_bid,
+            UserInfo.deleted == 0,
+        ).first()
+        if user is None:
+            cancelled = UserAccountCancellation.query.filter_by(
+                user_bid=normalized_user_bid
+            ).first()
+            if cancelled:
+                raise_error("server.user.accountAlreadyCancelled")
+            raise_error("server.user.userNotFound")
+        return _build_cancellation_state(user, operator_user_bid)
+
+
+def cancel_account_subscription_renewals(
+    app: Flask, *, user_bid: str, operator_user_bid: str
+) -> dict[str, Any]:
+    """Cancel every future renewal before account cancellation can proceed."""
+    with app_context_scope(app):
+        preview = get_account_cancellation_preview(
+            app, user_bid=user_bid, operator_user_bid=operator_user_bid
+        )
+        blocking_codes = {str(item.get("code") or "") for item in preview["blockers"]}
+        if blocking_codes & {"self", "operator"}:
+            raise_error("server.user.accountCancellationBlocked")
+
+        subscriptions = BillingSubscription.query.filter(
+            BillingSubscription.creator_bid == str(user_bid or "").strip(),
+            BillingSubscription.status.in_(ACTIVE_RENEWAL_STATUSES),
+            BillingSubscription.cancel_at_period_end == 0,
+            BillingSubscription.deleted == 0,
+        ).all()
+        cancelled_count = 0
+        for subscription in subscriptions:
+            if str(subscription.billing_provider or "").strip().lower() == "manual":
+                with unit_of_work():
+                    subscription.cancel_at_period_end = 1
+                    subscription.status = BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
+                    subscription.updated_at = now_utc()
+                    cancel_subscription_renewal_events(subscription.subscription_bid)
+            else:
+                cancel_billing_subscription(
+                    app,
+                    str(user_bid or "").strip(),
+                    {"subscription_bid": subscription.subscription_bid},
+                )
+            cancelled_count += 1
+
+        # Provider cancellation may commit through a nested application context.
+        # End the preview transaction before rebuilding state so MySQL does not
+        # reuse a repeatable-read snapshot from before the provider update.
+        db.session.rollback()
+
+        return {
+            "cancelled_subscription_count": cancelled_count,
+            "preview": get_account_cancellation_preview(
+                app, user_bid=user_bid, operator_user_bid=operator_user_bid
+            ),
+        }
+
+
+def _tombstone(prefix: str, business_id: object, max_length: int = 255) -> str:
+    return f"cancelled:{prefix}:{business_id or ''!s}"[:max_length]
+
+
+def _forfeit_open_credit_reservations(
+    app: Flask,
+    *,
+    wallet: CreditWallet,
+    user_bid: str,
+    cancellation_bid: str,
+    operator_user_bid: str,
+) -> Decimal:
+    """Terminally consume open holds while the cancelled user row is locked."""
+    holds = (
+        CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.creator_bid == user_bid,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_HOLD,
+            CreditLedgerEntry.deleted == 0,
+        )
+        .with_for_update()
+        .all()
+    )
+    forfeited_total = Decimal(0)
+    for hold in holds:
+        capture_prefix = f"operation_reservation:{hold.ledger_bid}:capture:"
+        release_key = f"operation_reservation:{hold.ledger_bid}:release"
+        terminal = CreditLedgerEntry.query.filter(
+            CreditLedgerEntry.creator_bid == user_bid,
+            CreditLedgerEntry.deleted == 0,
+            db.or_(
+                CreditLedgerEntry.idempotency_key.startswith(capture_prefix),
+                CreditLedgerEntry.idempotency_key == release_key,
+            ),
+        ).first()
+        if terminal is not None:
+            continue
+
+        amount = Decimal(str(hold.amount or 0))
+        metadata = hold.metadata_json if isinstance(hold.metadata_json, dict) else {}
+        breakdown = metadata.get("bucket_breakdown")
+        items = breakdown if isinstance(breakdown, list) else []
+        if not items and hold.wallet_bucket_bid:
+            items = [
+                {"wallet_bucket_bid": hold.wallet_bucket_bid, "amount": str(amount)}
+            ]
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            bucket_bid = str(item.get("wallet_bucket_bid") or "").strip()
+            item_amount = Decimal(str(item.get("amount") or 0))
+            bucket = (
+                CreditWalletBucket.query.filter(
+                    CreditWalletBucket.wallet_bucket_bid == bucket_bid,
+                    CreditWalletBucket.deleted == 0,
+                )
+                .with_for_update()
+                .first()
+            )
+            if bucket is None or item_amount <= 0:
+                continue
+            bucket.reserved_credits = max(
+                Decimal(0), Decimal(str(bucket.reserved_credits or 0)) - item_amount
+            )
+            bucket.consumed_credits = (
+                Decimal(str(bucket.consumed_credits or 0)) + item_amount
+            )
+            sync_credit_bucket_status(bucket)
+
+        forfeited_total += amount
+        db.session.add(
+            CreditLedgerEntry(
+                ledger_bid=generate_id(app),
+                creator_bid=user_bid,
+                wallet_bid=wallet.wallet_bid,
+                wallet_bucket_bid=hold.wallet_bucket_bid or "",
+                entry_type=CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid=cancellation_bid,
+                idempotency_key=f"{capture_prefix}account_cancellation:{cancellation_bid}",
+                amount=-amount,
+                balance_after=wallet.available_credits,
+                metadata_json={
+                    "reservation_bid": hold.ledger_bid,
+                    "reason": "account_cancellation",
+                    "operator_user_bid": operator_user_bid,
+                    "bucket_breakdown": items,
+                },
+            )
+        )
+    if forfeited_total > 0:
+        wallet.reserved_credits = max(
+            Decimal(0),
+            Decimal(str(wallet.reserved_credits or 0)) - forfeited_total,
+        )
+        wallet.lifetime_consumed_credits = (
+            Decimal(str(wallet.lifetime_consumed_credits or 0)) + forfeited_total
+        )
+    return forfeited_total
+
+
+def cancel_user_account(
+    app: Flask,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    cancellation_bid: str,
+    idempotency_key: str,
+    preview_version: str,
+    reason: str,
+    _execute_existing: bool = False,
+) -> dict[str, Any]:
+    """Cancel and de-identify one user after all preparatory work succeeds."""
+    normalized_user_bid = str(user_bid or "").strip()
+    normalized_operator_bid = str(operator_user_bid or "").strip()
+    normalized_cancellation_bid = str(cancellation_bid or "").strip()
+    normalized_idempotency_key = str(
+        idempotency_key or normalized_cancellation_bid
+    ).strip()
+    normalized_reason = str(reason or "").strip()
+    if not normalized_user_bid:
+        raise_param_error("user_bid")
+    if not normalized_operator_bid:
+        raise_param_error("operator_user_bid")
+    if not normalized_cancellation_bid:
+        raise_param_error("cancellation_bid")
+    if not normalized_idempotency_key:
+        raise_param_error("idempotency_key")
+    if not REASON_MIN_LENGTH <= len(normalized_reason) <= REASON_MAX_LENGTH:
+        raise_param_error("reason")
+
+    with app_context_scope(app):
+        existing = UserAccountCancellation.query.filter(
+            UserAccountCancellation.idempotency_key == normalized_idempotency_key
+        ).first()
+        if existing and not _execute_existing:
+            if existing.user_bid != normalized_user_bid:
+                raise_error("server.user.accountCancellationConflict")
+            return _serialize_cancellation(existing)
+
+        tokens: list[str] = []
+        completed_at = now_utc()
+        with unit_of_work():
+            user = (
+                UserInfo.query.filter(UserInfo.user_bid == normalized_user_bid)
+                .with_for_update()
+                .first()
+            )
+            if user is None:
+                raise_error("server.user.userNotFound")
+            if user.deleted:
+                if (
+                    str(user.cancellation_bid or "").strip()
+                    == normalized_cancellation_bid
+                ):
+                    return {
+                        "cancellation_bid": normalized_cancellation_bid,
+                        "user_bid": normalized_user_bid,
+                        "status": "completed",
+                        "cancelled_at": user.cancelled_at,
+                    }
+                raise_error("server.user.accountAlreadyCancelled")
+            state = _build_cancellation_state(user, normalized_operator_bid)
+            if (
+                not _execute_existing
+                and state["preview_version"] != str(preview_version or "").strip()
+            ):
+                raise_error("server.user.accountCancellationPreviewStale")
+            if state["blockers"]:
+                raise_error("server.user.accountCancellationBlocked")
+
+            token_rows = UserToken.query.filter(
+                UserToken.user_id == normalized_user_bid
+            ).all()
+            tokens = [str(row.token or "") for row in token_rows if row.token]
+            for row in token_rows:
+                db.session.delete(row)
+
+            credentials = AuthCredential.query.filter(
+                AuthCredential.user_bid == normalized_user_bid
+            ).all()
+            verification_identifiers = {
+                value
+                for credential in credentials
+                for value in (
+                    str(credential.identifier or "").strip(),
+                    str(credential.subject_id or "").strip(),
+                )
+                if value
+            }
+            original_identify = str(user.user_identify or "").strip()
+            if original_identify:
+                verification_identifiers.add(original_identify)
+            if verification_identifiers:
+                UserVerifyCode.query.filter(
+                    db.or_(
+                        UserVerifyCode.phone.in_(verification_identifiers),
+                        UserVerifyCode.mail.in_(verification_identifiers),
+                    )
+                ).delete(synchronize_session=False)
+            for credential in credentials:
+                credential.subject_id = _tombstone("subject", credential.credential_bid)
+                credential.identifier = _tombstone(
+                    "identifier", credential.credential_bid
+                )
+                credential.raw_profile = "{}"
+                credential.deleted = 1
+
+            VariableValue.query.filter(
+                VariableValue.user_bid == normalized_user_bid,
+                VariableValue.shifu_bid == "",
+            ).update(
+                {VariableValue.value: "", VariableValue.deleted: 1},
+                synchronize_session=False,
+            )
+
+            wallet = CreditWallet.query.filter(
+                CreditWallet.creator_bid == normalized_user_bid,
+                CreditWallet.deleted == 0,
+            ).first()
+            if wallet is not None:
+                _forfeit_open_credit_reservations(
+                    app,
+                    wallet=wallet,
+                    user_bid=normalized_user_bid,
+                    cancellation_bid=normalized_cancellation_bid,
+                    operator_user_bid=normalized_operator_bid,
+                )
+                running_balance = Decimal(str(wallet.available_credits or 0))
+                for bucket in CreditWalletBucket.query.filter(
+                    CreditWalletBucket.creator_bid == normalized_user_bid,
+                    CreditWalletBucket.deleted == 0,
+                    CreditWalletBucket.available_credits > 0,
+                ).all():
+                    forfeited = Decimal(str(bucket.available_credits or 0))
+                    bucket.available_credits = Decimal(0)
+                    bucket.consumed_credits = (
+                        Decimal(str(bucket.consumed_credits or 0)) + forfeited
+                    )
+                    running_balance -= forfeited
+                    sync_credit_bucket_status(bucket)
+                    db.session.add(
+                        CreditLedgerEntry(
+                            ledger_bid=generate_id(app),
+                            creator_bid=normalized_user_bid,
+                            wallet_bid=wallet.wallet_bid,
+                            wallet_bucket_bid=bucket.wallet_bucket_bid,
+                            entry_type=CREDIT_LEDGER_ENTRY_TYPE_ADJUSTMENT,
+                            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                            source_bid=normalized_cancellation_bid,
+                            idempotency_key=(
+                                "account_cancellation:"
+                                f"{normalized_cancellation_bid}:{bucket.wallet_bucket_bid}"
+                            ),
+                            amount=-forfeited,
+                            balance_after=max(running_balance, Decimal(0)),
+                            expires_at=bucket.effective_to,
+                            consumable_from=bucket.effective_from,
+                            metadata_json={
+                                "reason": "account_cancellation",
+                                "operator_user_bid": normalized_operator_bid,
+                            },
+                        )
+                    )
+                refresh_credit_wallet_snapshot(wallet)
+                persist_credit_wallet_snapshot(
+                    wallet,
+                    available_credits=wallet.available_credits,
+                    reserved_credits=wallet.reserved_credits,
+                    updated_at=completed_at,
+                )
+
+            audit = existing or UserAccountCancellation(
+                cancellation_bid=normalized_cancellation_bid,
+                user_bid=normalized_user_bid,
+                operator_user_bid=normalized_operator_bid,
+                actor_type="operator",
+                reason=normalized_reason,
+                idempotency_key=normalized_idempotency_key,
+                requested_at=completed_at,
+            )
+            audit.status = ACCOUNT_CANCELLATION_STATUS_COMPLETED
+            audit.failure_code = ""
+            audit.completed_at = completed_at
+            audit.retention_snapshot = {
+                "draft_course_count": state["draft_course_count"],
+                "published_course_count": len(state["published_courses"]),
+                "subscription_renewal_count": state["subscription_renewal_count"],
+                "unsettled_order_count": state["unsettled_order_count"],
+                "had_available_credits": state["available_credits"] > 0,
+                "had_reserved_credits": state["reserved_credits"] > 0,
+                "active_session_count": state["active_session_count"],
+            }
+            if existing is None:
+                db.session.add(audit)
+
+            user.user_identify = _tombstone("user", normalized_user_bid)
+            user.nickname = ""
+            user.learner_profile = ""
+            user.learner_profile_updated_at = None
+            user.avatar = ""
+            user.birthday = None
+            user.language = ""
+            user.is_creator = 0
+            user.api_key = ""
+            user.deleted = 1
+            user.cancelled_at = completed_at
+            user.cancellation_bid = normalized_cancellation_bid
+
+        cache_prefix = app.config.get("REDIS_KEY_PREFIX_USER", "ai-shifu:user:")
+        for token in tokens:
+            try:
+                redis.delete(f"{cache_prefix}{token}")
+                redis.delete(f"{cache_prefix}{token}:row")
+            except Exception:
+                app.logger.exception(
+                    "failed to evict a cancelled user's token cache entry"
+                )
+            discard_session_skill_attribution(app, token=token)
+
+        return {
+            "cancellation_bid": normalized_cancellation_bid,
+            "user_bid": normalized_user_bid,
+            "status": "completed",
+            "cancelled_at": completed_at,
+        }
+
+
+def _serialize_cancellation(cancellation: UserAccountCancellation) -> dict[str, Any]:
+    return {
+        "cancellation_bid": str(cancellation.cancellation_bid or ""),
+        "user_bid": str(cancellation.user_bid or ""),
+        "status": str(cancellation.status or ""),
+        "failure_code": str(cancellation.failure_code or ""),
+        "attempt_count": int(cancellation.attempt_count or 0),
+        "cancelled_at": cancellation.completed_at,
+    }
+
+
+def _recover_stale_account_cancellation(
+    app: Flask, cancellation: UserAccountCancellation
+) -> None:
+    """Atomically lease and re-enqueue a cancellation whose worker was lost."""
+    if cancellation.status not in {
+        ACCOUNT_CANCELLATION_STATUS_PENDING,
+        ACCOUNT_CANCELLATION_STATUS_PROCESSING,
+        ACCOUNT_CANCELLATION_STATUS_RETRYING,
+    }:
+        return
+
+    lease_at = cancellation.last_attempt_at or cancellation.requested_at
+    if lease_at is None or lease_at > now_utc() - ACCOUNT_CANCELLATION_STALE_AFTER:
+        return
+
+    claimed_at = now_utc()
+    query = UserAccountCancellation.query.filter(
+        UserAccountCancellation.id == cancellation.id,
+        UserAccountCancellation.status == cancellation.status,
+    )
+    if cancellation.last_attempt_at is None:
+        query = query.filter(
+            UserAccountCancellation.last_attempt_at.is_(None),
+            UserAccountCancellation.requested_at == cancellation.requested_at,
+        )
+    else:
+        query = query.filter(
+            UserAccountCancellation.last_attempt_at == cancellation.last_attempt_at
+        )
+
+    with unit_of_work():
+        claimed = query.update(
+            {
+                UserAccountCancellation.status: ACCOUNT_CANCELLATION_STATUS_PENDING,
+                UserAccountCancellation.last_attempt_at: claimed_at,
+                UserAccountCancellation.failure_code: "",
+            },
+            synchronize_session=False,
+        )
+        if claimed == 1:
+            cancellation_bid = str(cancellation.cancellation_bid or "")
+            on_commit(
+                lambda: enqueue_account_cancellation(
+                    app,
+                    cancellation_bid=cancellation_bid,
+                )
+            )
+    if claimed == 1:
+        db.session.expire(cancellation)
+
+
+def get_account_cancellation_status(
+    app: Flask, *, user_bid: str, cancellation_bid: str
+) -> dict[str, Any]:
+    """Return one operator-visible background cancellation state."""
+    with app_context_scope(app):
+        cancellation = UserAccountCancellation.query.filter_by(
+            user_bid=str(user_bid or "").strip(),
+            cancellation_bid=str(cancellation_bid or "").strip(),
+        ).first()
+        if cancellation is None:
+            raise_error("server.user.accountCancellationNotFound")
+        _recover_stale_account_cancellation(app, cancellation)
+        return _serialize_cancellation(cancellation)
+
+
+def request_user_account_cancellation(
+    app: Flask,
+    *,
+    user_bid: str,
+    operator_user_bid: str,
+    cancellation_bid: str,
+    idempotency_key: str,
+    preview_version: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Persist and enqueue one idempotent account-cancellation request."""
+    normalized_user_bid = str(user_bid or "").strip()
+    normalized_operator_bid = str(operator_user_bid or "").strip()
+    normalized_cancellation_bid = str(cancellation_bid or "").strip()
+    normalized_idempotency_key = str(
+        idempotency_key or normalized_cancellation_bid
+    ).strip()
+    normalized_preview_version = str(preview_version or "").strip()
+    normalized_reason = str(reason or "").strip()
+    if not normalized_user_bid:
+        raise_param_error("user_bid")
+    if not normalized_operator_bid:
+        raise_param_error("operator_user_bid")
+    if not normalized_cancellation_bid:
+        raise_param_error("cancellation_bid")
+    if not normalized_idempotency_key:
+        raise_param_error("idempotency_key")
+    if not REASON_MIN_LENGTH <= len(normalized_reason) <= REASON_MAX_LENGTH:
+        raise_param_error("reason")
+
+    with app_context_scope(app):
+        existing = UserAccountCancellation.query.filter(
+            db.or_(
+                UserAccountCancellation.idempotency_key == normalized_idempotency_key,
+                UserAccountCancellation.user_bid == normalized_user_bid,
+            )
+        ).first()
+        if existing:
+            if existing.user_bid != normalized_user_bid:
+                raise_error("server.user.accountCancellationConflict")
+            if existing.status in {
+                ACCOUNT_CANCELLATION_STATUS_PENDING,
+                ACCOUNT_CANCELLATION_STATUS_PROCESSING,
+                ACCOUNT_CANCELLATION_STATUS_RETRYING,
+                ACCOUNT_CANCELLATION_STATUS_COMPLETED,
+            }:
+                _recover_stale_account_cancellation(app, existing)
+                return _serialize_cancellation(existing)
+            normalized_cancellation_bid = str(existing.cancellation_bid or "")
+            normalized_idempotency_key = str(existing.idempotency_key or "")
+
+        user = UserInfo.query.filter_by(
+            user_bid=normalized_user_bid,
+            deleted=0,
+        ).first()
+        if user is None:
+            raise_error("server.user.userNotFound")
+        state = _build_cancellation_state(user, normalized_operator_bid)
+        if state["preview_version"] != normalized_preview_version:
+            raise_error("server.user.accountCancellationPreviewStale")
+        if state["blockers"]:
+            raise_error("server.user.accountCancellationBlocked")
+
+        requested_at = now_utc()
+        with unit_of_work():
+            cancellation = existing or UserAccountCancellation(
+                cancellation_bid=normalized_cancellation_bid,
+                user_bid=normalized_user_bid,
+                operator_user_bid=normalized_operator_bid,
+                actor_type="operator",
+                reason=normalized_reason,
+                idempotency_key=normalized_idempotency_key,
+                requested_at=requested_at,
+            )
+            cancellation.status = ACCOUNT_CANCELLATION_STATUS_PENDING
+            cancellation.failure_code = ""
+            cancellation.completed_at = None
+            cancellation.operator_user_bid = normalized_operator_bid
+            cancellation.reason = normalized_reason
+            cancellation.retention_snapshot = {
+                "preview_version": normalized_preview_version,
+            }
+            if existing is None:
+                db.session.add(cancellation)
+            on_commit(
+                lambda: enqueue_account_cancellation(
+                    app,
+                    cancellation_bid=normalized_cancellation_bid,
+                )
+            )
+        return _serialize_cancellation(cancellation)
+
+
+def enqueue_account_cancellation(app: Flask, *, cancellation_bid: str) -> None:
+    """Dispatch a previously persisted cancellation without carrying PII."""
+    from flaskr.common.celery_app import get_celery_app
+
+    normalized_bid = str(cancellation_bid or "").strip()
+    try:
+        celery_app = get_celery_app(flask_app=app)
+        task = _require_account_cancellation_task(celery_app)
+        task.apply_async(args=[normalized_bid])
+    except Exception:
+        with app_context_scope(app):
+            cancellation = UserAccountCancellation.query.filter_by(
+                cancellation_bid=normalized_bid
+            ).first()
+            if cancellation is not None:
+                with unit_of_work():
+                    cancellation.status = ACCOUNT_CANCELLATION_STATUS_FAILED
+                    cancellation.failure_code = "enqueue_failed"
+        raise
+
+
+def execute_pending_account_cancellation(
+    app: Flask,
+    *,
+    cancellation_bid: str,
+    record_terminal_failure: bool = True,
+) -> dict[str, Any]:
+    """Execute one persisted cancellation request inside a worker."""
+    normalized_bid = str(cancellation_bid or "").strip()
+    with app_context_scope(app):
+        cancellation = UserAccountCancellation.query.filter_by(
+            cancellation_bid=normalized_bid
+        ).first()
+        if cancellation is None:
+            raise_error("server.user.userNotFound")
+        if cancellation.status == ACCOUNT_CANCELLATION_STATUS_COMPLETED:
+            return _serialize_cancellation(cancellation)
+        snapshot = dict(cancellation.retention_snapshot or {})
+        with unit_of_work():
+            cancellation.status = ACCOUNT_CANCELLATION_STATUS_PROCESSING
+            cancellation.attempt_count = int(cancellation.attempt_count or 0) + 1
+            cancellation.last_attempt_at = now_utc()
+            cancellation.failure_code = ""
+
+        try:
+            return cancel_user_account(
+                app,
+                user_bid=cancellation.user_bid,
+                operator_user_bid=cancellation.operator_user_bid,
+                cancellation_bid=cancellation.cancellation_bid,
+                idempotency_key=cancellation.idempotency_key,
+                preview_version=str(snapshot.get("preview_version") or ""),
+                reason=cancellation.reason,
+                _execute_existing=True,
+            )
+        except Exception:
+            db.session.rollback()
+            if record_terminal_failure:
+                mark_account_cancellation_failed(
+                    app,
+                    cancellation_bid=normalized_bid,
+                    failure_code="execution_failed",
+                )
+            raise
+
+
+def mark_account_cancellation_retrying(app: Flask, *, cancellation_bid: str) -> None:
+    """Expose that a failed worker attempt has a scheduled retry."""
+    with app_context_scope(app):
+        cancellation = UserAccountCancellation.query.filter_by(
+            cancellation_bid=str(cancellation_bid or "").strip()
+        ).first()
+        if cancellation is None or cancellation.status == (
+            ACCOUNT_CANCELLATION_STATUS_COMPLETED
+        ):
+            return
+        with unit_of_work():
+            cancellation.status = ACCOUNT_CANCELLATION_STATUS_RETRYING
+            cancellation.failure_code = ""
+
+
+def mark_account_cancellation_failed(
+    app: Flask, *, cancellation_bid: str, failure_code: str
+) -> None:
+    """Persist a terminal worker failure after all retries are exhausted."""
+    with app_context_scope(app):
+        cancellation = UserAccountCancellation.query.filter_by(
+            cancellation_bid=str(cancellation_bid or "").strip()
+        ).first()
+        if cancellation is None or cancellation.status == (
+            ACCOUNT_CANCELLATION_STATUS_COMPLETED
+        ):
+            return
+        with unit_of_work():
+            cancellation.status = ACCOUNT_CANCELLATION_STATUS_FAILED
+            cancellation.failure_code = str(failure_code or "execution_failed")
+            cancellation.completed_at = None

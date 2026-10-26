@@ -1,3 +1,5 @@
+"""Define constants for legacy orders."""
+
 from flaskr.i18n import _
 
 ORDER_STATUS_INIT = 501
@@ -5,6 +7,7 @@ ORDER_STATUS_SUCCESS = 502
 ORDER_STATUS_REFUND = 503
 ORDER_STATUS_TO_BE_PAID = 504
 ORDER_STATUS_TIMEOUT = 505
+ORDER_STATUS_REPRICING = 506
 
 LEARN_STATUS_NOT_STARTED = 601
 LEARN_STATUS_IN_PROGRESS = 602
@@ -29,6 +32,7 @@ ORDER_STATUS_VALUES = {
     ORDER_STATUS_REFUND: _("server.order.orderStatusRefund"),
     ORDER_STATUS_TO_BE_PAID: _("server.order.orderStatusToBePaid"),
     ORDER_STATUS_TIMEOUT: _("server.order.orderStatusTimeout"),
+    ORDER_STATUS_REPRICING: _("server.order.orderStatusToBePaid"),
 }
 
 LEARN_STATUS_TYPES = {

@@ -1,8 +1,13 @@
+"""Provide route loader support for service billing tests."""
+
 from __future__ import annotations
 
 import importlib
 import sys
-from types import ModuleType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 _ROUTE_PACKAGE = "flaskr.route"
 _ROUTE_COMMON = f"{_ROUTE_PACKAGE}.common"
@@ -33,5 +38,5 @@ def load_billing_routes_module() -> ModuleType:
     return importlib.import_module(_BILLING_ROUTES_MODULE)
 
 
-def load_register_billing_routes():
+def load_register_billing_routes() -> object:
     return load_billing_routes_module().register_billing_routes

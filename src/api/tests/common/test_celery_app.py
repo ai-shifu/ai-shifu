@@ -1,15 +1,16 @@
+"""Verify Celery Flask-context and configuration ownership."""
+
 from __future__ import annotations
 
 import sys
 import types
 
-from flask import Flask, current_app
-
 import flaskr.common.celery_app as celery_app_module
+from flask import Flask, current_app
 
 
 def _assert_cron_schedule(
-    schedule,
+    schedule: object,
     *,
     minute: str,
     hour: str,
@@ -17,11 +18,11 @@ def _assert_cron_schedule(
     month_of_year: str = "*",
     day_of_week: str = "*",
 ) -> None:
-    assert getattr(schedule, "_orig_minute") == minute
-    assert getattr(schedule, "_orig_hour") == hour
-    assert getattr(schedule, "_orig_day_of_month") == day_of_month
-    assert getattr(schedule, "_orig_month_of_year") == month_of_year
-    assert getattr(schedule, "_orig_day_of_week") == day_of_week
+    assert schedule._orig_minute == minute
+    assert schedule._orig_hour == hour
+    assert schedule._orig_day_of_month == day_of_month
+    assert schedule._orig_month_of_year == month_of_year
+    assert schedule._orig_day_of_week == day_of_week
 
 
 def test_create_celery_app_reuses_flask_config() -> None:
@@ -46,7 +47,7 @@ def test_create_celery_app_reuses_flask_config() -> None:
     assert celery_app.conf["result_backend"] == "redis://backend.example:6379/4"
     assert celery_app.conf["task_always_eager"] is True
     assert celery_app.conf["timezone"] == "Asia/Shanghai"
-    assert getattr(celery_app, "flask_app") is flask_app
+    assert celery_app.flask_app is flask_app
     assert "billing.settle_usage" in celery_app.tasks
     assert "billing.replay_usage_settlement" in celery_app.tasks
     assert "billing.expire_wallet_buckets" in celery_app.tasks
@@ -149,7 +150,7 @@ def test_create_celery_app_runs_tasks_in_flask_app_context() -> None:
 
 
 def test_create_celery_app_executes_billing_tasks_in_eager_mode(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     flask_app = Flask(__name__)
     flask_app.config.update(
@@ -164,7 +165,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
 
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.settle_bill_usage",
-        lambda app, *, usage_bid="": {
+        lambda _app, *, usage_bid="": {
             "status": "settled",
             "usage_bid": usage_bid,
             "creator_bid": "creator-eager-1",
@@ -172,7 +173,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.expire_credit_wallet_buckets",
-        lambda app, *, creator_bid="", expire_before=None: {
+        lambda _app, *, creator_bid="", expire_before=None: {
             "status": "expired",
             "creator_bid": creator_bid,
             "expire_before": expire_before.isoformat() if expire_before else None,
@@ -181,7 +182,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.aggregate_daily_usage_metrics",
-        lambda app, *, stat_date="", creator_bid="", finalize=False: {
+        lambda _app, *, stat_date="", creator_bid="", finalize=False: {
             "status": "finalized" if finalize else "aggregated",
             "stat_date": stat_date,
             "creator_bid": creator_bid or None,
@@ -190,7 +191,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.aggregate_daily_ledger_summary",
-        lambda app, *, stat_date="", creator_bid="", finalize=False: {
+        lambda _app, *, stat_date="", creator_bid="", finalize=False: {
             "status": "finalized" if finalize else "aggregated",
             "stat_date": stat_date,
             "creator_bid": creator_bid or None,
@@ -199,7 +200,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.rebuild_daily_aggregates",
-        lambda app, *, creator_bid="", shifu_bid="", date_from="", date_to="": {
+        lambda _app, *, creator_bid="", shifu_bid="", date_from="", date_to="": {
             "status": "rebuilt",
             "creator_bid": creator_bid or None,
             "shifu_bid": shifu_bid or None,
@@ -209,7 +210,7 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.tasks.verify_domain_binding",
-        lambda app, *, creator_bid="", domain_binding_bid="", host="", verification_token="": {
+        lambda _app, *, creator_bid="", domain_binding_bid="", host="", verification_token="": {
             "action": "verify",
             "creator_bid": creator_bid or None,
             "binding": {
@@ -316,21 +317,27 @@ def test_create_celery_app_executes_billing_tasks_in_eager_mode(
 
 
 def test_get_celery_app_loads_flask_app_from_app_factory(
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     fake_flask_app = Flask(__name__)
     fake_flask_app.config.update(CELERY_TASK_ALWAYS_EAGER=True)
 
+    def create_non_http_app(*, serving_http: bool = True) -> Flask:
+        assert serving_http is False
+        fake_flask_app.extensions["serving_http"] = serving_http
+        return fake_flask_app
+
     monkeypatch.setitem(
         sys.modules,
         "app",
-        types.SimpleNamespace(create_app=lambda: fake_flask_app),
+        types.SimpleNamespace(create_app=create_non_http_app),
     )
-    monkeypatch.setattr(celery_app_module, "__CELERY_APP__", None)
+    monkeypatch.setattr(celery_app_module._celery_state, "app", None)
 
     celery_app = celery_app_module.get_celery_app()
 
-    assert getattr(celery_app, "flask_app") is fake_flask_app
+    assert celery_app.flask_app is fake_flask_app
+    assert celery_app.flask_app.extensions["serving_http"] is False
 
 
 def test_create_celery_app_uses_default_billing_beat_crons() -> None:

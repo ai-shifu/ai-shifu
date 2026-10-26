@@ -1,0 +1,1 @@
+"""Uploaded resource service."""

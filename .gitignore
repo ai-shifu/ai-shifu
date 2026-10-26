@@ -89,6 +89,8 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
+coverage.json
+coverage-summary.txt
 *.cover
 *.py,cover
 .hypothesis/
@@ -170,15 +172,17 @@ celerybeat.pid
 dev.sh
 dev.http
 
+# Retired Cook Web directories
+cook-web/
+
 # Local dependency-install marker created by external dev launcher (task/start-dev.sh)
 src/api/.deps_installed
 
-# Cook module
-src/cook/test*
-src/cook/codesifu-demo.db
-src/cook/auth_config.yml
-src/cook-web/.next/
-src/cook-web/next-env.d.ts
+src/web/.next/
+src/web/next-env.d.ts
+
+# Frontend source revision copied into Docker build contexts by CI.
+/src/web/.app-build-sha
 
 # Docker data directories
 docker/cook_data/
@@ -193,8 +197,14 @@ src/api/logs/
 # Harness runtime artifacts
 artifacts/runs/
 
+# On-demand harness health snapshot
+/docs/generated/harness-health.md
+
 ###############################################################################
 # Never ignore these files (exceptions to above rules)
 ###############################################################################
 !src/api/tests
 .claude/*
+
+# Regenerated local/CI gardening snapshot, not canonical knowledge.
+docs/generated/harness-gardening-summary.md

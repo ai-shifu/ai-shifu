@@ -1,26 +1,54 @@
-"""
-Unit tests for EnvVar dataclass.
-"""
+"""Unit tests for EnvVar dataclass."""
+
+from decimal import Decimal
 
 import pytest
 from flaskr.common.config import (
     ENV_VARS,
     EnvVar,
     parse_llm_model_max_output_tokens,
+    parse_nonnegative_cent_amount,
 )
+
 from tests.common.fixtures.mock_validators import (
-    mock_port_validator,
-    mock_email_validator,
     always_fail_validator,
     always_pass_validator,
+    mock_email_validator,
+    mock_port_validator,
     range_validator,
 )
+
+
+def test_analytics_excluded_users_config_parses_comma_separated_ids() -> None:
+    env_var = ENV_VARS["ANALYTICS_EXCLUDED_USER_IDS"]
+
+    assert env_var.default == []
+    assert env_var.convert_type(None) == []
+    assert env_var.convert_type("") == []
+    assert env_var.convert_type(" user-1, ,user-2, ") == ["user-1", "user-2"]
+
+
+@pytest.mark.parametrize(
+    "value", ["nan", "inf", "-0.01", "0.501", "100000000.00", "1e100"]
+)
+def test_parse_nonnegative_cent_amount_rejects_invalid_money(value: str) -> None:
+    with pytest.raises(ValueError, match="finite nonnegative amount"):
+        parse_nonnegative_cent_amount(value)
+
+
+@pytest.mark.parametrize(
+    "value", ["0", "0.01", 0.5, Decimal("12.30"), Decimal("99999999.99")]
+)
+def test_parse_nonnegative_cent_amount_accepts_exact_money(value: object) -> None:
+    assert parse_nonnegative_cent_amount(value) == Decimal(str(value)).quantize(
+        Decimal("0.01")
+    )
 
 
 class TestEnvVarInitialization:
     """Test EnvVar initialization and validation."""
 
-    def test_valid_envvar_with_defaults(self):
+    def test_valid_envvar_with_defaults(self) -> None:
         """Test creating EnvVar with default values."""
         env_var = EnvVar(
             name="TEST_VAR",
@@ -39,7 +67,7 @@ class TestEnvVarInitialization:
         assert env_var.validator is None
         assert env_var.depends_on == []
 
-    def test_valid_envvar_required_no_default(self):
+    def test_valid_envvar_required_no_default(self) -> None:
         """Test creating required EnvVar without default."""
         env_var = EnvVar(
             name="REQUIRED_VAR",
@@ -53,7 +81,7 @@ class TestEnvVarInitialization:
         assert env_var.default is None
         assert env_var.secret is True
 
-    def test_valid_envvar_optional_with_default(self):
+    def test_valid_envvar_optional_with_default(self) -> None:
         """Test creating optional EnvVar with default."""
         env_var = EnvVar(
             name="OPTIONAL_VAR",
@@ -65,9 +93,9 @@ class TestEnvVarInitialization:
         assert env_var.required is False
         assert env_var.default == "optional_default"
 
-    def test_invalid_required_with_default(self):
+    def test_invalid_required_with_default(self) -> None:
         """Test that required=True with default raises ValueError."""
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="marked as required") as exc_info:
             EnvVar(
                 name="INVALID_VAR",
                 required=True,
@@ -78,7 +106,7 @@ class TestEnvVarInitialization:
         assert "marked as required" in str(exc_info.value)
         assert "has a default value" in str(exc_info.value)
 
-    def test_envvar_with_custom_validator(self):
+    def test_envvar_with_custom_validator(self) -> None:
         """Test EnvVar with custom validator function."""
         env_var = EnvVar(
             name="PORT",
@@ -91,7 +119,7 @@ class TestEnvVarInitialization:
         assert env_var.validator(8080) is True
         assert env_var.validator(99999) is False
 
-    def test_envvar_with_dependencies(self):
+    def test_envvar_with_dependencies(self) -> None:
         """Test EnvVar with dependencies."""
         env_var = EnvVar(
             name="DEPENDENT_VAR",
@@ -104,7 +132,7 @@ class TestEnvVarInitialization:
 class TestEnvVarTypeConversion:
     """Test type conversion functionality."""
 
-    def test_convert_to_int(self):
+    def test_convert_to_int(self) -> None:
         """Test string to int conversion."""
         env_var = EnvVar(name="INT_VAR", type=int, default=100)
 
@@ -113,7 +141,7 @@ class TestEnvVarTypeConversion:
         assert env_var.convert_type("") == 100  # Empty returns default
         assert env_var.convert_type(None) == 100  # None returns default
 
-    def test_convert_to_float(self):
+    def test_convert_to_float(self) -> None:
         """Test string to float conversion."""
         env_var = EnvVar(name="FLOAT_VAR", type=float, default=1.5)
 
@@ -122,7 +150,16 @@ class TestEnvVarTypeConversion:
         assert env_var.convert_type("10") == 10.0
         assert env_var.convert_type("") == 1.5  # Empty returns default
 
-    def test_convert_to_bool(self):
+    def test_convert_to_decimal_preserves_source_precision(self) -> None:
+        """Test decimal conversion does not round through binary floating point."""
+        env_var = EnvVar(name="DECIMAL_VAR", type=Decimal, default=Decimal("0.5"))
+
+        assert env_var.convert_type("0.50000000000000001") == Decimal(
+            "0.50000000000000001"
+        )
+        assert env_var.convert_type("") == Decimal("0.5")
+
+    def test_convert_to_bool(self) -> None:
         """Test string to bool conversion."""
         env_var = EnvVar(name="BOOL_VAR", type=bool, default=False)
 
@@ -143,14 +180,14 @@ class TestEnvVarTypeConversion:
         assert env_var.convert_type("random") is False
 
         # Already boolean
-        assert env_var.convert_type(True) is True
-        assert env_var.convert_type(False) is False
+        assert env_var.convert_type(value=True) is True
+        assert env_var.convert_type(value=False) is False
 
         # Empty/None returns default
         assert env_var.convert_type("") is False
         assert env_var.convert_type(None) is False
 
-    def test_convert_string_remains_string(self):
+    def test_convert_string_remains_string(self) -> None:
         """Test that strings remain strings when type is str."""
         env_var = EnvVar(name="STR_VAR", type=str, default="default")
 
@@ -159,7 +196,7 @@ class TestEnvVarTypeConversion:
         assert env_var.convert_type("") == "default"
         assert env_var.convert_type(None) == "default"
 
-    def test_convert_type_with_invalid_input(self):
+    def test_convert_type_with_invalid_input(self) -> None:
         """Test type conversion with invalid input."""
         from flaskr.common.config import EnvironmentConfigError
 
@@ -175,7 +212,7 @@ class TestEnvVarTypeConversion:
 class TestEnvVarValidation:
     """Test validation functionality."""
 
-    def test_validate_with_no_validator(self):
+    def test_validate_with_no_validator(self) -> None:
         """Test validation when no validator is set."""
         env_var = EnvVar(name="NO_VALIDATOR")
 
@@ -183,7 +220,7 @@ class TestEnvVarValidation:
         assert env_var.validate_value(123) is True
         assert env_var.validate_value(None) is True
 
-    def test_validate_with_port_validator(self):
+    def test_validate_with_port_validator(self) -> None:
         """Test validation with port validator."""
         env_var = EnvVar(
             name="PORT",
@@ -198,7 +235,7 @@ class TestEnvVarValidation:
         assert env_var.validate_value(65536) is False
         assert env_var.validate_value(-1) is False
 
-    def test_validate_with_email_validator(self):
+    def test_validate_with_email_validator(self) -> None:
         """Test validation with email validator."""
         env_var = EnvVar(
             name="EMAIL",
@@ -212,7 +249,7 @@ class TestEnvVarValidation:
         assert env_var.validate_value("@example.com") is False
         assert env_var.validate_value("") is False
 
-    def test_validate_with_always_fail(self):
+    def test_validate_with_always_fail(self) -> None:
         """Test validation with always-fail validator."""
         env_var = EnvVar(
             name="FAIL_VAR",
@@ -222,7 +259,7 @@ class TestEnvVarValidation:
         assert env_var.validate_value("anything") is False
         assert env_var.validate_value(123) is False
 
-    def test_validate_with_range_validator(self):
+    def test_validate_with_range_validator(self) -> None:
         """Test validation with range validator."""
         env_var = EnvVar(
             name="TEMPERATURE",
@@ -238,7 +275,9 @@ class TestEnvVarValidation:
 
 
 class TestLLMModelMaxOutputTokensConfig:
-    def test_parse_valid_routed_model_limits(self):
+    """Verify LLM model max output tokens config behavior."""
+
+    def test_parse_valid_routed_model_limits(self) -> None:
         assert parse_llm_model_max_output_tokens(
             '{"qwen/deepseek-v4-flash":393216,"gemini-3.5-flash":65536}'
         ) == {
@@ -260,18 +299,21 @@ class TestLLMModelMaxOutputTokensConfig:
             '{"qwen/model": 8192, " qwen/model ": 4096}',
         ],
     )
-    def test_reject_invalid_routed_model_limits(self, value):
+    def test_reject_invalid_routed_model_limits(self, value: object) -> None:
         env_var = ENV_VARS["LLM_MODEL_MAX_OUTPUT_TOKENS"]
 
         assert env_var.validate_value(value) is False
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=r"must be a JSON object|model ids must|maximum output token values",
+        ):
             parse_llm_model_max_output_tokens(value)
 
 
 class TestEnvVarMultilineDescription:
     """Test multi-line description support."""
 
-    def test_single_line_description(self):
+    def test_single_line_description(self) -> None:
         """Test EnvVar with single-line description."""
         env_var = EnvVar(
             name="SINGLE_LINE",
@@ -281,7 +323,7 @@ class TestEnvVarMultilineDescription:
         assert env_var.description == "This is a single line description"
         assert "\n" not in env_var.description
 
-    def test_multi_line_description(self):
+    def test_multi_line_description(self) -> None:
         """Test EnvVar with multi-line description."""
         description = """This is a multi-line description.
 Line 2: More details here.
@@ -296,7 +338,7 @@ Line 3: Even more information."""
         assert "\n" in env_var.description
         assert env_var.description.count("\n") == 2
 
-    def test_empty_description(self):
+    def test_empty_description(self) -> None:
         """Test EnvVar with empty description."""
         env_var = EnvVar(name="NO_DESC")
 
@@ -306,7 +348,7 @@ Line 3: Even more information."""
 class TestEnvVarSecretHandling:
     """Test secret field handling."""
 
-    def test_secret_field_true(self):
+    def test_secret_field_true(self) -> None:
         """Test EnvVar marked as secret."""
         env_var = EnvVar(
             name="API_KEY",
@@ -316,7 +358,7 @@ class TestEnvVarSecretHandling:
 
         assert env_var.secret is True
 
-    def test_secret_field_false(self):
+    def test_secret_field_false(self) -> None:
         """Test EnvVar not marked as secret."""
         env_var = EnvVar(
             name="PUBLIC_VAR",
@@ -326,7 +368,7 @@ class TestEnvVarSecretHandling:
 
         assert env_var.secret is False
 
-    def test_secret_field_default(self):
+    def test_secret_field_default(self) -> None:
         """Test default value of secret field."""
         env_var = EnvVar(name="DEFAULT_SECRET")
 
@@ -336,7 +378,7 @@ class TestEnvVarSecretHandling:
 class TestEnvVarEdgeCases:
     """Test edge cases and corner scenarios."""
 
-    def test_envvar_with_all_fields(self):
+    def test_envvar_with_all_fields(self) -> None:
         """Test EnvVar with all possible fields set."""
         env_var = EnvVar(
             name="COMPLETE_VAR",
@@ -360,7 +402,7 @@ class TestEnvVarEdgeCases:
         assert env_var.group == "complete"
         assert env_var.depends_on == ["DEP1", "DEP2"]
 
-    def test_envvar_minimal_fields(self):
+    def test_envvar_minimal_fields(self) -> None:
         """Test EnvVar with only required field (name)."""
         env_var = EnvVar(name="MINIMAL_VAR")
 
@@ -374,13 +416,13 @@ class TestEnvVarEdgeCases:
         assert env_var.group == "general"
         assert env_var.depends_on == []
 
-    def test_envvar_name_with_special_chars(self):
+    def test_envvar_name_with_special_chars(self) -> None:
         """Test EnvVar name with underscores and numbers."""
         env_var = EnvVar(name="TEST_VAR_123_ABC")
 
         assert env_var.name == "TEST_VAR_123_ABC"
 
-    def test_envvar_group_categorization(self):
+    def test_envvar_group_categorization(self) -> None:
         """Test different group categorizations."""
         groups = ["database", "redis", "auth", "llm", "frontend", "monitoring"]
 

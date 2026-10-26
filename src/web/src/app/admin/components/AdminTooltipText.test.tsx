@@ -1,0 +1,303 @@
+import React from 'react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import AdminTooltipText from './AdminTooltipText';
+
+class MockResizeObserver {
+  observe() {}
+  disconnect() {}
+}
+
+class MockMutationObserver {
+  private callback: MutationCallback;
+
+  constructor(callback: MutationCallback) {
+    this.callback = callback;
+  }
+
+  observe() {}
+
+  disconnect() {}
+
+  trigger() {
+    this.callback([], this as unknown as MutationObserver);
+  }
+}
+
+jest.mock('@/components/ui/tooltip', () => ({
+  __esModule: true,
+  Tooltip: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
+  TooltipContent: ({ children }: React.PropsWithChildren) => (
+    <div data-testid='tooltip-content'>{children}</div>
+  ),
+}));
+
+const OVERFLOWING_SIBLING_CONTENT = 'Overflowing sibling content';
+
+describe('AdminTooltipText', () => {
+  let mutationObserver: MockMutationObserver | null = null;
+  const registerMutationObserver = (observer: MockMutationObserver) => {
+    mutationObserver = observer;
+  };
+
+  beforeEach(() => {
+    mutationObserver = null;
+    Object.defineProperty(window, 'ResizeObserver', {
+      configurable: true,
+      writable: true,
+      value: MockResizeObserver,
+    });
+    Object.defineProperty(window, 'MutationObserver', {
+      configurable: true,
+      writable: true,
+      value: class extends MockMutationObserver {
+        constructor(callback: MutationCallback) {
+          super(callback);
+          registerMutationObserver(this);
+        }
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        return this.textContent?.trim() === 'Long content value' ? 80 : 120;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() {
+        return this.textContent?.trim() === 'Long content value' ? 160 : 120;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get() {
+        return 20;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+      configurable: true,
+      get() {
+        return 20;
+      },
+    });
+  });
+
+  test('renders tooltip content only when text overflows', async () => {
+    render(
+      <AdminTooltipText
+        text='Long content value'
+        emptyValue='--'
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Long content value')).toHaveLength(2);
+    });
+    expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
+      'Long content value',
+    );
+  });
+
+  test('falls back to the provided empty value', () => {
+    render(
+      <AdminTooltipText
+        text='   '
+        emptyValue='-'
+      />,
+    );
+
+    expect(screen.getByText('-')).toBeInTheDocument();
+    expect(screen.queryByTestId('tooltip-content')).not.toBeInTheDocument();
+  });
+
+  test('can render tooltip content even when text does not overflow', () => {
+    render(
+      <AdminTooltipText
+        text='Short value'
+        emptyValue='--'
+        alwaysShowTooltip
+      />,
+    );
+
+    expect(screen.getAllByText('Short value')).toHaveLength(2);
+    expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
+      'Short value',
+    );
+  });
+
+  test('trims surrounding whitespace before rendering', () => {
+    render(
+      <AdminTooltipText
+        text='  Course One  '
+        emptyValue='--'
+      />,
+    );
+
+    expect(screen.getByText('Course One')).toBeInTheDocument();
+    expect(screen.queryByTestId('tooltip-content')).not.toBeInTheDocument();
+    expect(screen.queryByText('  Course One  ')).not.toBeInTheDocument();
+  });
+
+  test('can force tooltip rendering when table clipping happens outside the trigger', () => {
+    render(
+      <AdminTooltipText
+        text='Short content'
+        emptyValue='--'
+        forceTooltip
+      />,
+    );
+
+    expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
+      'Short content',
+    );
+  });
+
+  test('shows tooltip when a table cell clips the trigger content', async () => {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        if (this.tagName === 'TD') {
+          return 80;
+        }
+        return 160;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() {
+        return 160;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        const right = this.tagName === 'TD' ? 80 : 160;
+        return {
+          bottom: 20,
+          height: 20,
+          left: 0,
+          right,
+          top: 0,
+          width: right,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      },
+    });
+
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <td style={{ overflow: 'hidden' }}>
+              <AdminTooltipText
+                text='Clipped by table cell'
+                emptyValue='--'
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
+        'Clipped by table cell',
+      );
+    });
+  });
+
+  test('does not show tooltip when only a table cell sibling overflows', async () => {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get() {
+        if (this.tagName === 'TD') {
+          return 80;
+        }
+        return this.textContent?.trim() === 'Visible label' ? 60 : 220;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+      configurable: true,
+      get() {
+        if (this.tagName === 'TD') {
+          return 220;
+        }
+        return this.textContent?.trim() === 'Visible label' ? 60 : 220;
+      },
+    });
+    Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+      configurable: true,
+      value() {
+        const text = this.textContent?.trim();
+        const right =
+          this.tagName === 'TD' ? 80 : text === 'Visible label' ? 60 : 220;
+        return {
+          bottom: 20,
+          height: 20,
+          left: 0,
+          right,
+          top: 0,
+          width: right,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      },
+    });
+
+    render(
+      <table>
+        <tbody>
+          <tr>
+            <td style={{ overflow: 'hidden' }}>
+              <AdminTooltipText
+                text='Visible label'
+                emptyValue='--'
+              />
+              <span>{OVERFLOWING_SIBLING_CONTENT}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Visible label')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('tooltip-content')).not.toBeInTheDocument();
+  });
+
+  test('updates overflow state when display text changes without changing value', async () => {
+    const { rerender } = render(
+      <AdminTooltipText
+        text='Stable tooltip value'
+        displayText='Short label'
+        emptyValue='--'
+      />,
+    );
+
+    expect(screen.getByText('Short label')).toBeInTheDocument();
+    expect(screen.queryByTestId('tooltip-content')).not.toBeInTheDocument();
+
+    rerender(
+      <AdminTooltipText
+        text='Stable tooltip value'
+        displayText='Long content value'
+        emptyValue='--'
+      />,
+    );
+
+    act(() => {
+      mutationObserver?.trigger();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('tooltip-content')).toHaveTextContent(
+        'Stable tooltip value',
+      );
+    });
+  });
+});

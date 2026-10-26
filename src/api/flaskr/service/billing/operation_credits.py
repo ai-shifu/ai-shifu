@@ -3,19 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from decimal import Decimal
-from typing import Any
-
-from flask import Flask
-from sqlalchemy import or_
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_PREVIEW, BILL_USAGE_TYPE_TTS
-from flaskr.service.metering.models import BillUsageRecord
-from flaskr.util.uuid import generate_id
+from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
+from sqlalchemy import or_
 
 from . import primitives as billing_primitives
 from .bucket_categories import (
@@ -23,9 +20,7 @@ from .bucket_categories import (
     load_billing_order_type_by_bid,
     wallet_bucket_requires_active_subscription,
 )
-from .charges import build_metric_charge
 from .consts import (
-    BILLING_METRIC_TTS_REQUEST_COUNT,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_LEDGER_ENTRY_TYPE_HOLD,
@@ -37,19 +32,29 @@ from .models import CreditLedgerEntry, CreditWallet, CreditWalletBucket
 from .subscriptions import load_effective_topup_subscription
 from .wallets import persist_credit_wallet_snapshot, sync_credit_bucket_status
 
+if TYPE_CHECKING:
+    from datetime import datetime
 
-_ZERO = Decimal("0")
+    from flask import Flask
+
+_ZERO = Decimal(0)
 
 
-@dataclass(slots=True, frozen=True)
-class OperationCreditEstimate:
-    consumed_credits: Decimal
-    billing_metric: int = BILLING_METRIC_TTS_REQUEST_COUNT
-    status: str = "rated"
+def _lock_active_creator(creator_bid: str) -> None:
+    """Serialize reservation lifecycle changes with account cancellation."""
+    user = (
+        UserInfo.query.filter(UserInfo.user_bid == creator_bid)
+        .with_for_update()
+        .first()
+    )
+    if user is not None and user.deleted:
+        raise_error("server.user.accountAlreadyCancelled")
 
 
 @dataclass(slots=True, frozen=True)
 class OperationCreditReservationResult:
+    """Capture credits reserved for one metered operation."""
+
     status: str
     reservation_bid: str
     creator_bid: str
@@ -61,6 +66,8 @@ class OperationCreditReservationResult:
 
 @dataclass(slots=True, frozen=True)
 class OperationCreditCaptureResult:
+    """Capture reserved credits consumed by one metered operation."""
+
     status: str
     reservation_bid: str
     usage_bid: str
@@ -70,38 +77,12 @@ class OperationCreditCaptureResult:
 
 @dataclass(slots=True, frozen=True)
 class OperationCreditReleaseResult:
+    """Capture reserved credits released by one metered operation."""
+
     status: str
     reservation_bid: str
     ledger_bid: str
     amount: Decimal
-
-
-def estimate_voice_clone_operation_credits(app: Flask) -> OperationCreditEstimate:
-    """Estimate MiniMax voice-clone cost using only configured active rates."""
-
-    with app.app_context():
-        now = now_utc()
-        usage = BillUsageRecord(
-            usage_type=BILL_USAGE_TYPE_TTS,
-            usage_scene=BILL_USAGE_SCENE_PREVIEW,
-            provider="minimax",
-            model="voice_clone",
-        )
-        charge = build_metric_charge(
-            usage,
-            billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
-            raw_amount=1,
-            settlement_at=now,
-        )
-        if charge is None:
-            return OperationCreditEstimate(consumed_credits=_ZERO, status="no_rate")
-        return OperationCreditEstimate(
-            consumed_credits=billing_primitives.quantize_credit_amount(
-                charge.consumed_credits
-            ),
-            billing_metric=int(charge.billing_metric),
-            status="rated",
-        )
 
 
 def reserve_operation_credits(
@@ -111,8 +92,9 @@ def reserve_operation_credits(
     amount: Decimal,
     operation_type: str,
     operation_bid: str,
-    metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> OperationCreditReservationResult:
+    """Reserve operation credits."""
     normalized_creator_bid = _require_bid(creator_bid, "creator_bid")
     normalized_operation_type = _require_bid(operation_type, "operation_type")
     normalized_operation_bid = _require_bid(operation_bid, "operation_bid")
@@ -125,7 +107,8 @@ def reserve_operation_credits(
             amount=_ZERO,
         )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
+        _lock_active_creator(normalized_creator_bid)
         idempotency_key = _reserve_idempotency_key(
             normalized_operation_type,
             normalized_operation_bid,
@@ -209,7 +192,6 @@ def reserve_operation_credits(
             metadata_json=ledger_metadata,
         )
         db.session.add(ledger)
-        db.session.commit()
         return OperationCreditReservationResult(
             status="reserved",
             reservation_bid=ledger_bid,
@@ -226,14 +208,16 @@ def capture_reserved_operation_credits(
     *,
     reservation_bid: str,
     usage_bid: str,
-    metadata: dict[str, Any] | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> OperationCreditCaptureResult:
+    """Capture reserved operation credits."""
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
     normalized_usage_bid = _require_bid(usage_bid, "usage_bid")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         hold = _load_hold(normalized_reservation_bid)
         creator_bid = str(hold.creator_bid or "")
+        _lock_active_creator(creator_bid)
         idempotency_key = _capture_idempotency_key(
             normalized_reservation_bid,
             normalized_usage_bid,
@@ -258,7 +242,7 @@ def capture_reserved_operation_credits(
 
         wallet = _load_wallet(creator_bid, lock=True)
         amount = billing_primitives.quantize_credit_amount(hold.amount)
-        _apply_capture_to_buckets(hold, amount, lock=True)
+        _apply_capture_to_buckets(hold, lock=True)
 
         wallet.reserved_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(wallet.reserved_credits) - amount
@@ -294,7 +278,6 @@ def capture_reserved_operation_credits(
             },
         )
         db.session.add(ledger)
-        db.session.commit()
         return OperationCreditCaptureResult(
             status="captured",
             reservation_bid=normalized_reservation_bid,
@@ -310,11 +293,13 @@ def release_reserved_operation_credits(
     reservation_bid: str,
     reason: str = "",
 ) -> OperationCreditReleaseResult:
+    """Release reserved operation credits."""
     normalized_reservation_bid = _require_bid(reservation_bid, "reservation_bid")
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         hold = _load_hold(normalized_reservation_bid)
         creator_bid = str(hold.creator_bid or "")
+        _lock_active_creator(creator_bid)
         if _reservation_has_capture(creator_bid, normalized_reservation_bid):
             return OperationCreditReleaseResult(
                 status="already_captured",
@@ -334,7 +319,7 @@ def release_reserved_operation_credits(
 
         wallet = _load_wallet(creator_bid, lock=True)
         amount = billing_primitives.quantize_credit_amount(hold.amount)
-        _apply_release_to_buckets(hold, amount, lock=True)
+        _apply_release_to_buckets(hold, lock=True)
 
         wallet.available_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(wallet.available_credits) + amount
@@ -368,7 +353,6 @@ def release_reserved_operation_credits(
             },
         )
         db.session.add(ledger)
-        db.session.commit()
         return OperationCreditReleaseResult(
             status="released",
             reservation_bid=normalized_reservation_bid,
@@ -505,7 +489,7 @@ def _reservation_result_from_hold(
     )
 
 
-def _bucket_breakdown_from_hold(hold: CreditLedgerEntry) -> list[dict[str, Any]]:
+def _bucket_breakdown_from_hold(hold: CreditLedgerEntry) -> list[dict[str, object]]:
     metadata = hold.metadata_json if isinstance(hold.metadata_json, dict) else {}
     breakdown = metadata.get("bucket_breakdown")
     if isinstance(breakdown, list):
@@ -543,9 +527,7 @@ def _reservation_has_release(creator_bid: str, reservation_bid: str) -> bool:
     )
 
 
-def _apply_capture_to_buckets(
-    hold: CreditLedgerEntry, amount: Decimal, *, lock: bool = False
-) -> None:
+def _apply_capture_to_buckets(hold: CreditLedgerEntry, *, lock: bool = False) -> None:
     for bucket, item_amount in _iter_hold_buckets(hold, lock=lock):
         bucket.reserved_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(bucket.reserved_credits) - item_amount
@@ -556,9 +538,7 @@ def _apply_capture_to_buckets(
         sync_credit_bucket_status(bucket)
 
 
-def _apply_release_to_buckets(
-    hold: CreditLedgerEntry, amount: Decimal, *, lock: bool = False
-) -> None:
+def _apply_release_to_buckets(hold: CreditLedgerEntry, *, lock: bool = False) -> None:
     for bucket, item_amount in _iter_hold_buckets(hold, lock=lock):
         bucket.available_credits = billing_primitives.quantize_credit_amount(
             billing_primitives.to_decimal(bucket.available_credits) + item_amount
@@ -611,5 +591,5 @@ def _iter_hold_buckets(
     return []
 
 
-def _credit_to_string(value: Any) -> str:
+def _credit_to_string(value: object) -> str:
     return str(billing_primitives.quantize_credit_amount(value))

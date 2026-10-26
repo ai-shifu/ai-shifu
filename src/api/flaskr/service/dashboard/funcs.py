@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from decimal import Decimal, ROUND_HALF_UP
-from datetime import date, datetime, timedelta
 import json
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
-
-from flask import Flask
-from sqlalchemy import and_, case, false, or_
-from sqlalchemy.orm import aliased
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
-from flaskr.util.datetime import now_utc
+from flaskr.service.billing.consts import (
+    CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_SOURCE_TYPE_USAGE,
+)
+from flaskr.service.billing.models import CreditLedgerEntry
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.dashboard.dtos import (
     DashboardCourseDetailBasicInfoDTO,
@@ -27,10 +27,11 @@ from flaskr.service.dashboard.dtos import (
     DashboardCourseFollowUpItemDTO,
     DashboardCourseFollowUpListDTO,
     DashboardCourseFollowUpSummaryDTO,
+    DashboardCourseFollowUpTimelineItemDTO,
+    DashboardCourseLearningModeMetricDTO,
     DashboardCourseRatingItemDTO,
     DashboardCourseRatingListDTO,
     DashboardCourseRatingSummaryDTO,
-    DashboardCourseFollowUpTimelineItemDTO,
     DashboardEntryCourseItemDTO,
     DashboardEntryDTO,
     DashboardEntrySummaryDTO,
@@ -42,6 +43,12 @@ from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnProgressRecord,
 )
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    BILL_USAGE_TYPE_TTS,
+)
+from flaskr.service.metering.models import BillUsageRecord
 from flaskr.service.order.consts import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_RESET,
@@ -61,8 +68,19 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.datetime import now_utc
 from flaskr.util.timezone import _coerce_datetime
+from sqlalchemy import and_, case, false, or_
+from sqlalchemy.orm import aliased
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
+    from sqlalchemy.sql.selectable import Subquery
 
 
 @dataclass(frozen=True)
@@ -74,11 +92,11 @@ class _DashboardCourseMeta:
 @dataclass
 class _DashboardEntryMetrics:
     learner_total: int = 0
-    learner_count_map: Dict[str, int] = field(default_factory=dict)
-    order_count_map: Dict[str, int] = field(default_factory=dict)
-    order_amount_map: Dict[str, Decimal] = field(default_factory=dict)
-    last_active_map: Dict[str, datetime] = field(default_factory=dict)
-    active_course_bids: Set[str] = field(default_factory=set)
+    learner_count_map: dict[str, int] = field(default_factory=dict)
+    order_count_map: dict[str, int] = field(default_factory=dict)
+    order_amount_map: dict[str, Decimal] = field(default_factory=dict)
+    last_active_map: dict[str, datetime] = field(default_factory=dict)
+    active_course_bids: set[str] = field(default_factory=set)
 
 
 DASHBOARD_COURSE_LEARNER_PAGE_SIZE_MAX = 100
@@ -88,6 +106,14 @@ COURSE_STATUS_PUBLISHED = "published"
 COURSE_STATUS_UNPUBLISHED = "unpublished"
 FOLLOW_UP_ELEMENT_TYPE_ASK = "ask"
 FOLLOW_UP_ELEMENT_TYPE_ANSWER = "answer"
+LEARNING_MODE_READ = "read"
+LEARNING_MODE_LISTEN = "listen"
+LEARNING_MODE_CLASSROOM = "classroom"
+DASHBOARD_LEARNING_MODE_ORDER = (
+    LEARNING_MODE_READ,
+    LEARNING_MODE_LISTEN,
+    LEARNING_MODE_CLASSROOM,
+)
 
 
 def _format_money(value: Decimal) -> str:
@@ -98,13 +124,17 @@ def _format_money(value: Decimal) -> str:
 def _format_percentage(numerator: int, denominator: int) -> str:
     if denominator <= 0:
         return "0.00"
-    return _format_money((Decimal(numerator) * Decimal("100")) / Decimal(denominator))
+    return _format_money((Decimal(numerator) * Decimal(100)) / Decimal(denominator))
 
 
-def _format_average_score(value: Optional[Decimal]) -> str:
+def _format_average_score(value: Decimal | None) -> str:
     if value is None:
         return ""
-    return "{0:.1f}".format(value)
+    return f"{value:.1f}"
+
+
+def _format_credit_value(value: Decimal) -> str:
+    return _format_money(Decimal(str(value or 0)))
 
 
 def _normalize_dashboard_identifier(value: str) -> str:
@@ -139,9 +169,9 @@ def _dashboard_learner_keyword_matches(
 
 
 def _build_dashboard_learner_keyword_filter(
-    user_bid_column,
+    user_bid_column: object,
     keyword: str,
-):
+) -> ColumnElement[bool] | None:
     normalized_keyword = _normalize_dashboard_identifier(keyword).strip()
     if not normalized_keyword:
         return None
@@ -214,14 +244,14 @@ def _build_dashboard_learner_keyword_filter(
 
 
 def _resolve_dashboard_outline_keyword_match_bids(
-    outline_context_map: Dict[str, Dict[str, str]],
+    outline_context_map: dict[str, dict[str, str]],
     keyword: str,
-) -> Set[str]:
+) -> set[str]:
     normalized_keyword = str(keyword or "").strip().lower()
     if not normalized_keyword:
         return set()
 
-    matched_outline_item_bids: Set[str] = set()
+    matched_outline_item_bids: set[str] = set()
     for outline_item_bid, context in outline_context_map.items():
         chapter_title = str(context.get("chapter_title", "") or "").lower()
         lesson_title = str(context.get("lesson_title", "") or "").lower()
@@ -236,13 +266,13 @@ def _resolve_dashboard_outline_keyword_match_bids(
 
 def _build_course_outline_context_map(
     outline_items: Sequence[PublishedOutlineItem],
-) -> Dict[str, Dict[str, str]]:
+) -> dict[str, dict[str, str]]:
     outline_item_map = {
         str(getattr(item, "outline_item_bid", "") or "").strip(): item
         for item in outline_items
         if str(getattr(item, "outline_item_bid", "") or "").strip()
     }
-    context_map: Dict[str, Dict[str, str]] = {}
+    context_map: dict[str, dict[str, str]] = {}
 
     for outline_item_bid, item in outline_item_map.items():
         lesson_title = str(getattr(item, "title", "") or "").strip()
@@ -274,7 +304,7 @@ def _build_course_outline_context_map(
     return context_map
 
 
-def _build_course_follow_up_base_subquery(shifu_bid: str):
+def _build_course_follow_up_base_subquery(shifu_bid: str) -> Subquery:
     return (
         db.session.query(
             LearnGeneratedBlock.id.label("id"),
@@ -306,9 +336,9 @@ def _build_course_follow_up_base_subquery(shifu_bid: str):
 
 
 def _build_follow_up_user_keyword_filter(
-    user_bid_column,
+    user_bid_column: object,
     keyword: str,
-):
+) -> ColumnElement[bool] | None:
     normalized = _normalize_dashboard_identifier(keyword)
     if not normalized:
         return None
@@ -342,9 +372,9 @@ def _build_follow_up_user_keyword_filter(
 
 
 def _resolve_follow_up_matching_outline_bids(
-    outline_context_map: Dict[str, Dict[str, str]],
+    outline_context_map: dict[str, dict[str, str]],
     chapter_keyword: str,
-) -> Optional[Set[str]]:
+) -> set[str] | None:
     normalized_keyword = str(chapter_keyword or "").strip().lower()
     if not normalized_keyword:
         return None
@@ -516,7 +546,7 @@ def _resolve_follow_up_source_from_element(
     answer_generated_block_bid: str,
     fallback_position: int,
     ask_created_at: datetime | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     normalized_answer_generated_block_bid = str(
         answer_generated_block_bid or ""
     ).strip()
@@ -606,7 +636,7 @@ def _resolve_follow_up_source_from_element(
 
 def _resolve_follow_up_source_from_blocks(
     ask_block: LearnGeneratedBlock,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     progress_record_bid = str(
         getattr(ask_block, "progress_record_bid", "") or ""
     ).strip()
@@ -676,7 +706,7 @@ def _resolve_follow_up_source(
     *,
     ask_block: LearnGeneratedBlock,
     answer_block: LearnGeneratedBlock | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     fallback_position = int(getattr(ask_block, "position", 0) or 0)
     if answer_block is not None:
         source = _resolve_follow_up_source_from_element(
@@ -789,7 +819,7 @@ def _build_follow_up_source_status_map(
 
 def _load_dashboard_course_user_contact_map(
     user_bids: Sequence[str],
-) -> Dict[str, Dict[str, str]]:
+) -> dict[str, dict[str, str]]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -807,7 +837,7 @@ def _load_dashboard_course_user_contact_map(
         .order_by(AuthCredential.id.desc())
         .all()
     )
-    contact_map: Dict[str, Dict[str, str]] = {
+    contact_map: dict[str, dict[str, str]] = {
         user_bid: {"mobile": "", "email": ""} for user_bid in normalized_user_bids
     }
     for credential in credential_rows:
@@ -850,7 +880,7 @@ def _load_dashboard_course_user_contact_map(
     return contact_map
 
 
-def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseMeta]:
+def _load_dashboard_course_meta_map(user_id: str) -> dict[str, _DashboardCourseMeta]:
     owned_rows = (
         db.session.query(PublishedShifu.shifu_bid)
         .filter(
@@ -882,12 +912,12 @@ def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseM
         .group_by(PublishedShifu.shifu_bid)
     ).subquery()
 
-    published_rows: List[PublishedShifu] = (
+    published_rows: list[PublishedShifu] = (
         db.session.query(PublishedShifu)
         .filter(PublishedShifu.id.in_(db.session.query(latest_subquery.c.max_id)))
         .all()
     )
-    course_map: Dict[str, _DashboardCourseMeta] = {}
+    course_map: dict[str, _DashboardCourseMeta] = {}
     for row in published_rows:
         shifu_bid = str(row.shifu_bid or "").strip()
         if not shifu_bid:
@@ -910,13 +940,13 @@ def _load_dashboard_course_meta_map(user_id: str) -> Dict[str, _DashboardCourseM
 def _load_dashboard_course_meta(
     user_id: str,
     shifu_bid: str,
-) -> Optional[_DashboardCourseMeta]:
+) -> _DashboardCourseMeta | None:
     normalized_user_id = str(user_id or "").strip()
     normalized_shifu_bid = str(shifu_bid or "").strip()
     if not normalized_user_id or not normalized_shifu_bid:
         return None
 
-    latest_row: Optional[PublishedShifu] = (
+    latest_row: PublishedShifu | None = (
         PublishedShifu.query.filter(
             PublishedShifu.shifu_bid == normalized_shifu_bid,
             PublishedShifu.created_user_bid == normalized_user_id,
@@ -946,8 +976,8 @@ def _load_dashboard_course_meta(
 def _load_dashboard_entry_courses(
     user_id: str,
     *,
-    keyword: Optional[str] = None,
-) -> List[_DashboardCourseMeta]:
+    keyword: str | None = None,
+) -> list[_DashboardCourseMeta]:
     courses = list(_load_dashboard_course_meta_map(user_id).values())
     normalized_keyword = str(keyword or "").strip().lower()
     if normalized_keyword:
@@ -961,8 +991,8 @@ def _load_dashboard_entry_courses(
     return courses
 
 
-def _load_dashboard_course_created_at(shifu_bid: str) -> Optional[datetime]:
-    latest_draft: Optional[DraftShifu] = (
+def _load_dashboard_course_created_at(shifu_bid: str) -> datetime | None:
+    latest_draft: DraftShifu | None = (
         DraftShifu.query.filter(
             DraftShifu.shifu_bid == shifu_bid,
             DraftShifu.deleted == 0,
@@ -973,12 +1003,11 @@ def _load_dashboard_course_created_at(shifu_bid: str) -> Optional[datetime]:
     if latest_draft and latest_draft.created_at:
         return latest_draft.created_at
 
-    earliest_published_created_at = (
+    return (
         db.session.query(db.func.min(PublishedShifu.created_at))
         .filter(PublishedShifu.shifu_bid == shifu_bid)
         .scalar()
     )
-    return earliest_published_created_at
 
 
 def _resolve_dashboard_course_status(shifu_bid: str) -> str:
@@ -998,7 +1027,7 @@ def _resolve_dashboard_course_status(shifu_bid: str) -> str:
 
 def _load_dashboard_course_outline_items(
     shifu_bid: str,
-) -> List[PublishedOutlineItem]:
+) -> list[PublishedOutlineItem]:
     return (
         PublishedOutlineItem.query.filter(
             PublishedOutlineItem.shifu_bid == shifu_bid,
@@ -1013,7 +1042,7 @@ def _load_dashboard_course_outline_items(
     )
 
 
-def _load_course_leaf_outline_bids(shifu_bid: str) -> List[str]:
+def _load_course_leaf_outline_bids(shifu_bid: str) -> list[str]:
     outline_rows = (
         db.session.query(
             PublishedOutlineItem.outline_item_bid,
@@ -1029,8 +1058,8 @@ def _load_course_leaf_outline_bids(shifu_bid: str) -> List[str]:
     if not outline_rows:
         return []
 
-    visible_bids: Set[str] = set()
-    visible_parent_bids: Set[str] = set()
+    visible_bids: set[str] = set()
+    visible_parent_bids: set[str] = set()
     for outline_item_bid, parent_bid in outline_rows:
         normalized_outline_item_bid = str(outline_item_bid or "").strip()
         normalized_parent_bid = str(parent_bid or "").strip()
@@ -1046,8 +1075,8 @@ def _load_course_leaf_outline_bids(shifu_bid: str) -> List[str]:
     )
 
 
-def _load_course_learner_bids(shifu_bid: str) -> Set[str]:
-    learner_bids: Set[str] = set()
+def _load_course_learner_bids(shifu_bid: str) -> set[str]:
+    learner_bids: set[str] = set()
 
     progress_rows = (
         db.session.query(LearnProgressRecord.user_bid)
@@ -1082,7 +1111,7 @@ def _load_course_learner_bids(shifu_bid: str) -> Set[str]:
 
 def _load_dashboard_course_user_map(
     user_bids: Sequence[str],
-) -> Dict[str, UserEntity]:
+) -> dict[str, UserEntity]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -1109,7 +1138,7 @@ def _load_dashboard_course_user_map(
 def _load_dashboard_course_last_learning_map(
     shifu_bid: str,
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -1139,80 +1168,11 @@ def _load_dashboard_course_last_learning_map(
     }
 
 
-def _load_dashboard_course_joined_at_map(
-    shifu_bid: str,
-    user_bids: Sequence[str],
-) -> Dict[str, datetime]:
-    normalized_user_bids = [
-        str(user_bid or "").strip()
-        for user_bid in user_bids
-        if str(user_bid or "").strip()
-    ]
-    if not normalized_user_bids:
-        return {}
-
-    joined_at_map: Dict[str, datetime] = {}
-
-    def _merge_rows(rows: Sequence[tuple[str, Optional[datetime]]]) -> None:
-        for user_bid, joined_at in rows:
-            normalized_user_bid = str(user_bid or "").strip()
-            if not normalized_user_bid or not joined_at:
-                continue
-            current = joined_at_map.get(normalized_user_bid)
-            if current is None or joined_at < current:
-                joined_at_map[normalized_user_bid] = joined_at
-
-    _merge_rows(
-        db.session.query(
-            Order.user_bid,
-            db.func.min(Order.created_at).label("joined_at"),
-        )
-        .filter(
-            Order.shifu_bid == shifu_bid,
-            Order.user_bid.in_(normalized_user_bids),
-            Order.deleted == 0,
-            Order.status == ORDER_STATUS_SUCCESS,
-        )
-        .group_by(Order.user_bid)
-        .all()
-    )
-    _merge_rows(
-        db.session.query(
-            AiCourseAuth.user_id,
-            db.func.min(
-                db.func.coalesce(AiCourseAuth.updated_at, AiCourseAuth.created_at)
-            ).label("joined_at"),
-        )
-        .filter(
-            AiCourseAuth.course_id == shifu_bid,
-            AiCourseAuth.user_id.in_(normalized_user_bids),
-            AiCourseAuth.status == 1,
-        )
-        .group_by(AiCourseAuth.user_id)
-        .all()
-    )
-    _merge_rows(
-        db.session.query(
-            LearnProgressRecord.user_bid,
-            db.func.min(LearnProgressRecord.created_at).label("joined_at"),
-        )
-        .filter(
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.user_bid.in_(normalized_user_bids),
-            LearnProgressRecord.deleted == 0,
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-        )
-        .group_by(LearnProgressRecord.user_bid)
-        .all()
-    )
-    return joined_at_map
-
-
 def _load_dashboard_course_learned_lesson_count_map(
     shifu_bid: str,
     user_bids: Sequence[str],
     leaf_outline_bids: Sequence[str],
-) -> Dict[str, int]:
+) -> dict[str, int]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -1253,7 +1213,7 @@ def _load_dashboard_course_learned_lesson_count_map(
 def _load_dashboard_course_follow_up_count_map(
     shifu_bid: str,
     user_bids: Sequence[str],
-) -> Dict[str, int]:
+) -> dict[str, int]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -1285,21 +1245,12 @@ def _load_dashboard_course_follow_up_count_map(
     }
 
 
-def _resolve_dashboard_course_learning_status(
-    *,
-    learned_lesson_count: int,
-    total_lesson_count: int,
-) -> str:
-    if total_lesson_count > 0 and learned_lesson_count >= total_lesson_count:
-        return "completed"
-    if learned_lesson_count > 0:
-        return "learning"
-    return "not_started"
-
-
-def _count_completed_learners(shifu_bid: str, leaf_outline_bids: List[str]) -> int:
+def _load_dashboard_course_completed_learner_bids(
+    shifu_bid: str,
+    leaf_outline_bids: list[str],
+) -> set[str]:
     if not leaf_outline_bids:
-        return 0
+        return set()
 
     progress_rows = (
         db.session.query(
@@ -1321,8 +1272,8 @@ def _count_completed_learners(shifu_bid: str, leaf_outline_bids: List[str]) -> i
         .all()
     )
 
-    completed_leaf_bids_by_user: Dict[str, Set[str]] = {}
-    records_by_user_and_outline: Dict[Tuple[str, str], List[int]] = {}
+    completed_leaf_bids_by_user: dict[str, set[str]] = {}
+    records_by_user_and_outline: dict[tuple[str, str], list[int]] = {}
 
     for user_bid, outline_item_bid, status in progress_rows:
         normalized_user_bid = str(user_bid or "").strip()
@@ -1357,23 +1308,23 @@ def _count_completed_learners(shifu_bid: str, leaf_outline_bids: List[str]) -> i
         completed_outline_bids.add(outline_item_bid)
 
     leaf_count = len(leaf_outline_bids)
-    return sum(
-        1
-        for completed_outline_bids in completed_leaf_bids_by_user.values()
+    return {
+        user_bid
+        for user_bid, completed_outline_bids in completed_leaf_bids_by_user.items()
         if len(completed_outline_bids) >= leaf_count
-    )
+    }
 
 
 def _collect_dashboard_entry_metrics(
-    shifu_bids: List[str],
+    shifu_bids: list[str],
     *,
-    start_dt: Optional[datetime],
-    end_dt_exclusive: Optional[datetime],
+    start_dt: datetime | None,
+    end_dt_exclusive: datetime | None,
 ) -> _DashboardEntryMetrics:
     if not shifu_bids:
         return _DashboardEntryMetrics()
 
-    learner_users_by_course: Dict[str, Set[str]] = {}
+    learner_users_by_course: dict[str, set[str]] = {}
 
     def _collect_learner(shifu_bid: object, user_bid: object) -> None:
         normalized_shifu_bid = str(shifu_bid or "").strip()
@@ -1424,8 +1375,8 @@ def _collect_dashboard_entry_metrics(
     for shifu_bid, user_bid in manual_import_rows:
         _collect_learner(shifu_bid, user_bid)
 
-    learner_count_map: Dict[str, int] = {}
-    learner_total_users: Set[str] = set()
+    learner_count_map: dict[str, int] = {}
+    learner_total_users: set[str] = set()
     for shifu_bid, learner_bids in learner_users_by_course.items():
         learner_count_map[shifu_bid] = len(learner_bids)
         learner_total_users.update(learner_bids)
@@ -1445,8 +1396,8 @@ def _collect_dashboard_entry_metrics(
     if end_dt_exclusive is not None:
         order_query = order_query.filter(Order.created_at < end_dt_exclusive)
     order_rows = order_query.group_by(Order.shifu_bid).all()
-    order_count_map: Dict[str, int] = {}
-    order_amount_map: Dict[str, Decimal] = {}
+    order_count_map: dict[str, int] = {}
+    order_amount_map: dict[str, Decimal] = {}
     for shifu_bid, order_count, order_amount in order_rows:
         if not shifu_bid:
             continue
@@ -1471,7 +1422,7 @@ def _collect_dashboard_entry_metrics(
         )
 
     last_active_rows = last_active_query.group_by(LearnProgressRecord.shifu_bid).all()
-    last_active_map: Dict[str, datetime] = {}
+    last_active_map: dict[str, datetime] = {}
     for shifu_bid, last_active in last_active_rows:
         if not shifu_bid or not last_active:
             continue
@@ -1496,14 +1447,17 @@ def build_dashboard_entry(
     app: Flask,
     user_id: str,
     *,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    keyword: Optional[str] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    keyword: str | None = None,
     page_index: int = 1,
     page_size: int = 20,
-    timezone_name: Optional[str] = None,
+    timezone_name: str | None = None,
 ) -> DashboardEntryDTO:
-    def _parse_optional_date(raw: Optional[str]) -> Optional[date]:
+    """Build dashboard entry."""
+    _ = timezone_name
+
+    def _parse_optional_date(raw: str | None) -> date | None:
         if raw is None:
             return None
         text = str(raw).strip()
@@ -1524,7 +1478,7 @@ def build_dashboard_entry(
         if parsed_start is None and parsed_end is None:
             start_dt, end_dt_exclusive = None, None
         else:
-            resolved_end = parsed_end or date.today()
+            resolved_end = parsed_end or now_utc().date()
             resolved_start = parsed_start or (resolved_end - timedelta(days=13))
             if resolved_start > resolved_end:
                 raise_param_error("start_date must be <= end_date")
@@ -1585,7 +1539,7 @@ def build_dashboard_entry(
         offset = (resolved_page - 1) * safe_page_size
         page_courses = courses[offset : offset + safe_page_size]
 
-        items: List[DashboardEntryCourseItemDTO] = []
+        items: list[DashboardEntryCourseItemDTO] = []
         for course in page_courses:
             shifu_bid = course.shifu_bid
             last_active = metrics.last_active_map.get(shifu_bid)
@@ -1596,13 +1550,13 @@ def build_dashboard_entry(
                     learner_count=metrics.learner_count_map.get(shifu_bid, 0),
                     order_count=metrics.order_count_map.get(shifu_bid, 0),
                     order_amount=_format_money(
-                        metrics.order_amount_map.get(shifu_bid, Decimal("0"))
+                        metrics.order_amount_map.get(shifu_bid, Decimal(0))
                     ),
                     last_active_at=last_active,
                 )
             )
 
-        total_order_amount = Decimal("0")
+        total_order_amount = Decimal(0)
         for value in metrics.order_amount_map.values():
             total_order_amount += value
 
@@ -1629,12 +1583,13 @@ def _build_dashboard_course_learners(
     leaf_outline_bids: Sequence[str],
     page_index: int,
     page_size: int,
-    keyword: Optional[str],
-    learning_status: Optional[str],
-    last_learning_start_time: Optional[str],
-    last_learning_end_time: Optional[str],
-    timezone_name: Optional[str],
+    keyword: str | None,
+    learning_status: str | None,
+    last_learning_start_time: str | None,
+    last_learning_end_time: str | None,
+    timezone_name: str | None,
 ) -> DashboardCourseDetailLearnersDTO:
+    _ = timezone_name
     safe_page_size = min(
         max(int(page_size or 20), 1),
         DASHBOARD_COURSE_LEARNER_PAGE_SIZE_MAX,
@@ -2000,11 +1955,11 @@ def _build_dashboard_course_learners(
 
 
 def _parse_dashboard_date_boundary(
-    value: Optional[str],
+    value: str | None,
     *,
     param_name: str,
     end_of_day: bool = False,
-) -> Optional[datetime]:
+) -> datetime | None:
     normalized = str(value or "").strip()
     if not normalized:
         return None
@@ -2020,8 +1975,8 @@ def _parse_dashboard_date_boundary(
 
 def _validate_dashboard_date_range(
     *,
-    start_dt: Optional[datetime],
-    end_dt_exclusive: Optional[datetime],
+    start_dt: datetime | None,
+    end_dt_exclusive: datetime | None,
     start_param_name: str,
     end_param_name: str,
 ) -> None:
@@ -2038,14 +1993,16 @@ def build_dashboard_course_follow_ups(
     *,
     page_index: int = 1,
     page_size: int = 20,
-    keyword: Optional[str] = None,
-    user_bid: Optional[str] = None,
-    chapter_keyword: Optional[str] = None,
-    source_status: Optional[str] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    timezone_name: Optional[str] = None,
+    keyword: str | None = None,
+    user_bid: str | None = None,
+    chapter_keyword: str | None = None,
+    source_status: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpListDTO:
+    """Build dashboard course follow ups."""
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2215,7 +2172,7 @@ def build_dashboard_course_follow_ups(
                 ],
             )
 
-        items: List[DashboardCourseFollowUpItemDTO] = []
+        items: list[DashboardCourseFollowUpItemDTO] = []
         for row in paged_rows:
             generated_block_bid = str(
                 getattr(row, "generated_block_bid", "") or ""
@@ -2268,8 +2225,10 @@ def build_dashboard_course_follow_up_detail(
     shifu_bid: str,
     generated_block_bid: str,
     *,
-    timezone_name: Optional[str] = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseFollowUpDetailDTO:
+    """Build dashboard course follow up detail."""
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_generated_block_bid = str(generated_block_bid or "").strip()
@@ -2326,7 +2285,7 @@ def build_dashboard_course_follow_up_detail(
             },
         )
 
-        timeline: List[DashboardCourseFollowUpTimelineItemDTO] = []
+        timeline: list[DashboardCourseFollowUpTimelineItemDTO] = []
         for index, group in enumerate(groups):
             current_ask_block = group["ask_block"]
             is_current = index == selected_group_index
@@ -2383,14 +2342,16 @@ def build_dashboard_course_ratings(
     *,
     page_index: int = 1,
     page_size: int = 20,
-    keyword: Optional[str] = None,
-    chapter_keyword: Optional[str] = None,
-    score: Optional[str] = None,
-    has_comment: Optional[str] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    timezone_name: Optional[str] = None,
+    keyword: str | None = None,
+    chapter_keyword: str | None = None,
+    score: str | None = None,
+    has_comment: str | None = None,
+    start_time: str | None = None,
+    end_time: str | None = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseRatingListDTO:
+    """Build dashboard course ratings."""
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2546,7 +2507,7 @@ def build_dashboard_course_ratings(
         )
         user_map = _load_dashboard_course_user_map(page_user_bids)
         contact_map = _load_dashboard_course_user_contact_map(page_user_bids)
-        items: List[DashboardCourseRatingItemDTO] = []
+        items: list[DashboardCourseRatingItemDTO] = []
         for row in page_rows:
             user_bid = str(getattr(row, "user_bid", "") or "").strip()
             outline_item_bid = str(getattr(row, "outline_item_bid", "") or "").strip()
@@ -2596,12 +2557,13 @@ def build_dashboard_course_learners(
     *,
     page_index: int = 1,
     page_size: int = 20,
-    keyword: Optional[str] = None,
-    learning_status: Optional[str] = None,
-    last_learning_start_time: Optional[str] = None,
-    last_learning_end_time: Optional[str] = None,
-    timezone_name: Optional[str] = None,
+    keyword: str | None = None,
+    learning_status: str | None = None,
+    last_learning_start_time: str | None = None,
+    last_learning_end_time: str | None = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseDetailLearnersDTO:
+    """Build dashboard course learners."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2628,13 +2590,121 @@ def build_dashboard_course_learners(
         )
 
 
+def _build_dashboard_learning_mode_metrics(
+    shifu_bid: str,
+) -> list[DashboardCourseLearningModeMetricDTO]:
+    recent_window_start = now_utc() - timedelta(days=7)
+    learning_mode_expr = BillUsageRecord.extra["learning_mode"].as_string()
+    normalized_learning_mode_expr = db.func.lower(
+        db.func.trim(db.func.coalesce(learning_mode_expr, ""))
+    )
+    inferred_learning_mode_expr = case(
+        (
+            normalized_learning_mode_expr.in_(DASHBOARD_LEARNING_MODE_ORDER),
+            normalized_learning_mode_expr,
+        ),
+        (
+            BillUsageRecord.usage_type == BILL_USAGE_TYPE_TTS,
+            LEARNING_MODE_LISTEN,
+        ),
+        else_=LEARNING_MODE_READ,
+    )
+    ledger_credit_subquery = (
+        db.session.query(
+            CreditLedgerEntry.source_bid.label("usage_bid"),
+            db.func.coalesce(
+                db.func.sum(db.func.abs(CreditLedgerEntry.amount)), 0
+            ).label("consumed_credits"),
+        )
+        .filter(
+            CreditLedgerEntry.deleted == 0,
+            CreditLedgerEntry.entry_type == CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+            CreditLedgerEntry.source_type == CREDIT_SOURCE_TYPE_USAGE,
+        )
+        .group_by(CreditLedgerEntry.source_bid)
+        .subquery()
+    )
+    ledger_amount_expr = db.func.coalesce(ledger_credit_subquery.c.consumed_credits, 0)
+    rows = (
+        db.session.query(
+            inferred_learning_mode_expr.label("learning_mode"),
+            db.func.count(db.func.distinct(BillUsageRecord.user_bid)).label(
+                "participant_count"
+            ),
+            db.func.coalesce(db.func.sum(ledger_amount_expr), 0).label(
+                "consumed_credits"
+            ),
+            db.func.coalesce(
+                db.func.sum(
+                    case(
+                        (
+                            BillUsageRecord.created_at >= recent_window_start,
+                            ledger_amount_expr,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ).label("recent_consumed_credits"),
+        )
+        .outerjoin(
+            ledger_credit_subquery,
+            ledger_credit_subquery.c.usage_bid == BillUsageRecord.usage_bid,
+        )
+        .filter(
+            BillUsageRecord.shifu_bid == shifu_bid,
+            BillUsageRecord.deleted == 0,
+            BillUsageRecord.billable == 1,
+            BillUsageRecord.status == 0,
+            BillUsageRecord.record_level == 0,
+            BillUsageRecord.usage_scene == BILL_USAGE_SCENE_PROD,
+            BillUsageRecord.usage_type.in_((BILL_USAGE_TYPE_LLM, BILL_USAGE_TYPE_TTS)),
+        )
+        .group_by(inferred_learning_mode_expr)
+        .all()
+    )
+    row_map = {
+        str(getattr(row, "learning_mode", "") or "").strip(): row for row in rows
+    }
+    metrics: list[DashboardCourseLearningModeMetricDTO] = []
+    for mode in DASHBOARD_LEARNING_MODE_ORDER:
+        row = row_map.get(mode)
+        participant_count = int(getattr(row, "participant_count", 0) or 0)
+        consumed_credits = Decimal(str(getattr(row, "consumed_credits", 0) or 0))
+        recent_consumed_credits = Decimal(
+            str(getattr(row, "recent_consumed_credits", 0) or 0)
+        )
+        consumption_speed = ""
+        if row is not None:
+            consumption_speed = _format_credit_value(
+                recent_consumed_credits / Decimal(7)
+            )
+        average_consumed_credits = ""
+        if participant_count > 0:
+            average_consumed_credits = _format_credit_value(
+                consumed_credits / Decimal(participant_count)
+            )
+        metrics.append(
+            DashboardCourseLearningModeMetricDTO(
+                mode=mode,
+                participant_count=participant_count,
+                consumed_credits=_format_credit_value(consumed_credits),
+                consumption_speed=consumption_speed,
+                average_consumed_credits=average_consumed_credits,
+            )
+        )
+    return metrics
+
+
 def build_dashboard_course_detail(
     app: Flask,
     user_id: str,
     shifu_bid: str,
     *,
-    timezone_name: Optional[str] = None,
+    timezone_name: str | None = None,
 ) -> DashboardCourseDetailDTO:
+    """Build dashboard course detail."""
+    _ = timezone_name
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -2666,22 +2736,11 @@ def build_dashboard_course_detail(
         order_count = int(getattr(order_summary, "order_count", 0) or 0)
         order_amount = Decimal(str(getattr(order_summary, "order_amount", 0) or 0))
 
-        completed_learner_count = _count_completed_learners(
+        completed_learner_bids = _load_dashboard_course_completed_learner_bids(
             normalized_shifu_bid,
             leaf_outline_bids,
         )
-
-        active_learner_count_last_7_days = (
-            db.session.query(db.func.count(db.distinct(LearnProgressRecord.user_bid)))
-            .filter(
-                LearnProgressRecord.shifu_bid == normalized_shifu_bid,
-                LearnProgressRecord.deleted == 0,
-                LearnProgressRecord.status != LEARN_STATUS_RESET,
-                LearnProgressRecord.updated_at >= now_utc() - timedelta(days=7),
-            )
-            .scalar()
-            or 0
-        )
+        completed_learner_count = len(completed_learner_bids)
 
         total_follow_up_count = (
             db.session.query(db.func.count(LearnGeneratedBlock.id))
@@ -2705,30 +2764,19 @@ def build_dashboard_course_detail(
         )
 
         created_at = _load_dashboard_course_created_at(normalized_shifu_bid)
-        joined_at_map = _load_dashboard_course_joined_at_map(
-            normalized_shifu_bid,
-            sorted_learner_bids,
-        )
         learned_lesson_count_map = _load_dashboard_course_learned_lesson_count_map(
             normalized_shifu_bid,
             sorted_learner_bids,
             leaf_outline_bids,
         )
-        new_learner_count_last_7_days = sum(
-            1
-            for joined_at in joined_at_map.values()
-            if joined_at >= now_utc() - timedelta(days=7)
+        learning_mode_metrics = _build_dashboard_learning_mode_metrics(
+            normalized_shifu_bid
         )
         learning_learner_count = sum(
             1
             for learner_bid in sorted_learner_bids
-            if _resolve_dashboard_course_learning_status(
-                learned_lesson_count=int(
-                    learned_lesson_count_map.get(learner_bid, 0) or 0
-                ),
-                total_lesson_count=len(leaf_outline_bids),
-            )
-            == "learning"
+            if learned_lesson_count_map.get(learner_bid, 0) > 0
+            and learner_bid not in completed_learner_bids
         )
 
         return DashboardCourseDetailDTO(
@@ -2743,15 +2791,14 @@ def build_dashboard_course_detail(
             metrics=DashboardCourseDetailMetricsDTO(
                 order_count=order_count,
                 order_amount=_format_money(order_amount),
-                new_learner_count_last_7_days=int(new_learner_count_last_7_days),
                 learning_learner_count=int(learning_learner_count),
                 completed_learner_count=completed_learner_count,
                 completion_rate=_format_percentage(
                     completed_learner_count,
                     learner_count,
                 ),
-                active_learner_count_last_7_days=int(active_learner_count_last_7_days),
                 total_follow_up_count=int(total_follow_up_count),
                 rating_score=_format_average_score(rating_score),
             ),
+            learning_mode_metrics=learning_mode_metrics,
         )

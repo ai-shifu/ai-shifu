@@ -1,22 +1,28 @@
+"""Handle demo courses for course authoring."""
+
 from __future__ import annotations
 
-from flask import Flask
-from typing import Any, Set
+from typing import TYPE_CHECKING
 
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 
-BUILTIN_DEMO_TITLES: Set[str] = {
+if TYPE_CHECKING:
+    from flask import Flask
+
+BUILTIN_DEMO_TITLES: set[str] = {
     "AI 师傅教学引导",
     "AI-Shifu Creation Guide",
 }
 
 
-def load_builtin_demo_titles() -> Set[str]:
+def load_builtin_demo_titles() -> set[str]:
+    """Load builtin demo titles."""
     return set(BUILTIN_DEMO_TITLES)
 
 
-def load_demo_shifu_bids() -> Set[str]:
-    demo_bids: Set[str] = set()
+def load_demo_shifu_bids() -> set[str]:
+    """Load demo shifu bids."""
+    demo_bids: set[str] = set()
     for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
         try:
             bid = str(get_dynamic_config(key, "") or "").strip()
@@ -27,9 +33,39 @@ def load_demo_shifu_bids() -> Set[str]:
     return demo_bids
 
 
+def _get_configured_demo_language(shifu_bid: str) -> str | None:
+    normalized_bid = str(shifu_bid or "").strip()
+    if not normalized_bid:
+        return None
+
+    matches: list[str] = []
+    for key, language in (
+        ("DEMO_SHIFU_BID", "zh-CN"),
+        ("DEMO_EN_SHIFU_BID", "en-US"),
+    ):
+        try:
+            configured_bid = str(get_dynamic_config(key, "") or "").strip()
+        except Exception:
+            configured_bid = ""
+        if configured_bid and configured_bid == normalized_bid:
+            matches.append(language)
+    return matches[0] if len(matches) == 1 else None
+
+
+def get_demo_course_title_language(shifu_bid: str) -> str | None:
+    """Return the authored title language of a configured demo course."""
+    return _get_configured_demo_language(shifu_bid)
+
+
+def get_demo_course_content_language(shifu_bid: str) -> str | None:
+    """Return the output language fixed by a configured demo course's prompts."""
+    return _get_configured_demo_language(shifu_bid)
+
+
 def resolve_demo_course_for_language(
     app: Flask, language: str | None
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Resolve demo course for language."""
     normalized_language = str(language or "").strip().lower()
     preferred_key = (
         "DEMO_SHIFU_BID"
@@ -76,6 +112,7 @@ def resolve_demo_course_for_language(
 def is_builtin_demo_course(
     *, shifu_bid: str, title: str, created_user_bid: str
 ) -> bool:
+    """Return whether builtin demo course."""
     normalized_bid = str(shifu_bid or "").strip()
     normalized_title = str(title or "").strip()
     normalized_creator = str(created_user_bid or "").strip()
@@ -85,6 +122,7 @@ def is_builtin_demo_course(
 
 
 def is_builtin_demo_shifu(app: Flask, shifu_bid: str) -> bool:
+    """Return whether builtin demo shifu."""
     normalized_bid = str(shifu_bid or "").strip()
     if not normalized_bid:
         return False
@@ -122,6 +160,7 @@ def _load_shifu_demo_metadata(app: Flask, shifu_bid: str) -> list[tuple[str, str
     is exactly what allowed scope-key collisions with concurrent contexts.
     Billing callers always run inside an app context.
     """
+    _ = app
     import time as time_module
 
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu

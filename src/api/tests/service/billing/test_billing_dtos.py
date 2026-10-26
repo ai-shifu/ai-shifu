@@ -1,7 +1,8 @@
+"""Protect billing data-transfer serialization contracts."""
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from flaskr.service.billing.dtos import (
@@ -14,8 +15,8 @@ from flaskr.service.billing.dtos import (
     BillingOverviewDTO,
     BillingSubscriptionDTO,
     BillingTrialOfferDTO,
-    BillingWalletBucketListDTO,
     BillingWalletBucketDTO,
+    BillingWalletBucketListDTO,
     BillingWalletSnapshotDTO,
     RuntimeBillingBrandingDTO,
     RuntimeBillingContextDTO,
@@ -40,6 +41,7 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
             subscription_bid="sub-1",
             product_bid="bill-product-plan-monthly",
             product_code="plan-monthly",
+            product_name_key="module.billing.catalog.plans.monthly.title",
             status="active",
             billing_provider="stripe",
             current_period_start_at="2026-04-01T00:00:00+00:00",
@@ -83,11 +85,14 @@ def test_billing_dto_json_serializes_nested_models_and_decimal_inputs() -> None:
 
     assert payload["wallet"]["available_credits"] == 12.5
     assert payload["subscription"]["status"] == "active"
+    assert payload["subscription"]["product_name_key"] == (
+        "module.billing.catalog.plans.monthly.title"
+    )
     assert payload["billing_alerts"][0]["action_payload"] == {"target": "topup"}
     assert payload["trial_offer"]["status"] == "granted"
     assert payload["trial_offer"]["product_code"] == "creator-plan-trial"
     assert payload["trial_offer"]["welcome_dialog_acknowledged_at"] == datetime(
-        2026, 4, 10, 0, 0, tzinfo=timezone.utc
+        2026, 4, 10, 0, 0, tzinfo=UTC
     )
 
 
@@ -176,8 +181,8 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
                 "source_type": "subscription",
                 "source_bid": "sub-1",
                 "available_credits": 97.5,
-                "effective_from": datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc),
-                "effective_to": datetime(2026, 5, 1, 0, 0, tzinfo=timezone.utc),
+                "effective_from": datetime(2026, 4, 1, 0, 0, tzinfo=UTC),
+                "effective_to": datetime(2026, 5, 1, 0, 0, tzinfo=UTC),
                 "priority": 20,
                 "status": "active",
             }
@@ -187,42 +192,52 @@ def test_billing_dto_json_serializes_metric_breakdowns_and_bucket_lists() -> Non
 
 def test_runtime_config_dto_json_uses_public_aliases() -> None:
     dto = RuntimeConfigDTO(
-        defaultLlmModel="gpt-5.4",
-        wechatAppId="wechat-app-1",
-        enableWechatCode=True,
-        billingEnabled=True,
-        billingCreditPrecision=2,
-        stripePublishableKey="pk_test_123",
-        stripeEnabled=True,
-        paymentChannels=["stripe", "pingxx"],
-        payOrderExpireSeconds=600,
-        alwaysShowLessonTree=False,
-        logoWideUrl="https://cdn.example.com/logo-wide.png",
-        logoSquareUrl="https://cdn.example.com/logo-square.png",
-        faviconUrl="https://cdn.example.com/favicon.ico",
-        umamiScriptSrc="",
-        umamiWebsiteId="",
-        enableEruda=False,
-        loginMethodsEnabled=["phone"],
-        defaultLoginMethod="phone",
-        googleOauthRedirect="https://example.com/login/google-callback",
-        homeUrl="/",
-        contactUsUrl="https://ai-shifu.cn/contact.html",
-        officialSiteUrl="https://official.example.com",
-        currencySymbol="¥",
-        legalUrls=RuntimeLegalUrlsDTO(
+        wechat_app_id="wechat-app-1",
+        enable_wechat_code=True,
+        billing_enabled=True,
+        billing_credit_precision=2,
+        stripe_publishable_key="pk_test_123",
+        stripe_enabled=True,
+        payment_channels=["stripe", "pingxx"],
+        pay_order_expire_seconds=600,
+        always_show_lesson_tree=False,
+        logo_wide_url="https://cdn.example.com/logo-wide.png",
+        logo_square_url="https://cdn.example.com/logo-square.png",
+        favicon_url="https://cdn.example.com/favicon.ico",
+        umami_script_src="",
+        umami_website_id="",
+        enable_eruda=False,
+        login_methods_enabled=["phone"],
+        default_login_method="phone",
+        google_oauth_redirect="https://example.com/login/google-callback",
+        home_url="/",
+        contact_us_url="https://ai-shifu.cn/contact.html",
+        official_site_url="https://official.example.com",
+        currency_symbol="¥",
+        default_course_price=0,
+        minimum_paid_course_price=0.01,
+        legal_urls=RuntimeLegalUrlsDTO(
             agreement=RuntimeLocalizedUrlDTO(
                 **{
                     "zh-CN": "/legal/agreement/zh",
                     "en-US": "/legal/agreement/en",
+                    "de-DE": "/legal/agreement/de",
+                    "es-ES": "/legal/agreement/es",
                     "fr-FR": "/legal/agreement/fr",
+                    "ar-SA": "/legal/agreement/ar",
+                    "th-TH": "/legal/agreement/th",
+                    "ur-PK": "",
                 }
             ),
             privacy=RuntimeLocalizedUrlDTO(
                 **{
                     "zh-CN": "/legal/privacy/zh",
                     "en-US": "/legal/privacy/en",
+                    "de-DE": "/legal/privacy/de",
+                    "es-ES": "/legal/privacy/es",
                     "fr-FR": "/legal/privacy/fr",
+                    "ar-SA": "/legal/privacy/ar",
+                    "th-TH": "/legal/privacy/th",
                 }
             ),
         ),
@@ -261,7 +276,12 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert payload["legalUrls"]["agreement"] == {
         "zh-CN": "/legal/agreement/zh",
         "en-US": "/legal/agreement/en",
+        "de-DE": "/legal/agreement/de",
+        "es-ES": "/legal/agreement/es",
         "fr-FR": "/legal/agreement/fr",
+        "ar-SA": "/legal/agreement/ar",
+        "th-TH": "/legal/agreement/th",
+        "ur-PK": "",
     }
     assert payload["billingEnabled"] is True
     assert payload["billingCreditPrecision"] == 2
@@ -269,6 +289,40 @@ def test_runtime_config_dto_json_uses_public_aliases() -> None:
     assert payload["branding"]["home_url"] == "https://creator.example.com"
     assert payload["contactUsUrl"] == "https://ai-shifu.cn/contact.html"
     assert payload["officialSiteUrl"] == "https://official.example.com"
+    assert dto.billing_enabled is True
+    assert dto.official_site_url == "https://official.example.com"
+    assert set(payload) == {
+        "wechatAppId",
+        "enableWechatCode",
+        "billingEnabled",
+        "billingCreditPrecision",
+        "stripePublishableKey",
+        "stripeEnabled",
+        "paymentChannels",
+        "payOrderExpireSeconds",
+        "alwaysShowLessonTree",
+        "logoWideUrl",
+        "logoSquareUrl",
+        "faviconUrl",
+        "umamiScriptSrc",
+        "umamiWebsiteId",
+        "enableEruda",
+        "loginMethodsEnabled",
+        "defaultLoginMethod",
+        "googleOauthRedirect",
+        "homeUrl",
+        "contactUsUrl",
+        "officialSiteUrl",
+        "currencySymbol",
+        "defaultCoursePrice",
+        "minimumPaidCoursePrice",
+        "legalUrls",
+        "entitlements",
+        "branding",
+        "domain",
+        "customizationCapabilities",
+        "paymentConfigurationReady",
+    }
     assert (
         payload["branding"]["contact_us_url"] == "https://creator.example.com/contact"
     )

@@ -6,21 +6,20 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import math
-from typing import Optional
-from flask import Flask
+from typing import TYPE_CHECKING
+
 from flaskr.dao import db
-from flaskr.service.learn.models import (
-    LearnLessonFeedback,
-)
 from flaskr.service.common.models import (
     raise_param_error,
+)
+from flaskr.service.learn.models import (
+    LearnLessonFeedback,
 )
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseRatingItemDTO,
     AdminOperationCourseRatingListDTO,
     AdminOperationCourseRatingSummaryDTO,
 )
-
 from flaskr.service.shifu.admin_operations.courses_follow_ups import (
     _build_follow_up_user_keyword_filter,
     _resolve_follow_up_matching_outline_bids,
@@ -33,6 +32,9 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _load_user_map,
     _normalize_identifier,
 )
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def _resolve_course_rating_mode(value: str) -> str:
@@ -57,9 +59,10 @@ def get_operator_course_ratings(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
     include_summary: bool = True,
 ) -> AdminOperationCourseRatingListDTO:
+    """Return operator course ratings."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -85,7 +88,7 @@ def get_operator_course_ratings(
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
 
-        normalized_score_filter: Optional[int] = None
+        normalized_score_filter: int | None = None
         if score_filter:
             if score_filter not in {"1", "2", "3", "4", "5"}:
                 raise_param_error("score")

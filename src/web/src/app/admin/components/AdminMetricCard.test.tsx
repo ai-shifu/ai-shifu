@@ -1,0 +1,204 @@
+import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { AdminMetricCardGroup } from './AdminMetricCard';
+
+describe('AdminMetricCardGroup', () => {
+  test('renders the titled card group and handles metric clicks', () => {
+    const onClick = jest.fn();
+
+    render(
+      <AdminMetricCardGroup
+        title='Data overview'
+        items={[
+          {
+            key: 'total',
+            label: 'Total courses',
+            value: '18',
+            tooltip: 'All course records',
+            onClick,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Data overview')).toBeInTheDocument();
+    expect(screen.getByText('Total courses')).toBeInTheDocument();
+    expect(screen.getByText('18')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Total courses' }));
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  test('supports inset control hover mode without changing tooltip labels', () => {
+    render(
+      <AdminMetricCardGroup
+        items={[
+          {
+            key: 'pending',
+            label: 'Pending notifications',
+            value: 12,
+            tooltip: 'Pending notification records',
+            onClick: jest.fn(),
+          },
+        ]}
+        cardHoverMode='control'
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Pending notifications' }),
+    ).toHaveClass('-m-2');
+    expect(
+      screen.getByRole('button', { name: 'Pending notification records' }),
+    ).toBeInTheDocument();
+  });
+
+  test('applies className when the group has no title', () => {
+    const { container } = render(
+      <AdminMetricCardGroup
+        className='metric-group-wrapper'
+        items={[
+          {
+            key: 'sent',
+            label: 'Sent notifications',
+            value: 8,
+            tooltip: 'Sent notification records',
+          },
+        ]}
+      />,
+    );
+
+    expect(container.firstChild).toHaveClass('metric-group-wrapper');
+  });
+
+  test('keeps card hover on non-clickable card-mode metrics', () => {
+    render(
+      <AdminMetricCardGroup
+        items={[
+          {
+            key: 'paid',
+            label: 'Paid amount',
+            value: '$18',
+            tooltip: 'Total paid amount',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Paid amount').closest('.rounded-lg')).toHaveClass(
+      'hover:border-primary/30',
+    );
+  });
+
+  test('limits clickable card-mode hover to the metric control', () => {
+    render(
+      <AdminMetricCardGroup
+        items={[
+          {
+            key: 'failed',
+            label: 'Failed notifications',
+            value: 2,
+            tooltip: 'Failed notification records',
+            onClick: jest.fn(),
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Failed notifications' }),
+    ).toHaveClass('metric-control');
+    expect(
+      screen.getByText('Failed notifications').closest('.rounded-lg'),
+    ).toHaveClass('has-[.metric-control:hover]:border-primary/30');
+  });
+
+  test('renders shared stale warning and active filter chip', () => {
+    const onClear = jest.fn();
+
+    render(
+      <AdminMetricCardGroup
+        title='Order overview'
+        staleMessage='Showing the last successful overview'
+        activeFilter={{
+          label: 'Active filter',
+          value: 'Paid orders',
+          clearAriaLabel: 'Paid orders Clear',
+          onClear,
+        }}
+        items={[
+          {
+            key: 'paid',
+            label: 'Paid orders',
+            value: 5,
+            tooltip: 'Paid order records',
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByText('Showing the last successful overview'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Active filter')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Paid orders Clear' }));
+
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  test('supports count-card styling and compact sizing for detail metrics', () => {
+    render(
+      <AdminMetricCardGroup
+        cardVariant='count'
+        cardSize='compact'
+        items={[
+          {
+            key: 'learners',
+            label: 'Learners',
+            value: 128,
+            tooltip: 'Users who started or joined this course',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Learners').closest('.relative')).toHaveClass(
+      'p-4',
+      'hover:border-primary/30',
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Users who started or joined this course',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  test('requires action labels for clickable metrics with non-text labels', () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    expect(() =>
+      render(
+        <AdminMetricCardGroup
+          items={[
+            // @ts-expect-error actionLabel is required for clickable non-text labels.
+            {
+              key: 'custom',
+              label: React.createElement('span', null, 'Custom metric'),
+              value: 7,
+              tooltip: 'Custom metric tooltip',
+              onClick: jest.fn(),
+            },
+          ]}
+        />,
+      ),
+    ).toThrow(
+      'AdminMetricCard requires actionLabel when a clickable metric uses a non-text label.',
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+});

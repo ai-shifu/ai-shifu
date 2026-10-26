@@ -4,20 +4,15 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date, datetime
-from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
-
-from flask import Flask
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import (
-    cleanup_session_after,
     db,
-    invalidate_session,
-    is_abnormal_stream_termination,
 )
 from flaskr.service.common.dtos import UserInfo
+from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
@@ -26,14 +21,17 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
 
+if TYPE_CHECKING:
+    from flask import Flask
 
 logger = logging.getLogger(__name__)
 
 STATE_MAPPING = {
+    3: USER_STATE_PAID,
     USER_STATE_UNREGISTERED: USER_STATE_UNREGISTERED,
     USER_STATE_REGISTERED: USER_STATE_REGISTERED,
     USER_STATE_TRAIL: USER_STATE_TRAIL,
@@ -48,6 +46,10 @@ STATE_MAPPING = {
     "1104": USER_STATE_PAID,
 }
 
+WECHAT_PROVIDER = "wechat"
+WECHAT_OPEN_ID_FORMAT = "open_id"
+WECHAT_UNION_ID_FORMAT = "unicon_id"
+
 STATE_TO_PUBLIC_STATE = {
     USER_STATE_UNREGISTERED: 0,
     USER_STATE_REGISTERED: 1,
@@ -58,39 +60,75 @@ STATE_TO_PUBLIC_STATE = {
 
 @dataclass
 class CredentialSummary:
+    """Summarize authentication credentials linked to a user."""
+
     credential_bid: str
     provider: str
     identifier: str
     subject_id: str
     subject_format: str
     state: int
-    metadata: Dict[str, Optional[str]] = field(default_factory=dict)
+    metadata: dict[str, str | None] = field(default_factory=dict)
 
     @property
     def is_verified(self) -> bool:
+        """Return whether the credential is verified."""
         return self.state == CREDENTIAL_STATE_VERIFIED
+
+    @property
+    def app_id(self) -> str:
+        """Return the provider app that issued this credential, if scoped.
+
+        Subjects issued by a creator's own provider app are stored as
+        ``"<app_id>:<subject_id>"`` so they cannot collide with the ones the
+        platform app issues; a bare subject means the platform app.
+        """
+        suffix = f":{self.subject_id}"
+        if self.subject_id and self.identifier.endswith(suffix):
+            return self.identifier[: -len(suffix)]
+        return ""
+
+
+def _preferred_credential(credentials: list[CredentialSummary]) -> CredentialSummary:
+    """Pick one credential out of several equally valid ones.
+
+    Verified beats unverified, then the most recently written row wins: when a
+    learner signs in from a second account of the same provider app, the new
+    subject lands in a new row and the old one is what they just stopped using.
+    Rows reach the aggregate in primary-key order (see ``list_credentials``), so
+    the later position is the later write -- a more reliable ordering than
+    ``created_at``, which backfilled rows can share down to the second.
+    """
+    return max(
+        enumerate(credentials),
+        key=lambda item: (item[1].is_verified, item[0]),
+    )[1]
 
 
 @dataclass
 class UserAggregate:
+    """Combine user identity and profile data for repository reads."""
+
     user_bid: str
     identify: str
     nickname: str
+    learner_profile: str
+    learner_profile_updated_at: datetime | None
     avatar: str
-    birthday: Optional[date]
+    birthday: date | None
     language: str
     state: int
     deleted: bool
     created_at: datetime
-    creator_activated_at: Optional[datetime]
+    creator_activated_at: datetime | None
     updated_at: datetime
-    credentials: List[CredentialSummary] = field(default_factory=list)
+    credentials: list[CredentialSummary] = field(default_factory=list)
     is_creator: bool = False
     is_operator: bool = False
 
     def _preferred_identifier(
         self, provider: str, *, prefer_verified: bool = True
-    ) -> Optional[CredentialSummary]:
+    ) -> CredentialSummary | None:
         matches = [c for c in self.credentials if c.provider == provider]
         if not matches:
             return None
@@ -102,6 +140,7 @@ class UserAggregate:
 
     @property
     def email(self) -> str:
+        """Return the preferred email address, if available."""
         credential = self._preferred_identifier("email")
         if credential:
             return credential.identifier
@@ -111,6 +150,7 @@ class UserAggregate:
 
     @property
     def mobile(self) -> str:
+        """Return the preferred mobile number, if available."""
         credential = self._preferred_identifier("phone")
         if credential:
             return credential.identifier
@@ -118,28 +158,58 @@ class UserAggregate:
             return self.identify
         return ""
 
+    def _wechat_subject(self, subject_format: str, app_id: str) -> str:
+        matches = [
+            credential
+            for credential in self.credentials
+            if credential.provider == WECHAT_PROVIDER
+            and credential.subject_format == subject_format
+        ]
+        if not matches:
+            return ""
+        scoped = [credential for credential in matches if credential.app_id == app_id]
+        if scoped:
+            return _preferred_credential(scoped).subject_id
+        if app_id:
+            # A subject issued by a different app is not a usable substitute:
+            # WeChat rejects it outright. Report nothing so the caller can say
+            # so, rather than handing over a value that is certain to fail.
+            return ""
+        return _preferred_credential(matches).subject_id
+
+    def wechat_open_id_for_app(self, app_id: str = "") -> str:
+        """Return the WeChat open ID issued by ``app_id``, if present.
+
+        An account can legitimately hold one open ID per WeChat app: the
+        platform app plus, for learners of a creator who runs their own
+        official account, that creator's app. WeChat JSAPI payment only accepts
+        the open ID issued by the app it is charging through, so a caller that
+        names an app gets that app's subject or nothing at all.
+
+        Passing an empty ``app_id`` asks a weaker question -- "is this account
+        bound to WeChat at all?" -- and prefers the platform app while accepting
+        any other subject. That is what the serialized profile answers, and what
+        callers with no app in hand need.
+        """
+        return self._wechat_subject(WECHAT_OPEN_ID_FORMAT, app_id)
+
+    def wechat_union_id_for_app(self, app_id: str = "") -> str:
+        """Return the WeChat union ID issued by ``app_id``, if present."""
+        return self._wechat_subject(WECHAT_UNION_ID_FORMAT, app_id)
+
     @property
     def wechat_open_id(self) -> str:
-        for credential in self.credentials:
-            if (
-                credential.provider == "wechat"
-                and credential.subject_format == "open_id"
-            ):
-                return credential.subject_id
-        return ""
+        """Return the platform app's WeChat open ID, or the best one available."""
+        return self.wechat_open_id_for_app()
 
     @property
     def wechat_union_id(self) -> str:
-        for credential in self.credentials:
-            if (
-                credential.provider == "wechat"
-                and credential.subject_format == "unicon_id"
-            ):
-                return credential.subject_id
-        return ""
+        """Return the platform app's WeChat union ID, or the best one available."""
+        return self.wechat_union_id_for_app()
 
     @property
     def username(self) -> str:
+        """Return the account username, if present."""
         if self.identify:
             return self.identify
         if self.email:
@@ -150,14 +220,17 @@ class UserAggregate:
 
     @property
     def display_name(self) -> str:
+        """Return the learner-facing display name."""
         return self.nickname
 
     @property
     def user_language(self) -> str:
+        """Return the learner's preferred language."""
         return self.language or "en-US"
 
     @property
     def public_state(self) -> int:
+        """Return the learner's public account state."""
         return STATE_TO_PUBLIC_STATE.get(self.state, 0)
 
     # Compatibility accessors for legacy call sites that previously relied on
@@ -167,25 +240,31 @@ class UserAggregate:
 
     @property
     def user_id(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted user business identifier."""
         return self.user_bid
 
     @property
     def name(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted user name."""
         return self.display_name
 
     @property
     def user_state(self) -> int:  # pragma: no cover - trivial alias
+        """Return the persisted user state."""
         return self.state
 
     @property
     def user_avatar(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted avatar URL."""
         return self.avatar
 
     @property
     def user_open_id(self) -> str:  # pragma: no cover - trivial alias
+        """Return the persisted user open ID."""
         return self.wechat_open_id
 
     def to_user_info(self) -> UserInfo:
+        """Convert the aggregate into public user information."""
         return UserInfo(
             user_id=self.user_bid,
             username=self.username,
@@ -201,46 +280,47 @@ class UserAggregate:
         )
 
 
-def _normalize_identifier(provider: str, identifier: Optional[str]) -> str:
+def _normalize_identifier(provider: str, identifier: str | None) -> str:
     if not identifier:
         return ""
     normalized = identifier.strip()
-    if provider in {"email"}:
+    if provider == "email":
         return normalized.lower()
-    if provider in {"phone"}:
+    if provider == "phone":
         return normalize_phone_identifier(normalized)
     return normalized
 
 
 def _summarize_credentials(
-    credentials: List[AuthCredential],
-) -> List[CredentialSummary]:
-    summaries: List[CredentialSummary] = []
-    for credential in credentials:
-        summaries.append(
-            CredentialSummary(
-                credential_bid=credential.credential_bid,
-                provider=credential.provider_name,
-                identifier=credential.identifier,
-                subject_id=credential.subject_id,
-                subject_format=credential.subject_format,
-                state=credential.state,
-                metadata=deserialize_raw_profile(credential),
-            )
+    credentials: list[AuthCredential],
+) -> list[CredentialSummary]:
+    summaries: list[CredentialSummary] = [
+        CredentialSummary(
+            credential_bid=credential.credential_bid,
+            provider=credential.provider_name,
+            identifier=credential.identifier,
+            subject_id=credential.subject_id,
+            subject_format=credential.subject_format,
+            state=credential.state,
+            metadata=deserialize_raw_profile(credential),
         )
+        for credential in credentials
+    ]
     return summaries
 
 
 def _build_user_aggregate(
     entity: UserEntity,
     *,
-    credentials: Optional[List[AuthCredential]] = None,
+    credentials: list[AuthCredential] | None = None,
 ) -> UserAggregate:
     summaries = _summarize_credentials(credentials or [])
-    aggregate = UserAggregate(
+    return UserAggregate(
         user_bid=entity.user_bid,
         identify=entity.user_identify or "",
         nickname=entity.nickname or "",
+        learner_profile=entity.learner_profile or "",
+        learner_profile_updated_at=entity.learner_profile_updated_at,
         avatar=entity.avatar or "",
         birthday=entity.birthday,
         language=entity.language or "",
@@ -253,12 +333,12 @@ def _build_user_aggregate(
         is_creator=bool(entity.is_creator),
         is_operator=bool(entity.is_operator),
     )
-    return aggregate
 
 
 def get_user_entity_by_bid(
     user_bid: str, *, include_deleted: bool = False
-) -> Optional[UserEntity]:
+) -> UserEntity | None:
+    """Return user entity by BID."""
     query = UserEntity.query.filter_by(user_bid=user_bid)
     if not include_deleted:
         query = query.filter_by(deleted=0)
@@ -270,15 +350,17 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     if entity:
         return entity
     identify = user_bid
-    nickname: Optional[str] = None
-    language: Optional[str] = None
-    avatar: Optional[str] = None
-    birthday: Optional[date] = None
+    nickname: str | None = None
+    language: str | None = None
+    avatar: str | None = None
+    birthday: date | None = None
 
     try:
-        from flaskr.service.profile.models import VariableValue  # type: ignore
+        from flaskr.service.profile.models import (
+            VariableValue,  # type: ignore[import-not-found]
+        )
     except ImportError:  # pragma: no cover - defensive fallback
-        VariableValue = None  # type: ignore[assignment]
+        VariableValue = None  # type: ignore[assignment]  # noqa: N806 - keeps the imported class name
 
     rows = []
     if VariableValue is not None:
@@ -329,11 +411,12 @@ def load_user_aggregate(
     *,
     include_deleted: bool = False,
     with_credentials: bool = True,
-) -> Optional[UserAggregate]:
+) -> UserAggregate | None:
+    """Load user aggregate."""
     entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
     if not entity:
         return None
-    credentials: List[AuthCredential] = []
+    credentials: list[AuthCredential] = []
     if with_credentials:
         credentials = list_credentials(user_bid=user_bid)
     return _build_user_aggregate(entity, credentials=credentials)
@@ -342,8 +425,9 @@ def load_user_aggregate(
 def load_user_aggregate_by_identifier(
     identifier: str,
     *,
-    providers: Optional[List[str]] = None,
-) -> Optional[UserAggregate]:
+    providers: list[str] | None = None,
+) -> UserAggregate | None:
+    """Load user aggregate by identifier."""
     normalized = identifier.strip() if identifier else ""
     if not normalized:
         return None
@@ -393,20 +477,21 @@ def ensure_user_aggregate(
     app: Flask,
     *,
     user_bid: str,
-    defaults: Optional[Dict[str, Any]] = None,
-) -> Tuple[UserAggregate, bool]:
+    defaults: dict[str, object] | None = None,
+) -> tuple[UserAggregate, bool]:
     """Ensure a user aggregate exists for ``user_bid``.
 
     Returns the aggregate together with a flag indicating whether it was created.
     ``defaults`` is forwarded to :func:`upsert_user_entity` when creation or updates
     are required.
     """
-
+    _ = app
     defaults = defaults or {}
     entity, created = upsert_user_entity(user_bid=user_bid, defaults=defaults)
     aggregate = load_user_aggregate(entity.user_bid)
     if not aggregate:
-        raise RuntimeError(f"Failed to load user aggregate for {user_bid}")
+        message = f"Failed to load user aggregate for {user_bid}"
+        raise RuntimeError(message)
     return aggregate, created
 
 
@@ -415,10 +500,9 @@ def ensure_user_for_identifier(
     *,
     provider: str,
     identifier: str,
-    defaults: Optional[Dict[str, Any]] = None,
-) -> Tuple[UserAggregate, bool]:
+    defaults: dict[str, object] | None = None,
+) -> tuple[UserAggregate, bool]:
     """Find or create a user aggregate bound to a provider identifier."""
-
     defaults = defaults or {}
     normalized = _normalize_identifier(provider, identifier)
     aggregate = load_user_aggregate_by_identifier(normalized, providers=[provider])
@@ -435,9 +519,8 @@ def ensure_user_for_identifier(
         db.session.flush()
         refreshed = load_user_aggregate(aggregate.user_bid)
         if not refreshed:
-            raise RuntimeError(
-                f"Failed to refresh user aggregate for provider {provider}"
-            )
+            message = f"Failed to refresh user aggregate for provider {provider}"
+            raise RuntimeError(message)
         return refreshed, False
 
     user_bid = defaults.get("user_bid") or generate_id(app)
@@ -453,18 +536,18 @@ def ensure_user_for_identifier(
     db.session.flush()
     aggregate = load_user_aggregate(user_bid)
     if not aggregate:
-        raise RuntimeError(f"Failed to create user aggregate for provider {provider}")
+        message = f"Failed to create user aggregate for provider {provider}"
+        raise RuntimeError(message)
     return aggregate, True
 
 
 def mark_user_roles(
     user_bid: str,
     *,
-    is_creator: Optional[bool] = None,
-    is_operator: Optional[bool] = None,
+    is_creator: bool | None = None,
+    is_operator: bool | None = None,
 ) -> None:
     """Persist role flags on the canonical entity."""
-
     if is_creator is None and is_operator is None:
         return
 
@@ -480,16 +563,21 @@ def create_user_entity(
     *,
     user_bid: str,
     identify: str,
-    nickname: Optional[str] = None,
-    language: Optional[str] = None,
-    avatar: Optional[str] = None,
-    state: Optional[int] = None,
-    birthday: Optional[date] = None,
+    nickname: str | None = None,
+    learner_profile: str | None = None,
+    learner_profile_updated_at: datetime | None = None,
+    language: str | None = None,
+    avatar: str | None = None,
+    state: int | None = None,
+    birthday: date | None = None,
 ) -> UserEntity:
+    """Create user entity."""
     entity = UserEntity(
         user_bid=user_bid,
         user_identify=_normalize_identifier("", identify) or user_bid,
         nickname=nickname or "",
+        learner_profile=learner_profile or "",
+        learner_profile_updated_at=learner_profile_updated_at,
         avatar=avatar or "",
         birthday=birthday,
         language=language or "en-US",
@@ -506,18 +594,26 @@ def create_user_entity(
 def update_user_entity_fields(
     entity: UserEntity,
     *,
-    identify: Optional[str] = None,
-    nickname: Optional[str] = None,
-    avatar: Optional[str] = None,
-    language: Optional[str] = None,
-    state: Optional[int] = None,
-    birthday: Optional[date] = None,
-    deleted: Optional[bool] = None,
+    identify: str | None = None,
+    nickname: str | None = None,
+    learner_profile: str | None = None,
+    learner_profile_updated_at: datetime | None = None,
+    update_learner_profile_timestamp: bool = False,
+    avatar: str | None = None,
+    language: str | None = None,
+    state: int | None = None,
+    birthday: date | None = None,
+    deleted: bool | None = None,
 ) -> UserEntity:
+    """Update user entity fields."""
     if identify is not None:
         entity.user_identify = _normalize_identifier("", identify)
     if nickname is not None:
         entity.nickname = nickname
+    if learner_profile is not None:
+        entity.learner_profile = learner_profile
+    if update_learner_profile_timestamp:
+        entity.learner_profile_updated_at = learner_profile_updated_at
     if avatar is not None:
         entity.avatar = avatar
     if language is not None:
@@ -535,12 +631,15 @@ def update_user_entity_fields(
 def upsert_user_entity(
     *,
     user_bid: str,
-    defaults: Optional[Dict[str, Any]] = None,
-) -> Tuple[UserEntity, bool]:
-    defaults = defaults or {}
+    defaults: dict[str, object] | None = None,
+) -> tuple[UserEntity, bool]:
+    """Create or update user entity."""
+    defaults = dict(defaults or {})
     entity = get_user_entity_by_bid(user_bid, include_deleted=True)
     created = False
     if entity:
+        if "learner_profile_updated_at" in defaults:
+            defaults["update_learner_profile_timestamp"] = True
         update_user_entity_fields(entity, **defaults)
     else:
         created = True
@@ -548,6 +647,8 @@ def upsert_user_entity(
             user_bid=user_bid,
             identify=defaults.get("identify", user_bid),
             nickname=defaults.get("nickname"),
+            learner_profile=defaults.get("learner_profile"),
+            learner_profile_updated_at=defaults.get("learner_profile_updated_at"),
             language=defaults.get("language"),
             avatar=defaults.get("avatar"),
             state=defaults.get("state"),
@@ -558,12 +659,12 @@ def upsert_user_entity(
 
 def set_user_state(user_bid: str, state: int) -> None:
     """Persist the given user state in the canonical ``user_users`` table."""
-
     entity = _ensure_user_entity(user_bid)
     update_user_entity_fields(entity, state=state)
 
 
 def build_user_info_from_aggregate(user: UserAggregate) -> UserInfo:
+    """Build user info from aggregate."""
     return user.to_user_info()
 
 
@@ -575,11 +676,11 @@ VALID_USER_STATES = {
 }
 
 
-def _normalize_user_state(raw_state) -> int:
+def _normalize_user_state(raw_state: object) -> int:
     if raw_state is None:
         return USER_STATE_UNREGISTERED
 
-    # direct mapping (covers 0-3 and string variations we added)
+    # Direct mapping covers canonical states and the legacy public paid value.
     if raw_state in STATE_MAPPING:
         return STATE_MAPPING[raw_state]
 
@@ -603,11 +704,14 @@ def _normalize_user_state(raw_state) -> int:
 
 @dataclass
 class UserProfileSnapshot:
-    user_bid: str
-    legacy: Dict[str, Any] = field(default_factory=dict)
-    credentials: List[Dict[str, Optional[str]]] = field(default_factory=list)
+    """Capture a snapshot of user profile."""
 
-    def to_dict(self) -> Dict[str, Any]:
+    user_bid: str
+    legacy: dict[str, Any] = field(default_factory=dict)
+    credentials: list[dict[str, str | None]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize this value as a dictionary."""
         return {
             "user_bid": self.user_bid,
             "legacy": self.legacy,
@@ -618,6 +722,7 @@ class UserProfileSnapshot:
 def build_user_profile_snapshot_from_aggregate(
     aggregate: UserAggregate,
 ) -> UserProfileSnapshot:
+    """Build user profile snapshot from aggregate."""
     legacy_summary = {
         "user_id": aggregate.user_bid,
         "username": aggregate.username,
@@ -651,15 +756,15 @@ def build_user_profile_snapshot_from_aggregate(
     )
 
 
-def serialize_raw_profile(
-    provider_name: str, metadata: Dict[str, Optional[str]]
-) -> str:
+def serialize_raw_profile(provider_name: str, metadata: dict[str, str | None]) -> str:
+    """Serialize raw profile."""
     return json.dumps(
         {"provider": provider_name, "metadata": metadata}, ensure_ascii=False
     )
 
 
-def deserialize_raw_profile(record: AuthCredential) -> Dict[str, Optional[str]]:
+def deserialize_raw_profile(record: AuthCredential) -> dict[str, str | None]:
+    """Deserialize raw profile."""
     if not record.raw_profile:
         return {}
     try:
@@ -682,7 +787,7 @@ def get_password_hash(credential: AuthCredential) -> str:
 
 def set_password_hash(credential: AuthCredential, password_hash: str) -> None:
     """Write password_hash into raw_profile JSON, preserving other fields."""
-    payload: Dict[str, Any] = {}
+    payload: dict[str, Any] = {}
     if credential.raw_profile:
         try:
             payload = json.loads(credential.raw_profile)
@@ -702,9 +807,10 @@ def upsert_credential(
     subject_id: str,
     subject_format: str,
     identifier: str,
-    metadata: Dict[str, Optional[str]],
+    metadata: dict[str, str | None],
     verified: bool,
 ) -> AuthCredential:
+    """Create or update credential."""
     raw_identifier = (identifier or "").strip()
     subject_id = _normalize_identifier(provider_name, subject_id)
     identifier = _normalize_identifier(provider_name, identifier)
@@ -750,8 +856,9 @@ def upsert_credential(
 
 
 def find_credential(
-    *, provider_name: str, identifier: str, user_bid: Optional[str] = None
-) -> Optional[AuthCredential]:
+    *, provider_name: str, identifier: str, user_bid: str | None = None
+) -> AuthCredential | None:
+    """Find credential."""
     raw_identifier = (identifier or "").strip()
     identifier = _normalize_identifier(provider_name, identifier)
     lookup_identifiers = [identifier]
@@ -768,15 +875,20 @@ def find_credential(
 
 
 def list_credentials(
-    *, user_bid: str, provider_name: Optional[str] = None
-) -> List[AuthCredential]:
+    *, user_bid: str, provider_name: str | None = None
+) -> list[AuthCredential]:
+    """Return credentials, oldest first."""
     query = AuthCredential.query.filter_by(user_bid=user_bid, deleted=0)
     if provider_name:
         query = query.filter_by(provider_name=provider_name)
-    return query.all()
+    # Callers pick one row out of several (see ``_preferred_credential``), so the
+    # order has to be the same on every read rather than whatever the engine
+    # happens to return.
+    return query.order_by(AuthCredential.id.asc()).all()
 
 
-def get_first_verified_credential_created_at(*, user_bid: str) -> Optional[datetime]:
+def get_first_verified_credential_created_at(*, user_bid: str) -> datetime | None:
+    """Return first verified credential created at."""
     row = (
         AuthCredential.query.filter(
             AuthCredential.deleted == 0,
@@ -796,15 +908,16 @@ def upsert_wechat_credentials(
     app: Flask,
     *,
     user_bid: str,
-    open_id: Optional[str],
-    union_id: Optional[str],
-    open_identifier: Optional[str] = None,
-    union_identifier: Optional[str] = None,
-    metadata: Optional[Dict[str, Optional[str]]] = None,
+    open_id: str | None,
+    union_id: str | None,
+    open_identifier: str | None = None,
+    union_identifier: str | None = None,
+    metadata: dict[str, str | None] | None = None,
     verified: bool = True,
-) -> List[AuthCredential]:
+) -> list[AuthCredential]:
+    """Create or update wechat credentials."""
     metadata = metadata or {}
-    credentials: List[AuthCredential] = []
+    credentials: list[AuthCredential] = []
 
     if open_id:
         credentials.append(
@@ -835,33 +948,3 @@ def upsert_wechat_credentials(
         )
 
     return credentials
-
-
-@contextmanager
-def transactional_session():
-    # Managed manually instead of ``with begin_nested()``: the context
-    # manager's __exit__ would emit ROLLBACK TO SAVEPOINT on the wire BEFORE
-    # any classification could run, which is exactly what must not happen on
-    # a connection whose exchange was interrupted.
-    nested = db.session.begin_nested()
-    try:
-        yield
-    except Exception as exc:
-        if is_abnormal_stream_termination(exc):
-            invalidate_session(source="transactional_session desync")
-        else:
-            try:
-                nested.rollback()
-            except Exception:  # noqa: BLE001 - savepoint already broken
-                invalidate_session(source="transactional_session rollback failure")
-            # Preserve the legacy contract: a failure rolls back the whole
-            # session transaction, not only the savepoint.
-            cleanup_session_after(exc, source="transactional_session")
-        raise
-    except BaseException:
-        # GreenletExit landing inside the body's DB IO: discard before any
-        # cleanup could touch the wire.
-        invalidate_session(source="transactional_session interrupt")
-        raise
-    else:
-        nested.commit()

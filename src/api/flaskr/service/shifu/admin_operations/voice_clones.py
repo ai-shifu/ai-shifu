@@ -1,14 +1,14 @@
+"""Handle voice clones for course-administration operations."""
+
 from __future__ import annotations
 
 import math
 from decimal import Decimal
-from typing import Any, Optional, Sequence, Set
-
-from flask import Flask
-from sqlalchemy import or_
+from typing import TYPE_CHECKING
 
 from flaskr.api.tts import get_default_voice_settings, synthesize_text
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.shifu.admin_operations.shared import (
     format_operator_datetime,
@@ -16,17 +16,27 @@ from flaskr.service.shifu.admin_operations.shared import (
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
 from flaskr.service.tts.api import (
-    is_valid_minimax_custom_voice_id,
+    get_clone_provider_spec,
     serialize_minimax_cloned_voice,
+    verify_volcengine_voice_id,
 )
 from flaskr.service.tts.models import (
-    TTSMiniMaxClonedVoice,
+    TTS_CLONE_PROVIDER_MINIMAX,
+    TTS_CLONE_PROVIDER_VOLCENGINE,
     TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
     TTS_MINIMAX_CLONE_STATUS_READY,
+    TTSMiniMaxClonedVoice,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy import or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from flask import Flask
 
 OPERATOR_VOICE_CLONE_SOURCE_METHOD = "operator_register"
 # Short text/model used only to validate a registered voice_id against the
@@ -55,7 +65,7 @@ def _normalize_text(value: object) -> str:
     return str(value or "").strip()
 
 
-def _decimal_to_str(value: Any) -> str:
+def _decimal_to_str(value: object) -> str:
     if value is None:
         return "0"
     if isinstance(value, Decimal):
@@ -63,7 +73,7 @@ def _decimal_to_str(value: Any) -> str:
     return str(value)
 
 
-def _find_matching_course_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_course_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_text(keyword)
     if not normalized:
         return None
@@ -93,7 +103,7 @@ def _find_matching_course_bids(keyword: str) -> Optional[Set[str]]:
     }
 
 
-def _find_matching_voice_owner_bids(keyword: str) -> Optional[Set[str]]:
+def _find_matching_voice_owner_bids(keyword: str) -> set[str] | None:
     normalized = _normalize_text(keyword)
     if not normalized:
         return None
@@ -187,7 +197,7 @@ def _serialize_voice_clone(
     *,
     user_map: dict[str, dict[str, str]],
     course_map: dict[str, dict[str, str]],
-) -> dict[str, Any]:
+) -> dict[str, object]:
     owner_user_bid = _normalize_text(row.owner_user_bid)
     shifu_bid = _normalize_text(row.shifu_bid)
     user = user_map.get(owner_user_bid, {})
@@ -195,6 +205,7 @@ def _serialize_voice_clone(
     return {
         "voice_bid": row.voice_bid or "",
         "display_name": row.display_name or "",
+        "provider": row.provider or TTS_CLONE_PROVIDER_MINIMAX,
         "voice_id": row.voice_id or "",
         "owner_user_bid": owner_user_bid,
         "owner_mobile": user.get("mobile", ""),
@@ -233,8 +244,9 @@ def list_operator_voice_clones(
     *,
     page_index: int,
     page_size: int,
-    filters: dict[str, Any],
-) -> dict[str, Any]:
+    filters: dict[str, object],
+) -> dict[str, object]:
+    """Return operator voice clones."""
     with app.app_context():
         page_index = max(int(page_index or 1), 1)
         page_size = min(
@@ -243,6 +255,10 @@ def list_operator_voice_clones(
         )
 
         query = TTSMiniMaxClonedVoice.query.filter(TTSMiniMaxClonedVoice.deleted == 0)
+
+        provider = _normalize_text(filters.get("provider")).lower()
+        if provider:
+            query = query.filter(TTSMiniMaxClonedVoice.provider == provider)
 
         status = _normalize_text(filters.get("status"))
         if status:
@@ -353,8 +369,19 @@ def _verify_minimax_voice_id(voice_id: str) -> None:
             provider_name="minimax",
             model=OPERATOR_VOICE_VERIFY_MODEL,
         )
-    except Exception as exc:  # noqa: BLE001 - surface the real reason to the operator
+    except Exception as exc:  # surface the real reason to the operator
         raise_param_error(f"voice_id verification failed: {exc}")
+
+
+# Per-provider voice_id verification for operator registration. MiniMax needs
+# a real (paid) test synthesis to prove the id and keep it alive past the 168h
+# unused-voice expiry; Volcengine has a free status API and no expiry.
+_VOICE_ID_VERIFIERS = {
+    TTS_CLONE_PROVIDER_MINIMAX: _verify_minimax_voice_id,
+    TTS_CLONE_PROVIDER_VOLCENGINE: verify_volcengine_voice_id,
+}
+
+OPERATOR_VOICE_CLONE_PROVIDERS = frozenset(_VOICE_ID_VERIFIERS)
 
 
 def register_operator_voice_clone(
@@ -364,17 +391,26 @@ def register_operator_voice_clone(
     owner_user_bid: str,
     display_name: str,
     voice_id: str,
-) -> dict[str, Any]:
-    """Register a MiniMax voice cloned on the console and assign it to a teacher.
+    provider: str = TTS_CLONE_PROVIDER_MINIMAX,
+) -> dict[str, object]:
+    """Register a voice cloned on a provider console and assign it to a teacher.
 
-    Operations-managed path: an operator clones a voice on the platform MiniMax
-    account, then registers the resulting ``voice_id`` here for a specific
-    teacher. No audio is uploaded and no creator credits are charged; the row is
-    written directly as ``ready`` / ``billing_status=not_required`` so it shows
-    up in that teacher's course voice dropdown. A short test synthesis validates
-    the id against the platform account and keeps it alive.
+    Operations-managed path: an operator clones a voice on the platform account
+    of the given provider (MiniMax console, or a Volcengine speaker slot), then
+    registers the resulting ``voice_id`` here for a specific teacher. No audio
+    is uploaded and no creator credits are charged; the row is written directly
+    as ``ready`` / ``billing_status=not_required`` so it shows up in that
+    teacher's course voice dropdown. The id is verified against the platform
+    account first (MiniMax: short paid test synthesis that also keeps the voice
+    alive; Volcengine: free training-status query).
     """
     del operator_user_bid  # recorded by the route for audit; not persisted here
+    normalized_provider = (
+        _normalize_text(provider).lower() or TTS_CLONE_PROVIDER_MINIMAX
+    )
+    provider_spec = get_clone_provider_spec(normalized_provider)
+    if provider_spec is None or normalized_provider not in _VOICE_ID_VERIFIERS:
+        raise_param_error("provider is invalid")
     normalized_owner_bid = _normalize_text(owner_user_bid)
     if not normalized_owner_bid:
         raise_param_error("owner_user_bid is required")
@@ -382,46 +418,49 @@ def register_operator_voice_clone(
     if not normalized_display_name:
         raise_param_error("display_name is required")
     normalized_voice_id = _normalize_text(voice_id)
-    if not is_valid_minimax_custom_voice_id(normalized_voice_id):
+    if not provider_spec.is_valid_custom_voice_id(normalized_voice_id):
         raise_param_error("voice_id is invalid")
 
-    with app.app_context():
-        # Validate the voice_id against the platform MiniMax account before any
-        # DB query, so this external HTTP call does not hold a database
+    with app_context_scope(app):
+        # Validate the voice_id against the platform provider account before
+        # any DB query, so this external HTTP call does not hold a database
         # connection / open transaction while it runs.
-        _verify_minimax_voice_id(normalized_voice_id)
+        _VOICE_ID_VERIFIERS[normalized_provider](normalized_voice_id)
 
-        owner = UserEntity.query.filter(
-            UserEntity.user_bid == normalized_owner_bid,
-            UserEntity.deleted == 0,
-        ).first()
-        if owner is None:
-            raise_param_error("owner_user_bid not found")
-        if not int(owner.is_creator or 0):
-            raise_param_error("owner_user_bid is not a teacher")
+        with unit_of_work():
+            owner = UserEntity.query.filter(
+                UserEntity.user_bid == normalized_owner_bid,
+                UserEntity.deleted == 0,
+            ).first()
+            if owner is None:
+                raise_param_error("owner_user_bid not found")
+            if not int(owner.is_creator or 0):
+                raise_param_error("owner_user_bid is not a teacher")
 
-        existing = TTSMiniMaxClonedVoice.query.filter(
-            TTSMiniMaxClonedVoice.deleted == 0,
-            TTSMiniMaxClonedVoice.owner_user_bid == normalized_owner_bid,
-            TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
-        ).first()
-        if existing is not None:
-            raise_param_error("voice_id already exists")
+            existing = TTSMiniMaxClonedVoice.query.filter(
+                TTSMiniMaxClonedVoice.deleted == 0,
+                TTSMiniMaxClonedVoice.owner_user_bid == normalized_owner_bid,
+                TTSMiniMaxClonedVoice.provider == normalized_provider,
+                TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
+            ).first()
+            if existing is not None:
+                raise_param_error("voice_id already exists")
 
-        row = TTSMiniMaxClonedVoice(
-            voice_bid=generate_id(app),
-            owner_user_bid=normalized_owner_bid,
-            shifu_bid="",
-            display_name=normalized_display_name,
-            voice_id=normalized_voice_id,
-            status=TTS_MINIMAX_CLONE_STATUS_READY,
-            status_msg="",
-            source_capture_method=OPERATOR_VOICE_CLONE_SOURCE_METHOD,
-            billing_status=TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
-            estimated_credits=0,
-            charged_credits=0,
-            ready_at=now_utc(),
-        )
-        db.session.add(row)
-        db.session.commit()
-        return serialize_minimax_cloned_voice(row)
+            row = TTSMiniMaxClonedVoice(
+                voice_bid=generate_id(app),
+                owner_user_bid=normalized_owner_bid,
+                shifu_bid="",
+                display_name=normalized_display_name,
+                provider=normalized_provider,
+                voice_id=normalized_voice_id,
+                status=TTS_MINIMAX_CLONE_STATUS_READY,
+                status_msg="",
+                source_capture_method=OPERATOR_VOICE_CLONE_SOURCE_METHOD,
+                billing_status=TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
+                estimated_credits=0,
+                charged_credits=0,
+                ready_at=now_utc(),
+            )
+            db.session.add(row)
+            db.session.flush()
+            return serialize_minimax_cloned_voice(row)

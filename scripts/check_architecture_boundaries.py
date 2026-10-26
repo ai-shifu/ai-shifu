@@ -11,9 +11,8 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
-FRONTEND_ROOT = ROOT / "src" / "cook-web" / "src"
+FRONTEND_ROOT = ROOT / "src" / "web" / "src"
 BACKEND_ROOT = ROOT / "src" / "api"
 DEFAULT_BASELINE = ROOT / "docs" / "generated" / "architecture-boundary-baseline.json"
 FIXTURE_ROOT = ROOT / "scripts" / "testdata" / "architecture_boundaries"
@@ -40,6 +39,8 @@ BACKEND_STABLE_MODULE_SUFFIXES = {"api", "dtos", "models", "consts"}
 
 @dataclass(frozen=True)
 class Violation:
+    """Describe one detected architecture-boundary violation."""
+
     key: str
     rule_id: str
     source: str
@@ -49,31 +50,36 @@ class Violation:
 
 
 def make_key(rule_id: str, source: str, target: str) -> str:
+    """Build key."""
     return f"{rule_id}|{source}|{target}"
 
 
 def normalize_posix(path: Path) -> str:
+    """Normalize posix."""
     return path.as_posix()
 
 
 def read_text(path: Path) -> str:
+    """Read text."""
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def collect_frontend_imports(path: Path, frontend_root: Path) -> list[str]:
-    imports: list[str] = []
+def collect_frontend_imports(path: Path) -> list[str]:
+    """Collect frontend imports."""
     text = read_text(path)
-    for match in IMPORT_FROM_PATTERN.findall(text):
-        imports.append(match.strip())
+    imports: list[str] = [match.strip() for match in IMPORT_FROM_PATTERN.findall(text)]
     # Support dynamic imports without `from`.
-    for dynamic in re.findall(r"""import\(\s*["']([^"']+)["']\s*\)""", text):
-        imports.append(dynamic.strip())
+    imports.extend(
+        dynamic.strip()
+        for dynamic in re.findall(r"""import\(\s*["']([^"']+)["']\s*\)""", text)
+    )
     return imports
 
 
 def resolve_frontend_import(
     import_source: str, source_path: Path, frontend_root: Path
 ) -> Path | None:
+    """Resolve frontend import."""
     if import_source.startswith("@/"):
         base = (frontend_root / import_source[2:]).resolve()
     elif import_source.startswith("."):
@@ -95,6 +101,7 @@ def resolve_frontend_import(
 
 
 def top_level_route_scope(app_relative_path: Path) -> str:
+    """Return top level route scope."""
     for part in app_relative_path.parts:
         if not part:
             continue
@@ -107,6 +114,7 @@ def top_level_route_scope(app_relative_path: Path) -> str:
 
 
 def collect_frontend_violations(frontend_root: Path) -> list[Violation]:
+    """Collect frontend violations."""
     violations: list[Violation] = []
     app_root = frontend_root / "app"
     components_root = frontend_root / "components"
@@ -139,7 +147,7 @@ def collect_frontend_violations(frontend_root: Path) -> list[Violation]:
                 )
             )
 
-        imports = collect_frontend_imports(path, frontend_root)
+        imports = collect_frontend_imports(path)
         source_under_app = path.is_relative_to(app_root)
         source_under_components = path.is_relative_to(components_root)
 
@@ -173,7 +181,7 @@ def collect_frontend_violations(frontend_root: Path) -> list[Violation]:
                             remediation=(
                                 "Move reusable code into a shared layer such as "
                                 "src/components, src/hooks, src/store, src/lib, "
-                                "src/types, or an existing maintained c-* surface."
+                                "src/types, src/api, or src/constants."
                             ),
                         )
                     )
@@ -203,6 +211,7 @@ def collect_frontend_violations(frontend_root: Path) -> list[Violation]:
 
 
 def python_module_parts(path: Path, backend_root: Path) -> list[str]:
+    """Return python module parts."""
     relative = path.relative_to(backend_root).with_suffix("")
     parts = list(relative.parts)
     return parts[:-1]
@@ -211,6 +220,7 @@ def python_module_parts(path: Path, backend_root: Path) -> list[str]:
 def resolve_backend_relative_import(
     path: Path, backend_root: Path, node: ast.ImportFrom
 ) -> list[str]:
+    """Resolve backend relative import."""
     package_parts = python_module_parts(path, backend_root)
     keep_count = len(package_parts) - max(node.level - 1, 0)
     if keep_count < 0:
@@ -242,12 +252,12 @@ def resolve_backend_relative_import(
 
 
 def iter_python_imports(path: Path, backend_root: Path) -> list[str]:
+    """Yield python imports."""
     imports: list[str] = []
     tree = ast.parse(read_text(path), filename=str(path))
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            for alias in node.names:
-                imports.append(alias.name)
+            imports.extend(alias.name for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
             if node.level:
@@ -261,12 +271,41 @@ def iter_python_imports(path: Path, backend_root: Path) -> list[str]:
 
 
 def backend_module_suffix(module: str) -> str:
+    """Return backend module suffix."""
     parts = module.split(".")
     return parts[-1] if parts else module
 
 
-def collect_backend_violations(backend_root: Path) -> list[Violation]:
+def collect_engine_library_violations(backend_root: Path) -> list[Violation]:
+    """Keep the portable engine below application, framework and ORM layers."""
     violations: list[Violation] = []
+    library_root = backend_root / "markdownflow"
+    application_roots = {"flaskr", "flask", "flask_sqlalchemy", "sqlalchemy"}
+    for path in sorted(library_root.rglob("*.py")):
+        source = normalize_posix(path.relative_to(backend_root))
+        for module in iter_python_imports(path, backend_root):
+            if module.partition(".")[0] not in application_roots:
+                continue
+            rule_id = "backend.engine_imports_application"
+            violations.append(
+                Violation(
+                    key=make_key(rule_id, source, module),
+                    rule_id=rule_id,
+                    source=source,
+                    target=module,
+                    message=f"{source} imports application or framework module {module}.",
+                    remediation=(
+                        "Supply models, labels and persistence protocols through the "
+                        "library contract; keep Flask and product adapters in flaskr."
+                    ),
+                )
+            )
+    return violations
+
+
+def collect_backend_violations(backend_root: Path) -> list[Violation]:
+    """Collect backend violations."""
+    violations = collect_engine_library_violations(backend_root)
     service_root = backend_root / "flaskr" / "service"
 
     for path in sorted(service_root.rglob("*.py")):
@@ -356,6 +395,7 @@ def collect_backend_violations(backend_root: Path) -> list[Violation]:
 
 
 def load_baseline(path: Path) -> set[str]:
+    """Load baseline."""
     if not path.exists():
         return set()
     payload = json.loads(read_text(path))
@@ -363,6 +403,7 @@ def load_baseline(path: Path) -> set[str]:
 
 
 def dedupe_violations(items: list[Violation]) -> list[Violation]:
+    """Deduplicate violations."""
     deduped: dict[str, Violation] = {}
     for item in items:
         deduped[item.key] = item
@@ -370,6 +411,7 @@ def dedupe_violations(items: list[Violation]) -> list[Violation]:
 
 
 def write_baseline(path: Path, violations: list[Violation]) -> None:
+    """Write baseline."""
     payload = {
         "version": 1,
         "violations": [
@@ -388,6 +430,7 @@ def print_summary(
     baseline_keys: set[str],
     fail_on_stale_baseline: bool,
 ) -> int:
+    """Print the architecture-boundary comparison and return its status."""
     current_keys = {item.key for item in current}
     new_violations = [item for item in current if item.key not in baseline_keys]
     stale_baseline = sorted(baseline_keys - current_keys)
@@ -429,6 +472,7 @@ def print_summary(
 
 
 def run_fixture_tests() -> int:
+    """Run fixture tests."""
     manifest_path = FIXTURE_ROOT / "manifest.json"
     payload = json.loads(read_text(manifest_path))
     failures: list[str] = []
@@ -456,6 +500,7 @@ def run_fixture_tests() -> int:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for the architecture-boundary check."""
     parser = argparse.ArgumentParser(
         description="Validate frontend and backend architecture boundaries."
     )
@@ -483,9 +528,17 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Compare current architecture violations with the committed baseline."""
     args = parse_args()
     if args.run_fixture_tests:
         return run_fixture_tests()
+
+    if not FRONTEND_ROOT.is_dir():
+        print(
+            f"Frontend source directory is missing: {FRONTEND_ROOT}",
+            file=sys.stderr,
+        )
+        return 1
 
     baseline_path = Path(args.baseline).resolve()
     current = dedupe_violations(

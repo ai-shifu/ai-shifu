@@ -1,5 +1,4 @@
-"""
-Shifu publish funcs
+"""Shifu publish funcs.
 
 This module contains functions for publishing shifu.
 
@@ -7,72 +6,95 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from flaskr.service.shifu.shifu_draft_funcs import get_latest_shifu_draft
-from flaskr.service.common import raise_error
-from flaskr.dao import db
-from flaskr.service.shifu.models import (
-    PublishedShifu,
-    PublishedOutlineItem,
-    DraftOutlineItem,
-    LogPublishedStruct,
-)
-from flaskr.service.shifu.shifu_outline_funcs import (
-    build_outline_tree_from_items,
-    assert_outline_items_publishable,
-    load_existing_outline_items,
-    ShifuOutlineTreeNode,
-)
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.shifu.shifu_struct_manager import get_shifu_outline_tree
-from flaskr.util import generate_id
-from flaskr.util.datetime import now_utc
-import threading
 import queue
-from flaskr.service.shifu.shifu_struct_manager import ShifuInfoDto
-from flaskr.api.llm import invoke_llm
+import threading
+from dataclasses import dataclass, field
+
 from flaskr.api.langfuse import (
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
 )
-from flaskr.service.metering import UsageContext
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
-from flaskr.util.prompt_loader import load_prompt_template
-from flaskr.service.shifu.consts import (
-    ASK_MODE_ENABLE,
-)
-from markdown_flow import (
-    MarkdownFlow,
-    BlockType,
+from flaskr.api.llm import invoke_llm
+from flaskr.api.llm.model_selection import (
+    course_model_selection,
+    selection_metadata,
+    selection_model,
 )
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.common.shifu_context import (
-    get_shifu_context_snapshot,
     apply_shifu_context_snapshot,
+    get_shifu_context_snapshot,
+)
+from flaskr.dao import db, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.service.common import raise_error
+from flaskr.service.common.models import raise_param_error
+from flaskr.service.learn.api import (
+    is_live_follow_up_model,
+    normalize_live_follow_up_course_config,
+)
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
+from flaskr.service.shifu.consts import (
+    ASK_MODE_ENABLE,
+    FLOW_ENGINE_DEFAULT,
+)
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    LogPublishedStruct,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
+from flaskr.service.shifu.shifu_draft_funcs import (
+    get_latest_shifu_draft,
+    serialize_ask_provider_config,
+)
+from flaskr.service.shifu.shifu_history_manager import (
+    HistoryItem,
+    ensure_outline_content_revisions,
+)
+from flaskr.service.shifu.shifu_outline_funcs import (
+    ShifuOutlineTreeNode,
+    assert_outline_items_publishable,
+    build_outline_tree_from_items,
+    load_existing_outline_items,
+)
+from flaskr.service.shifu.shifu_struct_manager import (
+    ShifuInfoDto,
+    get_shifu_outline_tree,
+)
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
+from flaskr.util.prompt_loader import load_prompt_template
+from markdown_flow import (
+    BlockType,
+    MarkdownFlow,
 )
 
 
 def _build_frontend_url(base_url: str, path: str) -> str:
-    """
-    Build a frontend URL based on the provided base URL.
-    """
+    """Build a frontend URL based on the provided base URL."""
     normalized_base = base_url.rstrip("/") if base_url else ""
     cleaned_path = path if path.startswith("/") else f"/{path}"
     return f"{normalized_base}{cleaned_path}" if normalized_base else cleaned_path
 
 
 def preview_shifu_draft(
-    app, user_id: str, shifu_id: str, variables: dict, base_url: str
-):
-    """
-    Preview shifu draft
+    app: object, user_id: str, shifu_id: str, variables: dict, base_url: str
+) -> str:
+    """Preview shifu draft.
+
     Args:
         app: Flask application instance
         user_id: User ID
         shifu_id: Shifu ID
         variables: Variables
-        base_url: Base URL to build preview link
+        base_url: Base URL to build preview link.
+
     """
+    _ = (user_id, variables)
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
@@ -82,18 +104,14 @@ def preview_shifu_draft(
 
 
 def publish_shifu_draft(
-    app,
+    app: object,
     user_id: str,
     shifu_id: str,
     base_url: str,
     sync_summary: bool = False,
-):
-    """
-    Publish shifu draft
-    will copy all draft data to published data
-    and save history to database
-    and run summary generation in background by default
-    and return published shifu url
+) -> str:
+    """Publish shifu draft will copy all draft data to published data and save history to database and run summary generation in background by default and return published shifu url.
+
     Args:
         app: Flask application instance
         user_id: User ID
@@ -102,14 +120,38 @@ def publish_shifu_draft(
         sync_summary: If True, generate summary/ask prompts synchronously in the
             current process (useful for one-off console commands). Default False
             keeps existing async background behavior.
+
     Returns:
         str: Shifu published URL
+
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
+        # Publishing can initialize revision metadata in the draft structure.
+        # Serialize that write with lesson edits and tree changes.
+        lock_shifu_for_outline_write(shifu_id)
         now_time = now_utc()
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
+        outline_items = load_existing_outline_items(shifu_id, include_content=True)
+        normalized_provider_config, live_contract_error = (
+            normalize_live_follow_up_course_config(
+                course_model=course_model_selection(selection_model(shifu_draft))[
+                    "index"
+                ],
+                course_follow_up_model=selection_model(shifu_draft, follow_up=True),
+                provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
+            )
+        )
+        if live_contract_error is not None:
+            field = (
+                live_contract_error
+                if live_contract_error == "model"
+                else f"ask_provider_config.{live_contract_error}"
+                if live_contract_error in {"provider", "mode"}
+                else f"ask_provider_config.config.{live_contract_error}"
+            )
+            raise_param_error(field)
         PublishedShifu.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
         PublishedOutlineItem.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
         shifu_published = PublishedShifu()
@@ -126,11 +168,16 @@ def publish_shifu_draft(
         shifu_published.updated_at = now_time
         shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
         shifu_published.ask_enabled_status = shifu_draft.ask_enabled_status
+        # Learners run the published row, so an author who switches the runtime and publishes has
+        # to see the switch take effect.
+        shifu_published.flow_engine = getattr(
+            shifu_draft, "flow_engine", FLOW_ENGINE_DEFAULT
+        )
         shifu_published.ask_llm = shifu_draft.ask_llm
         shifu_published.ask_llm_temperature = shifu_draft.ask_llm_temperature
         shifu_published.ask_llm_system_prompt = shifu_draft.ask_llm_system_prompt
-        shifu_published.ask_provider_config = (
-            getattr(shifu_draft, "ask_provider_config", "{}") or "{}"
+        shifu_published.ask_provider_config = serialize_ask_provider_config(
+            normalized_provider_config
         )
         # TTS Configuration
         shifu_published.tts_enabled = shifu_draft.tts_enabled
@@ -140,6 +187,9 @@ def publish_shifu_draft(
         shifu_published.tts_speed = shifu_draft.tts_speed
         shifu_published.tts_pitch = shifu_draft.tts_pitch
         shifu_published.tts_emotion = shifu_draft.tts_emotion
+        shifu_published.default_listen_mode_enabled = getattr(
+            shifu_draft, "default_listen_mode_enabled", 0
+        )
         # Learner language setting
         shifu_published.use_learner_language = getattr(
             shifu_draft, "use_learner_language", 0
@@ -148,11 +198,15 @@ def publish_shifu_draft(
         db.session.flush()
         # Block publishing a structurally broken outline instead of silently
         # dropping orphaned/colliding nodes from the published result.
-        outline_items = load_existing_outline_items(shifu_id, include_content=True)
         assert_outline_items_publishable(app, shifu_id, outline_items)
         outline_tree = build_outline_tree_from_items(app, outline_items)
+        content_revisions = ensure_outline_content_revisions(
+            app, user_id, shifu_id, outline_items
+        )
 
-        def publish_outline_item(node: ShifuOutlineTreeNode, history_item: HistoryItem):
+        def publish_outline_item(
+            node: ShifuOutlineTreeNode, history_item: HistoryItem
+        ) -> None:
             outline_item = PublishedOutlineItem()
             draft_outline_item: DraftOutlineItem = node.outline
             outline_item.shifu_bid = shifu_id
@@ -162,12 +216,8 @@ def publish_shifu_draft(
             outline_item.type = draft_outline_item.type
             outline_item.hidden = draft_outline_item.hidden
             outline_item.parent_bid = draft_outline_item.parent_bid
-            outline_item.llm = draft_outline_item.llm
-            outline_item.llm_temperature = draft_outline_item.llm_temperature
             outline_item.llm_system_prompt = draft_outline_item.llm_system_prompt
             outline_item.ask_enabled_status = draft_outline_item.ask_enabled_status
-            outline_item.ask_llm = draft_outline_item.ask_llm
-            outline_item.ask_llm_temperature = draft_outline_item.ask_llm_temperature
             outline_item.ask_llm_system_prompt = (
                 draft_outline_item.ask_llm_system_prompt
             )
@@ -190,6 +240,9 @@ def publish_shifu_draft(
                 type="outline",
                 children=[],
                 child_count=len(blocks),
+                content_revision=content_revisions.get(
+                    draft_outline_item.outline_item_bid
+                ),
             )
             history_item.children.append(outline_item_history_item)
             if node.children and len(node.children) > 0:
@@ -209,26 +262,35 @@ def publish_shifu_draft(
         shifu_log_published_struct.created_user_bid = user_id
         shifu_log_published_struct.created_at = now_time
         db.session.add(shifu_log_published_struct)
-        db.session.commit()
         parent_shifu_context = get_shifu_context_snapshot()
-        if sync_summary:
-            _run_summary_with_error_handling(app, shifu_id, parent_shifu_context)
-        else:
+
+        def start_summary() -> None:
+            if sync_summary:
+                _run_summary_with_error_handling(app, shifu_id, parent_shifu_context)
+                return
             thread = threading.Thread(
                 target=_run_summary_with_error_handling,
                 args=(app, shifu_id, parent_shifu_context),
             )
             thread.daemon = True  # Ensure thread doesn't prevent app shutdown
             thread.start()
+
+        # The summary reads the published rows, so it starts only once the
+        # publish transaction is durable (and never when it rolls back).
+        uow.on_commit(start_summary)
         return _build_frontend_url(base_url, f"/c/{shifu_id}")
 
 
-def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None):
-    """
-    Run shifu summary generation with error handling
+def _run_summary_with_error_handling(
+    app: object, shifu_id: object, shifu_context_snapshot: object = None
+) -> None:
+    """Run shifu summary generation with error handling.
+
     Args:
         app: Flask application instance
-        shifu_id: Shifu ID
+        shifu_id: Shifu ID.
+        shifu_context_snapshot: Context snapshot to apply in the summary thread.
+
     """
     try:
         apply_shifu_context_snapshot(shifu_context_snapshot)
@@ -247,75 +309,215 @@ def _run_summary_with_error_handling(app, shifu_id, shifu_context_snapshot=None)
                 message,
             )
         else:
-            app.logger.error(
-                f"Failed to generate shifu summary for {shifu_id}: {message}",
-                exc_info=True,
+            app.logger.exception(
+                "Failed to generate shifu summary for %s: %s",
+                shifu_id,
+                message,
             )
 
 
-def get_shifu_summary(app, shifu_id: str):
+@dataclass(frozen=True)
+class _SummaryModelChoice:
+    """Model and temperature the summary and ask generation runs with."""
+
+    model_name: str
+    temperature: object
+    usage_metadata: dict = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class _SummaryInputs:
+    """Everything the provider calls need, read before the generation starts.
+
+    Only plain values: the generation phase runs with no transaction open, so
+    it must not hold ORM instances loaded by the read step.
     """
-    Obtain the shifu summary information
+
+    model_choice: _SummaryModelChoice
+    outline_tree: ShifuInfoDto
+    outline_ids: list[str]
+    section_contents: dict[str, str]
+    summary_prompt_template: object
+    ask_prompt_template: str
+    # Row identities, not just business bids: a republish during the
+    # generation creates NEW rows carrying the same bids, and the generated
+    # text describes the rows read here.
+    shifu_row_id: int
+    outline_row_ids: dict[str, int]
+
+
+def _resolve_summary_model(app: object, shifu: PublishedShifu) -> _SummaryModelChoice:
+    """Pick the model that generates summaries and ask prompts."""
+    _ = app
+    follow_up = not is_live_follow_up_model(selection_model(shifu, follow_up=True))
+    model_name = selection_model(shifu, follow_up=follow_up)
+    metadata = selection_metadata(shifu, follow_up=follow_up)
+    temperature = (
+        shifu.ask_llm_temperature if follow_up else shifu.llm_temperature
+    ) or 0.3
+    return _SummaryModelChoice(
+        model_name=model_name, temperature=temperature, usage_metadata=metadata
+    )
+
+
+def _load_published_shifu(shifu_id: str) -> PublishedShifu | None:
+    return (
+        PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_id)
+        .order_by(PublishedShifu.id.desc())
+        .first()
+    )
+
+
+def _load_summary_inputs(app: object, shifu_id: str) -> _SummaryInputs | None:
+    """Read the course data the generation phase needs."""
+    shifu = _load_published_shifu(shifu_id)
+    if not shifu:
+        app.logger.error("get_shifu_summary shifu_id: %s not found", shifu_id)
+        return None
+
+    outline_tree, outline_ids, outline_item_map = _get_shifu_data(app, shifu_id)
+    return _SummaryInputs(
+        model_choice=_resolve_summary_model(app, shifu),
+        outline_tree=outline_tree,
+        outline_ids=outline_ids,
+        section_contents={
+            bid: (outline_item.content or "")
+            for bid, outline_item in outline_item_map.items()
+        },
+        summary_prompt_template=load_prompt_template("summary"),
+        ask_prompt_template=load_prompt_template("ask"),
+        shifu_row_id=int(shifu.id),
+        outline_row_ids={
+            bid: int(outline_item.id) for bid, outline_item in outline_item_map.items()
+        },
+    )
+
+
+def _apply_summary_results(
+    app: object,
+    shifu_id: str,
+    *,
+    inputs: _SummaryInputs,
+    outline_summary_map: dict[str, dict],
+    ask_prompts: dict[str, str],
+) -> None:
+    """Write the generated ask prompts back to the rows they were read from.
+
+    A republish during the generation retires those rows and creates new ones
+    with the same bids. Writing this run's output into the new publication
+    would mix two publications, so the apply is skipped entirely instead.
+    """
+    shifu = _load_published_shifu(shifu_id)
+    if not shifu:
+        app.logger.error("get_shifu_summary shifu_id: %s not found", shifu_id)
+        return
+    if int(shifu.id) != inputs.shifu_row_id:
+        app.logger.warning(
+            "Skipping shifu summary for %s: republished during generation "
+            "(read row %s, active row %s)",
+            shifu_id,
+            inputs.shifu_row_id,
+            shifu.id,
+        )
+        return
+
+    outline_item_map = {
+        outline_item.id: outline_item
+        for outline_item in PublishedOutlineItem.query.filter(
+            PublishedOutlineItem.id.in_(inputs.outline_row_ids.values()),
+            PublishedOutlineItem.deleted == 0,
+        ).all()
+    }
+    # Only the ask prompt and the enabled flag are persisted: the summary text
+    # is an input to the ask prompts, and `shifu_published_outline_items` has
+    # no column for it (the previous `outline_item.summary = ...` assignment
+    # set a transient attribute that was dropped with the session).
+    for bid in outline_summary_map:
+        outline_item = outline_item_map.get(inputs.outline_row_ids.get(bid))
+        if outline_item is None:
+            continue
+        outline_item.ask_enabled_status = ASK_MODE_ENABLE
+    for bid, ask_prompt in ask_prompts.items():
+        outline_item = outline_item_map.get(inputs.outline_row_ids.get(bid))
+        if outline_item is None:
+            continue
+        outline_item.ask_llm_system_prompt = ask_prompt
+    shifu.ask_enabled_status = ASK_MODE_ENABLE
+
+
+def get_shifu_summary(app: object, shifu_id: str) -> None:
+    """Obtain the shifu summary information.
+
     Args:
         app: Flask application instance
-        shifu_id: Shifu ID
+        shifu_id: Shifu ID.
+
     """
-    with app.app_context():
-        shifu: PublishedShifu = (
-            PublishedShifu.query.filter(PublishedShifu.shifu_bid == shifu_id)
-            .order_by(PublishedShifu.id.desc())
-            .first()
-        )
-        if not shifu:
-            app.logger.error(f"get_shifu_summary shifu_id: {shifu_id} not found")
+    # Read, generate, apply are three steps with the provider calls between
+    # them: nested, neither unit of work would commit and the generation would
+    # run inside the caller's transaction after all.
+    uow.require_transaction_owner("shifu summary generation")
+    with app_context_scope(app):
+        # Step 1 - read what the generation needs, then end the transaction.
+        with unit_of_work():
+            inputs = _load_summary_inputs(app, shifu_id)
+        if inputs is None:
             return
 
-        # Get the prompt word template
-        summary_prompt_template = load_prompt_template("summary")
-        ask_prompt_template = load_prompt_template("ask")
-
-        # Get course data
-        outline_tree, outline_ids, outline_item_map = _get_shifu_data(app, shifu_id)
-
-        # Generate summaries
+        # The provider calls run with NO transaction open: one summary and one
+        # ask prompt per section means minutes of LLM round trips, and holding
+        # the read transaction across them would pin a pooled connection and a
+        # read snapshot for the whole run.
         outline_summary_map = _generate_summaries(
-            app, outline_tree, outline_item_map, summary_prompt_template, shifu
+            app,
+            inputs.outline_tree,
+            inputs.section_contents,
+            inputs.summary_prompt_template,
+            inputs.model_choice,
+        )
+        ask_prompts = _generate_ask_prompts(
+            app,
+            inputs.outline_tree,
+            inputs.outline_ids,
+            outline_summary_map,
+            inputs.ask_prompt_template,
         )
 
-        # Generate ask_prompt
-        _generate_ask_prompts(
-            app,
-            outline_tree,
-            outline_ids,
-            outline_summary_map,
-            outline_item_map,
-            ask_prompt_template,
-        )
-        shifu.ask_enabled_status = ASK_MODE_ENABLE
-        db.session.commit()
-        return
+        # Step 2 - apply everything at once, so a failed generation leaves the
+        # published course exactly as it was.
+        with unit_of_work():
+            _apply_summary_results(
+                app,
+                shifu_id,
+                inputs=inputs,
+                outline_summary_map=outline_summary_map,
+                ask_prompts=ask_prompts,
+            )
 
 
 def _generate_ask_prompts(
-    app,
+    app: object,
     shifu_info: ShifuInfoDto,
     outline_ids: list[str],
     outline_summary_map: dict[str, dict],
-    outline_item_map: dict[str, PublishedOutlineItem],
     ask_prompt_template: str,
-):
-    """
-    Generate ask_prompt for each section
+) -> dict[str, str]:
+    """Build the ask prompt of each section.
+
+    Pure with respect to the database: it reads no rows and writes none, so it
+    can run between the two units of work of ``get_shifu_summary``.
+
     Args:
         app: Flask application instance
         shifu_info: Shifu info
         outline_ids: Section ID list
         outline_summary_map: Summary mapping
-        outline_item_map: Outline item mapping
         ask_prompt_template: Ask template
     Returns:
-        None
+        Mapping of outline item bid to its ask prompt.
+
     """
+    ask_prompts: dict[str, str] = {}
     for chapter in shifu_info.outline_items:
         for section in chapter.children:
             # Split outline_summary_map into learned and unlearned parts based on current section ID
@@ -340,57 +542,58 @@ def _generate_ask_prompts(
             # Build text for unlearned content
             unlearned_text = _build_summary_text(unlearned_summaries)
 
-            ask_prompt = _make_ask_prompt(
+            ask_prompts[section.bid] = _make_ask_prompt(
                 app, ask_prompt_template, learned_text, unlearned_text
             )
-            outline_item = outline_item_map.get(section.bid)
-            if outline_item:
-                outline_item.ask_llm_system_prompt = ask_prompt
+    return ask_prompts
 
 
 def _generate_summaries(
-    app,
+    app: object,
     outline_tree: ShifuInfoDto,
-    outline_item_map: dict[str, PublishedOutlineItem],
-    summary_prompt_template,
-    shifu: PublishedShifu,
+    section_contents: dict[str, str],
+    summary_prompt_template: object,
+    model_choice: _SummaryModelChoice,
 ) -> dict[str, dict]:
-    """
-    Generate summaries for all sections
+    """Generate summaries for all sections.
+
+    Pure with respect to the database: it takes the section content as plain
+    strings and returns plain values, so the LLM calls can run between the two
+    units of work of ``get_shifu_summary``.
+
     Args:
         app: Flask application instance
         outline_tree: Outline tree
-        outline_item_map: Outline item mapping
+        section_contents: Outline item bid to its published content
         summary_prompt_template: Summary template
-        shifu: Course information
+        model_choice: Model and temperature resolved from the course
     Returns:
-        Summary mapping
+        Summary mapping.
+
     """
     outline_summary_map = {}
 
-    # Get model configuration
-    model_name = shifu.ask_llm or shifu.llm
-    temperature = shifu.ask_llm_temperature or shifu.llm_temperature or 0.3
-    if not model_name:
-        model_name = app.config.get("DEFAULT_LLM_MODEL", "")
-
     for chapter in outline_tree.outline_items:
         for section in chapter.children:
-            outline_item = outline_item_map.get(section.bid)
+            content = section_contents.get(section.bid)
+            if content is None:
+                # The tree lists a section the outline query did not return
+                # (an inconsistent read of the published rows); there is
+                # nothing to write a summary back to.
+                continue
             now_lesson_script_prompts = ""
-            if outline_item and bool(outline_item.content):
+            if content:
                 app.logger.info(
-                    f"outline_item: {outline_item.outline_item_bid} has mdflow content,make summary from mdflow"
+                    "outline_item: %s has mdflow content,make summary from mdflow",
+                    section.bid,
                 )
-                mdflow = MarkdownFlow(outline_item.content).set_output_language(
+                mdflow = MarkdownFlow(content).set_output_language(
                     get_markdownflow_output_language()
                 )
                 blocks = mdflow.get_all_blocks()
                 for block in blocks:
                     if block.block_type == BlockType.CONTENT:
                         now_lesson_script_prompts += "\n" + block.content
-            else:
-                now_lesson_script_prompts = outline_item.content
 
             final_prompt = summary_prompt_template.format(
                 all_script_content=now_lesson_script_prompts
@@ -399,44 +602,37 @@ def _generate_summaries(
             summary = _get_summary(
                 app,
                 prompt=final_prompt,
-                model_name=model_name,
-                temperature=temperature,
+                model_name=model_choice.model_name,
+                temperature=model_choice.temperature,
+                usage_metadata=model_choice.usage_metadata,
             )
-
-            # Update section information
-            outline_item = outline_item_map.get(section.bid)
-            if outline_item:
-                outline_item.summary = summary
-                outline_item.ask_enabled_status = ASK_MODE_ENABLE
-
-                # Store summary information
-                outline_summary_map[section.bid] = {
-                    "chapter_id": chapter.bid,
-                    "chapter_name": chapter.title,
-                    "section_id": section.bid,
-                    "section_name": section.title,
-                    "content": summary,
-                }
+            outline_summary_map[section.bid] = {
+                "chapter_id": chapter.bid,
+                "chapter_name": chapter.title,
+                "section_id": section.bid,
+                "section_name": section.title,
+                "content": summary,
+            }
 
     return outline_summary_map
 
 
 def _get_shifu_data(
-    app, shifu_id: str
+    app: object, shifu_id: str
 ) -> tuple[
     ShifuInfoDto,
     list[str],
     dict[str, PublishedOutlineItem],
 ]:
-    """
-    Get shifu related data
+    """Get shifu related data.
+
     Args:
         app: Flask application instance
         shifu_id: shifu ID
     Returns:
-        (outline_tree, outline_ids, outline_item_map)
-    """
+        (outline_tree, outline_ids, outline_item_map).
 
+    """
     outline_ids = []
 
     shifu_outline_tree = get_shifu_outline_tree(app, shifu_id, is_preview=False)
@@ -452,6 +648,15 @@ def _get_shifu_data(
                 q.put(child)
 
     # Get all section data
+    outline_item_map = _load_outline_item_map(outline_ids)
+
+    return shifu_outline_tree, outline_ids, outline_item_map
+
+
+def _load_outline_item_map(
+    outline_ids: list[str],
+) -> dict[str, PublishedOutlineItem]:
+    """Map each outline bid to its published row, as the summary flow reads it."""
     outline_items = (
         PublishedOutlineItem.query.filter(
             PublishedOutlineItem.outline_item_bid.in_(outline_ids),
@@ -460,27 +665,27 @@ def _get_shifu_data(
         .order_by(PublishedOutlineItem.id.desc())
         .all()
     )
-    outline_item_map = {
+    return {
         outline_item.outline_item_bid: outline_item for outline_item in outline_items
     }
 
-    return shifu_outline_tree, outline_ids, outline_item_map
-
 
 def _make_ask_prompt(
-    app, ask_prompt: str, learned_text: str, unlearned_text: str
+    app: object, ask_prompt: str, learned_text: str, unlearned_text: str
 ) -> str:
-    """
-    Make ask prompt
+    """Make ask prompt.
+
     Args:
         app: Flask application instance
         ask_prompt: Ask prompt
         learned_text: Learned text
         unlearned_text: Unlearned text
     Returns:
-        Ask prompt
+        Ask prompt.
+
     """
-    result = ask_prompt.format(
+    _ = app
+    return ask_prompt.format(
         learned=("\n" + learned_text) if learned_text else "",
         unlearned=("\n" + unlearned_text) if unlearned_text else "",
         # Runtime placeholders: shifu_system_message is filled on every ask;
@@ -491,20 +696,28 @@ def _make_ask_prompt(
         knowledge_rule="{knowledge_rule}",
         knowledge_section="{knowledge_section}",
     )
-    return result
 
 
-def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
-    """
-    Call the AI model to generate summary
+def _get_summary(
+    app: object,
+    prompt: object,
+    model_name: object,
+    user_id: object = None,
+    temperature: object = 0.8,
+    usage_metadata: dict | None = None,
+) -> str:
+    """Call the AI model to generate summary.
+
     Args:
         app: Flask application instance
         prompt: Prompt to be summarized
+        usage_metadata: Selection provenance passed to the usage recorder.
         model_name: Model name to use
         user_id: Optional, user ID
         temperature: Optional, sampling temperature
     Returns:
-        Summary text
+        Summary text.
+
     """
     # Create langfuse trace/span
     trace, span = create_trace_with_root_span(
@@ -529,6 +742,7 @@ def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
             prompt,
             temperature=temperature,
             generation_name="shifu_summary",
+            usage_metadata=usage_metadata,
             usage_context=UsageContext(
                 user_bid=user_id or "shifu-summary",
                 shifu_bid="",
@@ -551,12 +765,13 @@ def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
 
 
 def _build_summary_text(summaries: list[dict]) -> str:
-    """
-    Build a summary text from chapter/section summary entries
+    """Build a summary text from chapter/section summary entries.
+
     Args:
         summaries: List of summary dictionaries
     Returns:
-        Built summary text
+        Built summary text.
+
     """
     if not summaries:
         return ""

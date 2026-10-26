@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from flask import Flask, request
-
+from flaskr.common.client_ip import resolve_client_ip
 from flaskr.route.common import bypass_token_validation, make_common_response
 from flaskr.service.common.models import raise_param_error
 
@@ -19,7 +19,7 @@ def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> 
     """Register referral routes."""
 
     @app.route(path_prefix + "/invite-profile", methods=["GET"])
-    def referral_invite_profile_api():
+    def referral_invite_profile_api() -> str:
         user = getattr(request, "user", None)
         user_bid = str(getattr(user, "user_id", "") or "").strip()
         if not user_bid:
@@ -29,7 +29,7 @@ def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> 
 
     @app.route(path_prefix + "/invite-preview", methods=["GET"])
     @bypass_token_validation
-    def referral_invite_preview_api():
+    def referral_invite_preview_api() -> str:
         preview = build_invite_preview(
             app,
             invite_code=str(request.args.get("invite_code") or "").strip(),
@@ -38,7 +38,7 @@ def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> 
 
     @app.route(path_prefix + "/invite-event", methods=["POST"])
     @bypass_token_validation
-    def referral_invite_event_api():
+    def referral_invite_event_api() -> str:
         payload = request.get_json(silent=True)
         payload = payload if isinstance(payload, dict) else {}
         result = record_invite_event(
@@ -49,7 +49,7 @@ def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> 
                 landing_path=str(payload.get("landing_path") or "").strip(),
                 session_id=str(payload.get("session_id") or "").strip(),
                 entry_source=str(payload.get("entry_source") or "").strip(),
-                client_ip=_client_ip(),
+                client_ip=resolve_client_ip(),
                 user_agent=str(request.headers.get("User-Agent") or ""),
                 metadata={
                     "frontend_session_id": str(
@@ -65,10 +65,3 @@ def register_referral_routes(app: Flask, path_prefix: str = "/api/referral") -> 
                 "recognized": result.recognized,
             }
         )
-
-
-def _client_ip() -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",", 1)[0].strip()
-    return str(request.remote_addr or "").strip()

@@ -1,15 +1,17 @@
+"""Resolve learner access for preview elements."""
+
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from flask import Flask, request
-
 from flaskr.service.common import raise_error
-from flaskr.service.common.dtos import UserInfo
 from flaskr.service.config import get_config
 from flaskr.service.shifu.models import AiCourseAuth, DraftShifu, PublishedShifu
 
+if TYPE_CHECKING:
+    from flaskr.service.common.dtos import UserInfo
 
 BUILTIN_DEMO_TITLES = {
     "AI 师傅教学引导",
@@ -17,7 +19,7 @@ BUILTIN_DEMO_TITLES = {
 }
 
 
-def _extract_preview_token() -> Optional[str]:
+def _extract_preview_token() -> str | None:
     token = request.cookies.get("token", None)
     if not token:
         token = request.args.get("token", None)
@@ -74,7 +76,7 @@ def _auth_types_to_permissions(auth_types: set[str]) -> set[str]:
             permissions.add("view")
         if lowered in {"edit", "write"} or lowered == "2":
             permissions.update({"view", "edit"})
-        if lowered in {"publish"} or lowered == "4":
+        if lowered in {"publish", "4"}:
             permissions.add("publish")
     return permissions
 
@@ -108,6 +110,7 @@ def _load_demo_shifu_bids() -> set[str]:
 
 
 def is_builtin_demo_shifu(app: Flask, shifu_bid: str) -> bool:
+    """Return whether builtin demo shifu."""
     normalized_shifu_bid = str(shifu_bid or "").strip()
     if not normalized_shifu_bid:
         return False
@@ -123,7 +126,7 @@ def is_builtin_demo_shifu(app: Flask, shifu_bid: str) -> bool:
     return False
 
 
-def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> Optional[str]:
+def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
     with app.app_context():
         for row in _load_course_rows(shifu_bid):
             creator_bid = str(getattr(row, "created_user_bid", "") or "").strip()
@@ -132,7 +135,8 @@ def _get_shifu_creator_bid(app: Flask, shifu_bid: str) -> Optional[str]:
     return None
 
 
-def _has_preview_permission(app: Flask, user_bid: str, shifu_bid: str) -> bool:
+def has_shifu_staff_permission(app: Flask, user_bid: str, shifu_bid: str) -> bool:
+    """Return whether the user owns the course or holds any active collaboration."""
     with app.app_context():
         creator_bid = _get_shifu_creator_bid(app, shifu_bid)
         if creator_bid and creator_bid == user_bid:
@@ -166,7 +170,7 @@ def require_shifu_preview_permission(app: Flask, user_bid: str, shifu_bid: str) 
     if not creator_bid:
         raise_error("server.shifu.shifuNotFound")
 
-    if _has_preview_permission(app, normalized_user_bid, normalized_shifu_bid):
+    if has_shifu_staff_permission(app, normalized_user_bid, normalized_shifu_bid):
         return
 
     raise_error("server.shifu.noPermission")

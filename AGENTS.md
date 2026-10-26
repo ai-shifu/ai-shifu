@@ -7,11 +7,19 @@ to.
 ## Scope
 
 - Apply this file across the repository unless a deeper `AGENTS.md` narrows
-  the rules.
+  the rules. Coding agents start at the nearest `AGENTS.md`; that layered tree
+  is the only project-instruction body.
 - Treat `ARCHITECTURE.md`, `PLANS.md`, and `docs/engineering-baseline.md` as
   the main source documents behind this entry point.
 - Use `docs/QUALITY_SCORE.md`, `docs/RELIABILITY.md`, and `docs/SECURITY.md`
   to understand repository-wide quality gaps and harness constraints.
+- Keep each subtree focused on its local constraints and inherit shared rules
+  from its parents.
+- Do not add a `CLAUDE.md` file to version control or duplicate instruction
+  routers. Use native `AGENTS.md` loading as described in
+  `docs/design-docs/ai-tool-compat.md`.
+  Keep the Copilot navigation file and the `GEMINI.md` link as minimal
+  compatibility entry points.
 
 ## Do
 
@@ -21,22 +29,73 @@ to.
   docs before changing behavior.
 - Reuse existing modules, DTOs, stores, provider wrappers, and request paths
   before creating new abstractions.
+- Generate every `package-lock.json` change by running `npm install` in its
+  package directory. For lockfile-only updates, use
+  `npm install --package-lock-only --ignore-scripts`. Never edit
+  `package-lock.json` directly by hand, patches, or scripts.
+  Automated lockfile updates in CI workflows are an explicit exception.
+- When changing a shared contract, update all affected producers and consumers
+  in the same task, including compatibility handling and relevant regression
+  tests. This applies to DTO fields, exception codes, and hook, store, type, and
+  utility interfaces; subtree files inherit this coordination requirement.
 - Use ExecPlans for complex work. `PLANS.md` defines the format, and active
   plans live under `docs/exec-plans/active/`.
+- Whenever creating a Git worktree for this repository, copy existing local
+  `.env` files from the source checkout into the matching paths in the new
+  worktree before starting services, including the repository-root `.env` and
+  `src/web/.env` when present. Preserve file permissions, never commit
+  these copies, and do not overwrite an environment file already customized
+  in the new worktree.
 - Before committing, run `python scripts/check_dev_tools.py` to confirm
   lefthook and its underlying tools are installed; the local checks are
-  silently skipped if lefthook was never installed.
+  silently skipped if lefthook was never installed. If required tools are
+  missing, show their install commands and pause the commit until the tools
+  are installed or the user explicitly authorizes proceeding.
+- Treat a Ruff finding as a code or contract signal. Prefer an established
+  project pattern plus focused regression coverage; if the flagged construct
+  is intentional, use the narrowest coded suppression with a plain-English
+  reason. Change global Ruff selection or ignores only in a dedicated rule PR
+  tracked by the active Ruff ExecPlan.
 - For git commit message title, body, and classification requirements, use
   [Git Commit Message Requirements](#git-commit-message-requirements); keep
   agent-specific rule files pointing there instead of duplicating the policy.
 - When a branch already has an open PR, keep the PR title and description in
   sync with the latest code changes so they accurately describe the current
   implementation and verification state.
+- Keep every pull request focused on one clearly defined problem. Include all
+  code, tests, docs, migrations, and compatibility work required to solve that
+  problem, but move unrelated fixes, cleanup, and follow-up work to separate
+  pull requests.
+- During code review, evaluate only whether the pull request solves its stated
+  problem correctly, safely, completely, and with adequate tests, including
+  regressions or contract effects introduced by the change.
 - Keep shared instruction surfaces aligned. When shared rules move, update the
-  touched `AGENTS.md`, `CLAUDE.md`, generated `.cursor` rules, and generated
-  `.github` instructions in the same change.
+  owning `AGENTS.md` files and any affected navigation links in the same change.
+- Treat product analytics as a completion requirement for every new user-facing
+  Cook Web capability or interaction path. In the same change, define or extend
+  a decision-relevant Umami event family, implement its producer, and add
+  focused regression coverage according to
+  `docs/references/frontend-product-analytics.md`; the feature is not complete
+  while that analytics contract is missing. Pure visual styling, copy-only,
+  performance-only, test-only, and behavior-preserving refactoring changes do
+  not require a new event. Any new user-observable action, state transition, or
+  invocation path, including one introduced for accessibility, does; changed
+  behavior already covered by analytics must update its existing contract.
+- Treat new or changed Cook Web Umami events as versioned product-analytics
+  contracts. Before implementation, define the decision or metric, exact
+  trigger, eligible population and exclusions, deduplication scope, stable
+  payload schema, and downstream consumer according to
+  `docs/references/frontend-product-analytics.md`.
+- Keep product analytics best-effort and independent from the user-visible
+  operation. When an event name, meaning, eligibility rule, deduplication rule,
+  or payload contract changes, update its producers, consumers, canonical
+  product documentation, compatibility plan, and regression tests together.
 - Keep code-facing text in English and keep user-facing text in shared i18n
   JSON under `src/i18n/`.
+- For product translation or a new locale, follow the end-to-end checklist in
+  `docs/references/i18n.md`. A dependency library's own translations are
+  separate library work: do not translate, publish, or bump a library solely
+  to complete the product locale task.
 - Store and compute all timestamps in UTC. On the backend, use the shared
   `now_utc()` helper in `src/api/flaskr/util/datetime.py` for any time written
   to the database, and default new model timestamp columns to
@@ -52,10 +111,11 @@ to.
   than `""` or a pre-formatted string. Display-time timezone conversion is a
   pure frontend concern: the browser renders UTC via helpers such as
   `formatAdminUtcDateTime`, so the API must not localize by request timezone.
-- In Chinese user-facing text and Chinese docs, do not use `创作者` as a
-  generic product term. Use `老师` for the general course-building or teacher
-  account role; use `课程负责人` or, inside an existing course context,
-  `负责人` when referring to a specific course owner.
+- Keep English README files, documentation prose, and examples free of Chinese
+  text. Keep dedicated Chinese translations, terminology references, and
+  multilingual test fixtures in their own language.
+- For Chinese user-facing text and Chinese docs, follow the required teacher
+  and course-owner terms in `docs/references/i18n-zh-CN.md`.
 - Keep English and French translations aligned with that distinction: use
   `teacher` / `enseignant` for the generic role, while a specific course
   owner may still be translated as `creator` / `créateur`.
@@ -66,10 +126,23 @@ to.
   discoverable from versioned files.
 - Do not start modifying code from guesswork when the local implementation and
   neighboring tests have not been inspected.
+- Do not raise review findings about unrelated or pre-existing problems
+  outside the current pull request's responsibility boundary.
 - Do not hardcode user-facing strings, secrets, or environment-specific URLs.
+- Do not add free-form or user-authored text, prompts or model output, names,
+  contact details, profile content, titles or descriptions, coupon codes,
+  tokens, raw errors, or complete URLs, queries, or referrers to new or changed
+  Umami events or identity metadata. Use an explicit allowlist of necessary
+  stable machine IDs, booleans, numbers, durations, and low-cardinality enums;
+  truncation or hashing does not make a sensitive field safe to collect. New or
+  changed pageview handling must strip query strings, fragments, credentials,
+  and sensitive path data before tracking.
+- Do not use best-effort Umami data as the source of truth for billing,
+  permissions, auditing, or another correctness-sensitive business decision,
+  and do not block or alter a user action when analytics is unavailable.
 - Do not create new root `tasks.md` checklists. Complex execution now belongs
   in ExecPlans under `docs/exec-plans/`.
-- Do not let shared guidance drift from generated mirrors or from the current
+- Do not let shared guidance or its navigation links drift from the current
   repository structure.
 - Do not introduce mixed-timezone timestamps: avoid `func.now()` /
   `CURRENT_TIMESTAMP` defaults and naked `datetime.now()` / `datetime.utcnow()`
@@ -82,6 +155,9 @@ to.
   vs offset-aware, or string vs string) — normalize both to UTC before
   comparing. These are exactly the drifts that reappear when new code lands in
   modules the UTC sweep has not yet reached.
+- Do not weaken `ruff.toml`, add a blanket `noqa`, or create a broad per-file
+  exception merely to make new code pass. Fix the code first; reserve global
+  ignores for documented repository-wide contract conflicts.
 
 ## Git Commit Message Requirements
 
@@ -95,6 +171,8 @@ rules, but must not duplicate or redefine them.
 - The local `commit-msg` hook is only a baseline Conventional Commits syntax
   check. It does not enforce the `Changed:` / `Benefit:` body or the
   classification rules below.
+- The `Changed:` / `Benefit:` body requirement applies only to commit messages;
+  PR descriptions are not subject to this constraint.
 - Subject: use English Conventional Commits without scope parentheses, such as
   `type: summary`; do not use `type(scope): summary`. Write the summary in
   plain language that product users can understand. When a change affects
@@ -122,14 +200,15 @@ Contributors have one place to check the required commit title and body format.
 
 ## Commands
 
-- `python scripts/generate_ai_collab_docs.py` regenerates compatibility
-  instruction surfaces.
 - `python scripts/build_repo_knowledge_index.py` regenerates repository
   knowledge indexes and the doc inventory.
 - `python scripts/check_repo_harness.py` validates AI-doc ownership, knowledge
   metadata, and generated harness artifacts.
 - `python scripts/check_architecture_boundaries.py` validates the committed
   frontend/backend boundary baseline and blocks new drift.
+- `python scripts/check_uow_commit_sites.py` enforces the backend
+  unit-of-work ratchet: no new `db.session.commit()` outside `flaskr/dao/`,
+  and `--update` shrinks the baseline after a migration removes sites.
 - `python scripts/check_dev_tools.py` verifies lefthook and its underlying
   tools are installed, so the pre-commit hooks are not silently skipped.
 - `lefthook run pre-commit --all-files` is the repository-wide verification
@@ -142,10 +221,14 @@ usually done in order to use it here, so the overall flow is: **change the
 library → publish a build → point ai-shifu at it → debug locally / on test / in
 prod**.
 
+Product localization is an exception to this cross-repository flow. Use the
+currently pinned library's supported locales and document any untranslated
+library controls; translate and release that library only as separate work.
+
 | Library            | Kind             | Pinned in                                            | Published from                                                            |
 | ------------------ | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
 | `markdown-flow`    | Python (backend) | `src/api/requirements.txt` (`markdown-flow==<ver>`)  | [markdown-flow-agent-py](https://github.com/ai-shifu/markdown-flow-agent-py) (PyPI) |
-| `markdown-flow-ui` | npm (frontend)   | `src/cook-web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
+| `markdown-flow-ui` | npm (frontend)   | `src/web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
 
 ### Trying a library change against this project
 
@@ -154,24 +237,54 @@ prod**.
    throwaway test package. Wait for the run to pass; the version is now published.
 2. Point this project at that version:
    - **Locally (uncommitted)**: edit the pin in `src/api/requirements.txt`
-     (backend) or `src/cook-web/package.json` (frontend).
+     (backend) or `src/web/package.json` (frontend).
    - **On an already-pushed feature branch**: run the matching bump action —
      **Bump markdown-flow** (`bump-markdown-flow.yml`) or **Bump markdown-flow-ui**
      (`bump-markdown-flow-ui.yml`). Each validates the version is published,
      updates the pin, and pushes the bump back to the branch. Both refuse to run
      on `main`. (The frontend bump pins an exact version and refreshes
-     `src/cook-web/package-lock.json` so CI's `npm ci` stays green.)
+     `src/web/package-lock.json` so CI's `npm ci` stays green.)
 
 ### Rule: `main` must pin RELEASE versions of both libraries
 
 dev builds are for feature-branch / cross-repo testing only. `main` must always
-pin **release** versions (`X.Y.Z`) of both libraries. Two CI checks enforce this
-on every PR into `main` and fail on a pre-release/dev pin:
+pin **release** versions (`X.Y.Z`) of both libraries. The **Static Checks** job
+in `repo-harness.yml` enforces this on every PR into `main` and fails on a
+pre-release/dev pin:
 
-- **Check markdown-flow release pin** (`check-markdown-flow-release.yml`) — backend.
-- **Check markdown-flow-ui release pin** (`check-markdown-flow-ui-release.yml`) — frontend.
+- The `markdown-flow` release pin is checked in `src/api/requirements.txt`.
+- The `markdown-flow-ui` release pin is checked in `src/web/package.json`.
 
 Pin release versions of both before merging.
+
+## The MarkdownFlow 2.0 engine library
+
+`src/api/markdownflow/` holds the application-independent MarkdownFlow 2.0
+engine library. Course and Profile runtimes use the shared application binding in
+`src/api/flaskr/api/markdownflow.py`; gateway integration lives under
+`src/api/flaskr/api/llm/`. See the [library design](docs/design-docs/markdownflow-engine-library.md)
+and the package's `AGENTS.md` for the dependency boundary. The foundation
+extracts the existing course runtime in PR #3163; the dependent Profile migration
+in PR #3161 uses the same library and application binding.
+Unlike the two component libraries above, it is **not** a pinned dependency: the
+code was copied in and is edited here, in place. `ai-shifu/markdown-flow-agent`
+still exists to serve the playground and the open-source release, but it is not
+an upstream — nothing is synced back and forth, and the two are expected to
+diverge.
+
+Because the engine no longer has its own repository's gate, its offline tests
+came with it and are the gate now:
+
+```bash
+cd src/api && python -m pytest tests/markdownflow/ -q
+```
+
+These tests run on `pydantic-ai`'s `FunctionModel`, so they need no network and
+cost nothing. **They must be green for any change under `markdownflow/`.** They cover
+what the surrounding service tests cannot: pausing and resuming on an
+interaction, several interactions raised in one turn, answers surviving a store
+round trip, variables reaching memory, listen-mode segmentation, 1.0 syntax
+detection, and the confirm guardrails.
 
 ## Tests
 
@@ -179,12 +292,19 @@ Pin release versions of both before merging.
   widen only when the change crosses a shared contract or multiple surfaces.
 - When a task touches only docs or instruction files, at minimum run
   `python scripts/check_repo_harness.py`.
+- When a task adds or changes a frontend Umami event, test the exact name and
+  payload, negatively assert that sensitive fields are absent, cover trigger
+  timing, eligibility, deduplication and terminal outcomes, and prove that a
+  tracking failure does not change the user-visible result.
+- When a Ruff-driven rewrite changes runtime behavior or a public/internal
+  contract, add or identify a focused regression test; a clean lint result is
+  not behavior coverage.
 - When a task changes shared boundaries or introduces new app/service
   dependencies, run `python scripts/check_architecture_boundaries.py`.
-- When a task touches the browser harness, run `cd src/cook-web && npm run test:e2e`.
+- When a task touches the browser harness, run `cd src/web && npm run test:e2e`.
 
 ## Related Skills
 
 - `SKILL.md` is the repository-level skill routing index.
 - `src/api/SKILL.md` owns backend workflow skills.
-- `src/cook-web/SKILL.md` owns frontend workflow skills.
+- `src/web/SKILL.md` owns frontend workflow skills.

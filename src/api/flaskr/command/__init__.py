@@ -1,36 +1,43 @@
-from flask import Flask
-import click
+"""Flask CLI commands for migrations and maintenance tasks."""
+
 import asyncio
 import logging
-import os
+import tempfile
 from io import BytesIO
+from pathlib import Path
+
+import click
+from flask import Flask
 from sqlalchemy import create_engine, text
 from werkzeug.datastructures import FileStorage
+
+from flaskr.service.billing.cli import register_billing_commands
+from flaskr.service.shifu.cli import register_shifu_commands
+from flaskr.service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
+
 from .import_user import import_user
-from .unified_migration_task import UnifiedMigrationTask, MigrationConfig
-from ..service.billing.cli import register_billing_commands
-from ..service.shifu.cli import register_shifu_commands
-from ..service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
+from .unified_migration_task import MigrationConfig, UnifiedMigrationTask
 from .update_shifu_demo import update_demo_shifu
 
 
-def setup_migration_logging():
-    """Setup logging for migration commands"""
+def setup_migration_logging() -> None:
+    """Set up logging for migration commands."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler("/tmp/flask_migration.log"),
+            logging.FileHandler(Path(tempfile.gettempdir()) / "flask_migration.log"),
             logging.StreamHandler(),
         ],
     )
 
 
-def enable_commands(app: Flask):
+def enable_commands(app: Flask) -> None:
+    """Register the application's command-line commands."""
+
     @app.cli.group()
-    def console():
+    def console() -> None:
         """AI Shifu Console management commands."""
-        pass
 
     register_billing_commands(console)
     register_shifu_commands(console, app)
@@ -40,8 +47,10 @@ def enable_commands(app: Flask):
     @click.argument("course_id")
     @click.argument("discount_code")
     @click.argument("user_nick_name")
-    def import_user_command(mobile, course_id, discount_code, user_nick_name):
-        """Import user and enable course"""
+    def import_user_command(
+        mobile: object, course_id: object, discount_code: object, user_nick_name: object
+    ) -> None:
+        """Import user and enable course."""
         import_user(app, mobile, course_id, discount_code, user_nick_name)
 
     @console.command(name="migrate")
@@ -56,14 +65,21 @@ def enable_commands(app: Flask):
         is_flag=True,
         help="Show what would be migrated without actually doing it",
     )
-    def migrate_command(batch_size, max_workers, force_full, output_file, dry_run):
-        """Run unified legacy data migration"""
+    def migrate_command(
+        batch_size: object,
+        max_workers: object,
+        force_full: object,
+        output_file: object,
+        dry_run: object,
+    ) -> None:
+        """Run unified legacy data migration."""
         setup_migration_logging()
         logger = logging.getLogger(__name__)
 
         if dry_run:
             click.echo("DRY RUN MODE - No data will be actually migrated")
 
+        migration_failed = False
         try:
             database_url = app.config["SQLALCHEMY_DATABASE_URI"]
 
@@ -109,7 +125,7 @@ def enable_commands(app: Flask):
 
             # Save or display report
             if output_file:
-                with open(output_file, "w", encoding="utf-8") as f:
+                with Path(output_file).open("w", encoding="utf-8") as f:
                     f.write(report)
                 click.echo(f"Migration report saved to: {output_file}")
             else:
@@ -135,46 +151,53 @@ def enable_commands(app: Flask):
                         fg="red",
                     )
                 )
-                raise click.ClickException("Migration failed")
+                migration_failed = True
+            else:
+                if failed_consistency:
+                    click.echo(
+                        click.style(
+                            f"⚠️  Consistency check failed for: {', '.join(failed_consistency)}",
+                            fg="yellow",
+                        )
+                    )
 
-            if failed_consistency:
+                # Success summary
+                total_migrated = sum(
+                    r.synced_records for r in migration_results.values()
+                )
+                total_records = sum(r.total_records for r in migration_results.values())
+                overall_rate = (
+                    (total_migrated / total_records * 100) if total_records > 0 else 0
+                )
+
                 click.echo(
                     click.style(
-                        f"⚠️  Consistency check failed for: {', '.join(failed_consistency)}",
-                        fg="yellow",
+                        f"✅ Migration completed: {total_migrated}/{total_records} records ({overall_rate:.1f}%)",
+                        fg="green",
                     )
                 )
 
-            # Success summary
-            total_migrated = sum(r.synced_records for r in migration_results.values())
-            total_records = sum(r.total_records for r in migration_results.values())
-            overall_rate = (
-                (total_migrated / total_records * 100) if total_records > 0 else 0
-            )
-
-            click.echo(
-                click.style(
-                    f"✅ Migration completed: {total_migrated}/{total_records} records ({overall_rate:.1f}%)",
-                    fg="green",
-                )
-            )
-
         except Exception as e:
-            logger.error(f"Migration failed: {e}")
-            raise click.ClickException(f"Migration failed: {e}")
+            logger.exception("Migration failed")
+            message = f"Migration failed: {e}"
+            raise click.ClickException(message) from e
         finally:
             if "migration_task" in locals():
                 migration_task.close()
 
+        if migration_failed:
+            error_message = "Migration failed"
+            raise click.ClickException(error_message)
+
     @console.command(name="verify")
-    def verify_command():
-        """Verify data consistency between old and new tables"""
+    def verify_command() -> None:
+        """Verify data consistency between old and new tables."""
         setup_migration_logging()
         logger = logging.getLogger(__name__)
 
         try:
             # Get database URL from Flask config
-            from ..common.config import get_config
+            from flaskr.common.config import get_config
 
             config = get_config()
             database_url = config.SQLALCHEMY_DATABASE_URI
@@ -189,7 +212,7 @@ def enable_commands(app: Flask):
             click.echo("=" * 50)
 
             all_passed = True
-            for table_name, result in consistency_results.items():
+            for result in consistency_results.values():
                 if result.is_consistent:
                     status_icon = click.style("✅", fg="green")
                     status_text = click.style("PASSED", fg="green")
@@ -215,21 +238,22 @@ def enable_commands(app: Flask):
                 click.echo("Consider re-running the migration for failed tables.")
 
         except Exception as e:
-            logger.error(f"Verification failed: {e}")
-            raise click.ClickException(f"Verification failed: {e}")
+            logger.exception("Verification failed")
+            message = f"Verification failed: {e}"
+            raise click.ClickException(message) from e
         finally:
             if "migration_task" in locals():
                 migration_task.close()
 
     @console.command(name="status")
-    def status_command():
-        """Show migration status and table counts"""
+    def status_command() -> None:
+        """Show migration status and table counts."""
         setup_migration_logging()
         logger = logging.getLogger(__name__)
 
         try:
             # Get database URL from Flask config
-            from ..common.config import get_config
+            from flaskr.common.config import get_config
 
             config = get_config()
             database_url = config.SQLALCHEMY_DATABASE_URI
@@ -299,8 +323,9 @@ def enable_commands(app: Flask):
                 click.echo(f"\nCould not read migration log: {e}")
 
         except Exception as e:
-            logger.error(f"Status check failed: {e}")
-            raise click.ClickException(f"Status check failed: {e}")
+            logger.exception("Status check failed")
+            message = f"Status check failed: {e}"
+            raise click.ClickException(message) from e
         finally:
             if "migration_task" in locals():
                 migration_task.close()
@@ -308,12 +333,13 @@ def enable_commands(app: Flask):
     @console.command(name="export_shifu")
     @click.argument("shifu_id")
     @click.argument("file_path")
-    def export_shifu_command(shifu_id, file_path):
-        """Export a shifu to a JSON file
+    def export_shifu_command(shifu_id: object, file_path: object) -> None:
+        """Export a shifu to a JSON file.
 
         Args:
             shifu_id: Shifu business identifier
             file_path: Path to save the JSON file
+
         """
         try:
             click.echo(f"Exporting shifu {shifu_id} to {file_path}...")
@@ -332,7 +358,8 @@ def enable_commands(app: Flask):
                 )
         except Exception as e:
             click.echo(click.style(f"❌ Export failed: {e}", fg="red"))
-            raise click.ClickException(f"Export failed: {e}")
+            message = f"Export failed: {e}"
+            raise click.ClickException(message) from e
 
     @console.command(name="import_shifu")
     @click.argument("file_path")
@@ -344,19 +371,22 @@ def enable_commands(app: Flask):
     @click.option(
         "--user-id", required=True, help="User ID for creating/updating the shifu"
     )
-    def import_shifu_command(file_path, shifu_id, user_id):
-        """Import a shifu from a JSON file
+    def import_shifu_command(
+        file_path: object, shifu_id: object, user_id: object
+    ) -> None:
+        """Import a shifu from a JSON file.
 
         Args:
             file_path: Path to the JSON file to import
             shifu_id: Optional shifu business identifier. If provided and exists, will update existing shifu.
             user_id: User ID for creating/updating the shifu
-        """
-        try:
-            # Check if file exists
-            if not os.path.exists(file_path):
-                raise click.ClickException(f"File not found: {file_path}")
 
+        """
+        if not Path(file_path).exists():
+            message = f"File not found: {file_path}"
+            raise click.ClickException(message)
+
+        try:
             click.echo(f"Importing shifu from {file_path}...")
             if shifu_id:
                 click.echo(f"Target shifu ID: {shifu_id} (will update if exists)")
@@ -365,13 +395,13 @@ def enable_commands(app: Flask):
 
             # Create FileStorage object from file path
             # Read file content first, then create FileStorage
-            with open(file_path, "rb") as f:
+            with Path(file_path).open("rb") as f:
                 file_content = f.read()
 
             # Create FileStorage from bytes
             file_storage = FileStorage(
                 stream=BytesIO(file_content),
-                filename=os.path.basename(file_path),
+                filename=Path(file_path).name,
                 name="file",
             )
 
@@ -393,10 +423,33 @@ def enable_commands(app: Flask):
 
         except Exception as e:
             click.echo(click.style(f"❌ Import failed: {e}", fg="red"))
-            raise click.ClickException(f"Import failed: {e}")
+            message = f"Import failed: {e}"
+            raise click.ClickException(message) from e
+
+    @console.group(name="agent")
+    def agent() -> None:
+        """Commands for the 2.0 lesson engine."""
+
+    @agent.command(name="check-model")
+    @click.argument("model")
+    def agent_check_model(model: str) -> None:
+        """Check whether MODEL can run a 2.0 lesson, by asking it to call a tool.
+
+        Run this before putting a course on the 2.0 allowlist. A model that cannot call tools
+        writes the question as prose and the learner never sees the controls to answer it.
+        """
+        from flaskr.service.learn.agent.capability import probe_model
+
+        result = probe_model(app, model)
+        if result.can_teach:
+            click.echo(click.style(f"OK  {result.model}: {result.detail}", fg="green"))
+            return
+        click.echo(click.style(f"NO  {result.model}: {result.detail}", fg="red"))
+        message = f"{model} cannot run a 2.0 lesson: {result.detail}"
+        raise click.ClickException(message)
 
     @console.command(name="update_demo_shifu")
-    def update_demo_shifu_command():
-        """Update demo shifu"""
+    def update_demo_shifu_command() -> None:
+        """Update demo shifu."""
         app.logger.info("Updating demo shifu...")
         update_demo_shifu(app)

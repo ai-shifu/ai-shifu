@@ -1,11 +1,11 @@
+"""Provide pytest fixtures for service creator analytics tests."""
+
 from __future__ import annotations
 
-from datetime import datetime
 from types import SimpleNamespace
-from typing import Optional
+from typing import TYPE_CHECKING
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
@@ -18,6 +18,7 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import (
@@ -27,6 +28,10 @@ from flaskr.service.shifu.models import (
     ShifuUserArchive,
 )
 from flaskr.service.user.models import UserInfo
+from flaskr.util.datetime import now_utc
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 def _clear_tables() -> None:
@@ -51,7 +56,7 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_creator_analytics_tables(app):
+def _isolate_creator_analytics_tables(app: object) -> object:
     if app is None:
         yield
         return
@@ -63,7 +68,7 @@ def _isolate_creator_analytics_tables(app):
 
 
 @pytest.fixture
-def mock_request_user(monkeypatch):
+def mock_request_user(monkeypatch: object) -> object:
     """Return a helper that installs a fake authenticated user."""
 
     def _install(user_id: str = "teacher-1", is_creator: bool = True) -> None:
@@ -87,8 +92,9 @@ def seed_owned_course(
     user_id: str = "teacher-1",
     title: str = "Untitled",
     deleted: int = 0,
+    timestamp: datetime | None = None,
 ) -> None:
-    now = datetime.utcnow()
+    now = timestamp if timestamp is not None else now_utc()
     db.session.add(
         DraftShifu(
             shifu_bid=shifu_bid,
@@ -121,12 +127,15 @@ def seed_published_shifu(
     user_id: str = "teacher-1",
     title: str = "Untitled",
     deleted: int = 0,
+    timestamp: datetime | None = None,
 ) -> None:
-    """Seed one PublishedShifu row. Pair with seed_owned_course when the test
-    needs both the draft and the published version of a course (e.g. to cover
-    the "draft title diverges from published title after rename" scenario)."""
+    """Seed one PublishedShifu row.
 
-    now = datetime.utcnow()
+    Pair with seed_owned_course when the test needs both the draft and the published version
+    of a course (e.g. to cover the "draft title diverges from published title after rename"
+    scenario).
+    """
+    now = timestamp if timestamp is not None else now_utc()
     db.session.add(
         PublishedShifu(
             shifu_bid=shifu_bid,
@@ -159,9 +168,9 @@ def seed_progress(
     user_bid: str,
     status: int,
     outline_item_bid: str = "outline-1",
-    progress_record_bid: Optional[str] = None,
+    progress_record_bid: str | None = None,
 ) -> str:
-    now = datetime.utcnow()
+    now = now_utc()
     record_bid = progress_record_bid or f"pr-{shifu_bid}-{user_bid}-{status}"
     db.session.add(
         LearnProgressRecord(
@@ -180,13 +189,31 @@ def seed_progress(
     return record_bid
 
 
+def seed_manual_order(*, shifu_bid: str, user_bid: str) -> None:
+    now = now_utc()
+    db.session.add(
+        Order(
+            order_bid=f"order-{shifu_bid}-{user_bid}",
+            shifu_bid=shifu_bid,
+            user_bid=user_bid,
+            creator_bid="teacher-1",
+            payment_channel="manual",
+            status=ORDER_STATUS_SUCCESS,
+            deleted=0,
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.session.commit()
+
+
 def seed_archive(
     *,
     shifu_bid: str,
     user_bid: str,
     archived: int = 0,
 ) -> None:
-    now = datetime.utcnow()
+    now = now_utc()
     db.session.add(
         ShifuUserArchive(
             shifu_bid=shifu_bid,
@@ -203,17 +230,17 @@ def seed_generated_block(
     *,
     shifu_bid: str,
     user_bid: str,
-    type: int,
+    block_type: int,
     role: int,
     content: str,
     progress_record_bid: str = "pr-default",
-    generated_block_bid: Optional[str] = None,
+    generated_block_bid: str | None = None,
     outline_item_bid: str = "",
     position: int = 0,
     status: int = 1,
 ) -> str:
-    bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{type}-{content[:8]}"
-    now = datetime.utcnow()
+    bid = generated_block_bid or f"gb-{shifu_bid}-{user_bid}-{block_type}-{content[:8]}"
+    now = now_utc()
     db.session.add(
         LearnGeneratedBlock(
             generated_block_bid=bid,
@@ -222,7 +249,7 @@ def seed_generated_block(
             progress_record_bid=progress_record_bid,
             outline_item_bid=outline_item_bid,
             position=position,
-            type=type,
+            type=block_type,
             role=role,
             status=status,
             generated_content=content,
@@ -264,7 +291,7 @@ def seed_bill_usage_record(
     usage_scene: int = 1203,
     provider: str = "deepseek",
     model: str = "deepseek-v4-flash",
-    created_at: Optional[datetime] = None,
+    created_at: datetime | None = None,
     deleted: int = 0,
 ) -> str:
     """Seed one BillUsageRecord row for credit-detail E2E tests.
@@ -273,7 +300,6 @@ def seed_bill_usage_record(
     empty, numeric fields to zero) so callers only have to set what the
     test cares about.
     """
-
     db.session.add(
         BillUsageRecord(
             usage_bid=usage_bid,
@@ -285,7 +311,7 @@ def seed_bill_usage_record(
             usage_scene=usage_scene,
             provider=provider,
             model=model,
-            created_at=created_at or datetime.utcnow(),
+            created_at=created_at or now_utc(),
             deleted=deleted,
         )
     )
@@ -303,8 +329,8 @@ def seed_credit_ledger_entry(
     entry_type: int = CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     wallet_bid: str = "",
     wallet_bucket_bid: str = "",
-    idempotency_key: Optional[str] = None,
-    created_at: Optional[datetime] = None,
+    idempotency_key: str | None = None,
+    created_at: datetime | None = None,
     deleted: int = 0,
 ) -> str:
     """Seed one CreditLedgerEntry row.
@@ -314,7 +340,6 @@ def seed_credit_ledger_entry(
     deductions). ``idempotency_key`` defaults to a per-source-bid value to
     satisfy the (creator_bid, idempotency_key) unique constraint.
     """
-
     db.session.add(
         CreditLedgerEntry(
             ledger_bid=ledger_bid,
@@ -327,7 +352,7 @@ def seed_credit_ledger_entry(
             idempotency_key=idempotency_key or f"usage:{source_bid}:consume",
             amount=amount,
             balance_after=0,
-            created_at=created_at or datetime.utcnow(),
+            created_at=created_at or now_utc(),
             deleted=deleted,
         )
     )
@@ -347,15 +372,14 @@ def seed_bill_daily_metric(
     billing_metric: int = 1,
     consumed_credits: float = 10.0,
     record_count: int = 5,
-    daily_usage_metric_bid: Optional[str] = None,
+    daily_usage_metric_bid: str | None = None,
 ) -> None:
     """Seed one BillingDailyUsageMetric row for E2E credit-query tests."""
-
     bid = (
         daily_usage_metric_bid
         or f"dm-{shifu_bid}-{stat_date}-{usage_type}-{provider}-{model}"
     )
-    now = datetime.utcnow()
+    now = now_utc()
     db.session.add(
         BillingDailyUsageMetric(
             daily_usage_metric_bid=bid,

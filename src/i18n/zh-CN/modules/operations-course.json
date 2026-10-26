@@ -92,9 +92,10 @@
         "table": {
           "createdAt": "消耗时间",
           "credits": "消耗积分",
-          "inputTokens": "输入 Tokens",
+          "inputTokens": "输入词元",
+          "model": "模型",
           "outputSummary": "输出摘要",
-          "outputTokens": "输出 Tokens",
+          "outputTokens": "输出词元",
           "ttsContent": "合成内容",
           "ttsDuration": "音频时长",
           "ttsSegmentCount": "分段数",
@@ -109,13 +110,13 @@
         "scene": "消耗类型",
         "sceneAll": "全部",
         "time": "时间",
-        "timePlaceholder": "选择时间范围",
+        "timePlaceholder": "开始时间 ~ 结束时间",
         "userKeyword": "用户",
-        "userKeywordPlaceholderEmail": "输入邮箱 / 昵称",
-        "userKeywordPlaceholderPhone": "输入手机号 / 昵称"
+        "userKeywordPlaceholderEmail": "邮箱 / 昵称",
+        "userKeywordPlaceholderPhone": "手机号 / 昵称"
       },
       "modelSummary": {
-        "multiple": "{model} 等 {count} 个"
+        "variants": "涉及 {count} 种"
       },
       "modes": {
         "ask": "追问",
@@ -131,11 +132,11 @@
         "unknown": "未知类型"
       },
       "table": {
-        "chapter": "章节",
+        "chapter": "章",
         "createdAt": "最近消耗时间",
         "credits": "总消耗积分",
         "empty": "暂无积分消耗记录",
-        "lesson": "小节",
+        "lesson": "节",
         "mode": "消耗场景",
         "model": "模型",
         "nickname": "昵称",
@@ -145,6 +146,18 @@
       "title": "积分消耗"
     },
     "creditUsageTab": "积分消耗",
+    "estimatedCreditCost": {
+      "classroom": "课堂",
+      "creditUnit": "积分",
+      "description": "按当前内容、模型和倍率估算；不含重修、追问或重新生成等额外消耗，实际以积分明细为准。",
+      "disabled": "未开启",
+      "listen": "听课",
+      "llm": "LLM",
+      "read": "阅读",
+      "title": "预估全课消耗",
+      "tts": "TTS",
+      "unknownModel": "未知模型"
+    },
     "fields": {
       "courseId": "课程ID",
       "courseName": "课程名",
@@ -184,10 +197,10 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "章/节搜索",
-        "chapterKeywordPlaceholder": "输入章/节标题",
+        "chapterKeywordPlaceholder": "章/节标题",
         "followUpTime": "追问时间",
         "lessonKeyword": "节搜索",
-        "lessonKeywordPlaceholder": "输入节标题",
+        "lessonKeywordPlaceholder": "节标题",
         "reset": "重置",
         "resultCount": "共 {count} 条",
         "search": "查询",
@@ -195,7 +208,7 @@
         "sourceStatusAll": "全部状态",
         "sourceStatusMissing": "未定位原始输出",
         "sourceStatusResolved": "已定位原始输出",
-        "timePlaceholder": "追问开始/结束时间",
+        "timePlaceholder": "开始时间 ~ 结束时间",
         "userKeyword": "用户搜索",
         "userKeywordPlaceholder": "手机号 / 邮箱 / 昵称",
         "userKeywordPlaceholderEmail": "邮箱 / 昵称",
@@ -241,10 +254,20 @@
       "creditUserCount": "积分消耗用户数",
       "followUpCount": "追问数",
       "learnerCount": "学习人数",
-      "orderAmount": "实收总额（含兑换码）",
+      "orderAmount": "订单金额（含兑换码）",
       "orderCount": "订单数",
-      "ratingScore": "评分",
-      "visitCount30d": "近30天访问人数"
+      "ratingScore": "评分"
+    },
+    "metricsTooltips": {
+      "completedUserAvgCredits": "已学完课程且有计费积分记录的用户，平均每人消耗了多少积分。",
+      "creditConsumedTotal": "学习、追问等使用这门课时累计消耗的积分。",
+      "creditUsageCount": "这门课触发了多少次积分扣减，用来看使用频次。",
+      "creditUserCount": "有多少用户在这门课里实际消耗过积分。",
+      "followUpCount": "用户围绕课程内容追问了多少次，点击可查看具体问题。",
+      "learnerCount": "有多少用户开始学或加入过这门课，用来看课程触达规模。",
+      "orderAmount": "这门课按应付金额口径统计的订单金额，包含兑换码和激活订单，不等同于现金实收。",
+      "orderCount": "这门课产生了多少笔成功订单，包含付费、兑换码和 0 元激活订单。",
+      "ratingScore": "用户给课程章节的平均评分，用来看整体学习体验。"
     },
     "orders": {
       "openMetric": "查看订单数据"
@@ -270,7 +293,7 @@
         "sortBy": "排序",
         "sortByLatest": "最新优先",
         "sortByLowScore": "低分优先",
-        "timePlaceholder": "评分开始/结束时间",
+        "timePlaceholder": "开始时间 ~ 结束时间",
         "userKeyword": "用户搜索",
         "userKeywordPlaceholderEmail": "邮箱 / 昵称",
         "userKeywordPlaceholderPhone": "手机号 / 昵称"
@@ -323,9 +346,9 @@
       "paymentStatus": "是否付费",
       "paymentUnpaid": "未付费",
       "userKeyword": "用户搜索",
-      "userKeywordPlaceholder": "输入手机号 / 邮箱 / 昵称",
-      "userKeywordPlaceholderEmail": "输入邮箱 / 昵称",
-      "userKeywordPlaceholderPhone": "输入手机号 / 昵称",
+      "userKeywordPlaceholder": "手机号 / 邮箱 / 昵称",
+      "userKeywordPlaceholderEmail": "邮箱 / 昵称",
+      "userKeywordPlaceholderPhone": "手机号 / 昵称",
       "userRole": "用户身份"
     },
     "usersTable": {
@@ -355,10 +378,12 @@
   "filters": {
     "courseId": "课程ID",
     "courseName": "课程名称",
+    "courseQuery": "课程",
+    "courseQueryPlaceholder": "课程ID / 课程名称",
     "createdAt": "创建时间",
     "creator": "创建者",
-    "creatorEmailOrUserBid": "邮箱或用户ID",
-    "creatorMobileOrUserBid": "手机号或用户ID",
+    "creatorEmailOrUserBid": "课程负责人邮箱",
+    "creatorMobileOrUserBid": "课程负责人手机号",
     "endTime": "结束日期",
     "startTime": "开始日期",
     "status": "状态"

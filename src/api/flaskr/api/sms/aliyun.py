@@ -1,12 +1,13 @@
+"""Send SMS messages through Aliyun."""
+
 import json
 
+from alibabacloud_dysmsapi20170525 import models as dysmsapi_20170525_models
 from alibabacloud_dysmsapi20170525.client import Client as Dysmsapi20170525Client
 from alibabacloud_tea_openapi import models as open_api_models
-from alibabacloud_dysmsapi20170525 import models as dysmsapi_20170525_models
 from alibabacloud_tea_util import models as util_models
 from alibabacloud_tea_util.client import Client as UtilClient
 from flask import Flask
-
 
 RECIPIENT_INPUT_ERROR_CODES = {
     # The recipient number failed provider-side format validation. This is
@@ -25,11 +26,12 @@ def _body_value(
 
 
 def _log_provider_error(app: Flask, error: Exception) -> None:
-    error_message = getattr(error, "message", str(error))
-    error_data = getattr(error, "data", {}) or {}
-    app.logger.error(error_message)
-    app.logger.error(error_data.get("Recommend"))
-    UtilClient.assert_as_string(error_message)
+    error_type = type(error).__name__
+    app.logger.error(
+        "sms_event=aliyun_provider_exception error_type=%s",
+        error_type,
+    )
+    UtilClient.assert_as_string(error_type)
 
 
 def send_sms_ali(
@@ -40,6 +42,7 @@ def send_sms_ali(
     template_params: dict[str, str],
     sign_name: str | None = None,
 ) -> dysmsapi_20170525_models.SendSmsResponse | None:
+    """Send SMS ali."""
     if not app.config.get(
         "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
     ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
@@ -90,19 +93,14 @@ def send_sms_ali(
                 # application failures that should page operations.
                 log_provider_failure = app.logger.warning
             log_provider_failure(
-                "Aliyun SMS send failed for mobile=%s template_code=%s code=%s "
-                "message=%s request_id=%s biz_id=%s",
-                mobile,
-                resolved_template_code,
+                "sms_event=aliyun_send_rejected code=%s",
                 response_code or "<empty>",
-                response_message or "<empty>",
-                _body_value(res, "request_id") or "<empty>",
-                _body_value(res, "biz_id") or "<empty>",
             )
             return None
-        return res
     except Exception as error:
         _log_provider_error(app, error)
+    else:
+        return res
     return None
 
 
@@ -111,6 +109,7 @@ def get_sms_template_ali(
     *,
     template_code: str,
 ) -> dysmsapi_20170525_models.GetSmsTemplateResponse | None:
+    """Return SMS template ali."""
     if not app.config.get(
         "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
     ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
@@ -145,6 +144,7 @@ def query_sms_template_list_ali(
     page_index: int = 1,
     page_size: int = 50,
 ) -> dysmsapi_20170525_models.QuerySmsTemplateListResponse | None:
+    """Query SMS template list ali."""
     if not app.config.get(
         "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
     ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
@@ -182,6 +182,7 @@ def query_sms_template_list_ali(
 def send_sms_code_ali(
     app: Flask, mobile: str, check_code: str
 ) -> dysmsapi_20170525_models.SendSmsResponse | None:
+    """Send SMS code ali."""
     return send_sms_ali(
         app,
         mobile,

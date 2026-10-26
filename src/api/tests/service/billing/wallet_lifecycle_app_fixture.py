@@ -1,11 +1,15 @@
+"""Provide wallet lifecycle app fixture support for service billing tests."""
+
 from __future__ import annotations
 
-from collections.abc import Generator
+from typing import TYPE_CHECKING
 
-from flask import Flask
 import pytest
+from flask import Flask
+from flaskr import dao
 
-import flaskr.dao as dao
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 @pytest.fixture

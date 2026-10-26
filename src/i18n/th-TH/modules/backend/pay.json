@@ -1,0 +1,7 @@
+{
+  "__namespace__": "server.pay",
+  "__flat__": {
+    "payChannelNotSupport": "ไม่รองรับช่องทางการชำระเงินนี้",
+    "wechatOpenIdRequired": "การชำระเงินผ่าน WeChat JSAPI ต้องใช้ OpenID โปรดเข้าสู่ระบบอีกครั้งจากทางเข้าการอนุญาตของ WeChat"
+  }
+}

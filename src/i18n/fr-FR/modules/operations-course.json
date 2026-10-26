@@ -2,7 +2,7 @@
   "__namespace__": "module.operationsCourse",
   "actions": {
     "copyCourse": "Copier le cours",
-    "transferCreator": "Transférer le créateur"
+    "transferCreator": "Transférer la responsabilité du cours"
   },
   "copyCourseDialog": {
     "confirm": "Confirmer la copie",
@@ -38,7 +38,7 @@
     },
     "chapterType": {
       "chapter": "Chap.",
-      "lesson": "Sec."
+      "lesson": "Leçon"
     },
     "chapters": "Chapitres",
     "chaptersTable": {
@@ -93,6 +93,7 @@
           "createdAt": "Consommé le",
           "credits": "Crédits",
           "inputTokens": "Tokens d'entrée",
+          "model": "Modèle",
           "outputSummary": "Résumé de sortie",
           "outputTokens": "Tokens de sortie",
           "ttsContent": "Contenu synthétisé",
@@ -109,13 +110,13 @@
         "scene": "Type d’utilisation",
         "sceneAll": "Tous",
         "time": "Heure",
-        "timePlaceholder": "Sélectionner une plage horaire",
+        "timePlaceholder": "Heure de début ~ Heure de fin",
         "userKeyword": "Utilisateur",
-        "userKeywordPlaceholderEmail": "Saisir un e-mail ou un pseudonyme",
-        "userKeywordPlaceholderPhone": "Saisir un téléphone ou un pseudonyme"
+        "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
+        "userKeywordPlaceholderPhone": "Mobile / Pseudonyme"
       },
       "modelSummary": {
-        "multiple": "{model} et {count} modèles"
+        "variants": "{count} variantes"
       },
       "modes": {
         "ask": "Relance",
@@ -145,6 +146,18 @@
       "title": "Consommation de crédits"
     },
     "creditUsageTab": "Consommation de crédits",
+    "estimatedCreditCost": {
+      "classroom": "Classe",
+      "creditUnit": "crédits",
+      "description": "Estimation basée sur le contenu, les modèles et les multiplicateurs actuels. Les reprises, suivis et régénérations sont exclus ; le détail des crédits fait foi.",
+      "disabled": "Non activé",
+      "listen": "Écoute",
+      "llm": "LLM",
+      "read": "Lecture",
+      "title": "Coût estimé du cours complet",
+      "tts": "TTS",
+      "unknownModel": "Modèle inconnu"
+    },
     "fields": {
       "courseId": "ID du cours",
       "courseName": "Nom du cours",
@@ -184,10 +197,10 @@
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Rechercher un chapitre / une leçon",
-        "chapterKeywordPlaceholder": "Saisissez le titre du chapitre ou de la leçon",
+        "chapterKeywordPlaceholder": "Titre du chapitre / de la leçon",
         "followUpTime": "Heure de suivi",
         "lessonKeyword": "Rechercher une leçon",
-        "lessonKeywordPlaceholder": "Saisissez le titre de la leçon",
+        "lessonKeywordPlaceholder": "Titre de la leçon",
         "reset": "Réinitialiser",
         "resultCount": "{count, plural, one {# résultat} other {# résultats}}",
         "search": "Rechercher",
@@ -195,7 +208,7 @@
         "sourceStatusAll": "Tous les statuts",
         "sourceStatusMissing": "Sortie d’origine introuvable",
         "sourceStatusResolved": "Sortie d’origine localisée",
-        "timePlaceholder": "Début / fin du suivi",
+        "timePlaceholder": "Heure de début ~ Heure de fin",
         "userKeyword": "Rechercher un utilisateur",
         "userKeywordPlaceholder": "Téléphone / e-mail / pseudonyme",
         "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
@@ -216,7 +229,7 @@
         "detailAction": "Voir le détail",
         "empty": "Aucune donnée de suivi",
         "lesson": "Leçon",
-        "scopeHint": "Consultez les suivis des apprenants autour du contenu du cours pour repérer les points de blocage fréquents et les leçons à améliorer.",
+        "scopeHint": "Consultez les questions de suivi des apprenants sur le contenu du cours pour repérer les blocages fréquents et les leçons à améliorer.",
         "sourceMissing": "Sortie d’origine introuvable",
         "sourceResolved": "Sortie d’origine localisée",
         "title": "Liste des suivis",
@@ -230,7 +243,7 @@
     "learningPermission": {
       "free": "Gratuit",
       "guest": "Sans connexion",
-      "paid": "Payé",
+      "paid": "Payant",
       "unknown": "Inconnu"
     },
     "metrics": "Métriques",
@@ -241,10 +254,20 @@
       "creditUserCount": "Utilisateurs consommateurs de crédits",
       "followUpCount": "Questions",
       "learnerCount": "Apprenants",
-      "orderAmount": "Revenus collectés (codes coupon inclus)",
+      "orderAmount": "Valeur des commandes (codes inclus)",
       "orderCount": "Commandes",
-      "ratingScore": "Note",
-      "visitCount30d": "Visiteurs (30 j)"
+      "ratingScore": "Note"
+    },
+    "metricsTooltips": {
+      "completedUserAvgCredits": "Crédits moyens dépensés par les utilisateurs ayant terminé ce cours et ayant une consommation de crédits facturée enregistrée.",
+      "creditConsumedTotal": "Total des crédits dépensés dans ce cours, y compris l’apprentissage et les questions de suivi.",
+      "creditUsageCount": "Nombre de déductions de crédits déclenchées par ce cours, utile pour mesurer la fréquence d’usage.",
+      "creditUserCount": "Nombre d’utilisateurs ayant réellement dépensé des crédits dans ce cours.",
+      "followUpCount": "Nombre de questions de suivi posées sur ce cours. Ouvrez pour les consulter.",
+      "learnerCount": "Nombre d’utilisateurs qui ont commencé ou rejoint ce cours, utile pour estimer sa portée.",
+      "orderAmount": "Valeur des commandes calculée sur le montant dû, codes d’échange et activations inclus. Ce montant ne correspond pas aux sommes réellement encaissées.",
+      "orderCount": "Commandes réussies générées par ce cours, y compris les commandes payées, avec code d’échange et les activations à 0.",
+      "ratingScore": "Note moyenne donnée aux leçons, utile pour évaluer l’expérience d’apprentissage."
     },
     "orders": {
       "openMetric": "Ouvrir les données de commande"
@@ -270,7 +293,7 @@
         "sortBy": "Trier",
         "sortByLatest": "Plus récent d’abord",
         "sortByLowScore": "Note la plus basse d’abord",
-        "timePlaceholder": "Début / fin de la notation",
+        "timePlaceholder": "Heure de début ~ Heure de fin",
         "userKeyword": "Rechercher un utilisateur",
         "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
         "userKeywordPlaceholderPhone": "Téléphone / pseudonyme"
@@ -323,9 +346,9 @@
       "paymentStatus": "Paiement",
       "paymentUnpaid": "Non payé",
       "userKeyword": "Rechercher un utilisateur",
-      "userKeywordPlaceholder": "Recherche par téléphone, e-mail ou pseudonyme",
-      "userKeywordPlaceholderEmail": "Recherche par e-mail ou pseudonyme",
-      "userKeywordPlaceholderPhone": "Recherche par téléphone ou pseudonyme",
+      "userKeywordPlaceholder": "Mobile / E-mail / Pseudonyme",
+      "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
+      "userKeywordPlaceholderPhone": "Mobile / Pseudonyme",
       "userRole": "Rôle utilisateur"
     },
     "usersTable": {
@@ -355,10 +378,12 @@
   "filters": {
     "courseId": "ID du cours",
     "courseName": "Nom du cours",
+    "courseQuery": "Cours",
+    "courseQueryPlaceholder": "ID du cours / Nom du cours",
     "createdAt": "Créé le",
     "creator": "Créateur",
-    "creatorEmailOrUserBid": "E-mail ou ID d’utilisateur",
-    "creatorMobileOrUserBid": "Mobile ou ID d’utilisateur",
+    "creatorEmailOrUserBid": "E-mail du créateur",
+    "creatorMobileOrUserBid": "Mobile du créateur",
     "endTime": "Date de fin",
     "startTime": "Date de début",
     "status": "Statut"
@@ -420,19 +445,19 @@
   "title": "Cours Gestion",
   "transferCreatorDialog": {
     "confirm": "Transférer",
-    "confirmDescription": "Transférer le créateur de {courseName} de {currentCreator} à {targetCreator}.",
-    "confirmTitle": "Confirmer Créateur Transfer",
+    "confirmDescription": "Transférer la responsabilité du cours « {courseName} » de {currentCreator} à {targetCreator}.",
+    "confirmTitle": "Confirmer le transfert de responsabilité du cours",
     "contactPlaceholderEmail": "Saisir l’e-mail du créateur cible",
     "contactPlaceholderPhone": "Saisir le mobile du créateur cible",
     "contactType": "Type de contact",
     "contactTypeEmail": "E-mail",
     "contactTypePhone": "Mobile",
-    "currentCreator": "Actuel Créateur",
+    "currentCreator": "Responsable actuel",
     "description": "Seul le créateur du cours change. Le contenu, la configuration et les autorisations partagées restent inchangés.",
     "identifier": "Créateur cible",
     "identifierRequired": "Veuillez saisir un contact de créateur cible valide",
     "sameCreator": "Le contact cible appartient déjà au créateur actuel",
-    "submitSuccess": "Créateur transferred",
-    "title": "Transfer Créateur"
+    "submitSuccess": "Responsabilité du cours transférée",
+    "title": "Transférer la responsabilité du cours"
   }
 }

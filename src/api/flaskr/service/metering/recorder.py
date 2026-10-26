@@ -1,5 +1,4 @@
-"""
-Usage metering recorder.
+"""Usage metering recorder.
 
 Provides best-effort helpers to persist LLM and TTS usage records.
 Billing settlement stays asynchronous; request threads stop after raw
@@ -8,12 +7,12 @@ Billing settlement stays asynchronous; request threads stop after raw
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING
 
-from flask import Flask
-
-from flaskr.dao import cleanup_session_after, db, invalidate_session
+from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, autonomous_unit_of_work
 from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
 from flaskr.util.uuid import generate_id
 
@@ -24,6 +23,9 @@ from .consts import (
     normalize_usage_scene,
 )
 from .models import BillUsageRecord
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass(frozen=True)
@@ -39,46 +41,57 @@ class UsageContext:
     request_id: str = ""
     trace_id: str = ""
     usage_scene: int = BILL_USAGE_SCENE_PROD
-    billable: Optional[int] = None
+    billable: int | None = None
+    learning_mode: str = ""
+
+
+def _normalize_usage_extra(
+    context: UsageContext,
+    extra: dict[str, object] | None = None,
+) -> dict[str, object] | None:
+    payload = dict(extra or {})
+    learning_mode = str(context.learning_mode or "").strip().lower()
+    if learning_mode in {"read", "listen", "classroom"}:
+        payload.setdefault("learning_mode", learning_mode)
+    return payload or None
 
 
 def _resolve_billable(app: Flask, *, context: UsageContext, usage_scene: int) -> int:
+    """Classify usage in a bounded app scope, including native engine callers.
+
+    Cold demo lookups read configuration and course rows. Reuse any caller
+    session, or close a temporary read scope before autonomous usage persistence.
+    """
     if context.billable is not None:
         return int(context.billable)
-    if context.shifu_bid and is_builtin_demo_shifu(app, context.shifu_bid):
-        return 0
+    if context.shifu_bid:
+        with app_context_scope(app):
+            if is_builtin_demo_shifu(app, context.shifu_bid):
+                return 0
     normalize_usage_scene(usage_scene)
     return 1
 
 
 def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
-    """Persist raw usage only; async settlement owns later credit mutations."""
-    with app.app_context():
-        try:
+    """Persist raw usage only; async settlement owns later credit mutations.
+
+    The record lands on its own session (``autonomous_unit_of_work``): a
+    /run stream may still hold half-generated blocks in the caller's
+    session, and those must neither commit early nor drag the usage row
+    down with them. The unit of work performs the classified cleanup inside
+    the pushed context - ordinary errors roll back that session, protocol
+    interrupts (including a GreenletExit inside the commit's network IO)
+    discard the connection - so only the outcome is reported here.
+    """
+    try:
+        with autonomous_unit_of_work(app):
             db.session.add(record)
-            db.session.commit()
-            return True
-        except Exception as exc:
-            try:
-                app.logger.error(
-                    "Usage metering persist failed: %s", exc, exc_info=True
-                )
-            except Exception:
-                # Never mask the persistence failure with a logging failure.
-                pass
-            # Clean up INSIDE the pushed context so it targets the session
-            # that actually failed - the previous cleanup ran after the
-            # context pop and rolled back the CALLER's session instead.
-            # Classified: stream-interrupting failures discard the
-            # connection, ordinary errors roll back as before.
-            cleanup_session_after(exc, source="usage metering persist")
-            return False
-        except BaseException:
-            # A GreenletExit landing inside commit's network IO leaves an
-            # unread response owed on the wire; discard the connection
-            # before the context teardown would roll back on it.
-            invalidate_session(source="usage metering persist interrupt")
-            raise
+    except Exception:
+        # Never mask the persistence failure with a logging failure.
+        with contextlib.suppress(Exception):
+            app.logger.exception("Usage metering persist failed")
+        return False
+    return True
 
 
 def _should_enqueue_usage_settlement(
@@ -110,35 +123,33 @@ def _enqueue_usage_settlement(app: Flask, *, usage_bid: str) -> None:
             )
             return
         task.apply_async(kwargs={"usage_bid": normalized_usage_bid})
-    except Exception as exc:
-        try:
-            app.logger.error(
-                "Usage settlement enqueue failed for usage_bid=%s: %s",
+    except Exception:
+        with contextlib.suppress(Exception):
+            app.logger.exception(
+                "Usage settlement enqueue failed for usage_bid=%s",
                 normalized_usage_bid,
-                exc,
-                exc_info=True,
             )
-        except Exception:
-            pass
 
 
 def record_llm_usage(
     app: Flask,
     context: UsageContext,
     *,
+    usage_bid: str | None = None,
     provider: str,
     model: str,
     is_stream: bool,
-    input: int,
+    input: int,  # noqa: A002 - mirrors the BillUsageRecord column name
     input_cache: int = 0,
     output: int,
     total: int,
     latency_ms: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: Optional[Dict[str, Any]] = None,
+    extra: dict[str, object] | None = None,
 ) -> str:
-    usage_bid = generate_id(app)
+    """Record LLM usage."""
+    resolved_usage_bid = str(usage_bid or "").strip() or generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
     resolved_billable = _resolve_billable(
         app,
@@ -146,7 +157,7 @@ def record_llm_usage(
         usage_scene=normalized_usage_scene,
     )
     record = BillUsageRecord(
-        usage_bid=usage_bid,
+        usage_bid=resolved_usage_bid,
         parent_usage_bid="",
         user_bid=context.user_bid or "",
         shifu_bid=context.shifu_bid or "",
@@ -174,7 +185,7 @@ def record_llm_usage(
         billable=resolved_billable,
         status=int(status or 0),
         error_message=error_message or "",
-        extra=extra or None,
+        extra=_normalize_usage_extra(context, extra),
     )
     if _persist_usage_record(app, record):
         if _should_enqueue_usage_settlement(
@@ -182,8 +193,9 @@ def record_llm_usage(
             status=status,
             record_level=0,
         ):
-            _enqueue_usage_settlement(app, usage_bid=usage_bid)
-        try:
+            _enqueue_usage_settlement(app, usage_bid=resolved_usage_bid)
+        # Best-effort logging; ignore failures so they do not mask the result.
+        with contextlib.suppress(Exception):
             usage_source = (
                 (extra or {}).get("usage_source", "") if isinstance(extra, dict) else ""
             )
@@ -191,7 +203,7 @@ def record_llm_usage(
                 "record_llm_usage saved usage_bid=%s provider=%s model=%s stream=%s "
                 "input=%s input_cache=%s output=%s total=%s latency_ms=%s status=%s "
                 "scene=%s billable=%s usage_source=%s user_bid=%s request_id=%s trace_id=%s",
-                usage_bid,
+                resolved_usage_bid,
                 provider or "",
                 model or "",
                 1 if is_stream else 0,
@@ -208,10 +220,7 @@ def record_llm_usage(
                 context.request_id or "",
                 context.trace_id or "",
             )
-        except Exception:
-            # Best-effort logging; ignore failures so they do not mask the result.
-            pass
-        return usage_bid
+        return resolved_usage_bid
     return ""
 
 
@@ -219,11 +228,11 @@ def record_tts_usage(
     app: Flask,
     context: UsageContext,
     *,
-    usage_bid: Optional[str] = None,
+    usage_bid: str | None = None,
     provider: str,
     model: str,
     is_stream: bool,
-    input: int,
+    input: int,  # noqa: A002 - mirrors the BillUsageRecord column name
     output: int,
     total: int,
     word_count: int,
@@ -235,9 +244,10 @@ def record_tts_usage(
     segment_count: int = 0,
     status: int = 0,
     error_message: str = "",
-    extra: Optional[Dict[str, Any]] = None,
+    extra: dict[str, object] | None = None,
     enqueue_settlement: bool = True,
 ) -> str:
+    """Record TTS usage."""
     resolved_usage_bid = usage_bid or generate_id(app)
     normalized_usage_scene = normalize_usage_scene(context.usage_scene)
     resolved_billable = _resolve_billable(
@@ -273,7 +283,7 @@ def record_tts_usage(
         billable=resolved_billable,
         status=int(status or 0),
         error_message=error_message or "",
-        extra=extra or None,
+        extra=_normalize_usage_extra(context, extra),
     )
     if _persist_usage_record(app, record):
         if enqueue_settlement and _should_enqueue_usage_settlement(

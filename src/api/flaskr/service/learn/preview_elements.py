@@ -1,9 +1,9 @@
+"""Build preview elements from course content."""
+
 from __future__ import annotations
 
 import uuid
-from typing import Generator
-
-from flask import Flask
+from typing import TYPE_CHECKING
 
 from flaskr.service.learn.learn_dtos import (
     ElementDTO,
@@ -12,8 +12,13 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.listen_element_run_state import BlockMeta
+from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from flask import Flask
 
 
 class PreviewElementRunAdapter(ListenElementRunAdapter):
@@ -27,7 +32,12 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         outline_bid: str,
         user_bid: str,
         run_session_bid: str | None = None,
-    ):
+    ) -> None:
+        """Initialize preview adaptation with in-memory element snapshots.
+
+        Reuses the parent run identity and event state, then replaces the element
+        snapshot store with a preview-only in-memory cache.
+        """
         super().__init__(
             app,
             shifu_bid=shifu_bid,
@@ -77,7 +87,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         self._latest_element_snapshots[element_bid] = snapshot
 
     def _retire_fallback_element(
-        self, state, *, emit_notification: bool = True
+        self, state: object, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.fallback_element_bid:
             return
@@ -94,7 +104,7 @@ class PreviewElementRunAdapter(ListenElementRunAdapter):
         )
 
     def _retire_stream_elements(
-        self, state, *, emit_notification: bool = True
+        self, state: object, *, emit_notification: bool = True
     ) -> Generator[RunElementSSEMessageDTO, None, None]:
         if not state.stream_elements:
             return

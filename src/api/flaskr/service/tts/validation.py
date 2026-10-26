@@ -1,33 +1,49 @@
+"""Validate requests and settings for TTS."""
+
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
-
-from flaskr.api.tts import get_tts_provider
+from flaskr.api.tts import (
+    get_provider_capabilities,
+    get_tts_provider,
+    list_provider_names,
+)
 from flaskr.service.common.models import raise_error_with_args
-from flaskr.service.tts.minimax_voice_clone import is_valid_minimax_custom_voice_id
-from flaskr.service.tts.models import (
-    TTSMiniMaxClonedVoice,
-    TTS_MINIMAX_CLONE_STATUS_READY,
+from flaskr.service.tts.cloned_voice_registry import (
+    find_ready_cloned_voice,
+    get_clone_provider_spec,
 )
 
+if TYPE_CHECKING:
+    from flask import Flask
 
-SUPPORTED_TTS_PROVIDERS = {
-    "minimax",
-    "volcengine",
-    "volcengine_http",
-    "baidu",
-    "aliyun",
-    "tencent",
-    "tencent_texttovoice",
-}
-PROVIDERS_REQUIRING_MODEL = {"minimax", "volcengine", "tencent_texttovoice"}
+
+def _supported_provider_names() -> frozenset[str]:
+    return frozenset(list_provider_names())
+
+
+# Derived views of the provider capability declarations, kept for callers
+# that still import these names. Runtime checks read the capabilities directly.
+SUPPORTED_TTS_PROVIDERS = _supported_provider_names()
+PROVIDERS_REQUIRING_MODEL = frozenset(
+    name
+    for name in list_provider_names()
+    if get_provider_capabilities(name).requires_model
+)
+PROVIDERS_REQUIRING_LISTED_VOICE = frozenset(
+    name
+    for name in list_provider_names()
+    if get_provider_capabilities(name).requires_listed_voice
+)
 
 
 @dataclass(frozen=True)
 class StrictTTSSettings:
+    """Validate the complete settings required for speech synthesis."""
+
     provider: str
     model: str
     voice_id: str
@@ -40,18 +56,23 @@ def _raise_param_error(message: str) -> None:
     raise_error_with_args("server.common.paramsError", param_message=message)
 
 
-def _to_float(value: Any, field_name: str) -> float:
+def _to_float(value: object, field_name: str) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
         _raise_param_error(f"Invalid {field_name}: {value!r}")
 
 
-def _to_int(value: Any, field_name: str) -> int:
+def _to_int(value: object, field_name: str) -> int:
     try:
-        return int(value)
+        number = float(value)
     except (TypeError, ValueError):
         _raise_param_error(f"Invalid {field_name}: {value!r}")
+    # Reject fractional values instead of silently truncating them: 0.5 must
+    # not pass as 0 for providers whose pitch is locked to a whole number.
+    if not math.isfinite(number) or not number.is_integer():
+        _raise_param_error(f"Invalid {field_name}: {value!r}")
+    return int(number)
 
 
 def validate_tts_settings_strict(
@@ -59,34 +80,37 @@ def validate_tts_settings_strict(
     provider: str,
     model: str,
     voice_id: str,
-    speed: Any,
-    pitch: Any,
+    speed: object,
+    pitch: object,
     emotion: str,
 ) -> StrictTTSSettings:
-    """
-    Validate strict, DB-driven TTS settings.
+    """Validate strict, DB-driven TTS settings.
 
     Notes:
     - Provider, voice_id, speed, and pitch must be explicit (no "system default").
     - `model` is required for providers that expose model/resource selection.
+
     """
     normalized_provider = (provider or "").strip().lower()
     if not normalized_provider:
         _raise_param_error("TTS provider is required when TTS is enabled")
-    if normalized_provider not in SUPPORTED_TTS_PROVIDERS:
+    if normalized_provider not in _supported_provider_names():
         _raise_param_error(f"Unsupported TTS provider: {normalized_provider}")
+    capabilities = get_provider_capabilities(normalized_provider)
 
     normalized_voice_id = (voice_id or "").strip()
     if not normalized_voice_id:
         _raise_param_error("TTS voice_id is required when TTS is enabled")
 
     normalized_model = (model or "").strip()
-    if normalized_provider in PROVIDERS_REQUIRING_MODEL and not normalized_model:
+    if capabilities.requires_model and not normalized_model:
         _raise_param_error(
             f"TTS model is required for provider '{normalized_provider}'"
         )
 
     speed_value = _to_float(speed, "tts_speed")
+    if not math.isfinite(speed_value):
+        _raise_param_error(f"Invalid tts_speed: {speed!r}")
     pitch_value = _to_int(pitch, "tts_pitch")
     emotion_value = (emotion or "").strip()
 
@@ -111,15 +135,32 @@ def validate_tts_settings_strict(
         for v in (cfg.voices or [])
         if (v.get("value") or "").strip()
     }
+    if capabilities.requires_listed_voice and normalized_voice_id not in allowed_voices:
+        _raise_param_error(
+            f"Invalid TTS voice_id for provider '{normalized_provider}': {normalized_voice_id}"
+        )
     if allowed_voices and normalized_voice_id not in allowed_voices:
-        if normalized_provider == "minimax" and is_valid_minimax_custom_voice_id(
+        # Custom (cloned) voice ids are not in the provider's static voice
+        # list. Dispatch on the provider's clone spec: MiniMax keeps its
+        # historical format-only bypass, providers with
+        # validation_requires_ready_row additionally need a registered ready
+        # clone row. The model stays whatever the teacher selected — provider-
+        # specific synthesis resources for cloned voices are inferred from the
+        # voice id inside the provider.
+        clone_spec = get_clone_provider_spec(normalized_provider)
+        if clone_spec is None or not clone_spec.is_valid_custom_voice_id(
             normalized_voice_id
         ):
-            pass
-        else:
             _raise_param_error(
                 f"Invalid TTS voice_id for provider '{normalized_provider}': {normalized_voice_id}"
             )
+        if clone_spec.validation_requires_ready_row and (
+            find_ready_cloned_voice(
+                provider=normalized_provider, voice_id=normalized_voice_id
+            )
+            is None
+        ):
+            _raise_param_error(f"TTS voice is not available: {normalized_voice_id}")
 
     if cfg.models:
         allowed_models = {
@@ -127,10 +168,7 @@ def validate_tts_settings_strict(
             for m in (cfg.models or [])
             if (m.get("value") or "").strip()
         }
-        if (
-            normalized_provider in PROVIDERS_REQUIRING_MODEL
-            and normalized_model not in allowed_models
-        ):
+        if capabilities.requires_model and normalized_model not in allowed_models:
             _raise_param_error(
                 f"Invalid TTS model for provider '{normalized_provider}': {normalized_model}"
             )
@@ -175,24 +213,24 @@ def validate_tts_settings_strict(
     )
 
 
-def assert_minimax_preview_voice_available(
-    app: Flask, *, voice_id: str, owner_user_bid: str
+def assert_preview_cloned_voice_available(
+    app: Flask, *, provider: str, voice_id: str, owner_user_bid: str
 ) -> None:
-    """Reject a MiniMax preview voice id that would fail at the provider.
+    """Reject a preview voice id that would fail at the provider.
 
-    Built-in MiniMax voices are always allowed. A custom (clone) voice id shares
-    the same character shape as built-in ids, so it passes local format
-    validation even when it was never created, has failed, or belongs to another
-    account. Such an id only surfaces as ``2054 - voice id not exist`` after the
+    Built-in voices are always allowed. A custom (clone) voice id passes local
+    format validation even when it was never created, has failed, or belongs to
+    another account; such an id only surfaces as a provider error after the
     external call, aborting the preview stream. Fail fast instead: accept a
-    custom id only when a ready, non-deleted clone row exists and belongs to the
-    requesting creator.
+    custom id only when a ready, non-deleted clone row of this provider exists
+    and belongs to the requesting creator.
     """
+    normalized_provider = (provider or "").strip().lower()
     normalized_voice_id = (voice_id or "").strip()
     if not normalized_voice_id:
         _raise_param_error("TTS voice_id is required when TTS is enabled")
 
-    provider_config = get_tts_provider("minimax").get_provider_config()
+    provider_config = get_tts_provider(normalized_provider).get_provider_config()
     built_in_voice_ids = {
         (voice.get("value") or "").strip()
         for voice in (provider_config.voices or [])
@@ -209,21 +247,17 @@ def assert_minimax_preview_voice_available(
     ready_clone = None
     if normalized_owner:
         with app.app_context():
-            ready_clone = (
-                TTSMiniMaxClonedVoice.query.filter(
-                    TTSMiniMaxClonedVoice.voice_id == normalized_voice_id,
-                    TTSMiniMaxClonedVoice.status == TTS_MINIMAX_CLONE_STATUS_READY,
-                    TTSMiniMaxClonedVoice.deleted == 0,
-                    TTSMiniMaxClonedVoice.owner_user_bid == normalized_owner,
-                )
-                .order_by(TTSMiniMaxClonedVoice.id.desc())
-                .first()
+            ready_clone = find_ready_cloned_voice(
+                provider=normalized_provider,
+                voice_id=normalized_voice_id,
+                owner_user_bid=normalized_owner,
             )
 
     if ready_clone is None:
         app.logger.warning(
-            "Rejecting MiniMax preview voice_id %s for owner %s: "
+            "Rejecting %s preview voice_id %s for owner %s: "
             "no ready cloned voice found",
+            normalized_provider,
             normalized_voice_id,
             normalized_owner or "-",
         )

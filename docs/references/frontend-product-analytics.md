@@ -1,0 +1,506 @@
+# Frontend Product Analytics
+
+This reference is the canonical contract for new or changed Cook Web Umami
+product-behavior events. Existing events are grandfathered only while they
+remain untouched. Legacy behavior described at the end of this document is
+debt to migrate, not a precedent for new code.
+
+## Scope and System Boundaries
+
+Use Umami to answer product-behavior questions such as whether a user saw,
+started, completed, cancelled, or failed an interaction. An Umami event is a
+versioned data contract between its producer and every query, dashboard,
+experiment, or report that consumes it.
+
+Umami is not the source of truth for:
+
+- model and prompt traces, which belong in Langfuse;
+- billing, credit consumption, or financial records;
+- authorization, entitlements, compliance, or audit records; or
+- application logs, errors, metrics, and operational traces.
+
+Analytics must be fail-open. Missing configuration, a blocked script, an
+identify failure, or an event delivery failure must never block, delay, or
+change the user workflow. Product behavior must not depend on an event being
+accepted by Umami.
+
+This document is intentionally not a registry of all events. It defines the
+contract required whenever a Cook Web Umami event is added or changed.
+
+## Contract-First Changes
+
+Write or update the event contract before changing a producer. Treat changes to
+the event name, meaning, trigger, measured population, count unit,
+deduplication, payload fields, or enum values as contract changes. Coordinate
+the producer, known consumers, documentation, and tests in the same change or
+in an explicitly staged compatibility migration.
+
+Adding a field is not automatically harmless: queries may group by it, its
+cardinality may raise cost, and its contents may change the privacy posture.
+Removing or renaming an event or field requires identifying consumers and
+defining how historical and new data will coexist. Do not silently reuse an
+old event name for a new meaning.
+
+## New UI Feature Requirement
+
+Product analytics is part of the definition of done for every new user-facing
+Cook Web capability or interaction path. The same feature change must include:
+
+- a documented new or extended event family with a business question and
+  metric definition;
+- at least one decision-relevant signal for meaningful feature exposure,
+  accepted use, or a meaningful outcome;
+- the producer implementation through the shared tracking path; and
+- focused tests for the trigger, eligible population, deduplication, payload,
+  prohibited fields, and failure isolation.
+
+Add an exposure event when the metric requires an eligible-view denominator.
+Use separate attempt and terminal-result events when an asynchronous workflow
+cannot be measured accurately with one signal. Do not create render-count or
+incidental-click noise merely to satisfy this requirement; the event must
+represent the feature's documented adoption or outcome question.
+
+An existing generic SPA pageview does not satisfy this requirement unless
+entering that route is itself the documented feature-adoption signal.
+An existing event family may satisfy the requirement only when its contract is
+explicitly extended in the same change and remains semantically accurate for
+its producers and consumers.
+
+A new action, control, route, workflow, interaction mode, or user-visible state
+transition counts as new functionality. So does any new user-observable
+invocation path, including one introduced for keyboard, screen-reader, or other
+accessibility use. Pure visual styling, copy-only edits, performance-only work,
+test-only changes, and behavior-preserving refactors do not require a new
+event. If such work changes behavior already covered by analytics, update that
+existing contract. If a privacy-safe, decision-relevant contract cannot be
+designed, do not ship the new capability until the product and privacy decision
+is resolved.
+
+## Contract Template
+
+Every new event family, and every changed existing event, must document the
+following information in its product spec or ExecPlan. Keep the contract close
+to the feature decision; link back to this reference rather than copying these
+rules.
+
+```markdown
+### <event family>
+
+- Business question: <the decision this data will support>
+- Metric definition: <numerator, denominator, time window, and distinctness>
+- Event name(s): <stable snake_case names>
+- Actor and surface: <who can emit it and the fixed surface enum>
+- Trigger: <the exact state transition or user action>
+- Population: <guest/member/teacher coverage and explicit exclusions>
+- Count unit: <event, attempt, user, session, course, or another named unit>
+- Deduplication: <key, time or lifecycle boundary, and storage mechanism>
+- Correlation: <required stable identifiers and what they may be joined to>
+- Consumers: <queries, dashboards, reports, experiments, or owners>
+- Compatibility: <additive, dual-write, rename, backfill, or new version>
+- Verification: <producer, exclusion, deduplication, privacy, and consumer tests>
+
+| Field     | Type                  | Allowed values          | Cardinality | Privacy class             | Why required          |
+| --------- | --------------------- | ----------------------- | ----------- | ------------------------- | --------------------- |
+| `<field>` | string/number/boolean | enum or validation rule | low/high    | non-personal/pseudonymous | <metric or join need> |
+```
+
+The business question and metric definition are required. “Track usage” is not
+a metric definition. State whether the metric counts raw events, distinct
+users, distinct sessions, or distinct business objects, and state the time
+window. If click and result events cannot be correlated one to one, document
+that limitation rather than presenting their aggregate ratio as an exact
+conversion rate.
+
+## Event Names and Semantics
+
+- Use stable lowercase `snake_case` names. Prefer
+  `<actor>_<object>_<action-or-state>` when one actor owns the event. A shared
+  event may omit the actor when a fixed `surface` field distinguishes the
+  contexts clearly.
+- Keep dynamic IDs, labels, locales, titles, and state in reviewed payload
+  fields. Never interpolate them into an event name.
+- Name a state that actually occurred. Emit from an event handler or effect
+  tied to the documented transition, never during React render.
+- A `click` records one accepted user interaction after re-entry or disabled
+  guards. An `attempt` records the point at which the product starts an
+  operation after local validation. A `success` records confirmed completion.
+  A `failed` result records a terminal failure. A `cancelled` result records an
+  explicit user cancellation and is not a failure.
+- If an interaction needs both intent and outcome measurement, use separate
+  intent and terminal-result events. Emit at most one terminal result for each
+  accepted attempt.
+- Define whether guests are included, whether teacher or learner preview is
+  included, and whether internal/test traffic is excluded. Do not let the
+  current rendering location answer these questions implicitly.
+- Define the deduplication boundary even when the answer is “none.” For
+  visibility events, state whether deduplication is per mount, route visit,
+  browser session, user, or persisted lifecycle. For actions, prevent render,
+  retry, and double-click behavior from inflating counts unless repeat actions
+  are the intended count unit.
+
+Enum values are stable API values, not localized display text. Use short
+English `snake_case` values and document the complete allowed set. Adding,
+removing, or changing an enum value is a contract change.
+
+## Payload Shape and Cardinality
+
+Event payloads must be explicit, flat records of scalar strings, finite
+numbers, and booleans.
+
+- Spell out every field at the call site or in a feature-owned typed helper.
+  Do not spread a form, store, API response, configuration object, error, or
+  arbitrary metadata object into analytics.
+- Use stable `snake_case` field names. Keep enum fields low-cardinality and
+  bounded by the documented allowed values.
+- Add a high-cardinality stable machine identifier only when a named metric,
+  join, or deduplication rule requires it. Examples include a course bid or a
+  workflow/session ID. Do not add a duplicate user identifier when the shared
+  tracking context already supplies identity.
+- Send durations as finite numeric values with the unit in the field name,
+  such as `duration_ms`. Send timestamps only when the event's metric requires
+  a business timestamp that differs from Umami's ingestion time; serialize it
+  as UTC ISO-8601 with a trailing `Z`.
+- Map failures to a reviewed, bounded error category or code. Never send an
+  exception message, stack, response body, or arbitrary provider error.
+- Do not rely on field order, automatic string conversion, truncation, or the
+  transport's fallback serialization as part of an event contract.
+
+The shared transport currently caps event names at 50 characters, keys at 64
+characters, string values at 240 characters, payloads at 30 fields and 1,024
+JSON characters, and pageview URL/referrer values at 500 characters. These
+limits are delivery safeguards, not authoring targets. Silent truncation or
+dropped fields can corrupt a metric, and sanitation does not make prohibited
+data safe to collect.
+
+## Privacy Default: Deny
+
+Do not collect a field unless the contract explains why it is necessary. New or
+changed application-event payloads and identify session metadata must not
+include:
+
+- nickname, name, email address, phone number, or other direct identifiers;
+- learner profile/background content or personalization answers;
+- prompts, model input/output, chat content, or free-form user text;
+- course, lesson, chapter, document, or conversation titles and descriptions;
+- discount/coupon codes, credentials, secrets, authorization values, or tokens;
+- raw errors, exception messages, stack traces, or provider response bodies; or
+- complete URLs, query strings, fragments, or referrers.
+
+Necessary stable machine IDs, booleans, finite numbers, durations, and reviewed
+low-cardinality enums are allowed when declared in the contract. Stable machine
+IDs remain pseudonymous data: minimize them, scope access appropriately, and do
+not expose them in user-facing reports.
+
+The shared identify path is not an exception to this privacy rule. Any new or
+changed identity field must have a documented analytics need and explicit
+privacy review. Prefer the one stable pseudonymous distinct ID; do not attach
+direct identifiers, free text, or duplicated identity without a defined metric.
+
+Hashing, encoding, or truncating a prohibited value does not make it approved.
+If a URL-derived distinction is necessary, define a bounded route or source
+enum instead of sending the URL. Pageview URL handling is transport-owned and
+is not permission for application events to add URL or referrer fields. New or
+changed pageview handling must remove query strings, fragments, credentials,
+and sensitive path values before delivery; a complete referrer requires its own
+documented contract and privacy review.
+
+## Transport Invariants
+
+- Product code emits events through `useTracking` or a shared, reviewed
+  tracking helper. It must not call `window.umami`, `umami.track`, or
+  `umami.identify` directly.
+- `UmamiLoader` is the single owner of SPA pageviews. Keep
+  `data-auto-track="false"` so Umami does not install automatic pageview,
+  history, or click handlers; route changes are deduplicated, and feature
+  components do not emit pageviews.
+- Preserve the identify → queue → drain order. Pageviews and events that occur
+  before Umami and user identity are ready are queued with their captured
+  context, then drained only after that identity completes. Replacing a pending
+  identity discards its queued calls; they must never be replayed under the new
+  account. If the loaded tracker has no `identify` capability, keep the bounded
+  queue instead of delivering un-attributed calls.
+- Apply the shared [analytics user exclusion policy](#analytics-user-exclusions)
+  before identifying an account, queuing or sending its events, or emitting
+  pageviews.
+- Preserve transport-level name, key, value, field-count, JSON-size, URL, and
+  referrer sanitation. Feature code must still satisfy the stricter contract
+  before sanitation.
+- Tracking calls and identify/pageview work remain fail-open. Callers do not
+  await analytics before navigation, native browser actions, or user-visible
+  success/failure handling.
+- Do not emit during render. Use the true user handler or a guarded effect for
+  a documented visibility/state transition.
+
+## Analytics User Exclusions
+
+Set the backend environment variable `ANALYTICS_EXCLUDED_USER_IDS` to
+comma-separated account `user_id` values, for example:
+
+```dotenv
+ANALYTICS_EXCLUDED_USER_IDS=user-1,user-2
+```
+
+The shared exclusion policy is independent of the analytics provider. Its
+current consumers are browser and backend Umami tracking; future tracking
+integrations can reuse `is_analytics_user_excluded(user_bid)` from
+`src/api/flaskr/service/common/analytics_policy.py`.
+
+This prevents internal or test accounts from contributing to adoption,
+funnel, and retention metrics in those integrations. IDs match exactly and
+are case-sensitive; surrounding whitespace and empty entries are ignored.
+An unset or empty value
+preserves existing eligibility. Use account business identifiers (`user_bid`),
+which existing API responses expose as `user_id`, rather than database row
+numbers, email addresses, phone numbers, or nicknames. New internal policy
+parameters and variables use `user_bid`; existing public `user_id` fields and
+interfaces keep their compatibility contract. Restart the backend after
+changing the environment and reload open browser sessions so their user-info
+responses pick up the new policy.
+
+The shared user-info response adds `analytics_enabled`, which is `false` for
+an excluded account. This is the only policy value sent to the browser: the
+exclusion list remains server-side and is never included in Umami payloads.
+Older responses without this field retain existing tracking behavior. All
+login, current-user, and temporary-user responses use the same user-info DTO.
+
+Once the account is known, the browser drops its pending queue and sends no
+identify, business events, or SPA pageviews for that account. Switching to an
+eligible account, including a newly issued guest identity, resumes tracking
+without replaying the excluded account's calls. When eligibility resumes,
+`UmamiLoader` records the current normalized route once even if the pathname
+and initialization state have not changed. This uses the existing pageview
+deduplication and identify-before-drain rules, with no excluded-account
+referrer carried into the eligible session. Ordinary eligible identity
+refreshes do not create another pageview.
+
+Backend CLI identify/pageview pairs and legacy external-client events with a
+known account use the same policy before entering the delivery queue.
+Policy lookup failures suppress
+telemetry while allowing the underlying product operation to continue.
+
+Anonymous activity before an account can be identified cannot be matched to
+this list. Events already sent or queued for network delivery cannot be
+recalled, and this setting does not delete historical Umami data. Normal guest
+tracking remains eligible unless that guest's own `user_id` is listed.
+
+The decision, event triggers, deduplication rules, names, and payload schemas
+stay as defined by each event family; this policy adds an account-level
+population exclusion. Existing dashboards, funnels, and periodic Skill
+reports must treat the deployment as a population change and apply it to both
+numerators and denominators. Historical data retains the earlier population;
+do not interpret the resulting count decrease as a product-usage decline.
+
+## Positive Example: Course Sharing
+
+`course_share_click` and `course_share_result` demonstrate a small event family
+with stable names, explicit fields, terminal outcomes, and no course content.
+They are an example, not the start of an event registry.
+
+### Business and metric contract
+
+- Business question: which eligible share surfaces lead users to initiate a
+  share, and which method/outcome completes the attempt?
+- Actors and population: teachers in the authoring header and eligible
+  learners, including guests when the learner share control is rendered.
+  Learner preview is excluded. Teacher drafts are included because sharing is
+  independent of publication.
+- Count unit: one accepted share-button interaction. Concurrent re-entry is
+  blocked; later deliberate interactions count again. There is no persisted
+  cross-session deduplication.
+- Metric limitation: `shifu_bid` supports aggregate grouping by course, but
+  there is no per-attempt correlation ID. Click/result counts must not be
+  presented as exact row-level joins.
+- Consumer: aggregate course-sharing adoption and outcome analysis.
+
+Teacher and learner entries now open a shared popover:
+`course_share_click/result` still measure the actual ordinary share action
+inside that popover, not opening the popover.
+The additive `teacher_course_share_open`, `teacher_poster_prompt_copy/result`,
+`learner_course_share_open`, and `learner_poster_prompt_copy/result`
+contracts live in `docs/exec-plans/active/course-sharing.md`. Consumers comparing
+historical activity must distinguish share attempts from popover opens;
+prompt-copy success is not proof of poster generation in an external assistant.
+Teacher event names and populations remain unchanged. Learner events include
+eligible guests and exclude preview and missing or stale course data; their
+surface is `learner_desktop_header`, `learner_mobile_header`, or
+`learner_mobile_fullscreen`. New events contain only `shifu_bid`
+and `surface`, with `success` or `failed` added as `outcome` on copy results.
+The weekly consumer compares aggregate attempts per open and outcomes by
+actor/surface, with no exact per-attempt joins. No checked-in query or dashboard
+requires migration; historical direct learner clicks remain ordinary-share
+attempts and must not be reinterpreted as opens of the new menu.
+
+### Events and feature-owned payloads
+
+| Event                 | Trigger                                                                                        | Feature-owned fields                        |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `course_share_click`  | After the re-entry guard accepts the deliberate click and before URL resolution/native sharing | `shifu_bid`, `surface`                      |
+| `course_share_result` | Once after the accepted interaction reaches a terminal outcome                                 | `shifu_bid`, `surface`, `method`, `outcome` |
+
+| Field       | Type   | Allowed values                                                                                   | Cardinality | Privacy class           | Why required                                 |
+| ----------- | ------ | ------------------------------------------------------------------------------------------------ | ----------- | ----------------------- | -------------------------------------------- |
+| `shifu_bid` | string | stable course bid                                                                                | high        | pseudonymous machine ID | group adoption by course                     |
+| `surface`   | string | `teacher_header`, `learner_desktop_header`, `learner_mobile_header`, `learner_mobile_fullscreen` | low         | non-personal enum       | compare entry points and infer actor context |
+| `method`    | string | `native`, `clipboard`                                                                            | low         | non-personal enum       | compare completion paths                     |
+| `outcome`   | string | `success`, `failed`, `cancelled`                                                                 | low         | non-personal enum       | measure terminal result without raw errors   |
+
+This table is also the complete application-event payload delivered to Umami.
+The shared `useTracking` helper does not append identity, device, localized
+timestamps, or other implicit business fields. The transport establishes the
+one pseudonymous distinct ID separately through `umami.identify`, and it
+overrides URL, referrer, and title with privacy-normalized routing context. The
+standard Umami tracker envelope may still provide `website`, `hostname`,
+browser `language`, and `screen`; these are platform fields, not application
+event data. Consumers must not expect identity or page context to be duplicated
+inside event data.
+
+The producer tests assert the exact fields for native success, clipboard
+success/failure, cancellation, and invalid input. They also assert that course
+title, description, and URL never enter the producer payload. Separate
+transport tests prove that the helper does not enrich those fields and that the
+final payload remains a flat scalar allowlist.
+
+## Verification
+
+For every new or changed event, add focused tests that cover:
+
+- exact event names, trigger order, and feature-owned payload keys, types, and
+  enum values;
+- every terminal result, including cancellation and failure when applicable;
+- guest/member/teacher and preview inclusion or exclusion;
+- re-render, retry, double-click, route-change, and deduplication behavior;
+- absence of prohibited or incidental fields; and
+- consumer calculations or fixtures when an existing query/dashboard changes.
+
+The contract review must also record the complete delivered payload. A
+feature-level test that mocks `useTracking` verifies only the producer boundary;
+pair it with the shared transport tests when claiming that the final delivered
+schema is compliant.
+
+When changing the shared transport, also cover identify-before-drain ordering,
+events emitted before script readiness, SPA pageview deduplication, sanitation
+limits, and fail-open behavior. Local producer tests prove the code contract;
+they do not prove that a production Umami site, filter, or dashboard is current.
+Verify deployed analytics separately before reporting live coverage.
+
+## Grandfathered Legacy Debt
+
+The shared transport no longer preserves the previously grandfathered
+localized `timeStamp`, implicit event identity/device fields, object
+serialization, raw pageview URLs, or direct identify metadata. Any dashboard
+that consumed those fields must migrate to explicit reviewed dimensions or to
+Umami's pseudonymous distinct identity and normalized route context.
+
+Remaining legacy producer debt is limited to event families that have not been
+changed since this contract was introduced. Dynamic event names and legacy
+aliases replaced by the 2026-08-30 remediation are no longer produced or read;
+historical rows remain only inside Umami and are not part of the current
+contract. Any remaining debt is tracked in `docs/QUALITY_SCORE.md` and is not
+an approved example.
+
+These behaviors are not approved examples. New code must not copy them. When a
+legacy event or the shared transport is changed, apply this contract and follow
+the product-approved replacement policy; do not preserve an incorrect event
+solely because historical Umami rows or queries exist.
+
+## Draft classroom rewind
+
+- Business question: Can teachers revise earlier draft answers or regenerate teaching successfully?
+- Metric: Weekly started attempts and terminal success / failure / cancellation shares, grouped by operation. Results and starts are aggregate event counts, not one-to-one joins; navigation loss and best-effort delivery can leave gaps.
+- Events: `teacher_preview_rewind_start` at an initiated classroom reload request; `teacher_preview_rewind_result` at its first terminal success, business/transport/timeout failure, or cancellation by stop, replacement, reset, navigation or unmount.
+- Population: Authorized full-course draft preview requests with a reload anchor. Ordinary answers/continuations, published learning, editor Debug, blocked clicks and cancelled confirmation dialogs are excluded.
+- Count and deduplication: One start and at most one result per initiated rewind, guarded by a closure shared across internal automatic continuation runs. Continuations neither start another attempt nor cancel the original; their final terminal outcome completes it. Intermediate text ends are not terminal success. No persistent identity or attempt token is added.
+- Payload: `shifu_bid` and `outline_bid` are stable pseudonymous machine IDs for course/lesson grouping; `operation` is `answer_edit|regenerate`; `learning_mode` is `read|listen`; only result events add `result=success|failed|cancelled`. No anchor, input, variable names, output, URL or errors are collected.
+- Consumers: Teacher draft-quality weekly Umami reports. New additive family; existing learner run/reset contracts and historical queries remain unchanged.
+- Verification: Hook tests cover exact anchors, initiation/confirmation timing, terminal outcomes, internal continuation chains and lifecycle cancellation. Helper tests cover payload allowlisting, exclusions, deduplication and synchronous/asynchronous tracking failures.
+
+## About dialog exposure
+
+- Business question and metric: How often do users open About to inspect the
+  running frontend version, grouped by teacher/admin versus learner surface?
+  Count About exposures; this is not proof that a person read the version text.
+- Event: `user_app_about_viewed`, emitted from a post-commit effect after the
+  shared user menu's About dialog renders its version information. Opening the
+  menu alone, closed dialogs and dialogs without a version are excluded. There
+  is no attempt/result workflow.
+- Population: Teacher/admin users and learners, including guests. Learner
+  course preview is excluded from analytics, while retaining the version UI.
+- Deduplication: Once per open lifecycle of About. Re-renders, fullscreen
+  portal remounts and changes to translation, user state or tracking callbacks
+  do not count again. Closing
+  and opening About starts a new exposure. No persistent deduplication.
+- Complete feature payload: `{ surface: 'admin' | 'learner' }`. The enum is
+  low cardinality and non-personal. No version, SHA, user/account/course ID,
+  authored text, URL or error is added. Shared transport continues to own
+  pseudonymous identity and normalized routing context.
+- Consumer: Aggregate About exposure counts by surface in Umami. This new
+  event replaces the retired `user_app_version_viewed` producer, whose history
+  counted passive menu-footer exposures. Keep these series separate; do not
+  dual-write or combine them into one trend. No repository-owned query or
+  dashboard consumes the retired event. The new event does not measure
+  deployment readiness or establish the running backend version.
+- Delivery: Use `useTracking`; synchronous throws, rejected promises, absent
+  analytics configuration or blocked scripts do not affect version display.
+- Verification: Exact event name and payload, guest/member eligibility,
+  preview exclusion, post-render timing, closed/reopened/re-rendered dialogs,
+  sensitive-field absence, and synchronous/asynchronous tracking failures.
+  Existing shared-transport regressions cover the delivered payload contract.
+
+## About open-source navigation
+
+- Business question and metric: How often do users follow the open-source
+  repository link from About, grouped by teacher/admin versus learner surface?
+  Count deliberate link activations; this does not prove arrival at GitHub.
+- Event: `user_app_open_source_clicked`, emitted by the About link's click
+  handler. Merely opening About does not emit it. Native middle-click and
+  context-menu navigation are outside this event's eligible population.
+- Population: Teacher/admin users and learners, including guests. Learner
+  course preview keeps the link but is excluded from analytics.
+- Deduplication: Once per click-handler invocation. Separate deliberate
+  activations count separately; there is no persistent deduplication or
+  asynchronous attempt/result workflow.
+- Complete feature payload: `{ surface: 'admin' | 'learner' }`. Do not add the
+  destination URL, logo URL, version, SHA, user/account/course identifiers,
+  authored content or errors. Shared transport owns identity and routing.
+- Consumer and compatibility: Aggregate About-to-repository navigation counts
+  by surface in Umami. This additive event has no predecessor or
+  repository-owned query/dashboard to migrate. About exposure remains a
+  separate, unchanged event contract.
+- Delivery: Use `useTracking` without awaiting or preventing native link
+  navigation. Missing analytics, synchronous throws and rejected promises
+  must leave the link usable with its normal new-tab behavior.
+- Verification: Exact event name and allowlisted payload, activation timing,
+  repeated clicks, guest/member eligibility, learner-preview exclusion,
+  sensitive-field absence, and synchronous/asynchronous analytics failures.
+
+## About dismissal
+
+- Business question and metric: Which dismissal methods do users choose for
+  About on teacher/admin and learner screens? Compare accepted dismissals by
+  method and surface, using About exposures as the eligible-view denominator.
+- Event: `user_app_about_closed`, emitted only when an open About dialog
+  transitions to closed after the close button, Escape or an accepted outside
+  pointer interaction. Internal clicks, prevented outside interactions,
+  fullscreen portal migration, component unmount and navigation do not count.
+  Touch dismissal follows Radix's accepted click after the outside touch.
+- Population: Teacher/admin users and learners, including guests, with a
+  configured frontend version. Learner course preview keeps dismissal behavior
+  but is excluded from analytics, matching About exposure eligibility.
+- Deduplication: Once per actual open-to-closed transition. Re-renders and
+  repeated callbacks cannot count a closed dialog again; reopening permits
+  another dismissal. There is no persistent deduplication or attempt/result
+  workflow.
+- Complete feature payload: `{ surface: 'admin' | 'learner', method: 'close_button' | 'escape' | 'outside' }`.
+  These are low-cardinality enums.
+  Do not add version, SHA, user/account/course IDs, text, URLs, pointer details
+  or errors. Shared transport owns identity and normalized routing context.
+- Consumer and compatibility: Aggregate dismissals by method and surface in
+  Umami. This additive event has no predecessor or repository-owned consumer
+  to migrate; About exposure and source-link contracts remain unchanged.
+- Delivery: Use `useTracking` after accepting the state change, without
+  awaiting analytics. Missing configuration, blocked scripts, synchronous
+  throws and rejected promises must not affect closing or focus restoration.
+- Verification: Exact name and allowlisted payload, transition timing,
+  repeated dismissal/reopening, guest/member and preview eligibility, missing
+  version exclusion, internal and prevented outside interactions, touch timing,
+  fullscreen migration, and synchronous/asynchronous tracking failures.

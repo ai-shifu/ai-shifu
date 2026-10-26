@@ -107,7 +107,7 @@ Relevant files and surfaces:
 - Requirement record:
   - `docs/需求和优化.md`
 - Current frontend page:
-  - `src/cook-web/src/app/admin/operations/page.tsx`
+  - `src/web/src/app/admin/operations/page.tsx`
 - Current backend course list and overview:
   - `src/api/flaskr/service/shifu/admin.py`
 - Current operator course tests:
@@ -115,7 +115,7 @@ Relevant files and surfaces:
 
 Current `main` behavior summary:
 
-1. `src/cook-web/src/app/admin/operations/page.tsx` loads the course list first
+1. `src/web/src/app/admin/operations/page.tsx` loads the course list first
    and then asynchronously loads overview, which is the A-plan frontend change.
 2. `list_operator_courses(...)` in
    `src/api/flaskr/service/shifu/admin.py` still:
@@ -215,7 +215,7 @@ Known behavior that must not change:
   - `_load_recent_learning_active_course_bids(...)`
   - `_load_recent_paid_order_course_bids(...)`
 - Frontend consumer:
-  - `src/cook-web/src/app/admin/operations/page.tsx`
+  - `src/web/src/app/admin/operations/page.tsx`
 - Test surface:
   - `src/api/tests/service/shifu/test_admin_courses.py`
 - Requirement source:

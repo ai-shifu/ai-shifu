@@ -1,0 +1,8 @@
+{
+  "__namespace__": "server.openapi",
+  "__flat__": {
+    "courseOwnershipRequired": "آپ صرف اپنے بنائے گئے کورس کی اجازتوں کا نظم کر سکتے ہیں۔",
+    "invalidApiKey": "API Key یا صارف ID درست نہیں۔",
+    "noActiveAuthorization": "اس صارف اور کورس کے لیے کوئی درست اجازت نہیں ملی"
+  }
+}

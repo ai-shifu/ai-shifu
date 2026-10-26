@@ -5,59 +5,64 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
-
-from flask import Flask
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.payment_providers import get_payment_provider
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc, to_utc_iso
 from flaskr.util.uuid import generate_id
-from flaskr.util.datetime import now_utc
 
+from .bucket_categories import (
+    resolve_bucket_category_from_order_type,
+    resolve_credit_bucket_priority,
+)
 from .consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
-    BILLING_ORDER_TYPE_TOPUP,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+    BILLING_ORDER_TYPE_TOPUP,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_DOWNGRADE_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_BUCKET_STATUS_EXPIRED,
+    CREDIT_BUCKET_STATUS_CANCELED,
     CREDIT_BUCKET_STATUS_EXHAUSTED,
+    CREDIT_BUCKET_STATUS_EXPIRED,
     CREDIT_LEDGER_ENTRY_TYPE_EXPIRE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
     CREDIT_SOURCE_TYPE_CAMPAIGN_BONUS,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
 )
-from .bucket_categories import (
-    resolve_bucket_category_from_order_type,
-    resolve_credit_bucket_priority,
+from .cycle_state_transitions import (
+    apply_paid_subscription_cycle_state as _apply_paid_subscription_cycle_state,
+)
+from .cycle_state_transitions import (
+    realign_active_credit_bucket_effective_to as _realign_active_credit_bucket_effective_to,
+)
+from .cycle_state_transitions import (
+    resolve_effective_subscription_cycle_window as _resolve_effective_subscription_cycle_window,
 )
 from .cycle_transitions import (
     resolve_order_effective_from as _resolve_order_effective_from,
+)
+from .cycle_transitions import (
     resolve_order_effective_to as _resolve_order_effective_to,
 )
-from .cycle_state_transitions import (
-    apply_paid_subscription_cycle_state as _apply_paid_subscription_cycle_state,
-    realign_active_credit_bucket_effective_to as _realign_active_credit_bucket_effective_to,
-    resolve_effective_subscription_cycle_window as _resolve_effective_subscription_cycle_window,
-)
-from .dtos import BillingSubscriptionDTO
 from .models import (
     BillingOrder,
     BillingProduct,
@@ -66,46 +71,83 @@ from .models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from .payment_policy import MANUAL_PAYMENT_PROVIDERS, is_manual_payment_provider
 from .preorders import (
     PREORDER_STATE_ABSORBED_BY_UPGRADE,
     PREORDER_STATE_PENDING_EFFECTIVE,
+)
+from .preorders import (
     clear_subscription_preorder_metadata as _clear_subscription_preorder_metadata,
+)
+from .preorders import (
     is_preorder_order as _is_preorder_order,
+)
+from .preorders import (
     mark_preorder_absorbed_by_upgrade as _mark_preorder_absorbed_by_upgrade,
+)
+from .preorders import (
     mark_preorder_effective_applied as _mark_preorder_effective_applied,
+)
+from .preorders import (
     mark_subscription_preorder_pending as _mark_subscription_preorder_pending,
+)
+from .preorders import (
     preorder_state as _preorder_state,
-)
-from .reserved_renewal_activation import (
-    IncompleteReservedGrantActivationError,  # noqa: F401
-    ReservedActivationTarget,
-    activate_reserved_renewal_grants_for_cycle as _activate_reserved_renewal_grants_for_cycle,
-    load_campaign_bonus_ledger_entry_for_order as _load_campaign_bonus_ledger_entry_for_order,
-    load_grant_ledger_entry_for_order as _load_grant_ledger_entry_for_order,
-    sync_activated_reserved_renewal_ledger_balances as _sync_activated_reserved_renewal_ledger_balances,
-    validate_reserved_renewal_cycle_activation,  # noqa: F401
-)
-from .renewal_event_transitions import (
-    cancel_subscription_renewal_events as _cancel_subscription_renewal_events,
-    upsert_subscription_renewal_event as _upsert_subscription_renewal_event,
-)
-from .queries import (
-    extract_order_metadata_datetime as _extract_order_metadata_datetime,
-    calculate_billing_cycle_end as _calc_provider_cycle_end,
-    calculate_self_managed_billing_cycle_end_after_boundary as _calc_self_managed_cycle_end_after_boundary,
-    calculate_self_managed_billing_cycle_end as _calc_self_managed_cycle_end,
-    load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
-    load_primary_active_subscription as _load_primary_active_subscription,
-    load_subscription_by_bid as _load_subscription_by_bid,
-    load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
-    serialize_order_metadata_datetime as _serialize_order_metadata_datetime,
 )
 from .primitives import normalize_bid as _normalize_bid
 from .primitives import normalize_json_object as _normalize_json_object
 from .primitives import normalize_json_value as _normalize_json_value
 from .primitives import quantize_credit_amount as _quantize_credit_amount
 from .primitives import to_decimal as _to_decimal
+from .queries import (
+    calculate_billing_cycle_end as _calc_provider_cycle_end,
+)
+from .queries import (
+    calculate_self_managed_billing_cycle_end as _calc_self_managed_cycle_end,
+)
+from .queries import (
+    calculate_self_managed_billing_cycle_end_after_boundary as _calc_self_managed_cycle_end_after_boundary,
+)
+from .queries import (
+    extract_order_metadata_datetime as _extract_order_metadata_datetime,
+)
+from .queries import (
+    load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
+)
+from .queries import (
+    load_primary_active_subscription as _load_primary_active_subscription,
+)
+from .queries import (
+    load_subscription_by_bid as _load_subscription_by_bid,
+)
+from .queries import (
+    load_subscription_renewal_order_by_cycle as _load_subscription_renewal_order_by_cycle,
+)
+from .renewal_event_transitions import (
+    cancel_subscription_renewal_events as _cancel_subscription_renewal_events,
+)
+from .renewal_event_transitions import (
+    upsert_subscription_renewal_event as _upsert_subscription_renewal_event,
+)
+from .reserved_renewal_activation import (
+    IncompleteReservedGrantActivationError,  # noqa: F401
+    ReservedActivationTarget,
+    validate_reserved_renewal_cycle_activation,  # noqa: F401
+)
+from .reserved_renewal_activation import (
+    activate_reserved_renewal_grants_for_cycle as _activate_reserved_renewal_grants_for_cycle,
+)
+from .reserved_renewal_activation import (
+    load_campaign_bonus_ledger_entry_for_order as _load_campaign_bonus_ledger_entry_for_order,
+)
+from .reserved_renewal_activation import (
+    load_grant_ledger_entry_for_order as _load_grant_ledger_entry_for_order,
+)
+from .reserved_renewal_activation import (
+    sync_activated_reserved_renewal_ledger_balances as _sync_activated_reserved_renewal_ledger_balances,
+)
 from .serializers import serialize_subscription as _serialize_subscription
+from .value_objects import JsonObjectMap
 from .wallets import (
     load_or_create_credit_bucket_by_category,
     load_primary_credit_bucket_by_category,
@@ -114,18 +156,24 @@ from .wallets import (
     resolve_bucket_source_type_for_category,
     sync_credit_bucket_status,
 )
-from .value_objects import JsonObjectMap
 
+if TYPE_CHECKING:
+    from flask import Flask
 
-SELF_MANAGED_BILLING_PROVIDERS = {"pingxx", "alipay", "wechatpay", "manual"}
+    from .dtos import BillingSubscriptionDTO
+
+SELF_MANAGED_BILLING_PROVIDERS = {*MANUAL_PAYMENT_PROVIDERS, "manual"}
 
 
 def is_self_managed_billing_provider(provider: str | None) -> bool:
+    """Return whether self managed billing provider."""
     return _normalize_bid(provider).lower() in SELF_MANAGED_BILLING_PROVIDERS
 
 
 @dataclass(slots=True, frozen=True)
 class CreditGrantContext:
+    """Carry context for credit grant."""
+
     source_type: int
     bucket_category: int
     priority: int
@@ -134,13 +182,16 @@ class CreditGrantContext:
 
 @dataclass(slots=True, frozen=True)
 class TopupExpiryRepairRecord:
+    """Record topup expiry repair details."""
+
     wallet_bucket_bid: str
     bill_order_bid: str | None
     previous_effective_to: datetime | None
     effective_to: datetime
     ledger_bids: tuple[str, ...] = ()
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
+        """Serialize this result as an API payload."""
         return {
             "wallet_bucket_bid": self.wallet_bucket_bid,
             "bill_order_bid": self.bill_order_bid,
@@ -152,6 +203,8 @@ class TopupExpiryRepairRecord:
 
 @dataclass(slots=True, frozen=True)
 class TopupExpiryRepairResult:
+    """Capture the repair outcome for topup expiry."""
+
     status: str
     creator_bid: str | None
     inspected_bucket_count: int
@@ -160,7 +213,8 @@ class TopupExpiryRepairResult:
     repaired_records: list[TopupExpiryRepairRecord] = field(default_factory=list)
     skipped_bucket_bids: list[str] = field(default_factory=list)
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -171,12 +225,15 @@ class TopupExpiryRepairResult:
             "skipped_bucket_bids": list(self.skipped_bucket_bids),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
 @dataclass(slots=True, frozen=True)
 class SubscriptionCycleRepairRecord:
+    """Record subscription cycle repair details."""
+
     subscription_bid: str
     creator_bid: str
     bill_order_bid: str | None
@@ -187,7 +244,8 @@ class SubscriptionCycleRepairRecord:
     current_period_end_at: datetime
     reason: str
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
+        """Serialize this result as an API payload."""
         return {
             "subscription_bid": self.subscription_bid,
             "creator_bid": self.creator_bid,
@@ -203,6 +261,8 @@ class SubscriptionCycleRepairRecord:
 
 @dataclass(slots=True, frozen=True)
 class SubscriptionCycleRepairResult:
+    """Capture the repair outcome for subscription cycle."""
+
     status: str
     creator_bid: str | None
     subscription_bid: str | None
@@ -211,7 +271,8 @@ class SubscriptionCycleRepairResult:
     repaired_records: list[SubscriptionCycleRepairRecord] = field(default_factory=list)
     skipped_subscription_bids: list[str] = field(default_factory=list)
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> dict[str, object]:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "creator_bid": self.creator_bid,
@@ -222,7 +283,8 @@ class SubscriptionCycleRepairResult:
             "skipped_subscription_bids": list(self.skipped_subscription_bids),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
@@ -257,6 +319,7 @@ def load_effective_topup_subscription(
     *,
     as_of: datetime | None = None,
 ) -> BillingSubscription | None:
+    """Load effective topup subscription."""
     return _load_primary_active_subscription(creator_bid, as_of=as_of)
 
 
@@ -300,9 +363,9 @@ def _load_topup_expiry_subscription_for_bucket(
         product_sort_order = int(product.sort_order) if product is not None else -1
         return (
             product_sort_order,
-            row.current_period_start_at or datetime.min,
-            row.current_period_end_at or datetime.min,
-            row.created_at or datetime.min,
+            row.current_period_start_at or NAIVE_DATETIME_MIN,
+            row.current_period_end_at or NAIVE_DATETIME_MIN,
+            row.created_at or NAIVE_DATETIME_MIN,
             int(row.id or 0),
         )
 
@@ -311,11 +374,11 @@ def _load_topup_expiry_subscription_for_bucket(
 
 def _merge_provider_metadata(
     *,
-    existing: Any,
+    existing: object,
     provider: str,
     source: str,
     event_type: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
     event_time: datetime | None,
 ) -> JsonObjectMap:
     if isinstance(existing, JsonObjectMap):
@@ -333,7 +396,7 @@ def _merge_provider_metadata(
     return _normalize_json_object(metadata)
 
 
-def _resolve_pingxx_renewal_scheduled_at(
+def _resolve_manual_renewal_scheduled_at(
     subscription: BillingSubscription,
 ) -> datetime | None:
     scheduled_at = subscription.current_period_end_at
@@ -349,11 +412,10 @@ def _resolve_pingxx_renewal_scheduled_at(
 def cancel_billing_subscription(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingSubscriptionDTO:
     """Mark the current subscription to cancel at period end."""
-
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         subscription = _load_owned_subscription(
             _normalize_bid(creator_bid),
             _normalize_bid(payload.get("subscription_bid")),
@@ -387,18 +449,16 @@ def cancel_billing_subscription(
         subscription.updated_at = now_utc()
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
-        db.session.commit()
         return _serialize_subscription(app, subscription)
 
 
 def resume_billing_subscription(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingSubscriptionDTO:
     """Resume a cancel-scheduled subscription."""
-
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         subscription = _load_owned_subscription(
             _normalize_bid(creator_bid),
             _normalize_bid(payload.get("subscription_bid")),
@@ -430,7 +490,6 @@ def resume_billing_subscription(
         subscription.updated_at = now_utc()
         _sync_subscription_lifecycle_events(app, subscription)
         db.session.add(subscription)
-        db.session.commit()
         return _serialize_subscription(app, subscription)
 
 
@@ -441,15 +500,19 @@ def ensure_subscription_renewal_order(
     renewal_event_bid: str = "",
     scheduled_at: datetime | None = None,
 ) -> BillingOrder | None:
+    """Ensure subscription renewal order."""
     cycle_start_at = scheduled_at or subscription.current_period_end_at
-    provider_name = _normalize_bid(subscription.billing_provider)
-    if provider_name == "pingxx" and subscription.current_period_end_at is not None:
+    provider_name = _normalize_bid(subscription.billing_provider).lower()
+    if (
+        is_manual_payment_provider(provider_name)
+        and subscription.current_period_end_at is not None
+    ):
         cycle_start_at = subscription.current_period_end_at
     if cycle_start_at is None:
         return None
 
     provider_reference_id = _normalize_bid(subscription.provider_subscription_id)
-    if provider_name not in {"stripe", "pingxx"}:
+    if provider_name != "stripe" and not is_manual_payment_provider(provider_name):
         return None
     if provider_name == "stripe" and not provider_reference_id:
         return None
@@ -481,7 +544,14 @@ def ensure_subscription_renewal_order(
         cycle_end_at=cycle_end_at,
     )
     if order is not None and (
-        _is_paid_referral_invitation_renewal(order) or _is_preorder_order(order)
+        _is_paid_referral_invitation_renewal(order)
+        or _is_preorder_order(order)
+        or _normalize_bid(order.payment_provider).lower() != provider_name
+        or order.status != BILLING_ORDER_STATUS_PENDING
+        or (
+            is_manual_payment_provider(order.payment_provider)
+            and order.provider_reference_id
+        )
     ):
         metadata = (
             dict(order.metadata_json) if isinstance(order.metadata_json, dict) else {}
@@ -505,12 +575,8 @@ def ensure_subscription_renewal_order(
                     "subscription" if provider_name == "stripe" else "charge"
                 ),
                 "renewal_event_bid": _normalize_bid(renewal_event_bid) or None,
-                "renewal_cycle_start_at": _serialize_order_metadata_datetime(
-                    cycle_start_at
-                ),
-                "renewal_cycle_end_at": _serialize_order_metadata_datetime(
-                    cycle_end_at
-                ),
+                "renewal_cycle_start_at": to_utc_iso(cycle_start_at),
+                "renewal_cycle_end_at": to_utc_iso(cycle_end_at),
                 "subscription_bid": subscription.subscription_bid,
                 "product_bid": product.product_bid,
             }
@@ -528,21 +594,35 @@ def ensure_subscription_renewal_order(
             payable_amount=int(product.price_amount or 0),
             paid_amount=0,
             payment_provider=provider_name,
-            channel="subscription" if provider_name == "stripe" else "alipay_qr",
+            channel=(
+                "subscription"
+                if provider_name == "stripe"
+                else "wx_pub_qr"
+                if provider_name == "wechatpay"
+                else "alipay_qr"
+            ),
             provider_reference_id=provider_reference_id
             if provider_name == "stripe"
             else "",
             status=BILLING_ORDER_STATUS_PENDING,
             metadata_json=metadata,
         )
+
     else:
+        # An unissued manual order can refresh its price. Pending Stripe
+        # subscription-reference rows also follow the same current contract;
+        # terminal orders and cross-provider identities are preserved above.
         order.creator_bid = subscription.creator_bid
         order.product_bid = product.product_bid
         order.currency = product.currency
         order.payable_amount = int(product.price_amount or 0)
         order.payment_provider = provider_name
         order.channel = order.channel or (
-            "subscription" if provider_name == "stripe" else "alipay_qr"
+            "subscription"
+            if provider_name == "stripe"
+            else "wx_pub_qr"
+            if provider_name == "wechatpay"
+            else "alipay_qr"
         )
         if provider_name == "stripe":
             order.provider_reference_id = provider_reference_id
@@ -553,13 +633,13 @@ def ensure_subscription_renewal_order(
     return order
 
 
-def _ensure_pingxx_renewal_applied_cycle(
+def _ensure_manual_renewal_applied_cycle(
     order: BillingOrder,
     product: BillingProduct,
 ) -> None:
     if (
         order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
-        or order.payment_provider != "pingxx"
+        or not is_manual_payment_provider(order.payment_provider)
         or order.paid_at is None
     ):
         return
@@ -597,12 +677,8 @@ def _ensure_pingxx_renewal_applied_cycle(
     metadata.update(
         _normalize_json_object(
             {
-                "applied_cycle_start_at": _serialize_order_metadata_datetime(
-                    shifted_cycle_start_at
-                ),
-                "applied_cycle_end_at": _serialize_order_metadata_datetime(
-                    shifted_cycle_end_at
-                ),
+                "applied_cycle_start_at": to_utc_iso(shifted_cycle_start_at),
+                "applied_cycle_end_at": to_utc_iso(shifted_cycle_end_at),
             }
         )
     )
@@ -628,10 +704,10 @@ def _calculate_billing_cycle_end(
     )
 
 
-def _should_defer_pingxx_renewal_activation(order: BillingOrder) -> bool:
+def _should_defer_manual_renewal_activation(order: BillingOrder) -> bool:
     if (
         order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL
-        or order.payment_provider != "pingxx"
+        or not is_manual_payment_provider(order.payment_provider)
         or order.paid_at is None
     ):
         return False
@@ -660,6 +736,16 @@ def _is_referral_invitation_renewal(order: BillingOrder) -> bool:
     )
 
 
+def _is_deferred_compensation_bonus_renewal(order: BillingOrder) -> bool:
+    if order.order_type != BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
+        return False
+
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    return str(metadata.get("checkout_type") or "").strip() == (
+        "cache_overcharge_bonus_plan"
+    )
+
+
 def _is_paid_referral_invitation_renewal(order: BillingOrder) -> bool:
     return int(
         order.status or 0
@@ -683,13 +769,14 @@ def _should_defer_subscription_renewal_activation(
     if effective_from <= now_utc():
         return False
     return (
-        _should_defer_pingxx_renewal_activation(order)
+        _should_defer_manual_renewal_activation(order)
         or _is_preorder_order(order)
         or _is_referral_invitation_renewal(order)
+        or _is_deferred_compensation_bonus_renewal(order)
     )
 
 
-def _has_paid_referral_invitation_renewal_at_boundary(
+def _has_paid_deferred_manual_renewal_at_boundary(
     subscription: BillingSubscription,
     *,
     boundary_at: datetime | None,
@@ -703,7 +790,9 @@ def _has_paid_referral_invitation_renewal_at_boundary(
     )
     if order is None:
         return False
-    return _is_referral_invitation_renewal(order)
+    return _is_referral_invitation_renewal(
+        order
+    ) or _is_deferred_compensation_bonus_renewal(order)
 
 
 def _is_same_product_preorder_renewal(order: BillingOrder) -> bool:
@@ -733,6 +822,80 @@ def _is_same_product_preorder_renewal(order: BillingOrder) -> bool:
     )
 
 
+def _is_stale_manual_cycle(
+    order: BillingOrder,
+    subscription: BillingSubscription,
+    effective_from: datetime,
+) -> bool:
+    """Reject old payments while allowing repair of the current cycle order."""
+    metadata = (
+        subscription.metadata_json
+        if isinstance(subscription.metadata_json, dict)
+        else {}
+    )
+    # The order marker alone can survive a later provider-managed cycle.
+    # Corroborate it with the provider and last activation timestamp so a
+    # current-cycle replay can still repair a corrupted mutable period window.
+    is_current_cycle_order = (
+        metadata.get("active_cycle_order_bid") == order.bill_order_bid
+        and _normalize_bid(subscription.billing_provider).lower()
+        == _normalize_bid(order.payment_provider).lower()
+        and subscription.last_renewed_at == effective_from
+    )
+    current_start = subscription.current_period_start_at
+    if (
+        not is_manual_payment_provider(order.payment_provider)
+        or current_start is None
+        or is_current_cycle_order
+    ):
+        return False
+    if effective_from < current_start:
+        return True
+    if effective_from != current_start:
+        return False
+    # Stripe can take over without advancing the period boundary.
+    if _normalize_bid(subscription.billing_provider).lower() == "stripe":
+        return True
+
+    active_order_bid = _normalize_bid(metadata.get("active_cycle_order_bid"))
+    if not active_order_bid or active_order_bid == order.bill_order_bid:
+        return False
+    active_order = (
+        BillingOrder.query.filter_by(
+            bill_order_bid=active_order_bid,
+            creator_bid=subscription.creator_bid,
+            subscription_bid=subscription.subscription_bid,
+            product_bid=subscription.product_bid,
+            status=BILLING_ORDER_STATUS_PAID,
+            deleted=0,
+        )
+        .populate_existing()
+        .first()
+    )
+    if (
+        active_order is None
+        or _normalize_bid(active_order.payment_provider).lower()
+        != _normalize_bid(subscription.billing_provider).lower()
+        or _resolve_credit_bucket_effective_from(
+            order=active_order,
+            default_effective_from=active_order.paid_at or now_utc(),
+        )
+        != effective_from
+    ):
+        return False
+    # Paid time orders same-boundary payments. Creation time and the database
+    # row ID break ties without rejecting a legitimate later payment.
+    return (
+        active_order.paid_at or NAIVE_DATETIME_MIN,
+        active_order.created_at or NAIVE_DATETIME_MIN,
+        active_order.id or 0,
+    ) > (
+        order.paid_at or NAIVE_DATETIME_MIN,
+        order.created_at or NAIVE_DATETIME_MIN,
+        order.id or 0,
+    )
+
+
 def _activate_subscription_for_paid_order(
     app: Flask,
     order: BillingOrder,
@@ -752,7 +915,7 @@ def _activate_subscription_for_paid_order(
     product = _load_billing_product_by_bid(order.product_bid)
     if product is None:
         return False
-    _ensure_pingxx_renewal_applied_cycle(order, product)
+    _ensure_manual_renewal_applied_cycle(order, product)
 
     subscription = subscription or _load_subscription_by_bid(order.subscription_bid)
     if subscription is None:
@@ -782,6 +945,10 @@ def _activate_subscription_for_paid_order(
         db.session.add(subscription)
         return False
 
+    # A replay of an older paid order must not replace a newer effective cycle.
+    if _is_stale_manual_cycle(order, subscription, effective_from):
+        return False
+
     activated_reserved_targets: tuple[ReservedActivationTarget, ...] = ()
     if order.order_type in {
         BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -806,6 +973,41 @@ def _activate_subscription_for_paid_order(
             effective_from=effective_from,
             effective_to=effective_to,
         )
+        if is_manual_payment_provider(order.payment_provider):
+            subscription.billing_provider = _normalize_bid(
+                order.payment_provider
+            ).lower()
+            order_metadata = (
+                order.metadata_json if isinstance(order.metadata_json, dict) else {}
+            )
+            subscription.metadata_json = {
+                **(
+                    subscription.metadata_json
+                    if isinstance(subscription.metadata_json, dict)
+                    else {}
+                ),
+                **{
+                    key: order_metadata[key]
+                    for key in (
+                        "provider",
+                        "latest_source",
+                        "latest_event_type",
+                        "latest_event_time",
+                        "latest_provider_payload",
+                    )
+                    if key in order_metadata
+                },
+                "active_cycle_order_bid": order.bill_order_bid,
+            }
+        else:
+            # A provider-managed paid cycle supersedes the manual repair marker.
+            metadata = (
+                dict(subscription.metadata_json)
+                if isinstance(subscription.metadata_json, dict)
+                else {}
+            )
+            metadata.pop("active_cycle_order_bid", None)
+            subscription.metadata_json = metadata
         if order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL:
             wallet = _load_or_create_credit_wallet(app, order.creator_bid)
             refresh_credit_wallet_snapshot(wallet, snapshot_at=effective_from)
@@ -844,7 +1046,6 @@ def _repair_existing_paid_order_grant_bucket(
     grant_entry: CreditLedgerEntry,
 ) -> bool:
     """Repair the mutable bucket snapshot for an already-granted paid order."""
-
     if _normalize_bid(grant_entry.source_bid) != _normalize_bid(order.bill_order_bid):
         return False
 
@@ -860,8 +1061,19 @@ def _repair_existing_paid_order_grant_bucket(
     if bucket is None:
         return False
 
+    normalized_order_bid = _normalize_bid(order.bill_order_bid)
     bucket_source_bid = _normalize_bid(bucket.source_bid)
-    if bucket_source_bid and bucket_source_bid != _normalize_bid(order.bill_order_bid):
+    is_topup_bucket = int(bucket.bucket_category or 0) == CREDIT_BUCKET_CATEGORY_TOPUP
+    is_shared_topup_replay = (
+        is_topup_bucket
+        and bucket_source_bid
+        and bucket_source_bid != normalized_order_bid
+    )
+    if (
+        bucket_source_bid
+        and bucket_source_bid != normalized_order_bid
+        and not is_topup_bucket
+    ):
         return False
 
     effective_to = grant_entry.expires_at
@@ -880,6 +1092,34 @@ def _repair_existing_paid_order_grant_bucket(
     is_reserved_grant = (
         str(metadata.get("bucket_credit_state") or "").strip().lower() == "reserved"
     )
+    if is_topup_bucket and not is_reserved_grant:
+        bucket_ledgers = (
+            CreditLedgerEntry.query.filter(
+                CreditLedgerEntry.deleted == 0,
+                CreditLedgerEntry.creator_bid == order.creator_bid,
+                CreditLedgerEntry.wallet_bucket_bid == bucket.wallet_bucket_bid,
+            )
+            .order_by(CreditLedgerEntry.id.asc())
+            .all()
+        )
+        grant_total = sum(
+            (
+                _to_decimal(row.amount)
+                for row in bucket_ledgers
+                if int(row.entry_type or 0) == CREDIT_LEDGER_ENTRY_TYPE_GRANT
+            ),
+            start=Decimal(0),
+        )
+        net_available = sum(
+            (_to_decimal(row.amount) for row in bucket_ledgers),
+            start=Decimal(0),
+        )
+        if grant_total > _to_decimal(bucket.original_credits):
+            bucket.original_credits = _quantize_credit_amount(grant_total)
+            changed = True
+        if net_available > _to_decimal(bucket.available_credits):
+            bucket.available_credits = _quantize_credit_amount(net_available)
+            changed = True
     if is_reserved_grant:
         subscription = _load_subscription_by_bid(order.subscription_bid)
         has_current_available_balance = _to_decimal(bucket.available_credits) > 0
@@ -897,19 +1137,24 @@ def _repair_existing_paid_order_grant_bucket(
             ):
                 bucket.effective_to = current_cycle_window.end_at
                 changed = True
-    else:
+    elif not is_shared_topup_replay:
         if effective_from is not None and bucket.effective_from != effective_from:
             bucket.effective_from = effective_from
             changed = True
         if bucket.effective_to != effective_to:
             bucket.effective_to = effective_to
             changed = True
-    if bucket.source_bid != order.bill_order_bid:
+    if bucket.source_bid != order.bill_order_bid and (
+        not is_topup_bucket or not bucket_source_bid
+    ):
         bucket.source_bid = order.bill_order_bid
         changed = True
 
     previous_status = int(bucket.status or 0)
-    if previous_status == CREDIT_BUCKET_STATUS_EXPIRED and (
+    can_reuse_preserved_status = previous_status == CREDIT_BUCKET_STATUS_EXPIRED or (
+        previous_status == CREDIT_BUCKET_STATUS_CANCELED and is_topup_bucket
+    )
+    if can_reuse_preserved_status and (
         _to_decimal(bucket.available_credits) > 0
         or _to_decimal(bucket.reserved_credits) > 0
     ):
@@ -961,7 +1206,7 @@ def _expire_credit_bucket_balance_for_transition(
 ) -> Decimal:
     available = _to_decimal(bucket.available_credits)
     if available <= 0:
-        return Decimal("0")
+        return Decimal(0)
 
     idempotency_key = f"cycle_expire:{order.bill_order_bid}"
     existing_entry = (
@@ -974,10 +1219,10 @@ def _expire_credit_bucket_balance_for_transition(
         .first()
     )
     if existing_entry is not None:
-        return Decimal("0")
+        return Decimal(0)
 
     previous_effective_to = bucket.effective_to
-    bucket.available_credits = Decimal("0")
+    bucket.available_credits = Decimal(0)
     bucket.expired_credits = _quantize_credit_amount(
         _to_decimal(bucket.expired_credits) + available
     )
@@ -1014,13 +1259,15 @@ def _expire_credit_bucket_balance_for_transition(
 
 def _prepare_bucket_for_runtime_reuse(bucket: CreditWalletBucket) -> None:
     """Allow an explicitly re-funded bucket to re-enter runtime status sync."""
-
     current_status = int(bucket.status or 0)
-    if current_status == CREDIT_BUCKET_STATUS_EXPIRED:
+    if current_status == CREDIT_BUCKET_STATUS_EXPIRED or (
+        current_status == CREDIT_BUCKET_STATUS_CANCELED
+        and int(bucket.bucket_category or 0) == CREDIT_BUCKET_CATEGORY_TOPUP
+    ):
         bucket.status = CREDIT_BUCKET_STATUS_EXHAUSTED
 
 
-def _build_bucket_metadata_from_order(order: BillingOrder) -> dict[str, Any]:
+def _build_bucket_metadata_from_order(order: BillingOrder) -> dict[str, object]:
     return _normalize_json_object(
         {
             "bill_order_bid": order.bill_order_bid,
@@ -1169,7 +1416,7 @@ def _void_reserved_subscription_grant_for_order(
             _to_decimal(bucket.reserved_credits) - release_amount
         )
         bucket.original_credits = _quantize_credit_amount(
-            max(Decimal("0"), _to_decimal(bucket.original_credits) - release_amount)
+            max(Decimal(0), _to_decimal(bucket.original_credits) - release_amount)
         )
         bucket.metadata_json = {
             **(bucket.metadata_json if isinstance(bucket.metadata_json, dict) else {}),
@@ -1237,7 +1484,7 @@ def _void_reserved_campaign_bonus_grant_for_order(
             _to_decimal(bucket.reserved_credits) - release_amount
         )
         bucket.original_credits = _quantize_credit_amount(
-            max(Decimal("0"), _to_decimal(bucket.original_credits) - release_amount)
+            max(Decimal(0), _to_decimal(bucket.original_credits) - release_amount)
         )
         bucket.updated_at = now
         sync_credit_bucket_status(bucket)
@@ -1288,6 +1535,8 @@ def _load_preorder_replaced_by_paid_upgrade(
             BillingOrder.bill_order_bid == preorder_order_bid,
         )
         .order_by(BillingOrder.id.desc())
+        .populate_existing()
+        .with_for_update()
         .first()
     )
     if preorder_order is None or not _is_preorder_order(preorder_order):
@@ -1365,12 +1614,57 @@ def _grant_paid_order_credits(app: Flask, order: BillingOrder) -> bool:
     product = _load_billing_product_by_bid(order.product_bid)
     if product is None:
         return False
-    _ensure_pingxx_renewal_applied_cycle(order, product)
+    _ensure_manual_renewal_applied_cycle(order, product)
 
     amount = _quantize_credit_amount(product.credit_amount)
     if amount <= 0:
         return False
 
+    # Serialize activation against upgrades and cycle-boundary workers.
+    subscription = None
+    if order.subscription_bid:
+        subscription = (
+            BillingSubscription.query.filter_by(
+                subscription_bid=order.subscription_bid,
+                deleted=0,
+            )
+            .populate_existing()
+            .with_for_update()
+            .first()
+        )
+    if subscription is not None and subscription.current_period_start_at is not None:
+        effective_from = _resolve_credit_bucket_effective_from(
+            order=order,
+            default_effective_from=order.paid_at or now_utc(),
+        )
+        if _is_stale_manual_cycle(order, subscription, effective_from):
+            metadata = (
+                dict(order.metadata_json)
+                if isinstance(order.metadata_json, dict)
+                else {}
+            )
+            metadata["settlement_review_reason"] = "newer_cycle_already_effective"
+            order.metadata_json = metadata
+            db.session.add(order)
+            return False
+    metadata = order.metadata_json if isinstance(order.metadata_json, dict) else {}
+    if (
+        order.order_type == BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE
+        and int(metadata.get("prepaid_offset_amount") or 0) > 0
+    ):
+        preorder = _load_preorder_replaced_by_paid_upgrade(order)
+        if (
+            preorder is None
+            or preorder.currency != order.currency
+            or int(preorder.paid_amount or 0)
+            != int(metadata.get("prepaid_offset_amount") or 0)
+        ):
+            order.metadata_json = {
+                **metadata,
+                "settlement_review_reason": "preorder_offset_no_longer_available",
+            }
+            db.session.add(order)
+            return False
     _absorb_preorder_replaced_by_paid_upgrade(app, order)
 
     effective_from = _resolve_credit_bucket_effective_from(
@@ -1668,10 +1962,10 @@ def _load_or_create_credit_wallet(app: Flask, creator_bid: str) -> CreditWallet:
     wallet = CreditWallet(
         wallet_bid=generate_id(app),
         creator_bid=creator_bid,
-        available_credits=Decimal("0"),
-        reserved_credits=Decimal("0"),
-        lifetime_granted_credits=Decimal("0"),
-        lifetime_consumed_credits=Decimal("0"),
+        available_credits=Decimal(0),
+        reserved_credits=Decimal(0),
+        lifetime_granted_credits=Decimal(0),
+        lifetime_consumed_credits=Decimal(0),
         last_settled_usage_id=0,
         version=0,
     )
@@ -1736,6 +2030,7 @@ def repair_topup_grant_expiries(
     *,
     creator_bid: str,
 ) -> TopupExpiryRepairResult:
+    """Repair topup grant expiries."""
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return TopupExpiryRepairResult(
@@ -1746,7 +2041,7 @@ def repair_topup_grant_expiries(
             repaired_ledger_count=0,
         )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         buckets = (
             CreditWalletBucket.query.filter(
                 CreditWalletBucket.deleted == 0,
@@ -1863,11 +2158,6 @@ def repair_topup_grant_expiries(
                 )
             )
 
-        if repaired_records:
-            db.session.commit()
-        else:
-            db.session.rollback()
-
         return TopupExpiryRepairResult(
             status="repaired" if repaired_records else "noop",
             creator_bid=normalized_creator_bid,
@@ -1885,10 +2175,11 @@ def repair_subscription_cycle_mismatches(
     creator_bid: str = "",
     subscription_bid: str = "",
 ) -> SubscriptionCycleRepairResult:
+    """Repair subscription cycle mismatches."""
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_subscription_bid = _normalize_bid(subscription_bid)
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         query = BillingSubscription.query.filter(BillingSubscription.deleted == 0)
         if normalized_creator_bid:
             query = query.filter(
@@ -1972,11 +2263,6 @@ def repair_subscription_cycle_mismatches(
                 )
             )
 
-        if repaired_records:
-            db.session.commit()
-        else:
-            db.session.rollback()
-
         return SubscriptionCycleRepairResult(
             status="repaired" if repaired_records else "noop",
             creator_bid=normalized_creator_bid or None,
@@ -2022,21 +2308,23 @@ def _select_subscription_cycle_repair_evidence(
         bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     )
     if bucket is not None:
-        if int(bucket.status or 0) in (
-            CREDIT_BUCKET_STATUS_ACTIVE,
-            CREDIT_BUCKET_STATUS_EXHAUSTED,
+        if (
+            int(bucket.status or 0)
+            in (
+                CREDIT_BUCKET_STATUS_ACTIVE,
+                CREDIT_BUCKET_STATUS_EXHAUSTED,
+            )
+            and (bucket.effective_from is None or bucket.effective_from <= as_of)
+            and (bucket.effective_to is None or bucket.effective_to > as_of)
         ):
-            if (bucket.effective_from is None or bucket.effective_from <= as_of) and (
-                bucket.effective_to is None or bucket.effective_to > as_of
-            ):
-                return _SubscriptionCycleEvidence(
-                    effective_from=bucket.effective_from,
-                    effective_to=bucket.effective_to,
-                    bill_order_bid=bucket.source_bid or None,
-                    wallet_bucket_bid=bucket.wallet_bucket_bid,
-                    reason="current_subscription_bucket",
-                    is_current_window=True,
-                )
+            return _SubscriptionCycleEvidence(
+                effective_from=bucket.effective_from,
+                effective_to=bucket.effective_to,
+                bill_order_bid=bucket.source_bid or None,
+                wallet_bucket_bid=bucket.wallet_bucket_bid,
+                reason="current_subscription_bucket",
+                is_current_window=True,
+            )
         return _SubscriptionCycleEvidence(
             effective_from=bucket.effective_from,
             effective_to=bucket.effective_to,
@@ -2179,22 +2467,17 @@ def _sync_subscription_lifecycle_events(
         and int(product.auto_renew_enabled or 0) == 1
     ):
         renewal_scheduled_at = scheduled_at
-        if provider_name == "pingxx":
-            renewal_scheduled_at = _resolve_pingxx_renewal_scheduled_at(subscription)
+        if is_manual_payment_provider(provider_name):
+            renewal_scheduled_at = _resolve_manual_renewal_scheduled_at(subscription)
         _upsert_subscription_renewal_event(
             app,
             subscription,
             event_type=BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
             scheduled_at=renewal_scheduled_at or scheduled_at,
         )
-        if provider_name == "pingxx":
-            _upsert_subscription_renewal_event(
-                app,
-                subscription,
-                event_type=BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
-                scheduled_at=scheduled_at,
-            )
-        elif _has_paid_referral_invitation_renewal_at_boundary(
+        if is_manual_payment_provider(
+            provider_name
+        ) or _has_paid_deferred_manual_renewal_at_boundary(
             subscription,
             boundary_at=scheduled_at,
         ):

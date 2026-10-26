@@ -2,12 +2,7 @@
   "__namespace__": "module.user",
   "confirmLogoutContent": "Are you sure you want to logout?",
   "confirmLogoutTitle": "Confirm Logout",
-  "defaultUserName": "Default Name",
-  "gender": {
-    "female": "Female",
-    "male": "Male",
-    "secret": "Secret"
-  },
+  "defaultUserName": "Anonymous User",
   "login": "Login",
   "loginMainButton": "Login/Register",
   "logout": "Logout",

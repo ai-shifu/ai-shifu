@@ -6,9 +6,9 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
 from flask import current_app
 from flaskr.service.user.consts import (
     USER_STATE_PAID,
@@ -17,6 +17,8 @@ from flaskr.service.user.consts import (
     USER_STATE_UNREGISTERED,
 )
 
+if TYPE_CHECKING:
+    from decimal import Decimal
 
 COURSE_STATUS_PUBLISHED = "published"
 
@@ -69,6 +71,8 @@ OPERATOR_USER_STATUS_REGISTERED = "registered"
 OPERATOR_USER_STATUS_TRIAL = "trial"
 
 OPERATOR_USER_STATUS_PAID = "paid"
+
+OPERATOR_USER_STATUS_CANCELLED = "cancelled"
 
 OPERATOR_USER_STATUS_UNKNOWN = "unknown"
 
@@ -198,18 +202,6 @@ OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_TOPUP = "topup"
 
 OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL = "manual"
 
-OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION = "align_subscription"
-
-OPERATOR_USER_CREDIT_VALIDITY_1D = "1d"
-
-OPERATOR_USER_CREDIT_VALIDITY_7D = "7d"
-
-OPERATOR_USER_CREDIT_VALIDITY_1M = "1m"
-
-OPERATOR_USER_CREDIT_VALIDITY_3M = "3m"
-
-OPERATOR_USER_CREDIT_VALIDITY_1Y = "1y"
-
 OPERATOR_USER_CREDIT_GRANT_SOURCES = {
     OPERATOR_USER_CREDIT_GRANT_SOURCE_REWARD,
     OPERATOR_USER_CREDIT_GRANT_SOURCE_COMPENSATION,
@@ -249,15 +241,6 @@ OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCES = {
     OPERATOR_USER_CREDIT_FILTER_GRANT_SOURCE_MANUAL,
 }
 
-OPERATOR_USER_CREDIT_VALIDITY_PRESETS = {
-    OPERATOR_USER_CREDIT_VALIDITY_ALIGN_SUBSCRIPTION,
-    OPERATOR_USER_CREDIT_VALIDITY_1D,
-    OPERATOR_USER_CREDIT_VALIDITY_7D,
-    OPERATOR_USER_CREDIT_VALIDITY_1M,
-    OPERATOR_USER_CREDIT_VALIDITY_3M,
-    OPERATOR_USER_CREDIT_VALIDITY_1Y,
-}
-
 OPERATOR_TARGET_CONTACT_MAX_LENGTH = 320
 
 OPERATOR_TARGET_PHONE_PATTERN = re.compile(r"^\d{11}$")
@@ -278,24 +261,21 @@ USER_STATE_TO_OPERATOR_STATUS = {
 }
 
 
-def _format_decimal(value: Optional[Decimal]) -> str:
+def _format_decimal(value: Decimal | None) -> str:
     if value is None:
         return "0"
-    if isinstance(value, str):
-        normalized = value
-    else:
-        normalized = "{0:.2f}".format(value)
+    normalized = value if isinstance(value, str) else f"{value:.2f}"
     if normalized.endswith(".00"):
         return normalized[:-3]
     return normalized
 
 
-def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
+def _coerce_operator_datetime(value: object) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
         if value.tzinfo is not None:
-            return value.astimezone(timezone.utc).replace(tzinfo=None)
+            return value.astimezone(UTC).replace(tzinfo=None)
         return value
     if isinstance(value, str):
         normalized = value.strip()
@@ -312,7 +292,7 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
             )
             return None
         if parsed.tzinfo is not None:
-            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+            return parsed.astimezone(UTC).replace(tzinfo=None)
         return parsed
     current_app.logger.warning(
         "Unexpected operator datetime value type '%s'",
@@ -321,7 +301,7 @@ def _coerce_operator_datetime(value: Any) -> Optional[datetime]:
     return None
 
 
-def _normalize_metadata_json(value: Any) -> Dict[str, Any]:
+def _normalize_metadata_json(value: object) -> dict[str, object]:
     if isinstance(value, dict):
         return value
     return {}

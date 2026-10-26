@@ -26,9 +26,9 @@ __all__ = [
     "clear_providers",
     "get_provider",
     "has_provider",
+    "register_builtin_providers",
     "register_provider",
     "registered_providers",
-    "register_builtin_providers",
 ]
 
 

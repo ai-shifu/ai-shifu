@@ -1,20 +1,27 @@
+"""Verify admin course detail behavior."""
+
 from __future__ import annotations
 
 import json
 import sys
-from types import SimpleNamespace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException, ERROR_CODE
 from flaskr.service.billing.consts import (
+    BILLING_METRIC_LLM_INPUT_TOKENS,
+    BILLING_METRIC_LLM_OUTPUT_TOKENS,
+    BILLING_METRIC_TTS_OUTPUT_CHARS,
+    BILLING_METRIC_TTS_REQUEST_COUNT,
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
+    CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_SOURCE_TYPE_USAGE,
+    CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
-from flaskr.service.billing.models import CreditLedgerEntry
+from flaskr.service.billing.models import CreditLedgerEntry, CreditUsageRate
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.const import (
     LEARN_STATUS_COMPLETED,
     LEARN_STATUS_IN_PROGRESS,
@@ -28,8 +35,6 @@ from flaskr.service.learn.models import (
     LearnLessonFeedback,
     LearnProgressRecord,
 )
-from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
-from flaskr.service.order.models import Order
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
@@ -37,11 +42,18 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.models import Order
 from flaskr.service.promo.consts import (
     COUPON_STATUS_USED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
 )
 from flaskr.service.promo.models import CouponUsage, PromoRedemption
+from flaskr.service.shifu.admin import (
+    _coerce_operator_datetime,
+    get_operator_course_chapter_detail,
+    get_operator_course_detail,
+)
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CONTENT_VALUE,
     BLOCK_TYPE_MDANSWER_VALUE,
@@ -59,21 +71,19 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from flaskr.service.shifu.admin import (
-    _coerce_operator_datetime,
-    get_operator_course_chapter_detail,
-    get_operator_course_detail,
-)
 from flaskr.service.user.models import (
     AuthCredential,
-    UserInfo as UserEntity,
     UserToken,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
 )
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 
 
 def _clear_tables() -> None:
     db.session.query(CreditLedgerEntry).delete()
+    db.session.query(CreditUsageRate).delete()
     db.session.query(BillUsageRecord).delete()
     db.session.query(LearnLessonFeedback).delete()
     db.session.query(LearnGeneratedElement).delete()
@@ -95,7 +105,27 @@ def _clear_tables() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _pin_app_timezone_to_utc(app):
+def _configure_default_model_route(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Credit estimates resolve legacy course choices through configured model one."""
+    _ = app  # Initialize provider configuration before installing the test route.
+    from flaskr.api import llm
+
+    monkeypatch.setitem(
+        llm.PROVIDER_STATES,
+        "openai",
+        llm.ProviderState(
+            enabled=True,
+            params={"api_key": "test-key"},
+            models=["gpt-test"],
+        ),
+    )
+    monkeypatch.setitem(llm.MODEL_ALIAS_MAP, "gpt-test", ("openai", "gpt-test"))
+
+
+@pytest.fixture(autouse=True)
+def _pin_app_timezone_to_utc(app: object) -> object:
     original_tz = app.config.get("TZ")
     app.config["TZ"] = "UTC"
     try:
@@ -108,12 +138,16 @@ def _pin_app_timezone_to_utc(app):
 
 
 @pytest.fixture(autouse=True)
-def _mock_bcrypt_module(monkeypatch):
+def _mock_bcrypt_module(monkeypatch: object) -> None:
+    def gensalt(rounds: object = 12) -> object:
+        del rounds
+        return b"salt"
+
     monkeypatch.setitem(
         sys.modules,
         "bcrypt",
         SimpleNamespace(
-            gensalt=lambda rounds=12: b"salt",
+            gensalt=gensalt,
             hashpw=lambda plain, salt: plain + b":" + salt,
             checkpw=lambda plain, hashed: hashed == plain + b":salt",
         ),
@@ -121,7 +155,7 @@ def _mock_bcrypt_module(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _isolate_tables(app):
+def _isolate_tables(app: object) -> object:
     with app.app_context():
         _clear_tables()
     yield
@@ -130,7 +164,7 @@ def _isolate_tables(app):
 
 
 def _mock_operator(
-    monkeypatch,
+    monkeypatch: object,
     user_id: str = "operator-1",
     *,
     is_operator: bool = True,
@@ -148,7 +182,7 @@ def _mock_operator(
     )
 
 
-def _seed_user(app, *, user_bid: str, email: str = "", phone: str = "") -> None:
+def _seed_user(app: object, *, user_bid: str, email: str = "", phone: str = "") -> None:
     identify = email or phone or user_bid
     create_user_entity(
         user_bid=user_bid,
@@ -341,7 +375,7 @@ def _seed_credit_usage(
             source_bid=usage_bid,
             idempotency_key=f"usage:{usage_bid}:consume",
             amount=-consumed_credits,
-            balance_after=Decimal("100"),
+            balance_after=Decimal(100),
             expires_at=None,
             consumable_from=created_at,
             metadata_json={},
@@ -625,6 +659,11 @@ def _seed_course(
     creator_user_bid: str,
     created_at: datetime,
     updated_at: datetime,
+    llm: str = "gpt-test",
+    llm_system_prompt: str = "",
+    tts_enabled: int = 0,
+    tts_provider: str = "",
+    tts_model: str = "",
 ) -> None:
     db.session.add(
         DraftShifu(
@@ -633,10 +672,13 @@ def _seed_course(
             description="draft",
             avatar_res_bid="",
             keywords="",
-            llm="gpt-test",
-            llm_temperature=Decimal("0"),
-            llm_system_prompt="",
+            llm=llm,
+            llm_temperature=Decimal(0),
+            llm_system_prompt=llm_system_prompt,
             price=Decimal("199.00"),
+            tts_enabled=tts_enabled,
+            tts_provider=tts_provider,
+            tts_model=tts_model,
             deleted=0,
             created_at=created_at,
             created_user_bid=creator_user_bid,
@@ -651,10 +693,13 @@ def _seed_course(
             description="published",
             avatar_res_bid="",
             keywords="",
-            llm="gpt-test",
-            llm_temperature=Decimal("0"),
-            llm_system_prompt="",
+            llm=llm,
+            llm_temperature=Decimal(0),
+            llm_system_prompt=llm_system_prompt,
             price=Decimal("99.00"),
+            tts_enabled=tts_enabled,
+            tts_provider=tts_provider,
+            tts_model=tts_model,
             deleted=0,
             created_at=created_at,
             created_user_bid=creator_user_bid,
@@ -664,10 +709,40 @@ def _seed_course(
     )
 
 
+def _seed_credit_usage_rate(
+    *,
+    rate_bid: str,
+    usage_type: int,
+    provider: str,
+    model: str,
+    billing_metric: int,
+    credits_per_unit: str,
+    effective_from: datetime,
+    unit_size: int = 1,
+) -> None:
+    db.session.add(
+        CreditUsageRate(
+            rate_bid=rate_bid,
+            usage_type=usage_type,
+            provider=provider,
+            model=model,
+            usage_scene=BILL_USAGE_SCENE_PROD,
+            billing_metric=billing_metric,
+            unit_size=unit_size,
+            credits_per_unit=Decimal(credits_per_unit),
+            rounding_mode=CREDIT_ROUNDING_MODE_CEIL,
+            effective_from=effective_from,
+            effective_to=None,
+            status=CREDIT_USAGE_RATE_STATUS_ACTIVE,
+            deleted=0,
+        )
+    )
+
+
 def _seed_outline(
     *,
     shifu_bid: str,
-    model,
+    model: object,
     outline_item_bid: str,
     title: str,
     position: str,
@@ -688,12 +763,8 @@ def _seed_outline(
             position=position,
             hidden=hidden,
             type=item_type,
-            llm="",
-            llm_temperature=0,
             llm_system_prompt=llm_system_prompt,
             ask_enabled_status=0,
-            ask_llm="",
-            ask_llm_temperature=0,
             ask_llm_system_prompt="",
             content=content,
             deleted=0,
@@ -705,33 +776,29 @@ def _seed_outline(
     )
 
 
-def test_coerce_operator_datetime_accepts_mysql_string_values(app):
+def test_coerce_operator_datetime_accepts_mysql_string_values(app: object) -> None:
     with app.app_context():
         assert _coerce_operator_datetime("2026-05-20 16:40:51") == datetime(
             2026, 5, 20, 16, 40, 51
         )
 
 
-def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app):
+def test_coerce_operator_datetime_normalizes_offset_values_to_utc(app: object) -> None:
     with app.app_context():
         assert _coerce_operator_datetime("2026-05-22T10:00:00+08:00") == datetime(
             2026, 5, 22, 2, 0, 0
         )
         assert _coerce_operator_datetime(
-            datetime(2026, 5, 22, 10, 0, 0, tzinfo=timezone.utc)
+            datetime(2026, 5, 22, 10, 0, 0, tzinfo=UTC)
         ) == datetime(2026, 5, 22, 10, 0, 0)
 
 
 def test_admin_operation_course_detail_route_returns_latest_detail(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 7,
-    )
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -957,7 +1024,6 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
         "updated_at": "2026-04-03T15:30:00Z",
     }
     assert payload["data"]["metrics"] == {
-        "visit_count_30d": 7,
         "learner_count": 2,
         "order_count": 1,
         "order_amount": "88",
@@ -1031,11 +1097,220 @@ def test_admin_operation_course_detail_route_returns_latest_detail(
     ]
 
 
+def test_admin_operation_course_detail_estimates_credit_cost_by_learning_mode(
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
+    _mock_operator(monkeypatch)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_estimate.get_current_models",
+        lambda _app: [
+            {
+                "model": "gpt-test",
+                "display_name": "GPT Test",
+                "credit_multiplier_label": "3x",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_estimate.get_all_provider_configs",
+        lambda: {
+            "model_options": [
+                {
+                    "provider": "minimax",
+                    "model": "speech-test",
+                    "label": "MiniMax Speech Test",
+                    "credit_multiplier_label": "3x",
+                }
+            ]
+        },
+    )
+    calculated_at = datetime(2026, 5, 1, 12, 0, 0)
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_estimate.now_utc",
+        lambda: calculated_at,
+    )
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=datetime(2026, 4, 1, 9, 0, 0),
+            updated_at=datetime(2026, 4, 1, 9, 0, 0),
+            llm="gpt-test",
+            tts_enabled=0,
+            tts_provider="minimax",
+            tts_model="speech-test",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter",
+            position="1",
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            llm_system_prompt="abcdef",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            title="Lesson 1",
+            parent_bid="chapter-1",
+            position="1.1",
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="abcdefghij",
+            llm_system_prompt="abcd",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-2",
+            title="Lesson 2",
+            parent_bid="chapter-1",
+            position="1.2",
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="abcdefghijklmnopqrst",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-hidden",
+            title="Hidden",
+            parent_bid="chapter-1",
+            position="1.3",
+            hidden=1,
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="this hidden content is ignored",
+            llm_system_prompt="hidden",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-hidden-only",
+            title="Hidden-only Chapter",
+            position="2",
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="this visible chapter content is ignored",
+            llm_system_prompt="visible chapter prompt ignored",
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="hidden-only-child",
+            title="Hidden-only Child",
+            parent_bid="chapter-hidden-only",
+            position="2.1",
+            hidden=1,
+            updated_at=datetime(2026, 4, 1, 10, 0, 0),
+            content="hidden child content is ignored",
+            llm_system_prompt="hidden child prompt ignored",
+        )
+        for billing_metric in (
+            BILLING_METRIC_LLM_INPUT_TOKENS,
+            BILLING_METRIC_LLM_OUTPUT_TOKENS,
+        ):
+            _seed_credit_usage_rate(
+                rate_bid=f"rate-llm-baseline-{billing_metric}",
+                usage_type=BILL_USAGE_TYPE_LLM,
+                provider="*",
+                model="*",
+                billing_metric=billing_metric,
+                credits_per_unit="1",
+                effective_from=datetime(2026, 1, 1, 0, 0, 0),
+            )
+        _seed_credit_usage_rate(
+            rate_bid="rate-llm-input-gpt-test",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="*",
+            model="gpt-test",
+            billing_metric=BILLING_METRIC_LLM_INPUT_TOKENS,
+            credits_per_unit="1",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        _seed_credit_usage_rate(
+            rate_bid="rate-llm-output-gpt-test",
+            usage_type=BILL_USAGE_TYPE_LLM,
+            provider="*",
+            model="gpt-test",
+            billing_metric=BILLING_METRIC_LLM_OUTPUT_TOKENS,
+            credits_per_unit="2",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        _seed_credit_usage_rate(
+            rate_bid="rate-tts-baseline-output",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="*",
+            model="*",
+            billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
+            credits_per_unit="1",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        _seed_credit_usage_rate(
+            rate_bid="rate-tts-minimax-request",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="minimax",
+            model="speech-test",
+            billing_metric=BILLING_METRIC_TTS_REQUEST_COUNT,
+            credits_per_unit="0",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        _seed_credit_usage_rate(
+            rate_bid="rate-tts-minimax-output",
+            usage_type=BILL_USAGE_TYPE_TTS,
+            provider="minimax",
+            model="speech-test",
+            billing_metric=BILLING_METRIC_TTS_OUTPUT_CHARS,
+            credits_per_unit="1",
+            effective_from=datetime(2026, 1, 1, 0, 0, 0),
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/detail",
+        headers={"Token": "test-token"},
+    )
+    payload = response.get_json(force=True)
+
+    assert response.status_code == 200
+    assert payload["code"] == 0
+    estimate = payload["data"]["estimated_credit_cost"]
+    assert estimate["read"]["min"] == 46
+    assert estimate["read"]["max"] == 82
+    assert estimate["classroom"]["min"] == 46
+    assert estimate["classroom"]["max"] == 82
+    assert estimate["listen"]["enabled"] is False
+    assert estimate["listen"]["min"] == 73
+    assert estimate["listen"]["max"] == 115
+    assert estimate["listen"]["llm"] == {
+        "min": 46,
+        "max": 82,
+        "model": "gpt-test",
+        "model_label": "GPT Test",
+        "multiplier": "3x",
+    }
+    assert estimate["listen"]["tts"] == {
+        "min": 27,
+        "max": 33,
+        "model": "speech-test",
+        "model_label": "MiniMax Speech Test",
+        "multiplier": "3x",
+    }
+    assert estimate["assumptions"] == {
+        "visible_lesson_count": 2,
+        "prompt_char_count": 10,
+        "content_char_count": 30,
+        "calculated_at": "2026-05-01T12:00:00Z",
+    }
+
+
 def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surfaces_unknown_permission(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1119,10 +1394,10 @@ def test_admin_operation_course_detail_route_sorts_numeric_positions_and_surface
     ],
 )
 def test_admin_operation_course_detail_routes_require_operator(
-    test_client,
-    monkeypatch,
-    path,
-):
+    test_client: object,
+    monkeypatch: object,
+    path: object,
+) -> None:
     _mock_operator(monkeypatch, is_operator=False)
 
     response = test_client.get(path, headers={"Token": "test-token"})
@@ -1133,10 +1408,10 @@ def test_admin_operation_course_detail_routes_require_operator(
 
 
 def test_admin_operation_course_prompt_route_returns_course_prompt(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1168,10 +1443,10 @@ def test_admin_operation_course_prompt_route_returns_course_prompt(
 
 
 def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1214,10 +1489,10 @@ def test_admin_operation_course_chapter_detail_route_returns_prompt_content(
 
 
 def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_course(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1231,7 +1506,7 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_c
                 avatar_res_bid="",
                 keywords="",
                 llm="gpt-test",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="course system prompt",
                 price=Decimal("199.00"),
                 deleted=0,
@@ -1280,10 +1555,10 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_chapter_and_c
 
 
 def test_admin_operation_course_chapter_detail_route_falls_back_to_course(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1297,7 +1572,7 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_course(
                 avatar_res_bid="",
                 keywords="",
                 llm="gpt-test",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="course system prompt",
                 price=Decimal("199.00"),
                 deleted=0,
@@ -1345,10 +1620,10 @@ def test_admin_operation_course_chapter_detail_route_falls_back_to_course(
 
 
 def test_admin_operation_course_detail_route_keeps_empty_draft_outline(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1384,10 +1659,10 @@ def test_admin_operation_course_detail_route_keeps_empty_draft_outline(
 
 
 def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline_revision(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1408,12 +1683,8 @@ def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline
                 position="1",
                 hidden=0,
                 type=UNIT_TYPE_VALUE_GUEST,
-                llm="",
-                llm_temperature=0,
                 llm_system_prompt="",
                 ask_enabled_status=0,
-                ask_llm="",
-                ask_llm_temperature=0,
                 ask_llm_system_prompt="",
                 content="",
                 deleted=0,
@@ -1432,12 +1703,8 @@ def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline
                 position="1",
                 hidden=0,
                 type=UNIT_TYPE_VALUE_GUEST,
-                llm="",
-                llm_temperature=0,
                 llm_system_prompt="",
                 ask_enabled_status=0,
-                ask_llm="",
-                ask_llm_temperature=0,
                 ask_llm_system_prompt="",
                 content="",
                 deleted=1,
@@ -1461,10 +1728,11 @@ def test_admin_operation_course_detail_route_ignores_soft_deleted_latest_outline
 
 
 def test_admin_operation_course_detail_route_rejects_missing_course(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
+    _ = app
     _mock_operator(monkeypatch)
 
     response = test_client.get(
@@ -1478,10 +1746,10 @@ def test_admin_operation_course_detail_route_rejects_missing_course(
 
 
 def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_item(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
 
@@ -1505,17 +1773,19 @@ def test_admin_operation_course_chapter_detail_route_rejects_missing_outline_ite
     assert payload["code"] == 4009
 
 
-def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(app):
-    with pytest.raises(AppException) as exc_info:
+def test_get_operator_course_detail_rejects_blank_shifu_bid_with_params_error(
+    app: object,
+) -> None:
+    with pytest.raises(AppError) as exc_info:
         get_operator_course_detail(app, shifu_bid="   ")
 
     assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
 
 
 def test_get_operator_course_chapter_detail_rejects_blank_params_with_params_error(
-    app,
-):
-    with pytest.raises(AppException) as exc_info:
+    app: object,
+) -> None:
+    with pytest.raises(AppError) as exc_info:
         get_operator_course_chapter_detail(
             app,
             shifu_bid="   ",
@@ -1525,10 +1795,10 @@ def test_get_operator_course_chapter_detail_rejects_blank_params_with_params_err
 
 
 def test_admin_operation_course_users_route_returns_course_related_users(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1665,10 +1935,10 @@ def test_admin_operation_course_users_route_returns_course_related_users(
 
 
 def test_admin_operation_course_users_route_applies_filters(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1724,10 +1994,10 @@ def test_admin_operation_course_users_route_applies_filters(
 
 
 def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -1797,15 +2067,11 @@ def test_admin_operation_course_users_route_marks_redeem_orders_as_paid(
 
 
 def test_admin_operation_course_detail_metrics_include_credit_usage_and_completed_average(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
@@ -1872,7 +2138,7 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("12"),
+            consumed_credits=Decimal(12),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -1885,7 +2151,7 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("8"),
+            consumed_credits=Decimal(8),
             created_at=datetime(2026, 4, 4, 11, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -1907,10 +2173,10 @@ def test_admin_operation_course_detail_metrics_include_credit_usage_and_complete
 
 
 def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_filters(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -1983,7 +2249,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("5"),
+            consumed_credits=Decimal(5),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -1996,7 +2262,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1-mini",
-            consumed_credits=Decimal("2"),
+            consumed_credits=Decimal(2),
             created_at=datetime(2026, 4, 3, 8, 0, 0),
             extra={},
         )
@@ -2010,7 +2276,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1-mini",
-            consumed_credits=Decimal("3"),
+            consumed_credits=Decimal(3),
             created_at=datetime(2026, 4, 5, 11, 0, 0),
             extra={"generation_name": "lesson_ask/user_follow_ask/Lesson 2"},
         )
@@ -2024,7 +2290,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_TTS,
             provider="volcengine",
             model="cancan-2.0",
-            consumed_credits=Decimal("12"),
+            consumed_credits=Decimal(12),
             created_at=datetime(2026, 4, 6, 12, 0, 0),
         )
         _seed_credit_usage(
@@ -2036,7 +2302,7 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1-nano",
-            consumed_credits=Decimal("1"),
+            consumed_credits=Decimal(1),
             created_at=datetime(2026, 4, 7, 12, 0, 0),
             usage_scene=BILL_USAGE_SCENE_PREVIEW,
             extra={"generation_name": "lesson_preview/run_llm/Lesson 1"},
@@ -2203,11 +2469,162 @@ def test_admin_operation_course_credit_usages_route_returns_grouped_rows_and_fil
     assert raw_payload["data"]["items"][0]["usage_mode"] == "learn"
 
 
+def test_admin_operation_course_credit_usage_model_labels_are_cached_per_request(
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
+    _mock_operator(monkeypatch)
+    created_at = datetime(2026, 4, 1, 9, 0, 0)
+    load_counts = {"llm": 0, "tts": 0}
+
+    def fake_get_current_models(_app: object) -> object:
+        load_counts["llm"] += 1
+        return [
+            {"model": "gpt-known", "display_name": "GPT Known"},
+            {"model": "shared-model", "display_name": "Shared Model"},
+        ]
+
+    def fake_get_all_provider_configs() -> object:
+        load_counts["tts"] += 1
+        return {
+            "providers": [],
+            "model_options": [
+                {
+                    "provider": "volcengine",
+                    "model": "seed-tts-2.0",
+                    "label": "Flagship Voice",
+                }
+            ],
+        }
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_usage.get_current_models",
+        fake_get_current_models,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_usage.get_all_provider_configs",
+        fake_get_all_provider_configs,
+    )
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.courses_credit_usage.PROVIDER_STATES",
+        {
+            "openai": SimpleNamespace(models=["gpt-known"]),
+            "gemini": SimpleNamespace(models=["shared-model"]),
+            "other": SimpleNamespace(models=["shared-model"]),
+        },
+    )
+
+    with app.app_context():
+        _seed_user(app, user_bid="creator-1", phone="13800001234")
+        _seed_user(app, user_bid="student-1", phone="13900001235")
+        _set_user_flags(user_bid="creator-1", is_creator=1)
+        _seed_course(
+            shifu_bid="course-detail",
+            creator_user_bid="creator-1",
+            created_at=created_at,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="chapter-1",
+            title="Chapter 1",
+            position="1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        _seed_outline(
+            shifu_bid="course-detail",
+            model=DraftOutlineItem,
+            outline_item_bid="lesson-1",
+            parent_bid="chapter-1",
+            title="Lesson 1",
+            position="1.1",
+            item_type=UNIT_TYPE_VALUE_NORMAL,
+            updated_at=created_at,
+        )
+        usage_specs = [
+            ("usage-llm-1", BILL_USAGE_TYPE_LLM, "openai", "gpt-known", "4"),
+            ("usage-llm-2", BILL_USAGE_TYPE_LLM, "gemini", "shared-model", "3"),
+            ("usage-tts-1", BILL_USAGE_TYPE_TTS, "volcengine", "seed-tts-2.0", "2"),
+            ("usage-legacy-1", BILL_USAGE_TYPE_LLM, "legacy", "old-model-260101", "1"),
+        ]
+        for index, (usage_bid, usage_type, provider, model, credit_amount) in enumerate(
+            usage_specs
+        ):
+            _seed_credit_usage(
+                usage_bid=usage_bid,
+                user_bid="student-1",
+                shifu_bid="course-detail",
+                outline_item_bid="lesson-1",
+                progress_record_bid=f"progress-{index}",
+                usage_type=usage_type,
+                provider=provider,
+                model=model,
+                consumed_credits=Decimal(credit_amount),
+                created_at=datetime(2026, 4, 4, 10, index, 0),
+                extra={"generation_name": f"lesson_runtime/run_llm/{index}"},
+            )
+        db.session.commit()
+
+    raw_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages"
+        "?page=1&page_size=20&view=raw",
+        headers={"Token": "test-token"},
+    )
+    raw_payload = raw_response.get_json(force=True)
+
+    assert raw_response.status_code == 200
+    assert raw_payload["code"] == 0
+    assert load_counts == {"llm": 1, "tts": 1}
+    raw_labels = {
+        item["usage_bid"]: item["model_label"] for item in raw_payload["data"]["items"]
+    }
+    assert raw_labels["usage-llm-1"] == "GPT Known"
+    assert raw_labels["usage-llm-2"] == "Shared Model"
+    assert raw_labels["usage-tts-1"] == "Flagship Voice"
+    assert raw_labels["usage-legacy-1"] == "Old-Model"
+
+    grouped_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages"
+        "?page=1&page_size=20",
+        headers={"Token": "test-token"},
+    )
+    grouped_payload = grouped_response.get_json(force=True)
+
+    assert grouped_response.status_code == 200
+    assert grouped_payload["code"] == 0
+    assert load_counts == {"llm": 2, "tts": 2}
+    grouped_labels = {
+        item["usage_bid"]: item["model_label"]
+        for item in grouped_payload["data"]["items"]
+    }
+    assert grouped_labels["usage-tts-1"] == "Flagship Voice"
+    assert grouped_labels["usage-legacy-1"] == "Old-Model"
+
+    detail_response = test_client.get(
+        "/api/shifu/admin/operations/courses/course-detail/credit-usages/details"
+        "?page=1&page_size=20&user_bid=student-1&outline_item_bid=lesson-1",
+        headers={"Token": "test-token"},
+    )
+    detail_payload = detail_response.get_json(force=True)
+
+    assert detail_response.status_code == 200
+    assert detail_payload["code"] == 0
+    assert load_counts == {"llm": 3, "tts": 3}
+    detail_labels = {
+        item["usage_bid"]: item["model_label"]
+        for item in detail_payload["data"]["items"]
+    }
+    assert detail_labels == raw_labels
+
+
 def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -2253,7 +2670,7 @@ def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="",
             model="",
-            consumed_credits=Decimal("5"),
+            consumed_credits=Decimal(5),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2280,12 +2697,12 @@ def test_admin_operation_course_credit_usages_ignores_blank_model_variant(
     ],
 )
 def test_admin_operation_course_credit_usages_route_rejects_invalid_filters(
-    app,
-    test_client,
-    monkeypatch,
-    query,
-    field,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+    query: object,
+    field: object,
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2310,10 +2727,10 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_filters(
 
 
 def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -2338,9 +2755,9 @@ def test_admin_operation_course_credit_usages_route_rejects_invalid_view(
 
 
 def test_admin_operation_course_credit_usages_route_rejects_missing_course(
-    test_client,
-    monkeypatch,
-):
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
 
     response = test_client.get(
@@ -2355,10 +2772,10 @@ def test_admin_operation_course_credit_usages_route_rejects_missing_course(
 
 
 def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summary(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -2401,7 +2818,7 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("5"),
+            consumed_credits=Decimal(5),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2445,14 +2862,17 @@ def test_admin_operation_course_credit_usage_details_route_returns_rows_and_summ
     assert item["consumed_credits"] == 5
     assert item["input_tokens"] == 100
     assert item["output_tokens"] == 200
+    assert item["provider"] == "openai"
+    assert item["model"] == "gpt-4.1"
+    assert item["model_label"] == "GPT-4.1"
     assert item["output_summary"] == "Generated answer"
 
 
 def test_admin_operation_course_credit_usage_details_route_paginates_and_filters_mode(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -2484,7 +2904,7 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
                 usage_type=BILL_USAGE_TYPE_LLM,
                 provider="openai",
                 model="gpt-4.1",
-                consumed_credits=Decimal("1"),
+                consumed_credits=Decimal(1),
                 created_at=datetime(2026, 4, 4, 10, index, 0),
                 extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
             )
@@ -2496,7 +2916,7 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
             usage_type=BILL_USAGE_TYPE_TTS,
             provider="volcengine",
             model="cancan-2.0",
-            consumed_credits=Decimal("2"),
+            consumed_credits=Decimal(2),
             created_at=datetime(2026, 4, 4, 11, 0, 0),
         )
         db.session.commit()
@@ -2519,10 +2939,10 @@ def test_admin_operation_course_credit_usage_details_route_paginates_and_filters
 
 
 def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_progress_separate(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 2, 9, 0, 0)
 
@@ -2564,7 +2984,7 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("2"),
+            consumed_credits=Decimal(2),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2577,7 +2997,7 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1-mini",
-            consumed_credits=Decimal("3"),
+            consumed_credits=Decimal(3),
             created_at=datetime(2026, 4, 4, 11, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2601,10 +3021,10 @@ def test_admin_operation_course_credit_usages_grouped_view_keeps_rows_without_pr
 
 
 def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 2, 9, 0, 0)
 
@@ -2651,7 +3071,7 @@ def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
             usage_type=BILL_USAGE_TYPE_LLM,
             provider="openai",
             model="gpt-4.1",
-            consumed_credits=Decimal("5"),
+            consumed_credits=Decimal(5),
             created_at=datetime(2026, 4, 4, 10, 0, 0),
             extra={"generation_name": "lesson_runtime/run_llm/Lesson 1"},
         )
@@ -2665,8 +3085,8 @@ def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
                 source_type=CREDIT_SOURCE_TYPE_USAGE,
                 source_bid="usage-split-1",
                 idempotency_key="usage:usage-split-1:consume:extra",
-                amount=Decimal("-3"),
-                balance_after=Decimal("97"),
+                amount=Decimal(-3),
+                balance_after=Decimal(97),
                 expires_at=None,
                 consumable_from=datetime(2026, 4, 4, 10, 0, 0),
                 metadata_json={},
@@ -2691,10 +3111,10 @@ def test_admin_operation_course_credit_usages_route_aggregates_split_ledgers(
 
 
 def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -2981,9 +3401,9 @@ def test_admin_operation_course_follow_ups_route_returns_summary_and_filters(
 
 
 def test_admin_operation_course_follow_ups_route_rejects_inverted_time_range(
-    test_client,
-    monkeypatch,
-):
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
 
     response = test_client.get(
@@ -2999,10 +3419,10 @@ def test_admin_operation_course_follow_ups_route_rejects_inverted_time_range(
 
 
 def test_admin_operation_course_follow_ups_route_rejects_invalid_source_status(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -3029,10 +3449,10 @@ def test_admin_operation_course_follow_ups_route_rejects_invalid_source_status(
 
 
 def test_admin_operation_course_follow_ups_route_supports_google_email_credentials(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -3119,10 +3539,10 @@ def test_admin_operation_course_follow_ups_route_supports_google_email_credentia
 
 
 def test_admin_operation_course_ratings_route_returns_summary_and_filters(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -3351,12 +3771,12 @@ def test_admin_operation_course_ratings_route_returns_summary_and_filters(
     ],
 )
 def test_admin_operation_course_ratings_route_rejects_invalid_filters(
-    app,
-    test_client,
-    monkeypatch,
-    query_string,
-    expected_param,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+    query_string: object,
+    expected_param: object,
+) -> None:
     _mock_operator(monkeypatch)
 
     with app.app_context():
@@ -3381,10 +3801,10 @@ def test_admin_operation_course_ratings_route_rejects_invalid_filters(
 
 
 def test_admin_operation_course_follow_up_detail_route_returns_timeline(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
     updated_at = datetime(2026, 4, 3, 15, 30, 0)
@@ -3516,10 +3936,10 @@ def test_admin_operation_course_follow_up_detail_route_returns_timeline(
 
 
 def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks_when_resolving_answer(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -3639,10 +4059,10 @@ def test_admin_operation_course_follow_up_detail_route_skips_intermediate_blocks
 
 
 def test_admin_operation_course_follow_up_detail_route_prefers_interaction_source_content(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -3725,10 +4145,10 @@ def test_admin_operation_course_follow_up_detail_route_prefers_interaction_sourc
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_from_block_content_conf(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -3830,10 +4250,10 @@ def test_admin_operation_course_follow_up_detail_route_reads_mdcontent_answer_fr
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_source(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -3918,10 +4338,10 @@ def test_admin_operation_course_follow_up_detail_route_reads_inactive_block_sour
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_source(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4019,10 +4439,10 @@ def test_admin_operation_course_follow_up_detail_route_reads_listen_anchor_sourc
 
 
 def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_progress_record(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4131,10 +4551,10 @@ def test_admin_operation_course_follow_up_detail_route_scopes_anchor_source_to_p
 
 
 def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_snapshot(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
@@ -4240,15 +4660,11 @@ def test_admin_operation_course_follow_up_detail_route_reads_historical_anchor_s
 
 
 def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 1, 9, 0, 0)
 
     with app.app_context():
@@ -4317,15 +4733,11 @@ def test_admin_operation_course_detail_metrics_include_full_coupon_redemptions(
 
 
 def test_admin_operation_course_detail_metrics_include_full_promo_redemptions(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 2, 9, 0, 0)
 
     with app.app_context():
@@ -4385,15 +4797,11 @@ def test_admin_operation_course_detail_metrics_include_full_promo_redemptions(
 
 
 def test_admin_operation_course_detail_metrics_prefer_paid_price_and_fallback_to_payable_price(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 3, 9, 0, 0)
 
     with app.app_context():
@@ -4456,15 +4864,11 @@ def test_admin_operation_course_detail_metrics_prefer_paid_price_and_fallback_to
 
 
 def test_admin_operation_course_detail_metrics_include_successful_orders_across_channels(
-    app,
-    test_client,
-    monkeypatch,
-):
+    app: object,
+    test_client: object,
+    monkeypatch: object,
+) -> None:
     _mock_operator(monkeypatch)
-    monkeypatch.setattr(
-        "flaskr.service.shifu.admin.get_course_visit_count_30d",
-        lambda _app, _shifu_bid: 0,
-    )
     created_at = datetime(2026, 4, 4, 9, 0, 0)
 
     with app.app_context():
@@ -4551,11 +4955,11 @@ def test_admin_operation_course_detail_metrics_include_successful_orders_across_
     ],
 )
 def test_admin_operation_course_users_route_rejects_invalid_pagination_params(
-    test_client,
-    monkeypatch,
-    query_string,
-    expected_param,
-):
+    test_client: object,
+    monkeypatch: object,
+    query_string: object,
+    expected_param: object,
+) -> None:
     _mock_operator(monkeypatch)
 
     response = test_client.get(

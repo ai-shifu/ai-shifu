@@ -4,22 +4,26 @@ from __future__ import annotations
 
 import secrets
 import time
-from typing import Any, Dict
+from typing import Any, Never
 
-from authlib.integrations.requests_client import OAuth2Session
 import jwt
-from typing import Optional
-
+from authlib.integrations.requests_client import OAuth2Session
 from flask import current_app, request
-
 from flaskr.common.public_urls import build_google_oauth_callback_url
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
+from flaskr.service.profile.api import merge_learner_profile_for_sign_in
 from flaskr.service.user.auth.base import (
     AuthProvider,
     AuthResult,
     OAuthCallbackRequest,
 )
 from flaskr.service.user.auth.factory import has_provider, register_provider
+from flaskr.service.user.auth.oauth_origins import (
+    resolve_oauth_return_origin,
+)
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -28,29 +32,25 @@ from flaskr.service.user.repository import (
     get_user_entity_by_bid,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
-    transactional_session,
     update_user_entity_fields,
     upsert_credential,
 )
-from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.utils import (
-    generate_token,
     ensure_admin_creator_and_demo_permissions,
+    generate_token,
 )
-from flaskr.service.common.dtos import UserToken
-
 
 AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
-TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
+TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"  # noqa: S105 - endpoint URL
 USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
 # Lifetime (in seconds) for Google OAuth state.
 # Used for stateless signed state tokens (no Redis required).
 STATE_TTL = 900
 
 
-def _encode_state(app, payload: Dict[str, Any]) -> str:
+def _encode_state(app: object, payload: dict[str, object]) -> str:
     now = int(time.time())
-    token = jwt.encode(
+    return jwt.encode(
         {
             "iat": now,
             "exp": now + STATE_TTL,
@@ -60,10 +60,9 @@ def _encode_state(app, payload: Dict[str, Any]) -> str:
         app.config["SECRET_KEY"],
         algorithm="HS256",
     )
-    return token
 
 
-def _decode_state(app, state: str) -> Optional[Dict[str, Any]]:
+def _decode_state(app: object, state: str) -> dict[str, object] | None:
     try:
         decoded = jwt.decode(state, app.config["SECRET_KEY"], algorithms=["HS256"])
     except jwt.exceptions.ExpiredSignatureError:
@@ -74,7 +73,7 @@ def _decode_state(app, state: str) -> Optional[Dict[str, Any]]:
     return payload if isinstance(payload, dict) else None
 
 
-def _extract_browser_language() -> Optional[str]:
+def _extract_browser_language() -> str | None:
     """Extract a reasonable UI language from the incoming request.
 
     Priority:
@@ -105,25 +104,67 @@ def _extract_browser_language() -> Optional[str]:
     return f"{primary}-{region}"
 
 
-def _resolve_redirect_uri(app, explicit_uri: Optional[str] = None) -> str:
+def _resolve_redirect_uri(app: object, explicit_uri: str | None = None) -> str:
     del app, explicit_uri
     return build_google_oauth_callback_url()
 
 
+def _require_matching_initiator(
+    state_payload: dict[str, object], current_user_id: str | None
+) -> None:
+    """Refuse a code meant for a different browser session.
+
+    Only applies to flows that recorded a return origin, i.e. the ones whose
+    code gets handed to another domain. The origin comes from headers a caller
+    can forge, so without this an attacker could name their own verified custom
+    domain and have someone else's authorization code delivered there.
+    """
+    expected_initiator = str(state_payload.get("initiator_user_id") or "").strip()
+    if not state_payload.get("origin"):
+        return
+    if not expected_initiator:
+        raise_error("server.user.googleOAuthStateInvalid")
+    if str(current_user_id or "").strip() != expected_initiator:
+        current_app.logger.warning(
+            "Google OAuth callback presented by a different session than started it"
+        )
+        raise_error("server.user.googleOAuthStateInvalid")
+
+
+def resolve_state_return_origin(app: object, state: str | None) -> str:
+    """Return the validated origin recorded in an OAuth state, or "".
+
+    The shared callback page calls this to learn whether it should forward the
+    authorization code to the domain the login started from. Re-validated here
+    rather than trusted from the state, so revoking a custom domain takes effect
+    on in-flight logins too.
+    """
+    if not state:
+        return ""
+    payload = _decode_state(app, state)
+    if not payload:
+        return ""
+    return resolve_oauth_return_origin(app, payload.get("origin"))
+
+
 class GoogleAuthProvider(AuthProvider):
+    """Authenticate users through Google OAuth."""
+
     provider_name = "google"
     supports_oauth = True
 
-    def _resolve_token_endpoint(self, app) -> str:
+    def _resolve_token_endpoint(self, app: object) -> str:
         return app.config.get("GOOGLE_OAUTH_TOKEN_ENDPOINT", TOKEN_ENDPOINT)
 
-    def _resolve_userinfo_endpoint(self, app) -> str:
+    def _resolve_userinfo_endpoint(self, app: object) -> str:
         return app.config.get("GOOGLE_OAUTH_USERINFO_ENDPOINT", USERINFO_ENDPOINT)
 
-    def verify(self, app, request):
-        raise NotImplementedError("GoogleAuthProvider only supports OAuth flows")
+    def verify(self, app: object, request: object) -> Never:
+        """Raise because Google authentication is supported only through OAuth flows."""
+        message = "GoogleAuthProvider only supports OAuth flows"
+        raise NotImplementedError(message)
 
-    def _create_session(self, app, redirect_uri: str) -> OAuth2Session:
+    def _create_session(self, app: object, redirect_uri: str) -> OAuth2Session:
         client_id = app.config.get("GOOGLE_OAUTH_CLIENT_ID")
         client_secret = app.config.get("GOOGLE_OAUTH_CLIENT_SECRET")
         scopes = ["openid", "email", "profile"]
@@ -134,7 +175,8 @@ class GoogleAuthProvider(AuthProvider):
             redirect_uri=redirect_uri,
         )
 
-    def begin_oauth(self, app, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    def begin_oauth(self, app: object, metadata: dict[str, Any]) -> dict[str, Any]:
+        """Create the Google OAuth authorization redirect."""
         redirect_uri = _resolve_redirect_uri(app, metadata.get("redirect_uri"))
         login_context = metadata.get("login_context")
         session = self._create_session(app, redirect_uri)
@@ -148,16 +190,27 @@ class GoogleAuthProvider(AuthProvider):
         # flow we only need an authorization code to fetch basic profile info.
         # Forcing "prompt=consent" and "access_type=offline" can add extra Google
         # interstitial/confirmation steps and degrades UX.
-        create_url_kwargs: Dict[str, Any] = {}
+        create_url_kwargs: dict[str, Any] = {}
         # Google respects both "hl" and (for some flows) "ui_locales".
         if ui_language:
             create_url_kwargs["hl"] = ui_language
             create_url_kwargs["ui_locales"] = ui_language
 
-        state_payload: Dict[str, Any] = {
+        state_payload: dict[str, Any] = {
             "redirect_uri": redirect_uri,
             "login_context": login_context,
         }
+        # All domains share one Google callback, so remember where the browser
+        # came from to hand it back afterwards. The origin is derived from
+        # headers an attacker can set, so it is only honored together with the
+        # session that started the flow: the callback requires the same session
+        # to present the code. Without a session there is nothing to pair it
+        # with, so the login simply finishes on the shared callback domain.
+        return_origin = resolve_oauth_return_origin(app, metadata.get("origin"))
+        initiator_user_id = str(metadata.get("initiator_user_id") or "").strip()
+        if return_origin and initiator_user_id:
+            state_payload["origin"] = return_origin
+            state_payload["initiator_user_id"] = initiator_user_id
         # Persist the interface language so we can use it
         # when creating or updating the user record.
         if ui_language_from_frontend:
@@ -171,10 +224,13 @@ class GoogleAuthProvider(AuthProvider):
             state=state,
             **create_url_kwargs,
         )
-        current_app.logger.info("Google OAuth begin state=%s", state)
+        current_app.logger.info("auth_event=google_oauth_started")
         return {"authorization_url": authorization_url, "state": state}
 
-    def handle_oauth_callback(self, app, request: OAuthCallbackRequest) -> AuthResult:
+    def handle_oauth_callback(
+        self, app: object, request: OAuthCallbackRequest
+    ) -> AuthResult:
+        """Verify the callback, resolve account state, and issue a login token."""
         if not request.code or not request.state:
             current_app.logger.warning(
                 "Google OAuth callback missing code or state: has_code=%s, has_state=%s",
@@ -183,20 +239,22 @@ class GoogleAuthProvider(AuthProvider):
             )
             raise_error("server.user.googleOAuthStateInvalid")
 
-        current_app.logger.info("Google OAuth callback state=%s", request.state)
+        current_app.logger.info("auth_event=google_oauth_callback_received")
         state_payload = _decode_state(app, request.state)
         if not state_payload:
             raise_error("server.user.googleOAuthStateInvalid")
 
         redirect_uri = None
         login_context = None
-        language: Optional[str] = None
+        language: str | None = None
         try:
             redirect_uri = state_payload.get("redirect_uri")
             login_context = state_payload.get("login_context")
             language = state_payload.get("language")
-        except Exception:  # noqa: BLE001 - defensive fallback
+        except Exception:  # defensive fallback
             current_app.logger.warning("Failed to parse Google OAuth state payload")
+
+        _require_matching_initiator(state_payload, request.current_user_id)
 
         redirect_uri = _resolve_redirect_uri(app, redirect_uri)
         session = self._create_session(app, redirect_uri)
@@ -220,7 +278,8 @@ class GoogleAuthProvider(AuthProvider):
         subject_id = profile.get("sub")
         email = profile.get("email")
         if not subject_id or not email:
-            raise RuntimeError("Google profile missing required identifiers")
+            message = "Google profile missing required identifiers"
+            raise RuntimeError(message)
 
         email = email.lower()
         email_verified = bool(profile.get("email_verified", False))
@@ -235,7 +294,7 @@ class GoogleAuthProvider(AuthProvider):
         created_user = False
         credential_record = None
 
-        with transactional_session():
+        with unit_of_work():
             if credential:
                 aggregate = load_user_aggregate(credential.user_bid)
 
@@ -247,12 +306,18 @@ class GoogleAuthProvider(AuthProvider):
             if not aggregate and origin_aggregate:
                 aggregate = origin_aggregate
 
+            if aggregate and origin_user_id and aggregate.user_bid != origin_user_id:
+                merge_learner_profile_for_sign_in(
+                    source_user_id=origin_user_id,
+                    target_user_id=aggregate.user_bid,
+                )
+
             if aggregate:
                 entity = get_user_entity_by_bid(
                     aggregate.user_bid, include_deleted=True
                 )
                 if entity:
-                    updates: Dict[str, Any] = {"identify": email}
+                    updates: dict[str, Any] = {"identify": email}
                     if email_verified and aggregate.state in (
                         USER_STATE_UNREGISTERED,
                         0,
@@ -327,12 +392,11 @@ class GoogleAuthProvider(AuthProvider):
 
             refreshed = load_user_aggregate(aggregate.user_bid)
             if not refreshed:
-                raise RuntimeError(
-                    "Failed to refresh user aggregate after Google OAuth"
-                )
+                message = "Failed to refresh user aggregate after Google OAuth"
+                raise RuntimeError(message)
             user_dto = build_user_info_from_aggregate(refreshed)
             token_value = generate_token(app, refreshed.user_bid)
-            user_token = UserToken(userInfo=user_dto, token=token_value)
+            user_token = UserToken(user_info=user_dto, token=token_value)
             snapshot = build_user_profile_snapshot_from_aggregate(refreshed)
 
         return AuthResult(

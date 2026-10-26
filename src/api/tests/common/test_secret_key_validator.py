@@ -1,20 +1,18 @@
-"""
-Unit tests for SECRET_KEY validator functionality.
-"""
+"""Unit tests for SECRET_KEY validator functionality."""
 
 import pytest
 from flaskr.common.config import (
-    EnhancedConfig,
-    EnvVar,
-    EnvironmentConfigError,
     ENV_VARS,
+    EnhancedConfig,
+    EnvironmentConfigError,
+    EnvVar,
 )
 
 
 class TestSecretKeyValidator:
     """Test SECRET_KEY validation functionality."""
 
-    def test_secret_key_valid_values(self):
+    def test_secret_key_valid_values(self) -> None:
         """Test that valid SECRET_KEY values pass validation."""
         # Get the actual SECRET_KEY EnvVar from ENV_VARS
         secret_key_env = ENV_VARS["SECRET_KEY"]
@@ -30,10 +28,10 @@ class TestSecretKeyValidator:
 
         for value in valid_values:
             assert secret_key_env.validator(value) is True, (
-                f"Failed for value: {repr(value)}"
+                f"Failed for value: {value!r}"
             )
 
-    def test_secret_key_invalid_values(self):
+    def test_secret_key_invalid_values(self) -> None:
         """Test that invalid SECRET_KEY values fail validation."""
         # Get the actual SECRET_KEY EnvVar from ENV_VARS
         secret_key_env = ENV_VARS["SECRET_KEY"]
@@ -49,20 +47,22 @@ class TestSecretKeyValidator:
 
         for value in invalid_values:
             assert secret_key_env.validator(value) is False, (
-                f"Should have failed for value: {repr(value)}"
+                f"Should have failed for value: {value!r}"
             )
 
-    def test_secret_key_required_field(self):
+    def test_secret_key_required_field(self) -> None:
         """Test that SECRET_KEY is marked as required."""
         secret_key_env = ENV_VARS["SECRET_KEY"]
         assert secret_key_env.required is True
 
-    def test_secret_key_is_secret(self):
+    def test_secret_key_is_secret(self) -> None:
         """Test that SECRET_KEY is marked as secret."""
         secret_key_env = ENV_VARS["SECRET_KEY"]
         assert secret_key_env.secret is True
 
-    def test_environment_validation_with_empty_secret_key(self, monkeypatch):
+    def test_environment_validation_with_empty_secret_key(
+        self, monkeypatch: object
+    ) -> None:
         """Test that environment validation fails with empty SECRET_KEY."""
         # Set required environment variables
         monkeypatch.setenv(
@@ -84,7 +84,9 @@ class TestSecretKeyValidator:
         )
         assert "SECRET_KEY" in error_msg
 
-    def test_environment_validation_with_whitespace_secret_key(self, monkeypatch):
+    def test_environment_validation_with_whitespace_secret_key(
+        self, monkeypatch: object
+    ) -> None:
         """Test that environment validation fails with whitespace-only SECRET_KEY."""
         # Set required environment variables
         monkeypatch.setenv(
@@ -103,13 +105,17 @@ class TestSecretKeyValidator:
         assert "Missing required environment variables" in error_msg
         assert "SECRET_KEY" in error_msg
 
-    def test_environment_validation_with_valid_secret_key(self, monkeypatch):
+    def test_environment_validation_with_valid_secret_key(
+        self, monkeypatch: object
+    ) -> None:
         """Test that environment validation passes with valid SECRET_KEY."""
         # Set required environment variables
         monkeypatch.setenv(
             "SQLALCHEMY_DATABASE_URI", "mysql://test:test@localhost/test"
         )
         monkeypatch.setenv("SECRET_KEY", "valid-secret-key-12345")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         config = EnhancedConfig(ENV_VARS)
@@ -118,13 +124,15 @@ class TestSecretKeyValidator:
         config.validate_environment()
         assert config._validated is True
 
-    def test_secret_key_with_special_characters(self, monkeypatch):
+    def test_secret_key_with_special_characters(self, monkeypatch: object) -> None:
         """Test that SECRET_KEY with special characters works correctly."""
         # Set required environment variables
         monkeypatch.setenv(
             "SQLALCHEMY_DATABASE_URI", "mysql://test:test@localhost/test"
         )
         monkeypatch.setenv("SECRET_KEY", "!@#$%^&*()_+-=[]{}|;:,.<>?/~`")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
         config = EnhancedConfig(ENV_VARS)
@@ -136,10 +144,12 @@ class TestSecretKeyValidator:
         secret_value = config.get("SECRET_KEY")
         assert secret_value == "!@#$%^&*()_+-=[]{}|;:,.<>?/~`"
 
-    def test_secret_key_trimming_during_get(self, monkeypatch):
+    def test_secret_key_trimming_during_get(self, monkeypatch: object) -> None:
         """Test that SECRET_KEY is trimmed during get operation."""
         # Set SECRET_KEY with surrounding whitespace
         monkeypatch.setenv("SECRET_KEY", "  secret_with_spaces  ")
+        monkeypatch.setenv("LLM_MODEL_1_ID", "gpt-test")
+        monkeypatch.setenv("LLM_MODEL_1_NAME", "Test")
         monkeypatch.setenv(
             "SQLALCHEMY_DATABASE_URI", "mysql://test:test@localhost/test"
         )
@@ -154,7 +164,7 @@ class TestSecretKeyValidator:
         assert secret_value == "secret_with_spaces"
         assert secret_value != "  secret_with_spaces  "
 
-    def test_custom_secret_key_validator(self):
+    def test_custom_secret_key_validator(self) -> None:
         """Test creating a custom EnvVar with SECRET_KEY-like validator."""
         custom_env_vars = {
             "CUSTOM_SECRET": EnvVar(

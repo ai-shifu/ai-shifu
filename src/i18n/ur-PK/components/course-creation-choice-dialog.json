@@ -1,0 +1,22 @@
+{
+  "__namespace__": "component.courseCreationChoiceDialog",
+  "aiDescription": "اپنے AI دفتری معاون میں مواد اور خیالات کو کورس میں بدلیں۔",
+  "aiExamples": "جیسے WorkBuddy، Doubao Work، Qianwen Office، Codex",
+  "aiPrompt": "AI-Shifu کی کورس بنانے کی مہارت (ai-shifu-course-creator) تلاش کر کے نصب کریں۔ پہلے سے نصب ہو تو مجھے بتائیں کہ میں کورس بنانا شروع کر سکتا ہوں۔",
+  "aiTitle": "AI کے ساتھ کورسز بنائیں",
+  "copiedAction": "کاپی ہو گیا",
+  "copyAction": "تنصیب کی ہدایات کو کاپی کریں۔",
+  "copyFailed": "کاپی ناکام ہوگئی، براہ کرم دوبارہ کوشش کریں۔",
+  "copyHint": "یہ اپنے AI دفتری معاون کو بھیجیں۔ مہارت پہلے سے نصب ہو تو یہ مرحلہ چھوڑ سکتے ہیں۔",
+  "copySuccess": "انسٹالیشن کی ہدایات کاپی کر دی گئیں۔",
+  "copySuccessDescription": "AI آفس اسسٹنٹ کھولیں، پیسٹ کریں اور بھیجیں۔",
+  "createExample": "“AI-Shifu کی کورس بنانے کی مہارت استعمال کر کے میرے لیے … کے بارے میں کورس بنائیں۔”",
+  "createStep": "اسسٹنٹ کو بتائیں کہ آپ کیا سکھانا چاہتے ہیں۔",
+  "description": "کورس بنانے کا طریقہ منتخب کریں۔",
+  "guideAction": "پہلی بار استعمال کر رہے ہیں؟ ٹیوٹوریل دیکھیں",
+  "installStep": "کورس تخلیق کی مہارتیں انسٹال کریں۔",
+  "manualAction": "ایک خالی کورس بنائیں",
+  "manualDescription": "ایک خالی کورس سے ترمیم شروع کریں۔",
+  "manualTitle": "دستی کورس کی تعمیر",
+  "title": "ایک کورس بنائیں"
+}

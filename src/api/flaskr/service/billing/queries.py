@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import calendar
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
-
-from sqlalchemy import case
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error, raise_param_error
-from flaskr.util.datetime import now_utc
+from flaskr.util.datetime import now_utc, parse_naive_utc
+from sqlalchemy import case
 
-from .primitives import coerce_datetime, normalize_bid
 from .consts import (
     ACTIVE_SUBSCRIPTION_STATUSES,
     BILLING_DOMAIN_BINDING_STATUS_LABELS,
@@ -26,13 +23,13 @@ from .consts import (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_PROCESSING,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
-    BILLING_SUBSCRIPTION_STATUS_PAUSED,
     BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_SUBSCRIPTION_STATUS_PAUSED,
 )
 from .models import (
     BillingDailyLedgerSummary,
@@ -45,6 +42,7 @@ from .models import (
     BillingSubscription,
     CreditWallet,
 )
+from .primitives import coerce_datetime, normalize_bid
 from .value_objects import PageWindow
 
 _SELF_MANAGED_CYCLE_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -74,18 +72,20 @@ _DOMAIN_BINDING_STATUS_CODES_BY_LABEL = {
 }
 
 
-def normalize_stat_date_filter(value: Any, *, parameter_name: str) -> str:
+def normalize_stat_date_filter(value: object, *, parameter_name: str) -> str:
+    """Normalize stat date filter."""
     normalized_value = normalize_bid(value)
     if not normalized_value:
         return ""
     try:
-        datetime.strptime(normalized_value, "%Y-%m-%d")
+        parse_naive_utc(normalized_value, "%Y-%m-%d")
     except ValueError:
         raise_param_error(parameter_name)
     return normalized_value
 
 
-def normalize_payment_provider_hint(value: Any) -> str:
+def normalize_payment_provider_hint(value: object) -> str:
+    """Normalize payment provider hint."""
     provider = str(value or "").strip().lower()
     if not provider:
         return ""
@@ -95,6 +95,7 @@ def normalize_payment_provider_hint(value: Any) -> str:
 
 
 def load_subscription_by_bid(subscription_bid: str) -> BillingSubscription | None:
+    """Load subscription by BID."""
     normalized_subscription_bid = normalize_bid(subscription_bid)
     if not normalized_subscription_bid:
         return None
@@ -111,6 +112,7 @@ def load_subscription_by_bid(subscription_bid: str) -> BillingSubscription | Non
 def load_latest_billing_order_by_subscription(
     subscription_bid: str,
 ) -> BillingOrder | None:
+    """Load latest billing order by subscription."""
     normalized_subscription_bid = normalize_bid(subscription_bid)
     if not normalized_subscription_bid:
         return None
@@ -129,6 +131,7 @@ def load_latest_subscription_renewal_order(
     *,
     statuses: tuple[int, ...] | None = None,
 ) -> BillingOrder | None:
+    """Load latest subscription renewal order."""
     normalized_subscription_bid = normalize_bid(subscription_bid)
     if not normalized_subscription_bid:
         return None
@@ -144,26 +147,30 @@ def load_latest_subscription_renewal_order(
     ).first()
 
 
-def extract_order_metadata_datetime(metadata: Any, key: str) -> datetime | None:
+def extract_order_metadata_datetime(metadata: object, key: str) -> datetime | None:
+    """Extract order metadata datetime."""
     if not isinstance(metadata, dict):
         return None
     return coerce_datetime(metadata.get(key))
 
 
 def serialize_order_metadata_datetime(value: datetime | None) -> str | None:
+    """Serialize order metadata datetime."""
     if value is None:
         return None
     return value.isoformat()
 
 
-def extract_resolved_order_cycle_start_at(metadata: Any) -> datetime | None:
+def extract_resolved_order_cycle_start_at(metadata: object) -> datetime | None:
+    """Extract resolved order cycle start at."""
     return extract_order_metadata_datetime(
         metadata,
         "applied_cycle_start_at",
     ) or extract_order_metadata_datetime(metadata, "renewal_cycle_start_at")
 
 
-def extract_resolved_order_cycle_end_at(metadata: Any) -> datetime | None:
+def extract_resolved_order_cycle_end_at(metadata: object) -> datetime | None:
+    """Extract resolved order cycle end at."""
     return extract_order_metadata_datetime(
         metadata,
         "applied_cycle_end_at",
@@ -177,6 +184,7 @@ def load_subscription_renewal_order_by_cycle(
     cycle_end_at: datetime | None = None,
     statuses: tuple[int, ...] | None = None,
 ) -> BillingOrder | None:
+    """Load subscription renewal order by cycle."""
     normalized_subscription_bid = normalize_bid(subscription_bid)
     if not normalized_subscription_bid:
         return None
@@ -207,6 +215,7 @@ def calculate_billing_cycle_end(
     *,
     cycle_start_at: datetime,
 ) -> datetime | None:
+    """Calculate billing cycle end."""
     interval = int(product.billing_interval or 0)
     interval_count = max(int(product.billing_interval_count or 0), 0)
     if interval_count <= 0:
@@ -225,6 +234,7 @@ def calculate_self_managed_billing_cycle_end(
     *,
     cycle_start_at: datetime,
 ) -> datetime | None:
+    """Calculate self managed billing cycle end."""
     interval = int(product.billing_interval or 0)
     interval_count = max(int(product.billing_interval_count or 0), 0)
     if interval_count <= 0:
@@ -250,6 +260,7 @@ def calculate_self_managed_billing_cycle_end_after_boundary(
     *,
     cycle_boundary_at: datetime,
 ) -> datetime | None:
+    """Calculate self managed billing cycle end after boundary."""
     interval = int(product.billing_interval or 0)
     interval_count = max(int(product.billing_interval_count or 0), 0)
     if interval_count <= 0:
@@ -271,25 +282,26 @@ def calculate_self_managed_billing_cycle_end_after_boundary(
 
 
 def to_self_managed_cycle_local_time(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    else:
-        value = value.astimezone(timezone.utc)
+    """Convert a timestamp to the self-managed billing timezone."""
+    value = value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
     return value.astimezone(_SELF_MANAGED_CYCLE_TIMEZONE)
 
 
 def self_managed_local_day_end_to_utc_naive(value: datetime) -> datetime:
+    """Convert a self-managed local day end to naive UTC."""
     if value.tzinfo is None:
         value = value.replace(tzinfo=_SELF_MANAGED_CYCLE_TIMEZONE)
     local_day_end = end_of_day(value).astimezone(_SELF_MANAGED_CYCLE_TIMEZONE)
-    return local_day_end.astimezone(timezone.utc).replace(tzinfo=None)
+    return local_day_end.astimezone(UTC).replace(tzinfo=None)
 
 
 def end_of_day(value: datetime) -> datetime:
+    """Return the final instant of the supplied day."""
     return value.replace(hour=23, minute=59, second=59, microsecond=0)
 
 
 def add_months(value: datetime, months: int) -> datetime:
+    """Add months."""
     month_index = value.month - 1 + months
     year = value.year + month_index // 12
     month = month_index % 12 + 1
@@ -298,16 +310,21 @@ def add_months(value: datetime, months: int) -> datetime:
 
 
 def add_years(value: datetime, years: int) -> datetime:
+    """Add years."""
     year = value.year + years
     day = min(value.day, calendar.monthrange(year, value.month)[1])
     return value.replace(year=year, day=day)
 
 
 def add_self_managed_years(value: datetime, years: int) -> datetime:
+    """Add self managed years."""
     target_year = value.year + years
-    if value.month == 2 and value.day == 29:
-        if calendar.monthrange(target_year, 2)[1] < 29:
-            return value.replace(year=target_year, month=3, day=1)
+    if (
+        value.month == 2
+        and value.day == 29
+        and calendar.monthrange(target_year, 2)[1] < 29
+    ):
+        return value.replace(year=target_year, month=3, day=1)
     return value.replace(year=target_year)
 
 
@@ -316,6 +333,7 @@ def load_primary_active_subscription(
     *,
     as_of: datetime | None = None,
 ) -> BillingSubscription | None:
+    """Load primary active subscription."""
     normalized_creator_bid = normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return None
@@ -353,6 +371,7 @@ def load_primary_active_subscription(
 
 
 def load_current_subscription(creator_bid: str) -> BillingSubscription | None:
+    """Load current subscription."""
     normalized_creator_bid = normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return None
@@ -371,6 +390,7 @@ def load_current_subscription(creator_bid: str) -> BillingSubscription | None:
 
 
 def load_product_code_map(product_bids: list[str]) -> dict[str, str]:
+    """Load product code map."""
     normalized_bids = [bid for bid in product_bids if bid]
     if not normalized_bids:
         return {}
@@ -385,7 +405,24 @@ def load_product_code_map(product_bids: list[str]) -> dict[str, str]:
     return {row.product_bid: row.product_code for row in rows}
 
 
+def load_product_name_key_map(product_bids: list[str]) -> dict[str, str]:
+    """Load product display-name keys, including inactive products."""
+    normalized_bids = [bid for bid in product_bids if bid]
+    if not normalized_bids:
+        return {}
+    rows = (
+        BillingProduct.query.filter(
+            BillingProduct.deleted == 0,
+            BillingProduct.product_bid.in_(normalized_bids),
+        )
+        .order_by(BillingProduct.id.desc())
+        .all()
+    )
+    return {row.product_bid: str(row.display_name_i18n_key or "") for row in rows}
+
+
 def load_wallet_map(creator_bids: list[str]) -> dict[str, CreditWallet]:
+    """Load wallet map."""
     normalized_creator_bids = [normalize_bid(bid) for bid in creator_bids if bid]
     if not normalized_creator_bids:
         return {}
@@ -406,6 +443,7 @@ def load_wallet_map(creator_bids: list[str]) -> dict[str, CreditWallet]:
 def load_latest_renewal_event_map(
     subscription_bids: list[str],
 ) -> dict[str, BillingRenewalEvent]:
+    """Load latest renewal event map."""
     normalized_subscription_bids = [
         normalize_bid(bid) for bid in subscription_bids if bid
     ]
@@ -430,6 +468,7 @@ def load_latest_renewal_event_map(
 
 
 def load_admin_creator_bids(*, creator_bid: str = "") -> list[str]:
+    """Load admin creator bids."""
     normalized_creator_bid = normalize_bid(creator_bid)
     if normalized_creator_bid:
         return [normalized_creator_bid]
@@ -464,6 +503,7 @@ def subscription_has_attention(
     *,
     renewal_event: BillingRenewalEvent | None,
 ) -> bool:
+    """Return whether subscription has attention."""
     if row.status in {
         BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
         BILLING_SUBSCRIPTION_STATUS_PAUSED,
@@ -482,6 +522,7 @@ def subscription_has_attention(
 
 
 def resolve_subscription_status_filter(value: str) -> int | None:
+    """Resolve subscription status filter."""
     normalized_value = normalize_bid(value)
     if not normalized_value:
         return None
@@ -491,6 +532,7 @@ def resolve_subscription_status_filter(value: str) -> int | None:
 
 
 def resolve_order_status_filter(value: str) -> int | None:
+    """Resolve order status filter."""
     normalized_value = normalize_bid(value)
     if not normalized_value:
         return None
@@ -500,6 +542,7 @@ def resolve_order_status_filter(value: str) -> int | None:
 
 
 def resolve_domain_binding_status_filter(value: str) -> int | None:
+    """Resolve domain binding status filter."""
     normalized_value = normalize_bid(value)
     if not normalized_value:
         return None
@@ -509,8 +552,9 @@ def resolve_domain_binding_status_filter(value: str) -> int | None:
 
 
 def build_page_payload(
-    query, *, page_index: int, page_size: int, serializer
-) -> PageWindow[Any]:
+    query: object, *, page_index: int, page_size: int, serializer: object
+) -> PageWindow[object]:
+    """Build page payload."""
     total = query.order_by(None).count()
     if total == 0:
         return PageWindow(
@@ -535,11 +579,12 @@ def build_page_payload(
 
 
 def build_list_page_payload(
-    items: list[Any],
+    items: list[object],
     *,
     page_index: int,
     page_size: int,
-) -> PageWindow[Any]:
+) -> PageWindow[object]:
+    """Build list page payload."""
     total = len(items)
     if total == 0:
         return PageWindow(

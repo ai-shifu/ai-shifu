@@ -1,0 +1,641 @@
+"""Lifecycle helpers for billing product provider price mappings."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from typing import Any
+
+from flask import Flask, current_app
+from flaskr.dao import db
+from flaskr.service.config import get_config
+from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.util.uuid import generate_id
+
+from .consts import (
+    BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+    BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+    BILLING_PROVIDER_PRICE_STATUS_INVALID,
+    BILLING_PROVIDER_PRICE_STATUS_LABELS,
+    BILLING_PROVIDER_PRICE_STATUS_RETIRED,
+)
+from .models import BillingProduct, BillingProductProviderPrice
+from .primitives import normalize_bid, normalize_json_object
+from .provider_catalog import (
+    ProviderCatalogReadError,
+    ProviderCatalogSnapshot,
+    StripeCatalogReadAdapter,
+    validate_provider_price_mapping,
+)
+
+PROVIDER_STRIPE = "stripe"
+
+
+@dataclass(slots=True)
+class ProviderPriceMappingError(RuntimeError):
+    """Represent a provider-price mapping error with structured details."""
+
+    code: str
+    message: str
+    details: dict[str, Any] = field(default_factory=dict)
+
+    def __str__(self) -> str:
+        """Return the validation error message."""
+        return self.message
+
+
+@dataclass(slots=True)
+class ProviderPriceMappingValidationSummary:
+    """Summarize validation results and serialized data for a provider-price mapping."""
+
+    valid: bool
+    errors: list[dict[str, str]] = field(default_factory=list)
+    warnings: list[dict[str, str]] = field(default_factory=list)
+    mapping: dict[str, Any] | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class ProviderPriceRuntimeScope:
+    """Identify the Stripe account scope used by runtime checkout."""
+
+    provider_account_id: str
+    livemode: bool
+
+
+def serialize_provider_price_mapping(
+    mapping: BillingProductProviderPrice | None,
+) -> dict[str, object] | None:
+    """Serialize an optional provider-price mapping for an API or CLI payload."""
+    if mapping is None:
+        return None
+    metadata = normalize_json_object(mapping.metadata_json or {})
+    return {
+        "provider_price_bid": mapping.provider_price_bid,
+        "product_bid": mapping.product_bid,
+        "provider": mapping.provider,
+        "provider_account_id": mapping.provider_account_id,
+        "provider_product_id": mapping.provider_product_id,
+        "provider_price_id": mapping.provider_price_id,
+        "livemode": bool(mapping.livemode),
+        "currency": mapping.currency,
+        "unit_amount": int(mapping.unit_amount or 0),
+        "billing_mode": int(mapping.billing_mode or 0),
+        "billing_interval": int(mapping.billing_interval or 0),
+        "billing_interval_count": int(mapping.billing_interval_count or 0),
+        "status": int(mapping.status or 0),
+        "status_label": BILLING_PROVIDER_PRICE_STATUS_LABELS.get(
+            int(mapping.status or 0), "unknown"
+        ),
+        "validated_at": to_utc_iso(mapping.validated_at),
+        "activated_at": to_utc_iso(mapping.activated_at),
+        "retired_at": to_utc_iso(mapping.retired_at),
+        "validation_error": mapping.validation_error or "",
+        "metadata": metadata.to_metadata_json(),
+    }
+
+
+def resolve_current_stripe_provider_price_scope(
+    app: Flask,
+    *,
+    adapter: StripeCatalogReadAdapter | None = None,
+) -> ProviderPriceRuntimeScope:
+    """Resolve the configured Stripe account and livemode for checkout."""
+    resolved_adapter = adapter or StripeCatalogReadAdapter()
+    try:
+        account = resolved_adapter.retrieve_account_snapshot(app)
+    except ProviderCatalogReadError as exc:
+        raise ProviderPriceMappingError(
+            exc.code,
+            "Unable to read the configured Stripe account",
+            {"provider": PROVIDER_STRIPE},
+        ) from exc
+
+    account_id = normalize_bid(account.account_id)
+    if not account_id:
+        code = "provider_account_missing"
+        message = "Configured Stripe account is missing an account identifier"
+        raise ProviderPriceMappingError(
+            code,
+            message,
+            {"provider": PROVIDER_STRIPE},
+        )
+    livemode = (
+        bool(account.livemode)
+        if account.livemode is not None
+        else _infer_stripe_livemode_from_secret_key()
+    )
+    return ProviderPriceRuntimeScope(
+        provider_account_id=account_id,
+        livemode=livemode,
+    )
+
+
+def list_provider_price_mappings(
+    *,
+    product_bid: str = "",
+    provider: str = PROVIDER_STRIPE,
+    provider_account_id: str = "",
+    livemode: bool | None = None,
+    status: int | None = None,
+) -> list[BillingProductProviderPrice]:
+    """Return non-deleted provider-price mappings matching the supplied filters."""
+    query = BillingProductProviderPrice.query.filter(
+        BillingProductProviderPrice.deleted == 0,
+        BillingProductProviderPrice.provider == _normalize_provider(provider),
+    )
+    normalized_product_bid = normalize_bid(product_bid)
+    if normalized_product_bid:
+        query = query.filter(
+            BillingProductProviderPrice.product_bid == normalized_product_bid
+        )
+    normalized_account_id = normalize_bid(provider_account_id)
+    if normalized_account_id:
+        query = query.filter(
+            BillingProductProviderPrice.provider_account_id == normalized_account_id
+        )
+    if livemode is not None:
+        query = query.filter(
+            BillingProductProviderPrice.livemode == int(bool(livemode))
+        )
+    if status is not None:
+        query = query.filter(BillingProductProviderPrice.status == int(status))
+    return query.order_by(
+        BillingProductProviderPrice.product_bid.asc(),
+        BillingProductProviderPrice.updated_at.desc(),
+        BillingProductProviderPrice.id.desc(),
+    ).all()
+
+
+def get_provider_price_mapping(
+    provider_price_bid: str,
+) -> BillingProductProviderPrice:
+    """Return the non-deleted provider-price mapping for a business identifier."""
+    return _load_mapping(provider_price_bid)
+
+
+def get_active_provider_price_mapping(
+    *,
+    product_bid: str,
+    provider: str = PROVIDER_STRIPE,
+    provider_account_id: str,
+    livemode: bool,
+) -> BillingProductProviderPrice | None:
+    """Return the sole active mapping for a product and provider scope."""
+    rows = (
+        BillingProductProviderPrice.query.filter(
+            BillingProductProviderPrice.deleted == 0,
+            BillingProductProviderPrice.product_bid == normalize_bid(product_bid),
+            BillingProductProviderPrice.provider == _normalize_provider(provider),
+            BillingProductProviderPrice.provider_account_id
+            == normalize_bid(provider_account_id),
+            BillingProductProviderPrice.livemode == int(bool(livemode)),
+            BillingProductProviderPrice.status == BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+        )
+        .order_by(BillingProductProviderPrice.id.asc())
+        .limit(2)
+        .all()
+    )
+    return _select_single_active_mapping(rows, product_bid=normalize_bid(product_bid))
+
+
+def get_current_stripe_active_provider_price_mapping(
+    app: Flask,
+    *,
+    product_bid: str,
+    scope: ProviderPriceRuntimeScope | None = None,
+) -> BillingProductProviderPrice | None:
+    """Return the active Stripe mapping matching the current runtime scope."""
+    resolved_scope = scope or resolve_current_stripe_provider_price_scope(app)
+    return get_active_provider_price_mapping(
+        product_bid=product_bid,
+        provider=PROVIDER_STRIPE,
+        provider_account_id=resolved_scope.provider_account_id,
+        livemode=resolved_scope.livemode,
+    )
+
+
+def _select_single_active_mapping(
+    rows: list[BillingProductProviderPrice],
+    *,
+    product_bid: str,
+) -> BillingProductProviderPrice | None:
+    if len(rows) > 1:
+        error_code = "multiple_active_provider_prices"
+        raise ProviderPriceMappingError(
+            error_code,
+            "Multiple active provider price mappings found for the same product scope",
+            {"product_bid": product_bid},
+        )
+    return rows[0] if rows else None
+
+
+def _infer_stripe_livemode_from_secret_key() -> bool:
+    secret_key = str(get_config("STRIPE_SECRET_KEY", "") or "").strip()
+    return secret_key.startswith("sk_live_")
+
+
+def upsert_provider_price_mapping(
+    *,
+    product_bid: str,
+    provider_account_id: str,
+    provider_product_id: str,
+    provider_price_id: str,
+    livemode: bool,
+    provider: str = PROVIDER_STRIPE,
+    metadata: dict[str, object] | None = None,
+) -> tuple[BillingProductProviderPrice, bool]:
+    """Create or update a draft provider-price mapping for a billing product."""
+    product = _load_product(product_bid)
+    normalized_provider = _normalize_provider(provider)
+    normalized_account_id = _require_value(provider_account_id, "provider_account_id")
+    normalized_product_id = _require_value(provider_product_id, "provider_product_id")
+    normalized_price_id = _require_value(provider_price_id, "provider_price_id")
+    normalized_livemode = int(bool(livemode))
+
+    row = _load_mapping_by_provider_price(
+        provider=normalized_provider,
+        provider_account_id=normalized_account_id,
+        livemode=normalized_livemode,
+        provider_price_id=normalized_price_id,
+    )
+    created = row is None
+    if row is None:
+        row = BillingProductProviderPrice(
+            provider_price_bid=generate_id(current_app),
+            status=BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+            deleted=0,
+        )
+        db.session.add(row)
+    elif row.product_bid and row.product_bid != product.product_bid:
+        error_code = "provider_price_product_mismatch"
+        raise ProviderPriceMappingError(
+            error_code,
+            "Provider price mappings cannot be rebound to a different product",
+            {
+                "provider_price_bid": row.provider_price_bid,
+                "existing_product_bid": row.product_bid,
+                "requested_product_bid": product.product_bid,
+            },
+        )
+    elif int(row.status or 0) == BILLING_PROVIDER_PRICE_STATUS_ACTIVE:
+        error_code = "active_mapping_cannot_be_rebound"
+        raise ProviderPriceMappingError(
+            error_code,
+            "Active provider price mappings cannot be rebound; retire them first",
+            {"provider_price_bid": row.provider_price_bid},
+        )
+    elif int(row.status or 0) == BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        error_code = "retired_mapping_cannot_be_rebound"
+        raise ProviderPriceMappingError(
+            error_code,
+            "Retired provider price mappings cannot be rebound; create a new provider price instead",
+            {"provider_price_bid": row.provider_price_bid},
+        )
+    elif int(row.status or 0) == BILLING_PROVIDER_PRICE_STATUS_INVALID:
+        row.status = BILLING_PROVIDER_PRICE_STATUS_DRAFT
+        row.validated_at = None
+        row.activated_at = None
+        row.retired_at = None
+        row.validation_error = ""
+
+    row.product_bid = product.product_bid
+    row.provider = normalized_provider
+    row.provider_account_id = normalized_account_id
+    row.provider_product_id = normalized_product_id
+    row.provider_price_id = normalized_price_id
+    row.livemode = normalized_livemode
+    row.currency = str(product.currency or "").strip().upper()
+    row.unit_amount = int(product.price_amount or 0)
+    row.billing_mode = int(product.billing_mode or 0)
+    row.billing_interval = int(product.billing_interval or 0)
+    row.billing_interval_count = int(product.billing_interval_count or 0)
+    row.metadata_json = dict(metadata or {})
+    row.deleted = 0
+    db.session.flush()
+    return row, created
+
+
+def validate_provider_price_mapping_row(
+    mapping: BillingProductProviderPrice,
+    *,
+    adapter: StripeCatalogReadAdapter | None = None,
+) -> tuple[ProviderPriceMappingValidationSummary, ProviderCatalogSnapshot | None]:
+    """Validate one mapping against the provider catalog and return its snapshot."""
+    product = _load_product(mapping.product_bid)
+    reader = adapter or StripeCatalogReadAdapter()
+    try:
+        snapshot = reader.retrieve_mapping_snapshot(
+            current_app,
+            provider_product_id=mapping.provider_product_id,
+            provider_price_id=mapping.provider_price_id,
+        )
+    except ProviderCatalogReadError as exc:
+        summary = ProviderPriceMappingValidationSummary(
+            valid=False,
+            errors=[{"code": exc.code, "message": str(exc)}],
+            warnings=[],
+            mapping=serialize_provider_price_mapping(mapping),
+        )
+        return summary, None
+
+    result = validate_provider_price_mapping(
+        product,
+        snapshot,
+        expected_provider_account_id=mapping.provider_account_id,
+        expected_livemode=bool(mapping.livemode),
+        expected_provider_product_id=mapping.provider_product_id,
+        expected_provider_price_id=mapping.provider_price_id,
+    )
+    summary = ProviderPriceMappingValidationSummary(
+        valid=result.valid,
+        errors=_serialize_validation_issues(result.errors),
+        warnings=_serialize_validation_issues(result.warnings),
+        mapping=serialize_provider_price_mapping(mapping),
+    )
+    return summary, snapshot
+
+
+def validate_provider_price_mapping_by_bid(
+    provider_price_bid: str,
+    *,
+    adapter: StripeCatalogReadAdapter | None = None,
+) -> ProviderPriceMappingValidationSummary:
+    """Validate and persist the status of a provider-price mapping by identifier."""
+    mapping = _load_mapping(provider_price_bid)
+    if int(mapping.status or 0) == BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        return ProviderPriceMappingValidationSummary(
+            valid=False,
+            errors=[
+                {
+                    "code": "retired_mapping_cannot_be_validated",
+                    "message": "Retired provider price mappings cannot be validated",
+                }
+            ],
+            warnings=[],
+            mapping=serialize_provider_price_mapping(mapping),
+        )
+    summary, snapshot = validate_provider_price_mapping_row(mapping, adapter=adapter)
+    _apply_validation_result(mapping, summary, snapshot)
+    db.session.flush()
+    summary.mapping = serialize_provider_price_mapping(mapping)
+    return summary
+
+
+def activate_provider_price_mapping(
+    provider_price_bid: str,
+    *,
+    adapter: StripeCatalogReadAdapter | None = None,
+) -> ProviderPriceMappingValidationSummary:
+    """Validate, activate, and serialize a provider-price mapping by identifier."""
+    mapping = _load_mapping(provider_price_bid)
+    if int(mapping.status or 0) == BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        code = "retired_mapping_cannot_be_activated"
+        message = "Retired provider price mappings cannot be activated"
+        raise ProviderPriceMappingError(
+            code,
+            message,
+            {"provider_price_bid": mapping.provider_price_bid},
+        )
+    summary, snapshot = validate_provider_price_mapping_row(mapping, adapter=adapter)
+    if not summary.valid:
+        mapping.validated_at = now_utc()
+        if snapshot is not None:
+            _apply_provider_snapshot(mapping, snapshot)
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_INVALID
+        mapping.validation_error = _validation_summary_error_text(summary)
+        db.session.flush()
+        summary.mapping = serialize_provider_price_mapping(mapping)
+        return summary
+
+    now = now_utc()
+    active_rows = _load_active_rows_for_mapping_scope(mapping)
+    for row in active_rows:
+        if row.provider_price_bid == mapping.provider_price_bid:
+            continue
+        row.status = BILLING_PROVIDER_PRICE_STATUS_RETIRED
+        row.retired_at = now
+        row.validation_error = ""
+        _mark_campaign_discounts_requires_republish(
+            row.provider_price_bid,
+            reason="provider_price_replaced",
+        )
+    if active_rows:
+        db.session.flush()
+
+    mapping.status = BILLING_PROVIDER_PRICE_STATUS_ACTIVE
+    mapping.validated_at = now
+    mapping.activated_at = mapping.activated_at or now
+    mapping.retired_at = None
+    mapping.validation_error = _validation_summary_warning_text(summary)
+    if snapshot is not None:
+        _apply_provider_snapshot(mapping, snapshot)
+    db.session.flush()
+    summary.mapping = serialize_provider_price_mapping(mapping)
+    return summary
+
+
+def retire_provider_price_mapping(
+    provider_price_bid: str,
+) -> BillingProductProviderPrice:
+    """Retire a provider-price mapping and return its persisted record."""
+    mapping = _load_mapping(provider_price_bid)
+    if int(mapping.status or 0) != BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_RETIRED
+        mapping.retired_at = now_utc()
+        mapping.validation_error = ""
+        _mark_campaign_discounts_requires_republish(
+            mapping.provider_price_bid,
+            reason="provider_price_retired",
+        )
+    db.session.flush()
+    return mapping
+
+
+def restore_retired_provider_price_mapping(
+    provider_price_bid: str,
+) -> BillingProductProviderPrice:
+    """Restore a retired provider-price mapping to draft for revalidation."""
+    mapping = _load_mapping(provider_price_bid)
+    current_status = int(mapping.status or 0)
+    if current_status == BILLING_PROVIDER_PRICE_STATUS_DRAFT:
+        mapping.validated_at = None
+        mapping.activated_at = None
+        mapping.retired_at = None
+        mapping.validation_error = ""
+        db.session.flush()
+        return mapping
+    if current_status != BILLING_PROVIDER_PRICE_STATUS_RETIRED:
+        error_code = "provider_price_mapping_not_retired"
+        raise ProviderPriceMappingError(
+            error_code,
+            "Only retired provider price mappings can be restored",
+            {"provider_price_bid": mapping.provider_price_bid},
+        )
+    mapping.status = BILLING_PROVIDER_PRICE_STATUS_DRAFT
+    mapping.validated_at = None
+    mapping.activated_at = None
+    mapping.retired_at = None
+    mapping.validation_error = ""
+    db.session.flush()
+    return mapping
+
+
+def _load_product(product_bid: str) -> BillingProduct:
+    normalized_product_bid = _require_value(product_bid, "product_bid")
+    product = BillingProduct.query.filter(
+        BillingProduct.deleted == 0,
+        BillingProduct.product_bid == normalized_product_bid,
+    ).one_or_none()
+    if product is None:
+        error_code = "billing_product_not_found"
+        raise ProviderPriceMappingError(
+            error_code,
+            "Billing product not found",
+            {"product_bid": normalized_product_bid},
+        )
+    return product
+
+
+def _mark_campaign_discounts_requires_republish(
+    product_provider_price_bid: str,
+    *,
+    reason: str,
+) -> None:
+    from .campaign_provider_discounts import (
+        mark_campaign_provider_discounts_requires_republish,
+    )
+
+    mark_campaign_provider_discounts_requires_republish(
+        product_provider_price_bid=product_provider_price_bid,
+        reason=reason,
+    )
+
+
+def _load_mapping(provider_price_bid: str) -> BillingProductProviderPrice:
+    normalized_bid = _require_value(provider_price_bid, "provider_price_bid")
+    mapping = BillingProductProviderPrice.query.filter(
+        BillingProductProviderPrice.deleted == 0,
+        BillingProductProviderPrice.provider_price_bid == normalized_bid,
+    ).one_or_none()
+    if mapping is None:
+        error_code = "provider_price_mapping_not_found"
+        raise ProviderPriceMappingError(
+            error_code,
+            "Provider price mapping not found",
+            {"provider_price_bid": normalized_bid},
+        )
+    return mapping
+
+
+def _load_mapping_by_provider_price(
+    *,
+    provider: str,
+    provider_account_id: str,
+    livemode: int,
+    provider_price_id: str,
+) -> BillingProductProviderPrice | None:
+    return BillingProductProviderPrice.query.filter(
+        BillingProductProviderPrice.deleted == 0,
+        BillingProductProviderPrice.provider == provider,
+        BillingProductProviderPrice.provider_account_id == provider_account_id,
+        BillingProductProviderPrice.livemode == int(livemode),
+        BillingProductProviderPrice.provider_price_id == provider_price_id,
+    ).one_or_none()
+
+
+def _load_active_rows_for_mapping_scope(
+    mapping: BillingProductProviderPrice,
+) -> list[BillingProductProviderPrice]:
+    return BillingProductProviderPrice.query.filter(
+        BillingProductProviderPrice.deleted == 0,
+        BillingProductProviderPrice.product_bid == mapping.product_bid,
+        BillingProductProviderPrice.provider == mapping.provider,
+        BillingProductProviderPrice.provider_account_id == mapping.provider_account_id,
+        BillingProductProviderPrice.livemode == int(mapping.livemode or 0),
+        BillingProductProviderPrice.status == BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+    ).all()
+
+
+def _apply_provider_snapshot(
+    mapping: BillingProductProviderPrice,
+    snapshot: ProviderCatalogSnapshot,
+) -> None:
+    mapping.currency = snapshot.price.currency.upper()
+    mapping.unit_amount = int(snapshot.price.unit_amount or 0)
+
+
+def _apply_validation_result(
+    mapping: BillingProductProviderPrice,
+    summary: ProviderPriceMappingValidationSummary,
+    snapshot: ProviderCatalogSnapshot | None,
+) -> None:
+    mapping.validated_at = now_utc()
+    if snapshot is not None:
+        _apply_provider_snapshot(mapping, snapshot)
+    mapping.validation_error = (
+        _validation_summary_warning_text(summary)
+        if summary.valid
+        else _validation_summary_error_text(summary)
+    )
+    if (
+        summary.valid
+        and int(mapping.status or 0) == BILLING_PROVIDER_PRICE_STATUS_INVALID
+    ):
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_DRAFT
+    elif not summary.valid:
+        mapping.status = BILLING_PROVIDER_PRICE_STATUS_INVALID
+
+
+def _validation_summary_error_text(
+    summary: ProviderPriceMappingValidationSummary,
+) -> str:
+    return _safe_issue_summary(summary.errors)
+
+
+def _validation_summary_warning_text(
+    summary: ProviderPriceMappingValidationSummary,
+) -> str:
+    return _safe_issue_summary(summary.warnings)
+
+
+def _safe_issue_summary(issues: list[dict[str, str]]) -> str:
+    if not issues:
+        return ""
+    return json.dumps(
+        [{"code": issue.get("code", "")} for issue in issues],
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def _serialize_validation_issues(issues: object) -> list[dict[str, str]]:
+    return [
+        {
+            "code": issue.code,
+            "message": issue.message,
+            "expected": issue.expected,
+            "actual": issue.actual,
+        }
+        for issue in issues
+    ]
+
+
+def _normalize_provider(value: str) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized != PROVIDER_STRIPE:
+        error_code = "unsupported_provider"
+        raise ProviderPriceMappingError(
+            error_code,
+            "Only Stripe provider price mappings are supported",
+            {"provider": normalized},
+        )
+    return normalized
+
+
+def _require_value(value: str, name: str) -> str:
+    normalized = normalize_bid(value)
+    if not normalized:
+        code = f"{name}_required"
+        message = f"{name} is required"
+        raise ProviderPriceMappingError(code, message)
+    return normalized

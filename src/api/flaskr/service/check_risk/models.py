@@ -1,16 +1,20 @@
-from ...dao import db
+"""Define persistence models for risk control."""
+
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
     TIMESTAMP,
+    Column,
+    Integer,
+    String,
     Text,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
 
 
 class RiskControlResult(db.Model):
+    """Persist content risk-control decisions."""
+
     __tablename__ = "risk_control_result"
 
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
@@ -39,15 +43,16 @@ class RiskControlResult(db.Model):
 
     def __init__(
         self,
-        chat_id,
-        user_id,
-        text,
-        check_vendor,
-        check_result,
-        check_resp,
-        is_pass,
-        check_strategy,
-    ):
+        chat_id: object,
+        user_id: object,
+        text: object,
+        check_vendor: object,
+        check_result: object,
+        check_resp: object,
+        is_pass: object,
+        check_strategy: object,
+    ) -> None:
+        """Initialize a risk-control record from the provider decision."""
         self.chat_id = chat_id
         self.user_id = user_id
         self.text = text

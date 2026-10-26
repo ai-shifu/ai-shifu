@@ -1,10 +1,11 @@
+"""Verify lesson feedback behavior."""
+
 import json
 import unittest
 from datetime import datetime
 
 from flask import Flask
-import flaskr.dao as dao
-
+from flaskr import dao
 from flaskr.service.learn.lesson_feedback import (
     _sync_feedback_to_generated_block,
     build_lesson_feedback_interaction_md,
@@ -21,8 +22,10 @@ from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 
 
 class LessonFeedbackTests(unittest.TestCase):
+    """Verify lesson feedback behavior."""
+
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         cls.app = Flask("lesson-feedback-tests")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -36,7 +39,7 @@ class LessonFeedbackTests(unittest.TestCase):
         with cls.app.app_context():
             dao.db.create_all()
 
-    def setUp(self):
+    def setUp(self) -> None:
         self.ctx = self.app.app_context()
         self.ctx.push()
         LearnLessonFeedback.query.delete()
@@ -44,11 +47,11 @@ class LessonFeedbackTests(unittest.TestCase):
         LearnProgressRecord.query.delete()
         dao.db.session.commit()
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         dao.db.session.remove()
         self.ctx.pop()
 
-    def test_submit_feedback_upserts_single_active_row(self):
+    def test_submit_feedback_upserts_single_active_row(self) -> None:
         progress = LearnProgressRecord(
             progress_record_bid="progress-1",
             shifu_bid="shifu-1",
@@ -99,22 +102,24 @@ class LessonFeedbackTests(unittest.TestCase):
             LearnLessonFeedback.outline_item_bid == "outline-1",
             LearnLessonFeedback.deleted == 0,
         ).all()
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0].score, 3)
-        self.assertEqual(rows[0].comment, "Need more examples")
-        self.assertEqual(rows[0].mode, "listen")
-        self.assertEqual(rows[0].progress_record_bid, "progress-1")
-        self.assertEqual(rows[0].bid, rows[0].lesson_feedback_bid)
-        self.assertEqual(first["lesson_feedback_bid"], second["lesson_feedback_bid"])
+        assert len(rows) == 1
+        assert rows[0].score == 3
+        assert rows[0].comment == "Need more examples"
+        assert rows[0].mode == "listen"
+        assert rows[0].progress_record_bid == "progress-1"
+        assert rows[0].bid == rows[0].lesson_feedback_bid
+        assert first["lesson_feedback_bid"] == second["lesson_feedback_bid"]
 
         synced_block = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.generated_block_bid == "block-1"
         ).first()
         synced_generated_content = json.loads(synced_block.generated_content)
-        self.assertEqual(synced_generated_content.get("score"), 3)
-        self.assertEqual(synced_generated_content.get("comment"), "Need more examples")
+        assert synced_generated_content.get("score") == 3
+        assert synced_generated_content.get("comment") == "Need more examples"
 
-    def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(self):
+    def test_sync_generated_block_does_not_autoflush_pending_duplicate_feedback(
+        self,
+    ) -> None:
         interaction = LearnGeneratedBlock(
             generated_block_bid="block-1",
             progress_record_bid="progress-1",
@@ -163,11 +168,11 @@ class LessonFeedbackTests(unittest.TestCase):
             )
 
         synced_generated_content = json.loads(interaction.generated_content)
-        self.assertEqual(synced_generated_content.get("score"), 5)
-        self.assertEqual(synced_generated_content.get("comment"), "new")
+        assert synced_generated_content.get("score") == 5
+        assert synced_generated_content.get("comment") == "new"
         dao.db.session.rollback()
 
-    def test_list_feedback_serializes_timestamps_as_utc_iso_z(self):
+    def test_list_feedback_serializes_timestamps_as_utc_iso_z(self) -> None:
         feedback = LearnLessonFeedback(
             bid="feedback-1",
             lesson_feedback_bid="feedback-1",
@@ -192,9 +197,9 @@ class LessonFeedbackTests(unittest.TestCase):
             page_size=20,
         )
 
-        self.assertEqual(result["total"], 1)
-        self.assertEqual(result["items"][0]["created_at"], "2026-06-30T11:57:03Z")
-        self.assertEqual(result["items"][0]["updated_at"], "2026-06-30T12:08:09Z")
+        assert result["total"] == 1
+        assert result["items"][0]["created_at"] == "2026-06-30T11:57:03Z"
+        assert result["items"][0]["updated_at"] == "2026-06-30T12:08:09Z"
 
 
 if __name__ == "__main__":

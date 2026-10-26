@@ -1,15 +1,17 @@
-"""
-Unit tests for environment variable trimming functionality.
-"""
+"""Unit tests for environment variable trimming functionality."""
 
 import pytest
-from flaskr.common.config import EnhancedConfig, EnvVar
+from flaskr.common.config import (
+    EnhancedConfig,
+    EnvironmentConfigError,
+    EnvVar,
+)
 
 
 class TestEnvironmentVariableTrimming:
     """Test that environment variables are properly trimmed of whitespace."""
 
-    def test_trim_string_values(self, monkeypatch):
+    def test_trim_string_values(self, monkeypatch: object) -> None:
         """Test that string values are trimmed during get."""
         monkeypatch.setenv("TEST_STRING", "  value with spaces  ")
 
@@ -27,7 +29,7 @@ class TestEnvironmentVariableTrimming:
         assert value == "value with spaces"
         assert value != "  value with spaces  "
 
-    def test_trim_integer_values(self, monkeypatch):
+    def test_trim_integer_values(self, monkeypatch: object) -> None:
         """Test that integer values are trimmed before conversion."""
         monkeypatch.setenv("TEST_INT", "  42  ")
 
@@ -46,7 +48,7 @@ class TestEnvironmentVariableTrimming:
         assert value == 42
         assert isinstance(value, int)
 
-    def test_trim_boolean_values(self, monkeypatch):
+    def test_trim_boolean_values(self, monkeypatch: object) -> None:
         """Test that boolean values are trimmed before conversion."""
         monkeypatch.setenv("TEST_BOOL", "  true  ")
 
@@ -64,7 +66,7 @@ class TestEnvironmentVariableTrimming:
 
         assert value is True
 
-    def test_trim_float_values(self, monkeypatch):
+    def test_trim_float_values(self, monkeypatch: object) -> None:
         """Test that float values are trimmed before conversion."""
         monkeypatch.setenv("TEST_FLOAT", "  3.14  ")
 
@@ -83,7 +85,7 @@ class TestEnvironmentVariableTrimming:
         assert value == 3.14
         assert isinstance(value, float)
 
-    def test_whitespace_only_uses_default(self, monkeypatch):
+    def test_whitespace_only_uses_default(self, monkeypatch: object) -> None:
         """Test that whitespace-only values use default."""
         monkeypatch.setenv("TEST_WHITESPACE", "   ")
 
@@ -100,7 +102,7 @@ class TestEnvironmentVariableTrimming:
 
         assert value == "default_value"
 
-    def test_trim_in_validation(self, monkeypatch):
+    def test_trim_in_validation(self, monkeypatch: object) -> None:
         """Test that values are trimmed during validation."""
         # Set required variables with whitespace
         monkeypatch.setenv("REQUIRED_VAR", "  required_value  ")
@@ -125,7 +127,7 @@ class TestEnvironmentVariableTrimming:
         config.validate_environment()
         assert config._validated is True
 
-    def test_trim_list_values(self, monkeypatch):
+    def test_trim_list_values(self, monkeypatch: object) -> None:
         """Test that list values handle whitespace correctly."""
         monkeypatch.setenv("TEST_LIST", "  item1 , item2 , item3  ")
 
@@ -144,7 +146,7 @@ class TestEnvironmentVariableTrimming:
         # List items should be trimmed individually
         assert value == ["item1", "item2", "item3"]
 
-    def test_trim_with_interpolation(self, monkeypatch):
+    def test_trim_with_interpolation(self, monkeypatch: object) -> None:
         """Test that trimming works with variable interpolation."""
         monkeypatch.setenv("BASE_VALUE", "  base  ")
         monkeypatch.setenv("INTERPOLATED", "  prefix_${BASE_VALUE}_suffix  ")
@@ -174,7 +176,7 @@ class TestEnvironmentVariableTrimming:
         # So it becomes "prefix_  base  _suffix" which is then returned as-is
         assert interpolated == "prefix_  base  _suffix"
 
-    def test_required_with_whitespace_only_fails(self, monkeypatch):
+    def test_required_with_whitespace_only_fails(self, monkeypatch: object) -> None:
         """Test that required variables with only whitespace fail validation."""
         monkeypatch.setenv("REQUIRED_VAR", "   ")  # Only whitespace
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
@@ -195,13 +197,15 @@ class TestEnvironmentVariableTrimming:
         config = EnhancedConfig(env_vars)
 
         # Should fail validation because whitespace-only is treated as empty
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(
+            EnvironmentConfigError, match="Missing required environment variables"
+        ) as exc_info:
             config.validate_environment()
 
         assert "Missing required environment variables" in str(exc_info.value)
         assert "REQUIRED_VAR" in str(exc_info.value)
 
-    def test_convert_type_method_trims(self):
+    def test_convert_type_method_trims(self) -> None:
         """Test that EnvVar.convert_type method trims values."""
         env_var = EnvVar(
             name="TEST",

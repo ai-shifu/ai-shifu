@@ -4,14 +4,20 @@ import copy
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
-from typing import Any, Generator
-from urllib.parse import quote
+from collections.abc import Generator
+from datetime import UTC, datetime
+from typing import Any
+from urllib.parse import quote, urlsplit
 
-import requests
 from flask import Flask
-
-from .consts import ASK_PROVIDER_VOLC_KNOWLEDGE
+from flaskr.common.safe_outbound import (
+    OutboundDeadlineExceededError,
+    OutboundRedirectError,
+    OutboundResponseTooLargeError,
+    UnsafeOutboundUrlError,
+)
+from urllib3.exceptions import HTTPError, NewConnectionError
+from urllib3.exceptions import TimeoutError as UrllibTimeoutError
 
 from .base import (
     AskProviderChunk,
@@ -20,7 +26,8 @@ from .base import (
     AskProviderRuntime,
     AskProviderTimeoutError,
 )
-from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
+from .common import extract_text, safe_provider_client
+from .consts import ASK_PROVIDER_VOLC_KNOWLEDGE
 
 
 def _hash_sha256(content: str) -> str:
@@ -31,17 +38,14 @@ def _hmac_sha256(key: bytes, content: str) -> bytes:
     return hmac.new(key, content.encode("utf-8"), hashlib.sha256).digest()
 
 
-def _normalize_query(params: dict[str, Any] | None) -> str:
+def _normalize_query(params: dict[str, object] | None) -> str:
     if not params:
         return ""
 
     encoded_parts: list[str] = []
     for key in sorted(params.keys()):
         value = params[key]
-        if isinstance(value, list):
-            values = value
-        else:
-            values = [value]
+        values = value if isinstance(value, list) else [value]
         for item in values:
             item_text = "" if item is None else str(item)
             encoded_parts.append(
@@ -50,7 +54,7 @@ def _normalize_query(params: dict[str, Any] | None) -> str:
     return "&".join(encoded_parts)
 
 
-def _normalize_header_value(value: Any) -> str:
+def _normalize_header_value(value: object) -> str:
     return " ".join(str(value).strip().split())
 
 
@@ -58,7 +62,7 @@ def _build_volc_signature_headers(
     *,
     method: str,
     path: str,
-    query_params: dict[str, Any] | None,
+    query_params: dict[str, object] | None,
     headers: dict[str, str],
     body: str,
     ak: str,
@@ -66,7 +70,7 @@ def _build_volc_signature_headers(
     service: str,
     region: str,
 ) -> dict[str, str]:
-    x_date = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    x_date = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     short_x_date = x_date[:8]
     x_content_sha256 = _hash_sha256(body)
 
@@ -95,9 +99,9 @@ def _build_volc_signature_headers(
         ]
     )
     hashed_canonical_request = _hash_sha256(canonical_request_str)
-    credential_scope = "/".join([short_x_date, region, service, "request"])
-    string_to_sign = "\n".join(
-        ["HMAC-SHA256", x_date, credential_scope, hashed_canonical_request]
+    credential_scope = f"{short_x_date}/{region}/{service}/request"
+    string_to_sign = (
+        f"HMAC-SHA256\n{x_date}\n{credential_scope}\n{hashed_canonical_request}"
     )
 
     k_date = _hmac_sha256(sk.encode("utf-8"), short_x_date)
@@ -116,7 +120,7 @@ def _build_volc_signature_headers(
     }
 
 
-def _to_positive_int(value: Any, default: int) -> int:
+def _to_positive_int(value: object, default: int) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -127,8 +131,8 @@ def _to_positive_int(value: Any, default: int) -> int:
 
 
 def _normalize_pre_processing(
-    config_value: Any, user_query: str
-) -> dict[str, Any] | None:
+    config_value: object, user_query: str
+) -> dict[str, object] | None:
     if not isinstance(config_value, dict):
         return None
     pre_processing = copy.deepcopy(config_value)
@@ -153,11 +157,48 @@ def _normalize_pre_processing(
     return pre_processing
 
 
-def _collect_text_chunks(payload: Any) -> list[str]:
+def _with_follow_up_context(
+    pre_processing: dict[str, object] | None,
+    *,
+    config_value: object,
+    path: str,
+    user_query: str,
+    messages: list[dict[str, object]],
+) -> dict[str, object] | None:
+    """Fill native rewriting context without overriding explicit teacher contracts."""
+    if path.rstrip("/") != "/api/knowledge/collection/search_knowledge":
+        return pre_processing
+    if config_value is not None and not isinstance(config_value, dict):
+        return pre_processing
+    result = pre_processing if pre_processing is not None else {}
+    if "messages" in result or ("rewrite" in result and result["rewrite"] is not True):
+        return pre_processing
+
+    contextual_messages: list[dict[str, str]] = []
+    for item in messages:
+        if not isinstance(item, dict):
+            continue
+        role, content = item.get("role"), item.get("content")
+        if (
+            isinstance(role, str)
+            and role in {"system", "user", "assistant"}
+            and isinstance(content, str)
+            and content.strip()
+        ):
+            contextual_messages.append({"role": role, "content": content})
+    current = {"role": "user", "content": user_query}
+    if contextual_messages and contextual_messages[-1] == current:
+        contextual_messages.pop()
+    if not contextual_messages:
+        return pre_processing
+    return {**result, "rewrite": True, "messages": [*contextual_messages, current]}
+
+
+def _collect_text_chunks(payload: object) -> list[str]:
     chunks: list[str] = []
     seen: set[str] = set()
 
-    def _append(value: Any) -> None:
+    def _append(value: object) -> None:
         text = extract_text(value)
         if text and text not in seen:
             seen.add(text)
@@ -197,6 +238,8 @@ def _collect_text_chunks(payload: Any) -> list[str]:
 
 
 class VolcKnowledgeAskProviderAdapter:
+    """Adapt Volcengine knowledge responses to the common ask stream."""
+
     provider = ASK_PROVIDER_VOLC_KNOWLEDGE
 
     def stream_answer(
@@ -204,11 +247,12 @@ class VolcKnowledgeAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
-        _ = (messages, runtime)
+        """Stream answer chunks from the configured provider."""
+        _ = (user_id, runtime)
         config = provider_config.get("config") or {}
         if not isinstance(config, dict):
             config = {}
@@ -218,9 +262,8 @@ class VolcKnowledgeAskProviderAdapter:
         sk = str(config.get("sk") or "").strip()
         collection_name = str(config.get("collection_name") or "").strip()
         if not account_id or not ak or not sk or not collection_name:
-            raise AskProviderConfigError(
-                "volc_knowledge account_id/ak/sk/collection_name are required in ask_provider_config.config"
-            )
+            exception_message = "volc_knowledge account_id/ak/sk/collection_name are required in ask_provider_config.config"
+            raise AskProviderConfigError(exception_message)
 
         domain = str(
             config.get("domain") or "api-knowledgebase.mlp.cn-beijing.volces.com"
@@ -253,6 +296,13 @@ class VolcKnowledgeAskProviderAdapter:
         pre_processing = _normalize_pre_processing(
             config.get("pre_processing"), user_query
         )
+        pre_processing = _with_follow_up_context(
+            pre_processing,
+            config_value=config.get("pre_processing"),
+            path=path,
+            user_query=user_query,
+            messages=messages,
+        )
         if pre_processing is not None:
             payload["pre_processing"] = pre_processing
         for field in ("post_processing", "query_param"):
@@ -260,11 +310,29 @@ class VolcKnowledgeAskProviderAdapter:
             if isinstance(value, dict):
                 payload[field] = copy.deepcopy(value)
 
-        request_timeout_seconds = provider_timeout_seconds()
+        raw_url = f"{scheme}://{domain}{path}"
+        try:
+            client = safe_provider_client(
+                app, trusted_origins_config="VOLC_KNOWLEDGE_TRUSTED_ORIGINS"
+            )
+        except ValueError as exc:
+            message = "VOLC_KNOWLEDGE_TRUSTED_ORIGINS contains an invalid origin"
+            raise AskProviderConfigError(message) from exc
+        deadline = client.new_deadline()
+        try:
+            validated_target = client.validate_url(raw_url, deadline=deadline)
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            exception_message = "volc_knowledge request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
+        except UnsafeOutboundUrlError as exc:
+            error_message = "volc_knowledge request was rejected or failed"
+            raise AskProviderError(error_message) from exc
+
+        normalized_host = urlsplit(validated_target.url).netloc
         unsigned_headers = {
             "Accept": "application/json",
             "Content-Type": "application/json; charset=utf-8",
-            "Host": domain,
+            "Host": normalized_host,
             "V-Account-Id": account_id,
         }
         request_body = json.dumps(payload, ensure_ascii=False)
@@ -282,39 +350,60 @@ class VolcKnowledgeAskProviderAdapter:
         request_headers = {**unsigned_headers, **signed_headers}
 
         try:
-            response = requests.request(
-                method="POST",
-                url=f"{scheme}://{domain}{path}",
+            response = client.request(
+                "POST",
+                validated_target.url,
                 headers=request_headers,
-                data=request_body,
-                timeout=(5, request_timeout_seconds),
+                body=request_body.encode("utf-8"),
+                deadline=deadline,
             )
-        except requests.Timeout as exc:
-            raise AskProviderTimeoutError("volc_knowledge request timeout") from exc
-        except requests.RequestException as exc:
-            raise AskProviderError(f"volc_knowledge request failed: {exc}") from exc
-
-        response = raise_for_provider_response(response, self.provider)
+        except NewConnectionError as exc:
+            error_message = "volc_knowledge request was rejected or failed"
+            raise AskProviderError(error_message) from exc
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            exception_message = "volc_knowledge request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
+        except (
+            HTTPError,
+            OutboundRedirectError,
+            OutboundResponseTooLargeError,
+            UnsafeOutboundUrlError,
+        ) as exc:
+            error_message = "volc_knowledge request was rejected or failed"
+            raise AskProviderError(error_message) from exc
 
         try:
-            payload_data = response.json()
-        except ValueError as exc:
-            raise AskProviderError("volc_knowledge response is not valid json") from exc
+            with response:
+                if not 200 <= response.status < 300:
+                    message = (
+                        f"volc_knowledge request failed with status {response.status}"
+                    )
+                    raise AskProviderError(message)
+                payload_data = json.loads(response.content)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            exception_message = "volc_knowledge response is not valid json"
+            raise AskProviderError(exception_message) from exc
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            exception_message = "volc_knowledge request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
+        except (HTTPError, OutboundResponseTooLargeError) as exc:
+            message = "volc_knowledge response was rejected or failed"
+            raise AskProviderError(message) from exc
 
         if isinstance(payload_data, dict):
             code = payload_data.get("code")
-            data = payload_data.get("data")
-            if code is not None and str(code) not in {"0", "200"} and data is None:
-                message = extract_text(payload_data.get("message")) or str(payload_data)
-                raise AskProviderError(f"volc_knowledge error: {message}")
+            if code is not None and str(code) not in {"0", "200"}:
+                error_message = "volc_knowledge returned an error response"
+                raise AskProviderError(error_message)
 
         chunks = _collect_text_chunks(payload_data)
         if not chunks:
             app.logger.warning(
-                "volc_knowledge response contains no text chunks, payload=%s",
-                payload_data,
+                "volc_knowledge response contains no text chunks, payload_type=%s",
+                type(payload_data).__name__,
             )
-            raise AskProviderError("volc_knowledge response has no retrievable text")
+            exception_message = "volc_knowledge response has no retrievable text"
+            raise AskProviderError(exception_message)
 
         for chunk in chunks:
             yield AskProviderChunk(content=chunk)

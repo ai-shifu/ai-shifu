@@ -1,0 +1,20 @@
+{
+  "__namespace__": "server.modelGateway",
+  "__flat__": {
+    "client_not_allowed": "This client is not allowed to access gateway models.",
+    "gateway_unavailable": "The model gateway is temporarily unavailable. Try again later.",
+    "idempotency_conflict": "Idempotency-Key has already been used.",
+    "idempotency_key_required": "Idempotency-Key must contain 1 to 90 characters.",
+    "insufficient_credits": "The account has no available wallet or insufficient credits.",
+    "invalid_request": "The request is invalid.",
+    "invalid_token": "A valid Authorization Bearer token is required.",
+    "messages_invalid": "messages must contain 1 to 256 message objects.",
+    "missing_client_id": "X-AI-Shifu-Client-ID header is required.",
+    "model_not_available": "The model is unavailable or its limits or credit rates are not configured.",
+    "model_required": "A model is required.",
+    "provider_error": "The model request failed.",
+    "request_too_large": "The request body exceeds the 1 MiB gateway limit.",
+    "stream_invalid": "stream must be a JSON boolean.",
+    "tools_invalid": "tools must be a list with at most 128 entries."
+  }
+}

@@ -13,25 +13,55 @@ details behind those rules.
 
 | Task | Command | Location |
 |------|---------|----------|
-| Start backend dev server | `flask run` | `cd src/api` |
-| Start Cook Web (frontend & CMS) | `npm run dev` | `cd src/cook-web` |
+| Start backend dev server | `flask run --host=127.0.0.1 --port=5800` | `cd src/api` |
+| Start frontend dev server | `npm run dev -- --hostname 127.0.0.1` | `cd src/web` |
 | Run backend tests | `pytest` | `cd src/api` |
+| Run frontend unit tests | `npm run test:ci` | `cd src/web` |
 | Generate DB migration | `FLASK_APP=app.py flask db migrate -m "message"` | `cd src/api` |
 | Apply DB migration | `FLASK_APP=app.py flask db upgrade` | `cd src/api` |
 | Check code quality | `lefthook run pre-commit --all-files` | Root directory |
 | Start all services (Docker) | `docker compose -f docker-compose.latest.yml up -d` | `cd docker` |
 | Start Docker dev stack (build local latest) | `./dev_in_docker.sh` | `cd docker` |
-| Build Cook Web dev image | `docker build ../src/cook-web -t ai-shifu-cook-web-dev -f ../src/cook-web/Dockerfile_DEV` | `cd docker` |
+| Build frontend dev image | `docker build ../src/web -t ai-shifu-cook-web-dev -f ../src/web/Dockerfile_DEV` | `cd docker` |
+
+Before the standalone frontend dev image command, prepare the source revision
+from `docker/`:
+
+```bash
+git rev-parse HEAD > ../src/web/.app-build-sha 2>/dev/null || rm -f ../src/web/.app-build-sha
+```
+
+`dev_in_docker.sh` does this automatically. Direct Compose startup must also
+prepare the marker and use `up --build`, as shown in the
+[development instructions](../README.md#development-mode-dev_in_dockersh).
+Source archives without Git metadata keep the package-version-only display.
 
 ### Essential Environment Variables
+
+Before starting the backend or running Flask migration commands, configure a
+provider API key plus `LLM_MODEL_1_ID`, which has no default. Model IDs 2-9
+are optional. Names for all numbers are optional; omitted or blank names display
+the configured model ID. A name without a model ID does not enable a number.
+For an existing database, follow [Upgrading to numbered models](../INSTALL_MANUAL.md#upgrading-to-numbered-models).
 
 ```bash
 # Backend (src/api/.env)
 FLASK_APP=app.py
+FLASK_RUN_PORT=5800
 
-# Cook Web (src/cook-web/.env.local)
-NEXT_PUBLIC_API_URL=http://localhost:5000
+# Frontend (src/web/.env.local)
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
 ```
+
+Keep the API origin free of an `/api` suffix. The frontend runs on port 3000;
+its development proxy defaults to the backend on port 5800. See the
+[Frontend setup guide](../src/web/README.md) for runtime configuration and
+the [installation manual](../INSTALL_MANUAL.md#step-5-manual-installation-development)
+for database and backend setup.
+
+Keep both local development servers on loopback when using the Docker
+template's demo authentication settings. The frontend development proxy can
+reach the API, so binding only the backend to loopback is insufficient.
 
 ### Local Tooling Setup
 
@@ -40,10 +70,25 @@ tools already installed on your machine). The git hooks only fire after
 `lefthook install` has wired them into `.git/hooks`, and each hook shells out to
 tools that must already be on `PATH`. One-time setup:
 
+Install lefthook for your platform.
+
+macOS (Homebrew):
+
 ```bash
 brew install lefthook
-pip install ruff==0.15.13 commitizen==4.16.2 pre-commit-hooks==6.0.0
-(cd src/cook-web && npm ci)   # provides prettier + eslint
+```
+
+Linux or Windows (npm):
+
+```bash
+npm install -g @evilmartians/lefthook
+```
+
+Then install the remaining development tools:
+
+```bash
+python -m pip install ruff==0.16.5 commitizen==4.16.2 pre-commit-hooks==6.0.0 markdown-it-py==4.0.0
+(cd src/web && npm ci)   # provides prettier + eslint
 lefthook install
 ```
 
@@ -56,7 +101,7 @@ reports exactly what is missing and how to install it:
 
 ```bash
 python scripts/check_dev_tools.py            # core gaps fail; frontend gaps warn
-python scripts/check_dev_tools.py --strict   # also fail on Cook Web tooling gaps
+python scripts/check_dev_tools.py --strict   # also fail on frontend tooling gaps
 ```
 
 ## Critical Requirements
@@ -64,7 +109,7 @@ python scripts/check_dev_tools.py --strict   # also fail on Cook Web tooling gap
 ### Must Do Before Any Commit
 
 1. Confirm the toolchain is installed: `python scripts/check_dev_tools.py`
-2. Run the lefthook checks: `lefthook run pre-commit`
+2. Run the lefthook checks: `lefthook run pre-commit --all-files`
 3. Generate a migration for DB changes: `flask db migrate -m "description"`
 4. Test the relevant change surface
 5. Use English for code-facing text
@@ -91,11 +136,10 @@ maintains control of the narrative progression.
 
 ## Architecture
 
-The project follows a microservices architecture with two main components:
+The application has two main runtime components:
 
 - Backend API (`src/api/`): Flask-based Python API with SQLAlchemy ORM
-- Cook Web (`src/cook-web/`): Next.js-based unified frontend and content
-  management interface
+- Frontend (`src/web/`): Next.js application for learners, teachers, and operators
 
 ### Backend Architecture Notes
 
@@ -103,14 +147,22 @@ The project follows a microservices architecture with two main components:
 - Plugin-based architecture with hot reload support under
   `flaskr/framework/plugin/`
 - Service-layer organization with dedicated domains such as `shifu`, `learn`,
-  `user`, `order`, `profile`, `lesson`, and `llm`
+  `user`, `order`, `profile`, `billing`, and `llm`
 - Database migrations managed with Alembic under `migrations/`
 - Shared localization data managed under `src/i18n/`
 
 #### LLM Integration
 
-- All server-side LLM calls are routed through LiteLLM inside
-  `src/api/flaskr/api/llm/__init__.py`
+- Shared text and tool LLM calls use the LiteLLM gateway in
+  `src/api/flaskr/api/llm/__init__.py`; the MarkdownFlow 2.0 engine delegates
+  through `src/api/flaskr/api/llm/markdownflow_model.py`
+- The application-independent engine library lives in `src/api/markdownflow/`;
+  course and Profile runtimes use `flaskr.api.markdownflow` for shared application
+  bindings. The foundation in PR #3163 is based on `main`; the Profile migration
+  in PR #3161 depends on it. See the
+  [library design](design-docs/markdownflow-engine-library.md)
+- Gemini Live has a separate credential and browser WebSocket path; see the
+  [Live setup notes](../INSTALL_MANUAL.md#optional-gemini-live-voice-follow-up)
 - Provider credentials continue to live in `.env` via the existing API-key
   variables
 - Prefer OpenAI-compatible providers so the shared LiteLLM wrapper can own the
@@ -118,16 +170,17 @@ The project follows a microservices architecture with two main components:
 
 ### Frontend Architecture Notes
 
-- Cook Web uses Next.js, TypeScript, and Tailwind CSS
+- The frontend uses Next.js, TypeScript, and Tailwind CSS
 - The frontend provides both learner-facing routes and authoring/admin tools
-- Shared request handling lives in `src/cook-web/src/lib/request.ts` and
-  `src/cook-web/src/lib/api.ts`
-- Legacy `c-*` directories are still active compatibility surfaces
+- Shared request handling lives in `src/web/src/lib/request.ts` and
+  `src/web/src/lib/api.ts`
+- Learner and teacher flows share `api`, `assets`, `components`, `constants`,
+  `hooks`, `lib`, `store`, and `types`; course orchestration lives in `lib/shifu`
 
 #### Unified Request System
 
-The Cook Web frontend uses a single request system across routes such as
-`/main` and `/c`.
+The frontend uses a single request system across routes such as
+`/admin` and `/c`. The legacy `/main` entry redirects to `/admin`.
 
 Request flow:
 
@@ -135,7 +188,7 @@ Request flow:
 2. API layer builds the request and delegates to the request client
 3. Request client injects auth headers and performs the HTTP request
 4. Business-code handling checks `response.code`
-5. Business layer receives `response.data`
+5. Business layer receives `response.data ?? response` on success
 
 Keep request transport, business-code handling, and auth error processing in
 that shared stack instead of recreating them in feature code.
@@ -144,90 +197,79 @@ that shared stack instead of recreating them in feature code.
 
 Use consistent SQLAlchemy model ordering and field semantics.
 
-### Complete Model Example
+### Model Layout Example
+
+This excerpt preserves the field definitions from the live
+[Order model](../src/api/flaskr/service/order/models.py), with other columns
+omitted. It is not a complete table definition. Order prices use
+`Numeric(10, 2)` fields (`payable_price` and `paid_price`); order status values
+come from [order constants](../src/api/flaskr/service/order/consts.py).
 
 ```python
-from sqlalchemy import Column, BIGINT, String, SmallInteger, DateTime, func
-from flaskr import db
+from typing import ClassVar
+
+from flaskr.dao import db
+from flaskr.service.order.consts import ORDER_STATUS_INIT
+from flaskr.util.datetime import now_utc
+from sqlalchemy import Column, DateTime, SmallInteger, String
+from sqlalchemy.dialects.mysql import BIGINT
 
 
 class Order(db.Model):
+    """Selected fields from the legacy Order model."""
+
     __tablename__ = "order_orders"
-    __table_args__ = {"comment": "Order entities"}
+    __table_args__: ClassVar[dict[str, str]] = {"comment": "Order orders"}
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
 
     order_bid = Column(
-        String(32),
+        String(36),
         nullable=False,
         default="",
-        index=True,
         comment="Order business identifier",
-    )
-
-    user_bid = Column(
-        String(32),
-        nullable=False,
-        default="",
         index=True,
-        comment="User business identifier",
-    )
-
-    amount = Column(
-        BIGINT,
-        nullable=False,
-        default=0,
-        comment="Order amount in cents",
     )
 
     status = Column(
         SmallInteger,
         nullable=False,
-        default=0,
-        comment="Status: 0=pending, 1=paid, 2=cancelled",
-    )
-
-    deleted = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        index=True,
-        comment="Deletion flag: 0=active, 1=deleted",
+        default=ORDER_STATUS_INIT,
+        comment="Status of the order: 501=init, 502=paid, 503=refunded, 504=unpaid, 505=timeout",
     )
 
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        server_default=func.now(),
-        comment="Creation timestamp",
-    )
-
-    created_user_bid = Column(
-        String(32),
-        nullable=False,
-        index=True,
-        default="",
-        comment="Creator user business identifier",
+        default=now_utc,
+        comment="Creation time",
     )
 
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),
-        server_default=func.now(),
-        onupdate=func.now(),
-        comment="Last update timestamp",
-    )
-
-    updated_user_bid = Column(
-        String(32),
-        nullable=False,
-        index=True,
-        default="",
-        comment="Last updater user business identifier",
+        default=now_utc,
+        comment="Update time",
+        onupdate=now_utc,
     )
 ```
+
+### Timestamps And Transactions
+
+Stored timestamps use UTC. Pass `now_utc` as the column default or update
+callback so it runs when the row is written. Keep DTO datetime fields as
+`datetime | None`; the shared `fmt()` response serializer in
+`src/api/flaskr/common/http.py` (re-exported by `flaskr.route.common`) emits UTC
+ISO-8601 with a trailing `Z`. Use `to_utc_iso()` only when a payload must be
+serialized before that sink, and represent missing timestamps as `null`.
+The frontend handles display-time timezone conversion.
+
+Use `unit_of_work()` from `flaskr.dao.uow` for service transaction boundaries.
+The outermost block commits on success and rolls back on an exception; nested
+blocks join it. Use `db.session.flush()` when generated IDs are needed inside
+the transaction. Keep provider calls and generator yields outside these
+boundaries. The commit-site ratchet rejects new direct `db.session.commit()`
+calls outside `flaskr/dao/`.
 
 ### Database Change Checklist
 
@@ -242,10 +284,10 @@ class Order(db.Model):
 
 | Problem | Solution |
 |---------|----------|
-| `flask: command not found` | `export FLASK_APP=app.py` or `python -m flask db migrate` |
+| `flask: command not found` | Activate the backend Python environment, install `src/api/requirements.txt`, then use `python -m flask` |
 | `Could not locate a Flask application` | `export FLASK_APP=app.py` |
 | `Target database is not up to date` | Run `flask db current`, then `flask db upgrade` |
-| Database connection errors | Verify `DATABASE_URL` or local DB credentials |
+| Database connection errors | Verify `SQLALCHEMY_DATABASE_URI` and local DB credentials |
 | Migration not detecting changes | Ensure the model is imported in the module init path |
 
 Fresh MySQL replay smoke test:
@@ -264,21 +306,33 @@ pytest -q tests/migrations/test_fresh_mysql_upgrade.py
 ```json
 {
   "code": 0,
-  "message": "Success",
+  "message": "success",
   "data": {}
 }
 ```
+
+This is the success envelope emitted by `make_common_response()` in
+`src/api/flaskr/common/http.py`. Error responses contain `code` and `message`
+and may omit `data`. Streaming and file responses have their own contracts.
 
 ### Common Error Code Expectations
 
 | Code | Meaning | Typical Action |
 |------|---------|----------------|
 | 0 | Success | Process `data` |
-| 1001 | Unauthorized | Redirect to login |
-| 1004 | Token expired | Refresh token or force re-auth |
-| 1005 | Invalid token | Clear token and redirect |
-| 9002 | No permission | Show permission error |
-| 5001+ | Business errors | Show the returned message |
+| 1001 | User not found (`server.user.userNotFound`) | Shared auth recovery |
+| 1004 | User not logged in (`server.user.userNotLogin`) | Shared auth recovery |
+| 1005 | User token expired (`server.user.userTokenExpired`) | Shared auth recovery |
+| 2001 | Invalid parameters (`server.common.paramsError`) | Show the returned message |
+| 5001 | Unsupported payment channel (`server.pay.payChannelNotSupport`) | Show the returned message |
+| 9002 | Scenario permission denied (`server.scenario.noPermission`) | Show permission error |
+
+The authoritative mapping is [error_codes.json](../src/api/error_codes.json);
+business errors are not one numeric range, and other domains use different
+permission codes. The frontend's `handleBusinessCode()` in
+`src/web/src/lib/request.ts` handles 1001, 1004, and 1005 together through
+session recovery and a guarded login redirect. It does not refresh an expired
+token, and an error from an older request must not clear a newer session.
 
 ### Authentication Headers
 
@@ -299,13 +353,15 @@ src/api/tests/
 ├── conftest.py
 ├── service/
 │   ├── shifu/
-│   │   ├── test_models.py
-│   │   ├── test_service.py
-│   │   └── test_api.py
+│   │   ├── conftest.py
+│   │   ├── test_permissions.py
+│   │   └── test_shifu_uow_failure_paths.py
 │   └── ...
 └── common/
+    ├── test_now_utc.py
     └── fixtures/
-        └── test_data.py
+        ├── fake_llm.py
+        └── fake_redis.py
 ```
 
 ### Test Patterns
@@ -317,9 +373,245 @@ src/api/tests/
 
 ### Coverage Requirements
 
-- Aim for greater than 80 percent code coverage
+- Backend application statement coverage must exceed 95 percent. The threshold
+  is 95.01 percent in `src/api/.coveragerc`, over every `flaskr` module and the
+  deployed `app.py`, `celery_app.py`, and `gunicorn.conf.py` entrypoints.
+  Unimported application modules count in the denominator. The Gunicorn
+  startup tests load the actual configuration with `runpy`, since coverage's
+  directory discovery skips its dotted filename. Tests and maintenance/migration
+  scripts do not inflate the application score.
 - Critical paths should target 100 percent coverage
-- Coverage command: `pytest --cov=flaskr --cov-report=html`
+- Full coverage command (from `src/api`):
+  `PYTHON_DOTENV_DISABLED=1 python -m pytest -n 2 --dist loadfile -p no:testmon --cov --cov-config=.coveragerc --cov-report= --cov-fail-under=0 tests`,
+  then `python -m coverage report` and optionally `python -m coverage html`.
+  Install `requirements-ci.txt` first. pytest-cov combines both workers before
+  the report enforces the shared threshold. Full coverage runs must not use
+  cached test selection. Run the `Backend Tests` workflow manually from GitHub Actions
+  (`workflow_dispatch`) to check the threshold and retain raw, JSON, XML and
+  text coverage evidence. Ordinary pull requests use the existing test target
+  selection; pushes to `main` run the full tests without coverage. Neither
+  automatic path repeats the suite for coverage.
+- Install `redis-server` for the isolated Redis admission tests; the tests start
+  and stop their own Unix-socket server. Set `GEMINI_LIVE_TEST_REDIS_SERVER` to
+  a custom executable path when needed. CI sets `GEMINI_LIVE_REQUIRE_REAL_REDIS=1`
+  so a missing Redis executable fails instead of silently skipping these tests.
+- For additional branch diagnostics, use `coverage run --branch` and inspect
+  the JSON `covered_lines / num_statements` separately from the combined
+  statement/branch percentage. A targeted run cannot prove whole-backend coverage.
+
+### Ruff Findings And Rule Adoption
+
+Treat Ruff findings as code or contract signals, not as requests to make the
+configuration quieter. For a finding in new or changed code:
+
+1. Read `ruff rule <CODE>`, the nearest `AGENTS.md`, the implementation, its
+   call sites, and the closest tests.
+2. Prefer the existing project abstraction or a direct code fix. Add focused
+   regression coverage whenever the rewrite can change behavior, error paths,
+   serialization, persistence, timing, or a public/internal contract.
+3. If a framework or protocol requires the flagged construct, use an inline
+   `# noqa: CODE` for that construct and explain the reason in nearby English
+   prose. Do not use a blanket `# noqa`.
+4. Use `per-file-ignores` only when the purpose of a file or file class
+   intrinsically conflicts with the rule, such as a lint fixture or immutable
+   migration history. A single ordinary call site belongs inline, not in
+   `ruff.toml`.
+5. Use a global ignore only when a documented repository-wide contract
+   fundamentally conflicts with the rule. Do not weaken `select` or `ignore`
+   to make an unrelated PR pass.
+
+For `RUF001`, retain intentional fullwidth Chinese punctuation (`，`, `：`,
+`！`, `？`, and `；`) in Chinese prose, notification formatting, TTS boundary
+patterns, and regression fixtures. Suppress each audited source line with
+`# noqa: RUF001` and an English reason; do not add characters to
+`allowed-confusables`, because that option also weakens the distinct RUF002 and
+RUF003 checks. Treat every other confusable as suspicious and replace it with
+the intended code point unless an exact external protocol or regression fixture
+requires it. Python test modules and test
+configuration files are exempt from RUF001 because they must preserve user text,
+provider payloads, protocol samples, and malformed inputs verbatim. Do not copy
+that exemption into production paths; add new tests under a `tests/` directory
+or use the conventional `test_*.py`, `*_test.py`, or `conftest.py` filename.
+
+For `N803`, keep Python function and method arguments in snake_case even when
+the corresponding serialized field uses camelCase. Translate from the Python
+argument to the wire-facing attribute inside the DTO and update internal
+keyword callers; do not copy JSON spelling into a Python signature or add an
+ignore-name pattern. Preserve an external callback or override signature only
+when the caller truly owns the keyword contract, and explain that exception at
+the parameter.
+
+For `S101`, use `assert` only where assertion reporting is the interface, such
+as pytest tests and executable self-test fixtures. Production validation,
+authorization, and state guards must raise explicit exceptions because Python
+removes assertions under `-O`. Delete stale exact-file exceptions when the path
+disappears or an existing test pattern already owns it.
+
+For `ARG002`, remove method parameters only when the repository owns the
+signature and all callers. Keep externally owned framework, protocol, fixture,
+and test-double signatures intact; explicitly consume compatibility values near
+the boundary so keyword contracts remain visible and lint-clean.
+
+Apply the same ownership test to `ARG001`: remove a function parameter only
+when all callers are repository-owned; explicitly consume values required by
+framework callbacks, fixtures, migrations, and compatibility facades.
+
+For `ARG005`, prefer zero-argument lambdas when callers pass nothing. When a
+callback or test double must accept positional or keyword arguments, use a
+named helper or underscore-prefixed parameters that preserve the actual call
+contract; do not rename externally supplied keyword parameters.
+
+For `ANN002`, annotate the element type accepted by `*args`, not a tuple type.
+Use the narrow shared type when the forwarding contract is homogeneous and
+`object` only for genuinely heterogeneous compatibility forwarding.
+
+For `ANN003`, annotate the value type accepted by `**kwargs`, not a dictionary
+type. Prefer a shared narrow value type for homogeneous options and `object`
+only when an adapter genuinely forwards heterogeneous keyword values.
+
+For `D102`, document the observable responsibility or contract of each public
+production and tool method. Keep behavior-focused pytest functions exempt;
+their names and assertions are the executable specification. Do not add generic
+docstrings that merely restate the method name or signature.
+
+For `D103`, document the result, side effect, data boundary, route group, or
+command-line workflow owned by each public production or contributor-tool
+function. Prefer contract verbs such as `Return`, `Yield`, `Serialize`,
+`Register`, and `Run`; expand a precise function name only when it needs a
+destination, source, or protocol boundary to be unambiguous. Do not add opaque
+filler that merely says an operation is performed. Behavior-named tests and
+deliberately minimal architecture fixtures remain exempt, as does immutable
+Alembic history with its conventional `upgrade` and `downgrade` hooks. Because
+function docstrings are runtime data, search for `__doc__` or inspection
+consumers before bulk work, prove executable AST equality after removing only
+the new function docstrings, and run focused Swagger or CLI regressions for the
+affected surfaces.
+
+For `N815`, keep Python DTO field names in snake_case even when the public JSON
+contract uses camelCase. Pydantic DTOs should declare the public name with
+`Field(alias="...")`, accept internal construction through `populate_by_name`,
+and serialize with `by_alias=True`; tests must lock both the Python attribute
+and exact wire keys. A non-Pydantic DTO whose annotated name directly drives
+both JSON and generated Swagger may use one explained inline suppression for
+that field. Do not exempt the containing file or rename the external contract.
+
+For `G004`, keep log message construction lazy: pass a constant message and
+its values as positional logging arguments, preserving the message text,
+argument order, and log level. Use `%s` for normal or `!s` interpolation,
+`%r`/`%a` for the matching conversion, and escape a literal percent as `%%`.
+When an f-string field has a format specification that logging interpolation
+cannot express exactly, pre-format only that field with `format(value, "spec")`
+and keep the rest of the message parameterized. Do not hide an f-string in a
+temporary variable merely to silence the rule.
+
+For the Ruff `EM` family (`EM101`-`EM103`), assign a direct string literal,
+contextual f-string, or `.format()` expression to a collision-free local
+immediately before raising it, then pass that local as the same constructor
+argument. Prefer `message`; use `error_message` or `exception_message` when the
+whole function already uses that name. Preserve the exception type, exact
+message expression, remaining positional and keyword arguments, and any
+explicit `raise ... from` cause. Do not evade the rule by concatenating strings,
+changing formatting, or dropping useful values from the error. Scan the whole
+function, including nested scopes, before introducing the local so a new binding
+cannot shadow an existing local, free variable, or global lookup. For bulk
+changes, prove the rewrite is structurally reversible and run tests that exercise
+the affected error paths. A `pytest.raises` body must remain one simple statement:
+bind its fixed message immediately before the context-manager block and keep only
+the `raise` inside.
+
+For `D205`, put the complete summary on the first physical docstring line,
+then use exactly one blank line before details, sections, or embedded protocol
+content. Do not wrap the summary across source lines; line length is formatter
+owned. In Flasgger route docstrings, keep the `---` YAML separator after that
+blank line and run the Swagger-docstring parser regression test rather than
+suppressing the rule or reindenting the specification.
+
+For `D107`, describe what constructing the instance establishes: its payload,
+owned state, bound dependency, or non-obvious setup. Keep the constructor
+docstring to one line when that is the whole contract, and add details only for
+real side effects or invariants. Do not copy the signature or write a generic
+"Initialize the object" sentence merely to satisfy the rule. Test doubles
+should name the state or collaborator they stand in for.
+
+For `D105`, document the observable protocol contract instead of restating the
+magic method name. A `__json__` docstring says whether it returns a scalar,
+JSON-compatible data, or a JSON string; mapping methods identify the keys or
+payload they proxy; representation and comparison methods describe their
+visible result. Keep a one-line contract when sufficient, and make test-double
+operators name the fake expression they build. Do not write filler such as
+"Implement `__json__`".
+
+For `N806`, distinguish a class declaration or module-level class import from
+a value bound inside a function. Keep real class names in CapWords, but bind a
+locally loaded model or constructor to a descriptive snake_case name such as
+`draft_shifu_model` or `session_factory`, then use that name consistently in
+the function. Preserve a deliberate lazy import instead of moving it to module
+scope merely for lint, and do not add a per-file exception for ordinary local
+bindings. Run the tests that exercise the local loader or factory so the rename
+cannot silently point queries or object creation at a different class.
+
+For `D100`, describe why the module exists at its ownership boundary. A
+production module names the service responsibility, protocol, or data contract
+it owns; a test module names the behavior group it protects; an executable
+script states the operation it performs. Do not mechanically restate the file
+name or write generic filler such as "module helpers". Remove an unreferenced
+empty placeholder instead of inventing a purpose for it. Keep the docstring as
+the first Python statement while preserving shebangs, encoding comments, and
+file-level tool directives. Because adding it changes `module.__doc__`, search
+runtime introspection before a bulk adoption and verify executable AST equality
+after removing the new module docstrings.
+
+For `D101`, document the class's role or observable contract, not its spelling.
+DTOs name the payload they carry, persistence models name the state they store,
+protocols name the operations they require, exceptions name the failure they
+signal, and test doubles name the collaborator or failure they simulate. A test
+class names the behavior group it verifies. Keep the contract to one line when
+that is sufficient, and do not write filler such as "Class for X" or merely
+split the CapWords name into a sentence. Because a class docstring is visible
+through `Class.__doc__` and may feed schema or inspection frameworks, search
+runtime introspection before adding it and verify executable AST equality after
+removing only the new class docstrings. Run focused schema tests when a touched
+class is registered with Swagger or created by Pydantic.
+For `TC002` and `TC003`, move a third-party or standard-library import into an
+`if TYPE_CHECKING:` block only after confirming every use is an annotation that
+Python does not need to resolve at runtime. Postponed annotations are the
+normal proof; a quoted annotation or a local variable annotation that is never
+evaluated is also safe. An import's source does not prove that it is safe to
+defer: keep imports that provide registration side effects or that a framework,
+decorator, function signature without postponed evaluation, or explicit
+runtime reflection resolves while importing the module. When one import
+statement mixes runtime values with annotation-only types, split the statement
+and move only the type-only names.
+
+Pydantic `BaseModel` fields are declared as runtime-evaluated in `ruff.toml`,
+so both their standard-library and third-party field types stay imported
+normally; do not replace that contract with scattered `noqa` comments. When
+another shared runtime-evaluated base class or decorator is introduced, model
+it centrally in Ruff and add an import or schema smoke test. Use a narrow
+explained suppression only for a one-off runtime consumer that Ruff cannot
+model. Search tests for `monkeypatch`, `getattr`, and module-attribute
+assertions before moving an import: preserve a real injection seam, but remove
+an obsolete patch that never influences the code under test instead of keeping
+a fake runtime dependency.
+
+Adopt or remove exceptions one rule unit at a time. A rule unit is normally
+one Ruff code; combine codes only when they report the same construct and have
+the same fix and exception boundary. Base each rule PR on the preceding rule
+branch, and keep unrelated cleanup out of the diff. Track the stack and rule
+census in `docs/exec-plans/active/ruff-rule-minimization.md`.
+
+For each rule unit, run the focused check first and then the repository gates:
+
+```bash
+ruff check . --select CODE
+ruff check .
+ruff format --check .
+python scripts/check_repo_harness.py
+```
+
+Run the nearest behavior tests for every touched runtime surface. Lint passing
+does not replace test coverage. Before committing, also run
+`python scripts/check_dev_tools.py` and `lefthook run pre-commit --all-files`.
 
 ## Development Workflow
 
@@ -343,48 +635,108 @@ src/api/tests/
 
 ### Deployment Process
 
-1. Merge to `main`
-2. CI/CD runs tests and builds
-3. Deploy to staging
-4. Run smoke tests
-5. Deploy to production
+The workflows in this repository test changes and build/publish images.
+They do not deploy staging or production. After the relevant checks and image
+publication succeed, operators deploy the selected image tags through their
+environment's deployment process and verify backend boot and primary frontend
+flows before promoting them.
 
 ## CI/CD And Release Workflow
 
 ### Workflow Inventory
 
-- `backend-tests.yml`: runs backend tests for `src/api/**` changes and on
-  direct pushes to `main`.
-- `contract-tests.yml`: runs contract tests for backend-facing changes.
-- `prettier-check.yml`: checks Cook Web formatting for frontend changes.
-- `translations-check.yml`: validates translation parity, key usage, and
-  locale metadata on PRs, selected branches, and a schedule.
-- `prepare-release.yml`: manually prepares a release draft from a requested
-  `vX.Y.Z` version and updates versioned project files.
-- `build-latest.yml`: builds the freshest published Docker images from `main`
-  and can also be triggered manually.
+- `backend-tests.yml`: selects backend tests for PRs changing `src/api/**` or
+  the backend workflow, with a successful no-op for unrelated PRs; runs the
+  full suite on pushes to `main` and full coverage on manual dispatch. Tests
+  run in two pytest-xdist worker processes on one runner, distributed by file;
+  PR/main runs retain testmon and manual coverage merges both workers.
+- `frontend-tests.yml`: runs frontend Jest tests for frontend and shared i18n
+  changes with two worker processes on one runner, while reporting a successful
+  no-op check for unrelated PRs.
+- `prettier-check.yml`: checks frontend formatting for frontend changes in PRs;
+  does not run on pushes to `main`.
+- `repo-harness.yml`: the `Static Checks` job validates architecture
+  boundaries, instructions, generated knowledge artifacts, translation
+  parity and locale metadata, and the MarkdownFlow release pins on PRs into `main`.
+- `runtime-harness.yml`: builds the API and Web production AMD64 images once
+  with Docker Bake on the same runner, smoke-tests their default startup and
+  dependencies, then reuses those loaded images for the Docker-backed
+  Playwright harness with `docker compose up --no-build`. Runs for
+  runtime-affecting backend, frontend, shared i18n, production Markdown,
+  Docker, and script changes in PRs or on manual dispatch; does not run on
+  pushes to `main`.
+- `docker-build-check.yml`: adds native ARM64 production-image build and smoke
+  checks only for services affected by packaging changes in PRs, including
+  Dockerfiles, runtime dependencies, production dependency checks, and Docker
+  build workflows. Ordinary application and shared i18n changes use the
+  runtime harness's AMD64 validation. Ordinary manual dispatch checks both
+  services on AMD64 and ARM64; explicit candidate dispatch also verifies
+  publication without moving normal tags.
+- `prepare-release.yml` (`Prepare Release PR`): manually validates a final
+  `vX.Y.Z` increase and opens a version-update PR against main; it creates no
+  formal tag or Release.
+- `draft-release.yml` (`Prepare Merged Release Draft`): compares the primary
+  version before/after each main push, validates merged release-PR provenance,
+  and pins a draft to the exact event commit only when the version increased.
+- `build-latest.yml`: builds `:latest` Docker images on pushes to `main` or
+  manual dispatch on main; publishes to GHCR and configured Docker Hub / Aliyun
+  mirrors unless the push toggle is disabled.
 - `build-on-release.yml`: builds and pushes release-tagged Docker images when
   a GitHub release is published.
 
+See [Docker image publication](references/docker-image-publication.md) for
+registry permissions, private-to-public GHCR setup, candidate verification and
+manual main backfills. This uses repository Dockerfiles independently of CICD.
+
+The runtime harness uses `src/api/Dockerfile` and `src/web/Dockerfile`, including
+the Web image's Alpine base, production dependency pruning, and non-root user.
+The default image commands are smoke-tested before Compose applies its API
+migration and demo-seeding command. Web keeps the production command and uses
+`PORT=5000` for the shared development nginx route and `/app/i18n` for shared
+translations. A passing harness therefore validates the built production AMD64
+images; it does not establish ARM64 compatibility or registry publication.
+Latest, release, and candidate publication retain both services and both native
+architectures, with smoke checks before pushing. Architecture-specific failures
+from ordinary application changes may first be detected by the main build.
+
 ### Release Path
 
-1. Start with `prepare-release.yml` and provide a version that starts with
-   `v`, such as `v1.5.0`.
-2. Verify the generated version updates, release draft content, and tag
-   expectations before publishing the GitHub release.
-3. The release draft includes repository commits since the previous `vX.Y.Z`
-   tag, plus MarkdownFlow dependency updates when the pinned `markdown-flow` or
-   `markdown-flow-ui` versions change; dependency notes are generated from the
-   corresponding library repository tag range when tags exist. When matching
-   tags do not exist, registry publish times are used to limit a GitHub commit
-   lookup for the dependency repository.
-4. Publishing the release triggers `build-on-release.yml`, which validates the
-   tag, skips drafts or prereleases, and builds the release-tagged images.
-5. `main` continues to drive `build-latest.yml`, so `:latest` images and
-   release-tagged images must remain semantically aligned.
-6. After image publication, smoke-check the pinned or latest Docker Compose
-   startup path, backend boot, and the primary frontend entry path before
-   treating the release as ready.
+1. Run `prepare-release.yml` on main with a canonical final `vX.Y.Z` increase
+   (no prerelease, build suffix or leading zeroes). It updates the two npm
+   manifests and lock roots, the vendored engine version, and first-party pinned
+   Compose images. Third-party images and rolling `latest` are unchanged. The
+   generated PR includes a notes preview; no formal tag or Release is created.
+2. A human reviews the version-only diff and CI, then **manually merges** the
+   `release/version-bump-<tag>` PR into main. AI/scripts must never merge or
+   enable auto-merge. Main/latest publication and existing production CICD/Drone
+   auto-deployment remain independent effects of that merge.
+3. `draft-release.yml` freezes the exact main push SHA, not moving main or
+   checkout HEAD. Unchanged versions and an initial missing baseline skip;
+   decreases, malformed versions, forced/deleted pushes and inconsistent source
+   versions fail closed. The source must introduce the version increase and be
+   the exact merge commit of a release PR into this repository's main.
+4. Automation verifies the npm/lock/engine versions and pinned Compose tags,
+   creates a non-forced exact-source formal tag, and creates a **draft only**.
+   Conflicting tags, mismatched drafts and already public releases fail closed.
+   Same-source reruns reuse a verified tag/draft without overwriting human notes.
+5. A human reviews the draft and **manually Publishes** in GitHub Releases.
+   `build-on-release.yml` revalidates the source, version, tag and merged-PR
+   provenance before passing the exact commit to the native image builder.
+   Drafts/prereleases skip; malformed or premature publication does not silently
+   build mislabeled images. Existing image names, registries and architectures
+   are retained. A `:latest` image can still be newer than the release.
+6. After image publication, smoke-check Compose startup, backend boot and the
+   primary frontend path before treating the release as ready. This automation
+   adds no production deployment operation and does not rewrite historical tags
+   or releases.
+
+Notes are recomputed at the frozen merged candidate, using the highest reachable
+lower final-version tag and excluding the candidate's own tag. Commitizen is
+preferred, with a Git fallback and omitted-PR coverage. MarkdownFlow notes retain
+locked dependency versions, historical frontend-lock lookup, library tag
+comparisons, registry-time fallback, author enrichment, deduplication, sorting
+and bounded detail. See [Docker image publication](references/docker-image-publication.md#pr-first-release-gates)
+for recovery and human-gate limitations.
 
 ### Release And Automation Rules
 
@@ -408,7 +760,8 @@ src/api/tests/
 ### API Performance
 
 - Target under 200ms for common reads and under 500ms for common writes
-- Default pagination: 20 items, max 100
+- The shared helper in `src/api/flaskr/service/common/pagination.py` defaults
+  to 20 items and caps page size at 100; check each endpoint's contract
 - Use async patterns when they are truly appropriate for I/O work
 - Apply rate limiting where endpoints are abuse-prone
 - Use request timeouts for external dependencies
@@ -428,7 +781,16 @@ src/api/tests/
 - Docker: `docker/.env`
 - Local development: component-level `.env` files
 - Example Docker file: `docker/.env.example.full`
-- Important groups: LLM API keys, database, Redis, auth, storage, app config
+- Important groups: LLM API keys and numbered model configurations, database, Redis, auth, storage, app config
+
+Every backend environment requires a provider key and `LLM_MODEL_1_ID`, which
+has no default. Nonblank IDs enable optional numbers 2-9, using stable
+identifiers that may have gaps. Names for all numbers are optional and fall back
+to their configured model IDs when omitted
+or blank. Names without IDs do not enable options.
+Invalid historical course selections fall back to 1 without rewriting course
+rows. Existing installations need the new environment configuration, not data
+cleanup; see [Upgrading to numbered models](../INSTALL_MANUAL.md#upgrading-to-numbered-models).
 
 ### Managing Environment Variables
 
@@ -457,13 +819,15 @@ When adding a new namespace:
 
 ### Directory Naming
 
-- Use kebab-case for directories
+- Use kebab-case for frontend directories; use snake_case for Python packages
 - Preserve Next.js special folder conventions such as `(group)`, `[dynamic]`,
   and `[[...catchAll]]`
-- Treat `c-*` directories as legacy-but-active compatibility surfaces
+- Preserve learner and teacher compatibility in shared modules organized by
+  responsibility; do not recreate parallel source trees for the same behavior
 
 ### File Naming
 
+- Python modules and tests: snake_case, with tests named `test_*.py`
 - Component files: PascalCase, for example `UserProfile.tsx`
 - Regular TypeScript or JavaScript files: kebab-case
 - CSS and SCSS files: kebab-case
@@ -490,12 +854,12 @@ When adding a new namespace:
 | Database connection fails | Verify MySQL and credentials |
 | Migration not detecting changes | Ensure the model is imported |
 | Frontend cannot connect to API | Check CORS and API URL config |
-| Lefthook checks fail | Run `lefthook install` |
+| Lefthook checks fail | Read the failed command's output, fix the reported issue, and rerun that check |
 | Hooks never run, or a tool reports "command not found" | Run `python scripts/check_dev_tools.py` and install what it lists |
 | Tests fail with import errors | Check `PYTHONPATH` and local env |
-| Docker build fails | Ensure required `.env` files exist |
-| TypeScript errors in Cook Web | Run `npm run type-check` |
-| Redis connection optional | App can still run without Redis in many flows |
+| Docker build fails | Check the failed build step and Dockerfile context; production image builds use the repository root |
+| Frontend TypeScript errors | Run `npm run type-check` |
+| Redis unavailable | Some HTTP flows can fall back without Redis, but Live coordination and the default Celery broker require it; restore Redis for those features |
 
 ### Debug Commands
 
@@ -519,7 +883,7 @@ docker ps
 docker compose logs [service]
 
 # Check port usage
-lsof -i :5000
+lsof -i :5800
 lsof -i :3000
 ```
 

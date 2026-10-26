@@ -1,3 +1,5 @@
+"""Build stable Langfuse names for learning traces."""
+
 import re
 
 
@@ -28,16 +30,20 @@ def _compose_name(
 
 
 def build_langfuse_trace_name(chapter_title: str, scene: str) -> str:
+    """Build langfuse trace name."""
     return _compose_name(chapter_title=chapter_title, scene=scene, action="trace")
 
 
 def build_langfuse_span_name(chapter_title: str, scene: str, action: str) -> str:
+    """Build langfuse span name."""
     return _compose_name(chapter_title=chapter_title, scene=scene, action=action)
 
 
 def build_langfuse_event_name(chapter_title: str, scene: str, action: str) -> str:
+    """Build langfuse event name."""
     return _compose_name(chapter_title=chapter_title, scene=scene, action=action)
 
 
 def build_langfuse_generation_name(chapter_title: str, scene: str, action: str) -> str:
+    """Build langfuse generation name."""
     return _compose_name(chapter_title=chapter_title, scene=scene, action=action)

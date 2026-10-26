@@ -1,0 +1,49 @@
+import { useTranslation } from 'react-i18next';
+
+// Language-neutral typographic markers that anchor the footnote items to
+// the matching table rows. Not user-facing copy, so they stay out of i18n.
+const FOOTNOTE_MARKER_LEARNING_TIME = '*';
+const FOOTNOTE_MARKER_VALIDITY = '**';
+
+export function BillingOverviewFootnote({
+  hasDiscountCampaign = false,
+  showValidity = true,
+}: {
+  hasDiscountCampaign?: boolean;
+  showValidity?: boolean;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      className='text-[length:var(--text-sm-font-size,14px)] leading-[var(--text-sm-line-height,20px)] text-[var(--base-muted-foreground,#737373)]'
+      data-testid='billing-overview-footnote'
+    >
+      <ul className='space-y-3'>
+        <li className='flex gap-2'>
+          <span className='shrink-0 font-medium'>
+            <sup>{FOOTNOTE_MARKER_LEARNING_TIME}</sup>
+          </span>
+          <div className='flex-1'>
+            {t('module.billing.package.footnote.learningTime')}
+          </div>
+        </li>
+        {showValidity ? (
+          <li className='flex gap-2'>
+            <span className='shrink-0 font-medium'>
+              <sup>{FOOTNOTE_MARKER_VALIDITY}</sup>
+            </span>
+            <div className='flex-1'>
+              {t('module.billing.package.footnote.validity')}
+            </div>
+          </li>
+        ) : null}
+      </ul>
+      {hasDiscountCampaign ? (
+        <p className='mt-3'>
+          {t('module.billing.package.campaign.paymentOnly')}
+        </p>
+      ) : null}
+    </div>
+  );
+}

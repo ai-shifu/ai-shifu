@@ -5,33 +5,25 @@ Split mechanically out of the former giant module (backend overhaul B5).
 
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional, Sequence, Set
-from flask import Flask
+from typing import TYPE_CHECKING
+
 from flaskr.dao import db
+from flaskr.service.common.dtos import PageNationDTO
+from flaskr.service.common.models import (
+    raise_param_error,
+)
 from flaskr.service.learn.const import (
     LEARN_STATUS_RESET,
 )
 from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
-from flaskr.service.common.dtos import PageNationDTO
-from flaskr.service.common.models import (
-    raise_param_error,
-)
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseUserDTO,
 )
-from flaskr.service.shifu.models import (
-    AiCourseAuth,
-)
-from flaskr.service.user.models import (
-    UserInfo as UserEntity,
-)
-
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_USER_LIST_MAX_PAGE_SIZE,
     _build_course_order_amount_expr,
@@ -44,13 +36,26 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _resolve_course_user_role,
     _resolve_visible_leaf_outline_bids,
 )
+from flaskr.service.shifu.models import (
+    AiCourseAuth,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from flaskr.util.datetime import NAIVE_DATETIME_MIN
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
+
+    from flask import Flask
 
 
 def _load_course_related_user_bids(
     shifu_bid: str,
     *,
     creator_user_bid: str,
-) -> tuple[Set[str], Set[str]]:
+) -> tuple[set[str], set[str]]:
     order_user_bids = {
         str(user_bid or "").strip()
         for (user_bid,) in db.session.query(Order.user_bid)
@@ -99,7 +104,7 @@ def _load_course_related_user_bids(
 def _load_course_user_paid_amount_map(
     shifu_bid: str,
     user_bids: Sequence[str],
-) -> Dict[str, Decimal]:
+) -> dict[str, Decimal]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -135,7 +140,7 @@ def _load_course_user_paid_amount_map(
 def _load_course_user_last_learning_map(
     shifu_bid: str,
     user_bids: Sequence[str],
-) -> Dict[str, datetime]:
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -170,8 +175,8 @@ def _load_course_user_joined_at_map(
     user_bids: Sequence[str],
     *,
     creator_user_bid: str,
-    course_created_at: Optional[datetime],
-) -> Dict[str, datetime]:
+    course_created_at: datetime | None,
+) -> dict[str, datetime]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -180,9 +185,9 @@ def _load_course_user_joined_at_map(
     if not normalized_user_bids:
         return {}
 
-    joined_at_map: Dict[str, datetime] = {}
+    joined_at_map: dict[str, datetime] = {}
 
-    def _merge_rows(rows: Sequence[tuple[str, Any]]) -> None:
+    def _merge_rows(rows: Sequence[tuple[str, object]]) -> None:
         for user_bid, joined_at in rows:
             normalized_user_bid = str(user_bid or "").strip()
             normalized_joined_at = _coerce_operator_datetime(joined_at)
@@ -250,7 +255,7 @@ def _load_course_user_learned_lesson_count_map(
     shifu_bid: str,
     user_bids: Sequence[str],
     leaf_outline_bids: Sequence[str],
-) -> Dict[str, int]:
+) -> dict[str, int]:
     normalized_user_bids = [
         str(user_bid or "").strip()
         for user_bid in user_bids
@@ -294,8 +299,9 @@ def get_operator_course_users(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> PageNationDTO:
+    """Return operator course users."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -400,16 +406,11 @@ def get_operator_course_users(
                 if not any(keyword in value for value in haystack if value):
                     continue
 
-            if (
-                user_role_filter
-                and user_role_filter != "all"
-                and user_role != user_role_filter
-            ):
+            if user_role_filter and user_role_filter not in ("all", user_role):
                 continue
-            if (
-                learning_status_filter
-                and learning_status_filter != "all"
-                and learning_status != learning_status_filter
+            if learning_status_filter and learning_status_filter not in (
+                "all",
+                learning_status,
             ):
                 continue
             if payment_status_filter == "paid" and not is_paid:
@@ -438,10 +439,10 @@ def get_operator_course_users(
             items_with_sort_keys.append(
                 (
                     (
-                        last_learning_at or datetime.min,
-                        joined_at or datetime.min,
-                        last_login_at or datetime.min,
-                        getattr(user, "created_at", None) or datetime.min,
+                        last_learning_at or NAIVE_DATETIME_MIN,
+                        joined_at or NAIVE_DATETIME_MIN,
+                        last_login_at or NAIVE_DATETIME_MIN,
+                        getattr(user, "created_at", None) or NAIVE_DATETIME_MIN,
                         user_bid,
                     ),
                     dto,

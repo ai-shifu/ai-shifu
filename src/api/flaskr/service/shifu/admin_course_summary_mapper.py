@@ -1,25 +1,25 @@
+"""Handle admin course summary mapper for course authoring."""
+
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
-
-from flask import current_app
-
+from flaskr.api.llm.model_selection import course_model_selection
 from flaskr.service.shifu.admin_dtos_courses import AdminOperationCourseSummaryDTO
 from flaskr.service.shifu.admin_shared import _format_decimal
 
 
 def build_admin_operation_course_summary(
-    course,
+    course: object,
     *,
-    user_map: Dict[str, Dict[str, str]],
+    user_map: dict[str, dict[str, str]],
     course_status: str,
-    activity: Optional[Dict[str, Any]] = None,
+    activity: dict[str, object] | None = None,
 ) -> AdminOperationCourseSummaryDTO:
+    """Build admin operation course summary."""
     resolved_activity = activity or {}
     creator = user_map.get(course.created_user_bid or "", {})
-    llm_model = str(course.llm or "").strip()
-    if not llm_model:
-        llm_model = str(current_app.config.get("DEFAULT_LLM_MODEL", "") or "").strip()
+    # The operator UI joins this value to the numbered course model catalog.
+    # Keep that identity available even when its provider is offline.
+    llm_model = str(course_model_selection(course.llm)["index"])
     updater_user_bid = str(
         resolved_activity.get("updated_user_bid") or course.updated_user_bid or ""
     ).strip()

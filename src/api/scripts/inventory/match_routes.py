@@ -2,7 +2,7 @@
 """Cross-reference backend routes against ALL known consumer surfaces.
 
 Surfaces:
-1. cook-web  : src/cook-web/src/api/api.ts catalog + any raw '/api/...' string
+1. web       : src/web/src/api/api.ts catalog + any raw '/api/...' string
 2. cli       : the skills repo (shifu-cli.py uses /api/shifu as base for
                relative '/shifus...' paths; also full /api/... refs)
 3. miniprogram: the mini-program client repo (grep /api/ paths)
@@ -21,36 +21,37 @@ Environment:
 import os
 import re
 import subprocess
+from pathlib import Path
 
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", "..", "..", ".."))
-SP = os.environ.get("INVENTORY_WORK_DIR", os.getcwd())
-BACKEND_ROUTES = os.path.join(SP, "routes-backend.txt")
-SKILLS = os.environ.get(
-    "SKILLS_REPO", os.path.abspath(os.path.join(ROOT, "..", "skills"))
-)
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+ROOT = str((Path(_SCRIPT_DIR) / ".." / ".." / ".." / "..").resolve())
+SP = os.environ.get("INVENTORY_WORK_DIR", str(Path.cwd()))
+BACKEND_ROUTES = str(Path(SP) / "routes-backend.txt")
+SKILLS = os.environ.get("SKILLS_REPO", str((Path(ROOT) / ".." / "skills").resolve()))
 MINIAPP = os.environ.get("MINIAPP_REPO", "")
 
 
-def norm(path):
+def norm(path: object) -> object:
+    """Normalize a route path into comparable segments."""
     path = path.split("?")[0].rstrip("/")
     segs = []
     for s in path.split("/"):
         if not s:
             continue
-        if "${" in s or "{" in s or s.startswith(":") or s.startswith("<"):
+        if "${" in s or "{" in s or s.startswith((":", "<")):
             segs.append("*")
         else:
             segs.append(s)
     return tuple(segs)
 
 
-def grep_paths(root, extra_args=None):
-    if not os.path.isdir(root):
+def grep_paths(root: object) -> set[tuple[str, ...]]:
+    """Return source paths reported by the route search."""
+    if not Path(root).is_dir():
         return set()
     # no quote anchoring: f-strings like f"{base}/api/x/{bid}/export" must hit
     cmd = ["grep", "-rhoE", r"/api/[^'\"`[:space:]]*", root]
-    out = subprocess.run(cmd, capture_output=True, text=True).stdout
+    out = subprocess.run(cmd, capture_output=True, text=True, check=False).stdout
     paths = set()
     for line in out.splitlines():
         p = line.strip().rstrip(".,;:)]}")
@@ -66,9 +67,11 @@ def grep_paths(root, extra_args=None):
 
 surfaces = {}
 
-# --- cook-web ---------------------------------------------------------------
+# --- web frontend -----------------------------------------------------------
 fe = set()
-cat = open(os.path.join(ROOT, "src/cook-web/src/api/api.ts"), encoding="utf-8").read()
+cat = None
+with (Path(ROOT) / "src/web/src/api/api.ts").open(encoding="utf-8") as catalog_file:
+    cat = catalog_file.read()
 for m in re.finditer(
     r"'(GET|POST|PUT|DELETE|PATCH|STREAM|STREAMLINE|PROXY)\s+([^']+)'", cat
 ):
@@ -76,15 +79,16 @@ for m in re.finditer(
     if not p.startswith("http"):
         p = "/api" + p
     fe.add(norm(p))
-fe |= grep_paths(os.path.join(ROOT, "src/cook-web/src"))
-surfaces["cook-web"] = fe
+fe |= grep_paths(str(Path(ROOT) / "src/web/src"))
+surfaces["web"] = fe
 
 # --- skills CLI --------------------------------------------------------------
 cli = grep_paths(SKILLS)
 # relative paths in shifu-cli.py are joined onto /api/shifu
-cli_file = os.path.join(SKILLS, "skills/ai-shifu-course-creator/scripts/shifu-cli.py")
-if os.path.exists(cli_file):
-    src = open(cli_file, encoding="utf-8").read()
+cli_file = str(Path(SKILLS) / "skills/ai-shifu-course-creator/scripts/shifu-cli.py")
+if Path(cli_file).exists():
+    with Path(cli_file).open(encoding="utf-8") as cli_source:
+        src = cli_source.read()
     for m in re.finditer(
         r"""["'](/(?:shifus|upfile|url-upfile|mdflow)[^"']*)["']""", src
     ):
@@ -96,20 +100,24 @@ surfaces["miniprogram"] = grep_paths(MINIAPP)
 
 # --- backend routes ----------------------------------------------------------
 be = []
-for line in open(BACKEND_ROUTES, encoding="utf-8"):
-    if line.startswith("#"):
-        continue
-    mm = re.match(r"(\S+)\s+(\S+)\s+\[(.*)\]", line.strip())
-    if not mm:
-        continue
-    method, path, src = mm.groups()
-    be.append((method, path, norm(path), src))
+with Path(BACKEND_ROUTES).open(encoding="utf-8") as backend_routes:
+    for line in backend_routes:
+        if line.startswith("#"):
+            continue
+        mm = re.match(r"(\S+)\s+(\S+)\s+\[(.*)\]", line.strip())
+        if not mm:
+            continue
+        method, path, src = mm.groups()
+        be.append((method, path, norm(path), src))
 
 
-def match(be_segs, fe_segs):
+def match(be_segs: object, fe_segs: object) -> object:
+    """Return whether backend and consumer route segments match."""
     if len(be_segs) != len(fe_segs):
         return False
-    return all(a == b or a == "*" or b == "*" for a, b in zip(be_segs, fe_segs))
+    return all(
+        a in (b, "*") or b == "*" for a, b in zip(be_segs, fe_segs, strict=False)
+    )
 
 
 rows = []
@@ -122,7 +130,7 @@ for method, path, segs, src in be:
     low = path.lower() + " " + src.lower()
     if re.search(r"callback|notify|webhook", low) or path.startswith("/api/open-api/"):
         consumers.append("external-callback")
-    if path in ("/health",) or path.startswith("/internal/") or "observability" in src:
+    if path == "/health" or path.startswith("/internal/") or "observability" in src:
         consumers.append("ops")
     if not consumers:
         consumers = ["NO-KNOWN-CONSUMER"]
@@ -135,9 +143,9 @@ for c, n in sorted(counts.items(), key=lambda x: -x[1]):
     print(f"  {c}: {n}")
 print(f"  TOTAL endpoints: {len(rows)}")
 print()
-print("## endpoints NOT referenced by cook-web (with consumer column)")
+print("## endpoints NOT referenced by web (with consumer column)")
 print(f"{'METHOD':7s} {'PATH':80s} CONSUMER  [handler]")
 for method, path, cons, src in sorted(rows, key=lambda r: (r[2], r[1])):
-    if "used-by-cook-web" in cons:
+    if "used-by-web" in cons:
         continue
     print(f"{method:7s} {path:80s} {cons}  [{src}]")

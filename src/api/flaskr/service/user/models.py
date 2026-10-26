@@ -1,21 +1,27 @@
+"""Define persistence models for user accounts."""
+
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
+    JSON,
     TIMESTAMP,
+    Column,
     Date,
-    Text,
-    SmallInteger,
     DateTime,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
-from ...dao import db
-from .consts import USER_STATE_UNREGISTERED, CREDENTIAL_STATE_UNVERIFIED
+
+from .consts import CREDENTIAL_STATE_UNVERIFIED, USER_STATE_UNREGISTERED
 
 
 class UserConversion(db.Model):
+    """Persist user conversion records."""
+
     __tablename__ = "user_conversion"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
@@ -48,13 +54,14 @@ class UserConversion(db.Model):
 
     def __init__(
         self,
-        user_id,
-        conversion_id,
-        conversion_source,
-        conversion_status,
-        conversion_uuid="",
-        conversion_third_platform="",
-    ):
+        user_id: object,
+        conversion_id: object,
+        conversion_source: object,
+        conversion_status: object,
+        conversion_uuid: object = "",
+        conversion_third_platform: object = "",
+    ) -> None:
+        """Initialize a user conversion record."""
         self.user_id = user_id
         self.conversion_id = conversion_id
         self.conversion_source = conversion_source
@@ -64,13 +71,34 @@ class UserConversion(db.Model):
 
 
 class UserToken(db.Model):
+    """Persist user token records."""
+
     __tablename__ = "user_token"
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
-    user_id = Column(String(36), nullable=False, default="", comment="User UUID")
+    user_id = Column(
+        String(36), nullable=False, default="", index=True, comment="User UUID"
+    )
     token = Column(String(255), nullable=False, default="", comment="Token")
     token_type = Column(Integer, nullable=False, default=0, comment="Token type")
     token_expired_at = Column(
         TIMESTAMP, nullable=True, default=now_utc, comment="Token expired time"
+    )
+    # Public identifier for this session. The token itself is a credential and
+    # must never be handed to a client that only needs to name a session.
+    session_bid = Column(
+        String(36), nullable=False, default="", index=True, comment="Session UUID"
+    )
+    source = Column(
+        String(32), nullable=False, default="", comment="How the session began"
+    )
+    device_name = Column(
+        String(64), nullable=False, default="", comment="Device name, display only"
+    )
+    device_os = Column(
+        String(64), nullable=False, default="", comment="Device OS, display only"
+    )
+    created_ip = Column(
+        String(64), nullable=False, default="", comment="Sign-in address"
     )
     created = Column(
         TIMESTAMP, nullable=False, default=now_utc, comment="Creation time"
@@ -85,6 +113,8 @@ class UserToken(db.Model):
 
 
 class UserVerifyCode(db.Model):
+    """Persist user verify code records."""
+
     __tablename__ = "user_verify_code"
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
     phone = Column(String(36), nullable=False, default="", comment="User phone")
@@ -120,6 +150,8 @@ class UserVerifyCode(db.Model):
 
 
 class UserInfo(db.Model):
+    """Persist user info records."""
+
     __tablename__ = "user_users"
 
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
@@ -139,7 +171,18 @@ class UserInfo(db.Model):
         comment="User identifier: phone or email",
     )
     nickname = Column(String(255), nullable=False, default="", comment="User nickname")
-    avatar = Column(String(255), nullable=False, default="", comment="User avatar")
+    learner_profile = Column(
+        Text,
+        nullable=True,
+        default="",
+        comment="User-owned learning personalization profile",
+    )
+    learner_profile_updated_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Timestamp when the learner profile was last changed",
+    )
+    avatar = Column(Text, nullable=False, default="", comment="User avatar")
     birthday = Column(Date, nullable=True, comment="User birthday")
     language = Column(String(30), nullable=False, default="", comment="User language")
     state = Column(
@@ -185,6 +228,19 @@ class UserInfo(db.Model):
         nullable=True,
         comment="Timestamp when creator access was first activated",
     )
+    cancelled_at = Column(
+        DateTime,
+        nullable=True,
+        index=True,
+        comment="Account cancellation timestamp",
+    )
+    cancellation_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Account cancellation business identifier",
+    )
 
     updated_at = Column(
         DateTime,
@@ -195,7 +251,117 @@ class UserInfo(db.Model):
     )
 
 
+class UserAccountCancellation(db.Model):
+    """Persist the authoritative audit record for a cancelled account."""
+
+    __tablename__ = "user_account_cancellations"
+    __table_args__ = (
+        UniqueConstraint(
+            "cancellation_bid",
+            name="uq_user_account_cancellations_cancellation_bid",
+        ),
+        UniqueConstraint(
+            "user_bid",
+            name="uq_user_account_cancellations_user_bid",
+        ),
+    )
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    cancellation_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Cancellation business identifier",
+    )
+    user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Cancelled user business identifier",
+    )
+    operator_user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Operator user business identifier",
+    )
+    actor_type = Column(
+        String(32),
+        nullable=False,
+        default="operator",
+        comment="Cancellation actor type",
+    )
+    reason = Column(Text, nullable=False, comment="Operator-provided audit reason")
+    status = Column(
+        String(32),
+        nullable=False,
+        default="completed",
+        index=True,
+        comment="Cancellation status",
+    )
+    attempt_count = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Background execution attempt count",
+    )
+    failure_code = Column(
+        String(64),
+        nullable=False,
+        default="",
+        server_default="",
+        comment="Bounded background execution failure code",
+    )
+    last_attempt_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Latest background execution attempt timestamp",
+    )
+    idempotency_key = Column(
+        String(128),
+        nullable=False,
+        default="",
+        unique=True,
+        comment="Cancellation request idempotency key",
+    )
+    retention_snapshot = Column(
+        JSON,
+        nullable=True,
+        comment="Privacy-safe cancellation decision snapshot",
+    )
+    requested_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Cancellation request timestamp",
+    )
+    completed_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Cancellation completion timestamp",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        comment="Creation timestamp",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=now_utc,
+        onupdate=now_utc,
+        comment="Last update timestamp",
+    )
+
+
 class UserOnboardingState(db.Model):
+    """Persist user onboarding state records."""
+
     __tablename__ = "user_onboarding_states"
     __table_args__ = (
         UniqueConstraint(
@@ -257,6 +423,8 @@ class UserOnboardingState(db.Model):
 
 
 class AuthCredential(db.Model):
+    """Persist auth credential records."""
+
     __tablename__ = "user_auth_credentials"
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
     credential_bid = Column(

@@ -1,6 +1,8 @@
+"""Track sidecar state for listen-mode run adaptation."""
+
 from __future__ import annotations
 
-from typing import Generator
+from typing import TYPE_CHECKING
 
 from flaskr.service.learn.learn_dtos import (
     ElementChangeType,
@@ -21,8 +23,13 @@ from flaskr.service.learn.listen_element_types import (
     _new_element_bid,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 
 class ListenElementRunSidecarMixin:
+    """Provide sidecar state operations for listen-mode element runs."""
+
     def _new_interaction_element_bid(self) -> str:
         return _new_element_bid(self.app)
 
@@ -339,13 +346,14 @@ class ListenElementRunSidecarMixin:
             element_index=element_index,
             is_new=True,
             is_final=True,
-            base_payload=ElementPayloadDTO(anchor_element_bid=anchor_bid),
+            base_payload=ElementPayloadDTO(
+                anchor_element_bid=anchor_bid, user_input=ask_content
+            ),
         )
-        if synthetic_anchor:
+        if synthetic_anchor and ask_element.payload is not None:
             # Mark the synthesis so downstream consumers (logs, backfill) know
             # this anchor didn't come from a real LearnGeneratedElement row.
-            if ask_element.payload is not None:
-                ask_element.payload.anchor_element_bid = anchor_bid
+            ask_element.payload.anchor_element_bid = anchor_bid
         yield self._element_message(ask_element)
 
     def _finalize_answer_element(

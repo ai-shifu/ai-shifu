@@ -1,10 +1,14 @@
+"""Backfill listen-mode elements from MarkdownFlow content."""
+
 from __future__ import annotations
 
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
+if TYPE_CHECKING:
+    from flask_sqlalchemy.query import Query
+    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
 try:
     from markdown_flow import format_content
@@ -27,16 +31,13 @@ except ImportError:
     }
 
     def format_content(content: str) -> list[_FormattedContentPart]:
-        """
-        Compatibility formatter for older markdown_flow builds that do not
-        export `format_content`.
+        """Compatibility formatter for older markdown_flow builds that do not export `format_content`.
 
         The backfill only needs stable ordered stream parts so the listen
         element adapter can reconstruct final rows. We reuse the shared AV
         segmentation contract to recover text/visual boundaries and normalize
         visual kinds to element protocol types.
         """
-
         raw_content = str(content or "")
         if not raw_content.strip():
             return []
@@ -78,6 +79,7 @@ except ImportError:
 
 
 from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.const import ROLE_TEACHER
 from flaskr.service.learn.learn_dtos import (
     ElementType,
@@ -97,6 +99,8 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
 )
 
+if TYPE_CHECKING:
+    from flask import Flask
 
 SUPPORTED_BLOCK_TYPES = {
     BLOCK_TYPE_MDCONTENT_VALUE,
@@ -126,6 +130,8 @@ NON_FOLLOW_UP_ANCHOR_TYPES = {
 
 @dataclass
 class MdflowElementBackfillStats:
+    """Summarize statistics for MarkdownFlow element backfill."""
+
     progress_record_bid: str
     progress_record_id: int = 0
     shifu_bid: str = ""
@@ -144,11 +150,14 @@ class MdflowElementBackfillStats:
     error: str = ""
 
     def as_dict(self) -> dict[str, Any]:
+        """Serialize these backfill statistics as a dictionary."""
         return asdict(self)
 
 
 @dataclass
 class MdflowElementBackfillBatchStats:
+    """Summarize statistics for MarkdownFlow element backfill batch."""
+
     processed_progress_records: int = 0
     processed_block_groups: int = 0
     inserted_element_rows: int = 0
@@ -163,6 +172,7 @@ class MdflowElementBackfillBatchStats:
     failed_progress_records: list[dict[str, str]] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
+        """Serialize these backfill statistics as a dictionary."""
         return asdict(self)
 
 
@@ -176,7 +186,8 @@ def _load_progress_record(progress_record_bid: str) -> LearnProgressRecord:
         .first()
     )
     if progress_record is None:
-        raise ValueError(f"progress record not found: {progress_record_bid}")
+        message = f"progress record not found: {progress_record_bid}"
+        raise ValueError(message)
     return progress_record
 
 
@@ -250,7 +261,7 @@ def _make_adapter(
     outline_bid: str,
     user_bid: str,
     run_session_bid: str,
-):
+) -> ListenElementRunAdapter:
     from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
     return ListenElementRunAdapter(
@@ -265,7 +276,7 @@ def _make_adapter(
 def _iter_active_group_rows(
     progress_record_bid: str,
     generated_block_bid: str,
-):
+) -> Query:
     return LearnGeneratedElement.query.filter(
         LearnGeneratedElement.progress_record_bid == progress_record_bid,
         LearnGeneratedElement.generated_block_bid == generated_block_bid,
@@ -323,7 +334,7 @@ def _count_current_run_active_rows(
     ).count()
 
 
-def _reset_adapter_runtime(adapter: Any, generated_block_bid: str) -> None:
+def _reset_adapter_runtime(adapter: object, generated_block_bid: str) -> None:
     adapter._block_states.pop(generated_block_bid, None)
     adapter._current_element_bid = None
     adapter._current_ask_anchor_bid = None
@@ -331,7 +342,7 @@ def _reset_adapter_runtime(adapter: Any, generated_block_bid: str) -> None:
     adapter._current_answer_element_bid = None
 
 
-def _latest_anchor_bid_from_messages(messages: list[Any]) -> str:
+def _latest_anchor_bid_from_messages(messages: list[object]) -> str:
     for message in reversed(messages):
         content = getattr(message, "content", None)
         if getattr(message, "type", "") != "element" or content is None:
@@ -353,9 +364,9 @@ def _latest_anchor_bid_from_messages(messages: list[Any]) -> str:
 
 
 def _emit_content_group(
-    adapter: Any,
+    adapter: object,
     block: LearnGeneratedBlock,
-) -> list[Any]:
+) -> list[object]:
     messages: list[Any] = []
     content = str(block.generated_content or "")
     for item in format_content(content):
@@ -371,9 +382,9 @@ def _emit_content_group(
 
 
 def _emit_interaction_group(
-    adapter: Any,
+    adapter: object,
     block: LearnGeneratedBlock,
-) -> list[Any]:
+) -> list[object]:
     event = RunMarkdownFlowDTO(
         outline_bid=block.outline_item_bid or "",
         generated_block_bid=block.generated_block_bid or "",
@@ -384,12 +395,12 @@ def _emit_interaction_group(
 
 
 def _emit_follow_up_group(
-    adapter: Any,
+    adapter: object,
     *,
     ask_block: LearnGeneratedBlock,
     answer_block: LearnGeneratedBlock,
     anchor_element_bid: str,
-) -> list[Any]:
+) -> list[object]:
     messages: list[Any] = []
     generated_block_bid = answer_block.generated_block_bid or ""
     ask_event = RunMarkdownFlowDTO(
@@ -605,22 +616,17 @@ def backfill_learn_generated_elements_for_progress(
     overwrite: bool = False,
     dry_run: bool = False,
 ) -> MdflowElementBackfillStats:
+    """Backfill learn generated elements for progress."""
     progress_record = _load_progress_record(progress_record_bid)
-    try:
-        stats = _process_progress_record(
+    # One unit of work per progress record: a dry run discards the staged
+    # rows on exit, a failure rolls them back, a real run commits them.
+    with unit_of_work(discard=dry_run):
+        return _process_progress_record(
             app,
             progress_record,
             overwrite=overwrite,
             dry_run=dry_run,
         )
-        if dry_run:
-            db.session.rollback()
-        else:
-            db.session.commit()
-        return stats
-    except Exception:
-        db.session.rollback()
-        raise
 
 
 def backfill_learn_generated_elements_batch(
@@ -632,6 +638,7 @@ def backfill_learn_generated_elements_batch(
     overwrite: bool = False,
     dry_run: bool = False,
 ) -> MdflowElementBackfillBatchStats:
+    """Backfill learn generated elements batch."""
     batch_stats = MdflowElementBackfillBatchStats(dry_run=dry_run)
     progress_records = _load_progress_records(
         progress_record_bids=progress_record_bids,

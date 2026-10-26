@@ -1,17 +1,8 @@
-import pytest
-
-# Path: test/test_flaskr.py
-# Compare this snippet from flaskr/plugin/test.py:
-# from ..service.schedule import *
-#
-
-# print("test_flaskr.py")
-# @pytest.fixture(scope="session", autouse=True)
-# def app():
-#     app = create_app('test_sifu')
-#     yield app
+"""Verify application factory ownership and reuse."""
 
 
-@pytest.fixture
-def test_client(app):
-    print("test_client")
+def test_create_app_reuses_the_owned_application(app: object) -> None:
+    from app import create_app
+
+    assert create_app() is app
+    assert app.extensions["serving_http"] is True

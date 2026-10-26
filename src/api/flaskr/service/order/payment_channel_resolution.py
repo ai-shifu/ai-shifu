@@ -1,21 +1,25 @@
+"""Handle payment channel resolution for legacy orders."""
+
 from __future__ import annotations
 
-from typing import Iterable, Optional, Tuple
+from typing import TYPE_CHECKING
 
 from flaskr.service.common.models import raise_error
 from flaskr.service.config import get_config
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
 
 def resolve_payment_channel(
     *,
-    payment_channel_hint: Optional[str],
-    channel_hint: Optional[str],
-    stored_channel: Optional[str],
-    default_pingxx_channel: Optional[str] = None,
-    additional_enabled_providers: Optional[Iterable[str]] = None,
-) -> Tuple[str, str]:
+    payment_channel_hint: str | None,
+    channel_hint: str | None,
+    stored_channel: str | None,
+    default_pingxx_channel: str | None = None,
+    additional_enabled_providers: Iterable[str] | None = None,
+) -> tuple[str, str]:
     """Resolve the payment provider and provider-specific channel from config."""
-
     requested_payment_channel = (payment_channel_hint or "").strip().lower()
     requested_channel = (channel_hint or "").strip()
     requested_channel_lower = requested_channel.lower()
@@ -140,6 +144,20 @@ def resolve_payment_channel(
     if not provider_channel:
         raise_error("server.pay.payChannelNotSupport")
     return "pingxx", provider_channel
+
+
+def resolve_market_payment_provider(
+    *, additional_enabled_providers: Iterable[str] | None = None
+) -> str:
+    """Return the market provider used to attribute orders that need no charge."""
+    provider, _ = resolve_payment_channel(
+        payment_channel_hint=None,
+        channel_hint=None,
+        stored_channel=None,
+        default_pingxx_channel="alipay_qr",
+        additional_enabled_providers=additional_enabled_providers,
+    )
+    return provider
 
 
 def _provider_for_channel(channel: str, enabled_providers: set[str]) -> str:

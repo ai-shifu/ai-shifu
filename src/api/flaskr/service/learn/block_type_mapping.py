@@ -1,3 +1,5 @@
+"""Map generated blocks to learner-facing element types."""
+
 from __future__ import annotations
 
 from flaskr.service.learn.const import ROLE_TEACHER
@@ -53,6 +55,7 @@ LIKE_STATUS_MAP = {
 
 
 def map_generated_block_type(block_type_value: int, role_value: int) -> BlockType:
+    """Map generated block type."""
     block_type = BLOCK_TYPE_MAP.get(block_type_value, BlockType.CONTENT)
     if block_type == BlockType.ASK and role_value == ROLE_TEACHER:
         return BlockType.ANSWER

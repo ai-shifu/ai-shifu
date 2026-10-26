@@ -16,13 +16,12 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_NOT_STARTED
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_TRIAL
-from flaskr.service.shifu.models import PublishedOutlineItem
+from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 USER_BID = "user-attend-00000000000000000001"
@@ -60,8 +59,10 @@ def _build_struct() -> HistoryItem:
 
 
 def _seed_leaf_outline_row() -> None:
+    dao.db.session.add(PublishedShifu(id=1, shifu_bid=SHIFU_BID, deleted=0))
     dao.db.session.add(
         PublishedOutlineItem(
+            id=4,
             outline_item_bid=LEAF_BID,
             shifu_bid=SHIFU_BID,
             title="leaf lesson",
@@ -80,7 +81,9 @@ def _make_context(app: Flask) -> RunScriptContextV2:
     ctx._is_paid = True
     ctx._preview_mode = False
     ctx._outline_model = PublishedOutlineItem
+    ctx._shifu_model = PublishedShifu
     ctx._struct = _build_struct()
+    ctx._current_outline_item = None
     # _recorder is a lazy property that builds RunRecorder(self.app) on
     # first use, so setting ctx.app above is enough.
     return ctx
@@ -95,9 +98,8 @@ def _rows_by_bid() -> dict[str, list[LearnProgressRecord]]:
     return rows
 
 
-def test_placeholders_carry_each_ancestors_own_bid(attend_app):
-    """One call creates exactly one row per outline node on the parent path,
-    each stamped with that node's own bid — not N copies of the leaf's bid."""
+def test_placeholders_carry_each_ancestors_own_bid(attend_app: object) -> None:
+    """One call creates exactly one row per outline node on the parent path, each stamped with that node's own bid — not N copies of the leaf's bid."""
     _seed_leaf_outline_row()
     ctx = _make_context(attend_app)
 
@@ -115,9 +117,8 @@ def test_placeholders_carry_each_ancestors_own_bid(attend_app):
         assert row.progress_record_bid
 
 
-def test_existing_ancestor_record_is_reused_not_duplicated(attend_app):
-    """An ancestor that already has a non-reset record keeps it; only the
-    missing nodes get placeholders."""
+def test_existing_ancestor_record_is_reused_not_duplicated(attend_app: object) -> None:
+    """An ancestor that already has a non-reset record keeps it; only the missing nodes get placeholders."""
     _seed_leaf_outline_row()
     existing = LearnProgressRecord(
         progress_record_bid="progress-existing-0000000000001",
@@ -143,7 +144,7 @@ def test_existing_ancestor_record_is_reused_not_duplicated(attend_app):
     assert len(rows[LEAF_BID]) == 1
 
 
-def test_second_call_returns_leaf_record_without_new_rows(attend_app):
+def test_second_call_returns_leaf_record_without_new_rows(attend_app: object) -> None:
     """A repeat call finds the leaf row via the fast path and stages nothing."""
     _seed_leaf_outline_row()
     ctx = _make_context(attend_app)
@@ -160,14 +161,16 @@ def test_second_call_returns_leaf_record_without_new_rows(attend_app):
     )
 
 
-def test_direct_ancestor_call_stamps_own_bids(attend_app):
-    """The hot-path call shape: ``render_outline_updates`` calls
-    ``_get_current_attend`` with ANCESTOR bids directly on chapter/unit
-    transitions. Each created row must carry its own node's bid, and the
-    returned record must be the requested node's — not the leaf's."""
+def test_direct_ancestor_call_stamps_own_bids(attend_app: object) -> None:
+    """The hot-path call shape: ``render_outline_updates`` calls ``_get_current_attend`` with ANCESTOR bids directly on chapter/unit transitions.
+
+    Each created row must carry its own node's bid, and the returned record must be the
+    requested node's — not the leaf's.
+    """
     _seed_leaf_outline_row()
     dao.db.session.add(
         PublishedOutlineItem(
+            id=3,
             outline_item_bid=UNIT_BID,
             shifu_bid=SHIFU_BID,
             title="unit",

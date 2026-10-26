@@ -1,36 +1,43 @@
+"""Verify provider public URLs behavior."""
+
 from __future__ import annotations
 
 import json
-
-from flask import Flask
-import pytest
+from typing import TYPE_CHECKING
 
 import flaskr.common.config as common_config
+import pytest
+from flask import Flask
 from flaskr.service.order.payment_providers.alipay import AlipayProvider
 from flaskr.service.order.payment_providers.base import PaymentRequest
 from flaskr.service.order.payment_providers.stripe import StripeProvider
 from flaskr.service.order.payment_providers.wechatpay import WechatPayProvider
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
-        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 @pytest.fixture(autouse=True)
-def clear_provider_public_url_config_cache():
+def clear_provider_public_url_config_cache() -> Iterator[None]:
     keys = (
         "HOST_URL",
         "PATH_PREFIX",
         "WECHATPAY_APP_ID",
         "WECHATPAY_MCH_ID",
+        "STRIPE_ALIPAY_ENABLED",
+        "STRIPE_WECHAT_PAY_ENABLED",
     )
     _reset_config_cache(*keys)
     yield
     _reset_config_cache(*keys)
 
 
-def test_alipay_precreate_uses_host_url_notify_url(monkeypatch):
+def test_alipay_precreate_uses_host_url_notify_url(monkeypatch: object) -> None:
     monkeypatch.setenv("HOST_URL", "https://pay.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
@@ -41,11 +48,11 @@ def test_alipay_precreate_uses_host_url_notify_url(monkeypatch):
         pass
 
     class FakePrecreateRequest:
-        def __init__(self, *, biz_model):
+        def __init__(self, *, biz_model: object) -> None:
             self.biz_model = biz_model
 
     class FakeClient:
-        def execute(self, precreate_request):
+        def execute(self, precreate_request: object) -> object:
             captured["notify_url"] = precreate_request.notify_url
             return {
                 "alipay_trade_precreate_response": {
@@ -87,7 +94,7 @@ def test_alipay_precreate_uses_host_url_notify_url(monkeypatch):
     assert result.extra["raw_request"]["notify_url"] == captured["notify_url"]
 
 
-def test_wechatpay_native_uses_host_url_notify_url(monkeypatch):
+def test_wechatpay_native_uses_host_url_notify_url(monkeypatch: object) -> None:
     monkeypatch.setenv("HOST_URL", "https://pay.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     monkeypatch.setenv("WECHATPAY_APP_ID", "wx-app-1")
@@ -103,7 +110,9 @@ def test_wechatpay_native_uses_host_url_notify_url(monkeypatch):
 
     provider = WechatPayProvider()
 
-    def fake_request(*, method, path, body, app):
+    def fake_request(
+        *, method: object, path: object, body: object, app: object
+    ) -> object:
         del method, path, app
         captured.update(json.loads(body))
         return {"code_url": "https://wechatpay.test/qr"}
@@ -133,26 +142,26 @@ def test_wechatpay_native_uses_host_url_notify_url(monkeypatch):
 
 
 def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempotency(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     captured_coupon: dict[str, object] = {}
     captured_session: dict[str, object] = {}
 
     class FakeCoupon:
         @staticmethod
-        def create(**kwargs):
+        def create(**kwargs: object) -> dict[str, str]:
             captured_coupon.update(kwargs)
             return {"id": "coupon-1"}
 
     class FakeSession:
         @staticmethod
-        def create(**kwargs):
+        def create(**kwargs: object) -> object:
             captured_session.update(kwargs)
             return type(
                 "SessionResponse",
                 (),
                 {
-                    "to_dict": lambda self: {
+                    "to_dict": lambda _self: {
                         "id": "cs_1",
                         "url": "https://stripe.test/checkout",
                         "payment_intent": "",
@@ -212,24 +221,156 @@ def test_stripe_subscription_discount_coupon_uses_lowercase_currency_and_idempot
     assert captured_session["stripe_version"] == "2024-06-20"
 
 
+def test_stripe_subscription_checkout_uses_card_only(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setenv("STRIPE_ALIPAY_ENABLED", "true")
+    monkeypatch.setenv("STRIPE_WECHAT_PAY_ENABLED", "true")
+    _reset_config_cache("STRIPE_ALIPAY_ENABLED", "STRIPE_WECHAT_PAY_ENABLED")
+    captured_session: dict[str, object] = {}
+
+    class FakeSession:
+        @staticmethod
+        def create(**kwargs: object) -> object:
+            captured_session.update(kwargs)
+            return type(
+                "SessionResponse",
+                (),
+                {
+                    "to_dict": lambda _self: {
+                        "id": "cs_subscription_1",
+                        "url": "https://stripe.test/checkout",
+                        "payment_intent": "",
+                    }
+                },
+            )()
+
+    class FakeCheckout:
+        Session = FakeSession
+
+    class FakeStripe:
+        checkout = FakeCheckout
+
+    provider = StripeProvider()
+    monkeypatch.setattr(provider, "_client_options", lambda _app: (FakeStripe, {}))
+
+    result = provider.create_subscription(
+        request=PaymentRequest(
+            order_bid="bill-order-subscription-methods",
+            user_bid="creator-1",
+            shifu_bid="",
+            amount=5900,
+            channel="checkout_session",
+            currency="USD",
+            subject="Creator Plan",
+            body="Creator Plan",
+            client_ip="127.0.0.1",
+            extra={
+                "success_url": "https://app.test/success",
+                "cancel_url": "https://app.test/cancel",
+                "line_items": [{"price": "price_1", "quantity": 1}],
+            },
+        ),
+        app=Flask(__name__),
+    )
+
+    assert result.checkout_session_id == "cs_subscription_1"
+    assert captured_session["mode"] == "subscription"
+    assert captured_session["payment_method_types"] == ["card"]
+    assert "payment_method_options" not in captured_session
+
+
+def test_stripe_payment_checkout_keeps_wechat_pay_when_enabled(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setenv("STRIPE_ALIPAY_ENABLED", "true")
+    monkeypatch.setenv("STRIPE_WECHAT_PAY_ENABLED", "true")
+    _reset_config_cache("STRIPE_ALIPAY_ENABLED", "STRIPE_WECHAT_PAY_ENABLED")
+    captured_session: dict[str, object] = {}
+
+    class FakeSession:
+        @staticmethod
+        def create(**kwargs: object) -> object:
+            captured_session.update(kwargs)
+            return type(
+                "SessionResponse",
+                (),
+                {
+                    "to_dict": lambda _self: {
+                        "id": "cs_payment_1",
+                        "url": "https://stripe.test/checkout",
+                        "payment_intent": "",
+                    }
+                },
+            )()
+
+    class FakeCheckout:
+        Session = FakeSession
+
+    class FakeStripe:
+        checkout = FakeCheckout
+
+    provider = StripeProvider()
+    monkeypatch.setattr(provider, "_client_options", lambda _app: (FakeStripe, {}))
+
+    result = provider.create_payment(
+        request=PaymentRequest(
+            order_bid="bill-order-payment-methods",
+            user_bid="creator-1",
+            shifu_bid="",
+            amount=12500,
+            channel="checkout_session",
+            currency="USD",
+            subject="Credits",
+            body="Credits",
+            client_ip="127.0.0.1",
+            extra={
+                "mode": "checkout_session",
+                "success_url": "https://app.test/success",
+                "cancel_url": "https://app.test/cancel",
+                "session_params": {"mode": "payment"},
+                "line_items": [{"price": "price_1", "quantity": 1}],
+            },
+        ),
+        app=Flask(__name__),
+    )
+
+    assert result.checkout_session_id == "cs_payment_1"
+    assert captured_session["mode"] == "payment"
+    assert captured_session["payment_method_types"] == ["card", "alipay", "wechat_pay"]
+    assert captured_session["payment_method_options"] == {
+        "wechat_pay": {"client": "web"}
+    }
+    assert captured_session["metadata"] == {
+        "order_bid": "bill-order-payment-methods",
+        "user_bid": "creator-1",
+        "shifu_bid": "",
+    }
+    assert (
+        captured_session["payment_intent_data"]["metadata"]
+        == (captured_session["metadata"])
+    )
+
+
 def test_stripe_subscription_discount_coupon_is_cleaned_up_on_session_failure(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     deleted: list[str] = []
 
     class FakeCoupon:
         @staticmethod
-        def create(**_kwargs):
+        def create(**_kwargs: object) -> dict[str, str]:
             return {"id": "coupon-cleanup-1"}
 
         @staticmethod
-        def delete(coupon_id, **_kwargs):
+        def delete(coupon_id: object, **_kwargs: object) -> None:
             deleted.append(coupon_id)
 
     class FakeSession:
         @staticmethod
-        def create(**_kwargs):
-            raise RuntimeError("session failed")
+        def create(**_kwargs: object) -> None:
+            message = "session failed"
+            raise RuntimeError(message)
 
     class FakeCheckout:
         Session = FakeSession

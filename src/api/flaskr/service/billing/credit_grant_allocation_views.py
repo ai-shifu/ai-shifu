@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from decimal import Decimal
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from flask import has_app_context
-
 from flaskr.dao import db
 
 from .bucket_categories import (
@@ -33,8 +30,13 @@ from .consts import (
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
 )
-from .models import CreditLedgerEntry, CreditWalletBucket
 from .primitives import normalize_json_object, to_decimal
+
+if TYPE_CHECKING:
+    from datetime import datetime
+    from decimal import Decimal
+
+    from .models import CreditLedgerEntry, CreditWalletBucket
 
 CreditAssetKind = Literal[
     "plan_credits",
@@ -131,7 +133,6 @@ def build_credit_allocation_view(
     load_order_type: OrderTypeLoader | None = None,
 ) -> CreditAllocationView:
     """Interpret an existing bucket without mutating it."""
-
     bucket_category = int(bucket.bucket_category or 0)
     source_type = int(bucket.source_type or 0)
     source_bid = str(bucket.source_bid or "")
@@ -181,7 +182,6 @@ def build_credit_grant_view(
     load_order_type: OrderTypeLoader | None = None,
 ) -> CreditGrantView:
     """Interpret an existing ledger grant without mutating it."""
-
     safe_load_order_type = _wrap_order_type_loader(load_order_type)
     ledger_deleted = int(ledger.deleted or 0) != 0
     ledger_asset_kind = (
@@ -240,7 +240,6 @@ def resolve_credit_asset_kind(
     load_order_type: OrderTypeLoader | None = None,
 ) -> CreditAssetKind:
     """Map current storage records to canonical credit product semantics."""
-
     safe_load_order_type = _wrap_order_type_loader(load_order_type)
     evidence: list[CreditAssetKind] = []
     invalid_evidence = False
@@ -298,6 +297,7 @@ def resolve_credit_asset_kind(
 
 
 def resolve_credit_grant_state(ledger: CreditLedgerEntry) -> CreditGrantState:
+    """Resolve credit grant state."""
     if int(ledger.entry_type or 0) != CREDIT_LEDGER_ENTRY_TYPE_GRANT:
         return "not_grant"
 
@@ -521,7 +521,7 @@ def _asset_kind_from_metadata_value(
 
 
 def _asset_kind_from_bucket_category(
-    bucket_category: int | float | None,
+    bucket_category: float | None,
 ) -> tuple[CreditAssetKind | None, bool]:
     try:
         category = int(bucket_category or 0)

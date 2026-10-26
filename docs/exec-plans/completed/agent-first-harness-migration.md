@@ -107,7 +107,7 @@ diagnostics script.
 - Reorganize `docs/` and add the new root docs.
 - Add metadata to `docs/design-docs/*.md` and `docs/product-specs/*.md`.
 - Generate indexes and inventory files from the new structure.
-- Update `AGENTS.md`, `src/api/AGENTS.md`, and `src/cook-web/AGENTS.md`.
+- Update `AGENTS.md`, `src/api/AGENTS.md`, and `src/web/AGENTS.md`.
 - Add `scripts/check_repo_harness.py` and make
   `scripts/check_ai_collab_docs.py` a compatibility wrapper.
 - Add Playwright config, smoke tests, and backend request-id diagnostics.
@@ -117,7 +117,7 @@ diagnostics script.
 - `python scripts/generate_ai_collab_docs.py`
 - `python scripts/build_repo_knowledge_index.py`
 - `python scripts/check_repo_harness.py`
-- `cd src/cook-web && npm run test:e2e`
+- `cd src/web && npm run test:e2e`
 
 ## Idempotence and Recovery
 
@@ -131,4 +131,4 @@ local dev stack is unavailable, the validation summary must say so explicitly.
 - `docs/generated/doc-inventory.md` and generated index pages are build
   artifacts owned by `scripts/build_repo_knowledge_index.py`.
 - `scripts/check_repo_harness.py` becomes the standard harness validator.
-- `@playwright/test` provides the browser smoke harness in `src/cook-web`.
+- `@playwright/test` provides the browser smoke harness in `src/web`.

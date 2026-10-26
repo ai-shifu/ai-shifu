@@ -1,4 +1,4 @@
-"""add sys configs
+"""add sys configs.
 
 Revision ID: 21a3e778ef01
 Revises: 6b603528dac8
@@ -6,8 +6,8 @@ Create Date: 2025-11-12 13:47:30.234600
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.

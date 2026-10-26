@@ -47,7 +47,7 @@ filter query, import activation, and create-redemption behavior.
 
 ## Outcomes & Retrospective
 
-- `src/cook-web/src/app/admin/orders/page.tsx` is reduced from 1,284 lines to
+- `src/web/src/app/admin/orders/page.tsx` is reduced from 1,284 lines to
   about 700 lines after the first split.
 - The route entry still contains order data orchestration and can be split again
   later into `useOrdersList` if reviewers want a second, narrower PR.
@@ -56,12 +56,12 @@ filter query, import activation, and create-redemption behavior.
 
 Relevant files:
 
-- `src/cook-web/src/app/admin/orders/page.tsx`
-- `src/cook-web/src/app/admin/orders/OrdersFilterPanel.tsx`
-- `src/cook-web/src/app/admin/orders/OrdersTable.tsx`
-- `src/cook-web/src/app/admin/orders/ordersPageShared.ts`
-- `src/cook-web/src/app/admin/orders/page.test.tsx`
-- `src/cook-web/src/app/admin/orders/CreatorRedemptionCodesTab.tsx`
+- `src/web/src/app/admin/orders/page.tsx`
+- `src/web/src/app/admin/orders/OrdersFilterPanel.tsx`
+- `src/web/src/app/admin/orders/OrdersTable.tsx`
+- `src/web/src/app/admin/orders/ordersPageShared.ts`
+- `src/web/src/app/admin/orders/page.test.tsx`
+- `src/web/src/app/admin/orders/CreatorRedemptionCodesTab.tsx`
 
 ## Plan of Work
 
@@ -84,9 +84,9 @@ Relevant files:
 
 ## Validation and Acceptance
 
-- `cd src/cook-web && npm test -- --runTestsByPath src/app/admin/orders/page.test.tsx`
-- `cd src/cook-web && npm run type-check`
-- `cd src/cook-web && npm run lint -- --file src/app/admin/orders/page.tsx --file src/app/admin/orders/OrdersFilterPanel.tsx --file src/app/admin/orders/OrdersTable.tsx --file src/app/admin/orders/ordersPageShared.ts --file src/app/admin/orders/page.test.tsx`
+- `cd src/web && npm test -- --runTestsByPath src/app/admin/orders/page.test.tsx`
+- `cd src/web && npm run type-check`
+- `cd src/web && npm run lint -- --file src/app/admin/orders/page.tsx --file src/app/admin/orders/OrdersFilterPanel.tsx --file src/app/admin/orders/OrdersTable.tsx --file src/app/admin/orders/ordersPageShared.ts --file src/app/admin/orders/page.test.tsx`
 - `python scripts/check_repo_harness.py` after generated docs refresh.
 - `git diff --check`
 

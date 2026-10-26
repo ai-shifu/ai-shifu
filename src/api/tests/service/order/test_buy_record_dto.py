@@ -1,7 +1,9 @@
+"""Protect buy record data-transfer serialization contracts."""
+
 from flaskr.service.order.funs import BuyRecordDTO
 
 
-def test_buy_record_dto_json_includes_payment_payload():
+def test_buy_record_dto_json_includes_payment_payload() -> None:
     dto = BuyRecordDTO(
         record_id="order-1",
         user_id="user-1",

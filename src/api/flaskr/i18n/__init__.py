@@ -1,19 +1,25 @@
-from collections import defaultdict
+"""Backend translation loading and lookup."""
+
 import importlib.util
 import json
 import os
-from pathlib import Path
 import threading
-from typing import Dict, Iterable, List
+from collections import defaultdict
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from flask import Flask
 
 from flaskr.common.config import get_config
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
 TRANSLATIONS_DEFAULT_NAME = "i18n"
 
 _thread_local = threading.local()
-_translations: Dict[str, Dict[str, str]] = defaultdict(dict)
+_translations: dict[str, dict[str, str]] = defaultdict(dict)
+_locale_labels: dict[str, str] = {}
 
 
 def _shared_json_root() -> Path:
@@ -38,9 +44,9 @@ def _shared_json_root() -> Path:
     return Path(__file__).resolve().parents[2] / "i18n"
 
 
-def _flatten_dict(data, prefix: str = ""):
+def _flatten_dict(data: object, prefix: str = "") -> dict[str, object]:
     if not isinstance(data, dict):
-        key = prefix if prefix else ""
+        key = prefix or ""
         return {key: data} if key else {}
 
     flattened = {}
@@ -54,14 +60,14 @@ def _flatten_dict(data, prefix: str = ""):
     return flattened
 
 
-def _store_translation(lang: str, key: str, value):
+def _store_translation(lang: str, key: str, value: object) -> None:
     if value is None:
         return
     _translations[lang][key] = value
     _translations[lang][key.upper()] = value
 
 
-def _load_json_translations(app: Flask, root: Path):
+def _load_json_translations(app: Flask, root: Path) -> None:
     if not root.exists():
         app.logger.debug("i18n JSON directory not found: %s", root)
         return
@@ -72,10 +78,20 @@ def _load_json_translations(app: Flask, root: Path):
     if metadata_path.exists():
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            language_codes = metadata.get("locales", {}).keys()
-        except Exception as exc:  # pragma: no cover - defensive log
-            app.logger.error(
-                "Failed to parse locales metadata at %s: %s", metadata_path, exc
+            locales = metadata.get("locales", {})
+            if isinstance(locales, dict):
+                language_codes = locales.keys()
+                _locale_labels.update(
+                    {
+                        str(code): config.get("label", str(code))
+                        if isinstance(config, dict)
+                        else str(code)
+                        for code, config in locales.items()
+                    }
+                )
+        except Exception:  # pragma: no cover - defensive log
+            app.logger.exception(
+                "Failed to parse locales metadata at %s", metadata_path
             )
 
     if not language_codes:
@@ -106,10 +122,8 @@ def _load_json_translations(app: Flask, root: Path):
                 namespace = file_path.stem
             try:
                 content = json.loads(file_path.read_text(encoding="utf-8"))
-            except Exception as exc:  # pragma: no cover - IO errors are logged
-                app.logger.error(
-                    "Failed to load translation file %s: %s", file_path, exc
-                )
+            except Exception:  # pragma: no cover - IO errors are logged
+                app.logger.exception("Failed to load translation file %s", file_path)
                 continue
 
             flat_entries = {}
@@ -145,13 +159,12 @@ def _load_json_translations(app: Flask, root: Path):
                     _store_translation(lang, key, value)
 
 
-def _validate_json_translations(app: Flask, root: Path):
+def _validate_json_translations(root: Path) -> None:
     if not root.exists():
-        raise FileNotFoundError(
-            f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
-        )
+        message = f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
+        raise FileNotFoundError(message)
 
-    problems: List[str] = []
+    problems: list[str] = []
 
     metadata_path = root / "locales.json"
     metadata_declared_locales: set[str] = set()
@@ -210,24 +223,26 @@ def _validate_json_translations(app: Flask, root: Path):
                 problems.append(f"Malformed JSON in {file_path}: {exc}")
 
     if problems:
-        details = "\n - ".join(["Detected translation issues:"] + problems)
+        details = "\n - ".join(["Detected translation issues:", *problems])
         raise RuntimeError(details)
 
 
-def _load_python_translations(app: Flask, translations_dir: Path):
+def _load_python_translations(app: Flask, translations_dir: Path) -> None:
     if not translations_dir.exists():
         return
 
-    for lang in os.listdir(translations_dir):
-        lang_dir = os.path.join(translations_dir, lang)
-        if os.path.isdir(lang_dir) and lang_dir != "__pycache__" and lang_dir[0] != ".":
+    for lang in (path.name for path in translations_dir.iterdir()):
+        lang_dir = str(Path(translations_dir) / lang)
+        if Path(lang_dir).is_dir() and lang_dir != "__pycache__" and lang_dir[0] != ".":
             app.logger.info("load_python_translations lang: %s", lang)
-            for module_name in os.listdir(lang_dir):
-                module_path = os.path.join(lang_dir, module_name)
-                if os.path.isdir(module_path):
-                    for file_name in os.listdir(module_path):
+            for module_name in (path.name for path in Path(lang_dir).iterdir()):
+                module_path = str(Path(lang_dir) / module_name)
+                if Path(module_path).is_dir():
+                    for file_name in (
+                        path.name for path in Path(module_path).iterdir()
+                    ):
                         if file_name.endswith(".py"):
-                            file_path = os.path.join(module_path, file_name)
+                            file_path = str(Path(module_path) / file_name)
                             spec = importlib.util.spec_from_file_location(
                                 module_name, file_path
                             )
@@ -243,7 +258,8 @@ def _load_python_translations(app: Flask, translations_dir: Path):
                                     )
 
 
-def load_translations(app: Flask, translations_dir=None):
+def load_translations(app: Flask, translations_dir: object = None) -> None:
+    """Load translations."""
     if translations_dir:
         base_path = Path(translations_dir)
         _load_json_translations(app, base_path)
@@ -251,19 +267,21 @@ def load_translations(app: Flask, translations_dir=None):
         return
 
     _translations.clear()
+    _locale_labels.clear()
 
     shared_root = _shared_json_root()
     try:
-        _validate_json_translations(app, shared_root)
-    except Exception as exc:
-        app.logger.error("i18n validation failed: %s", exc)
+        _validate_json_translations(shared_root)
+    except Exception:
+        app.logger.exception("i18n validation failed")
         raise
 
     _load_json_translations(app, shared_root)
     _load_python_translations(app, Path(__file__).resolve().parent)
 
 
-def translate_for_language(text: str, language: str | None = None):
+def translate_for_language(text: str, language: str | None = None) -> str:
+    """Translate for language."""
     language = language or getattr(_thread_local, "language", "en-US")
     translations = _translations.get(language) or {}
     default_translations = _translations.get("en-US", {})
@@ -276,32 +294,43 @@ def translate_for_language(text: str, language: str | None = None):
     )
 
 
-def _(text: str):
+def _(text: str) -> str:
     return translate_for_language(text)
 
 
-def get_current_language():
+def get_current_language() -> str:
     return getattr(_thread_local, "language", "en-US")
 
 
-def set_language(language):
+def set_language(language: object) -> None:
+    """Set language."""
     _thread_local.language = language
 
 
-def clear_language():
+def clear_language() -> None:
+    """Clear language."""
     if hasattr(_thread_local, "language"):
         delattr(_thread_local, "language")
 
 
-def get_i18n_list(app: Flask):
+def get_i18n_list() -> list[str]:
+    """Return i18n list."""
     return list(_translations.keys())
+
+
+def get_locale_labels() -> dict[str, str]:
+    """Return locale codes and native labels from the shared metadata registry."""
+    if _locale_labels:
+        return _locale_labels.copy()
+    return {language: language for language in _translations}
 
 
 __all__ = [
     "_",
-    "translate_for_language",
-    "set_language",
     "clear_language",
     "get_i18n_list",
+    "get_locale_labels",
     "load_translations",
+    "set_language",
+    "translate_for_language",
 ]

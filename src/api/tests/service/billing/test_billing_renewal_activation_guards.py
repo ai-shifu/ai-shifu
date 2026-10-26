@@ -1,11 +1,12 @@
+"""Verify billing renewal activation guards behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
 
 import pytest
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing import subscriptions as subscriptions_mod
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_START,
@@ -20,6 +21,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+
 from tests.service.billing.cycle_state_test_helpers import (
     add_reserved_renewal_activation_state,
     build_cycle_state_app,
@@ -36,7 +38,7 @@ def test_pingxx_renewal_activation_defers_before_cycle_start() -> None:
         metadata_json={"renewal_cycle_start_at": renewal_cycle_start.isoformat()},
     )
 
-    assert subscriptions_mod._should_defer_pingxx_renewal_activation(order) is True
+    assert subscriptions_mod._should_defer_manual_renewal_activation(order) is True
 
 
 @pytest.mark.parametrize(
@@ -74,7 +76,7 @@ def test_pingxx_renewal_activation_does_not_defer_when_guard_fails(
 ) -> None:
     order = create_cycle_state_renewal_order(**order_kwargs)
 
-    assert subscriptions_mod._should_defer_pingxx_renewal_activation(order) is False
+    assert subscriptions_mod._should_defer_manual_renewal_activation(order) is False
 
 
 @pytest.mark.parametrize(
@@ -98,8 +100,12 @@ def test_pingxx_renewal_activation_does_not_defer_when_guard_fails(
             },
             "manual",
         ),
+        (
+            {"checkout_type": "cache_overcharge_bonus_plan"},
+            "manual",
+        ),
     ],
-    ids=("pingxx", "preorder", "referral"),
+    ids=("pingxx", "preorder", "referral", "cache_overcharge_bonus_plan"),
 )
 def test_subscription_renewal_activation_defers_future_boundary(
     monkeypatch: pytest.MonkeyPatch,

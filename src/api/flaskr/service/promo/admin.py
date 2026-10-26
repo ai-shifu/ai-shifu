@@ -1,17 +1,17 @@
+"""Implement administrative operations for promotions."""
+
 from __future__ import annotations
 
 import decimal
 import json
+import math
 import secrets
 import string
-from datetime import datetime, timedelta, timezone
-import math
-from typing import Dict, Optional
-
-from flask import Flask
-from sqlalchemy import and_, case, func, not_, or_
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.order.api import (
     ORDER_STATUS_KEY_MAP,
@@ -64,9 +64,16 @@ from flaskr.service.promo.models import (
     PromoRedemption,
 )
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-from flaskr.util.datetime import now_utc
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.datetime import now_utc, parse_naive_utc
 from flaskr.util.uuid import generate_id
+from sqlalchemy import and_, case, func, not_, or_
+
+if TYPE_CHECKING:
+    from flask import Flask
+    from flask_sqlalchemy.query import Query
+    from sqlalchemy.sql.elements import ColumnElement
 
 PROMOTION_SCOPE_ALL_COURSES = "all_courses"
 PROMOTION_SCOPE_SINGLE_COURSE = "single_course"
@@ -112,7 +119,7 @@ def _parse_datetime(value: str, field_name: str, *, is_end: bool = False) -> dat
         raise_param_error(field_name)
     # Date-only filters fill the day bounds (UTC wall-clock day).
     try:
-        date_only = datetime.strptime(normalized, "%Y-%m-%d")
+        date_only = parse_naive_utc(normalized, "%Y-%m-%d")
     except ValueError:
         date_only = None
     if date_only is not None:
@@ -129,14 +136,14 @@ def _parse_datetime(value: str, field_name: str, *, is_end: bool = False) -> dat
     except ValueError:
         for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"):
             try:
-                parsed = datetime.strptime(candidate, fmt)
+                parsed = parse_naive_utc(candidate, fmt)
                 break
             except ValueError:
                 continue
     if parsed is None:
         raise_param_error(field_name)
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
     return parsed
 
 
@@ -167,6 +174,7 @@ def _parse_bool_value(value: object, field_name: str) -> bool:
     if normalized in {"false", "0"}:
         return False
     raise_param_error(field_name)
+    return None
 
 
 def _resolve_update_datetime(
@@ -235,7 +243,7 @@ def _build_like_pattern(keyword: str) -> str:
     return f"%{escaped}%"
 
 
-def _build_user_keyword_query(keyword: str):
+def _build_user_keyword_query(keyword: str) -> Query:
     like_pattern = _build_like_pattern(keyword)
     return (
         db.session.query(UserEntity.user_bid)
@@ -267,7 +275,9 @@ def _build_user_keyword_query(keyword: str):
     )
 
 
-def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields):
+def _apply_keyword_filter(
+    query: object, keyword: str, user_bid_field: object, *text_fields: object
+) -> Query:
     normalized = str(keyword or "").strip().lower()
     if not normalized:
         return query
@@ -280,7 +290,7 @@ def _apply_keyword_filter(query, keyword: str, user_bid_field, *text_fields):
     return query.filter(or_(*keyword_filters))
 
 
-def _build_coupon_status_filter(status: str):
+def _build_coupon_status_filter(status: str) -> ColumnElement[bool] | None:
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None
@@ -305,9 +315,10 @@ def _build_coupon_status_filter(status: str):
             Coupon.end < now,
         )
     raise_param_error("status")
+    return None
 
 
-def _build_campaign_status_filter(status: str):
+def _build_campaign_status_filter(status: str) -> ColumnElement[bool] | None:
     normalized = str(status or "").strip().lower()
     if not normalized:
         return None
@@ -332,6 +343,7 @@ def _build_campaign_status_filter(status: str):
             PromoCampaign.end_at < now,
         )
     raise_param_error("status")
+    return None
 
 
 def _generate_random_coupon_code(length: int = 12) -> str:
@@ -352,6 +364,7 @@ def _generate_unique_coupon_code() -> str:
         if not usage_exists:
             return code
     raise_error("server.discount.couponCodeGenerationFailed")
+    return None
 
 
 def _generate_unique_coupon_codes(count: int) -> list[str]:
@@ -520,8 +533,8 @@ def _compute_campaign_status(campaign: PromoCampaign) -> str:
 
 def _build_coupon_item(
     coupon: Coupon,
-    course_map: Dict[str, DraftShifu | PublishedShifu],
-    user_name_map: Dict[str, str] | None = None,
+    course_map: dict[str, DraftShifu | PublishedShifu],
+    user_name_map: dict[str, str] | None = None,
 ) -> AdminPromotionCouponItemDTO:
     scope_type, shifu_bid = _parse_coupon_scope(coupon.filter or "{}")
     course = course_map.get(shifu_bid)
@@ -562,11 +575,11 @@ def _build_coupon_item(
 
 def _build_campaign_item(
     campaign: PromoCampaign,
-    course_map: Dict[str, DraftShifu | PublishedShifu],
+    course_map: dict[str, DraftShifu | PublishedShifu],
     applied_order_count: int,
     total_discount_amount: decimal.Decimal,
     has_redemptions: bool,
-    user_name_map: Dict[str, str] | None = None,
+    user_name_map: dict[str, str] | None = None,
 ) -> AdminPromotionCampaignItemDTO:
     computed_status = _compute_campaign_status(campaign)
     course = course_map.get(campaign.shifu_bid or "")
@@ -598,7 +611,7 @@ def _build_campaign_item(
     )
 
 
-def _load_user_name_map(user_bids: list[str]) -> Dict[str, str]:
+def _load_user_name_map(user_bids: list[str]) -> dict[str, str]:
     if not user_bids:
         return {}
     users = UserEntity.query.filter(UserEntity.user_bid.in_(user_bids)).all()
@@ -632,7 +645,7 @@ def _find_course_bids_by_name(keyword: str) -> set[str]:
 
 
 def _list_promotion_coupons(
-    page: int, page_size: int, filters: dict, base_query
+    page: int, page_size: int, filters: dict, base_query: object
 ) -> AdminPromotionListResponseDTO:
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     query = base_query
@@ -807,6 +820,7 @@ def _list_promotion_coupons(
 def list_operator_promotion_coupons(
     app: Flask, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion coupons."""
     del app
     return _list_promotion_coupons(
         page,
@@ -857,7 +871,8 @@ def _campaign_strategy_fields_editable(campaign: PromoCampaign) -> bool:
 def create_operator_promotion_coupon(
     app: Flask, operator_user_bid: str, payload: dict
 ) -> dict:
-    with app.app_context():
+    """Create operator promotion coupon."""
+    with app_context_scope(app), unit_of_work():
         name = str(payload.get("name", "") or "").strip()
         if not name:
             raise_param_error("name")
@@ -868,7 +883,7 @@ def create_operator_promotion_coupon(
         if discount_type not in {COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT}:
             raise_param_error("discount_type")
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         total_count = payload.get("total_count")
         if total_count in (None, ""):
@@ -934,14 +949,14 @@ def create_operator_promotion_coupon(
                 )
             )
 
-        db.session.commit()
         return {"coupon_bid": coupon.coupon_bid}
 
 
 def update_operator_promotion_coupon(
     app: Flask, operator_user_bid: str, coupon_bid: str, payload: dict
 ) -> dict:
-    with app.app_context():
+    """Update operator promotion coupon."""
+    with app_context_scope(app), unit_of_work():
         coupon = _load_coupon_or_404(coupon_bid)
         name = str(payload.get("name", "") or "").strip()
         if not name:
@@ -956,7 +971,7 @@ def update_operator_promotion_coupon(
             raise_param_error("discount_type")
 
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         if value != decimal.Decimal(coupon.value or 0).quantize(
             decimal.Decimal("0.01")
@@ -1051,13 +1066,13 @@ def update_operator_promotion_coupon(
                     )
                 )
 
-        db.session.commit()
         return {"coupon_bid": coupon.coupon_bid}
 
 
 def get_operator_promotion_coupon_detail(
     app: Flask, coupon_bid: str
 ) -> AdminPromotionCouponDetailDTO:
+    """Return operator promotion coupon detail."""
     del app
     coupon = _load_coupon_or_404(coupon_bid)
     scope_type, shifu_bid = _parse_coupon_scope(coupon.filter or "{}")
@@ -1097,7 +1112,8 @@ def get_operator_promotion_coupon_detail(
 def update_operator_promotion_coupon_status(
     app: Flask, operator_user_bid: str, coupon_bid: str, enabled: object
 ) -> dict:
-    with app.app_context():
+    """Update operator promotion coupon status."""
+    with app_context_scope(app), unit_of_work():
         enabled_value = _parse_bool_value(enabled, "enabled")
         coupon = _load_coupon_or_404(coupon_bid)
         if enabled_value and not _coupon_is_enableable(coupon):
@@ -1108,11 +1124,10 @@ def update_operator_promotion_coupon_status(
             else COUPON_BATCH_STATUS_INACTIVE
         )
         coupon.updated_user_bid = operator_user_bid
-        db.session.commit()
         return {"coupon_bid": coupon.coupon_bid, "enabled": enabled_value}
 
 
-def _load_order_map(order_bids: list[str]) -> Dict[str, Order]:
+def _load_order_map(order_bids: list[str]) -> dict[str, Order]:
     if not order_bids:
         return {}
     orders = Order.query.filter(Order.order_bid.in_(order_bids)).all()
@@ -1120,7 +1135,7 @@ def _load_order_map(order_bids: list[str]) -> Dict[str, Order]:
 
 
 def _calculate_coupon_usage_discount_amount(
-    order: Optional[Order], usage: CouponUsage
+    order: Order | None, usage: CouponUsage
 ) -> str:
     if order is None:
         return _format_decimal(usage.value)
@@ -1130,14 +1145,14 @@ def _calculate_coupon_usage_discount_amount(
         int(usage.discount_type or COUPON_TYPE_FIXED),
         decimal.Decimal(usage.value or 0),
     )
-    if discount_amount > payable_price:
-        discount_amount = payable_price
+    discount_amount = min(discount_amount, payable_price)
     return _format_decimal(discount_amount)
 
 
 def list_operator_promotion_coupon_usages(
     app: Flask, coupon_bid: str, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion coupon usages."""
     del app
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     _load_coupon_or_404(coupon_bid)
@@ -1251,6 +1266,7 @@ def list_operator_promotion_coupon_usages(
 def list_operator_promotion_coupon_codes(
     app: Flask, coupon_bid: str, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion coupon codes."""
     del app
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     _load_coupon_or_404(coupon_bid)
@@ -1340,7 +1356,7 @@ def list_operator_promotion_coupon_codes(
     return _build_paged_response(summary, page, page_size, summary.total, items)
 
 
-def _load_redemption_stats(promo_bids: list[str]) -> Dict[str, dict]:
+def _load_redemption_stats(promo_bids: list[str]) -> dict[str, dict]:
     if not promo_bids:
         return {}
     rows = (
@@ -1406,6 +1422,7 @@ def _load_redemption_stats(promo_bids: list[str]) -> Dict[str, dict]:
 def list_operator_promotion_campaigns(
     app: Flask, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion campaigns."""
     del app
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     query = PromoCampaign.query.filter(
@@ -1571,7 +1588,7 @@ def list_operator_promotion_campaigns(
             course_map,
             int(stats_map.get(campaign.promo_bid or "", {}).get("count", 0)),
             stats_map.get(campaign.promo_bid or "", {}).get(
-                "discount_amount", decimal.Decimal("0")
+                "discount_amount", decimal.Decimal(0)
             ),
             bool(
                 stats_map.get(campaign.promo_bid or "", {}).get("redemption_count", 0)
@@ -1613,7 +1630,8 @@ def _validate_campaign_overlap(
 def create_operator_promotion_campaign(
     app: Flask, operator_user_bid: str, payload: dict
 ) -> dict:
-    with app.app_context():
+    """Create operator promotion campaign."""
+    with app_context_scope(app), unit_of_work():
         name = str(payload.get("name", "") or "").strip()
         if not name:
             raise_param_error("name")
@@ -1631,7 +1649,7 @@ def create_operator_promotion_campaign(
         if discount_type not in {COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT}:
             raise_param_error("discount_type")
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         start_at = _parse_datetime(payload.get("start_at"), "start_at")
         end_at = _parse_datetime(payload.get("end_at"), "end_at", is_end=True)
@@ -1661,14 +1679,14 @@ def create_operator_promotion_campaign(
         campaign.created_user_bid = operator_user_bid
         campaign.updated_user_bid = operator_user_bid
         db.session.add(campaign)
-        db.session.commit()
         return {"promo_bid": campaign.promo_bid}
 
 
 def update_operator_promotion_campaign(
     app: Flask, operator_user_bid: str, promo_bid: str, payload: dict
 ) -> dict:
-    with app.app_context():
+    """Update operator promotion campaign."""
+    with app_context_scope(app), unit_of_work():
         campaign = _load_campaign_or_404(promo_bid)
         name = str(payload.get("name", "") or "").strip()
         if not name:
@@ -1687,7 +1705,7 @@ def update_operator_promotion_campaign(
         if discount_type != int(campaign.discount_type or COUPON_TYPE_FIXED):
             raise_param_error("discount_type")
         value = _parse_decimal_value(payload.get("value"), "value")
-        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal("100"):
+        if discount_type == COUPON_TYPE_PERCENT and value > decimal.Decimal(100):
             raise_param_error("value")
         strategy_fields_editable = _campaign_strategy_fields_editable(campaign)
         if value != decimal.Decimal(campaign.value or 0).quantize(
@@ -1735,13 +1753,13 @@ def update_operator_promotion_campaign(
         campaign.value = value
         campaign.channel = channel
         campaign.updated_user_bid = operator_user_bid
-        db.session.commit()
         return {"promo_bid": campaign.promo_bid}
 
 
 def get_operator_promotion_campaign_detail(
     app: Flask, promo_bid: str
 ) -> AdminPromotionCampaignDetailDTO:
+    """Return operator promotion campaign detail."""
     del app
     campaign = _load_campaign_or_404(promo_bid)
     course_map = _load_shifu_map([campaign.shifu_bid] if campaign.shifu_bid else [])
@@ -1758,7 +1776,7 @@ def get_operator_promotion_campaign_detail(
         campaign,
         course_map,
         int(stats.get("count", 0)),
-        stats.get("discount_amount", decimal.Decimal("0")),
+        stats.get("discount_amount", decimal.Decimal(0)),
         bool(stats.get("redemption_count", 0)),
         user_name_map,
     )
@@ -1776,7 +1794,8 @@ def get_operator_promotion_campaign_detail(
 def update_operator_promotion_campaign_status(
     app: Flask, operator_user_bid: str, promo_bid: str, enabled: object
 ) -> dict:
-    with app.app_context():
+    """Update operator promotion campaign status."""
+    with app_context_scope(app), unit_of_work():
         enabled_value = _parse_bool_value(enabled, "enabled")
         campaign = _load_campaign_or_404(promo_bid)
         if enabled_value and not _campaign_is_enableable(campaign):
@@ -1798,13 +1817,13 @@ def update_operator_promotion_campaign_status(
             else PROMO_CAMPAIGN_STATUS_INACTIVE
         )
         campaign.updated_user_bid = operator_user_bid
-        db.session.commit()
         return {"promo_bid": campaign.promo_bid, "enabled": enabled_value}
 
 
 def list_operator_promotion_campaign_redemptions(
     app: Flask, promo_bid: str, page: int, page_size: int, filters: dict
 ) -> AdminPromotionListResponseDTO:
+    """Return operator promotion campaign redemptions."""
     del app
     page_size = min(page_size, MAX_PROMOTION_PAGE_SIZE)
     _load_campaign_or_404(promo_bid)

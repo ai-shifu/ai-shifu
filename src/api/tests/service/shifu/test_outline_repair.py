@@ -1,13 +1,17 @@
+"""Verify outline repair behavior."""
+
 from __future__ import annotations
 
 from decimal import Decimal
 
 import pytest
-
 from flaskr.dao import db
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
 from flaskr.service.shifu.repair import repair_shifu_outline_structure
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.shifu_history_manager import (
+    HistoryItem,
+    outline_content_revisions,
+)
 
 
 def _mk_shifu(shifu_bid: str, title: str = "Draft") -> DraftShifu:
@@ -19,7 +23,7 @@ def _mk_shifu(shifu_bid: str, title: str = "Draft") -> DraftShifu:
         keywords="",
         llm="gpt-test",
         llm_temperature=Decimal("0.3"),
-        price=Decimal("0"),
+        price=Decimal(0),
         deleted=0,
         created_user_bid="owner-1",
         updated_user_bid="owner-1",
@@ -52,7 +56,7 @@ def _mk_outline(
     return row
 
 
-def test_repair_shifu_outline_structure_dry_run_is_non_destructive(app):
+def test_repair_shifu_outline_structure_dry_run_is_non_destructive(app: object) -> None:
     with app.app_context():
         _mk_shifu("shifu-dry-run")
         _mk_outline("shifu-dry-run", "root-1", "01")
@@ -75,7 +79,9 @@ def test_repair_shifu_outline_structure_dry_run_is_non_destructive(app):
     assert before_latest_id == after_latest_id
 
 
-def test_repair_shifu_outline_structure_repairs_collision_and_rebuilds_struct(app):
+def test_repair_shifu_outline_structure_repairs_collision_and_rebuilds_struct(
+    app: object,
+) -> None:
     with app.app_context():
         shifu = _mk_shifu("shifu-repair-1")
         shifu_db_id = shifu.id
@@ -84,6 +90,12 @@ def test_repair_shifu_outline_structure_repairs_collision_and_rebuilds_struct(ap
         _mk_outline("shifu-repair-1", "child-a", "0401", parent_bid="")
         _mk_outline("shifu-repair-1", "child-b", "0401", parent_bid="root-4")
         _mk_outline("shifu-repair-1", "child-c", "0402", parent_bid="root-4")
+        baseline_revisions = {
+            row.outline_item_bid: row.id
+            for row in DraftOutlineItem.query.filter_by(
+                shifu_bid="shifu-repair-1"
+            ).all()
+        }
         db.session.commit()
 
         result = repair_shifu_outline_structure(
@@ -123,14 +135,15 @@ def test_repair_shifu_outline_structure_repairs_collision_and_rebuilds_struct(ap
 
     assert latest_struct is not None
     history = HistoryItem.from_json(latest_struct.struct)
+    assert outline_content_revisions(history) == baseline_revisions
     assert history.id == shifu_db_id
     root4 = next(child for child in history.children if child.bid == "root-4")
     assert [child.bid for child in root4.children] == ["child-a", "child-b", "child-c"]
 
 
 def test_repair_shifu_outline_structure_skips_invalid_position_format_without_crashing(
-    app,
-):
+    app: object,
+) -> None:
     with app.app_context():
         _mk_shifu("shifu-invalid-position")
         _mk_outline("shifu-invalid-position", "root-1", "01")
@@ -156,7 +169,9 @@ def test_repair_shifu_outline_structure_skips_invalid_position_format_without_cr
     assert "Unsupported position format" in result.skipped_records[0].reason
 
 
-def test_repair_shifu_outline_structure_requires_user_bid_before_processing(app):
+def test_repair_shifu_outline_structure_requires_user_bid_before_processing(
+    app: object,
+) -> None:
     with app.app_context():
         _mk_shifu("shifu-user-bid-check")
         _mk_outline("shifu-user-bid-check", "root-1", "01")
@@ -164,7 +179,7 @@ def test_repair_shifu_outline_structure_requires_user_bid_before_processing(app)
         _mk_outline("shifu-user-bid-check", "child-b", "0101", parent_bid="root-1")
         db.session.commit()
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError, match="user_bid is required") as exc_info:
         repair_shifu_outline_structure(
             app,
             user_bid=None,
@@ -174,7 +189,9 @@ def test_repair_shifu_outline_structure_requires_user_bid_before_processing(app)
     assert "user_bid is required" in str(exc_info.value)
 
 
-def test_repair_shifu_outline_structure_handles_non_numeric_suffixes(app):
+def test_repair_shifu_outline_structure_handles_non_numeric_suffixes(
+    app: object,
+) -> None:
     with app.app_context():
         _mk_shifu("shifu-nonnumeric-suffix")
         _mk_outline("shifu-nonnumeric-suffix", "root-1", "01")
@@ -204,7 +221,9 @@ def test_repair_shifu_outline_structure_handles_non_numeric_suffixes(app):
     assert result.changed_outline_count == 2
 
 
-def test_repair_shifu_outline_structure_detects_parent_position_mismatch(app):
+def test_repair_shifu_outline_structure_detects_parent_position_mismatch(
+    app: object,
+) -> None:
     with app.app_context():
         _mk_shifu("shifu-parent-position-mismatch")
         _mk_outline("shifu-parent-position-mismatch", "root-a", "01")

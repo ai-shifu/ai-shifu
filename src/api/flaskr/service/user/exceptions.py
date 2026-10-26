@@ -1,9 +1,15 @@
-from flaskr.service.common import AppException, ERROR_CODE
+"""Define domain exceptions for user accounts."""
+
 from flaskr.i18n import _
+from flaskr.service.common import ERROR_CODE, AppError
+from flaskr.util.deprecation import deprecated_alias_getattr
 
 
-class UserNotLoginException(AppException):
-    def __init__(self):
+class UserNotLoginError(AppError):
+    """Signal that an operation requires an authenticated user."""
+
+    def __init__(self) -> None:
+        """Initialize the unauthenticated-user error."""
         super().__init__(
             _("server.user.userNotLogin"),
             ERROR_CODE.get(
@@ -11,3 +17,8 @@ class UserNotLoginException(AppException):
                 ERROR_CODE["server.common.unknownError"],
             ),
         )
+
+
+__getattr__ = deprecated_alias_getattr(
+    __name__, {"UserNotLoginException": "UserNotLoginError"}, globals()
+)

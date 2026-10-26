@@ -8,12 +8,12 @@
 
 ## Current Reliability Loop
 
-- Generated instruction and knowledge indexes must be deterministic.
+- Generated knowledge indexes must be deterministic.
 - `python scripts/check_repo_harness.py` validates documentation ownership,
   generated artifacts, and metadata completeness.
 - `python scripts/check_architecture_boundaries.py` freezes current boundary
   debt and fails new architectural drift.
-- `cd src/cook-web && npm run test:e2e` validates the browser smoke paths.
+- `cd src/web && npm run test:e2e` validates the browser smoke paths.
 - The default dev harness pins phone login for smoke determinism even when the
   shared local `.env` contains other auth overrides.
 - Playwright smoke failures must emit a screenshot, console/network summary,

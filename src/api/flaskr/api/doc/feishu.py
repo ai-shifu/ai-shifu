@@ -1,17 +1,22 @@
-from flask import Flask
-import requests
+"""Send document notifications through Feishu."""
+
 import json
+
+import requests
+from flask import Flask
+
 from flaskr.service.config import get_config
 
 # feishu api
 # ref: https://open.feishu.cn/document/server-docs/docs/docs-overview
 
 
-def send_notify(app: Flask, title, msgs):
+def send_notify(app: Flask, title: object, msgs: object) -> dict[str, object] | None:
+    """Send a document-platform notification to Feishu."""
     url = get_config("FEISHU_NOTIFY_URL", None)
     if not url:
         app.logger.warning("feishu notify url not found")
-        return
+        return None
     headers = {"Content-Type": "application/json"}
     data = {
         "msg_type": "post",

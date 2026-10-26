@@ -5,7 +5,7 @@
       "chapterCount": "Nombre de chapitres",
       "courseName": "Nom du cours",
       "createdAt": "Créé le",
-      "learnerCount": "Nombre d’apprenants",
+      "learnerCount": "Participants au total",
       "status": "Statut du cours",
       "statusLabels": {
         "published": "Publié",
@@ -40,10 +40,10 @@
       },
       "filters": {
         "chapterKeyword": "Chapitre",
-        "chapterKeywordPlaceholder": "Saisir un chapitre ou une leçon",
+        "chapterKeywordPlaceholder": "Nom du chapitre / de la leçon",
         "followUpTime": "Heure de la question",
         "lessonKeyword": "Leçon",
-        "lessonKeywordPlaceholder": "Saisir le nom de la leçon",
+        "lessonKeywordPlaceholder": "Nom de la leçon",
         "reset": "Réinitialiser",
         "resultCount": "Total {count}",
         "search": "Rechercher",
@@ -51,10 +51,10 @@
         "sourceStatusAll": "Tous les statuts",
         "sourceStatusMissing": "Sortie d’origine introuvable",
         "sourceStatusResolved": "Sortie d’origine localisée",
-        "timePlaceholder": "Sélectionner une période",
+        "timePlaceholder": "Heure de début ~ Heure de fin",
         "userKeyword": "Apprenant",
-        "userKeywordPlaceholderEmail": "Saisir un pseudonyme ou un e-mail",
-        "userKeywordPlaceholderPhone": "Saisir un pseudonyme ou un téléphone"
+        "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
+        "userKeywordPlaceholderPhone": "Mobile / Pseudonyme"
       },
       "summary": {
         "followUpCount": "Total des questions",
@@ -93,13 +93,13 @@
       "empty": "Aucun apprenant pour le moment",
       "filters": {
         "lastLearningTime": "Dernier apprentissage",
-        "lastLearningTimePlaceholder": "Sélectionner une période",
+        "lastLearningTimePlaceholder": "Heure de début ~ Heure de fin",
         "learningStatus": "Statut d’apprentissage",
         "statusAll": "Tous",
         "userKeyword": "Apprenant"
       },
-      "searchPlaceholderEmail": "Saisir un pseudonyme ou un e-mail",
-      "searchPlaceholderPhone": "Saisir un pseudonyme ou un téléphone",
+      "searchPlaceholderEmail": "E-mail / Pseudonyme",
+      "searchPlaceholderPhone": "Mobile / Pseudonyme",
       "status": {
         "completed": "Terminé",
         "learning": "En cours",
@@ -110,23 +110,47 @@
       "viewFollowUps": "Voir les questions",
       "viewFollowUpsForLearner": "Voir les questions de {learner}"
     },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "Moy. par apprenant",
+        "consumedCredits": "Crédits consommés",
+        "consumptionSpeed": "Moy. quotidienne sur 7 j",
+        "mode": "Format d’apprentissage",
+        "participants": "Apprenants"
+      },
+      "empty": "Aucune donnée par format d’apprentissage",
+      "modes": {
+        "classroom": "Classe",
+        "listen": "Écoute",
+        "read": "Lecture"
+      },
+      "scopeHint": "Comparez la consommation de crédits en lecture, écoute et classe pour voir comment les apprenants utilisent ce cours.",
+      "title": "Format d’apprentissage"
+    },
     "metrics": {
-      "activeLearnersLast7Days": "Apprenants actifs (7 j)",
       "completedLearners": "Apprenants ayant terminé",
       "completionRate": "Taux d’achèvement",
       "learningLearners": "Apprenants en cours",
-      "newLearnersLast7Days": "Nouveaux apprenants (7 j)",
       "orderAmount": "Montant des commandes",
       "orderCount": "Commandes",
       "rating": "Note du cours",
       "title": "Données clés",
       "totalQuestions": "Questions de suivi"
     },
+    "metricsTooltips": {
+      "completedLearners": "Personnes ayant terminé toutes les leçons de ce cours.",
+      "completionRate": "Part des participants ayant terminé toutes les leçons de ce cours.",
+      "learningLearners": "Personnes ayant commencé le cours sans avoir encore terminé toutes les leçons.",
+      "orderAmount": "Montant total payé par les utilisateurs pour ce cours. Les commandes avec code d’échange ne sont pas incluses.",
+      "orderCount": "Commandes réussies de ce cours, y compris les commandes payées et celles avec code d’échange.",
+      "rating": "Note moyenne donnée aux leçons par les apprenants, sur 5.",
+      "totalQuestions": "Nombre total de questions de suivi posées à l’IA pendant l’apprentissage. Ouvrez pour voir le détail."
+    },
     "ratings": {
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapitre",
-        "chapterKeywordPlaceholder": "Saisir un chapitre ou une leçon",
+        "chapterKeywordPlaceholder": "Nom du chapitre / de la leçon",
         "commentStatus": "Commentaire",
         "commentStatusAll": "Tous",
         "commentStatusCommented": "Avec commentaire seulement",
@@ -136,17 +160,17 @@
         "score": "Note",
         "scoreAll": "Toutes les notes",
         "search": "Rechercher",
-        "timePlaceholder": "Sélectionner une période",
+        "timePlaceholder": "Heure de début ~ Heure de fin",
         "userKeyword": "Apprenant",
-        "userKeywordPlaceholderEmail": "Saisir un pseudonyme ou un e-mail",
-        "userKeywordPlaceholderPhone": "Saisir un pseudonyme ou un téléphone"
+        "userKeywordPlaceholderEmail": "E-mail / Pseudonyme",
+        "userKeywordPlaceholderPhone": "Mobile / Pseudonyme"
       },
       "scoreValue": "{score} étoiles",
       "summary": {
         "averageScore": "Note moyenne",
         "latestRatedAt": "Dernière note",
         "ratingCount": "Nombre de notes",
-        "scopeHint": "Consultez les notes et commentaires utiles au créateur afin d’identifier les évolutions de satisfaction et les leçons à améliorer.",
+        "scopeHint": "Consultez les notes et commentaires des apprenants sur les leçons pour évaluer leur satisfaction envers le cours et repérer les contenus à améliorer.",
         "userCount": "Apprenants ayant noté"
       },
       "table": {
@@ -161,7 +185,6 @@
       },
       "title": "Données de notation"
     },
-    "subtitle": "Les informations de base, les indicateurs clés et les données d’apprentissage des apprenants utilisent désormais des données en direct.",
     "title": "Détail du cours"
   },
   "entry": {
@@ -181,17 +204,14 @@
       "orderAmount": "Montant de commande",
       "orders": "Commandes",
       "reset": "Réinitialiser",
-      "scopeNote": "Périmètre : seules les données des cours que vous avez créés et possédez sont incluses. Les cours collaboratifs sont exclus.",
       "search": "Rechercher",
-      "searchPlaceholder": "Rechercher par nom ou ID de cours",
-      "title": "Liste des cours",
-      "totalCount": "Total : {count}",
+      "searchPlaceholder": "ID du cours / Nom du cours",
       "viewCourse": "Voir le cours",
       "viewOrders": "Voir les commandes"
     }
   },
   "filters": {
-    "dateRangePlaceholder": "Sélectionner une plage de dates",
+    "dateRangePlaceholder": "Heure de début ~ Heure de fin",
     "reset": "Réinitialiser"
   },
   "messages": {

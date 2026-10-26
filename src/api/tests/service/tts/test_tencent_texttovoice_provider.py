@@ -1,3 +1,5 @@
+"""Verify tencent TextToVoice provider behavior."""
+
 import base64
 import hashlib
 import hmac
@@ -18,8 +20,8 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
     )
     signed_headers = "content-type;host;x-tc-action"
     hashed_payload = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
-    canonical_request = "\n".join(
-        ["POST", "/", "", canonical_headers, signed_headers, hashed_payload]
+    canonical_request = (
+        f"POST\n/\n\n{canonical_headers}\n{signed_headers}\n{hashed_payload}"
     )
     credential_scope = f"{date}/{service}/tc3_request"
     string_to_sign = "\n".join(
@@ -31,7 +33,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
         ]
     )
 
-    def sign(key, msg):
+    def sign(key: object, msg: object) -> object:
         return hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
 
     secret_date = sign(("TC3" + secret_key).encode("utf-8"), date)
@@ -48,7 +50,7 @@ def _expected_tc3_authorization(*, payload_json: str, timestamp: int) -> str:
     )
 
 
-def _patch_credentials(monkeypatch):
+def _patch_credentials(monkeypatch: object) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     config = {
@@ -63,14 +65,14 @@ def _patch_credentials(monkeypatch):
 
 
 class _FakeResponse:
-    def __init__(self, body):
+    def __init__(self, body: object) -> None:
         self._body = body
 
-    def json(self):
+    def json(self) -> object:
         return self._body
 
 
-def test_tc3_headers_sign_exact_request_payload():
+def test_tc3_headers_sign_exact_request_payload() -> None:
     from flaskr.api.tts.tencent_texttovoice_provider import (
         build_texttovoice_tc3_headers,
     )
@@ -106,7 +108,7 @@ def test_tc3_headers_sign_exact_request_payload():
     )
 
 
-def test_provider_config_exposes_two_model_tiers_with_tagged_voices():
+def test_provider_config_exposes_two_model_tiers_with_tagged_voices() -> None:
     from flaskr.api.tts.tencent_texttovoice_provider import (
         TencentTextToVoiceProvider,
     )
@@ -123,12 +125,12 @@ def test_provider_config_exposes_two_model_tiers_with_tagged_voices():
     large_voices = [
         voice for voice in cfg.voices if voice["resource_id"] == "large-model"
     ]
-    assert {"value": v["value"] for v in premium_voices}  # non-empty
+    assert premium_voices  # non-empty
     assert all(v["value"].startswith("101") for v in premium_voices)
     assert all(v["value"][:3] in {"501", "601"} for v in large_voices)
 
 
-def test_resolve_sample_rate_by_voice_tier_and_model_fallback():
+def test_resolve_sample_rate_by_voice_tier_and_model_fallback() -> None:
     from flaskr.api.tts.tencent_texttovoice_provider import _resolve_sample_rate
 
     assert _resolve_sample_rate("101001", "") == 16000
@@ -139,7 +141,7 @@ def test_resolve_sample_rate_by_voice_tier_and_model_fallback():
     assert _resolve_sample_rate("999999", "") == 16000
 
 
-def test_split_text_weighted_limits():
+def test_split_text_weighted_limits() -> None:
     from flaskr.api.tts.tencent_texttovoice_provider import (
         _SEGMENT_WEIGHT_LIMIT,
         _split_text,
@@ -167,13 +169,18 @@ def test_split_text_weighted_limits():
     assert _split_text("   ") == []
 
 
-def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
+def test_synthesize_builds_payload_and_concatenates_segments(
+    monkeypatch: object,
+) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
     captured_payloads = []
 
-    def _fake_post(url, data=None, headers=None, timeout=None):
+    def _fake_post(
+        url: object, data: object = None, headers: object = None, timeout: object = None
+    ) -> object:
+        _ = (url, headers, timeout)
         captured_payloads.append(json.loads(data.decode("utf-8")))
         return _FakeResponse(
             {
@@ -185,15 +192,20 @@ def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
         )
 
     monkeypatch.setattr(module.requests, "post", _fake_post)
+
+    def concat_audio(segments: list[bytes], output_format: str = "mp3") -> bytes:
+        del output_format
+        return b"".join(segments)
+
     monkeypatch.setattr(
         module,
         "concat_audio_best_effort",
-        lambda segments, output_format="mp3": b"".join(segments),
+        concat_audio,
     )
     monkeypatch.setattr(
         module,
         "try_get_audio_duration_ms",
-        lambda audio, format="mp3": 1234,
+        lambda _audio, **_kwargs: 1234,
     )
 
     provider = module.TencentTextToVoiceProvider()
@@ -218,14 +230,14 @@ def test_synthesize_builds_payload_and_concatenates_segments(monkeypatch):
     assert result.usage_characters == len(text)
 
 
-def test_synthesize_raises_on_api_error_with_code(monkeypatch):
+def test_synthesize_raises_on_api_error_with_code(monkeypatch: object) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
     monkeypatch.setattr(
         module.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {
                 "Response": {
                     "Error": {
@@ -239,7 +251,7 @@ def test_synthesize_raises_on_api_error_with_code(monkeypatch):
     )
 
     provider = module.TencentTextToVoiceProvider()
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError, match="InvalidParameterValue") as exc_info:
         provider.synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="101001"),
@@ -248,20 +260,22 @@ def test_synthesize_raises_on_api_error_with_code(monkeypatch):
     assert "req-err" in str(exc_info.value)
 
 
-def test_synthesize_raises_on_empty_audio(monkeypatch):
+def test_synthesize_raises_on_empty_audio(monkeypatch: object) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
     monkeypatch.setattr(
         module.requests,
         "post",
-        lambda *args, **kwargs: _FakeResponse(
+        lambda *_args, **_kwargs: _FakeResponse(
             {"Response": {"Audio": "", "RequestId": "req-empty"}}
         ),
     )
 
     provider = module.TencentTextToVoiceProvider()
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(
+        ValueError, match="No audio data received from Tencent TextToVoice"
+    ) as exc_info:
         provider.synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="101001"),
@@ -269,12 +283,14 @@ def test_synthesize_raises_on_empty_audio(monkeypatch):
     assert "No audio data received from Tencent TextToVoice" in str(exc_info.value)
 
 
-def test_synthesize_rejects_non_numeric_voice_id(monkeypatch):
+def test_synthesize_rejects_non_numeric_voice_id(monkeypatch: object) -> None:
     from flaskr.api.tts import tencent_texttovoice_provider as module
 
     _patch_credentials(monkeypatch)
     provider = module.TencentTextToVoiceProvider()
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(
+        ValueError, match="Invalid Tencent TextToVoice voice id"
+    ) as exc_info:
         provider.synthesize(
             "你好",
             voice_settings=module.VoiceSettings(voice_id="v-female-R2s4N9qJ"),
@@ -282,8 +298,8 @@ def test_synthesize_rejects_non_numeric_voice_id(monkeypatch):
     assert "Invalid Tencent TextToVoice voice id" in str(exc_info.value)
 
 
-def test_validation_requires_model_and_tier_consistency():
-    from flaskr.service.common.models import AppException
+def test_validation_requires_model_and_tier_consistency() -> None:
+    from flaskr.service.common.models import AppError
     from flaskr.service.tts.validation import validate_tts_settings_strict
 
     # Valid: premium voice with premium tier.
@@ -309,7 +325,7 @@ def test_validation_requires_model_and_tier_consistency():
     assert settings.model == "large-model"
 
     # Missing model is rejected (provider requires model).
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         validate_tts_settings_strict(
             provider="tencent_texttovoice",
             model="",
@@ -320,7 +336,7 @@ def test_validation_requires_model_and_tier_consistency():
         )
 
     # Cross-tier combination is rejected (premium voice + large-model tier).
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         validate_tts_settings_strict(
             provider="tencent_texttovoice",
             model="large-model",
@@ -331,7 +347,7 @@ def test_validation_requires_model_and_tier_consistency():
         )
 
     # Emotion is not supported.
-    with pytest.raises(AppException):
+    with pytest.raises(AppError):
         validate_tts_settings_strict(
             provider="tencent_texttovoice",
             model="premium",

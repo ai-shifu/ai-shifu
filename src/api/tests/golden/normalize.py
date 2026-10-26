@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
 
 HEX_ID_RE = re.compile(r"\b[0-9a-f]{32}\b")
 UUID_RE = re.compile(
@@ -56,6 +55,7 @@ class IdNormalizer:
     """First-seen mapping of volatile ids to stable placeholders."""
 
     def __init__(self) -> None:
+        """Initialize an empty stable-ID mapping."""
         self._mapping: dict[str, str] = {}
 
     def _replace_match(self, match: re.Match) -> str:
@@ -67,10 +67,9 @@ class IdNormalizer:
     def normalize_string(self, value: str) -> str:
         value = UUID_RE.sub(self._replace_match, value)
         value = HEX_ID_RE.sub(self._replace_match, value)
-        value = ISO_TS_RE.sub("<TS>", value)
-        return value
+        return ISO_TS_RE.sub("<TS>", value)
 
-    def normalize_value(self, value: Any, field_name: str | None = None) -> Any:
+    def normalize_value(self, value: object, field_name: str | None = None) -> object:
         if isinstance(value, str):
             return self.normalize_string(value)
         if isinstance(value, bool):
@@ -90,8 +89,8 @@ class IdNormalizer:
 def parse_sse_events(raw_transcript: str) -> list[dict]:
     """Parse ``data: {json}`` SSE lines into a list of event dicts."""
     events: list[dict] = []
-    for chunk in raw_transcript.split("\n\n"):
-        chunk = chunk.strip()
+    for raw_chunk in raw_transcript.split("\n\n"):
+        chunk = raw_chunk.strip()
         if not chunk.startswith(SSE_DATA_PREFIX):
             continue
         payload = chunk[len(SSE_DATA_PREFIX) :].strip()
@@ -115,7 +114,9 @@ def normalize_sse_transcript(
     return "\n".join(lines) + "\n"
 
 
-def normalize_json_payload(payload: Any, normalizer: IdNormalizer | None = None) -> str:
+def normalize_json_payload(
+    payload: object, normalizer: IdNormalizer | None = None
+) -> str:
     """Normalize a JSON response payload into a stable pretty-printed string."""
     normalizer = normalizer or IdNormalizer()
     normalized = normalizer.normalize_value(payload)

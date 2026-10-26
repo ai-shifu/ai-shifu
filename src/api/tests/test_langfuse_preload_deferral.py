@@ -7,29 +7,33 @@ crashes the hub (KeyError in AbstractLinkable._notify_links) and can
 interrupt unrelated in-flight DB exchanges.
 """
 
+from typing import ClassVar
+
 import flaskr.api.langfuse as langfuse_module
 from flaskr.api.langfuse import MockClient, init_langfuse
 
 
 class _RecordingLangfuse:
-    instances = []
+    instances: ClassVar[list[dict[str, object]]] = []
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: object) -> None:
         _RecordingLangfuse.instances.append(kwargs)
 
 
-def _configure(app, monkeypatch):
+def _configure(app: object, monkeypatch: object) -> None:
     app.config["LANGFUSE_PUBLIC_KEY"] = "pk"
     app.config["LANGFUSE_SECRET_KEY"] = "sk"
     app.config["LANGFUSE_HOST"] = "https://langfuse.example"
-    # init_langfuse rebinds the module-global client; snapshot the current
+    # init_langfuse replaces the registry-owned client; snapshot the current
     # value so monkeypatch restores it and later tests keep the real mock.
     monkeypatch.setattr(
-        langfuse_module, "langfuse_client", langfuse_module.langfuse_client
+        langfuse_module._langfuse_state,
+        "client",
+        langfuse_module.get_langfuse_client(),
     )
 
 
-def test_preload_master_defers_real_client(app, monkeypatch):
+def test_preload_master_defers_real_client(app: object, monkeypatch: object) -> None:
     _configure(app, monkeypatch)
     monkeypatch.setattr(langfuse_module, "Langfuse", _RecordingLangfuse)
     monkeypatch.setattr(_RecordingLangfuse, "instances", [])
@@ -38,10 +42,12 @@ def test_preload_master_defers_real_client(app, monkeypatch):
     init_langfuse(app)
 
     assert _RecordingLangfuse.instances == []
-    assert isinstance(langfuse_module.langfuse_client, MockClient)
+    assert isinstance(langfuse_module.get_langfuse_client(), MockClient)
 
 
-def test_worker_builds_real_client_after_flag_cleared(app, monkeypatch):
+def test_worker_builds_real_client_after_flag_cleared(
+    app: object, monkeypatch: object
+) -> None:
     _configure(app, monkeypatch)
     monkeypatch.setattr(langfuse_module, "Langfuse", _RecordingLangfuse)
     monkeypatch.setattr(_RecordingLangfuse, "instances", [])

@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING
 
-from flask import Flask
-
-from flaskr.dao import db
+from flaskr.dao import uow
+from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.admin import (
     import_activation_order,
     normalize_contact_identifier,
 )
-from flaskr.service.order.funs import send_revoke_feishu
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
+from flaskr.service.order.funs import send_revoke_feishu
 from flaskr.service.order.models import Order
 from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.service.user.repository import load_user_aggregate_by_identifier
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def verify_course_ownership(app: Flask, owner_bid: str, shifu_bid: str) -> None:
@@ -28,7 +30,7 @@ def verify_course_ownership(app: Flask, owner_bid: str, shifu_bid: str) -> None:
         raise_error("server.openapi.courseOwnershipRequired")
 
 
-def _find_active_order(user_bid: str, shifu_bid: str) -> Optional[Order]:
+def _find_active_order(user_bid: str, shifu_bid: str) -> Order | None:
     """Find the latest active order for a user and course."""
     return (
         Order.query.filter(
@@ -48,7 +50,7 @@ def open_api_query_order(
     shifu_bid: str,
     user_identify: str,
     user_identify_type: str = "phone",
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     """Check if a user (by phone/email) has active order for a course."""
     with app.app_context():
         verify_course_ownership(app, owner_bid, shifu_bid)
@@ -72,7 +74,7 @@ def open_api_grant_order(
     shifu_bid: str,
     user_identify: str,
     user_identify_type: str = "phone",
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     """Grant course access (create manual order).
 
     If the user already has an active order the existing order is
@@ -90,14 +92,13 @@ def open_api_grant_order(
         if existing_order:
             return {"order_bid": existing_order.order_bid}
 
-    result = import_activation_order(
+    return import_activation_order(
         app,
         user_identify,
         shifu_bid,
         contact_type=user_identify_type,
         payment_channel="open_api",
     )
-    return result
 
 
 def open_api_revoke_order(
@@ -106,7 +107,7 @@ def open_api_revoke_order(
     shifu_bid: str,
     user_identify: str,
     user_identify_type: str = "phone",
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     """Revoke course access by setting order status to REFUND (503)."""
     verify_course_ownership(app, owner_bid, shifu_bid)
     normalized = normalize_contact_identifier(user_identify, user_identify_type)
@@ -121,7 +122,9 @@ def open_api_revoke_order(
     if not order:
         raise_error("server.openapi.noActiveAuthorization")
 
-    order.status = ORDER_STATUS_REFUND
-    db.session.commit()
-    send_revoke_feishu(app, order.order_bid, user_identify)
-    return {"order_bid": order.order_bid, "status": "revoked"}
+    order_bid = order.order_bid
+    with unit_of_work():
+        order.status = ORDER_STATUS_REFUND
+        # Notify only once the revocation is durable.
+        uow.on_commit(lambda: send_revoke_feishu(app, order_bid, user_identify))
+    return {"order_bid": order_bid, "status": "revoked"}

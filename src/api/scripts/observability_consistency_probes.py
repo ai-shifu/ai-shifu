@@ -4,17 +4,18 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta
-from decimal import Decimal
 import json
 import os
-from pathlib import Path
 import sys
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from decimal import Decimal
+from pathlib import Path
+from typing import Any
 
+from flaskr.util.datetime import now_utc, to_utc_iso
 from sqlalchemy import Numeric, bindparam, inspect, text
-
 
 API_ROOT = Path(__file__).resolve().parents[1]
 if str(API_ROOT) not in sys.path:
@@ -38,9 +39,10 @@ ProbeFn = Callable[[Any, Any, argparse.Namespace, datetime, datetime], dict[str,
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build parser."""
     parser = argparse.ArgumentParser(
         description=(
-            "Run read-only billing, wallet, model, SMS, and notification "
+            "Run read-only billing, wallet, SMS, and notification "
             "consistency probes. Output is JSON."
         )
     )
@@ -53,7 +55,6 @@ def build_parser() -> argparse.ArgumentParser:
             "usage-ledger",
             "wallet-snapshot",
             "bucket-expiration",
-            "model-override-inventory",
             "sms-send-failures",
             "notification-template-sync",
         ],
@@ -84,7 +85,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def json_safe(value: Any) -> Any:
+def json_safe(value: object) -> object:
+    """Convert a probe value to a JSON-compatible scalar."""
     if isinstance(value, datetime):
         return value.isoformat()
     if isinstance(value, Decimal):
@@ -92,18 +94,21 @@ def json_safe(value: Any) -> Any:
     return value
 
 
-def row_to_dict(row: Any) -> dict[str, Any]:
+def row_to_dict(row: object) -> dict[str, object]:
+    """Convert a database result row to a dictionary."""
     return {key: json_safe(value) for key, value in dict(row).items()}
 
 
-def table_has_columns(inspector: Any, table_name: str, columns: set[str]) -> bool:
+def table_has_columns(inspector: object, table_name: str, columns: set[str]) -> bool:
+    """Return whether a database table exposes every required column."""
     if table_name not in set(inspector.get_table_names()):
         return False
     existing = {column["name"] for column in inspector.get_columns(table_name)}
     return columns.issubset(existing)
 
 
-def skipped_probe(name: str, description: str, reason: str) -> dict[str, Any]:
+def skipped_probe(name: str, description: str, reason: str) -> dict[str, object]:
+    """Build a skipped consistency-probe result."""
     return {
         "name": name,
         "description": description,
@@ -119,10 +124,11 @@ def rows_probe(
     *,
     name: str,
     description: str,
-    rows: list[dict[str, Any]],
+    rows: list[dict[str, object]],
     severity: str = "warning",
     status_when_found: str = "warning",
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Build a probe result from the supplied finding rows."""
     return {
         "name": name,
         "description": description,
@@ -133,7 +139,10 @@ def rows_probe(
     }
 
 
-def execute_rows(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+def execute_rows(
+    db: object, sql: str, params: dict[str, object]
+) -> list[dict[str, object]]:
+    """Execute rows."""
     statement = text(sql)
     decimal_params = [
         bindparam(key, type_=Numeric(20, 10))
@@ -147,12 +156,14 @@ def execute_rows(db: Any, sql: str, params: dict[str, Any]) -> list[dict[str, An
 
 
 def probe_usage_ledger(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Probe usage ledger."""
+    _ = now
     description = (
         "Successful billable top-level usage rows missing consume ledger entries."
     )
@@ -208,12 +219,14 @@ def probe_usage_ledger(
 
 
 def probe_wallet_snapshot(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Probe wallet snapshot."""
+    _ = since
     description = (
         "Wallet available/reserved totals that differ from current consumable "
         "bucket totals."
@@ -345,12 +358,14 @@ def probe_wallet_snapshot(
 
 
 def probe_bucket_expiration(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Probe bucket expiration."""
+    _ = since
     description = (
         "Credit buckets whose status does not match expiration/available state."
     )
@@ -406,90 +421,15 @@ def probe_bucket_expiration(
     return rows_probe(name="bucket-expiration", description=description, rows=rows)
 
 
-def probe_model_override_inventory(
-    db: Any,
-    inspector: Any,
-    args: argparse.Namespace,
-    now: datetime,
-    since: datetime,
-) -> dict[str, Any]:
-    description = (
-        "Published outline items whose explicit model differs from course defaults."
-    )
-    if not table_has_columns(
-        inspector,
-        "shifu_published_shifus",
-        {"id", "shifu_bid", "title", "llm", "ask_llm", "deleted"},
-    ) or not table_has_columns(
-        inspector,
-        "shifu_published_outline_items",
-        {"id", "outline_item_bid", "shifu_bid", "title", "llm", "ask_llm", "deleted"},
-    ):
-        return skipped_probe(
-            "model-override-inventory",
-            description,
-            "required tables are missing",
-        )
-
-    rows = execute_rows(
-        db,
-        """
-        SELECT
-          o.shifu_bid,
-          s.title AS shifu_title,
-          o.outline_item_bid,
-          o.title AS outline_title,
-          s.llm AS course_llm,
-          o.llm AS outline_llm,
-          s.ask_llm AS course_ask_llm,
-          o.ask_llm AS outline_ask_llm
-        FROM shifu_published_outline_items o
-        JOIN (
-          SELECT outline_item_bid, MAX(id) AS max_id
-          FROM shifu_published_outline_items
-          WHERE deleted = 0
-          GROUP BY outline_item_bid
-        ) latest_o ON latest_o.max_id = o.id
-        JOIN shifu_published_shifus s
-          ON s.shifu_bid = o.shifu_bid
-        JOIN (
-          SELECT shifu_bid, MAX(id) AS max_id
-          FROM shifu_published_shifus
-          WHERE deleted = 0
-          GROUP BY shifu_bid
-        ) latest_s ON latest_s.max_id = s.id
-        WHERE o.deleted = 0
-          AND s.deleted = 0
-          AND (
-            (TRIM(COALESCE(o.llm, '')) <> ''
-              AND TRIM(COALESCE(s.llm, '')) <> ''
-              AND TRIM(o.llm) <> TRIM(s.llm))
-            OR
-            (TRIM(COALESCE(o.ask_llm, '')) <> ''
-              AND TRIM(COALESCE(s.ask_llm, '')) <> ''
-              AND TRIM(o.ask_llm) <> TRIM(s.ask_llm))
-          )
-        ORDER BY o.updated_at DESC
-        LIMIT :limit
-        """,
-        {"limit": args.limit},
-    )
-    return rows_probe(
-        name="model-override-inventory",
-        description=description,
-        rows=rows,
-        severity="info",
-        status_when_found="info",
-    )
-
-
 def probe_sms_send_failures(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Probe SMS send failures."""
+    _ = now
     description = "Recent SMS verification-code rows that were created but not sent."
     if not table_has_columns(
         inspector,
@@ -524,12 +464,14 @@ def probe_sms_send_failures(
 
 
 def probe_notification_template_sync(
-    db: Any,
-    inspector: Any,
+    db: object,
+    inspector: object,
     args: argparse.Namespace,
     now: datetime,
     since: datetime,
-) -> dict[str, Any]:
+) -> dict[str, object]:
+    """Probe notification template sync."""
+    _ = (now, since)
     description = "Notification templates whose latest provider sync is not successful."
     if not table_has_columns(
         inspector,
@@ -584,13 +526,13 @@ PROBES: dict[str, ProbeFn] = {
     "usage-ledger": probe_usage_ledger,
     "wallet-snapshot": probe_wallet_snapshot,
     "bucket-expiration": probe_bucket_expiration,
-    "model-override-inventory": probe_model_override_inventory,
     "sms-send-failures": probe_sms_send_failures,
     "notification-template-sync": probe_notification_template_sync,
 }
 
 
 def selected_probe_names(raw_names: list[str]) -> list[str]:
+    """Return the requested probe names without duplicates."""
     if not raw_names or "all" in raw_names:
         return list(PROBES)
     deduped: list[str] = []
@@ -600,7 +542,8 @@ def selected_probe_names(raw_names: list[str]) -> list[str]:
     return deduped
 
 
-def summarize(probes: list[dict[str, Any]]) -> dict[str, Any]:
+def summarize(probes: list[dict[str, object]]) -> dict[str, object]:
+    """Summarize consistency-probe statuses and finding counts."""
     statuses = [str(probe.get("status") or "") for probe in probes]
     finding_count = sum(int(probe.get("findings_count") or 0) for probe in probes)
     blocking_count = sum(
@@ -620,12 +563,13 @@ def summarize(probes: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def run_report(args: argparse.Namespace) -> dict[str, Any]:
-    from dotenv import load_dotenv  # noqa: WPS433
-    from flask import Flask  # noqa: WPS433
-    from flaskr.common.config import Config  # noqa: WPS433
-    from flaskr import dao  # noqa: WPS433
-    import pymysql  # noqa: WPS433
+def run_report(args: argparse.Namespace) -> dict[str, object]:
+    """Run report."""
+    import pymysql
+    from dotenv import load_dotenv
+    from flask import Flask
+    from flaskr import dao
+    from flaskr.common.config import Config
 
     if not os.getenv("SKIP_LOAD_DOTENV"):
         load_dotenv()
@@ -639,7 +583,7 @@ def run_report(args: argparse.Namespace) -> dict[str, Any]:
     pymysql.install_as_MySQLdb()
     dao.init_db(app)
     db = dao.db
-    now = datetime.now()
+    now = now_utc()
     since = now - timedelta(hours=args.window_hours)
     with app.app_context():
         inspector = inspect(db.session.get_bind())
@@ -650,7 +594,7 @@ def run_report(args: argparse.Namespace) -> dict[str, Any]:
 
     return {
         "schema_version": 1,
-        "generated_at": now.isoformat(timespec="seconds"),
+        "generated_at": to_utc_iso(now.replace(microsecond=0)),
         "window_hours": args.window_hours,
         "limit": args.limit,
         "summary": summarize(probes),
@@ -659,6 +603,7 @@ def run_report(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+    """Run observability consistency probes and emit their report."""
     parser = build_parser()
     args = parser.parse_args()
     if args.window_hours <= 0:

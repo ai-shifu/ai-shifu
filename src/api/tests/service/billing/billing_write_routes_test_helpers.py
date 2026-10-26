@@ -1,51 +1,41 @@
+"""Provide billing write routes test helpers support for service billing tests."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-
 from decimal import Decimal
-
 from types import SimpleNamespace
-
-from flask import Flask, jsonify, request
+from typing import TYPE_CHECKING
 
 import flaskr.common.config as common_config
-
-import flaskr.dao as dao
-
+import flaskr.service.billing.checkout as billing_checkout_module
+import flaskr.service.billing.subscriptions as billing_subscriptions_module
+from flask import Flask, jsonify, request
+from flaskr import dao
 from flaskr.i18n import load_translations, set_language
-
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
+    BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS,
     BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT,
     BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED,
+    BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
     BILLING_INTERVAL_DAY,
     BILLING_MODE_RECURRING,
-    CREDIT_BUCKET_CATEGORY_FREE,
-    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
-    CREDIT_BUCKET_CATEGORY_TOPUP,
-    CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_BUCKET_STATUS_EXPIRED,
-    BILLING_ORDER_TYPE_TOPUP,
-    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
-    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
-    CREDIT_SOURCE_TYPE_GIFT,
-    CREDIT_SOURCE_TYPE_REFUND,
-    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
-    CREDIT_SOURCE_TYPE_TOPUP,
     BILLING_ORDER_STATUS_CANCELED,
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_STATUS_REFUNDED,
     BILLING_ORDER_STATUS_TIMEOUT,
-    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_START,
     BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+    BILLING_ORDER_TYPE_TOPUP,
     BILLING_PRODUCT_STATUS_ACTIVE,
     BILLING_PRODUCT_TYPE_PLAN,
-    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    BILLING_SUBSCRIPTION_STATUS_DRAFT,
-    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
-    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
+    BILLING_PRODUCT_TYPE_TOPUP,
+    BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
@@ -53,75 +43,82 @@ from flaskr.service.billing.consts import (
     BILLING_RENEWAL_EVENT_TYPE_EXPIRE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
     BILLING_RENEWAL_EVENT_TYPE_RETRY,
+    BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
+    BILLING_SUBSCRIPTION_STATUS_EXPIRED,
+    BILLING_SUBSCRIPTION_STATUS_PAST_DUE,
     BILLING_TRIAL_PRODUCT_BID,
+    CREDIT_BUCKET_CATEGORY_FREE,
+    CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+    CREDIT_BUCKET_CATEGORY_TOPUP,
+    CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_BUCKET_STATUS_EXPIRED,
+    CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_LEDGER_ENTRY_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_GIFT,
+    CREDIT_SOURCE_TYPE_REFUND,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+    CREDIT_SOURCE_TYPE_TOPUP,
 )
-
 from flaskr.service.billing.models import (
     BillingCampaign,
     BillingCampaignProduct,
+    BillingCampaignProviderDiscount,
     BillingOrder,
     BillingProduct,
+    BillingProductProviderPrice,
     BillingRenewalEvent,
     BillingSubscription,
     CreditLedgerEntry,
     CreditWallet,
     CreditWalletBucket,
 )
-
+from flaskr.service.billing.preorders import mark_preorder_effective_applied
+from flaskr.service.billing.primitives import normalize_mysql_datetime
 from flaskr.service.billing.provider_state import (
     apply_billing_subscription_provider_update,
 )
-
-import flaskr.service.billing.checkout as billing_checkout_module
-
-from flaskr.service.billing.preorders import mark_preorder_effective_applied
-
-from flaskr.service.billing.primitives import normalize_mysql_datetime
-
 from flaskr.service.billing.queries import (
     calculate_self_managed_billing_cycle_end,
     calculate_self_managed_billing_cycle_end_after_boundary,
 )
-
-import flaskr.service.billing.subscriptions as billing_subscriptions_module
-
 from flaskr.service.billing.subscriptions import (
     grant_paid_order_credits,
     repair_topup_grant_expiries,
     sync_subscription_lifecycle_events,
 )
-
-from flaskr.service.common.models import AppException, ERROR_CODE
-
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.order.models import PingxxOrder, StripeOrder
-
 from flaskr.service.order.payment_providers import (
     PaymentCreationResult,
     PaymentNotificationResult,
     PaymentRefundResult,
     SubscriptionUpdateResult,
 )
-
 from flaskr.service.user.consts import USER_STATE_REGISTERED
-
 from flaskr.service.user.repository import create_user_entity
-
 from flaskr.util.datetime import now_utc, to_utc_iso
 
 from tests.common.fixtures.bill_products import build_bill_products
-
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
     load_register_billing_routes,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 __all__ = [
     "ALLOCATION_INTERVAL_PER_CYCLE",
+    "BILLING_CAMPAIGN_BENEFIT_TYPE_BONUS",
     "BILLING_CAMPAIGN_BENEFIT_TYPE_DISCOUNT",
     "BILLING_CAMPAIGN_DISCOUNT_TYPE_FIXED",
+    "BILLING_CAMPAIGN_DISCOUNT_TYPE_PERCENT",
+    "BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE",
     "BILLING_INTERVAL_DAY",
     "BILLING_MODE_RECURRING",
     "BILLING_ORDER_STATUS_CANCELED",
+    "BILLING_ORDER_STATUS_FAILED",
     "BILLING_ORDER_STATUS_PAID",
     "BILLING_ORDER_STATUS_PENDING",
     "BILLING_ORDER_STATUS_REFUNDED",
@@ -132,6 +129,8 @@ __all__ = [
     "BILLING_ORDER_TYPE_TOPUP",
     "BILLING_PRODUCT_STATUS_ACTIVE",
     "BILLING_PRODUCT_TYPE_PLAN",
+    "BILLING_PRODUCT_TYPE_TOPUP",
+    "BILLING_PROVIDER_PRICE_STATUS_ACTIVE",
     "BILLING_RENEWAL_EVENT_STATUS_CANCELED",
     "BILLING_RENEWAL_EVENT_STATUS_PENDING",
     "BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE",
@@ -144,12 +143,6 @@ __all__ = [
     "BILLING_SUBSCRIPTION_STATUS_EXPIRED",
     "BILLING_SUBSCRIPTION_STATUS_PAST_DUE",
     "BILLING_TRIAL_PRODUCT_BID",
-    "BillingCampaign",
-    "BillingCampaignProduct",
-    "BillingOrder",
-    "BillingProduct",
-    "BillingRenewalEvent",
-    "BillingSubscription",
     "CREDIT_BUCKET_CATEGORY_FREE",
     "CREDIT_BUCKET_CATEGORY_SUBSCRIPTION",
     "CREDIT_BUCKET_CATEGORY_TOPUP",
@@ -161,11 +154,19 @@ __all__ = [
     "CREDIT_SOURCE_TYPE_REFUND",
     "CREDIT_SOURCE_TYPE_SUBSCRIPTION",
     "CREDIT_SOURCE_TYPE_TOPUP",
+    "ERROR_CODE",
+    "BillingCampaign",
+    "BillingCampaignProduct",
+    "BillingCampaignProviderDiscount",
+    "BillingOrder",
+    "BillingProduct",
+    "BillingProductProviderPrice",
+    "BillingRenewalEvent",
+    "BillingSubscription",
     "CreditLedgerEntry",
     "CreditWallet",
     "CreditWalletBucket",
     "Decimal",
-    "ERROR_CODE",
     "PingxxOrder",
     "StripeOrder",
     "add_active_subscription",
@@ -183,6 +184,7 @@ __all__ = [
     "normalize_mysql_datetime",
     "now_utc",
     "repair_topup_grant_expiries",
+    "seed_active_stripe_provider_price_mappings",
     "seed_creator_user",
     "self_managed_cycle_end_after_boundary",
     "sync_subscription_lifecycle_events",
@@ -209,7 +211,7 @@ def self_managed_cycle_end_after_boundary(
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
-        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 def add_active_subscription(
@@ -258,6 +260,38 @@ def seed_creator_user(app: Flask, *, creator_bid: str = "creator-1") -> None:
         dao.db.session.commit()
 
 
+def seed_active_stripe_provider_price_mappings(app: Flask) -> None:
+    """Seed active Stripe price mappings for billing checkout tests."""
+    with app.app_context():
+        rows = BillingProduct.query.filter(BillingProduct.deleted == 0).all()
+        for row in rows:
+            existing = BillingProductProviderPrice.query.filter_by(
+                provider_price_bid=f"mapping-{row.product_bid}",
+                deleted=0,
+            ).one_or_none()
+            if existing is not None:
+                continue
+            dao.db.session.add(
+                BillingProductProviderPrice(
+                    provider_price_bid=f"mapping-{row.product_bid}",
+                    product_bid=row.product_bid,
+                    provider="stripe",
+                    provider_account_id="acct_test",
+                    provider_product_id=f"prod_{row.product_bid}",
+                    provider_price_id=f"price_{row.product_bid}",
+                    livemode=0,
+                    currency=str(row.currency or "CNY").upper(),
+                    unit_amount=int(row.price_amount or 0),
+                    billing_mode=int(row.billing_mode or 0),
+                    billing_interval=int(row.billing_interval or 0),
+                    billing_interval_count=int(row.billing_interval_count or 0),
+                    status=BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+                    metadata_json={},
+                )
+            )
+        dao.db.session.commit()
+
+
 def add_trial_subscription_state(
     app: Flask,
     *,
@@ -298,9 +332,9 @@ def add_trial_subscription_state(
                 wallet_bid=wallet_bid,
                 creator_bid=creator_bid,
                 available_credits=credit_amount,
-                reserved_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
                 lifetime_granted_credits=credit_amount,
-                lifetime_consumed_credits=Decimal("0"),
+                lifetime_consumed_credits=Decimal(0),
                 last_settled_usage_id=0,
                 version=0,
                 created_at=trial_start,
@@ -338,9 +372,9 @@ def add_trial_subscription_state(
                 priority=20,
                 original_credits=credit_amount,
                 available_credits=credit_amount,
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=trial_start,
                 effective_to=trial_end,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -382,7 +416,7 @@ def add_trial_subscription_state(
         dao.db.session.commit()
 
 
-def billing_write_client(monkeypatch):
+def billing_write_client(monkeypatch: object) -> Iterator[dict[str, object]]:
     monkeypatch.setenv("HOST_URL", "https://billing.example.com")
     monkeypatch.setenv("PATH_PREFIX", "/api")
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
@@ -403,11 +437,14 @@ def billing_write_client(monkeypatch):
     dao.db.init_app(app)
 
     stripe_requests: list[dict] = []
+    stripe_expire_requests: list[dict] = []
     pingxx_requests: list[dict] = []
     refund_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request: object, app: object) -> object:
+            _ = app
+            checkout_session_id = f"cs_{request.order_bid}"
             stripe_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -418,20 +455,73 @@ def billing_write_client(monkeypatch):
                 }
             )
             return PaymentCreationResult(
-                provider_reference="cs_billing_test",
+                provider_reference=checkout_session_id,
                 raw_response={
-                    "id": "cs_billing_test",
+                    "id": checkout_session_id,
                     "url": "https://stripe.test/checkout",
+                    "status": "open",
+                    "payment_status": "unpaid",
+                    "success_url": request.extra.get("success_url"),
+                    "cancel_url": request.extra.get("cancel_url"),
                 },
-                checkout_session_id="cs_billing_test",
+                checkout_session_id=checkout_session_id,
                 extra={"url": "https://stripe.test/checkout"},
             )
 
-        def create_subscription(self, *, request, app):
+        def create_subscription(self, *, request: object, app: object) -> object:
             return self.create_payment(request=request, app=app)
 
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def retrieve_checkout_session(
+            self, *, session_id: str, app: object
+        ) -> dict[str, object]:
+            _ = app
+            return {
+                "id": session_id,
+                "status": "open",
+                "payment_status": "unpaid",
+            }
+
+        def expire_checkout_session(
+            self, *, session_id: str, app: object
+        ) -> dict[str, object]:
+            _ = app
+            stripe_expire_requests.append({"session_id": session_id})
+            return {
+                **self.retrieve_checkout_session(session_id=session_id, app=app),
+                "status": "expired",
+            }
+
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
             assert reference_type == "checkout_session"
+            stripe_order = StripeOrder.query.filter_by(
+                checkout_session_id=provider_reference,
+                biz_domain="billing",
+                deleted=0,
+            ).first()
+            billing_order = None
+            if stripe_order and stripe_order.bill_order_bid:
+                billing_order = BillingOrder.query.filter_by(
+                    bill_order_bid=stripe_order.bill_order_bid,
+                    deleted=0,
+                ).first()
+            paid_amount = (
+                int(billing_order.payable_amount or 0)
+                if billing_order is not None
+                else int(stripe_order.amount or 0)
+                if stripe_order is not None
+                else 0
+            )
+            paid_currency = (
+                str(billing_order.currency or "CNY").lower()
+                if billing_order is not None
+                else str(stripe_order.currency or "cny").lower()
+                if stripe_order is not None
+                else "cny"
+            )
+            no_payment_required = paid_amount == 0
             return PaymentNotificationResult(
                 order_bid="",
                 status="manual_sync",
@@ -439,22 +529,44 @@ def billing_write_client(monkeypatch):
                     "checkout_session": {
                         "id": provider_reference,
                         "status": "complete",
-                        "payment_status": "paid",
-                        "payment_intent": "pi_billing_test",
+                        "payment_status": (
+                            "no_payment_required" if no_payment_required else "paid"
+                        ),
+                        "payment_intent": (
+                            None if no_payment_required else "pi_billing_test"
+                        ),
                         "subscription": "sub_provider_test",
                         "customer": "cus_provider_test",
+                        "amount_total": paid_amount,
+                        "currency": paid_currency,
+                        "metadata": {
+                            "bill_order_bid": billing_order.bill_order_bid,
+                            "creator_bid": billing_order.creator_bid,
+                            "product_bid": billing_order.product_bid,
+                        }
+                        if billing_order is not None
+                        else {},
                     },
-                    "payment_intent": {
+                    "payment_intent": {}
+                    if no_payment_required
+                    else {
                         "id": "pi_billing_test",
                         "status": "succeeded",
+                        "amount_received": paid_amount,
+                        "currency": paid_currency,
                     },
                 },
                 charge_id=None,
             )
 
         def cancel_subscription(
-            self, *, subscription_bid: str, provider_subscription_id: str, app
-        ):
+            self,
+            *,
+            subscription_bid: str,
+            provider_subscription_id: str,
+            app: object,
+        ) -> object:
+            _ = app
             return SubscriptionUpdateResult(
                 provider_reference=provider_subscription_id,
                 raw_response={
@@ -468,8 +580,13 @@ def billing_write_client(monkeypatch):
             )
 
         def resume_subscription(
-            self, *, subscription_bid: str, provider_subscription_id: str, app
-        ):
+            self,
+            *,
+            subscription_bid: str,
+            provider_subscription_id: str,
+            app: object,
+        ) -> object:
+            _ = app
             return SubscriptionUpdateResult(
                 provider_reference=provider_subscription_id,
                 raw_response={
@@ -482,7 +599,8 @@ def billing_write_client(monkeypatch):
                 extra={"cancel_at_period_end": False},
             )
 
-        def refund_payment(self, *, request, app):
+        def refund_payment(self, *, request: object, app: object) -> object:
+            _ = app
             refund_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -498,7 +616,8 @@ def billing_write_client(monkeypatch):
             )
 
     class FakePingxxProvider:
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request: object, app: object) -> object:
+            _ = app
             pingxx_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -514,7 +633,10 @@ def billing_write_client(monkeypatch):
                 extra={"credential": {"alipay_qr": "https://pingxx.test/qr"}},
             )
 
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
             assert reference_type == "charge"
             return PaymentNotificationResult(
                 order_bid="",
@@ -523,12 +645,13 @@ def billing_write_client(monkeypatch):
                 charge_id=provider_reference,
             )
 
-    def _fake_get_payment_provider(channel: str):
+    def _fake_get_payment_provider(channel: str) -> object:
         if channel == "stripe":
             return FakeStripeProvider()
         if channel == "pingxx":
             return FakePingxxProvider()
-        raise AssertionError(f"Unexpected provider: {channel}")
+        message = f"Unexpected provider: {channel}"
+        raise AssertionError(message)
 
     monkeypatch.setitem(
         billing_write_routes_module.create_billing_order_checkout.__globals__,
@@ -541,13 +664,17 @@ def billing_write_client(monkeypatch):
         _fake_get_payment_provider,
     )
     monkeypatch.setattr(
+        "flaskr.service.billing.provider_price_mappings.resolve_current_stripe_provider_price_scope",
+        lambda _app: SimpleNamespace(provider_account_id="acct_test", livemode=False),
+    )
+    monkeypatch.setattr(
         billing_write_routes_module,
         "is_billing_enabled",
         lambda: True,
     )
 
-    @app.errorhandler(AppException)
-    def _handle_app_exception(error: AppException):
+    @app.errorhandler(AppError)
+    def _handle_app_exception(error: AppError) -> object:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -567,12 +694,14 @@ def billing_write_client(monkeypatch):
         dao.db.create_all()
         dao.db.session.add_all(build_bill_products())
         dao.db.session.commit()
+        seed_active_stripe_provider_price_mappings(app)
 
         with app.test_client() as client:
             yield {
                 "client": client,
                 "app": app,
                 "stripe_requests": stripe_requests,
+                "stripe_expire_requests": stripe_expire_requests,
                 "pingxx_requests": pingxx_requests,
                 "refund_requests": refund_requests,
             }

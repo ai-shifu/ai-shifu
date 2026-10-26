@@ -1,14 +1,15 @@
+"""Verify credit grant allocation views behavior."""
+
 from __future__ import annotations
 
-from datetime import datetime
 import math
+from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
 import pytest
-from sqlalchemy import text
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_MANUAL,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -35,10 +36,14 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWalletBucket,
 )
+from sqlalchemy import text
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @pytest.fixture
-def billing_view_app():
+def billing_view_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -81,7 +86,7 @@ def _bucket(
         available_credits=Decimal("7.0000000000"),
         reserved_credits=Decimal("2.0000000000"),
         consumed_credits=Decimal("1.0000000000"),
-        expired_credits=Decimal("0"),
+        expired_credits=Decimal(0),
         effective_from=datetime(2026, 4, 1, 0, 0, 0),
         effective_to=datetime(2026, 5, 1, 0, 0, 0),
         status=CREDIT_BUCKET_STATUS_ACTIVE,

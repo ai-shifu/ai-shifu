@@ -1,0 +1,511 @@
+{
+  "__namespace__": "module.operationsUser",
+  "actions": {
+    "cancelAccount": "ยกเลิกบัญชี",
+    "deductCredits": "หักเครดิต",
+    "grantCredits": "มอบเครดิต/แพ็กเกจ",
+    "moreForUser": "การดำเนินการเพิ่มเติมของ {user}"
+  },
+  "cancellation": {
+    "back": "กลับ",
+    "blockers": {
+      "operator": "บัญชีนี้มีสิทธิ์ผู้ดูแลระบบและยังไม่รองรับการยกเลิก",
+      "paid_preorder_refund_required": "บัญชีนี้มีรายการสั่งซื้อล่วงหน้าที่ชำระเงินแล้วและรอมีผล {count} รายการ โปรดคืนเงินด้วยตนเองก่อนยกเลิกบัญชี",
+      "published_course_transfer_required": "โปรดโอนคอร์สที่เผยแพร่จำนวน {count} คอร์สก่อนดำเนินการต่อ",
+      "self": "ไม่สามารถยกเลิกบัญชีผู้ดูแลที่กำลังเข้าสู่ระบบอยู่ได้",
+      "title": "ยังไม่สามารถดำเนินการยกเลิกได้",
+      "unknown": "บัญชีนี้ยังมีรายการที่ต้องดำเนินการ โปรดลองรีเฟรชหรือติดต่อฝ่ายเทคนิค",
+      "unsettled_payment": "โปรดจัดการคำสั่งซื้อที่ยังไม่เสร็จจำนวน {count} รายการก่อนยกเลิกบัญชี"
+    },
+    "confirm": "ยืนยันการยกเลิก",
+    "confirmDescription": "บัญชี {user} จะถูกยกเลิกอย่างถาวร โปรดตรวจสอบบัญชีและเหตุผลอีกครั้ง หลังส่งคำขอแล้วจะไม่สามารถยกเลิกการดำเนินการได้",
+    "confirmPaidPreorder": "บัญชีนี้มีแพ็กเกจชำระล่วงหน้าที่ชำระเงินแล้วและรอมีผล {count} รายการ โปรดยืนยันว่าคืนเงินหรือดำเนินการที่เกี่ยวข้องเรียบร้อยแล้ว",
+    "confirmTitle": "ยืนยันการยกเลิกบัญชี",
+    "continue": "ยกเลิกบัญชี",
+    "description": "ระบบจะตรวจสอบคอร์ส การสมัครสมาชิก เครดิต และเซสชัน",
+    "errors": {
+      "blocked": "ยังมีรายการที่ต้องดำเนินการ",
+      "cancel": "ยกเลิกบัญชีไม่สำเร็จ",
+      "executionFailed": "งานยกเลิกบัญชีล้มเหลว โปรดลองอีกครั้ง",
+      "load": "โหลดข้อมูลการยกเลิกไม่ได้",
+      "prepare": "เตรียมการยกเลิกไม่สำเร็จ",
+      "processingTimeout": "งานยกเลิกบัญชียังอยู่ระหว่างดำเนินการ โปรดรีเฟรชรายชื่อผู้ใช้ภายหลัง",
+      "transfer": "โอนคอร์สไม่สำเร็จ"
+    },
+    "irreversible": "หลังยกเลิกบัญชี ข้อมูลระบุตัวตนและข้อมูลเข้าสู่ระบบจะถูกลบ ยอดเครดิตจะเป็นศูนย์ และเซสชันเข้าสู่ระบบปัจจุบันจะหมดผล ประวัติธุรกรรมและข้อมูลหลักสูตรจะเก็บไว้ตามกฎที่ใช้บังคับ",
+    "processing": "กำลังยกเลิก…",
+    "reasonCounter": "{count}/500",
+    "reasonHint": "เหตุผลนี้จะถูกบันทึกไว้ในบันทึกการตรวจสอบการดำเนินงาน",
+    "reasonLabel": "เหตุผลในการยกเลิก",
+    "reasonPlaceholder": "ระบุเหตุผลที่ชัดเจน เช่น “ผู้ใช้ขอยกเลิกบัญชี”",
+    "reasonTooShort": "กรุณาระบุอย่างน้อย 5 ตัวอักษร",
+    "summary": {
+      "accountLabel": "บัญชีผู้ใช้",
+      "courseCounts": "ฉบับร่าง {drafts} · เผยแพร่แล้ว {published}",
+      "coursesHint": "คอร์สฉบับร่างจะถูกเก็บและระงับไว้ ส่วนคอร์สที่เผยแพร่แล้วต้องโอนผู้รับผิดชอบก่อน",
+      "coursesLabel": "คอร์ส",
+      "creditsExpireAtLabel": "อายุเครดิต",
+      "creditsHint": "ยอดเครดิตจะถูกล้างโดยไม่มีการคืนเงิน",
+      "creditsLabel": "ยอดเครดิต",
+      "paidPackages": "แพ็กเกจแบบชำระเงิน:",
+      "preorders": "แพ็กเกจชำระล่วงหน้าที่รอมีผล:",
+      "subscriptions": "การสมัครสมาชิกต่ออายุอัตโนมัติ:"
+    },
+    "title": "ยกเลิกบัญชี",
+    "transfer": "โอนทั้งหมด",
+    "transferEmailPlaceholder": "อีเมลของผู้รับผิดชอบใหม่",
+    "transferPhonePlaceholder": "หมายเลขโทรศัพท์ของผู้รับผิดชอบใหม่",
+    "transferRequired": "โอนคอร์สที่เผยแพร่ {count} คอร์สก่อน"
+  },
+  "contactChange": {
+    "back": "กลับไปแก้ไข",
+    "cancel": "ยกเลิก",
+    "confirm": "ยืนยันการเปลี่ยน",
+    "email": {
+      "action": "เปลี่ยนอีเมล",
+      "confirmDescription": "โปรดตรวจสอบรายละเอียดการเปลี่ยนแปลงด้านล่าง",
+      "confirmTitle": "ยืนยันการแก้ไขอีเมลผู้ใช้",
+      "currentLabel": "อีเมลปัจจุบัน",
+      "description": "อีเมลเดิมจะถูกยกเลิกการเชื่อมโยงและสามารถใช้ลงทะเบียนบัญชีใหม่ได้ ข้อมูลเดิมของผู้ใช้จะไม่เปลี่ยนแปลง",
+      "newLabel": "อีเมลใหม่",
+      "newPlaceholder": "กรอกอีเมลใหม่",
+      "sessionNotice": "หลังแก้ไข เซสชันทั้งหมดของผู้ใช้นี้จะถูกยกเลิก ผู้ใช้ต้องเข้าสู่ระบบอีกครั้งด้วยอีเมลใหม่",
+      "successDescription": "เซสชันทั้งหมดของผู้ใช้นี้ถูกยกเลิกแล้ว ผู้ใช้ต้องเข้าสู่ระบบอีกครั้งด้วยอีเมลใหม่",
+      "successTitle": "แก้ไขอีเมลผู้ใช้สำเร็จ",
+      "title": "เปลี่ยนอีเมลผู้ใช้"
+    },
+    "errors": {
+      "emailInvalid": "กรอกอีเมลที่ถูกต้อง",
+      "emailRequired": "กรอกอีเมลใหม่",
+      "emailUnchanged": "อีเมลใหม่ตรงกับอีเมลปัจจุบัน",
+      "phoneInvalid": "กรอกหมายเลขโทรศัพท์ 11 หลักที่ถูกต้อง",
+      "phoneRequired": "กรอกหมายเลขโทรศัพท์ใหม่",
+      "phoneUnchanged": "หมายเลขโทรศัพท์ใหม่ตรงกับหมายเลขปัจจุบัน",
+      "reasonRequired": "กรอกเหตุผลในการเปลี่ยน",
+      "submitFailed": "เปลี่ยนบัญชีไม่สำเร็จ โปรดลองอีกครั้งภายหลัง"
+    },
+    "phone": {
+      "action": "เปลี่ยนหมายเลขโทรศัพท์",
+      "confirmDescription": "โปรดตรวจสอบรายละเอียดการเปลี่ยนแปลงด้านล่าง",
+      "confirmTitle": "ยืนยันการแก้ไขหมายเลขโทรศัพท์",
+      "currentLabel": "หมายเลขโทรศัพท์ปัจจุบัน",
+      "description": "หมายเลขเดิมจะถูกยกเลิกการเชื่อมโยงและสามารถใช้ลงทะเบียนบัญชีใหม่ได้ ข้อมูลเดิมของผู้ใช้จะไม่เปลี่ยนแปลง",
+      "newLabel": "หมายเลขโทรศัพท์ใหม่",
+      "newPlaceholder": "กรอกหมายเลขโทรศัพท์ใหม่",
+      "sessionNotice": "หลังแก้ไข เซสชันทั้งหมดของผู้ใช้นี้จะถูกยกเลิก ผู้ใช้ต้องเข้าสู่ระบบอีกครั้งด้วยหมายเลขโทรศัพท์ใหม่",
+      "successDescription": "เซสชันทั้งหมดของผู้ใช้นี้ถูกยกเลิกแล้ว ผู้ใช้ต้องเข้าสู่ระบบอีกครั้งด้วยหมายเลขโทรศัพท์ใหม่",
+      "successTitle": "แก้ไขหมายเลขโทรศัพท์ผู้ใช้สำเร็จ",
+      "title": "เปลี่ยนหมายเลขโทรศัพท์ผู้ใช้"
+    },
+    "reasonLabel": "เหตุผลในการเปลี่ยน",
+    "reasonPlaceholder": "กรอกเหตุผลในการเปลี่ยนครั้งนี้",
+    "submitting": "กำลังส่ง…"
+  },
+  "courseSummary": {
+    "dialog": {
+      "courseId": "รหัสหลักสูตร",
+      "courseName": "ชื่อหลักสูตร",
+      "createdTitle": "รายการหลักสูตรที่สร้าง",
+      "description": "ผู้ใช้: {user}",
+      "learningTitle": "รายการหลักสูตรที่เรียน",
+      "status": "สถานะ"
+    },
+    "empty": "--"
+  },
+  "credits": {
+    "longTerm": "ใช้ได้ระยะยาว"
+  },
+  "deductionDialog": {
+    "account": "บัญชี",
+    "amount": "เครดิตที่จะหัก",
+    "amountPlaceholder": "กรอกจำนวนบวก ทศนิยมไม่เกิน 2 ตำแหน่ง",
+    "back": "ย้อนกลับ",
+    "confirmButton": "ยืนยันการหัก",
+    "confirmDescription": "ระบบจะหักเครดิตที่ชำระเงินก่อน แล้วจึงหักเครดิตที่มอบให้ด้วยตนเอง โปรดตรวจสอบก่อนดำเนินการต่อ",
+    "confirmTitle": "ยืนยันการหักเครดิต",
+    "continueButton": "ดำเนินการต่อ",
+    "currentBalance": "ยอดเครดิตปัจจุบัน",
+    "description": "หักเครดิตจากบัญชีผู้ใช้นี้ โดยไม่รวมเครดิตของขวัญและรางวัล",
+    "errors": {
+      "amount": "กรอกจำนวนบวกที่มีทศนิยมไม่เกิน 2 ตำแหน่ง",
+      "submitFailed": "หักเครดิตไม่สำเร็จ โปรดลองอีกครั้ง"
+    },
+    "note": "หมายเหตุ",
+    "notePlaceholder": "หมายเหตุภายใน (ไม่บังคับ)",
+    "reason": "เหตุผล",
+    "reasons": {
+      "account_correction": "แก้ไขบัญชี",
+      "incorrect_grant": "มอบเครดิตผิดพลาด",
+      "other": "อื่นๆ"
+    },
+    "submitting": "กำลังหักเครดิต...",
+    "success": "หักเครดิตแล้ว",
+    "title": "หักเครดิต"
+  },
+  "detail": {
+    "basicInfo": "ข้อมูลพื้นฐาน",
+    "cancellationOperator": "ผู้ดำเนินการยกเลิกบัญชี",
+    "cancellationReason": "เหตุผลในการยกเลิกบัญชี",
+    "cancelledAt": "เวลาที่ยกเลิกบัญชี",
+    "createdCourses": "หลักสูตรที่สร้าง",
+    "creditExpireAtHint": "หากมีวันหมดอายุหลายรายการ จะแสดงวันที่หมดอายุเร็วที่สุดก่อน",
+    "creditExpireAtHintAriaLabel": "ดูคำอธิบายเวลาหมดอายุเครดิต",
+    "creditLedger": "รายละเอียดเครดิต",
+    "creditLedgerColumns": {
+      "amount": "เครดิตที่เปลี่ยนแปลง",
+      "balanceAfter": "ยอดคงเหลือหลังเปลี่ยน",
+      "consumedCredits": "เครดิตที่ใช้",
+      "course": "หลักสูตร",
+      "createdAt": "เวลาเปลี่ยนแปลง",
+      "entryType": "ประเภท",
+      "expiresAt": "เวลาหมดอายุ",
+      "grantedCredits": "เครดิตที่ได้รับ",
+      "note": "หมายเหตุ",
+      "sectionChapter": "บทเรียน/บท",
+      "sourceType": "แหล่งที่มา",
+      "usageMode": "วิธี",
+      "usageScene": "ฉาก",
+      "user": "ผู้ใช้"
+    },
+    "creditLedgerFilters": {
+      "course": "หลักสูตร",
+      "coursePlaceholder": "รหัสหลักสูตร / ชื่อหลักสูตร",
+      "grantSource": "วิธีมอบ",
+      "grantSourceOptions": {
+        "all": "ทั้งหมด",
+        "manual": "มอบด้วยตนเอง",
+        "subscription": "แพ็กเกจ",
+        "topup": "แพ็กเครดิต",
+        "trial_subscription": "เครดิตทดลอง"
+      },
+      "time": "ช่วงเวลา",
+      "timePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
+      "type": "ประเภท",
+      "typeOptions": {
+        "all": "ทั้งหมด",
+        "consume": "ใช้",
+        "grant": "มอบ",
+        "other": "อื่น ๆ"
+      },
+      "usageMode": "วิธีใช้",
+      "usageModeOptions": {
+        "all": "ทั้งหมด",
+        "ask": "ถามต่อ",
+        "learn": "อ่าน",
+        "listen": "ฟัง"
+      },
+      "usageScene": "ฉากการใช้",
+      "usageSceneOptions": {
+        "all": "ทั้งหมด",
+        "debug": "ดีบัก",
+        "learning": "เรียน",
+        "preview": "ตัวอย่าง"
+      }
+    },
+    "creditLedgerNoteLabels": {
+      "admin_manual_plan_grant": "ผู้ดำเนินงานมอบแพ็กเกจ",
+      "debug_consume": "ใช้เครดิตกับเนื้อหาดีบัก",
+      "gift_expire": "เครดิตแถมหมดอายุ",
+      "gift_grant": "ระบบมอบเครดิตแถม",
+      "learning_consume": "ใช้เครดิตกับเนื้อหาการเรียน",
+      "manual_credit": "เติมเครดิตด้วยตนเอง",
+      "manual_debit": "หักเครดิตด้วยตนเอง",
+      "manual_grant": "มอบเครดิตด้วยตนเอง",
+      "preview_consume": "ใช้เครดิตกับเนื้อหาตัวอย่าง",
+      "refund_return": "คืนเครดิตหลังคืนเงิน",
+      "subscription_cycle_transition": "เปลี่ยนรอบแพ็กเกจ เครดิตคงเหลือของรอบเดิมหมดอายุ",
+      "subscription_expire": "เครดิตแพ็กเกจหมดอายุ",
+      "subscription_grant": "มอบเครดิตหลังเปิดใช้แพ็กเกจ",
+      "subscription_purchase": "มอบเครดิตจากการซื้อแพ็กเกจ",
+      "subscription_renewal": "มอบเครดิตจากการต่ออายุแพ็กเกจ",
+      "topup_expire": "แพ็กเครดิตหมดอายุ",
+      "topup_grant": "มอบเครดิตหลังซื้อแพ็กเครดิต",
+      "topup_purchase": "มอบเครดิตจากการซื้อแพ็กเครดิต",
+      "trial_bootstrap": "มอบเครดิตเมื่อเปิดใช้แพ็กเกจทดลอง",
+      "trial_subscription_grant": "มอบเครดิตแพ็กเกจทดลอง"
+    },
+    "creditLedgerSourceLabels": {
+      "compensation": "ชดเชย",
+      "debug": "ดีบัก",
+      "gift": "แถม",
+      "learning": "เรียน",
+      "manual": "ด้วยตนเอง",
+      "preview": "ตัวอย่าง",
+      "refund": "คืนเงิน",
+      "reward": "รางวัล",
+      "subscription": "แพ็กเกจ",
+      "topup": "แพ็กเครดิต",
+      "trial_subscription": "แพ็กเกจทดลอง",
+      "usage": "การใช้"
+    },
+    "creditLedgerTypeLabels": {
+      "adjustment": "ปรับเครดิต",
+      "consume": "ใช้เครดิต",
+      "debug_consume": "ใช้เพื่อดีบัก",
+      "expire": "เครดิตหมดอายุ",
+      "gift_expire": "เครดิตแถมหมดอายุ",
+      "gift_grant": "มอบเครดิตแถม",
+      "grant": "มอบเครดิต",
+      "hold": "ระงับเครดิต",
+      "learning_consume": "ใช้เพื่อเรียน",
+      "manual_credit": "เติมด้วยตนเอง",
+      "manual_debit": "หักด้วยตนเอง",
+      "manual_grant": "มอบด้วยตนเอง",
+      "preview_consume": "ใช้เพื่อดูตัวอย่าง",
+      "refund": "คืนหลังคืนเงิน",
+      "refund_return": "คืนหลังคืนเงิน",
+      "release": "คืนเครดิตที่กันไว้",
+      "subscription_expire": "เครดิตแพ็กเกจหมดอายุ",
+      "subscription_grant": "มอบแพ็กเกจ",
+      "topup_expire": "แพ็กเครดิตหมดอายุ",
+      "topup_grant": "มอบแพ็กเครดิต",
+      "trial_subscription_grant": "มอบแพ็กเกจทดลอง"
+    },
+    "creditLedgerUsageSceneLabels": {
+      "debug": "ดีบัก",
+      "learning": "เรียน",
+      "preview": "ตัวอย่าง"
+    },
+    "creditUsageDetail": {
+      "actions": {
+        "open": "รายละเอียด",
+        "openAriaLabel": "ดูรายละเอียดการใช้เครดิต"
+      },
+      "collapse": "ยุบ",
+      "columns": {
+        "consumedCredits": "เครดิตที่ใช้",
+        "createdAt": "เวลาที่ใช้",
+        "inputTokens": "โทเค็นอินพุต",
+        "outputSummary": "สรุปเอาต์พุต",
+        "outputTokens": "โทเค็นเอาต์พุต",
+        "ttsContent": "เนื้อหาที่สังเคราะห์",
+        "ttsDuration": "ความยาวเสียง",
+        "ttsSegmentCount": "จำนวนช่วง",
+        "ttsWordCount": "จำนวนคำที่สังเคราะห์"
+      },
+      "description": "แสดงเนื้อหาเอาต์พุตและการใช้เครดิตที่เชื่อมโยงกับการชำระครั้งนี้",
+      "durationMinutesSeconds": "{minutes} นาที {seconds} วินาที",
+      "durationSeconds": "{seconds} วินาที",
+      "empty": "ยังไม่มีรายละเอียดการใช้",
+      "error": "โหลดรายละเอียดการใช้ไม่สำเร็จ",
+      "expand": "ขยาย",
+      "loading": "กำลังโหลด",
+      "title": "รายละเอียดการใช้เครดิต"
+    },
+    "creditsOverview": "ภาพรวมเครดิต",
+    "creditsOverviewLabels": {
+      "availableCredits": "เครดิตคงเหลือทั้งหมด",
+      "creditsExpireAt": "อายุเครดิต",
+      "subscriptionCredits": "เครดิตแพ็กเกจ",
+      "topupCredits": "เครดิตแพ็กเครดิต"
+    },
+    "emptyCourses": "ยังไม่มีหลักสูตร",
+    "emptyCredits": "ยังไม่มีรายละเอียดเครดิต",
+    "learningCourses": "หลักสูตรที่เรียน",
+    "learningProgress": "ความคืบหน้าการเรียน",
+    "loadingCredits": "กำลังโหลด",
+    "overview": "ภาพรวมข้อมูล",
+    "tabs": {
+      "createdCourses": "หลักสูตรที่สร้าง",
+      "credits": "รายละเอียดเครดิต",
+      "learningCourses": "หลักสูตรที่เรียน"
+    },
+    "title": "รายละเอียดผู้ใช้"
+  },
+  "emptyList": "ยังไม่มีผู้ใช้",
+  "filters": {
+    "createdAt": "เวลาสร้าง",
+    "email": "อีเมล",
+    "mobile": "หมายเลขโทรศัพท์",
+    "nickname": "ชื่อเล่น",
+    "role": "ประเภทผู้ใช้",
+    "status": "สถานะผู้ใช้",
+    "user": "ผู้ใช้",
+    "userPlaceholderEmail": "อีเมล / ชื่อเล่น",
+    "userPlaceholderPhone": "หมายเลขโทรศัพท์ / ชื่อเล่น",
+    "userPlaceholderPhoneEmail": "หมายเลขโทรศัพท์ / อีเมล / ชื่อเล่น"
+  },
+  "grantDialog": {
+    "bootstrapError": "โหลดรายการแพ็กเกจไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "confirmButton": "ยืนยันการมอบ",
+    "confirmDescription": "โปรดยืนยันข้อมูลการมอบเครดิตครั้งนี้ เมื่อยืนยันแล้วจะมีผลทันที",
+    "confirmSummary": {
+      "amount": "เครดิตที่มอบ",
+      "mode": "ประเภทการมอบ",
+      "note": "หมายเหตุ",
+      "package": "แพ็กเกจ",
+      "packageCredits": "จำนวนเครดิต",
+      "packageExpireAt": "วันที่สิ้นสุดโดยประมาณ",
+      "packageValidity": "อายุการใช้งาน",
+      "referralCurrentCredits": "เครดิตรางวัลเชิญปัจจุบัน",
+      "referralCurrentExpireAt": "อายุรางวัลเชิญปัจจุบัน",
+      "referralEstimatedCredits": "เครดิตโดยประมาณหลังมอบ",
+      "referralEstimatedExpireAt": "อายุโดยประมาณหลังมอบ",
+      "referralGrantCount": "จำนวนครั้งที่มอบรางวัลเชิญแล้ว",
+      "source": "แหล่งที่มา",
+      "validityPreset": "อายุการใช้งาน"
+    },
+    "confirmTitle": "ยืนยันการมอบเครดิต",
+    "customValidity": {
+      "actualExpiry": "วันหมดอายุจริง: {date}",
+      "estimatedExpiry": "วันหมดอายุโดยประมาณ (ยืนยันเมื่อมอบเครดิต)",
+      "hint": "มีผลทันที วันเท่ากับ 24 ชั่วโมง เดือนและปีคำนวณตามปฏิทิน หากไม่มีวันที่ตรงกันจะใช้วันสุดท้ายของเดือน",
+      "invalid": "กรอกระยะเวลาเป็นจำนวนเต็มบวกที่ถูกต้อง และเลือกวัน เดือน หรือปี",
+      "summary": "มีผลทันที ใช้ได้ {value} {unit}",
+      "unitLabel": "หน่วยเวลา",
+      "units": {
+        "day": "วัน",
+        "month": "เดือน",
+        "year": "ปี"
+      },
+      "valueLabel": "ระยะเวลา"
+    },
+    "description": "ใช้ในแผงผู้ดำเนินงานเพื่อมอบเครดิตหรือแพ็กเกจให้ครูหรือผู้ดำเนินงาน",
+    "fields": {
+      "amount": "เครดิต",
+      "mode": "ประเภทการมอบ",
+      "note": "หมายเหตุ",
+      "source": "แหล่งที่มา",
+      "validityPreset": "อายุการใช้งาน"
+    },
+    "modeOptions": {
+      "credits": "มอบเครดิต",
+      "package": "มอบแพ็กเกจ",
+      "referralReward": "รางวัลเชิญ"
+    },
+    "packageConfirmDescription": "โปรดยืนยันข้อมูลการมอบแพ็กเกจครั้งนี้ เมื่อยืนยันแล้วจะมีผลทันที",
+    "packageConfirmTitle": "ยืนยันการมอบแพ็กเกจ",
+    "packageFields": {
+      "credits": "จำนวนเครดิต",
+      "expiryHintPending": "มีผลทันทีหลังมอบสำเร็จ วันที่สิ้นสุดจะคำนวณตามอายุแพ็กเกจโดยอัตโนมัติ",
+      "expiryHintResolved": "มีผลทันทีหลังมอบสำเร็จ วันที่สิ้นสุดโดยประมาณคือ {dateTime}",
+      "packageName": "ชื่อแพ็กเกจ",
+      "product": "แพ็กเกจ",
+      "validity": "อายุการใช้งาน"
+    },
+    "placeholders": {
+      "amount": "กรอกจำนวนเครดิต",
+      "note": "ไม่บังคับ บันทึกคำอธิบายการมอบครั้งนี้",
+      "product": "เลือกแพ็กเกจ",
+      "productLoading": "กำลังโหลดแพ็กเกจ...",
+      "referralRewardAmount": "กรอกเครดิตรางวัล"
+    },
+    "referralReward": {
+      "bootstrapError": "โหลดข้อมูลรางวัลเชิญไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+      "bootstrapLoading": "กำลังโหลดข้อมูลรางวัลเชิญ...",
+      "currentCredits": "เครดิตรางวัลเชิญปัจจุบัน",
+      "currentExpireAt": "อายุรางวัลเชิญปัจจุบัน",
+      "description": "ทุกครั้งที่มอบรางวัลเชิญ เครดิตจะเพิ่มตามจำนวนที่กรอกครั้งนี้ และอายุจะเลื่อนไปอีก 1 เดือนจากอายุรางวัลเชิญปัจจุบัน",
+      "emptyDescription": "หากไม่มีรางวัลเชิญที่ยังมีผล อายุจะนับ 1 เดือนจากเวลามอบ",
+      "grantCount": "จำนวนครั้งที่มอบรางวัลเชิญแล้ว",
+      "grantCountTooltip": "แหล่งข้อมูลเบื้องต้นคือจำนวนครั้งที่มอบรางวัลเชิญ",
+      "noActiveReward": "ยังไม่มีรางวัลเชิญที่มีผล",
+      "oneMonth": "1 เดือน",
+      "validity": "อายุการใช้งาน"
+    },
+    "referralRewardConfirmDescription": "โปรดยืนยันข้อมูลการมอบรางวัลเชิญครั้งนี้ เมื่อยืนยันแล้วจะมีผลทันที",
+    "referralRewardConfirmTitle": "ยืนยันการมอบรางวัลเชิญ",
+    "sourceOptions": {
+      "compensation": "ชดเชย",
+      "reward": "รางวัล"
+    },
+    "submitButton": "ยืนยัน",
+    "submitSuccess": "มอบสำเร็จ",
+    "summary": {
+      "account": "บัญชี",
+      "availableCredits": "เครดิตคงเหลือ",
+      "currentExpireAt": "หมดอายุวันที่",
+      "currentPackage": "แพ็กเกจปัจจุบัน",
+      "nickname": "ชื่อเล่น"
+    },
+    "title": "มอบเครดิต/แพ็กเกจ",
+    "validation": {
+      "amountRequired": "กรอกจำนวนเครดิตที่มากกว่า 0",
+      "productRequired": "เลือกแพ็กเกจ",
+      "referralRewardAmountRequired": "กรอกจำนวนเครดิตเต็มจำนวนที่มากกว่า 0",
+      "sourceRequired": "เลือกแหล่งที่มา"
+    }
+  },
+  "loginMethodLabels": {
+    "email": "อีเมล",
+    "google": "Google",
+    "phone": "หมายเลขโทรศัพท์",
+    "unknown": "ไม่ทราบ",
+    "wechat": "WeChat"
+  },
+  "overview": {
+    "activeFilter": "ตัวกรองด่วน",
+    "metrics": {
+      "creators": "จำนวนครู",
+      "guests": "จำนวนผู้เยี่ยมชม",
+      "learners": "จำนวนผู้เรียน",
+      "learningActive30d": "ผู้ใช้ที่เรียนใน 30 วันที่ผ่านมา",
+      "newUsers30d": "ผู้ใช้ใหม่ใน 30 วันที่ผ่านมา",
+      "paidUsers": "จำนวนผู้ใช้ที่ชำระเงิน",
+      "paidUsers30d": "ผู้ใช้ที่ชำระเงินใน 30 วันที่ผ่านมา",
+      "registeredUsers": "จำนวนผู้ใช้ที่สมัครแล้ว",
+      "registeredUsers30d": "ผู้ใช้ที่สมัครใน 30 วันที่ผ่านมา",
+      "totalUsers": "ผู้ใช้ทั้งหมด"
+    },
+    "staleData": "รีเฟรชภาพรวมข้อมูลไม่สำเร็จ ขณะนี้แสดงข้อมูลล่าสุดที่โหลดสำเร็จ",
+    "title": "ภาพรวมข้อมูล",
+    "tooltips": {
+      "creators": "จำนวนครู",
+      "guests": "จำนวนผู้ใช้สถานะผู้เยี่ยมชม",
+      "learners": "จำนวนผู้ใช้ที่มีบันทึกการเรียน",
+      "learningActive30d": "จำนวนผู้ใช้ที่มีพฤติกรรมการเรียนใน 30 วันที่ผ่านมา",
+      "newUsers30d": "จำนวนผู้ใช้ใหม่ใน 30 วันที่ผ่านมา",
+      "paidUsers": "จำนวนผู้ใช้สถานะชำระเงิน (รวมการเปิดใช้จากการนำเข้า)",
+      "paidUsers30d": "จำนวนผู้ใช้ที่ชำระเงินสำเร็จใน 30 วันที่ผ่านมา (รวมการเปิดใช้จากการนำเข้า)",
+      "registeredUsers": "จำนวนผู้ใช้ที่สมัครแล้ว",
+      "registeredUsers30d": "จำนวนผู้ใช้ที่สมัครเสร็จใน 30 วันที่ผ่านมา",
+      "totalUsers": "จำนวนผู้ใช้ทั้งหมด"
+    }
+  },
+  "registrationSourceLabels": {
+    "email": "อีเมล",
+    "google": "Google",
+    "imported": "สร้างจากการนำเข้า",
+    "phone": "หมายเลขโทรศัพท์",
+    "unknown": "ไม่ทราบ",
+    "wechat": "WeChat"
+  },
+  "roleLabels": {
+    "creator": "ครู",
+    "learner": "ผู้เรียน",
+    "operator": "ผู้ดำเนินงาน",
+    "regular": "ผู้ใช้ทั่วไป",
+    "unknown": "ไม่ทราบ"
+  },
+  "statusLabels": {
+    "cancelled": "ยกเลิกแล้ว",
+    "paid": "ชำระเงินแล้ว",
+    "registered": "สมัครแล้ว",
+    "unknown": "ไม่ทราบ",
+    "unregistered": "ยังไม่สมัคร"
+  },
+  "table": {
+    "action": "การดำเนินการ",
+    "availableCredits": "เครดิตทั้งหมด",
+    "createdAt": "เวลาสร้าง",
+    "createdCourses": "หลักสูตรที่สร้าง",
+    "creditsExpireAt": "เวลาเครดิตหมดอายุ",
+    "email": "อีเมล",
+    "guestUser": "ผู้เยี่ยมชม",
+    "lastLearningAt": "เวลาเรียนล่าสุด",
+    "lastLoginAt": "เวลาเข้าสู่ระบบล่าสุด",
+    "learningCourses": "หลักสูตรที่เรียน",
+    "loginMethods": "วิธีเข้าสู่ระบบ",
+    "mobile": "หมายเลขโทรศัพท์",
+    "nickname": "ชื่อเล่น",
+    "registrationSource": "แหล่งที่มาของการสมัคร",
+    "role": "ประเภทผู้ใช้",
+    "status": "สถานะผู้ใช้",
+    "subscriptionCredits": "เครดิตแพ็กเกจ",
+    "topupCredits": "เครดิตแพ็กเครดิต",
+    "totalPaidAmount": "ยอดชำระสะสม",
+    "updatedAt": "เวลาอัปเดต",
+    "userId": "รหัสผู้ใช้"
+  },
+  "title": "การจัดการผู้ใช้"
+}

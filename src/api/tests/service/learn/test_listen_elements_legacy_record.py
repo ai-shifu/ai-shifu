@@ -1,25 +1,14 @@
+"""Verify listen elements legacy record behavior."""
+
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-
-import flaskr.dao as dao
-
-if dao.db is None:
-    _test_app = Flask("test-listen-elements-legacy-record")
-    _test_app.config.update(
-        SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
-    )
-    _db = SQLAlchemy()
-    _db.init_app(_test_app)
-    dao.db = _db
-
-if not hasattr(dao, "redis_client"):
-    dao.redis_client = None
+from flaskr import dao
 
 
 class TestBuildListenElementsFromLegacyRecord:
+    """Verify build listen elements from legacy record behavior."""
+
     @classmethod
-    def setup_class(cls):
+    def setup_class(cls) -> None:
         cls.app = Flask("listen-elements-legacy-record")
         cls.app.config.update(
             SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -38,7 +27,7 @@ class TestBuildListenElementsFromLegacyRecord:
         with cls.app.app_context():
             dao.db.create_all()
 
-    def test_prefers_persisted_text_elements_for_audio_positions(self):
+    def test_prefers_persisted_text_elements_for_audio_positions(self) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
@@ -173,7 +162,9 @@ class TestBuildListenElementsFromLegacyRecord:
             "audio-persisted-1",
         ]
 
-    def test_skips_blank_persisted_text_elements_when_binding_audio_positions(self):
+    def test_skips_blank_persisted_text_elements_when_binding_audio_positions(
+        self,
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
@@ -344,7 +335,7 @@ class TestBuildListenElementsFromLegacyRecord:
             "audio-skip-blank-1",
         ]
 
-    def test_emits_ask_and_answer_with_anchor_for_follow_up_blocks(self):
+    def test_emits_ask_and_answer_with_anchor_for_follow_up_blocks(self) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             BlockType,
@@ -410,7 +401,7 @@ class TestBuildListenElementsFromLegacyRecord:
         assert result.elements[1].payload.anchor_element_bid == anchor_bid
         assert result.elements[2].payload.anchor_element_bid == anchor_bid
 
-    def test_drops_follow_up_blocks_without_any_prior_anchor(self):
+    def test_drops_follow_up_blocks_without_any_prior_anchor(self) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             BlockType,

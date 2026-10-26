@@ -1,12 +1,21 @@
 """Dify ask provider adapter."""
 
 import json
-from typing import Any, Generator
+from collections.abc import Generator
+from typing import Any
 
-import requests
 from flask import Flask
-
-from .consts import ASK_PROVIDER_DIFY
+from flaskr.common.safe_outbound import (
+    OutboundDeadlineExceededError,
+    OutboundRedirectError,
+    OutboundResponseTooLargeError,
+    OutboundUrlPolicy,
+    SafeOutboundClient,
+    SafeOutboundResponse,
+    UnsafeOutboundUrlError,
+)
+from urllib3.exceptions import HTTPError
+from urllib3.exceptions import TimeoutError as UrllibTimeoutError
 
 from .base import (
     AskProviderChunk,
@@ -19,11 +28,11 @@ from .common import (
     extract_text,
     iter_sse_payloads,
     provider_timeout_seconds,
-    raise_for_provider_response,
 )
+from .consts import ASK_PROVIDER_DIFY
 
 
-def _build_dify_query(user_query: str, messages: list[dict[str, Any]]) -> str:
+def _build_dify_query(user_query: str, messages: list[dict[str, object]]) -> str:
     if not isinstance(messages, list) or not messages:
         return user_query
 
@@ -48,7 +57,20 @@ def _build_dify_query(user_query: str, messages: list[dict[str, Any]]) -> str:
     return "\n\n".join(transcript_lines)
 
 
+def _trusted_dify_origins(app: Flask) -> frozenset[str]:
+    configured = app.config.get("DIFY_TRUSTED_ORIGINS", [])
+    if isinstance(configured, str):
+        values = configured.split(",")
+    elif isinstance(configured, (list, tuple, set, frozenset)):
+        values = configured
+    else:
+        values = []
+    return frozenset(str(origin).strip() for origin in values if str(origin).strip())
+
+
 class DifyAskProviderAdapter:
+    """Adapt Dify responses to the common ask stream."""
+
     provider = ASK_PROVIDER_DIFY
 
     def stream_answer(
@@ -56,10 +78,11 @@ class DifyAskProviderAdapter:
         app: Flask,
         user_id: str,
         user_query: str,
-        messages: list[dict[str, Any]],
-        provider_config: dict[str, Any],
+        messages: list[dict[str, object]],
+        provider_config: dict[str, object],
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
+        """Stream answer chunks from the configured provider."""
         _ = runtime
         config = provider_config.get("config") or {}
         if not isinstance(config, dict):
@@ -68,9 +91,10 @@ class DifyAskProviderAdapter:
         base_url = str(config.get("base_url") or "").strip()
         api_key = str(config.get("api_key") or "").strip()
         if not base_url or not api_key:
-            raise AskProviderConfigError(
+            exception_message = (
                 "dify base_url/api_key are required in ask_provider_config.config"
             )
+            raise AskProviderConfigError(exception_message)
 
         contextual_query = _build_dify_query(user_query, messages)
         payload: dict[str, Any] = {
@@ -94,34 +118,69 @@ class DifyAskProviderAdapter:
         }
 
         try:
-            response = requests.post(
+            client = SafeOutboundClient(
+                policy=OutboundUrlPolicy(
+                    trusted_origins=_trusted_dify_origins(app),
+                    max_redirects=3,
+                    max_response_bytes=10 * 1024 * 1024,
+                    connect_timeout_seconds=5,
+                    read_timeout_seconds=provider_timeout_seconds(),
+                )
+            )
+        except ValueError as exc:
+            message = "DIFY_TRUSTED_ORIGINS contains an invalid origin"
+            raise AskProviderConfigError(message) from exc
+        try:
+            response = client.request(
+                "POST",
                 url,
                 headers=headers,
-                json=payload,
-                stream=True,
-                timeout=(5, provider_timeout_seconds()),
+                body=json.dumps(payload).encode("utf-8"),
             )
-        except requests.Timeout as exc:
-            raise AskProviderTimeoutError("dify request timeout") from exc
-        except requests.RequestException as exc:
-            raise AskProviderError(f"dify request failed: {exc}") from exc
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            exception_message = "dify request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
+        except (
+            HTTPError,
+            OutboundRedirectError,
+            OutboundResponseTooLargeError,
+            UnsafeOutboundUrlError,
+        ) as exc:
+            message = "dify request was rejected or failed"
+            raise AskProviderError(message) from exc
 
-        response = raise_for_provider_response(response, self.provider)
+        try:
+            with response:
+                _raise_for_dify_response(response)
 
-        for raw_payload in iter_sse_payloads(response):
-            if not raw_payload or raw_payload.replace(" ", "") == "[DONE]":
-                continue
-            try:
-                parsed = json.loads(raw_payload)
-            except json.JSONDecodeError:
-                app.logger.warning("Skip malformed dify payload: %s", raw_payload)
-                continue
+                for raw_payload in iter_sse_payloads(response):
+                    if not raw_payload or raw_payload.replace(" ", "") == "[DONE]":
+                        continue
+                    try:
+                        parsed = json.loads(raw_payload)
+                    except json.JSONDecodeError:
+                        app.logger.warning("Skip malformed dify payload")
+                        continue
 
-            event = str(parsed.get("event") or "").strip().lower()
-            if event == "error":
-                error_message = extract_text(parsed) or str(parsed)
-                raise AskProviderError(f"dify error: {error_message}")
+                    event = str(parsed.get("event") or "").strip().lower()
+                    if event == "error":
+                        error_message = extract_text(parsed) or "provider error"
+                        message = f"dify error: {error_message}"
+                        raise AskProviderError(message)
 
-            text = extract_text(parsed)
-            if text:
-                yield AskProviderChunk(content=text)
+                    text = extract_text(parsed)
+                    if text:
+                        yield AskProviderChunk(content=text)
+        except (OutboundDeadlineExceededError, UrllibTimeoutError) as exc:
+            exception_message = "dify request timeout"
+            raise AskProviderTimeoutError(exception_message) from exc
+        except (HTTPError, OutboundResponseTooLargeError) as exc:
+            message = "dify response was rejected or failed"
+            raise AskProviderError(message) from exc
+
+
+def _raise_for_dify_response(response: SafeOutboundResponse) -> None:
+    if 200 <= response.status < 300:
+        return
+    message = f"dify request failed with status {response.status}"
+    raise AskProviderError(message)

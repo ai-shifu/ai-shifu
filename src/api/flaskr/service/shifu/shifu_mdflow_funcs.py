@@ -1,35 +1,38 @@
-from markdown_flow import MarkdownFlow
-from flask import Flask
-from flaskr.common.i18n_utils import get_markdownflow_output_language
-from flaskr.service.shifu.models import DraftOutlineItem
-from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
-from flaskr.service.common import raise_error
-from flaskr.dao import db, retry_on_deadlock
-from flaskr.service.shifu.dtos import MdflowDTOParseResult
-from flaskr.service.check_risk.funcs import check_text_with_risk_control
+"""Translate course content to and from MarkdownFlow."""
+
+from datetime import timedelta
 from typing import TypedDict
 
+from flask import Flask
+from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import db, retry_on_deadlock, uow
+from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.common import raise_error
+from flaskr.service.profile.profile_manage import (
+    add_profile_item_quick_internal,
+    get_profile_item_definition_list,
+)
+from flaskr.service.shifu.dtos import MdflowDTOParseResult
+from flaskr.service.shifu.models import DraftOutlineItem
+from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
 from flaskr.service.shifu.shifu_history_manager import (
-    save_outline_history,
     get_shifu_draft_meta,
     get_shifu_draft_revision,
+    get_shifu_history,
     iter_outline_item_versions_desc,
     mask_contact_identifier,
-)
-from flaskr.service.profile.profile_manage import (
-    get_profile_item_definition_list,
-    add_profile_item_quick_internal,
+    normalize_outline_content,
+    outline_content_revisions,
+    save_outline_history,
 )
 from flaskr.service.user.models import UserInfo
-from datetime import timedelta
-
 from flaskr.util.datetime import now_utc
+from markdown_flow import MarkdownFlow
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
-    """
-    Get shifu mdflow
-    """
+    """Get shifu mdflow."""
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
@@ -45,11 +48,15 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
 
 
 class DraftConflictResult(TypedDict):
+    """Capture the outcome of draft conflict."""
+
     conflict: bool
     meta: dict
 
 
 class DraftSaveResult(TypedDict):
+    """Capture the outcome of draft save."""
+
     conflict: bool
     new_revision: int
 
@@ -67,8 +74,8 @@ def cleanup_outline_history_versions(
     keep_versions: int = LESSON_HISTORY_MAX_VERSIONS,
     keep_days: int = LESSON_HISTORY_MAX_DAYS,
 ) -> None:
-    """
-    Keep outline version history bounded:
+    """Keep outline version history bounded.
+
     - trim to around `keep_versions` latest non-deleted versions
     - trim to around `keep_days` days of non-deleted versions
     To keep outline-level revision stable for metadata-only updates, this
@@ -89,15 +96,23 @@ def cleanup_outline_history_versions(
         return
 
     latest_id = int(latest_version.id)
-    latest_content = latest_version.content or ""
-    content_anchor_version = latest_version
-    for version in iter_outline_item_versions_desc(shifu_bid, outline_bid):
-        if version.id == latest_version.id:
-            continue
-        if (version.content or "") != latest_content:
-            break
-        content_anchor_version = version
-    protected_ids = {latest_id, int(content_anchor_version.id)}
+    content_revision = outline_content_revisions(get_shifu_history(app, shifu_bid)).get(
+        outline_bid
+    )
+    if content_revision is None:
+        # Legacy structures have no recorded anchor. Keep the prior recovery
+        # strategy until an authoring write establishes one.
+        latest_content = normalize_outline_content(latest_version.content)
+        content_revision = latest_id
+        for version in iter_outline_item_versions_desc(shifu_bid, outline_bid):
+            if version.id == latest_version.id:
+                continue
+            if normalize_outline_content(version.content) != latest_content:
+                break
+            content_revision = int(version.id)
+    # Once recorded, the revision is authoritative. A deleted intermediate
+    # version must not turn A -> B -> A into the earlier A's revision.
+    protected_ids = {latest_id, content_revision}
 
     cutoff_time = now_utc() - timedelta(days=max(1, keep_days))
     to_mark_deleted_ids: set[int] = set()
@@ -149,11 +164,9 @@ def save_shifu_mdflow(
     content: str,
     base_revision: int | None = None,
 ) -> DraftSaveResponse:
-    """
-    Save shifu mdflow
-    """
+    """Save shifu mdflow."""
     content = content or ""
-    with app.app_context():
+    with app_context_scope(app):
         lock_latest = isinstance(base_revision, int) and base_revision >= 0
 
         def _current_conflict() -> DraftConflictResult | None:
@@ -188,13 +201,29 @@ def save_shifu_mdflow(
         # Risk control writes and commits its own audit row, so it must run before
         # the outline write lock is acquired. The locked transaction below always
         # re-reads the latest outline version after this possible commit.
-        if (preflight_outline.content or "") != content:
+        if normalize_outline_content(
+            preflight_outline.content
+        ) != normalize_outline_content(content):
             check_text_with_risk_control(
                 app, preflight_outline.outline_item_bid, user_id, content
             )
 
         @retry_on_deadlock()
         def _save_txn() -> DraftSaveResponse:
+            # The closure owns the outermost unit of work, so a deadlock retry
+            # re-runs the whole locked transaction from scratch.
+            with unit_of_work():
+                return _save_locked()
+
+        def _save() -> DraftSaveResponse:
+            if uow.in_unit_of_work():
+                # A caller already owns the transaction: retrying here would
+                # roll back its staged writes and re-run only this save, so
+                # run once and let a deadlock propagate to that owner.
+                return _save_locked()
+            return _save_txn()
+
+        def _save_locked() -> DraftSaveResponse:
             lock_shifu_for_outline_write(shifu_bid)
             conflict = _current_conflict()
             if conflict:
@@ -217,7 +246,9 @@ def save_shifu_mdflow(
                 }
 
             new_revision = None
-            if (outline_item.content or "") != content:
+            if normalize_outline_content(
+                outline_item.content
+            ) != normalize_outline_content(content):
                 new_outline: DraftOutlineItem = outline_item.clone()
                 new_outline.content = content
                 new_outline.updated_user_bid = user_id
@@ -250,13 +281,13 @@ def save_shifu_mdflow(
                     outline_bid,
                     new_outline.id,
                     len(blocks),
+                    content_revision=int(new_outline.id),
                 )
                 cleanup_outline_history_versions(
                     app,
                     shifu_bid,
                     outline_bid,
                 )
-                db.session.commit()
                 new_revision = int(new_outline.id)
             return {
                 "conflict": False,
@@ -265,15 +296,13 @@ def save_shifu_mdflow(
                 else get_shifu_draft_revision(app, shifu_bid, outline_bid),
             }
 
-        return _save_txn()
+        return _save()
 
 
 def parse_shifu_mdflow(
-    app: Flask, shifu_bid: str, outline_bid: str, data: str = None
+    app: Flask, shifu_bid: str, outline_bid: str, data: str | None = None
 ) -> MdflowDTOParseResult:
-    """
-    Parse shifu mdflow
-    """
+    """Parse shifu mdflow."""
     with app.app_context():
         outline_item = (
             DraftOutlineItem.query.filter(
@@ -318,8 +347,8 @@ def get_shifu_mdflow_history(
     outline_bid: str,
     limit: int = 100,
 ) -> dict:
-    """
-    Get lesson content history for a specific outline.
+    """Get lesson content history for a specific outline.
+
     Only keep versions where markdown content actually changed.
     """
     with app.app_context():
@@ -393,9 +422,7 @@ def get_shifu_mdflow_history_version_detail(
     outline_bid: str,
     version_id: int,
 ) -> dict:
-    """
-    Get lesson content detail for a specific history version.
-    """
+    """Get lesson content detail for a specific history version."""
     with app.app_context():
         version = DraftOutlineItem.query.filter(
             DraftOutlineItem.id == version_id,
@@ -423,7 +450,7 @@ def get_shifu_mdflow_history_version_detail(
                     else ""
                 )
                 user_name = (
-                    (user.nickname if user.nickname else "")
+                    (user.nickname or "")
                     or masked_identifier
                     or version.updated_user_bid
                 )
@@ -445,9 +472,7 @@ def restore_shifu_mdflow_history_version(
     version_id: int,
     base_revision: int | None = None,
 ) -> dict:
-    """
-    Restore lesson content to the selected historical version.
-    """
+    """Restore lesson content to the selected historical version."""
     with app.app_context():
         target_version = (
             DraftOutlineItem.query.filter(
@@ -481,7 +506,9 @@ def restore_shifu_mdflow_history_version(
 
         target_content = target_version.content or ""
         current_content = latest_outline.content or ""
-        if target_content == current_content:
+        if normalize_outline_content(target_content) == normalize_outline_content(
+            current_content
+        ):
             return {
                 "restored": False,
                 "new_revision": get_shifu_draft_revision(app, shifu_bid, outline_bid),

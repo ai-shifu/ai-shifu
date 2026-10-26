@@ -1,0 +1,11 @@
+{
+  "__namespace__": "component.createShifuDialog",
+  "creating": "جارٍ الإنشاء...",
+  "descriptionLabel": "وصف الدورة",
+  "descriptionMaxLength": "يجب ألا يتجاوز وصف الدورة 500 حرف",
+  "descriptionPlaceholder": "أدخل وصف الدورة",
+  "nameLabel": "اسم الدورة",
+  "nameMaxLength": "يجب ألا يتجاوز اسم الدورة {maxLength} حرفًا",
+  "namePlaceholder": "أدخل اسم الدورة",
+  "nameRequired": "اسم الدورة مطلوب"
+}

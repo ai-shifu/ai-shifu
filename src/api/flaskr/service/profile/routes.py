@@ -1,24 +1,28 @@
+"""Expose HTTP routes for learner profiles."""
+
 from flask import Flask, request
-from flaskr.route.common import make_common_response
-from flaskr.service.profile.profile_manage import (
-    get_profile_item_definition_list,
-    add_profile_item_quick,
-    save_profile_item,
-    delete_profile_item,
-    update_profile_item_hidden_state,
-    hide_unused_profile_items,
-    get_profile_variable_usage,
-)
 from flaskr.framework.plugin.inject import inject
+from flaskr.route.common import make_common_response
 from flaskr.service.common import raise_error
+from flaskr.service.profile.profile_manage import (
+    add_profile_item_quick,
+    delete_profile_item,
+    get_profile_item_definition_list,
+    get_profile_variable_usage,
+    hide_unused_profile_items,
+    save_profile_item,
+    update_profile_item_hidden_state,
+)
 
 
 @inject
-def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
+def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> Flask:
+    """Register learner-profile routes on the Flask application."""
+
     @app.route(f"{path_prefix}/get-profile-item-definitions", methods=["GET"])
-    def get_profile_item_defination_api():
-        """
-        Get profile item defination
+    def get_profile_item_defination_api() -> str:
+        """Get profile item defination.
+
         ---
         tags:
           - profiles
@@ -55,15 +59,17 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                         $ref: '#/components/schemas/ProfileItemDefinition'
         """
         parent_id = request.args.get("parent_id")
-        type = request.args.get("type", "all")
+        item_type = request.args.get("type", "all")
         return make_common_response(
-            get_profile_item_definition_list(app, parent_id=parent_id, type=type)
+            get_profile_item_definition_list(
+                app, parent_id=parent_id, definition_type=item_type
+            )
         )
 
     @app.route(f"{path_prefix}/hide-unused-profile-items", methods=["POST"])
-    def hide_unused_profile_items_api():
-        """
-        Hide all unused custom profile items under a shifu.
+    def hide_unused_profile_items_api() -> str:
+        """Hide all unused custom profile items under a shifu.
+
         ---
         tags:
           - profiles
@@ -91,9 +97,9 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         )
 
     @app.route(f"{path_prefix}/profile-variable-usage", methods=["GET"])
-    def get_profile_variable_usage_api():
-        """
-        Get variable usage across all outlines for a shifu.
+    def get_profile_variable_usage_api() -> str:
+        """Get variable usage across all outlines for a shifu.
+
         ---
         tags:
           - profiles
@@ -115,9 +121,9 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         )
 
     @app.route(f"{path_prefix}/update-profile-hidden-state", methods=["POST"])
-    def update_profile_hidden_state_api():
-        """
-        Hide or restore specific custom profile items.
+    def update_profile_hidden_state_api() -> str:
+        """Hide or restore specific custom profile items.
+
         ---
         tags:
           - profiles
@@ -159,9 +165,9 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         )
 
     @app.route(f"{path_prefix}/add-profile-item-quick", methods=["POST"])
-    def add_profile_item_quick_api():
-        """
-        Add profile item
+    def add_profile_item_quick_api() -> str:
+        """Add profile item.
+
         ---
         tags:
           - profiles
@@ -203,9 +209,9 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         )
 
     @app.route(f"{path_prefix}/save-profile-item", methods=["POST"])
-    def save_profile_item_api():
-        """
-        save profile item
+    def save_profile_item_api() -> str:
+        """Save profile item.
+
         ---
         tags:
           - profiles
@@ -274,9 +280,9 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         )
 
     @app.route(f"{path_prefix}/delete-profile-item", methods=["POST"])
-    def delete_profile_item_api():
-        """
-        Delete profile item
+    def delete_profile_item_api() -> str:
+        """Delete profile item.
+
         ---
         tags:
           - profiles
@@ -317,10 +323,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         return make_common_response(delete_profile_item(app, user_id, profile_id))
 
     @app.route(f"{path_prefix}/get-profile-item", methods=["POST"])
-    def get_profile_item_api():
-        """
-        Get profile item
-        """
-        pass
+    def get_profile_item_api() -> None:
+        """Get profile item."""
 
     return app

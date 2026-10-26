@@ -2,13 +2,14 @@
 """Update shared i18n JSON files based on key usage across backend and frontends.
 
 Default behavior:
-- Scans src/api (Flask) and src/cook-web (Next.js) for translation key usage
+- Scans src/api (Flask) and src/web (Next.js) for translation key usage
 - Computes keys missing from src/i18n across locales
 - For namespaces that already exist (based on en-US mapping), inserts placeholder values for missing keys
 - Does NOT prune by default; use --prune-unused to remove keys not referenced in code
 
 Notes:
 - Requires namespaces to already be declared and mapped to files. To add a new namespace, use scripts/create_translation_namespace.py first.
+
 """
 
 from __future__ import annotations
@@ -17,20 +18,22 @@ import argparse
 import json
 import re
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
 BACKEND_DIR = ROOT / "src" / "api"
-COOK_WEB_DIR = ROOT / "src" / "cook-web"
+WEB_DIR = ROOT / "src" / "web"
 
 
-def load_json(path: Path):
+def load_json(path: Path) -> dict[str, object]:
+    """Load JSON."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def flatten_translation(data, namespace: str) -> Dict[str, str]:
-    def _flatten(obj, prefix: str, acc: Dict[str, str]):
+def flatten_translation(data: object, namespace: str) -> dict[str, str]:
+    """Flatten translation."""
+
+    def _flatten(obj: object, prefix: str, acc: dict[str, str]) -> dict[str, str]:
         if isinstance(obj, dict):
             flat_section = obj.get("__flat__")
             if isinstance(flat_section, dict):
@@ -42,21 +45,21 @@ def flatten_translation(data, namespace: str) -> Dict[str, str]:
                     continue
                 next_prefix = f"{prefix}.{k}" if prefix else k
                 _flatten(v, next_prefix, acc)
-        else:
-            if isinstance(obj, str) and prefix:
-                acc[prefix] = obj
+        elif isinstance(obj, str) and prefix:
+            acc[prefix] = obj
         return acc
 
     return _flatten(data, namespace, {})
 
 
-def collect_defined_keys() -> Tuple[Dict[str, Path], Set[str]]:
+def collect_defined_keys() -> tuple[dict[str, Path], set[str]]:
     """Return (namespace_to_relpath, defined_keys_set) using en-US as reference for mapping."""
     if not I18N_DIR.exists():
-        raise FileNotFoundError(f"Shared i18n directory not found: {I18N_DIR}")
+        message = f"Shared i18n directory not found: {I18N_DIR}"
+        raise FileNotFoundError(message)
     # Choose en-US as mapping reference
-    mapping: Dict[str, Path] = {}
-    defined: Set[str] = set()
+    mapping: dict[str, Path] = {}
+    defined: set[str] = set()
     ref_dir = I18N_DIR / "en-US"
     if not ref_dir.exists():
         # fallback to first available
@@ -101,7 +104,8 @@ def collect_defined_keys() -> Tuple[Dict[str, Path], Set[str]]:
     return mapping, defined
 
 
-def load_metadata_namespaces() -> Set[str]:
+def load_metadata_namespaces() -> set[str]:
+    """Load metadata namespaces."""
     meta_path = I18N_DIR / "locales.json"
     if not meta_path.exists():
         return set()
@@ -122,17 +126,20 @@ BACKEND_PATTERNS = [
 ]
 
 
-def collect_frontend_keys() -> Set[str]:
-    used: Set[str] = set()
+def collect_frontend_keys() -> set[str]:
+    """Collect frontend keys."""
+    if not WEB_DIR.is_dir():
+        message = f"Web frontend directory not found: {WEB_DIR}"
+        raise RuntimeError(message)
+
+    used: set[str] = set()
     extensions = {".ts", ".tsx", ".js", ".jsx"}
-    if not COOK_WEB_DIR.exists():
-        return used
-    for path in COOK_WEB_DIR.rglob("*"):
+    for path in WEB_DIR.rglob("*"):
         if path.suffix not in extensions:
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+        except OSError:
             continue
         for pat in FRONTEND_PATTERNS:
             for m in pat.findall(text):
@@ -140,12 +147,13 @@ def collect_frontend_keys() -> Set[str]:
     return used
 
 
-def collect_backend_keys() -> Set[str]:
-    used: Set[str] = set()
+def collect_backend_keys() -> set[str]:
+    """Collect backend keys."""
+    used: set[str] = set()
     for path in BACKEND_DIR.rglob("*.py"):
         try:
             text = path.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
+        except OSError:
             continue
         for pat in BACKEND_PATTERNS:
             for m in pat.findall(text):
@@ -153,7 +161,8 @@ def collect_backend_keys() -> Set[str]:
     return used
 
 
-def set_nested(obj: dict, segments: List[str], value: str) -> None:
+def set_nested(obj: dict, segments: list[str], value: str) -> None:
+    """Set nested."""
     cur = obj
     for seg in segments[:-1]:
         if not isinstance(cur.get(seg), dict):
@@ -164,8 +173,9 @@ def set_nested(obj: dict, segments: List[str], value: str) -> None:
         cur[leaf] = value
 
 
-def prune_unused(obj: dict, valid: Set[str], prefix: str) -> dict:
+def prune_unused(obj: dict, valid: set[str], prefix: str) -> dict:
     # Remove keys whose full path (prefix.path) not in valid
+    """Prune unused."""
     if not isinstance(obj, dict):
         return obj
     out: dict = {}
@@ -179,15 +189,15 @@ def prune_unused(obj: dict, valid: Set[str], prefix: str) -> dict:
             # Keep if any descendant remains or it is valid itself
             if pruned or full in valid:
                 out[k] = pruned
-        else:
-            if full in valid:
-                out[k] = v
+        elif full in valid:
+            out[k] = v
     return out
 
 
 def main() -> int:
+    """Synchronize translation keys across shared locales."""
     parser = argparse.ArgumentParser(
-        description="Update shared i18n JSON based on usage across api and cook-web."
+        description="Update shared i18n JSON based on usage across the API and web frontend."
     )
     parser.add_argument(
         "--prune-unused",
@@ -214,15 +224,12 @@ def main() -> int:
         return 0
 
     # Prepare per-namespace patches
-    ns_to_keys: Dict[str, List[str]] = {}
+    ns_to_keys: dict[str, list[str]] = {}
     for key in missing:
         ns = key.split(".")[0] + "." + key.split(".")[1] if "." in key else key
         # Re-evaluate: namespace is up to the second segment for shapes like server.user.* or module.social.* or common.core.*
         parts = key.split(".")
-        if len(parts) >= 2:
-            ns = parts[0] + "." + parts[1]
-        else:
-            ns = parts[0]
+        ns = parts[0] + "." + parts[1] if len(parts) >= 2 else parts[0]
         ns_to_keys.setdefault(ns, []).append(key)
 
     # Write patches into each locale

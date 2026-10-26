@@ -1,5 +1,4 @@
-"""
-Shifu struct manager
+"""Shifu struct manager.
 
 This module contains functions for managing shifu struct.
 
@@ -11,76 +10,72 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from flask import Flask
-from flaskr.service.shifu.models import (
-    LogPublishedStruct,
-    LogDraftStruct,
-    DraftShifu,
-    DraftOutlineItem,
-    PublishedShifu,
-    PublishedOutlineItem,
-)
-
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.common import raise_error
 import queue
-from typing import List, Union
-from pydantic import BaseModel
 from decimal import Decimal
+
+from flask import Flask
+from flaskr.service.common import raise_error
+from flaskr.service.shifu.models import (
+    DraftOutlineItem,
+    DraftShifu,
+    LogDraftStruct,
+    LogPublishedStruct,
+    PublishedOutlineItem,
+    PublishedShifu,
+)
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.utils import get_shifu_res_url
+from pydantic import BaseModel
 
 
 class ShifuOutlineItemDto(BaseModel):
-    """
-    Shifu outline item dto
-    """
+    """Shifu outline item dto."""
 
     bid: str
     position: str
     title: str
     type: int  # 401 trial 402 normal
     shifu_bid: str
-    children: List["ShifuOutlineItemDto"]
+    children: list["ShifuOutlineItemDto"]
 
-    def __json__(self):
+    def __json__(self) -> str:
+        """Return the shifu outline item as a JSON string."""
         return self.model_dump_json(exclude_none=True)
 
 
 class ShifuInfoDto(BaseModel):
-    """
-    Shifu info dto
-    """
+    """Shifu info dto."""
 
     bid: str
     title: str
     description: str
     avatar: str
     price: Decimal
-    outline_items: List["ShifuOutlineItemDto"]
+    outline_items: list["ShifuOutlineItemDto"]
+    default_listen_mode_enabled: bool = False
     use_learner_language: bool = False
 
-    def __json__(self):
+    def __json__(self) -> str:
+        """Return the shifu info as a JSON string."""
         return self.model_dump_json(exclude_none=True)
 
 
 def get_shifu_struct(
     app: Flask, shifu_bid: str, is_preview: bool = False
 ) -> HistoryItem:
-    """
-    Get shifu struct
+    """Get shifu struct.
+
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
         is_preview: Is preview
     Returns:
-        HistoryItem: Shifu struct
+        HistoryItem: Shifu struct.
+
     """
     with app.app_context():
-        app.logger.info(f"get_shifu_struct:{shifu_bid},{is_preview}")
-        if is_preview:
-            model = LogDraftStruct
-        else:
-            model = LogPublishedStruct
+        app.logger.info("get_shifu_struct:%s,%s", shifu_bid, is_preview)
+        model = LogDraftStruct if is_preview else LogPublishedStruct
         shifu_struct = (
             model.query.filter(
                 model.shifu_bid == shifu_bid,
@@ -98,8 +93,9 @@ def get_shifu_struct(
 def get_shifu_outline_tree(
     app: Flask, shifu_bid: str, is_preview: bool = False
 ) -> ShifuInfoDto:
+    """Return shifu outline tree."""
     with app.app_context():
-        app.logger.info("get_shifu_outline_tree:{}".format(shifu_bid))
+        app.logger.info("get_shifu_outline_tree:%s", shifu_bid)
         struct: HistoryItem = get_shifu_struct(app, shifu_bid, is_preview)
         if is_preview:
             shifu_model = DraftShifu
@@ -123,7 +119,7 @@ def get_shifu_outline_tree(
                     q.put(child)
         if len(shifu_ids) != 1:
             raise_error("server.shifu.shifuNotFound")
-        shifu: Union[DraftShifu, PublishedShifu] = shifu_model.query.filter(
+        shifu: DraftShifu | PublishedShifu = shifu_model.query.filter(
             shifu_model.id.in_(shifu_ids),
         ).first()
         if not shifu:
@@ -131,7 +127,7 @@ def get_shifu_outline_tree(
         outline_items = outline_item_model.query.filter(
             outline_item_model.id.in_(outline_item_ids),
         ).all()
-        app.logger.info(f"outline_items: len={len(outline_items)}")
+        app.logger.info("outline_items: len=%s", len(outline_items))
         outline_items_map = {i.id: i for i in outline_items}
 
         shifu_info = ShifuInfoDto(
@@ -141,16 +137,19 @@ def get_shifu_outline_tree(
             avatar=get_shifu_res_url(shifu.avatar_res_bid),
             price=shifu.price,
             outline_items=[],
+            default_listen_mode_enabled=bool(
+                getattr(shifu, "default_listen_mode_enabled", 0)
+            ),
             use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
         )
 
         def recurse_outline_item(item: HistoryItem) -> ShifuOutlineItemDto:
             if item.type == "outline":
-                outline_item: Union[DraftOutlineItem, PublishedOutlineItem] = (
-                    outline_items_map.get(item.id, None)
+                outline_item: DraftOutlineItem | PublishedOutlineItem = (
+                    outline_items_map.get(item.id)
                 )
                 if not outline_item:
-                    app.logger.error(f"outline_item not found: {item.id}")
+                    app.logger.error("outline_item not found: %s", item.id)
 
                 if outline_item and outline_item.hidden == 0:
                     outline_item_dto = ShifuOutlineItemDto(
@@ -172,25 +171,24 @@ def get_shifu_outline_tree(
 
         outline_items = [recurse_outline_item(i) for i in struct.children]
         shifu_info.outline_items = [i for i in outline_items if i]
-        app.logger.info(f"shifu_info: {shifu_info.__json__()}")
+        app.logger.info("shifu_info: %s", shifu_info.__json__())
         return shifu_info
 
 
 def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> ShifuInfoDto:
-    """
-    Get shifu dto
+    """Get shifu dto.
+
     Args:
         app: Flask application instance
         shifu_bid: Shifu bid
         is_preview: Is preview
     Returns:
-        ShifuInfoDto: Shifu dto
+        ShifuInfoDto: Shifu dto.
+
     """
-    if is_preview:
-        shifu_model = DraftShifu
-    else:
-        shifu_model = PublishedShifu
-    shifu: Union[DraftShifu, PublishedShifu] = (
+    _ = app
+    shifu_model = DraftShifu if is_preview else PublishedShifu
+    shifu: DraftShifu | PublishedShifu = (
         shifu_model.query.filter(
             shifu_model.shifu_bid == shifu_bid,
             shifu_model.deleted == 0,
@@ -209,6 +207,9 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
         avatar=get_shifu_res_url(shifu.avatar_res_bid),
         price=shifu.price,
         outline_items=[],
+        default_listen_mode_enabled=bool(
+            getattr(shifu, "default_listen_mode_enabled", 0)
+        ),
         use_learner_language=bool(getattr(shifu, "use_learner_language", 0)),
     )
 
@@ -216,22 +217,20 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
 def get_outline_item_dto(
     app: Flask, outline_item_bid: str, is_preview: bool = False
 ) -> ShifuOutlineItemDto:
-    """
-    Get outline item dto
+    """Get outline item dto.
+
     Args:
         app: Flask application instance
         outline_item_bid: Outline item bid
         is_preview: Is preview
     Returns:
-        ShifuOutlineItemDto: Outline item dto
-    """
-    app.logger.info(f"get_outline_item_dto: {outline_item_bid},{is_preview}")
+        ShifuOutlineItemDto: Outline item dto.
 
-    if is_preview:
-        outline_item_model = DraftOutlineItem
-    else:
-        outline_item_model = PublishedOutlineItem
-    outline_item: Union[DraftOutlineItem, PublishedOutlineItem] = (
+    """
+    app.logger.info("get_outline_item_dto: %s,%s", outline_item_bid, is_preview)
+
+    outline_item_model = DraftOutlineItem if is_preview else PublishedOutlineItem
+    outline_item: DraftOutlineItem | PublishedOutlineItem = (
         outline_item_model.query.filter(
             outline_item_model.outline_item_bid == outline_item_bid,
             outline_item_model.deleted == 0,
@@ -254,9 +253,7 @@ def get_outline_item_dto(
 
 
 class OutlineItemDtoWithMdflow(BaseModel):
-    """
-    Outline item dto with mdflow
-    """
+    """Outline item dto with mdflow."""
 
     mdflow: str
     outline_bid: str
@@ -269,19 +266,16 @@ def get_outline_item_dto_with_mdflow(
     is_preview: bool = False,
     outline_item_id: int | None = None,
 ) -> OutlineItemDtoWithMdflow:
-    """
-    Get outline item dto with mdflow
-    """
-    if is_preview:
-        outline_item_model = DraftOutlineItem
-    else:
-        outline_item_model = PublishedOutlineItem
-    outline_item: Union[DraftOutlineItem, PublishedOutlineItem, None] = None
-    if outline_item_id:
+    """Read a bound published body without falling forward to a new revision."""
+    outline_item_model = DraftOutlineItem if is_preview else PublishedOutlineItem
+    outline_item: DraftOutlineItem | PublishedOutlineItem | None = None
+    if outline_item_id is not None:
+        filters = [outline_item_model.id == int(outline_item_id)]
+        if is_preview:
+            filters.append(outline_item_model.deleted == 0)
         outline_item = (
             outline_item_model.query.filter(
-                outline_item_model.id == int(outline_item_id),
-                outline_item_model.deleted == 0,
+                *filters,
             )
             .order_by(
                 outline_item_model.id.desc(),
@@ -299,6 +293,16 @@ def get_outline_item_dto_with_mdflow(
                 outline_item.outline_item_bid,
             )
             outline_item = None
+        if not is_preview:
+            # Published row IDs belong to the run's retained structure. Old
+            # rows are retired on republish, not interchangeable with new rows.
+            if outline_item is None:
+                raise_error("server.shifu.outlineItemNotFound")
+            if not PublishedShifu.query.filter(
+                PublishedShifu.shifu_bid == outline_item.shifu_bid,
+                PublishedShifu.deleted == 0,
+            ).first():
+                raise_error("server.shifu.shifuNotFound")
     if outline_item is None:
         outline_item = (
             outline_item_model.query.filter(

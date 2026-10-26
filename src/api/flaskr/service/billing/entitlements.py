@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any
+
+from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.common.models import raise_param_error
+from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
 
 from .consts import (
     BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
@@ -19,20 +24,17 @@ from .consts import (
 )
 from .dtos import BillingEntitlementsDTO
 from .models import BillingEntitlement, BillingProduct
+from .primitives import normalize_bid as _normalize_bid
 from .queries import (
     load_primary_active_subscription as _load_primary_active_subscription,
 )
-from .primitives import normalize_bid as _normalize_bid
 from .value_objects import JsonObjectMap
-
-from flaskr.dao import db
-from flaskr.service.common.models import raise_param_error
-from flaskr.util.uuid import generate_id
-from flaskr.util.datetime import now_utc
 
 
 @dataclass(slots=True, frozen=True)
 class CreatorEntitlementState:
+    """Track the billing entitlements currently granted to a teacher."""
+
     creator_bid: str
     source_kind: str
     source_type: str | None
@@ -49,7 +51,8 @@ class CreatorEntitlementState:
     support_tier: str
     feature_payload: JsonObjectMap = field(default_factory=JsonObjectMap)
 
-    def to_public_payload(self) -> dict[str, Any]:
+    def to_public_payload(self) -> dict[str, object]:
+        """Serialize the entitlement state for public output."""
         return {
             "branding_enabled": self.branding_enabled,
             "custom_domain_enabled": self.custom_domain_enabled,
@@ -60,7 +63,8 @@ class CreatorEntitlementState:
             "support_tier": self.support_tier,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized entitlement field by key."""
         if key == "feature_payload":
             return self.feature_payload.to_metadata_json()
         return getattr(self, key)
@@ -72,7 +76,6 @@ def resolve_creator_entitlement_state(
     as_of: datetime | None = None,
 ) -> CreatorEntitlementState:
     """Resolve the effective entitlement snapshot for a creator."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     resolved_at = as_of or now_utc()
 
@@ -97,21 +100,19 @@ def serialize_creator_entitlements(
     state: CreatorEntitlementState,
 ) -> BillingEntitlementsDTO:
     """Return the public creator entitlement projection."""
-
     return BillingEntitlementsDTO(**state.to_public_payload())
 
 
 def grant_creator_manual_entitlement(
-    app,
+    app: object,
     creator_bid: str,
     *,
     branding_enabled: bool | None = None,
     custom_domain_enabled: bool | None = None,
     custom_wechat_enabled: bool | None = None,
     custom_payment_enabled: bool | None = None,
-    branding: dict[str, Any] | None = None,
+    branding: dict[str, object] | None = None,
     home_url: str | None = None,
-    commit: bool = True,
 ) -> CreatorEntitlementState:
     """Upsert a manual entitlement snapshot for a creator (operator action).
 
@@ -123,76 +124,77 @@ def grant_creator_manual_entitlement(
     root-path redirects independently of ``branding_enabled``. Returns the
     freshly resolved entitlement state for verification.
     """
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         raise_param_error("creator_bid")
 
-    now = now_utc()
-    row = (
-        BillingEntitlement.query.filter(
-            BillingEntitlement.deleted == 0,
-            BillingEntitlement.creator_bid == normalized_creator_bid,
-            BillingEntitlement.source_type == CREDIT_SOURCE_TYPE_MANUAL,
-            BillingEntitlement.effective_from <= now,
-            (
-                (BillingEntitlement.effective_to.is_(None))
-                | (BillingEntitlement.effective_to > now)
-            ),
+    with unit_of_work():
+        now = now_utc()
+        row = (
+            BillingEntitlement.query.filter(
+                BillingEntitlement.deleted == 0,
+                BillingEntitlement.creator_bid == normalized_creator_bid,
+                BillingEntitlement.source_type == CREDIT_SOURCE_TYPE_MANUAL,
+                BillingEntitlement.effective_from <= now,
+                (
+                    (BillingEntitlement.effective_to.is_(None))
+                    | (BillingEntitlement.effective_to > now)
+                ),
+            )
+            .order_by(
+                BillingEntitlement.effective_from.desc(),
+                BillingEntitlement.id.desc(),
+            )
+            .first()
         )
-        .order_by(
-            BillingEntitlement.effective_from.desc(),
-            BillingEntitlement.id.desc(),
-        )
-        .first()
-    )
-    if row is None:
-        row = BillingEntitlement(
-            entitlement_bid=generate_id(app),
-            creator_bid=normalized_creator_bid,
-            source_type=CREDIT_SOURCE_TYPE_MANUAL,
-            source_bid="",
-            # Back-date slightly so the row is immediately active. Using the
-            # exact "now" races with same-second reads: MySQL DATETIME rounds
-            # sub-second values up, so effective_from could land just after a
-            # resolve() that runs microseconds later, making the snapshot miss.
-            effective_from=now - timedelta(minutes=1),
-            effective_to=None,
-            branding_enabled=0,
-            custom_domain_enabled=0,
-        )
-        db.session.add(row)
+        if row is None:
+            row = BillingEntitlement(
+                entitlement_bid=generate_id(app),
+                creator_bid=normalized_creator_bid,
+                source_type=CREDIT_SOURCE_TYPE_MANUAL,
+                source_bid="",
+                # Back-date slightly so the row is immediately active. Using the
+                # exact "now" races with same-second reads: MySQL DATETIME rounds
+                # sub-second values up, so effective_from could land just after a
+                # resolve() that runs microseconds later, making the snapshot miss.
+                effective_from=now - timedelta(minutes=1),
+                effective_to=None,
+                branding_enabled=0,
+                custom_domain_enabled=0,
+            )
+            db.session.add(row)
 
-    if branding_enabled is not None:
-        row.branding_enabled = 1 if branding_enabled else 0
-    if custom_domain_enabled is not None:
-        row.custom_domain_enabled = 1 if custom_domain_enabled else 0
-    if custom_wechat_enabled is not None or custom_payment_enabled is not None:
-        payload = dict(row.feature_payload or {})
-        if custom_wechat_enabled is not None:
-            payload["custom_wechat_enabled"] = bool(custom_wechat_enabled)
-        if custom_payment_enabled is not None:
-            payload["custom_payment_enabled"] = bool(custom_payment_enabled)
-        row.feature_payload = payload
-    if branding is not None:
-        payload = dict(row.feature_payload or {})
-        merged_branding = dict(payload.get("branding") or {})
-        merged_branding.update(
-            {key: value for key, value in branding.items() if value is not None}
-        )
-        payload["branding"] = merged_branding
-        row.feature_payload = payload
-    if home_url is not None:
-        payload = dict(row.feature_payload or {})
-        if home_url.strip():
-            payload["home_url"] = home_url.strip()
-        else:
-            payload.pop("home_url", None)
-        row.feature_payload = payload
+        if branding_enabled is not None:
+            row.branding_enabled = 1 if branding_enabled else 0
+        if custom_domain_enabled is not None:
+            row.custom_domain_enabled = 1 if custom_domain_enabled else 0
+        if custom_wechat_enabled is not None or custom_payment_enabled is not None:
+            payload = dict(row.feature_payload or {})
+            if custom_wechat_enabled is not None:
+                payload["custom_wechat_enabled"] = bool(custom_wechat_enabled)
+            if custom_payment_enabled is not None:
+                payload["custom_payment_enabled"] = bool(custom_payment_enabled)
+            row.feature_payload = payload
+        if branding is not None:
+            payload = dict(row.feature_payload or {})
+            merged_branding = dict(payload.get("branding") or {})
+            merged_branding.update(
+                {key: value for key, value in branding.items() if value is not None}
+            )
+            payload["branding"] = merged_branding
+            row.feature_payload = payload
+        if home_url is not None:
+            payload = dict(row.feature_payload or {})
+            if home_url.strip():
+                payload["home_url"] = home_url.strip()
+            else:
+                payload.pop("home_url", None)
+            row.feature_payload = payload
 
-    if commit:
-        db.session.commit()
-    return resolve_creator_entitlement_state(normalized_creator_bid)
+        # Flush so the resolved state below reflects this snapshot; the
+        # outermost unit of work (ours, or a caller's) commits it.
+        db.session.flush()
+        return resolve_creator_entitlement_state(normalized_creator_bid)
 
 
 def _load_active_entitlement_snapshot(
@@ -333,7 +335,7 @@ def _serialize_entitlement_row_state(
 
 def _apply_entitlement_payload(
     base_state: CreatorEntitlementState,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> CreatorEntitlementState:
     branding_enabled = _to_bool(
         payload.get("branding_enabled"),
@@ -391,7 +393,7 @@ def _apply_entitlement_payload(
 
 
 def _resolve_labeled_value(
-    value: Any,
+    value: object,
     *,
     labels: dict[int, str],
     default: str,
@@ -411,7 +413,7 @@ def _resolve_labeled_value(
         return default
 
 
-def _normalize_feature_payload(value: Any) -> JsonObjectMap:
+def _normalize_feature_payload(value: object) -> JsonObjectMap:
     if not isinstance(value, dict):
         return JsonObjectMap()
     return JsonObjectMap(values={str(key): item for key, item in value.items()})
@@ -424,7 +426,7 @@ def _coalesce_datetime(
     return value or fallback
 
 
-def _to_bool(value: Any, *, default: bool = False) -> bool:
+def _to_bool(value: object, *, default: bool = False) -> bool:
     if value is None:
         return default
     if isinstance(value, bool):

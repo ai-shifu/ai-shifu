@@ -1,3 +1,5 @@
+"""Verify operator voice clone register behavior."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -10,7 +12,7 @@ REGISTER_PATH = "/api/shifu/admin/operations/voice-clones"
 VOICES_PATH = "/api/shifu/tts/minimax/voices"
 
 
-def _prepare_minimax_tables(app) -> None:
+def _prepare_minimax_tables(app: object) -> None:
     from flaskr.service.tts.models import TTSMiniMaxClonedVoice
 
     with app.app_context():
@@ -18,7 +20,7 @@ def _prepare_minimax_tables(app) -> None:
 
 
 def _seed_teacher(
-    app,
+    app: object,
     *,
     user_bid: str,
     nickname: str = "Teacher",
@@ -44,7 +46,7 @@ def _seed_teacher(
 
 
 def _mock_operator(
-    monkeypatch, user_id: str = "operator-1", *, is_operator: bool = True
+    monkeypatch: object, user_id: str = "operator-1", *, is_operator: bool = True
 ) -> None:
     dummy = SimpleNamespace(
         user_id=user_id,
@@ -59,7 +61,7 @@ def _mock_operator(
     )
 
 
-def _mock_creator(monkeypatch, user_id: str) -> None:
+def _mock_creator(monkeypatch: object, user_id: str) -> None:
     dummy = SimpleNamespace(
         user_id=user_id,
         is_operator=False,
@@ -78,7 +80,7 @@ def _mock_creator(monkeypatch, user_id: str) -> None:
     )
 
 
-def _bypass_voice_verification(monkeypatch) -> None:
+def _bypass_voice_verification(monkeypatch: object) -> None:
     monkeypatch.setattr(
         "flaskr.service.shifu.admin_operations.voice_clones.get_default_voice_settings",
         lambda *_args, **_kwargs: SimpleNamespace(voice_id=""),
@@ -89,7 +91,9 @@ def _bypass_voice_verification(monkeypatch) -> None:
     )
 
 
-def test_operator_voice_clone_register_requires_operator(app, test_client, monkeypatch):
+def test_operator_voice_clone_register_requires_operator(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     _prepare_minimax_tables(app)
     _mock_operator(monkeypatch, is_operator=False)
 
@@ -108,12 +112,12 @@ def test_operator_voice_clone_register_requires_operator(app, test_client, monke
 
 
 def test_operator_voice_clone_register_creates_ready_free_voice(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     from flaskr.service.tts.models import (
-        TTSMiniMaxClonedVoice,
         TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
         TTS_MINIMAX_CLONE_STATUS_READY,
+        TTSMiniMaxClonedVoice,
     )
 
     _prepare_minimax_tables(app)
@@ -152,8 +156,8 @@ def test_operator_voice_clone_register_creates_ready_free_voice(
 
 
 def test_operator_voice_clone_register_rejects_non_teacher_owner(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     _prepare_minimax_tables(app)
     _seed_teacher(app, user_bid="not-a-teacher", is_creator=False)
     _mock_operator(monkeypatch)
@@ -173,7 +177,235 @@ def test_operator_voice_clone_register_rejects_non_teacher_owner(
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
 
 
-def test_operator_registered_voice_visible_only_to_owner(app, test_client, monkeypatch):
+def _mock_volcengine_status(monkeypatch: object, status: int) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.tts.volcengine_voice_clone.query_volcengine_voice_status",
+        lambda _voice_id: status,
+    )
+
+
+def _forbid_minimax_synthesis(monkeypatch: object) -> None:
+    def _fail(*_args: object, **_kwargs: object) -> None:
+        message = "synthesize_text must not be called for volcengine"
+        raise AssertionError(message)
+
+    monkeypatch.setattr(
+        "flaskr.service.shifu.admin_operations.voice_clones.synthesize_text",
+        _fail,
+    )
+
+
+def test_operator_voice_clone_register_volcengine_uses_free_status_check(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
+    from flaskr.service.tts.models import (
+        TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED,
+        TTS_MINIMAX_CLONE_STATUS_READY,
+        TTSMiniMaxClonedVoice,
+    )
+
+    _prepare_minimax_tables(app)
+    _seed_teacher(app, user_bid="teacher-volc")
+    _mock_operator(monkeypatch)
+    _mock_volcengine_status(monkeypatch, 2)
+    _forbid_minimax_synthesis(monkeypatch)
+
+    resp = test_client.post(
+        REGISTER_PATH,
+        json={
+            "owner_user_bid": "teacher-volc",
+            "display_name": "Volc Voice",
+            "voice_id": "S_xxxxxxxxxx",
+            "provider": "volcengine",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = resp.get_json(force=True)
+
+    assert payload["code"] == 0
+    data = payload["data"]
+    assert data["provider"] == "volcengine"
+    assert data["voice_id"] == "S_xxxxxxxxxx"
+    assert data["status"] == TTS_MINIMAX_CLONE_STATUS_READY
+    assert data["billing_status"] == TTS_MINIMAX_CLONE_BILLING_NOT_REQUIRED
+
+    with app.app_context():
+        row = TTSMiniMaxClonedVoice.query.filter_by(
+            voice_id="S_xxxxxxxxxx", owner_user_bid="teacher-volc"
+        ).one()
+        assert row.provider == "volcengine"
+        assert row.shifu_bid == ""
+        assert row.source_capture_method == "operator_register"
+
+
+def test_operator_voice_clone_register_volcengine_rejects_bad_id_shape(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
+    _prepare_minimax_tables(app)
+    _seed_teacher(app, user_bid="teacher-volc-2")
+    _mock_operator(monkeypatch)
+    _forbid_minimax_synthesis(monkeypatch)
+
+    resp = test_client.post(
+        REGISTER_PATH,
+        json={
+            "owner_user_bid": "teacher-volc-2",
+            "display_name": "Volc Voice",
+            "voice_id": "AiShifu_not_a_speaker",
+            "provider": "volcengine",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = resp.get_json(force=True)
+
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+
+
+def test_operator_voice_clone_register_volcengine_rejects_untrained_voice(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
+    _prepare_minimax_tables(app)
+    _seed_teacher(app, user_bid="teacher-volc-3")
+    _mock_operator(monkeypatch)
+    _mock_volcengine_status(monkeypatch, 1)
+    _forbid_minimax_synthesis(monkeypatch)
+
+    resp = test_client.post(
+        REGISTER_PATH,
+        json={
+            "owner_user_bid": "teacher-volc-3",
+            "display_name": "Volc Voice",
+            "voice_id": "S_xxxxxxxxxxxxx",
+            "provider": "volcengine",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = resp.get_json(force=True)
+
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+
+
+def test_operator_voice_clone_register_rejects_unknown_provider(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
+    _prepare_minimax_tables(app)
+    _seed_teacher(app, user_bid="teacher-volc-4")
+    _mock_operator(monkeypatch)
+
+    resp = test_client.post(
+        REGISTER_PATH,
+        json={
+            "owner_user_bid": "teacher-volc-4",
+            "display_name": "Voice",
+            "voice_id": "S_xxxxxxxxxx",
+            "provider": "tencent",
+        },
+        headers={"Token": "test-token"},
+    )
+    payload = resp.get_json(force=True)
+
+    assert payload["code"] == ERROR_CODE["server.common.paramsError"]
+
+
+def test_operator_voice_clone_register_same_voice_id_across_providers(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
+    from flaskr.service.tts.models import TTSMiniMaxClonedVoice
+
+    _prepare_minimax_tables(app)
+    _seed_teacher(app, user_bid="teacher-cross")
+    _mock_operator(monkeypatch)
+    _bypass_voice_verification(monkeypatch)
+    _mock_volcengine_status(monkeypatch, 2)
+
+    # An S_ shaped id also satisfies MiniMax's format rule, so the same string
+    # may legitimately exist once per provider for the same owner.
+    for provider in ("minimax", "volcengine"):
+        resp = test_client.post(
+            REGISTER_PATH,
+            json={
+                "owner_user_bid": "teacher-cross",
+                "display_name": f"Voice {provider}",
+                "voice_id": "S_xxxxxxxxxxxxxx",
+                "provider": provider,
+            },
+            headers={"Token": "test-token"},
+        )
+        assert resp.get_json(force=True)["code"] == 0
+
+    duplicate_resp = test_client.post(
+        REGISTER_PATH,
+        json={
+            "owner_user_bid": "teacher-cross",
+            "display_name": "Voice again",
+            "voice_id": "S_xxxxxxxxxxxxxx",
+            "provider": "volcengine",
+        },
+        headers={"Token": "test-token"},
+    )
+    assert (
+        duplicate_resp.get_json(force=True)["code"]
+        == ERROR_CODE["server.common.paramsError"]
+    )
+
+    with app.app_context():
+        providers = {
+            row.provider
+            for row in TTSMiniMaxClonedVoice.query.filter_by(
+                voice_id="S_xxxxxxxxxxxxxx", deleted=0
+            ).all()
+        }
+        assert providers == {"minimax", "volcengine"}
+
+
+def test_teacher_voice_list_filters_by_provider(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
+    _prepare_minimax_tables(app)
+    _seed_teacher(app, user_bid="teacher-filter")
+    _mock_operator(monkeypatch)
+    _bypass_voice_verification(monkeypatch)
+    _mock_volcengine_status(monkeypatch, 2)
+
+    for provider, voice_id in (
+        ("minimax", "AiShifu_filter_mm"),
+        ("volcengine", "S_xxxxxxxxxxxxxxx"),
+    ):
+        resp = test_client.post(
+            REGISTER_PATH,
+            json={
+                "owner_user_bid": "teacher-filter",
+                "display_name": f"Voice {provider}",
+                "voice_id": voice_id,
+                "provider": provider,
+            },
+            headers={"Token": "test-token"},
+        )
+        assert resp.get_json(force=True)["code"] == 0
+
+    _mock_creator(monkeypatch, "teacher-filter")
+    volc_resp = test_client.get(
+        VOICES_PATH + "?provider=volcengine", headers={"Token": "test-token"}
+    )
+    volc_payload = volc_resp.get_json(force=True)
+    assert volc_payload["code"] == 0
+    assert [voice["voice_id"] for voice in volc_payload["data"]["voices"]] == [
+        "S_xxxxxxxxxxxxxxx"
+    ]
+    assert volc_payload["data"]["voices"][0]["provider"] == "volcengine"
+
+    all_resp = test_client.get(VOICES_PATH, headers={"Token": "test-token"})
+    all_payload = all_resp.get_json(force=True)
+    assert all_payload["code"] == 0
+    assert {voice["voice_id"] for voice in all_payload["data"]["voices"]} == {
+        "AiShifu_filter_mm",
+        "S_xxxxxxxxxxxxxxx",
+    }
+
+
+def test_operator_registered_voice_visible_only_to_owner(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     _prepare_minimax_tables(app)
     _seed_teacher(app, user_bid="teacher-a", identify="13800000001")
     _seed_teacher(app, user_bid="teacher-b", identify="13800000002")

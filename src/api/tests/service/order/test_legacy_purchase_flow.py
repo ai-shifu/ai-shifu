@@ -1,21 +1,28 @@
+"""Verify legacy purchase flow behavior."""
+
 from __future__ import annotations
 
-from decimal import Decimal
 from dataclasses import dataclass
+from decimal import Decimal
 from types import SimpleNamespace
-from typing import Any
-
-from cryptography.fernet import Fernet
-from flask import Flask
-import pytest
+from typing import TYPE_CHECKING, Any
 
 import flaskr.common.config as common_config
-import flaskr.dao as dao
+import pytest
+from cryptography.fernet import Fernet
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.entitlements import grant_creator_manual_entitlement
 from flaskr.service.billing.models import BillingOrder
-from flaskr.service.order.consts import ORDER_STATUS_TO_BE_PAID
+from flaskr.service.order.consts import (
+    ORDER_STATUS_INIT,
+    ORDER_STATUS_REPRICING,
+    ORDER_STATUS_SUCCESS,
+    ORDER_STATUS_TO_BE_PAID,
+)
 from flaskr.service.order.funs import (
     BuyRecordDTO,
+    assign_free_order_payment_channel,
     generate_charge,
     init_buy_record,
     query_buy_record,
@@ -23,21 +30,24 @@ from flaskr.service.order.funs import (
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers import PaymentCreationResult
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 def _reset_config_cache(*keys: str) -> None:
     for key in keys:
-        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)  # noqa: SLF001
+        common_config.__ENHANCED_CONFIG__._cache.pop(key, None)
 
 
 @pytest.fixture(autouse=True)
-def clear_legacy_order_url_config_cache():
+def clear_legacy_order_url_config_cache() -> Iterator[None]:
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
     yield
     _reset_config_cache("HOST_URL", "PATH_PREFIX")
 
 
 @pytest.fixture
-def legacy_order_app():
+def legacy_order_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -64,16 +74,20 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
 ) -> None:
     from flaskr.service.order import funs as order_funs
 
+    def get_shifu_info(app: object, bid: str, preview_mode: object) -> SimpleNamespace:
+        del app, bid, preview_mode
+        return SimpleNamespace(
+            price=Decimal("99.00"),
+            title="Legacy course",
+            description="Legacy checkout flow",
+        )
+
     monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda _app, _bid: "u1")
     monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         order_funs,
         "get_shifu_info",
-        lambda _app, _bid, _preview: SimpleNamespace(
-            price=Decimal("99.00"),
-            title="Legacy course",
-            description="Legacy checkout flow",
-        ),
+        get_shifu_info,
     )
     monkeypatch.setattr(
         order_funs, "apply_promo_campaigns", lambda *_args, **_kwargs: []
@@ -86,13 +100,8 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         "resolve_payment_integration_for_new_order",
         lambda *_args, **_kwargs: None,
     )
-    monkeypatch.setattr(
-        order_funs,
-        "_generate_pingxx_charge",
-        lambda **kwargs: _fake_pingxx_charge(**kwargs),
-    )
 
-    def _fake_pingxx_charge(**kwargs):
+    def _fake_pingxx_charge(**kwargs: object) -> object:
         buy_record = kwargs["buy_record"]
         buy_record.status = ORDER_STATUS_TO_BE_PAID
         dao.db.session.add(buy_record)
@@ -105,6 +114,12 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
             "legacy-qr-url",
             payment_channel="pingxx",
         )
+
+    monkeypatch.setattr(
+        order_funs,
+        "_generate_pingxx_charge",
+        _fake_pingxx_charge,
+    )
 
     init_result = init_buy_record(
         legacy_order_app,
@@ -135,6 +150,164 @@ def test_legacy_order_purchase_flow_stays_on_order_tables(
         assert BillingOrder.query.count() == 0
 
 
+@pytest.mark.parametrize(
+    ("enabled_payment_channels", "expected_payment_channel"),
+    [("pingxx", "pingxx"), ("stripe", "stripe")],
+)
+def test_zero_price_order_completes_with_market_channel_without_provider(
+    legacy_order_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    enabled_payment_channels: str,
+    expected_payment_channel: str,
+) -> None:
+    from flaskr.service.order import funs as order_funs
+
+    monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda *_args: "u1")
+    monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args: None)
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            price=Decimal("0.00"), title="Free course", description="Free"
+        ),
+    )
+    monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
+    monkeypatch.setattr(order_funs, "set_user_state", lambda *_args: None)
+    monkeypatch.setattr(
+        "flaskr.service.order.payment_channel_resolution.get_config",
+        lambda key, default=None: (
+            enabled_payment_channels if key == "PAYMENT_CHANNELS_ENABLED" else default
+        ),
+    )
+    notification_calls: list[str] = []
+    monkeypatch.setattr(
+        order_funs,
+        "send_order_feishu",
+        lambda _app, order_bid: notification_calls.append(order_bid),
+    )
+    provider_calls: list[str] = []
+
+    def record_provider_call(name: str) -> None:
+        provider_calls.append(name)
+
+    monkeypatch.setattr(
+        order_funs,
+        "get_payment_provider",
+        record_provider_call,
+    )
+
+    result = init_buy_record(legacy_order_app, "free-user", "free-course")
+    repeated = init_buy_record(legacy_order_app, "free-user", "free-course")
+
+    assert result.status == ORDER_STATUS_SUCCESS
+    assert repeated.order_id == result.order_id
+    assert Decimal(result.value_to_pay) == Decimal("0.00")
+    assert provider_calls == []
+    assert notification_calls == [result.order_id]
+    with legacy_order_app.app_context():
+        order = Order.query.filter_by(order_bid=result.order_id).one()
+        assert order.status == ORDER_STATUS_SUCCESS
+        assert order.payment_channel == expected_payment_channel
+        assert Order.query.filter_by(user_bid="free-user").count() == 1
+
+
+@pytest.mark.parametrize("payment_channel", ["manual", "open_api"])
+def test_free_order_keeps_explicit_non_provider_channel(
+    monkeypatch: pytest.MonkeyPatch, payment_channel: str
+) -> None:
+    order = SimpleNamespace(
+        payment_channel=payment_channel,
+        status=ORDER_STATUS_INIT,
+    )
+
+    def fail_if_called() -> None:
+        pytest.fail("market provider should not be resolved")
+
+    monkeypatch.setattr(
+        "flaskr.service.order.funs.resolve_market_payment_provider", fail_if_called
+    )
+
+    assign_free_order_payment_channel(order)
+
+    assert order.payment_channel == payment_channel
+
+
+def test_successful_order_retry_does_not_reprice_purchase_history(
+    legacy_order_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.order import funs as order_funs
+
+    monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda *_args: "u1")
+    monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args: None)
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        lambda *_args, **_kwargs: SimpleNamespace(price=Decimal("20.00")),
+    )
+    with legacy_order_app.app_context():
+        order = Order(
+            order_bid="paid-order",
+            user_bid="paid-user",
+            shifu_bid="paid-course",
+            creator_bid="u1",
+            payable_price=Decimal("20.00"),
+            paid_price=Decimal("20.00"),
+            status=ORDER_STATUS_SUCCESS,
+        )
+        dao.db.session.add(order)
+        dao.db.session.commit()
+
+    monkeypatch.setattr(
+        order_funs,
+        "_sync_order_campaign_pricing",
+        lambda *_args, **_kwargs: pytest.fail("successful orders must not be repriced"),
+    )
+
+    result = init_buy_record(legacy_order_app, "paid-user", "paid-course")
+
+    assert result.order_id == "paid-order"
+    assert Decimal(result.value_to_pay) == Decimal("20.00")
+
+
+def test_repricing_order_retry_reuses_the_same_business_order(
+    legacy_order_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.order import funs as order_funs
+
+    monkeypatch.setattr(order_funs, "get_shifu_creator_bid", lambda *_args: "u1")
+    monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args: None)
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        lambda *_args, **_kwargs: SimpleNamespace(price=Decimal("200.00")),
+    )
+    with legacy_order_app.app_context():
+        dao.db.session.add(
+            Order(
+                order_bid="repricing-order",
+                user_bid="repricing-user",
+                shifu_bid="repricing-course",
+                creator_bid="u1",
+                payable_price=Decimal("200.00"),
+                paid_price=Decimal("200.00"),
+                status=ORDER_STATUS_REPRICING,
+            )
+        )
+        dao.db.session.commit()
+
+    result = init_buy_record(
+        legacy_order_app,
+        "repricing-user",
+        "repricing-course",
+    )
+
+    assert result.order_id == "repricing-order"
+    with legacy_order_app.app_context():
+        assert Order.query.filter_by(user_bid="repricing-user").count() == 1
+
+
 class _FakeSaasConfigFuncs:
     @dataclass
     class SaasUserConfigCreateDTO:
@@ -153,7 +326,7 @@ class _FakeSaasConfigFuncs:
 
     def create_versioned_saas_user_config(
         self,
-        app,
+        app: object,
         *,
         user_bid: str,
         key: str,
@@ -174,7 +347,7 @@ class _FakeSaasConfigFuncs:
         }
         self._next_id += 1
 
-    def create_or_update_saas_user_config(self, app, dto) -> None:
+    def create_or_update_saas_user_config(self, app: object, dto: object) -> None:
         del app
         self._by_user_key[(dto.user_bid, dto.key)] = dto.value
         if dto.config_bid:
@@ -191,14 +364,14 @@ class _FakeSaasConfigFuncs:
     def get_sass_config(self, user_bid: str, key: str, default: str = "") -> str:
         return self._by_user_key.get((user_bid, key), default)
 
-    def get_saas_user_config_value_by_bid(self, app, config_bid: str):
+    def get_saas_user_config_value_by_bid(self, app: object, config_bid: str) -> object:
         del app
         record = self._by_bid.get(config_bid)
         return None if record is None else record["value"]
 
     def update_saas_user_config_version(
         self,
-        app,
+        app: object,
         *,
         config_bid: str,
         value: str,
@@ -207,19 +380,23 @@ class _FakeSaasConfigFuncs:
         del app, is_encrypted
         self._by_bid[config_bid]["value"] = value
 
-    def soft_delete_saas_user_config(self, app, user_bid: str, key: str) -> None:
+    def soft_delete_saas_user_config(
+        self, app: object, user_bid: str, key: str
+    ) -> None:
         del app
         self._by_user_key.pop((user_bid, key), None)
 
 
 class _FakeSaasColumn:
+    __hash__ = None
+
     def __init__(self, name: str) -> None:
         self.name = name
 
     def __eq__(self, value: object) -> tuple[str, object]:  # type: ignore[override]
         return self.name, value
 
-    def desc(self) -> "_FakeSaasColumn":
+    def desc(self) -> _FakeSaasColumn:
         return self
 
 
@@ -232,13 +409,13 @@ class _FakeSaasQuery:
         self._fake_saas = fake_saas
         self._conditions = conditions or []
 
-    def filter(self, *conditions: tuple[str, object]) -> "_FakeSaasQuery":
+    def filter(self, *conditions: tuple[str, object]) -> _FakeSaasQuery:
         return _FakeSaasQuery(self._fake_saas, [*self._conditions, *conditions])
 
-    def order_by(self, *_args) -> "_FakeSaasQuery":
+    def order_by(self, *_args: object) -> _FakeSaasQuery:
         return self
 
-    def first(self):
+    def first(self) -> object:
         rows = sorted(
             self._fake_saas._by_bid.values(),
             key=lambda row: int(row["id"]),
@@ -250,7 +427,7 @@ class _FakeSaasQuery:
         return None
 
 
-def _make_fake_saas_model(fake_saas: _FakeSaasConfigFuncs):
+def _make_fake_saas_model(fake_saas: _FakeSaasConfigFuncs) -> object:
     class FakeSaasUserConfig:
         id = _FakeSaasColumn("id")
         user_bid = _FakeSaasColumn("user_bid")
@@ -277,7 +454,7 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
         def __init__(self, provider_name: str) -> None:
             self.provider_name = provider_name
 
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request: object, app: object) -> object:
             del app
             if self.provider_name == "alipay":
                 assert request.channel == "alipay_qr"
@@ -334,21 +511,26 @@ def test_creator_payment_config_smoke_supports_alipay_and_wechatpay_checkout(
     monkeypatch.setattr(
         order_funs,
         "get_payment_provider",
-        lambda provider_name: FakeNativeProvider(provider_name),
+        FakeNativeProvider,
     )
     monkeypatch.setattr(
         order_funs, "get_shifu_creator_bid", lambda _app, _bid: "teacher-pay-1"
     )
     monkeypatch.setattr(order_funs, "set_shifu_context", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(
-        order_funs,
-        "get_shifu_info",
-        lambda _app, bid, _preview: SimpleNamespace(
+
+    def get_shifu_info(app: object, bid: str, preview_mode: object) -> SimpleNamespace:
+        del app, preview_mode
+        return SimpleNamespace(
             bid=bid,
             price=Decimal("99.00"),
             title="Paid course",
             description="Course checkout",
-        ),
+        )
+
+    monkeypatch.setattr(
+        order_funs,
+        "get_shifu_info",
+        get_shifu_info,
     )
     monkeypatch.setattr(
         order_funs, "apply_promo_campaigns", lambda *_args, **_kwargs: []
@@ -483,7 +665,8 @@ def test_legacy_stripe_checkout_urls_are_derived_from_host_url(
     stripe_requests: list[dict] = []
 
     class FakeStripeProvider:
-        def create_payment(self, *, request, app):
+        def create_payment(self, *, request: object, app: object) -> object:
+            _ = app
             stripe_requests.append(
                 {
                     "order_bid": request.order_bid,
@@ -509,7 +692,7 @@ def test_legacy_stripe_checkout_urls_are_derived_from_host_url(
     monkeypatch.setattr(
         order_funs,
         "get_payment_provider",
-        lambda provider_name: FakeStripeProvider(),
+        lambda _provider_name: FakeStripeProvider(),
     )
 
     with legacy_order_app.app_context():

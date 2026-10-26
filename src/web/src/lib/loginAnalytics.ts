@@ -1,0 +1,24 @@
+export type LoginMethod = 'email' | 'google' | 'password' | 'sms';
+export type LoginFailureCategory =
+  | 'credentials_rejected'
+  | 'rate_limited'
+  | 'request_failed'
+  | 'start_failed'
+  | 'callback_invalid'
+  | 'callback_failed';
+
+export const buildLoginAttemptAnalytics = (loginMethod: LoginMethod) => ({
+  login_method: loginMethod,
+});
+
+export const buildLoginResultAnalytics = (
+  loginMethod: LoginMethod,
+  outcome: 'success' | 'failed',
+  failureCategory?: LoginFailureCategory,
+) => ({
+  login_method: loginMethod,
+  outcome,
+  ...(outcome === 'failed' && failureCategory
+    ? { failure_category: failureCategory }
+    : {}),
+});

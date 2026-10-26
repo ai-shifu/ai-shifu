@@ -1,13 +1,13 @@
+"""Handle users for course-administration operations."""
+
 from __future__ import annotations
 
-from typing import Optional
-
-from flask import Flask
-from sqlalchemy import and_, case
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.shifu.admin_dtos import (
+    AdminOperationUserDetailDTO,
     AdminOperationUserListDTO,
     AdminOperationUserOverviewDTO,
     AdminOperationUserSummaryDTO,
@@ -27,6 +27,7 @@ from flaskr.service.shifu.admin_operations.user_support import (
     OPERATOR_USER_ROLE_LEARNER,
     OPERATOR_USER_ROLE_OPERATOR,
     OPERATOR_USER_ROLE_REGULAR,
+    OPERATOR_USER_STATUS_CANCELLED,
     OPERATOR_USER_STATUS_PAID,
     OPERATOR_USER_STATUS_REGISTERED,
     OPERATOR_USER_STATUS_TRIAL,
@@ -57,7 +58,29 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
+from flaskr.service.user.models import AuthCredential, UserAccountCancellation
 from flaskr.service.user.models import UserInfo as UserEntity
+from sqlalchemy import and_, case, or_
+
+if TYPE_CHECKING:
+    from flask import Flask
+    from sqlalchemy.sql.elements import ColumnElement
+
+
+def _build_user_query_filter(user_query: str) -> ColumnElement[bool]:
+    normalized_query = str(user_query or "").strip()
+    like_pattern = f"%{normalized_query}%"
+    credential_user_bids = db.session.query(AuthCredential.user_bid).filter(
+        AuthCredential.deleted == 0,
+        AuthCredential.provider_name.in_(["phone", "email", "google"]),
+        AuthCredential.identifier.ilike(like_pattern),
+    )
+    return or_(
+        UserEntity.user_bid.ilike(like_pattern),
+        UserEntity.user_identify.ilike(like_pattern),
+        UserEntity.nickname.ilike(like_pattern),
+        UserEntity.user_bid.in_(credential_user_bids),
+    )
 
 
 def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
@@ -173,6 +196,7 @@ def _build_operator_user_overview() -> AdminOperationUserOverviewDTO:
 
 
 def get_operator_user_overview(app: Flask) -> AdminOperationUserOverviewDTO:
+    """Return operator user overview."""
     with app.app_context():
         return _build_operator_user_overview()
 
@@ -181,8 +205,9 @@ def list_operator_users(
     app: Flask,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
 ) -> AdminOperationUserListDTO:
+    """Return operator users."""
     with app.app_context():
         safe_page_index = max(int(page_index or 1), 1)
         safe_page_size = min(
@@ -192,6 +217,7 @@ def list_operator_users(
         filters = filters or {}
 
         user_bid = str(filters.get("user_bid", "") or "").strip()
+        user_query = str(filters.get("user_query", "") or "").strip()
         identifier = str(
             filters.get("identifier", "") or filters.get("mobile", "") or ""
         ).strip()
@@ -204,13 +230,21 @@ def list_operator_users(
         start_time = filters.get("start_time")
         end_time = filters.get("end_time")
 
-        query = UserEntity.query.filter(UserEntity.deleted == 0)
+        query = UserEntity.query.filter(
+            UserEntity.cancelled_at.isnot(None)
+            if user_status == OPERATOR_USER_STATUS_CANCELLED
+            else UserEntity.deleted == 0
+        )
         if user_bid:
             query = query.filter(UserEntity.user_bid == user_bid)
+        if user_query:
+            query = query.filter(_build_user_query_filter(user_query))
         if nickname:
             query = query.filter(UserEntity.nickname.ilike(f"%{nickname}%"))
         if user_status:
-            if user_status == OPERATOR_USER_STATUS_UNREGISTERED:
+            if user_status == OPERATOR_USER_STATUS_CANCELLED:
+                pass
+            elif user_status == OPERATOR_USER_STATUS_UNREGISTERED:
                 query = query.filter(UserEntity.state == USER_STATE_UNREGISTERED)
             elif user_status == OPERATOR_USER_STATUS_REGISTERED:
                 query = query.filter(
@@ -351,6 +385,12 @@ def list_operator_users(
         total_paid_amount_map = load_operator_user_total_paid_amount_map(user_bids)
         last_learning_map = load_operator_user_last_learning_map(user_bids)
         credit_summary_map = load_operator_user_credit_summary_map(user_bids)
+        cancellation_map = {
+            row.user_bid: {"operator_user_bid": row.operator_user_bid}
+            for row in UserAccountCancellation.query.filter(
+                UserAccountCancellation.user_bid.in_(user_bids)
+            ).all()
+        }
         items = [
             build_operator_user_summary(
                 user,
@@ -363,6 +403,7 @@ def list_operator_users(
                 credit_summary_map,
                 learning_course_count_map=learning_course_count_map,
                 created_course_count_map=created_course_count_map,
+                cancellation_map=cancellation_map,
             )
             for user in page_items
         ]
@@ -378,9 +419,31 @@ def get_operator_user_detail(
     app: Flask,
     user_bid: str,
 ) -> AdminOperationUserSummaryDTO:
+    """Return operator user detail."""
     with app.app_context():
         normalized_user_bid = str(user_bid or "").strip()
-        user = load_operator_user_or_raise(normalized_user_bid)
+        user = load_operator_user_or_raise(normalized_user_bid, include_cancelled=True)
+        cancellation = UserAccountCancellation.query.filter_by(
+            user_bid=normalized_user_bid
+        ).first()
+        cancellation_operator = None
+        cancellation_operator_mobile = ""
+        if cancellation and cancellation.operator_user_bid:
+            cancellation_operator = UserEntity.query.filter_by(
+                user_bid=cancellation.operator_user_bid
+            ).first()
+            if cancellation_operator is not None:
+                operator_credentials = load_operator_user_auth_credentials(
+                    [cancellation.operator_user_bid]
+                )
+                operator_contact = load_operator_user_contact_map(
+                    [cancellation.operator_user_bid],
+                    users=[cancellation_operator],
+                    credential_rows=operator_credentials,
+                ).get(cancellation.operator_user_bid, {})
+                cancellation_operator_mobile = str(
+                    operator_contact.get("mobile", "") or ""
+                )
 
         credential_rows = load_operator_user_auth_credentials([normalized_user_bid])
         contact_map = load_operator_user_contact_map(
@@ -405,7 +468,7 @@ def get_operator_user_detail(
         credit_summary_map = load_operator_user_credit_summary_map(
             [normalized_user_bid]
         )
-        return build_operator_user_summary(
+        summary = build_operator_user_summary(
             user,
             contact_map,
             learner_user_bids,
@@ -416,4 +479,24 @@ def get_operator_user_detail(
             credit_summary_map,
             learning_courses_map=learning_courses_map,
             created_courses_map=created_courses_map,
+            cancellation_map=(
+                {
+                    normalized_user_bid: {
+                        "reason": cancellation.reason,
+                        "operator_user_bid": cancellation.operator_user_bid,
+                        "operator_mobile": cancellation_operator_mobile,
+                        "operator_nickname": (
+                            cancellation_operator.nickname
+                            if cancellation_operator is not None
+                            else ""
+                        ),
+                    }
+                }
+                if cancellation
+                else {}
+            ),
+        )
+        return AdminOperationUserDetailDTO(
+            **summary.model_dump(),
+            cancellation_reason=str(cancellation.reason or "") if cancellation else "",
         )

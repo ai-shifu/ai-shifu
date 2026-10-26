@@ -1,16 +1,20 @@
+"""Verify billing subscription SMS behavior."""
+
 from __future__ import annotations
 
 import sys
 import types
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.i18n import load_translations
+from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.consts import (
+    BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -19,15 +23,21 @@ from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_TOPUP,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED,
+    BILLING_SUBSCRIPTION_STATUS_DRAFT,
     BILLING_TRIAL_PRODUCT_BID,
 )
-from flaskr.service.billing.checkout import sync_billing_order
-from flaskr.service.billing.models import BillingOrder, BillingSubscription
+from flaskr.service.billing.models import (
+    BillingOrder,
+    BillingSubscription,
+    CreditWalletBucket,
+)
 from flaskr.service.billing.notifications import (
     BILLING_PAID_FEISHU_TASK_NAME,
-    TASK_NAME as SUBSCRIPTION_SMS_TASK_NAME,
     deliver_subscription_purchase_sms,
     requeue_subscription_purchase_sms,
+)
+from flaskr.service.billing.notifications import (
+    TASK_NAME as SUBSCRIPTION_SMS_TASK_NAME,
 )
 from flaskr.service.billing.tasks import (
     BillingPaidFeishuRetryableError,
@@ -35,22 +45,28 @@ from flaskr.service.billing.tasks import (
     send_billing_paid_feishu_task,
     send_subscription_purchase_sms_task,
 )
-from flaskr.service.billing.webhooks import apply_billing_stripe_notification
-from flaskr.service.billing.webhooks import handle_billing_pingxx_webhook
+from flaskr.service.billing.webhooks import (
+    apply_billing_stripe_notification,
+    handle_billing_pingxx_webhook,
+)
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import UserConversion
 from flaskr.service.user.repository import create_user_entity, upsert_credential
 from flaskr.util.datetime import now_utc
+
 from tests.common.fixtures.bill_products import build_bill_products
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 def _utc_epoch(value: datetime) -> int:
-    return int(value.replace(tzinfo=timezone.utc).timestamp())
+    return int(value.replace(tzinfo=UTC).timestamp())
 
 
 @pytest.fixture
-def billing_subscription_sms_app(tmp_path):
+def billing_subscription_sms_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "billing-subscription-sms.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -135,8 +151,10 @@ def _billing_paid_feishu_payload(
     }
 
 
-def _raise_if_send_notify_called(*args, **kwargs):
-    raise AssertionError("billing paid Feishu delivery should run in a Celery task")
+def _raise_if_send_notify_called(*args: object, **kwargs: object) -> None:
+    _ = (args, kwargs)
+    message = "billing paid Feishu delivery should run in a Celery task"
+    raise AssertionError(message)
 
 
 def _create_subscription(
@@ -244,7 +262,7 @@ def _create_pending_topup_order(
 
 
 def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -253,7 +271,10 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
     enqueued: list[str] = []
 
     class FakeStripeProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
             assert reference_type == "subscription"
             return PaymentNotificationResult(
                 order_bid="",
@@ -273,11 +294,11 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda channel: FakeStripeProvider(),
+        lambda _channel: FakeStripeProvider(),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -323,7 +344,7 @@ def test_sync_billing_order_enqueues_subscription_purchase_sms_once(
 
 
 def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -333,7 +354,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -365,6 +386,7 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
                     "id": "sub_sub-webhook-sms-1",
                     "customer": "cus_webhook_sms_1",
                     "status": "active",
+                    "currency": "usd",
                     "current_period_start": _utc_epoch(cycle_start_at),
                     "current_period_end": _utc_epoch(cycle_end_at),
                     "cancel_at_period_end": False,
@@ -394,8 +416,222 @@ def test_stripe_subscription_webhook_enqueues_subscription_purchase_sms_once(
         assert notification_payload["status"] == "pending"
 
 
+@pytest.mark.parametrize(
+    ("checkout_payload", "expected_failure_code"),
+    [
+        ({"amount_total": 989, "currency": "cny"}, "provider_amount_mismatch"),
+        ({"currency": "cny"}, "provider_amount_missing"),
+        ({"amount_total": 990}, "provider_currency_missing"),
+    ],
+)
+def test_stripe_checkout_webhook_rejects_invalid_paid_amount_before_subscription_activation(
+    billing_subscription_sms_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    checkout_payload: dict[str, object],
+    expected_failure_code: str,
+) -> None:
+    app = billing_subscription_sms_app
+    now = datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
+    enqueued: list[str] = []
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
+        lambda _app, *, bill_order_bid: (
+            enqueued.append(bill_order_bid) or {"status": "enqueued"}
+        ),
+    )
+
+    with app.app_context():
+        subscription = BillingSubscription(
+            subscription_bid="sub-webhook-amount-guard",
+            creator_bid="creator-amount-guard",
+            product_bid="bill-product-plan-monthly",
+            status=BILLING_SUBSCRIPTION_STATUS_DRAFT,
+            billing_provider="stripe",
+            provider_subscription_id="",
+            provider_customer_id="",
+            current_period_start_at=now,
+            current_period_end_at=None,
+            cancel_at_period_end=0,
+            next_product_bid="",
+            metadata_json={},
+        )
+        order = BillingOrder(
+            bill_order_bid="billing-webhook-amount-guard",
+            creator_bid="creator-amount-guard",
+            order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_START,
+            product_bid="bill-product-plan-monthly",
+            subscription_bid=subscription.subscription_bid,
+            currency="CNY",
+            payable_amount=990,
+            paid_amount=0,
+            payment_provider="stripe",
+            channel="checkout_session",
+            provider_reference_id="cs_amount_guard",
+            status=BILLING_ORDER_STATUS_PENDING,
+            metadata_json={"checkout_type": "subscription"},
+        )
+        dao.db.session.add(subscription)
+        dao.db.session.add(order)
+        dao.db.session.commit()
+
+    notification = PaymentNotificationResult(
+        order_bid="",
+        status="checkout.session.completed",
+        provider_payload={
+            "type": "checkout.session.completed",
+            "created": _utc_epoch(now),
+            "data": {
+                "object": {
+                    "id": "cs_amount_guard",
+                    "payment_status": "paid",
+                    "payment_intent": "pi_amount_guard",
+                    "subscription": "sub_provider_amount_guard",
+                    "customer": "cus_provider_amount_guard",
+                    "metadata": {"bill_order_bid": "billing-webhook-amount-guard"},
+                    **checkout_payload,
+                }
+            },
+        },
+        charge_id=None,
+    )
+
+    payload, status_code = apply_billing_stripe_notification(app, notification)
+
+    lifecycle_notification = PaymentNotificationResult(
+        order_bid="",
+        status="customer.subscription.updated",
+        provider_payload={
+            "type": "customer.subscription.updated",
+            "created": _utc_epoch(now + timedelta(seconds=1)),
+            "data": {
+                "object": {
+                    "id": "sub_provider_amount_guard",
+                    "customer": "cus_provider_amount_guard",
+                    "status": "active",
+                    "current_period_start": _utc_epoch(now),
+                    "current_period_end": _utc_epoch(now + timedelta(days=30)),
+                    "cancel_at_period_end": False,
+                    "metadata": {
+                        "bill_order_bid": "billing-webhook-amount-guard",
+                        "subscription_bid": "sub-webhook-amount-guard",
+                    },
+                }
+            },
+        },
+        charge_id=None,
+    )
+    lifecycle_payload, lifecycle_status_code = apply_billing_stripe_notification(
+        app, lifecycle_notification
+    )
+
+    assert status_code == 200
+    assert payload["status"] == "failed"
+    assert lifecycle_status_code == 200
+    assert lifecycle_payload["status"] == "acknowledged"
+    assert enqueued == []
+
+    with app.app_context():
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-webhook-amount-guard"
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-webhook-amount-guard"
+        ).one()
+        assert order.status == BILLING_ORDER_STATUS_FAILED
+        assert order.paid_amount == 0
+        assert order.failure_code == expected_failure_code
+        assert subscription.status != BILLING_SUBSCRIPTION_STATUS_ACTIVE
+        assert subscription.provider_subscription_id == "sub_provider_amount_guard"
+        assert (
+            CreditWalletBucket.query.filter_by(
+                source_bid="billing-webhook-amount-guard"
+            ).count()
+            == 0
+        )
+
+
+def test_stripe_delayed_checkout_waits_for_async_payment_success(
+    billing_subscription_sms_app: object,
+) -> None:
+    app = billing_subscription_sms_app
+    _seed_creator(app)
+    now = datetime(2026, 7, 1, 0, 0, 0, tzinfo=UTC)
+    bill_order_bid = "billing-delayed-topup-1"
+
+    with app.app_context():
+        order = _create_pending_topup_order(
+            bill_order_bid=bill_order_bid,
+            charge_id="cs_delayed_topup_1",
+        )
+        order.payment_provider = "stripe"
+        order.channel = "checkout_session"
+        dao.db.session.add(order)
+        dao.db.session.commit()
+
+    def notification(event_type: str, *, paid: bool, created_at: datetime) -> object:
+        return PaymentNotificationResult(
+            order_bid=bill_order_bid,
+            status=event_type,
+            provider_payload={
+                "type": event_type,
+                "created": _utc_epoch(created_at),
+                "data": {
+                    "object": {
+                        "id": "cs_delayed_topup_1",
+                        "payment_status": "paid" if paid else "unpaid",
+                        "amount_total": 5000,
+                        "currency": "cny",
+                        "metadata": {
+                            "bill_order_bid": bill_order_bid,
+                            "creator_bid": "creator-1",
+                            "product_bid": "bill-product-topup-small",
+                        },
+                    }
+                },
+            },
+            charge_id=None,
+        )
+
+    completed_payload, completed_status = apply_billing_stripe_notification(
+        app,
+        notification(
+            "checkout.session.completed",
+            paid=False,
+            created_at=now,
+        ),
+    )
+
+    assert completed_status == 200
+    assert completed_payload["status"] == "acknowledged"
+    with app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+        assert order.status == BILLING_ORDER_STATUS_PENDING
+        assert (
+            CreditWalletBucket.query.filter_by(source_bid=bill_order_bid).count() == 0
+        )
+
+    succeeded_payload, succeeded_status = apply_billing_stripe_notification(
+        app,
+        notification(
+            "checkout.session.async_payment_succeeded",
+            paid=True,
+            created_at=now + timedelta(seconds=1),
+        ),
+    )
+
+    assert succeeded_status == 200
+    assert succeeded_payload["status"] == "paid"
+    with app.app_context():
+        order = BillingOrder.query.filter_by(bill_order_bid=bill_order_bid).one()
+        assert order.status == BILLING_ORDER_STATUS_PAID
+        assert (
+            CreditWalletBucket.query.filter_by(source_bid=bill_order_bid).count() == 1
+        )
+
+
 def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -405,7 +641,10 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
     enqueued: list[str] = []
 
     class FakeStripeProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
             assert reference_type == "subscription"
             return PaymentNotificationResult(
                 order_bid="",
@@ -425,15 +664,24 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda channel: FakeStripeProvider(),
+        lambda _channel: FakeStripeProvider(),
     )
+
+    def enqueue_subscription_purchase_sms(
+        app: object,
+        *,
+        bill_order_bid: str,
+    ) -> dict[str, str]:
+        del app, bill_order_bid
+        return {"status": "enqueued"}
+
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_subscription_purchase_sms",
-        lambda app, *, bill_order_bid: {"status": "enqueued"},
+        enqueue_subscription_purchase_sms,
     )
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -493,7 +741,7 @@ def test_sync_billing_order_enqueues_subscription_paid_feishu_once(
 
 
 def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -502,7 +750,7 @@ def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -557,7 +805,7 @@ def test_pingxx_topup_webhook_enqueues_billing_paid_feishu_once(
 
 
 def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -565,7 +813,10 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
     enqueued: list[str] = []
 
     class FakePingxxProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
             assert provider_reference == "ch_billing_feishu_topup_sync_1"
             assert reference_type == "charge"
             return PaymentNotificationResult(
@@ -585,11 +836,11 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda channel: FakePingxxProvider(),
+        lambda _channel: FakePingxxProvider(),
     )
     monkeypatch.setattr(
         "flaskr.service.billing.paid_side_effects._enqueue_billing_paid_feishu",
-        lambda app, *, bill_order_bid: (
+        lambda _app, *, bill_order_bid: (
             enqueued.append(bill_order_bid) or {"status": "enqueued"}
         ),
     )
@@ -641,7 +892,7 @@ def test_sync_billing_topup_enqueues_billing_paid_feishu_once(
 
 
 def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -649,7 +900,10 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
     paid_at = datetime(2026, 7, 31, 4, 0, 53)
 
     class FakePingxxProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
             assert provider_reference == "ch_trial_upgrade_sync_pingxx_1"
             assert reference_type == "charge"
             return PaymentNotificationResult(
@@ -669,7 +923,7 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda channel: FakePingxxProvider(),
+        lambda _channel: FakePingxxProvider(),
     )
 
     with app.app_context():
@@ -744,7 +998,7 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
 
 
 def test_send_billing_paid_feishu_task_marks_sent(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -759,7 +1013,7 @@ def test_send_billing_paid_feishu_task_marks_sent(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_notify",
-        lambda app, title, msgs: (
+        lambda _app, title, msgs: (
             captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
         ),
     )
@@ -828,7 +1082,7 @@ def test_send_billing_paid_feishu_task_marks_sent(
 
 
 def test_send_billing_paid_feishu_task_raises_retryable_error_on_provider_failure(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -841,7 +1095,7 @@ def test_send_billing_paid_feishu_task_raises_retryable_error_on_provider_failur
     )
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_notify",
-        lambda app, title, msgs: None,
+        lambda _app, _title, _msgs: None,
     )
 
     with app.app_context():
@@ -869,7 +1123,7 @@ def test_send_billing_paid_feishu_task_raises_retryable_error_on_provider_failur
 
 
 def test_send_billing_paid_feishu_task_retries_failed_provider_notification(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -883,7 +1137,7 @@ def test_send_billing_paid_feishu_task_retries_failed_provider_notification(
     )
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_notify",
-        lambda app, title, msgs: (
+        lambda _app, title, msgs: (
             captured.append({"title": title, "msgs": list(msgs)}) or {"ok": True}
         ),
     )
@@ -916,7 +1170,7 @@ def test_send_billing_paid_feishu_task_retries_failed_provider_notification(
 
 
 def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -925,18 +1179,27 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
     cycle_end_at = datetime(2026, 5, 20, 0, 0, 0)
     captured: list[dict[str, object]] = []
 
+    def capture_sms(
+        app: object,
+        mobile: object,
+        *,
+        template_code: object,
+        template_params: object,
+        sign_name: object = None,
+    ) -> SimpleNamespace:
+        del app, sign_name
+        captured.append(
+            {
+                "mobile": mobile,
+                "template_code": template_code,
+                "template_params": dict(template_params),
+            }
+        )
+        return SimpleNamespace(ok=True)
+
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: (
-            captured.append(
-                {
-                    "mobile": mobile,
-                    "template_code": template_code,
-                    "template_params": dict(template_params),
-                }
-            )
-            or SimpleNamespace(ok=True)
-        ),
+        capture_sms,
     )
 
     with app.app_context():
@@ -979,7 +1242,7 @@ def test_deliver_subscription_purchase_sms_marks_sent_and_stays_idempotent(
 
 
 def test_deliver_subscription_purchase_sms_skips_when_creator_has_no_mobile(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app, creator_bid="creator-no-mobile", mobile=None)
@@ -1020,7 +1283,7 @@ def test_deliver_subscription_purchase_sms_skips_when_creator_has_no_mobile(
 
 
 def test_deliver_subscription_purchase_sms_fails_when_date_is_missing(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
 ) -> None:
     app = billing_subscription_sms_app
     _seed_creator(app, creator_bid="creator-missing-date")
@@ -1060,7 +1323,7 @@ def test_deliver_subscription_purchase_sms_fails_when_date_is_missing(
 
 
 def test_send_subscription_purchase_sms_task_raises_retryable_error_on_provider_failure(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -1090,9 +1353,20 @@ def test_send_subscription_purchase_sms_task_raises_retryable_error_on_provider_
         "app",
         types.SimpleNamespace(create_app=lambda: app),
     )
+
+    def fail_sms(
+        app: object,
+        mobile: object,
+        *,
+        template_code: object,
+        template_params: object,
+        sign_name: object = None,
+    ) -> None:
+        del app, mobile, template_code, template_params, sign_name
+
     monkeypatch.setattr(
         "flaskr.service.billing.notifications.send_sms_ali",
-        lambda app, mobile, *, template_code, template_params, sign_name=None: None,
+        fail_sms,
     )
 
     with pytest.raises(SubscriptionPurchaseSmsRetryableError):
@@ -1110,7 +1384,7 @@ def test_send_subscription_purchase_sms_task_raises_retryable_error_on_provider_
 
 
 def test_requeue_subscription_purchase_sms_enqueues_failed_provider_order(
-    billing_subscription_sms_app,
+    billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     app = billing_subscription_sms_app
@@ -1119,13 +1393,18 @@ def test_requeue_subscription_purchase_sms_enqueues_failed_provider_order(
     captured_kwargs: list[dict[str, str]] = []
 
     class FakeTask:
-        def apply_async(self, kwargs):
+        def apply_async(self, kwargs: object) -> None:
             captured_kwargs.append(dict(kwargs))
 
     fake_celery = SimpleNamespace(tasks={SUBSCRIPTION_SMS_TASK_NAME: FakeTask()})
+
+    def get_celery_app(flask_app: object | None = None) -> object:
+        del flask_app
+        return fake_celery
+
     monkeypatch.setattr(
         "flaskr.common.celery_app.get_celery_app",
-        lambda flask_app=None: fake_celery,
+        get_celery_app,
     )
 
     with app.app_context():

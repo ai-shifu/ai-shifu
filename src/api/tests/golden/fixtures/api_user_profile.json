@@ -18,12 +18,12 @@
         "items": [
           "Male",
           "Female",
-          "Secret"
+          "Prefer not to say"
         ]
       },
       {
         "key": "birth",
-        "label": "Birth",
+        "label": "Date of birth",
         "type": "date",
         "value": null,
         "items": null
@@ -41,9 +41,14 @@
         "type": "select",
         "value": "English",
         "items": [
-          "中文",
+          "العربية",
+          "Deutsch",
           "English",
-          "Français"
+          "Español (España)",
+          "Français",
+          "ไทย",
+          "اردو",
+          "中文"
         ]
       },
       {

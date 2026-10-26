@@ -1,16 +1,19 @@
+"""Build visual slides for listen-mode elements."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
 import uuid
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
-
-from flaskr.util.uuid import generate_id
 from flaskr.service.learn.listen_source_span_utils import (
     normalize_source_span,
     slice_source_by_span,
 )
+from flaskr.util.uuid import generate_id
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 @dataclass
@@ -41,15 +44,15 @@ def build_visual_segments_for_block(
     app: Flask | None = None,
     raw_content: str,
     generated_block_bid: str,
-    av_contract: dict[str, Any] | None,
+    av_contract: dict[str, object] | None,
     element_index_offset: int = 0,
 ) -> tuple[list[VisualSegment], dict[int, str]]:
-    """
-    Build visual segments for one generated block from its av_contract.
+    """Build visual segments for one generated block from its av_contract.
 
     Returns:
     - segments: ordered visual segments for this block
     - audio_position_to_segment_id: mapping for speakable segment positions
+
     """
     contract = av_contract or {}
     visual_boundaries_raw = contract.get("visual_boundaries") or []

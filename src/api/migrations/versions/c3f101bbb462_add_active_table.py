@@ -1,4 +1,4 @@
-"""add active table
+"""add active table.
 
 Revision ID: c3f101bbb462
 Revises: a4d68cce5ce6
@@ -6,8 +6,8 @@ Create Date: 2025-11-13 06:07:34.199549
 
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.

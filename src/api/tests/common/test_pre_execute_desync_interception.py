@@ -8,16 +8,16 @@ statement via the per-connection journal.
 """
 
 import socket
+from typing import ClassVar
 
 import pytest
+from flaskr import dao
+from flaskr.dao import db
 from sqlalchemy import text
 from sqlalchemy.exc import DisconnectionError
 
-import flaskr.dao as dao
-from flaskr.dao import db
 
-
-def test_statement_journal_records_recent_statements(app):
+def test_statement_journal_records_recent_statements(app: object) -> None:
     with app.app_context():
         db.session.execute(text("SELECT 1"))
         db.session.execute(text("SELECT 2"))
@@ -30,7 +30,7 @@ def test_statement_journal_records_recent_statements(app):
     assert any("SELECT 2" in s for s in statements)
 
 
-def test_pre_execute_probe_blocks_desynced_connection():
+def test_pre_execute_probe_blocks_desynced_connection() -> None:
     left, right = socket.socketpair()
     try:
 
@@ -42,23 +42,25 @@ def test_pre_execute_probe_blocks_desynced_connection():
 
         class _FakeConn:
             connection = _FakeFairy()
-            info = {}
+            info: ClassVar[dict[str, object]] = {}
             invalidated_count = 0
 
-            def invalidate(self):
+            def invalidate(self) -> None:
                 type(self).invalidated_count += 1
 
         conn = _FakeConn()
 
         # Clean socket: probe passes.
-        dao._intercept_desync_before_execute(conn, None, "SELECT 1", None, None, False)
+        dao._intercept_desync_before_execute(
+            conn, None, "SELECT 1", None, None, executemany=False
+        )
 
         # An unread response appears (interrupted previous exchange): the
         # next execute must be refused and the connection invalidated.
         right.sendall(b"\x07\x00\x00\x01\x00stale")
         with pytest.raises(DisconnectionError):
             dao._intercept_desync_before_execute(
-                conn, None, "SELECT id FROM t", None, None, False
+                conn, None, "SELECT id FROM t", None, None, executemany=False
             )
         assert _FakeConn.invalidated_count == 1
     finally:
@@ -66,7 +68,7 @@ def test_pre_execute_probe_blocks_desynced_connection():
         right.close()
 
 
-def test_pre_execute_probe_ignores_drivers_without_socket(app):
+def test_pre_execute_probe_ignores_drivers_without_socket(app: object) -> None:
     # SQLite connections expose no _sock; the whole suite running on SQLite
     # exercises this path implicitly, but assert the direct call is a no-op.
     with app.app_context():

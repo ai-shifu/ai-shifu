@@ -1,10 +1,13 @@
+"""Configure Alembic migration execution."""
+
 import logging
 from logging.config import fileConfig
 
+from alembic import context
 from flask import current_app
 from flaskr.dao import db
-
-from alembic import context
+from sqlalchemy import MetaData
+from sqlalchemy.engine import Engine
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -16,7 +19,7 @@ fileConfig(config.config_file_name)
 logger = logging.getLogger("alembic.env")
 
 
-def get_engine():
+def get_engine() -> Engine:
     try:
         # this works with Flask-SQLAlchemy<3 and Alchemical
         return current_app.extensions["migrate"].db.get_engine()
@@ -25,31 +28,27 @@ def get_engine():
         return current_app.extensions["migrate"].db.engine
 
 
-def get_engine_url():
+def get_engine_url() -> str:
     try:
         return get_engine().url.render_as_string(hide_password=False).replace("%", "%%")
     except AttributeError:
         return str(get_engine().url).replace("%", "%%")
 
 
-# add your model's MetaData object here
-# for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 config.set_main_option("sqlalchemy.url", get_engine_url())
 target_db = current_app.extensions["migrate"].db
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
 
-
-def include_object(object, name, type_, reflected, compare_to):
-    """
-    The simplest mode to avoid separation
-    """
+def include_object(
+    db_object: object,
+    name: object,
+    type_: object,
+    reflected: object,
+    compare_to: object,
+) -> bool:
+    """Use the simplest mode to avoid separation."""
     # the system tables
+    _ = compare_to
     system_tables = [
         "alembic_version",
         "information_schema",
@@ -74,16 +73,15 @@ def include_object(object, name, type_, reflected, compare_to):
                     return True
             # if not found the corresponding model, but not the system table, also include (for detection of deletion)
             return True
-        else:
-            # for the model table, check if it belongs to our service module
-            if hasattr(object, "metadata"):
-                for mapper in db.Model.registry.mappers:
-                    if mapper.local_table is object:
-                        model_class = mapper.class_
-                        return model_class.__module__.startswith("flaskr.service")
-            return False
+        # for the model table, check if it belongs to our service module
+        if hasattr(db_object, "metadata"):
+            for mapper in db.Model.registry.mappers:
+                if mapper.local_table is db_object:
+                    model_class = mapper.class_
+                    return model_class.__module__.startswith("flaskr.service")
+        return False
 
-    elif type_ in [
+    if type_ in [
         "column",
         "index",
         "unique_constraint",
@@ -91,24 +89,24 @@ def include_object(object, name, type_, reflected, compare_to):
         "check_constraint",
     ]:
         # for the column, index, constraint, check if it belongs to our service module
-        if hasattr(object, "table"):
-            table_name = object.table.name
+        if hasattr(db_object, "table"):
+            table_name = db_object.table.name
             # the system tables
-            if table_name in system_tables or table_name.startswith("information_"):
-                return False
-            return True
+            return not (
+                table_name in system_tables or table_name.startswith("information_")
+            )
         return False
 
     return True
 
 
-def get_metadata():
+def get_metadata() -> MetaData:
     if hasattr(target_db, "metadatas"):
         return target_db.metadatas[None]
     return target_db.metadata
 
 
-def run_migrations_offline():
+def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
     This configures the context with just a URL
@@ -146,7 +144,10 @@ def run_migrations_online() -> None:
     # this callback is used to prevent an auto-migration from being generated
     # when there are no changes to the schema
     # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
-    def process_revision_directives(context, revision, directives):
+    def process_revision_directives(
+        context: object, revision: object, directives: object
+    ) -> None:
+        _ = (context, revision)
         if getattr(config.cmd_opts, "autogenerate", False):
             script = directives[0]
             if script.upgrade_ops.is_empty():
@@ -170,10 +171,9 @@ def run_migrations_online() -> None:
                                 if is_meaningful_operation(batch_op):
                                     has_meaningful_changes = True
                                     break
-                        else:
-                            if is_meaningful_operation(op):
-                                has_meaningful_changes = True
-                                break
+                        elif is_meaningful_operation(op):
+                            has_meaningful_changes = True
+                            break
 
                         if has_meaningful_changes:
                             break
@@ -188,8 +188,8 @@ def run_migrations_online() -> None:
                         # merge the related changes into the same migration
                         merge_related_changes(script)
 
-    def is_meaningful_operation(op):
-        """judge if an operation is meaningful (not meaningless type conversion)"""
+    def is_meaningful_operation(op: object) -> object:
+        """Judge if an operation is meaningful (not meaningless type conversion)."""
         op_type = type(op).__name__
 
         # for the ALTER COLUMN operation, check if it is meaningless type conversion
@@ -240,8 +240,8 @@ def run_migrations_online() -> None:
 
         return True
 
-    def filter_unnecessary_operations(script):
-        """filter out the unnecessary or duplicate operations"""
+    def filter_unnecessary_operations(script: object) -> None:
+        """Filter out the unnecessary or duplicate operations."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 
@@ -253,14 +253,16 @@ def run_migrations_online() -> None:
             # check if it is unnecessary operation
             if should_skip_operation(op):
                 logger.info(
-                    f"Skipping unnecessary operation: {type(op).__name__} on {getattr(op, 'table_name', 'unknown')}"
+                    "Skipping unnecessary operation: %s on %s",
+                    type(op).__name__,
+                    getattr(op, "table_name", "unknown"),
                 )
                 continue
 
             # generate the unique identifier of the operation to avoid duplication
             op_signature = get_operation_signature(op)
             if op_signature in seen_operations:
-                logger.info(f"Skipping duplicate operation: {op_signature}")
+                logger.info("Skipping duplicate operation: %s", op_signature)
                 continue
 
             seen_operations.add(op_signature)
@@ -271,11 +273,13 @@ def run_migrations_online() -> None:
 
         if len(filtered_ops) != len(original_ops):
             logger.info(
-                f"Filtered operations from {len(original_ops)} to {len(filtered_ops)}"
+                "Filtered operations from %s to %s",
+                len(original_ops),
+                len(filtered_ops),
             )
 
-    def get_operation_signature(op):
-        """generate the unique signature of the operation to detect duplication"""
+    def get_operation_signature(op: object) -> object:
+        """Generate the unique signature of the operation to detect duplication."""
         op_type = type(op).__name__
 
         if hasattr(op, "table_name"):
@@ -298,20 +302,17 @@ def run_migrations_online() -> None:
                     if hasattr(op, "modify_type") and op.modify_type is not None:
                         modifications.append(f"type:{op.modify_type}")
                     return f"{op_type}:{table_name}:{column_name}:{':'.join(modifications)}"
-                else:
-                    return f"{op_type}:{table_name}:{column_name}"
-            else:
-                return f"{op_type}:{table_name}"
-        else:
-            return f"{op_type}:unknown"
+                return f"{op_type}:{table_name}:{column_name}"
+            return f"{op_type}:{table_name}"
+        return f"{op_type}:unknown"
 
-    def should_skip_operation(op):
-        """judge if it should skip the operation"""
+    def should_skip_operation(op: object) -> object:
+        """Judge if it should skip the operation."""
         op_type = type(op).__name__
 
         # dynamically get the application table prefixes, based on the actual defined models
-        def get_app_table_prefixes():
-            """dynamically get the table prefixes from the actual models"""
+        def get_app_table_prefixes() -> object:
+            """Dynamically get the table prefixes from the actual models."""
             prefixes = set()
 
             # traverse all the registered models
@@ -341,8 +342,8 @@ def run_migrations_online() -> None:
         app_table_prefixes = get_app_table_prefixes()
 
         # get all registered application table names
-        def get_app_table_names():
-            """get all registered application table names"""
+        def get_app_table_names() -> object:
+            """Get all registered application table names."""
             table_names = set()
             for mapper in db.Model.registry.mappers:
                 model_class = mapper.class_
@@ -369,12 +370,14 @@ def run_migrations_online() -> None:
             if table_name in system_tables or table_name.startswith("information_"):
                 return True
 
-            # 对于删除操作，不应该基于当前模型来过滤，因为被删除的表在当前模型中已经不存在了
+            # Drops must not be filtered against the current models, because a
+            # dropped table no longer exists in them
             if op_type == "DropTableOp":
-                # 删除操作不应该被跳过，让include_object来决定
+                # Let include_object decide instead of skipping the drop here
                 return False
 
-            # skip the tables that do not belong to the application (只对非删除操作执行此检查)
+            # skip the tables that do not belong to the application (non-drop
+            # operations only)
             # Check both: if table name matches directly OR if it starts with a known prefix
             if table_name not in app_table_names and not any(
                 table_name.startswith(prefix) for prefix in app_table_prefixes
@@ -493,8 +496,8 @@ def run_migrations_online() -> None:
 
         return False
 
-    def merge_related_changes(script):
-        """merge the related changes into the same migration"""
+    def merge_related_changes(script: object) -> None:
+        """Merge the related changes into the same migration."""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 
@@ -513,12 +516,14 @@ def run_migrations_online() -> None:
         for table_name, changes in table_changes.items():
             if len(changes) > 1:
                 logger.info(
-                    f"Table {table_name} has {len(changes)} changes, ensuring they are in the same migration"
+                    "Table %s has %s changes, ensuring they are in the same migration",
+                    table_name,
+                    len(changes),
                 )
 
                 # check if there are related change types
                 change_types = [type(op).__name__ for op in changes]
-                logger.info(f"Change types for {table_name}: {change_types}")
+                logger.info("Change types for %s: %s", table_name, change_types)
 
                 # if the same table has comment and server_default changes, log
                 has_comment_change = any("comment" in str(op).lower() for op in changes)
@@ -528,7 +533,8 @@ def run_migrations_online() -> None:
 
                 if has_comment_change and has_server_default_change:
                     logger.info(
-                        f"Table {table_name} has both comment and server_default changes - they should be in the same migration"
+                        "Table %s has both comment and server_default changes - they should be in the same migration",
+                        table_name,
                     )
 
                 # try to merge the related operations
@@ -550,7 +556,9 @@ def run_migrations_online() -> None:
                             and type(next_op).__name__ == "AlterColumnOp"
                         ):
                             logger.info(
-                                f"Merging operations for column {current_op.column_name} in table {table_name}"
+                                "Merging operations for column %s in table %s",
+                                current_op.column_name,
+                                table_name,
                             )
                             # here you can add the merge logic
                             i += 2  # skip the next operation
@@ -561,7 +569,10 @@ def run_migrations_online() -> None:
                 # update the operation list
                 if len(merged_ops) < len(changes):
                     logger.info(
-                        f"Reduced operations for table {table_name} from {len(changes)} to {len(merged_ops)}"
+                        "Reduced operations for table %s from %s to %s",
+                        table_name,
+                        len(changes),
+                        len(merged_ops),
                     )
                     # here you can update script.upgrade_ops.ops
 
@@ -576,25 +587,26 @@ def run_migrations_online() -> None:
     conf_args["compare_name"] = False
     conf_args["compare_schema"] = False
 
-    # 添加自定义的比较函数来减少误报
+    # Custom comparison functions that reduce false positives
     def compare_server_default(
-        context,
-        inspected_column,
-        metadata_column,
-        inspected_default,
-        metadata_default,
-        rendered_metadata_default,
-    ):
-        """自定义 server_default 比较，减少误报"""
+        context: object,
+        inspected_column: object,
+        metadata_column: object,
+        inspected_default: object,
+        metadata_default: object,
+        rendered_metadata_default: object,
+    ) -> object:
+        """Compare server defaults leniently to reduce false positives."""
+        # Normalize how a default value is spelled
+        _ = (context, inspected_column, metadata_column, metadata_default)
 
-        # 标准化默认值的表示
-        def normalize_default(default):
+        def normalize_default(default: object) -> object:
             if default is None:
                 return None
             default_str = str(default).strip()
             if default_str == "" or default_str.lower() == "none":
                 return None
-            # MySQL TIMESTAMP 特殊处理
+            # MySQL TIMESTAMP special case
             if default_str.upper() in ["CURRENT_TIMESTAMP", "NOW()"]:
                 return "CURRENT_TIMESTAMP"
             if "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" in default_str.upper():
@@ -604,19 +616,24 @@ def run_migrations_online() -> None:
         norm_inspected = normalize_default(inspected_default)
         norm_metadata = normalize_default(rendered_metadata_default)
 
-        # 如果两个都是 None，认为相同
+        # Two missing defaults count as equal
         if norm_inspected is None and norm_metadata is None:
             return False
 
         return norm_inspected != norm_metadata
 
     def compare_comment(
-        context, inspected_column, metadata_column, inspected_comment, metadata_comment
-    ):
-        """自定义 comment 比较，减少误报但允许真正的注释变更"""
+        context: object,
+        inspected_column: object,
+        metadata_column: object,
+        inspected_comment: object,
+        metadata_comment: object,
+    ) -> object:
+        """Compare comments leniently, still reporting real comment changes."""
+        # Normalize how a comment is spelled
+        _ = inspected_column
 
-        # 标准化注释
-        def normalize_comment(comment):
+        def normalize_comment(comment: object) -> object:
             if comment is None:
                 return None
             comment_str = str(comment).strip()
@@ -627,25 +644,25 @@ def run_migrations_online() -> None:
         norm_inspected = normalize_comment(inspected_comment)
         norm_metadata = normalize_comment(metadata_comment)
 
-        # 如果两个都是 None 或空，认为相同
+        # Two missing or empty comments count as equal
         if norm_inspected is None and norm_metadata is None:
             return False
 
-        # 如果一个是 None 另一个不是，但内容是无意义的默认注释，跳过
+        # One side missing is still skipped when the other side only carries a
+        # meaningless boilerplate comment
         if norm_inspected != norm_metadata:
-            # 检查是否是从 None 到通用的"Update time"注释，这种情况跳过
+            # Skip a change that only adds or removes the generic "Update time"
             if (norm_inspected is None and norm_metadata == "Update time") or (
                 norm_metadata is None and norm_inspected == "Update time"
             ):
                 return False
 
-            # 检查是否已经有相同的注释变更在最近的迁移中
+            # Skip a comment change already reported during this run
             if hasattr(context, "_comment_change_signature"):
                 signature = f"{metadata_column.table.name}.{metadata_column.name}:{norm_inspected}->{norm_metadata}"
                 if signature in context._comment_change_signature:
                     return False
-                else:
-                    context._comment_change_signature.add(signature)
+                context._comment_change_signature.add(signature)
             else:
                 context._comment_change_signature = set()
                 signature = f"{metadata_column.table.name}.{metadata_column.name}:{norm_inspected}->{norm_metadata}"
@@ -656,50 +673,59 @@ def run_migrations_online() -> None:
         return False
 
     def compare_type(
-        context, inspected_column, metadata_column, inspected_type, metadata_type
-    ):
-        """自定义类型比较，减少误报"""
-        # 对于某些类型的小差异，认为相同
+        context: object,
+        inspected_column: object,
+        metadata_column: object,
+        inspected_type: object,
+        metadata_type: object,
+    ) -> object:
+        """Compare column types leniently to reduce false positives."""
+        # Treat small type differences as equal
+        _ = (context, inspected_column, metadata_column)
         inspected_str = str(inspected_type).upper()
         metadata_str = str(metadata_type).upper()
 
-        # MySQL TINYINT(1) 和 BOOLEAN 的处理 - 这些是等价的
+        # MySQL TINYINT(1) and BOOLEAN are equivalent
         if ("TINYINT(1)" in inspected_str and "BOOLEAN" in metadata_str) or (
             "BOOLEAN" in inspected_str and "TINYINT(1)" in metadata_str
         ):
             return False
 
-        # MySQL DECIMAL 和 SQLAlchemy Numeric 的处理 - 这些是等价的
+        # MySQL DECIMAL and SQLAlchemy Numeric are equivalent
         if ("DECIMAL" in inspected_str and "NUMERIC" in metadata_str) or (
             "NUMERIC" in inspected_str and "DECIMAL" in metadata_str
         ):
             return False
 
-        # BIGINT 自增字段的处理
+        # Autoincrement BIGINT columns
         if "BIGINT" in inspected_str and "BIGINT" in metadata_str:
             return False
 
-        # VARCHAR 长度差异的处理 - 只要长度相同就认为相同
+        # VARCHAR columns are equal as long as the length matches
         import re
 
         varchar_pattern = r"VARCHAR\((\d+)\)"
         inspected_match = re.search(varchar_pattern, inspected_str)
         metadata_match = re.search(varchar_pattern, metadata_str)
-        if inspected_match and metadata_match:
-            if inspected_match.group(1) == metadata_match.group(1):
-                return False
+        if (
+            inspected_match
+            and metadata_match
+            and inspected_match.group(1) == metadata_match.group(1)
+        ):
+            return False
 
-        # TEXT 类型的处理 - MySQL 的 TEXT, LONGTEXT 等都映射到 SQLAlchemy 的 TEXT
+        # MySQL TEXT, LONGTEXT and friends all map to SQLAlchemy TEXT
         if "TEXT" in inspected_str and "TEXT" in metadata_str:
             return False
 
         return inspected_str != metadata_str
 
-    # 应用自定义比较函数
+    # Apply the custom comparison functions
     conf_args["compare_server_default"] = compare_server_default
-    # 重新启用注释比较但使用更智能的去重逻辑
+    # Comment comparison stays on, with the deduplication logic above
     conf_args["compare_comment"] = compare_comment
-    # 完全禁用类型比较以避免 DECIMAL<->NUMERIC 和 TINYINT<->BOOLEAN 的误报
+    # Type comparison is off entirely to avoid DECIMAL<->NUMERIC and
+    # TINYINT<->BOOLEAN false positives
     conf_args["compare_type"] = False
 
     connectable = get_engine()

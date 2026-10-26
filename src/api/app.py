@@ -1,16 +1,26 @@
+"""Create and run the Flask application."""
+
 import os
+import subprocess
 import time
+from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+from flasgger import Swagger
 from flask import Flask
 from flask_cors import CORS
-from dotenv import load_dotenv
 from flask_migrate import Migrate
-from flasgger import Swagger
-from flaskr.framework.plugin.plugin_manager import enable_plugin_manager
+from flaskr.framework.plugin.plugin_manager import (
+    enable_plugin_manager,
+    get_plugin_manager,
+)
 
 # set timezone to UTC
 # fix windows platform
 if os.name == "nt":
-    os.system('tzutil /s "UTC"')
+    # tzutil ships with Windows and is resolved from PATH.
+    subprocess.run(["tzutil", "/s", "UTC"], check=False)  # noqa: S607
 else:
     # Load environment variables first so we can use get_config
     if not os.getenv("SKIP_LOAD_DOTENV"):
@@ -23,19 +33,29 @@ else:
     # Flask app (and the registry-backed config instance) exists.
     os.environ["TZ"] = timezone
     time.tzset()
-app = None
 
 
-def create_app() -> Flask:
-    global app
-    if app:
-        return app
+@dataclass(slots=True)
+class _ApplicationState:
+    app: Flask | None = None
+
+
+_application_state = _ApplicationState()
+app: Flask | None = None
+
+
+def create_app(*, serving_http: bool = True) -> Flask:
+    """Create and configure the Flask application."""
+    if _application_state.app is not None:
+        return _application_state.app
     import pymysql
 
     pymysql.install_as_MySQLdb()
-    app = Flask(__name__, instance_relative_config=True)
+    flask_app = Flask(__name__, instance_relative_config=True)
+    # Record the process role before plugins/routes can schedule HTTP work.
+    flask_app.extensions["serving_http"] = serving_http
     CORS(
-        app,
+        flask_app,
         resources={
             r"/api/*": {
                 "origins": [
@@ -49,79 +69,94 @@ def create_app() -> Flask:
         supports_credentials=True,
     )
     from flaskr.common import Config, init_log
+    from flaskr.common.http import init_sensitive_body_policy
     from flaskr.common.observability import init_observability
 
-    app.config = Config(app.config, app)
+    flask_app.config = Config(flask_app.config, flask_app)
 
     # init observability before request logging so trace ids are available in logs
-    init_observability(app)
+    init_observability(flask_app)
     # init log
-    init_log(app)
-    app = enable_plugin_manager(app)
-    app.logger.info("ai-shifu-api mode: %s", app.config.get("MODE", "api"))
+    init_log(flask_app)
+    # Logging skips opted-in bodies; enforce their limits before auth JSON parsing.
+    init_sensitive_body_policy(flask_app)
+    flask_app = enable_plugin_manager(flask_app)
+    flask_app.logger.info("ai-shifu-api mode: %s", flask_app.config.get("MODE", "api"))
     # init database
     from flaskr import dao
 
-    dao.init_db(app)
+    dao.init_db(flask_app)
 
     # init i18n
     from flaskr.i18n import load_translations
 
-    load_translations(app)
+    load_translations(flask_app)
 
     # init redis
-    dao.init_redis(app)
+    dao.init_redis(flask_app)
 
     from flaskr.service.user.auth import register_builtin_providers
 
     register_builtin_providers()
 
     # Init LLM
-    with app.app_context():
-        from flaskr.api import llm  # noqa
+    with flask_app.app_context():
+        from flaskr.api import llm  # noqa: F401
     # init langfuse
     from flaskr import api
 
-    api.init_langfuse(app)
+    api.init_langfuse(flask_app)
     # load plugins
     from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
-    from flaskr.framework.plugin.plugin_manager import plugin_manager
 
-    load_plugins_from_dir(app, os.path.join("flaskr", "service"))
+    plugin_manager = get_plugin_manager()
+    if plugin_manager is None:
+        message = "Plugin manager is not enabled"
+        raise RuntimeError(message)
+
+    load_plugins_from_dir(flask_app, str(Path("flaskr") / "service"))
     try:
-        load_plugins_from_dir(app, os.path.join("flaskr", "plugins"), plugin_manager)
+        load_plugins_from_dir(
+            flask_app, str(Path("flaskr") / "plugins"), plugin_manager
+        )
     except Exception as e:
-        app.logger.warning(f"load plugins error: {e}")
+        flask_app.logger.warning("load plugins error: %s", e)
 
-    Migrate(app, dao.db)
+    Migrate(flask_app, dao.db)
     # register route
     from flaskr.route import register_route
 
-    app = register_route(app)
+    flask_app = register_route(flask_app)
     # init swagger
-    if app.config.get("SWAGGER_ENABLED", False):
-        from flaskr.common import swagger_config
+    if flask_app.config.get("SWAGGER_ENABLED", False):
+        from flaskr.common import sanitize_swagger_docstring, swagger_config
 
-        app.logger.info("swagger init ...")
-        Swagger(app, config=swagger_config, merge=True)
+        flask_app.logger.info("swagger init ...")
+        Swagger(
+            flask_app,
+            config=swagger_config,
+            sanitizer=sanitize_swagger_docstring,
+            merge=True,
+        )
 
     # enable hot reload
-    if app.config.get("ENV") == "development":
+    if flask_app.config.get("ENV") == "development":
         plugin_manager.enable_hot_reload()
 
-    return app
+    _application_state.app = flask_app
+    return flask_app
 
 
 if __name__ == "__main__":
     app = create_app()
     # Only enable debug mode if explicitly running in development environment
-    app.run(host="0.0.0.0", port=5800, debug=app.config.get("ENV") == "development")
-else:
-    if not os.getenv("SKIP_APP_AUTOCREATE"):
-        app = create_app()
-        from flaskr.framework.plugin.enable_plugin import enable_plugins
+    # Binding to all interfaces is required for the containerized dev server.
+    app.run(host="0.0.0.0", port=5800, debug=app.config.get("ENV") == "development")  # noqa: S104
+elif not os.getenv("SKIP_APP_AUTOCREATE"):
+    app = create_app()
+    from flaskr.framework.plugin.enable_plugin import enable_plugins
 
-        enable_plugins(app)
-        from flaskr.command import enable_commands
+    enable_plugins(app)
+    from flaskr.command import enable_commands
 
-        enable_commands(app)
+    enable_commands(app)

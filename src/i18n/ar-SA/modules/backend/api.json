@@ -1,0 +1,6 @@
+{
+  "__namespace__": "server.api",
+  "__flat__": {
+    "alibabaCloudNotConfigured": "لم يتم إعداد معامل Alibaba Cloud {config_var}"
+  }
+}

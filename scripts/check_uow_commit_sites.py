@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ratchet check: no new ``db.session.commit()`` outside the dao layer.
 
-The backend overhaul (docs/exec-plans/active/backend-overhaul-master.md, B4)
+The backend overhaul (docs/exec-plans/completed/backend-overhaul-master.md, B4)
 migrates service code to the unit-of-work boundary in ``flaskr/dao/uow.py``.
 Legacy commit call sites are grandfathered in a committed baseline; this check
 fails when a file GAINS commit calls versus that baseline, and asks you to
@@ -41,6 +41,7 @@ def _count_commit_calls(source: str) -> int:
 
 
 def scan() -> dict[str, int]:
+    """Scan source files for direct unit-of-work commit calls."""
     counts: dict[str, int] = {}
     for path in sorted(BACKEND_ROOT.rglob("*.py")):
         rel = path.relative_to(BACKEND_ROOT).as_posix()
@@ -53,8 +54,28 @@ def scan() -> dict[str, int]:
 
 
 def main() -> int:
+    """Report direct commits outside approved unit-of-work boundaries."""
     current = scan()
     if "--update" in sys.argv:
+        # The baseline only ratchets down: refuse to record a file that gained
+        # call sites, so `--update` cannot launder a regression into the
+        # baseline in the same change. Creating a missing baseline is allowed.
+        if BASELINE_PATH.exists():
+            previous = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+            grown = {
+                rel: (previous.get(rel, 0), n)
+                for rel, n in current.items()
+                if n > previous.get(rel, 0)
+            }
+            if grown:
+                print("Refusing to update: commit sites increased in:")
+                for rel, (old, new) in sorted(grown.items()):
+                    print(f" - flaskr/{rel}: {old} -> {new}")
+                print(
+                    "Move the new commit onto `with unit_of_work():` "
+                    "(flaskr/dao/uow.py); the baseline never grows."
+                )
+                return 1
         BASELINE_PATH.write_text(
             json.dumps(current, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )

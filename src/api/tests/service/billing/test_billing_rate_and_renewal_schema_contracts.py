@@ -1,8 +1,8 @@
+"""Protect billing rate and renewal schema compatibility."""
+
 from __future__ import annotations
 
 from pathlib import Path
-
-from sqlalchemy import Numeric
 
 from flaskr.service.billing.models import (
     BillingRenewalEvent,
@@ -11,6 +11,7 @@ from flaskr.service.billing.models import (
     CreditWallet,
     CreditWalletBucket,
 )
+from sqlalchemy import Numeric
 
 _API_ROOT = Path(__file__).resolve().parents[3]
 

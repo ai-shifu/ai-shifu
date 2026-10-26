@@ -1,3 +1,5 @@
+"""Execute learning sessions and stream their results."""
+
 import contextlib
 import json
 import queue
@@ -6,17 +8,30 @@ import threading
 import time
 import traceback
 import uuid
+from collections.abc import Generator
 from datetime import datetime
-from typing import Any, Generator, Optional
+from typing import TYPE_CHECKING
 
 from flask import Flask
-from sqlalchemy import text as sa_text
-from sqlalchemy.exc import InterfaceError, OperationalError, ResourceClosedError
-
-from flaskr.service.common.models import AppException, raise_error
-from flaskr.service.user.repository import load_user_aggregate
-from flaskr.i18n import _
-
+from flaskr.common.cache_provider import cache as cache_provider
+from flaskr.common.log import thread_local as log_thread_local
+from flaskr.common.shifu_context import (
+    apply_shifu_context_snapshot,
+    get_shifu_context_snapshot,
+)
+from flaskr.dao import (
+    db,
+    invalidate_session,
+    is_abnormal_stream_termination,
+    is_protocol_interrupt_error,
+)
+from flaskr.dao.uow import unit_of_work
+from flaskr.i18n import _, get_current_language, set_language
+from flaskr.service.common.models import AppError, raise_error
+from flaskr.service.learn.agent.routing import uses_agent_engine
+from flaskr.service.learn.const import INPUT_TYPE_ASK
+from flaskr.service.learn.context_v2 import RunScriptContextV2
+from flaskr.service.learn.exceptions import BreakError
 from flaskr.service.learn.learn_dtos import (
     AudioBackfillReadyDTO,
     GeneratedType,
@@ -24,34 +39,23 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
     RunStatusDTO,
 )
-from flaskr.common.cache_provider import cache as cache_provider
-from flaskr.dao import (
-    db,
-    invalidate_session,
-    is_abnormal_stream_termination,
-    is_protocol_interrupt_error,
-)
-from flaskr.service.learn.const import INPUT_TYPE_ASK
+from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
+from flaskr.service.order.models import Order
 from flaskr.service.shifu.shifu_struct_manager import (
-    get_shifu_dto,
-    get_outline_item_dto,
     ShifuInfoDto,
     ShifuOutlineItemDto,
+    get_outline_item_dto,
+    get_shifu_dto,
     get_shifu_struct,
 )
-from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.order.models import Order
-from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
-from flaskr.service.learn.context_v2 import RunScriptContextV2
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
-from flaskr.common.log import thread_local as log_thread_local
-from flaskr.service.learn.exceptions import BreakException
-from flaskr.i18n import get_current_language, set_language
-from flaskr.common.shifu_context import (
-    get_shifu_context_snapshot,
-    apply_shifu_context_snapshot,
-)
+from flaskr.service.user.repository import load_user_aggregate
 from flaskr.util.datetime import to_utc_iso
+from sqlalchemy import text as sa_text
+from sqlalchemy.exc import InterfaceError, OperationalError, ResourceClosedError
+
+if TYPE_CHECKING:
+    from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
 RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
@@ -82,7 +86,7 @@ def _remove_db_session_safely(app: Flask, *, source: str) -> None:
 _is_protocol_desync_error = is_protocol_interrupt_error
 
 
-def _discard_session_connection(app: Flask, *, source: str) -> None:
+def _discard_session_connection(*, source: str) -> None:
     """Drop the session's DB connection instead of returning it to the pool.
 
     Used when the streaming generator terminates abnormally: the close (or a
@@ -144,13 +148,14 @@ def _ensure_healthy_db_connection(app: Flask) -> None:
         # Session.invalidate() both resets the session state WITHOUT emitting
         # SQL and discards the raw connection - a rollback here would send a
         # ROLLBACK on the very stream that just proved desynced.
-        _discard_session_connection(app, source="db connection probe failure")
+        _discard_session_connection(source="db connection probe failure")
     if last_error is not None:
         raise last_error
-    raise RuntimeError(
+    message = (
         "db connection probe kept returning mismatched results; "
         "no healthy connection available"
     )
+    raise RuntimeError(message)
 
 
 def _get_max_parallel_ask_count(app: Flask) -> int:
@@ -198,8 +203,9 @@ def _get_ask_sem_key(app: Flask, user_bid: str, outline_bid: str) -> str:
 def _ask_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
     """Try to acquire an ask semaphore slot. Returns True if slot acquired."""
     try:
-        from flaskr.dao import redis_client
+        from flaskr.dao import get_redis_client
 
+        redis_client = get_redis_client()
         if redis_client is None:
             return True  # fail open when Redis is unavailable
         result = redis_client.eval(
@@ -223,8 +229,9 @@ def _ask_sem_acquire(app: Flask, user_bid: str, outline_bid: str) -> bool:
 def _ask_sem_release(app: Flask, user_bid: str, outline_bid: str) -> None:
     """Release an ask semaphore slot."""
     try:
-        from flaskr.dao import redis_client
+        from flaskr.dao import get_redis_client
 
+        redis_client = get_redis_client()
         if redis_client is None:
             return
         redis_client.eval(
@@ -287,7 +294,7 @@ def _clear_run_script_status(app: Flask, user_bid: str, outline_bid: str) -> Non
 
 def _get_run_script_started_at(
     app: Flask, user_bid: str, outline_bid: str
-) -> Optional[int]:
+) -> int | None:
     try:
         raw = cache_provider.get(_get_run_script_status_key(app, user_bid, outline_bid))
     except Exception as exc:
@@ -315,24 +322,36 @@ def _get_run_script_started_at(
         return None
 
 
+def _commit_pending_step() -> None:
+    """Make rows staged between run steps durable.
+
+    ``RunRecorder`` bounds the per-step writes; this checkpoint runs only at
+    step boundaries (after a reload rewind, after the stream completes, and
+    on ``BreakError``) so collaborators that still stage rows with plain
+    flushes never span a ``yield``. The block stages nothing itself: the
+    commit is the point.
+    """
+    with unit_of_work():
+        pass
+
+
 def run_script_inner(
     app: Flask,
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    input: str | dict = None,
-    input_type: str = None,
-    reload_generated_block_bid: str = None,
-    reload_element_bid: str = None,
+    user_input: str | dict | None = None,
+    input_type: str | None = None,
+    reload_generated_block_bid: str | None = None,
+    reload_element_bid: str | None = None,
     listen: bool = False,
+    learning_mode: str = "read",
     preview_mode: bool = False,
     stop_event: threading.Event | None = None,
     element_adapter: ListenElementRunAdapter | None = None,
     manage_app_context: bool = True,
 ) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
-    """
-    Core function for running course scripts
-    """
+    """Core function for running course scripts."""
 
     def _finalize_langfuse_if_available(
         context: RunScriptContextV2 | None,
@@ -370,7 +389,7 @@ def run_script_inner(
                 lesson_info = None
             else:
                 lesson_info = outline_item_info
-                app.logger.info(f"lesson_info: {lesson_info.__json__()}")
+                app.logger.info("lesson_info: %s", lesson_info.__json__())
 
             if shifu_info.price > 0:
                 success_buy_record = (
@@ -383,10 +402,7 @@ def run_script_inner(
                     .order_by(Order.id.desc())
                     .first()
                 )
-                if not success_buy_record:
-                    is_paid = False
-                else:
-                    is_paid = True
+                is_paid = bool(success_buy_record)
             else:
                 is_paid = True
 
@@ -398,11 +414,12 @@ def run_script_inner(
                 user_info=user_info,
                 is_paid=is_paid,
                 listen=listen,
+                learning_mode=learning_mode,
                 preview_mode=preview_mode,
                 stop_event=stop_event,
             )
 
-            run_script_context.set_input(input, input_type)
+            run_script_context.set_input(user_input, input_type)
 
             ready_element_bids_by_block_bid: dict[str, list[str]] = {}
 
@@ -422,9 +439,9 @@ def run_script_inner(
                     element_bids.append(element_bid)
 
             def _iter_run_events(
-                events,
+                events: object,
                 ready_element_bids_by_block_bid: dict[str, list[str]],
-            ):
+            ) -> Generator[object, None, None]:
                 if element_adapter is None:
                     for event in events:
                         _remember_audio_backfill_ready_element(
@@ -442,7 +459,7 @@ def run_script_inner(
 
             def _iter_audio_backfill_ready_events(
                 ready_element_bids_by_block_bid: dict[str, list[str]],
-            ):
+            ) -> Generator[object, None, None]:
                 if input_type == INPUT_TYPE_ASK:
                     return
                 for (
@@ -463,7 +480,7 @@ def run_script_inner(
                     # exchange may have been interrupted, so discard rather
                     # than roll back on a possibly desynced connection.
                     _discard_session_connection(
-                        app, source="run_script_inner stop_event cancel"
+                        source="run_script_inner stop_event cancel"
                     )
                     return
                 yield from _iter_run_events(
@@ -474,19 +491,19 @@ def run_script_inner(
                     ),
                     ready_element_bids_by_block_bid,
                 )
-                db.session.commit()
+                _commit_pending_step()
                 yield from _iter_audio_backfill_ready_events(
                     ready_element_bids_by_block_bid
                 )
                 ready_element_bids_by_block_bid.clear()
             while run_script_context.has_next():
                 app.logger.warning(
-                    f"run_script_context.has_next(): {run_script_context.has_next()}"
+                    "run_script_context.has_next(): %s", run_script_context.has_next()
                 )
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled by stop_event")
                     _discard_session_connection(
-                        app, source="run_script_inner stop_event cancel"
+                        source="run_script_inner stop_event cancel"
                     )
                     return
                 app.logger.info("run_script_context.run")
@@ -495,27 +512,30 @@ def run_script_inner(
                     ready_element_bids_by_block_bid,
                 )
             _finalize_langfuse_if_available(run_script_context)
-            db.session.commit()
+            _commit_pending_step()
             yield from _iter_audio_backfill_ready_events(
                 ready_element_bids_by_block_bid
             )
-        except BreakException:
+        except BreakError:
             _finalize_langfuse_if_available(run_script_context)
-            db.session.commit()
-            app.logger.info("BreakException")
+            _commit_pending_step()
+            yield from _iter_audio_backfill_ready_events(
+                ready_element_bids_by_block_bid
+            )
+            app.logger.info("BreakError")
         except GeneratorExit:
             # The close lands at an arbitrary yield point (client disconnect),
             # so the connection's protocol state is unknowable: this is the
             # exact checkin path the pool-level desync detector caught in
             # production. Discard the connection instead of rolling back on it.
-            _discard_session_connection(app, source="run_script_inner GeneratorExit")
+            _discard_session_connection(source="run_script_inner GeneratorExit")
             app.logger.info("GeneratorExit")
         except Exception as exc:
             _finalize_langfuse_if_available(run_script_context)
             if _is_protocol_desync_error(exc):
                 # Rolling back on a desynced connection consumes stale packets
                 # ("Command Out of Sync") and re-pools the poisoned stream.
-                _discard_session_connection(app, source="run_script_inner stream error")
+                _discard_session_connection(source="run_script_inner stream error")
             else:
                 db.session.rollback()
             raise
@@ -530,7 +550,8 @@ def run_script_inner(
     yield from _run()
 
 
-def fmt(o):
+def fmt(o: object) -> object:
+    """Serialize a value for the shared API response envelope."""
     if isinstance(o, datetime):
         return to_utc_iso(o)
     return o.__json__()
@@ -540,15 +561,15 @@ def _to_sse_chunk(payload: object) -> str:
     return (
         "data: "
         + json.dumps(payload, default=fmt, ensure_ascii=False)
-        + "\n\n".encode("utf-8").decode("utf-8")
+        + b"\n\n".decode("utf-8")
     )
 
 
 def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
-    """Log a run-script stream error, keeping handled AppExceptions off ERROR.
+    """Log a run-script stream error, keeping handled AppErrors off ERROR.
 
     Unexpected errors are logged at ERROR for operational alerting, while a
-    handled, user-facing AppException is logged at INFO so it stays out of the
+    handled, user-facing AppError is logged at INFO so it stays out of the
     alert stream but remains diagnosable.
     """
     error_traceback = "".join(
@@ -564,8 +585,8 @@ def _log_run_script_stream_error(app: Flask, stream_error: Exception) -> None:
         "traceback": error_traceback,
     }
 
-    if isinstance(stream_error, AppException):
-        # AppException is already a handled, user-facing business error (for example,
+    if isinstance(stream_error, AppError):
+        # AppError is already a handled, user-facing business error (for example,
         # a stale lesson URL after a course republish). Keep it out of ERROR-level
         # operational alerts while preserving enough context for diagnostics.
         app.logger.info("run_script handled app exception")
@@ -677,20 +698,300 @@ def _make_audio_backfill_ready_event(
     )
 
 
+def _lesson_events(
+    *,
+    app: Flask,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    user_input: str | dict | None,
+    input_type: str | None,
+    reload_generated_block_bid: str | None,
+    reload_element_bid: str | None,
+    listen: bool,
+    learning_mode: str,
+    preview_mode: bool,
+    stop_event: threading.Event,
+    element_adapter: ListenElementRunAdapter,
+    heartbeat_interval: float,
+) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
+    """Produce this lesson's events with whichever engine teaches it.
+
+    The choice is per deployment, not per course row: FLOW_ENGINE_V2_ENABLED
+    enables 2.0 for all courses here; deployments with the flag disabled retain 1.0.
+
+    Everything downstream is shared -- the lock this runs inside, the element adapter, TTS, the SSE
+    framing -- so serialisation and persistence hold for both engines without being reimplemented.
+    """
+    if _teaches_with_agent(
+        shifu_bid=shifu_bid,
+        input_type=input_type,
+        reload_generated_block_bid=reload_generated_block_bid,
+        reload_element_bid=reload_element_bid,
+    ):
+        from flaskr.api.markdownflow import TurnCapacityError
+        from flaskr.service.learn.agent.lesson_entry import (
+            DiscardedTurnError,
+            LessonNotTeachable,
+            agent_lesson_events,
+            require_teachable_preview,
+        )
+
+        # The only record of how much traffic 2.0 carries: the decision is per deployment, so it
+        # cannot be counted from the database. It is what a decision to raise the worker's turn
+        # ceiling would be based on.
+        app.logger.info(
+            "teaching with the 2.0 engine: shifu_bid=%s outline_bid=%s",
+            shifu_bid,
+            outline_bid,
+        )
+        try:
+            preview_options = {}
+            if preview_mode:
+                require_teachable_preview(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                )
+                from flaskr.service.learn.agent.preview_history import (
+                    begin_preview_run,
+                    pending_preview_record,
+                    preview_status_event,
+                )
+                from flaskr.service.learn.agent.run_agent import learner_values
+
+                if reload_element_bid or reload_generated_block_bid:
+                    from flaskr.service.learn.agent.preview_rewind import (
+                        plan_preview_rewind,
+                    )
+                    from flaskr.service.learn.agent.rewind import RewindUnavailableError
+
+                    try:
+                        plan_preview_rewind(
+                            app,
+                            user_bid=user_bid,
+                            shifu_bid=shifu_bid,
+                            outline_bid=outline_bid,
+                            anchor=reload_element_bid or reload_generated_block_bid,
+                            answering=bool(learner_values(user_input)),
+                        )
+                    except RewindUnavailableError:
+                        raise_error("server.learn.agentRewindUnavailable")
+                if not learner_values(user_input) and not (
+                    reload_generated_block_bid or reload_element_bid
+                ):
+                    restored = pending_preview_record(
+                        app,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                    )
+                    if restored is not None:
+                        update = preview_status_event(
+                            app,
+                            user_bid=user_bid,
+                            shifu_bid=shifu_bid,
+                            outline_bid=outline_bid,
+                        )
+                        if update is not None:
+                            yield update
+                        for element in restored.elements:
+                            yield RunElementSSEMessageDTO(
+                                type="element",
+                                event_type="element",
+                                content=element,
+                                generated_block_bid=element.generated_block_bid,
+                            )
+                        yield RunElementSSEMessageDTO(
+                            type="done", event_type="done", content="", is_terminal=True
+                        )
+                        return
+                preview_options["preview_generation"] = begin_preview_run(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    run_bid=element_adapter.run_session_bid,
+                )
+                update = preview_status_event(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    generation=preview_options["preview_generation"],
+                )
+                if update is not None:
+                    yield update
+            agent_events = agent_lesson_events(
+                app,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_input=user_input,
+                listen=listen,
+                learning_mode=learning_mode,
+                preview_mode=preview_mode,
+                heartbeat_interval=heartbeat_interval,
+                reload_generated_block_bid=reload_generated_block_bid,
+                reload_element_bid=reload_element_bid,
+                **preview_options,
+            )
+            # Final snapshots are staged by the adapter on DONE. Adapt here so the commit and
+            # readiness notification precede terminal DONE, on which the browser closes SSE.
+            adapted_events = (
+                element_adapter.process(agent_events)
+                if element_adapter is not None
+                else agent_events
+            )
+            ready_by_block: dict[str, list[str]] = {}
+            terminal_done = None
+            try:
+                for payload in adapted_events:
+                    if (
+                        isinstance(payload, RunElementSSEMessageDTO)
+                        and payload.type == GeneratedType.DONE.value
+                        and payload.is_terminal
+                    ):
+                        terminal_done = payload
+                    else:
+                        yield payload
+            except AppError as exc:
+                if element_adapter is not None and not isinstance(
+                    exc, DiscardedTurnError
+                ):
+                    # A turn can fail after text was shown: a refused tool request, a provider
+                    # error after output started, or an exhausted recovery. The engine keeps
+                    # that text in its saved session and continues after it, so persist the
+                    # buffered elements before surfacing the error, without sending DONE.
+                    # Errors raised before any output leave nothing pending, and a turn a
+                    # concurrent reset discarded must leave nothing behind.
+                    yield from element_adapter.finalize_pending_blocks()
+                    _commit_pending_step()
+                raise
+            finally:
+                # A disconnect must also close the engine bridge and its turn slot.
+                with contextlib.suppress(Exception):
+                    adapted_events.close()
+                with contextlib.suppress(Exception):
+                    agent_events.close()
+            if element_adapter is not None:
+                # Fallback narration is finalized in storage without a live patch. Include it
+                # from the adapter's snapshots instead of relying only on emitted elements.
+                for (
+                    block_bid,
+                    element_bid,
+                ) in element_adapter.finalized_element_identities():
+                    ready_by_block.setdefault(block_bid, []).append(element_bid)
+            _commit_pending_step()
+            if preview_mode:
+                update = preview_status_event(
+                    app,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    generation=preview_options["preview_generation"],
+                )
+                if update is not None:
+                    yield update
+            for block_bid, element_bids in ready_by_block.items():
+                yield _make_audio_backfill_ready_event(block_bid, element_bids)
+            if terminal_done is not None:
+                yield terminal_done
+        except TurnCapacityError:
+            # This worker is already running as many turns as it can. Refusing is the bridge's
+            # deliberate choice over queueing -- a request parked waiting for a slot has not
+            # started its stream, so the learner sees a page that simply hangs. Logged at warning
+            # because sustained capacity refusals are the signal to raise the ceiling.
+            app.logger.warning(
+                "2.0 turn refused, worker at capacity: shifu_bid=%s outline_bid=%s",
+                shifu_bid,
+                outline_bid,
+            )
+            # Translated to an AppError because the stream's error handler shows an AppError's own
+            # message and renders everything else as "unknown error". Being told the system is
+            # busy is something a learner can act on; being told nothing is not.
+            raise_error("server.learn.agentTurnCapacity")
+        except LessonNotTeachable:
+            if reload_generated_block_bid or reload_element_bid:
+                # Going back needs the 2.0 session taken back too, which 1.0 cannot do: it would
+                # rewrite history and leave the session on its old branch.
+                raise_error("server.learn.agentRewindUnavailable")
+            # A course selected for 2.0 whose lesson has no script: 1.0 knows what to do with that,
+            # and refusing the learner over a configuration mistake would be worse.
+            app.logger.warning(
+                "agent engine has no script for this lesson, using 1.0: "
+                "shifu_bid=%s outline_bid=%s",
+                shifu_bid,
+                outline_bid,
+            )
+            # The adapter was built for the agent engine, which writes an element only once it is
+            # final. 1.0 relies on each update being written -- a mid-stream refresh reads the
+            # latest row -- so this run gets the adapter back the way 1.0 expects it.
+            element_adapter.persist_only_final = False
+        else:
+            return
+
+    yield from run_script_inner(
+        app=app,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        user_input=user_input,
+        input_type=input_type,
+        reload_generated_block_bid=reload_generated_block_bid,
+        reload_element_bid=reload_element_bid,
+        listen=listen,
+        learning_mode=learning_mode,
+        preview_mode=preview_mode,
+        stop_event=stop_event,
+        element_adapter=element_adapter,
+        manage_app_context=False,
+    )
+
+
+def _teaches_with_agent(
+    *,
+    shifu_bid: str,
+    input_type: str | None,
+    reload_generated_block_bid: str | None,
+    reload_element_bid: str | None,
+) -> bool:
+    """Whether this particular request goes to the 2.0 engine.
+
+    The deployment must enable 2.0. A follow-up question still keeps the 1.0
+    path: it runs beside the lesson under its own semaphore rather than through
+    the lesson's turn loop.
+
+    Regenerating a past block or element goes to 2.0 like everything else. It used to go to 1.0,
+    which regenerated from rows 2.0 wrote and left the 2.0 session where it was, so the page and
+    the lesson disagreed from then on. 2.0 takes its own session back now (`agent.rewind`).
+    """
+    del (
+        reload_generated_block_bid,
+        reload_element_bid,
+    )  # kept for the call sites; no longer decide
+    if not uses_agent_engine(shifu_bid):
+        return False
+    return input_type != INPUT_TYPE_ASK
+
+
 def run_script(
     app: Flask,
     shifu_bid: str,
     outline_bid: str,
     user_bid: str,
-    input: str | dict = None,
-    input_type: str = None,
-    reload_generated_block_bid: str = None,
-    reload_element_bid: str = None,
+    user_input: str | dict | None = None,
+    input_type: str | None = None,
+    reload_generated_block_bid: str | None = None,
+    reload_element_bid: str | None = None,
     listen: bool = False,
+    learning_mode: str = "read",
     preview_mode: bool = False,
-    shifu_context_snapshot: Optional[dict[str, Any]] = None,
-    language: Optional[str] = None,
+    shifu_context_snapshot: dict[str, object] | None = None,
+    language: str | None = None,
 ) -> Generator[str, None, None]:
+    """Run script."""
     timeout = RUN_SCRIPT_TIMEOUT_SECONDS
     blocking_timeout = 1
     lock_retry_count = 5
@@ -702,11 +1003,22 @@ def run_script(
     # Learner run SSE now always speaks the element protocol. The listen flag
     # still controls run-time behaviors such as segmented TTS generation.
     use_element_protocol = True
+    # Decided here as well as in `_lesson_events`, because the adapter is built before the
+    # producer starts and needs to know which engine it is serving. The predicate reads the
+    # deployment's flag and this request's own arguments, so asking twice costs nothing and
+    # cannot disagree.
+    teaches_with_agent = _teaches_with_agent(
+        shifu_bid=shifu_bid,
+        input_type=input_type,
+        reload_generated_block_bid=reload_generated_block_bid,
+        reload_element_bid=reload_element_bid,
+    )
     element_adapter = ListenElementRunAdapter(
         app,
         shifu_bid=shifu_bid,
         outline_bid=outline_bid,
         user_bid=user_bid,
+        persist_only_final=teaches_with_agent,
     )
     stream_element_adapter = element_adapter
     if is_ask:
@@ -759,7 +1071,7 @@ def run_script(
         parent_shifu_context = shifu_context_snapshot or get_shifu_context_snapshot()
         producer_thread: threading.Thread | None = None
 
-        def producer():
+        def producer() -> None:
             # Propagate logging thread-local context into this background thread
             if parent_request_id:
                 log_thread_local.request_id = parent_request_id
@@ -774,20 +1086,21 @@ def run_script(
             # Keep the producer thread as the sole owner of the app context for
             # the streaming generator to avoid cross-thread context teardown.
             with app.app_context():
-                res = run_script_inner(
+                res = _lesson_events(
                     app=app,
                     user_bid=user_bid,
                     shifu_bid=shifu_bid,
                     outline_bid=outline_bid,
-                    input=input,
+                    user_input=user_input,
                     input_type=input_type,
                     reload_generated_block_bid=reload_generated_block_bid,
                     reload_element_bid=reload_element_bid,
                     listen=runtime_listen,
+                    learning_mode=learning_mode,
                     preview_mode=preview_mode,
                     stop_event=stop_event,
                     element_adapter=element_adapter,
-                    manage_app_context=False,
+                    heartbeat_interval=heartbeat_interval,
                 )
                 producer_exc: BaseException | None = None
                 exhausted = False
@@ -813,7 +1126,7 @@ def run_script(
                         )
                     else:
                         output_queue.put(("error", exc))
-                except BaseException as exc:  # noqa: BLE001 - GreenletExit etc.
+                except BaseException as exc:
                     producer_exc = exc
                     raise
                 finally:
@@ -828,9 +1141,7 @@ def run_script(
                         # run_script_inner already invalidated and removed the
                         # session this resolves a fresh registry Session and
                         # invalidating it is a harmless no-op.
-                        _discard_session_connection(
-                            app, source="run_script producer abort"
-                        )
+                        _discard_session_connection(source="run_script producer abort")
                     _remove_db_session_safely(app, source="run_script producer")
                     output_queue.put(("done", None))
 
@@ -933,7 +1244,7 @@ def run_script(
                         yield (
                             "data: "
                             + json.dumps(payload, default=fmt, ensure_ascii=False)
-                            + "\n\n".encode("utf-8").decode("utf-8")
+                            + b"\n\n".decode("utf-8")
                         )
                         if isinstance(payload_type, str):
                             last_stream_type = payload_type
@@ -967,41 +1278,44 @@ def run_script(
                     done_received = True
                     break
 
-            if stream_error and not client_disconnected:
-                if isinstance(stream_error, Exception):
-                    _log_run_script_stream_error(app, stream_error)
-                    if isinstance(stream_error, AppException):
-                        error_content = str(stream_error)
-                    elif _is_retryable_llm_stream_connection_error(stream_error):
-                        error_content = str(_("server.learn.llmStreamInterrupted"))
-                    else:
-                        error_content = str(_("server.common.unknownError"))
-                    yield _to_sse_chunk(
-                        _make_terminal_event(
-                            outline_bid=outline_bid,
-                            event_type="error",
-                            content=error_content,
-                            element_adapter=stream_element_adapter,
-                        )
-                    )
-                    last_stream_type = "error"
-                    block_end_event = _make_terminal_event(
+            if (
+                stream_error
+                and not client_disconnected
+                and isinstance(stream_error, Exception)
+            ):
+                _log_run_script_stream_error(app, stream_error)
+                if isinstance(stream_error, AppError):
+                    error_content = str(stream_error)
+                elif _is_retryable_llm_stream_connection_error(stream_error):
+                    error_content = str(_("server.learn.llmStreamInterrupted"))
+                else:
+                    error_content = str(_("server.common.unknownError"))
+                yield _to_sse_chunk(
+                    _make_terminal_event(
                         outline_bid=outline_bid,
-                        event_type=GeneratedType.BREAK.value,
-                        content="",
+                        event_type="error",
+                        content=error_content,
                         element_adapter=stream_element_adapter,
-                        is_terminal=False if runtime_listen else None,
                     )
-                    if not _should_suppress_live_payload(block_end_event):
-                        yield _to_sse_chunk(block_end_event)
-                        last_stream_type = (
-                            GeneratedType.DONE.value
-                            if use_element_protocol
-                            else GeneratedType.BREAK.value
-                        )
-                        last_stream_done_is_terminal = (
-                            False if use_element_protocol else None
-                        )
+                )
+                last_stream_type = "error"
+                block_end_event = _make_terminal_event(
+                    outline_bid=outline_bid,
+                    event_type=GeneratedType.BREAK.value,
+                    content="",
+                    element_adapter=stream_element_adapter,
+                    is_terminal=False if runtime_listen else None,
+                )
+                if not _should_suppress_live_payload(block_end_event):
+                    yield _to_sse_chunk(block_end_event)
+                    last_stream_type = (
+                        GeneratedType.DONE.value
+                        if use_element_protocol
+                        else GeneratedType.BREAK.value
+                    )
+                    last_stream_done_is_terminal = (
+                        False if use_element_protocol else None
+                    )
 
             if not client_disconnected and not (
                 use_element_protocol
@@ -1072,6 +1386,8 @@ def get_run_status(
     outline_bid: str,
     user_bid: str,
 ) -> RunStatusDTO:
+    """Return run status."""
+    _ = shifu_bid
     started_at = _get_run_script_started_at(app, user_bid, outline_bid)
     if started_at is None:
         return RunStatusDTO(is_running=False, running_time=0)

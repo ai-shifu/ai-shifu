@@ -1,25 +1,33 @@
+"""Verify course copies preserve eligible draft content and ownership."""
+
 from __future__ import annotations
 
+import contextlib
 import json
 import uuid
 from datetime import datetime
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
-
 from flaskr.common import config as config_module
 from flaskr.dao import db
 from flaskr.i18n import _
-from flaskr.service.common.models import AppException, ERROR_CODE, raise_error
+from flaskr.service.common.models import ERROR_CODE, AppError, raise_error
+from flaskr.service.learn.live_follow_up_config import GEMINI_LIVE_MODEL_ID
 from flaskr.service.profile.models import Variable
 from flaskr.service.shifu.admin import copy_operator_course
 from flaskr.service.shifu.models import AiCourseAuth, DraftOutlineItem, DraftShifu
-from flaskr.service.shifu.shifu_history_manager import get_shifu_history
+from flaskr.service.shifu.shifu_history_manager import (
+    get_shifu_history,
+    outline_content_revisions,
+)
 from flaskr.service.user.consts import USER_STATE_REGISTERED
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import create_user_entity, upsert_credential
-
+from flaskr.util.datetime import now_utc
 
 SOURCE_TITLE = "复制源课程"
 SOURCE_OPERATOR_BID = "operator-copy-1"
@@ -30,15 +38,15 @@ def _unique_email(label: str) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _stub_copy_course_risk_control(monkeypatch):
+def _stub_copy_course_risk_control(monkeypatch: object) -> None:
     monkeypatch.setattr(
         "flaskr.service.shifu.admin.check_text_with_risk_control",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
     )
 
 
 def _seed_user(
-    app,
+    app: object,
     *,
     user_bid: str,
     email: str = "",
@@ -53,8 +61,8 @@ def _seed_user(
         language="en-US",
         state=state,
     )
-    entity.created_at = datetime.utcnow()
-    entity.updated_at = datetime.utcnow()
+    entity.created_at = now_utc()
+    entity.updated_at = now_utc()
     db.session.flush()
     if email:
         upsert_credential(
@@ -82,8 +90,9 @@ def _seed_user(
 
 
 def _seed_course_with_outlines(
-    app, *, shifu_bid: str, creator_user_bid: str
+    app: object, *, shifu_bid: str, creator_user_bid: str
 ) -> dict[str, str]:
+    _ = app
     draft = DraftShifu(
         shifu_bid=shifu_bid,
         title=SOURCE_TITLE,
@@ -137,12 +146,8 @@ def _seed_course_with_outlines(
                 parent_bid="",
                 position="01",
                 prerequisite_item_bids="",
-                llm="gpt-4.1",
-                llm_temperature=Decimal("0.25"),
                 llm_system_prompt="chapter prompt",
                 ask_enabled_status=5103,
-                ask_llm="gpt-4.1-mini",
-                ask_llm_temperature=Decimal("0.10"),
                 ask_llm_system_prompt="chapter ask",
                 content="",
                 created_user_bid=creator_user_bid,
@@ -157,12 +162,8 @@ def _seed_course_with_outlines(
                 parent_bid=chapter_bid,
                 position="0101",
                 prerequisite_item_bids="",
-                llm="gpt-4.1",
-                llm_temperature=Decimal("0.20"),
                 llm_system_prompt="lesson prompt 1",
                 ask_enabled_status=5103,
-                ask_llm="gpt-4.1-mini",
-                ask_llm_temperature=Decimal("0.10"),
                 ask_llm_system_prompt="lesson ask 1",
                 content="## Title\n\nLesson A content",
                 created_user_bid=creator_user_bid,
@@ -177,12 +178,8 @@ def _seed_course_with_outlines(
                 parent_bid=chapter_bid,
                 position="0102",
                 prerequisite_item_bids=lesson_a_bid,
-                llm="gpt-4.1",
-                llm_temperature=Decimal("0.30"),
                 llm_system_prompt="lesson prompt 2",
                 ask_enabled_status=5103,
-                ask_llm="gpt-4.1-mini",
-                ask_llm_temperature=Decimal("0.10"),
                 ask_llm_system_prompt="lesson ask 2",
                 content="## Title\n\nLesson B content",
                 created_user_bid=creator_user_bid,
@@ -198,7 +195,7 @@ def _seed_course_with_outlines(
     }
 
 
-def _mock_operator(monkeypatch, user_id: str = SOURCE_OPERATOR_BID):
+def _mock_operator(monkeypatch: object, user_id: str = SOURCE_OPERATOR_BID) -> object:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_operator=True,
@@ -214,13 +211,11 @@ def _mock_operator(monkeypatch, user_id: str = SOURCE_OPERATOR_BID):
 
 
 def _clear_config_caches() -> None:
-    try:
+    with contextlib.suppress(AttributeError, KeyError, TypeError):
         config_module.__ENHANCED_CONFIG__._cache.clear()
-    except (AttributeError, KeyError, TypeError):
-        pass
     try:
-        if config_module.__INSTANCE__ is not None:
-            config_module.__INSTANCE__.enhanced._cache.clear()
+        if config_module.Config._instance is not None:
+            config_module.Config._instance.enhanced._cache.clear()
     except (AttributeError, KeyError, TypeError):
         pass
 
@@ -247,7 +242,7 @@ def _seed_course_variable(
     _clear_config_caches()
 
 
-def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
+def test_copy_course_allows_same_creator_and_clones_latest_draft(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     viewer_bid = uuid.uuid4().hex[:32]
@@ -295,6 +290,9 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
         )
         copied_by_title = {item.title: item for item in copied_outlines}
         copied_history = get_shifu_history(app, new_shifu_bid)
+        assert outline_content_revisions(copied_history) == {
+            row.outline_item_bid: row.id for row in copied_outlines
+        }
         copied_auths = AiCourseAuth.query.filter_by(course_id=new_shifu_bid).all()
 
         assert result["source_shifu_bid"] == shifu_bid
@@ -353,8 +351,8 @@ def test_copy_course_allows_same_creator_and_clones_latest_draft(app):
 
 
 def test_copy_course_creates_missing_target_user_and_grants_creator_role(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     target_email = f"{uuid.uuid4().hex[:10]}@example.com"
@@ -370,7 +368,7 @@ def test_copy_course_creates_missing_target_user_and_grants_creator_role(
 
         monkeypatch.setattr(
             "flaskr.service.shifu.admin.run_creator_granted_post_auth",
-            lambda *args, **kwargs: post_auth_calls.append(kwargs),
+            lambda *_args, **kwargs: post_auth_calls.append(kwargs),
         )
 
         result = copy_operator_course(
@@ -411,7 +409,7 @@ def test_copy_course_creates_missing_target_user_and_grants_creator_role(
         ]
 
 
-def test_copy_course_reuses_existing_google_creator_account(app):
+def test_copy_course_reuses_existing_google_creator_account(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     target_user_bid = uuid.uuid4().hex[:32]
@@ -465,7 +463,9 @@ def test_copy_course_reuses_existing_google_creator_account(app):
         assert email_credential is not None
 
 
-def test_copy_course_skips_deleted_outlines_and_copies_course_variables(app):
+def test_copy_course_skips_deleted_outlines_and_copies_course_variables(
+    app: object,
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     creator_email = _unique_email("variables-owner")
@@ -495,12 +495,8 @@ def test_copy_course_skips_deleted_outlines_and_copies_course_variables(app):
                 parent_bid=source_bids["chapter_bid"],
                 position="0102",
                 prerequisite_item_bids=source_bids["lesson_a_bid"],
-                llm="gpt-4.1",
-                llm_temperature=Decimal("0.30"),
                 llm_system_prompt="lesson prompt 2",
                 ask_enabled_status=5103,
-                ask_llm="gpt-4.1-mini",
-                ask_llm_temperature=Decimal("0.10"),
                 ask_llm_system_prompt="lesson ask 2",
                 content="## Title\n\nLesson B content",
                 deleted=1,
@@ -542,7 +538,7 @@ def test_copy_course_skips_deleted_outlines_and_copies_course_variables(app):
         assert copied_variables[0].variable_bid
 
 
-def test_copy_course_rejects_builtin_demo_course(app):
+def test_copy_course_rejects_builtin_demo_course(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     target_email = _unique_email("demo-copy")
 
@@ -557,16 +553,16 @@ def test_copy_course_rejects_builtin_demo_course(app):
             avatar_res_bid="",
             keywords="",
             llm="gpt-test",
-            llm_temperature=Decimal("0"),
+            llm_temperature=Decimal(0),
             llm_system_prompt="",
-            price=Decimal("0"),
+            price=Decimal(0),
             created_user_bid="system",
             updated_user_bid="system",
         )
         db.session.add(demo_draft)
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             copy_operator_course(
                 app,
                 shifu_bid=shifu_bid,
@@ -579,7 +575,7 @@ def test_copy_course_rejects_builtin_demo_course(app):
         assert DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).count() == 1
 
 
-def test_copy_course_requires_operator_user_bid(app):
+def test_copy_course_requires_operator_user_bid(app: object) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     creator_email = _unique_email("owner")
@@ -595,7 +591,7 @@ def test_copy_course_requires_operator_user_bid(app):
         )
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             copy_operator_course(
                 app,
                 shifu_bid=shifu_bid,
@@ -608,7 +604,9 @@ def test_copy_course_requires_operator_user_bid(app):
         assert "operator_user_bid" in exc_info.value.message
 
 
-def test_copy_course_route_for_operator(app, test_client, monkeypatch):
+def test_copy_course_route_for_operator(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     owner_email = _unique_email("route-owner")
@@ -697,7 +695,9 @@ def test_copy_course_route_for_operator(app, test_client, monkeypatch):
     assert risk_checks == expected_risk_checks
 
 
-def test_copy_course_route_rejects_non_object_payload(app, test_client, monkeypatch):
+def test_copy_course_route_rejects_non_object_payload(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     owner_email = _unique_email("route-owner")
@@ -722,7 +722,9 @@ def test_copy_course_route_rejects_non_object_payload(app, test_client, monkeypa
     assert payload["code"] == ERROR_CODE["server.common.paramsError"]
 
 
-def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch):
+def test_copy_course_risk_rejection_does_not_create_target_user(
+    app: object, monkeypatch: object
+) -> None:
     shifu_bid = uuid.uuid4().hex[:32]
     creator_bid = uuid.uuid4().hex[:32]
     target_email = f"{uuid.uuid4().hex[:10]}@example.com"
@@ -737,7 +739,8 @@ def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch
         )
         db.session.commit()
 
-    def _reject_risk(*args, **kwargs):
+    def _reject_risk(*args: object, **kwargs: object) -> None:
+        _ = (args, kwargs)
         raise_error("server.check.checkRiskControlReject")
 
     monkeypatch.setattr(
@@ -745,7 +748,7 @@ def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch
         _reject_risk,
     )
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         copy_operator_course(
             app,
             shifu_bid=shifu_bid,
@@ -772,3 +775,121 @@ def test_copy_course_risk_rejection_does_not_create_target_user(app, monkeypatch
             ).count()
             == 0
         )
+
+
+def test_copy_course_rejects_invalid_live_provider_contract(
+    app: object,
+) -> None:
+    shifu_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+    owner_email = _unique_email("live-copy-owner")
+
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email=owner_email)
+        _seed_course_with_outlines(
+            app,
+            shifu_bid=shifu_bid,
+            creator_user_bid=creator_bid,
+        )
+        source = DraftShifu.query.filter_by(shifu_bid=shifu_bid, deleted=0).one()
+        source.ask_llm = GEMINI_LIVE_MODEL_ID
+        source.ask_provider_config = json.dumps(
+            {
+                "provider": "dify",
+                "mode": "provider_only",
+                "config": {"live_voice": "Kore"},
+            }
+        )
+        db.session.commit()
+        draft_count_before = DraftShifu.query.count()
+
+    with pytest.raises(AppError):
+        copy_operator_course(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=owner_email,
+            operator_user_bid=SOURCE_OPERATOR_BID,
+        )
+
+    with app.app_context():
+        assert DraftShifu.query.count() == draft_count_before
+
+
+@pytest.mark.parametrize(
+    "primary_model",
+    ["ultimate", "3", GEMINI_LIVE_MODEL_ID, "gemini-3.1-flash-live-preview"],
+)
+@pytest.mark.parametrize("follow_up_model", ["fast", GEMINI_LIVE_MODEL_ID])
+def test_copy_course_preserves_original_model_selections(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    primary_model: str,
+    follow_up_model: str,
+) -> None:
+    """Validate effective teaching selections while copying the original values."""
+    from flaskr.api.llm import model_selection
+    from flaskr.service.shifu.admin_operations import courses_transfer_copy as module
+
+    config = {
+        "LLM_MODEL_1_ID": "configured/default-model",
+        "LLM_MODEL_3_ID": "configured/advanced-model",
+    }
+    monkeypatch.setattr(
+        model_selection,
+        "get_config",
+        lambda key, default=None: config.get(key, default),
+    )
+    resolve_model = Mock(side_effect=AssertionError("Copy must not route models"))
+    monkeypatch.setattr(model_selection, "resolve_model_slot", resolve_model)
+    normalize_config = Mock(wraps=module.normalize_live_follow_up_course_config)
+    monkeypatch.setattr(
+        module, "normalize_live_follow_up_course_config", normalize_config
+    )
+    provider = "llm" if follow_up_model == GEMINI_LIVE_MODEL_ID else "dify"
+    shifu_bid = uuid.uuid4().hex[:32]
+    creator_bid = uuid.uuid4().hex[:32]
+    owner_email = _unique_email("selection-copy-owner")
+    with app.app_context():
+        _seed_user(app, user_bid=creator_bid, email=owner_email)
+        UserEntity.query.filter_by(user_bid=creator_bid).one().is_creator = 1
+        _seed_course_with_outlines(
+            app, shifu_bid=shifu_bid, creator_user_bid=creator_bid
+        )
+        source = DraftShifu.query.filter_by(shifu_bid=shifu_bid).one()
+        source.llm = primary_model
+        source.ask_llm = follow_up_model
+        source.ask_provider_config = json.dumps(
+            {"provider": provider, "mode": "provider_only", "config": {}}
+        )
+        db.session.commit()
+        source_updated_at = source.updated_at
+
+        result = copy_operator_course(
+            app,
+            shifu_bid=shifu_bid,
+            contact_type="email",
+            identifier=owner_email,
+            operator_user_bid=SOURCE_OPERATOR_BID,
+        )
+        copied = DraftShifu.query.filter_by(shifu_bid=result["new_shifu_bid"]).one()
+        copied_outlines = DraftOutlineItem.query.filter_by(
+            shifu_bid=result["new_shifu_bid"]
+        ).all()
+        copied_config = json.loads(copied.ask_provider_config)
+        assert copied_config["provider"] == provider
+        assert copied_config["config"] == (
+            {"live_voice": "Kore"} if follow_up_model == GEMINI_LIVE_MODEL_ID else {}
+        )
+        assert copied.llm == source.llm == primary_model
+        assert copied.ask_llm == source.ask_llm == follow_up_model
+        assert source.updated_at == source_updated_at
+        assert all(not hasattr(row, "llm") for row in copied_outlines)
+        assert all(not hasattr(row, "ask_llm") for row in copied_outlines)
+    assert normalize_config.call_args.kwargs["course_model"] == (
+        "3" if primary_model == "3" else "1"
+    )
+    assert normalize_config.call_args.kwargs["course_follow_up_model"] == (
+        follow_up_model
+    )
+    resolve_model.assert_not_called()

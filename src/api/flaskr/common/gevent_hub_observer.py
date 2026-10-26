@@ -13,12 +13,13 @@ turns the anonymous stderr traceback into an attributable event.
 
 from __future__ import annotations
 
+import contextlib
 import os
 
 _OBSERVER_FLAG = "_ai_shifu_hub_error_observer"
 
 
-def _describe_context(context) -> str:
+def _describe_context(context: object) -> str:
     # repr() of an arbitrary hub context (Semaphore, Event, watcher, callback)
     # can be large or can itself raise; keep it short and never fail.
     try:
@@ -30,7 +31,7 @@ def _describe_context(context) -> str:
     return f"{type(context).__name__}: {text}"
 
 
-def install_hub_error_observer(logger, hub=None) -> bool:
+def install_hub_error_observer(logger: object, hub: object = None) -> bool:
     """Wrap the hub's ``handle_error`` to log hub-level failures.
 
     Returns True when the observer is active (installed now or previously).
@@ -54,11 +55,13 @@ def install_hub_error_observer(logger, hub=None) -> bool:
 
     original_handle_error = hub.handle_error
 
-    def handle_error(context, exc_type, value, tb):
+    def handle_error(
+        context: object, exc_type: object, value: object, tb: object
+    ) -> object:
         # Log BEFORE delegating: the original handler may re-raise for
         # system errors. Nothing in here may raise or block - a failure in
         # the error path would take down the hub itself.
-        try:
+        with contextlib.suppress(Exception):
             logger.error(
                 "gevent hub error (pid=%s): context=%s exc=%s: %s. "
                 "A crashed hub callback can break a greenlet wakeup and "
@@ -69,8 +72,6 @@ def install_hub_error_observer(logger, hub=None) -> bool:
                 value,
                 exc_info=(exc_type, value, tb) if exc_type is not None else None,
             )
-        except Exception:
-            pass
         return original_handle_error(context, exc_type, value, tb)
 
     hub.handle_error = handle_error

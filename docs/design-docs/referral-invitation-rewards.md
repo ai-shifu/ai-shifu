@@ -567,7 +567,7 @@ SMS 登录请求扩展：
 
 - `python scripts/check_repo_harness.py` 校验文档和索引完整性。
 - `cd src/api && pytest tests/service/user/ tests/service/referral/ tests/service/billing/ -q` 校验后端行为。
-- 前端实现后运行 `cd src/cook-web && npm run type-check && npm run lint`。
+- 前端实现后运行 `cd src/web && npm run type-check && npm run lint`。
 
 ## 发布
 
@@ -586,5 +586,5 @@ SMS 登录请求扩展：
 - 产品行为：本文。
 - 实施执行：`docs/exec-plans/active/referral-invitation-rewards.md`。
 - 活动配置值：`referral_campaigns` 和 `referral_campaign_reward_rules`。
-- 计费产品和积分语义：`docs/billing-subscription-design.md`。
+- 计费产品和积分语义：`docs/design-docs/billing-subscription-design.md`。
 - 用户管理和运营约定：`docs/product-specs/operator-user-management.md`。

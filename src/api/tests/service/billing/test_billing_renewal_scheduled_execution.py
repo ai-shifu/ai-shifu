@@ -1,24 +1,23 @@
-from __future__ import annotations
+"""Verify billing renewal scheduled execution behavior."""
 
+from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
-import pytest
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing import renewal as billing_renewal
 from flaskr.service.billing.consts import (
     ALLOCATION_INTERVAL_PER_CYCLE,
     BILLING_INTERVAL_DAY,
     BILLING_MODE_RECURRING,
+    BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PRODUCT_TYPE_PLAN,
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_RENEWAL_EVENT_STATUS_SUCCEEDED,
     BILLING_RENEWAL_EVENT_TYPE_CANCEL_EFFECTIVE,
     BILLING_RENEWAL_EVENT_TYPE_RENEWAL,
-    BILLING_PRODUCT_STATUS_ACTIVE,
-    BILLING_PRODUCT_TYPE_PLAN,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 )
 from flaskr.service.billing.models import (
@@ -32,8 +31,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.renewal import (
     run_billing_renewal_event,
 )
-from flaskr.util.datetime import now_utc
-
+from flaskr.util.datetime import now_utc, to_utc_iso
 
 from tests.service.billing.renewal_execution_test_helpers import (
     add_paid_renewal_with_reserved_grant,
@@ -42,6 +40,9 @@ from tests.service.billing.renewal_execution_test_helpers import (
     self_managed_cycle_end_after_boundary,
 )
 
+if TYPE_CHECKING:
+    import pytest
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.renewal_execution_app_fixture"]
 
@@ -178,7 +179,7 @@ def test_run_billing_renewal_event_executes_at_exact_scheduled_time(
         assert event.processed_at is not None
         assert bucket.source_bid == order_bid
         assert bucket.available_credits == Decimal("5.0000000000")
-        assert bucket.reserved_credits == Decimal("0")
+        assert bucket.reserved_credits == Decimal(0)
         assert grant_entry.consumable_from == current_cycle_end
         assert grant_entry.expires_at == next_cycle_end
         assert grant_entry.metadata_json["bucket_credit_state"] == "available"
@@ -190,7 +191,7 @@ def test_run_billing_renewal_event_queues_subscription_renewal_order(
 ) -> None:
     monkeypatch.setattr(
         "flaskr.service.billing.renewal.sync_billing_order",
-        lambda app, creator_bid, bill_order_bid, payload: {
+        lambda _app, creator_bid, bill_order_bid, _payload: {
             "status": "pending",
             "creator_bid": creator_bid,
             "bill_order_bid": bill_order_bid,
@@ -270,7 +271,7 @@ def test_run_billing_renewal_event_queues_pingxx_order_without_provider_sync(
         assert order.payment_provider == "pingxx"
         assert order.provider_reference_id == ""
         assert order.metadata_json["provider_reference_type"] == "charge"
-        assert order.metadata_json["renewal_cycle_start_at"] == cycle_end.isoformat()
+        assert order.metadata_json["renewal_cycle_start_at"] == to_utc_iso(cycle_end)
 
 
 def test_run_billing_renewal_event_writes_daily_cycle_metadata(
@@ -338,8 +339,7 @@ def test_run_billing_renewal_event_writes_daily_cycle_metadata(
         order = BillingOrder.query.filter_by(
             bill_order_bid=payload["bill_order_bid"]
         ).one()
-        assert order.metadata_json["renewal_cycle_start_at"] == cycle_end.isoformat()
-        assert (
-            order.metadata_json["renewal_cycle_end_at"]
-            == expected_cycle_end.isoformat()
+        assert order.metadata_json["renewal_cycle_start_at"] == to_utc_iso(cycle_end)
+        assert order.metadata_json["renewal_cycle_end_at"] == to_utc_iso(
+            expected_cycle_end
         )

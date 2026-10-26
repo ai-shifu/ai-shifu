@@ -1,0 +1,321 @@
+"""Account-scoped protection for password authentication attempts."""
+
+from __future__ import annotations
+
+import contextlib
+import hashlib
+import hmac
+import secrets
+import threading
+import time
+from typing import TYPE_CHECKING, Protocol, Self
+
+from flaskr.dao import get_redis_client
+from redis import ConnectionPool, Redis
+from redis.backoff import NoBackoff
+from redis.retry import Retry
+
+if TYPE_CHECKING:
+    from types import TracebackType
+
+    from flask import Flask
+
+
+class _RedisLock(Protocol):
+    def acquire(
+        self,
+        blocking: bool = True,
+        blocking_timeout: float | None = None,
+        token: str | None = None,
+    ) -> bool: ...
+
+    def release(self) -> None: ...
+
+    def extend(self, additional_time: float, replace_ttl: bool = False) -> bool: ...
+
+
+class _RedisClient(Protocol):
+    def delete(self, *keys: str) -> int: ...
+
+    def eval(self, script: str, numkeys: int, *keys_and_args: object) -> object: ...
+
+    def exists(self, key: str) -> int: ...
+
+    def lock(
+        self,
+        name: str,
+        timeout: float | None = None,
+        blocking_timeout: float | None = None,
+        thread_local: bool = True,
+    ) -> _RedisLock: ...
+
+
+_RECORD_FAILURE_SCRIPT = """
+if redis.call('GET', KEYS[3]) ~= ARGV[4] then
+    return -1
+end
+local failures = redis.call('INCR', KEYS[1])
+if failures == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+if failures >= tonumber(ARGV[2]) then
+    local started = redis.call('SET', KEYS[2], '1', 'EX', ARGV[3], 'NX')
+    if started then
+        redis.call('DEL', KEYS[1])
+    end
+end
+return failures
+"""
+
+_CLEAR_FAILURES_SCRIPT = """
+if redis.call('GET', KEYS[3]) ~= ARGV[1] then
+    return 0
+end
+redis.call('DEL', KEYS[1], KEYS[2])
+return 1
+"""
+
+_warning_lock = threading.Lock()
+_warning_state = {"last_at": 0.0}
+_WARNING_INTERVAL_SECONDS = 60.0
+
+
+def _warn_unavailable(app: Flask, reason: str) -> None:
+    """Emit a bounded warning when password protection cannot reach Redis."""
+    now = time.monotonic()
+    with _warning_lock:
+        if now - _warning_state["last_at"] < _WARNING_INTERVAL_SECONDS:
+            return
+        _warning_state["last_at"] = now
+    app.logger.warning(
+        "security_event=password_login_rate_limit_unavailable reason=%s", reason
+    )
+
+
+def account_digest(app: Flask, identity: str) -> str:
+    """Return an opaque, purpose-bound digest for a login identity."""
+    secret = str(app.config["SECRET_KEY"]).encode("utf-8")
+    message = f"password-login:{identity}".encode()
+    return hmac.new(secret, message, hashlib.sha256).hexdigest()
+
+
+class PasswordLoginAttempt:
+    """Serialize and account for one password verification attempt."""
+
+    def __init__(self, app: Flask, identity: str) -> None:
+        """Bind the request to opaque account-scoped Redis keys."""
+        self._app = app
+        self.digest = account_digest(app, identity)
+        prefix = str(app.config.get("REDIS_KEY_PREFIX", "ai-shifu:"))
+        base_key = f"{prefix}password_login:{self.digest}"
+        self._failure_key = f"{base_key}:failures"
+        self._cooldown_key = f"{base_key}:cooldown"
+        self._lock_key = f"{base_key}:lock"
+        self._redis: _RedisClient | None = None
+        self._redis_pool: ConnectionPool | None = None
+        self._lock: _RedisLock | None = None
+        self._lock_token: str | None = None
+        self._renew_stop = threading.Event()
+        self._lock_lost = threading.Event()
+        self._renew_thread: threading.Thread | None = None
+        self._enabled = False
+        self.blocked = False
+        self.cooldown_active = False
+
+    def __enter__(self) -> Self:
+        """Acquire the account guard and load its cooldown state."""
+        redis_client, redis_pool = _bounded_redis_client(self._app)
+        if redis_client is None:
+            _warn_unavailable(self._app, "not_configured")
+            return self
+
+        self._redis = redis_client
+        self._redis_pool = redis_pool
+        lock_lease = float(
+            self._app.config.get("PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS", 30)
+        )
+        lock_wait = float(self._app.config.get("PASSWORD_LOGIN_LOCK_WAIT_SECONDS", 5))
+        try:
+            self._lock = redis_client.lock(
+                self._lock_key,
+                timeout=lock_lease,
+                blocking_timeout=lock_wait,
+                thread_local=False,
+            )
+            self._lock_token = secrets.token_hex(16)
+            if not self._lock.acquire(
+                blocking=True,
+                blocking_timeout=lock_wait,
+                token=self._lock_token,
+            ):
+                self.blocked = True
+                self._app.logger.info(
+                    "security_event=password_login_rate_limited account=%s reason=concurrent",
+                    self.digest,
+                )
+                return self
+            self._enabled = True
+            self._start_renewal(lock_lease)
+            self.cooldown_active = bool(redis_client.exists(self._cooldown_key))
+            self.blocked = self.cooldown_active
+            if self.blocked:
+                self._app.logger.info(
+                    "security_event=password_login_rate_limited account=%s reason=cooldown",
+                    self.digest,
+                )
+        except Exception as exc:
+            self._enabled = False
+            self.blocked = False
+            self._release()
+            _warn_unavailable(self._app, type(exc).__name__)
+        return self
+
+    def _start_renewal(self, lock_lease: float) -> None:
+        interval = max(0.1, lock_lease / 3)
+        self._renew_thread = threading.Thread(
+            target=self._renew_lock,
+            args=(lock_lease, interval),
+            daemon=True,
+            name="password-login-lock-renewer",
+        )
+        self._renew_thread.start()
+
+    def _renew_lock(self, lock_lease: float, interval: float) -> None:
+        while not self._renew_stop.wait(interval):
+            lock = self._lock
+            if lock is None:
+                return
+            try:
+                if not lock.extend(lock_lease, replace_ttl=True):
+                    self._mark_lock_lost()
+                    return
+            except Exception:
+                self._mark_lock_lost()
+                return
+
+    def _mark_lock_lost(self) -> None:
+        self._lock_lost.set()
+        self.blocked = True
+        self._app.logger.warning(
+            "security_event=password_login_rate_limited account=%s reason=lock_lost",
+            self.digest,
+        )
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Release the account guard after verification finishes."""
+        _ = (exc_type, exc_value, traceback)
+        self._release()
+
+    def _release(self) -> None:
+        self._renew_stop.set()
+        renew_thread, self._renew_thread = self._renew_thread, None
+        if renew_thread is not None:
+            renew_thread.join(timeout=1)
+            if renew_thread.is_alive():
+                self._mark_lock_lost()
+        lock, self._lock = self._lock, None
+        if lock is not None:
+            with contextlib.suppress(Exception):
+                lock.release()
+        self._lock_token = None
+        pool, self._redis_pool = self._redis_pool, None
+        if pool is not None:
+            with contextlib.suppress(Exception):
+                pool.disconnect()
+
+    def record_failure(self) -> int | None:
+        """Atomically count a failure and begin cooldown at the threshold."""
+        if not self._enabled or self._redis is None:
+            return None
+        if self._lock_lost.is_set() or self._lock_token is None:
+            self.blocked = True
+            return None
+        window_seconds = int(
+            self._app.config.get("PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS", 900)
+        )
+        max_failures = int(self._app.config.get("PASSWORD_LOGIN_MAX_FAILURES", 10))
+        cooldown_seconds = int(
+            self._app.config.get("PASSWORD_LOGIN_COOLDOWN_SECONDS", 600)
+        )
+        try:
+            result = self._redis.eval(
+                _RECORD_FAILURE_SCRIPT,
+                3,
+                self._failure_key,
+                self._cooldown_key,
+                self._lock_key,
+                window_seconds,
+                max_failures,
+                cooldown_seconds,
+                self._lock_token,
+            )
+            failures = int(result)
+        except Exception as exc:
+            self._enabled = False
+            _warn_unavailable(self._app, type(exc).__name__)
+            return None
+        if failures < 0:
+            self._mark_lock_lost()
+            return None
+        if failures >= max_failures:
+            self.blocked = True
+            self.cooldown_active = True
+            self._app.logger.info(
+                "security_event=password_login_cooldown_started account=%s",
+                self.digest,
+            )
+        return failures
+
+    def clear(self) -> bool:
+        """Clear only this account's password failure state after success."""
+        if not self._enabled or self._redis is None:
+            return True
+        if self._lock_lost.is_set() or self._lock_token is None:
+            self.blocked = True
+            return False
+        try:
+            cleared = int(
+                self._redis.eval(
+                    _CLEAR_FAILURES_SCRIPT,
+                    3,
+                    self._failure_key,
+                    self._cooldown_key,
+                    self._lock_key,
+                    self._lock_token,
+                )
+            )
+        except Exception as exc:
+            self._enabled = False
+            _warn_unavailable(self._app, type(exc).__name__)
+            return True
+        if not cleared:
+            self._mark_lock_lost()
+            return False
+        return True
+
+
+def _bounded_redis_client(
+    app: Flask,
+) -> tuple[_RedisClient | None, ConnectionPool | None]:
+    """Clone the shared Redis connection with a bounded limiter-only budget."""
+    source = get_redis_client()
+    source_pool = getattr(source, "connection_pool", None)
+    if source is None or source_pool is None:
+        return source, None
+    timeout = float(app.config.get("PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS", 1))
+    pool = ConnectionPool(
+        connection_class=source_pool.connection_class,
+        **{
+            **source_pool.connection_kwargs,
+            "socket_connect_timeout": timeout,
+            "socket_timeout": timeout,
+            "retry": Retry(NoBackoff(), 0),
+            "retry_on_error": [],
+        },
+    )
+    return Redis(connection_pool=pool), pool

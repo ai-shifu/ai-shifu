@@ -1,6 +1,8 @@
+"""Transform SSE events into listen-mode element updates."""
+
 from __future__ import annotations
 
-from typing import Any, Generator
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.learn.learn_dtos import (
@@ -16,8 +18,8 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.listen_element_audio_binding import (
-    _resolve_audio_target_element_bid_for_stream_number,
     _resolve_audio_target_element_bid,
+    _resolve_audio_target_element_bid_for_stream_number,
     _resolve_pending_audio_for_stream_element,
     _resolve_stream_audio_for_element_bid,
 )
@@ -59,10 +61,15 @@ from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.learn.type_state_machine import TypeInput
 from flaskr.service.tts.api import normalize_subtitle_cues
 
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 
 class ListenElementRunStreamMixin:
+    """Provide streaming operations for listen-mode element runs."""
+
     @staticmethod
-    def _normalize_live_audio_position(position: Any) -> int:
+    def _normalize_live_audio_position(position: object) -> int:
         try:
             return max(int(position or 0), 0)
         except (TypeError, ValueError):
@@ -72,7 +79,7 @@ class ListenElementRunStreamMixin:
     def _resolved_live_subtitle_cues(
         previous_audio: ElementAudioDTO | None,
         current_audio: ElementAudioDTO | None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, object]]:
         current_cues = normalize_subtitle_cues(
             getattr(current_audio, "subtitle_cues", None)
         )
@@ -134,11 +141,11 @@ class ListenElementRunStreamMixin:
             position = self._normalize_live_audio_position(raw_position)
             if position not in positions:
                 positions.append(position)
-        for raw_position in state.audio_by_position.keys():
+        for raw_position in state.audio_by_position:
             position = self._normalize_live_audio_position(raw_position)
             if position not in positions:
                 positions.append(position)
-        for raw_position in state.live_audio_by_position.keys():
+        for raw_position in state.live_audio_by_position:
             position = self._normalize_live_audio_position(raw_position)
             if position not in positions:
                 positions.append(position)
@@ -261,7 +268,7 @@ class ListenElementRunStreamMixin:
     def _build_audio_patch_element(
         self,
         element_bid: str,
-        audio_segments: list[dict[str, Any]] | None = None,
+        audio_segments: list[dict[str, object]] | None = None,
         *,
         audio: ElementAudioDTO | None = None,
         is_final: bool | None = None,
@@ -310,7 +317,7 @@ class ListenElementRunStreamMixin:
     def _build_audio_segment_patch_message(
         self,
         element_bid: str,
-        audio_segments: list[dict[str, Any]] | None = None,
+        audio_segments: list[dict[str, object]] | None = None,
         *,
         audio: ElementAudioDTO | None = None,
     ) -> RunElementSSEMessageDTO | None:
@@ -321,14 +328,24 @@ class ListenElementRunStreamMixin:
         )
         if patch_element is None:
             return None
-        return self._element_message(patch_element)
+        # A patch carries one segment of audio for an element the stream is still writing. Under
+        # `persist_only_final` it is sent and not written: the block's finalisation resolves every
+        # segment for the element and writes it once, with all of them. Written per segment, a
+        # lesson turn's audio produced a full row of its text for each one -- the remaining half
+        # of the write amplification the text path already avoids.
+        send = (
+            self._stream_only_element_message
+            if getattr(self, "persist_only_final", False)
+            else self._element_message
+        )
+        return send(patch_element)
 
     def _resolve_or_buffer_audio_target_element_bid(
         self,
         state: BlockState,
         *,
         position: int,
-        stream_element_number: Any = None,
+        stream_element_number: object = None,
         stream_element_type: str | None = None,
     ) -> str | None:
         existing_target = state.audio_target_element_bid_by_position.get(position)
@@ -374,9 +391,16 @@ class ListenElementRunStreamMixin:
         is_new: bool,
         is_final: bool,
         audio: ElementAudioDTO | None = None,
-        audio_segments: list[dict[str, Any]] | None = None,
+        audio_segments: list[dict[str, object]] | None = None,
     ) -> RunElementSSEMessageDTO:
-        return self._element_message(
+        # Also honoured here, for completeness: a 2.0 turn does not reach this branch today,
+        # because its events carry no stream parts. The final update is always written.
+        send = (
+            self._stream_only_element_message
+            if getattr(self, "persist_only_final", False) and not is_final
+            else self._element_message
+        )
+        return send(
             self._build_stream_element(
                 state=state,
                 role=role,
@@ -397,7 +421,7 @@ class ListenElementRunStreamMixin:
         is_new: bool,
         is_final: bool,
         audio: ElementAudioDTO | None = None,
-        audio_segments: list[dict[str, Any]] | None = None,
+        audio_segments: list[dict[str, object]] | None = None,
     ) -> ElementDTO:
         frozen_audio = (
             self._freeze_live_audio_payload(
@@ -460,9 +484,16 @@ class ListenElementRunStreamMixin:
                 if active_key is not None
                 else None
             )
-            slot_was_interrupted = stream_state is not None and active_key not in (
-                None,
-                state.last_stream_element_key,
+            # The formatter returns to an earlier HTML number for style/script/link
+            # attachments, even after narration. They must update the same sandbox.
+            # Other interrupted slots still start a new element in display order.
+            slot_was_interrupted = (
+                stream_state is not None
+                and active_key not in (None, state.last_stream_element_key)
+                and not (
+                    stream_state.element_type == ElementType.HTML
+                    and normalized_stream_type == ElementType.HTML.value
+                )
             )
             same_mdflow_stream = (
                 stream_state is not None
@@ -603,7 +634,18 @@ class ListenElementRunStreamMixin:
         state = self._ensure_block_state(generated_block_bid)
         state.raw_content += str(event.content or "")
         meta = self._load_block_meta(generated_block_bid)
-        yield self._element_message(self._build_fallback_element(state, meta.role))
+        element = self._build_fallback_element(state, meta.role)
+        # This is the path a 2.0 turn takes: its events carry no MarkdownFlow stream parts, so
+        # content never reaches the formatted branch. `_finalize_block` writes the finished
+        # fallback element itself, with the whole text and `is_final`, which means every write
+        # here is a snapshot of a row that is about to be written again -- affordable for a script
+        # block, 6394 rows and 35MB for one measured 2.0 turn.
+        send = (
+            self._stream_only_element_message
+            if getattr(self, "persist_only_final", False)
+            else self._element_message
+        )
+        yield send(element)
 
     def _handle_audio_complete(
         self, event: RunMarkdownFlowDTO
@@ -694,8 +736,7 @@ class ListenElementRunStreamMixin:
                 position=position,
                 subtitle_cues=(
                     progressive_subtitle_cues
-                    if progressive_subtitle_cues
-                    else list(getattr(current_audio, "subtitle_cues", []) or [])
+                    or list(getattr(current_audio, "subtitle_cues", []) or [])
                 ),
             )
             segment_data = _audio_segment_payload(content)

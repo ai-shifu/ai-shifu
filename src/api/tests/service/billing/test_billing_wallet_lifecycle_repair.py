@@ -1,11 +1,12 @@
+"""Verify billing wallet lifecycle repair behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
@@ -48,6 +49,9 @@ from tests.service.billing.wallet_lifecycle_test_helpers import (
     create_monthly_plan_product,
 )
 
+if TYPE_CHECKING:
+    from flask import Flask
+
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 
 
@@ -60,7 +64,7 @@ def test_repair_credit_bucket_runtime_statuses_reactivates_live_expired_bucket(
             wallet_bid="wallet-repair-runtime-1",
             creator_bid="creator-repair-runtime-1",
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("105.0000000000"),
             lifetime_consumed_credits=Decimal("9.8500000000"),
             last_settled_usage_id=0,
@@ -78,7 +82,7 @@ def test_repair_credit_bucket_runtime_statuses_reactivates_live_expired_bucket(
             priority=20,
             original_credits=Decimal("105.0000000000"),
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             consumed_credits=Decimal("9.8500000000"),
             expired_credits=Decimal("90.1500000000"),
             effective_from=datetime(2026, 5, 11, 14, 11, 8),
@@ -129,9 +133,9 @@ def test_repair_renewal_state_drift_dry_run_reports_stale_subscription_and_bucke
             wallet_bid="wallet-renewal-drift-dry-run",
             creator_bid="creator-renewal-drift-dry-run",
             available_credits=Decimal("3.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("3.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -153,9 +157,9 @@ def test_repair_renewal_state_drift_dry_run_reports_stale_subscription_and_bucke
             priority=20,
             original_credits=Decimal("3.0000000000"),
             available_credits=Decimal("3.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -197,9 +201,9 @@ def test_repair_renewal_state_drift_expires_bucket_and_subscription(
             wallet_bid="wallet-renewal-drift-apply",
             creator_bid="creator-renewal-drift-apply",
             available_credits=Decimal("3.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("3.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -221,9 +225,9 @@ def test_repair_renewal_state_drift_expires_bucket_and_subscription(
             priority=20,
             original_credits=Decimal("3.0000000000"),
             available_credits=Decimal("3.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -262,7 +266,7 @@ def test_repair_renewal_state_drift_expires_bucket_and_subscription(
     assert payload["expired_bucket_count"] == 1
     assert payload["expired_credits"] == 3.0
     assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
-    assert bucket.available_credits == Decimal("0")
+    assert bucket.available_credits == Decimal(0)
     assert bucket.expired_credits == Decimal("3.0000000000")
     assert subscription.status == BILLING_SUBSCRIPTION_STATUS_EXPIRED
     assert wallet.available_credits == Decimal("0E-10")
@@ -286,7 +290,7 @@ def test_repair_renewal_state_drift_dry_run_reports_overdue_reserved_paid_grant(
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("2000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -329,8 +333,8 @@ def test_repair_renewal_state_drift_dry_run_reports_overdue_reserved_paid_grant(
             original_credits=Decimal("2000.0000000000"),
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 3, 8, 0, 0, 0),
             effective_to=boundary_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -443,7 +447,7 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
             available_credits=Decimal("1500.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("2500.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -511,8 +515,8 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
             original_credits=Decimal("2000.0000000000"),
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 3, 8, 0, 0, 0),
             effective_to=boundary_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -528,9 +532,9 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
             priority=30,
             original_credits=Decimal("500.0000000000"),
             available_credits=Decimal("500.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 3, 8, 0, 0, 0),
             effective_to=boundary_at - timedelta(days=1),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -652,7 +656,7 @@ def test_repair_renewal_state_drift_applies_overdue_reserved_paid_grant_before_e
     assert bucket.effective_to == next_cycle_end
     assert topup_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
     assert topup_bucket.available_credits == Decimal("500.0000000000")
-    assert topup_bucket.expired_credits == Decimal("0")
+    assert topup_bucket.expired_credits == Decimal(0)
     assert topup_bucket.effective_to == next_cycle_end
     assert topup_ledger.expires_at == next_cycle_end
     assert ledger.metadata_json["bucket_credit_state"] == "available"
@@ -670,10 +674,10 @@ def test_repair_renewal_state_drift_all_scope_includes_reserved_only_creator(
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-reserved-only",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("1000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -714,10 +718,10 @@ def test_repair_renewal_state_drift_all_scope_includes_reserved_only_creator(
             source_bid="order-current-reserved-only",
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 5, 1, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -733,7 +737,7 @@ def test_repair_renewal_state_drift_all_scope_includes_reserved_only_creator(
             source_bid=order.bill_order_bid,
             idempotency_key=f"grant:{order.bill_order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=datetime(2026, 5, 8, 0, 0, 0),
             consumable_from=datetime(2026, 4, 8, 0, 0, 0),
             metadata_json={
@@ -776,7 +780,7 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("2000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -819,8 +823,8 @@ def test_repair_renewal_state_drift_counts_only_successful_activations(
             original_credits=Decimal("1500.0000000000"),
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("500.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 3, 8, 0, 0, 0),
             effective_to=boundary_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -897,10 +901,10 @@ def test_repair_renewal_state_drift_blocks_cycle_when_subscription_grant_missing
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-missing-subscription-grant",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("1000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -959,10 +963,10 @@ def test_repair_renewal_state_drift_blocks_cycle_when_subscription_grant_missing
             source_bid=first_order_bid,
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -978,7 +982,7 @@ def test_repair_renewal_state_drift_blocks_cycle_when_subscription_grant_missing
             source_bid=first_order_bid,
             idempotency_key=f"grant:{first_order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -1025,10 +1029,10 @@ def test_repair_renewal_state_drift_blocks_unknown_subscription_grant_state(
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-unknown-subscription-state",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("1000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1068,10 +1072,10 @@ def test_repair_renewal_state_drift_blocks_unknown_subscription_grant_state(
             source_bid=order_bid,
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1087,7 +1091,7 @@ def test_repair_renewal_state_drift_blocks_unknown_subscription_grant_state(
             source_bid=order_bid,
             idempotency_key=f"grant:{order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -1150,10 +1154,10 @@ def test_repair_renewal_state_drift_blocks_short_subscription_grant_amount(
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-short-subscription-amount",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1.0000000000"),
             lifetime_granted_credits=Decimal("1.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1193,10 +1197,10 @@ def test_repair_renewal_state_drift_blocks_short_subscription_grant_amount(
             source_bid=order_bid,
             priority=20,
             original_credits=Decimal("1.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1212,7 +1216,7 @@ def test_repair_renewal_state_drift_blocks_short_subscription_grant_amount(
             source_bid=order_bid,
             idempotency_key=f"grant:{order_bid}",
             amount=Decimal("1.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -1275,10 +1279,10 @@ def test_repair_renewal_state_drift_ignores_legacy_missing_state_without_reserve
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-legacy-missing-state",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
-            reserved_credits=Decimal("0"),
+            available_credits=Decimal(0),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("1000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1318,9 +1322,9 @@ def test_repair_renewal_state_drift_ignores_legacy_missing_state_without_reserve
             source_bid=order_bid,
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
+            available_credits=Decimal(0),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
             expired_credits=Decimal("1000.0000000000"),
             effective_from=repaired_at - timedelta(days=1),
             effective_to=period_end,
@@ -1384,10 +1388,10 @@ def test_repair_renewal_state_drift_keeps_missing_state_with_matching_reserved_b
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-missing-state-matching-bucket",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("1000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1427,10 +1431,10 @@ def test_repair_renewal_state_drift_keeps_missing_state_with_matching_reserved_b
             source_bid="",
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1446,7 +1450,7 @@ def test_repair_renewal_state_drift_keeps_missing_state_with_matching_reserved_b
             source_bid=order_bid,
             idempotency_key=f"grant:{order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -1493,10 +1497,10 @@ def test_repair_renewal_state_drift_keeps_missing_state_from_seeded_creator_scan
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-missing-state-seeded-scan",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("1000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1536,10 +1540,10 @@ def test_repair_renewal_state_drift_keeps_missing_state_from_seeded_creator_scan
             source_bid=order_bid,
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1555,7 +1559,7 @@ def test_repair_renewal_state_drift_keeps_missing_state_from_seeded_creator_scan
             source_bid=order_bid,
             idempotency_key=f"grant:{order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -1605,10 +1609,10 @@ def test_repair_renewal_state_drift_ignores_shared_bucket_legacy_missing_state(
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-shared-bucket-missing-state",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("2000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1667,10 +1671,10 @@ def test_repair_renewal_state_drift_ignores_shared_bucket_legacy_missing_state(
             source_bid=current_order_bid,
             priority=20,
             original_credits=Decimal("2000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=current_boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1705,7 +1709,7 @@ def test_repair_renewal_state_drift_ignores_shared_bucket_legacy_missing_state(
             source_bid=current_order_bid,
             idempotency_key=f"grant:{current_order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=current_boundary_at,
             metadata_json={
@@ -1754,10 +1758,10 @@ def test_repair_renewal_state_drift_all_scope_falls_back_to_source_bid(
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-source-bid-fallback",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("1000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1797,10 +1801,10 @@ def test_repair_renewal_state_drift_all_scope_falls_back_to_source_bid(
             source_bid=order_bid,
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1816,7 +1820,7 @@ def test_repair_renewal_state_drift_all_scope_falls_back_to_source_bid(
             source_bid=order_bid,
             idempotency_key=f"grant:{order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -1861,10 +1865,10 @@ def test_repair_renewal_state_drift_blocks_when_campaign_bonus_grant_missing(
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-missing-campaign-grant",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
             lifetime_granted_credits=Decimal("1000.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1906,10 +1910,10 @@ def test_repair_renewal_state_drift_blocks_when_campaign_bonus_grant_missing(
             source_bid=order_bid,
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1925,7 +1929,7 @@ def test_repair_renewal_state_drift_blocks_when_campaign_bonus_grant_missing(
             source_bid=order_bid,
             idempotency_key=f"grant:{order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -1975,7 +1979,7 @@ def test_repair_renewal_state_drift_blocks_same_order_when_bonus_only_would_succ
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("600.0000000000"),
             lifetime_granted_credits=Decimal("1600.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -2035,8 +2039,8 @@ def test_repair_renewal_state_drift_blocks_same_order_when_bonus_only_would_succ
             original_credits=Decimal("1500.0000000000"),
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("500.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 3, 8, 0, 0, 0),
             effective_to=boundary_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2051,10 +2055,10 @@ def test_repair_renewal_state_drift_blocks_same_order_when_bonus_only_would_succ
             source_bid=order_bid,
             priority=20,
             original_credits=Decimal("100.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("100.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2156,7 +2160,7 @@ def test_repair_renewal_state_drift_blocks_same_order_when_subscription_only_wou
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("1050.0000000000"),
             lifetime_granted_credits=Decimal("2050.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -2216,8 +2220,8 @@ def test_repair_renewal_state_drift_blocks_same_order_when_subscription_only_wou
             original_credits=Decimal("2000.0000000000"),
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 3, 8, 0, 0, 0),
             effective_to=boundary_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2232,10 +2236,10 @@ def test_repair_renewal_state_drift_blocks_same_order_when_subscription_only_wou
             source_bid=order_bid,
             priority=20,
             original_credits=Decimal("100.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("50.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2333,7 +2337,7 @@ def test_repair_renewal_state_drift_blocks_multi_order_cycle_atomically(
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("550.0000000000"),
             lifetime_granted_credits=Decimal("1550.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -2426,8 +2430,8 @@ def test_repair_renewal_state_drift_blocks_multi_order_cycle_atomically(
             original_credits=Decimal("1050.0000000000"),
             available_credits=Decimal("1000.0000000000"),
             reserved_credits=Decimal("50.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 3, 8, 0, 0, 0),
             effective_to=boundary_at,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2442,10 +2446,10 @@ def test_repair_renewal_state_drift_blocks_multi_order_cycle_atomically(
             source_bid="order-current-multi-order-blocked-b",
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("500.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2538,10 +2542,10 @@ def test_repair_renewal_state_drift_counts_all_activated_orders_in_shared_cycle(
         wallet = CreditWallet(
             wallet_bid="wallet-renewal-drift-multi-order-success",
             creator_bid=creator_bid,
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1050.0000000000"),
             lifetime_granted_credits=Decimal("1050.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -2632,10 +2636,10 @@ def test_repair_renewal_state_drift_counts_all_activated_orders_in_shared_cycle(
             source_bid=order_a.bill_order_bid,
             priority=20,
             original_credits=Decimal("50.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("50.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2650,10 +2654,10 @@ def test_repair_renewal_state_drift_counts_all_activated_orders_in_shared_cycle(
             source_bid=order_b.bill_order_bid,
             priority=20,
             original_credits=Decimal("1000.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("1000.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=boundary_at,
             effective_to=next_cycle_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2669,7 +2673,7 @@ def test_repair_renewal_state_drift_counts_all_activated_orders_in_shared_cycle(
             source_bid=order_a.bill_order_bid,
             idempotency_key=f"grant:{order_a.bill_order_bid}",
             amount=Decimal("50.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -2688,7 +2692,7 @@ def test_repair_renewal_state_drift_counts_all_activated_orders_in_shared_cycle(
             source_bid=order_b.bill_order_bid,
             idempotency_key=f"grant:{order_b.bill_order_bid}",
             amount=Decimal("1000.0000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=next_cycle_end,
             consumable_from=boundary_at,
             metadata_json={
@@ -2750,7 +2754,7 @@ def test_repair_expire_ledger_bucket_drift_dry_run_reports_without_writing(
             wallet_bid="wallet-expire-ledger-drift-dry-run",
             creator_bid="creator-expire-ledger-drift-dry-run",
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("10.0000000000"),
             lifetime_consumed_credits=Decimal("7.5000000000"),
             last_settled_usage_id=0,
@@ -2766,9 +2770,9 @@ def test_repair_expire_ledger_bucket_drift_dry_run_reports_without_writing(
             priority=20,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             consumed_credits=Decimal("7.5000000000"),
-            expired_credits=Decimal("0"),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2784,7 +2788,7 @@ def test_repair_expire_ledger_bucket_drift_dry_run_reports_without_writing(
             source_bid=bucket.source_bid,
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=bucket.effective_to,
             consumable_from=bucket.effective_from,
             metadata_json={},
@@ -2824,7 +2828,7 @@ def test_repair_expire_ledger_bucket_drift_applies_bucket_and_wallet_snapshot(
             wallet_bid="wallet-expire-ledger-drift-apply",
             creator_bid="creator-expire-ledger-drift-apply",
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("10.0000000000"),
             lifetime_consumed_credits=Decimal("7.5000000000"),
             last_settled_usage_id=0,
@@ -2840,9 +2844,9 @@ def test_repair_expire_ledger_bucket_drift_applies_bucket_and_wallet_snapshot(
             priority=20,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             consumed_credits=Decimal("7.5000000000"),
-            expired_credits=Decimal("0"),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2858,7 +2862,7 @@ def test_repair_expire_ledger_bucket_drift_applies_bucket_and_wallet_snapshot(
             source_bid=bucket.source_bid,
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=bucket.effective_to,
             consumable_from=bucket.effective_from,
             metadata_json={},
@@ -2889,7 +2893,7 @@ def test_repair_expire_ledger_bucket_drift_applies_bucket_and_wallet_snapshot(
     assert payload["bucket_count"] == 1
     assert payload["repaired_bucket_count"] == 1
     assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
-    assert bucket.available_credits == Decimal("0")
+    assert bucket.available_credits == Decimal(0)
     assert bucket.expired_credits == Decimal("2.5000000000")
     assert wallet.available_credits == Decimal("0E-10")
     assert wallet.version == 1
@@ -2904,7 +2908,7 @@ def test_repair_expire_ledger_bucket_drift_accepts_cycle_scoped_expire_key(
             wallet_bid="wallet-expire-ledger-drift-cycle-key",
             creator_bid="creator-expire-ledger-drift-cycle-key",
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("10.0000000000"),
             lifetime_consumed_credits=Decimal("7.5000000000"),
             last_settled_usage_id=0,
@@ -2920,9 +2924,9 @@ def test_repair_expire_ledger_bucket_drift_accepts_cycle_scoped_expire_key(
             priority=20,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             consumed_credits=Decimal("7.5000000000"),
-            expired_credits=Decimal("0"),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -2941,7 +2945,7 @@ def test_repair_expire_ledger_bucket_drift_accepts_cycle_scoped_expire_key(
                 effective_to=bucket.effective_to,
             ),
             amount=Decimal("-2.5000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=bucket.effective_to,
             consumable_from=bucket.effective_from,
             metadata_json={},
@@ -2968,7 +2972,7 @@ def test_repair_expire_ledger_bucket_drift_accepts_cycle_scoped_expire_key(
     assert payload["bucket_count"] == 1
     assert payload["repaired_bucket_count"] == 1
     assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
-    assert bucket.available_credits == Decimal("0")
+    assert bucket.available_credits == Decimal(0)
     assert bucket.expired_credits == Decimal("2.5000000000")
     assert wallet.available_credits == Decimal("0E-10")
 
@@ -2981,7 +2985,7 @@ def test_repair_expire_ledger_bucket_drift_keeps_existing_expired_amount(
             wallet_bid="wallet-expire-ledger-drift-counted",
             creator_bid="creator-expire-ledger-drift-counted",
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("10.0000000000"),
             lifetime_consumed_credits=Decimal("7.5000000000"),
             last_settled_usage_id=0,
@@ -2997,7 +3001,7 @@ def test_repair_expire_ledger_bucket_drift_keeps_existing_expired_amount(
             priority=20,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             consumed_credits=Decimal("7.5000000000"),
             expired_credits=Decimal("2.5000000000"),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
@@ -3015,7 +3019,7 @@ def test_repair_expire_ledger_bucket_drift_keeps_existing_expired_amount(
             source_bid=bucket.source_bid,
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=bucket.effective_to,
             consumable_from=bucket.effective_from,
             metadata_json={},
@@ -3039,7 +3043,7 @@ def test_repair_expire_ledger_bucket_drift_keeps_existing_expired_amount(
     assert payload["bucket_count"] == 1
     assert payload["buckets"][0]["previous_expired_credits"] == 2.5
     assert payload["buckets"][0]["expired_credits"] == 2.5
-    assert bucket.available_credits == Decimal("0")
+    assert bucket.available_credits == Decimal(0)
     assert bucket.expired_credits == Decimal("2.5000000000")
 
 
@@ -3051,7 +3055,7 @@ def test_repair_expire_ledger_bucket_drift_skips_reused_bucket_for_manual_review
             wallet_bid="wallet-expire-ledger-drift-reused",
             creator_bid="creator-expire-ledger-drift-reused",
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("15.0000000000"),
             lifetime_consumed_credits=Decimal("7.5000000000"),
             last_settled_usage_id=0,
@@ -3067,7 +3071,7 @@ def test_repair_expire_ledger_bucket_drift_skips_reused_bucket_for_manual_review
             priority=20,
             original_credits=Decimal("15.0000000000"),
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             consumed_credits=Decimal("7.5000000000"),
             expired_credits=Decimal("2.5000000000"),
             effective_from=datetime(2026, 5, 1, 0, 0, 0),
@@ -3085,7 +3089,7 @@ def test_repair_expire_ledger_bucket_drift_skips_reused_bucket_for_manual_review
             source_bid="order-expire-ledger-drift-reused-first-cycle",
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=datetime(2026, 4, 7, 0, 0, 0),
             consumable_from=datetime(2026, 4, 1, 0, 0, 0),
             metadata_json={},
@@ -3147,7 +3151,7 @@ def test_repair_expire_ledger_bucket_drift_sets_exhausted_for_reserved_bucket(
             available_credits=Decimal("2.5000000000"),
             reserved_credits=Decimal("1.0000000000"),
             consumed_credits=Decimal("6.5000000000"),
-            expired_credits=Decimal("0"),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -3163,7 +3167,7 @@ def test_repair_expire_ledger_bucket_drift_sets_exhausted_for_reserved_bucket(
             source_bid=bucket.source_bid,
             idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
             amount=Decimal("-2.5000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=bucket.effective_to,
             consumable_from=bucket.effective_from,
             metadata_json={},
@@ -3191,7 +3195,7 @@ def test_repair_expire_ledger_bucket_drift_sets_exhausted_for_reserved_bucket(
     assert payload["manual_review_count"] == 0
     assert payload["buckets"][0]["repair_action"] == "repair"
     assert bucket.status == CREDIT_BUCKET_STATUS_EXHAUSTED
-    assert bucket.available_credits == Decimal("0")
+    assert bucket.available_credits == Decimal(0)
     assert bucket.reserved_credits == Decimal("1.0000000000")
     assert bucket.expired_credits == Decimal("2.5000000000")
     assert wallet.available_credits == Decimal("0E-10")
@@ -3206,7 +3210,7 @@ def test_repair_expire_ledger_bucket_drift_skips_credit_pack_bucket(
             wallet_bid="wallet-expire-ledger-drift-topup-skip",
             creator_bid="creator-expire-ledger-drift-topup-skip",
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("10.0000000000"),
             lifetime_consumed_credits=Decimal("7.5000000000"),
             last_settled_usage_id=0,
@@ -3222,9 +3226,9 @@ def test_repair_expire_ledger_bucket_drift_skips_credit_pack_bucket(
             priority=30,
             original_credits=Decimal("10.0000000000"),
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             consumed_credits=Decimal("7.5000000000"),
-            expired_credits=Decimal("0"),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -3243,7 +3247,7 @@ def test_repair_expire_ledger_bucket_drift_skips_credit_pack_bucket(
                 effective_to=bucket.effective_to,
             ),
             amount=Decimal("-2.5000000000"),
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             expires_at=bucket.effective_to,
             consumable_from=bucket.effective_from,
             metadata_json={},
@@ -3271,7 +3275,7 @@ def test_repair_expire_ledger_bucket_drift_skips_credit_pack_bucket(
     assert payload["repaired_bucket_count"] == 0
     assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
     assert bucket.available_credits == Decimal("2.5000000000")
-    assert bucket.expired_credits == Decimal("0")
+    assert bucket.expired_credits == Decimal(0)
     assert wallet.available_credits == Decimal("2.5000000000")
     assert wallet.version == 0
 
@@ -3286,7 +3290,7 @@ def test_restore_wrongly_expired_credit_pack_bucket_dry_run_does_not_write(
             bucket_bid="bucket-restore-topup-dry-run",
             order_bid="order-restore-topup-dry-run",
             original=Decimal("250.0000000000"),
-            consumed=Decimal("0"),
+            consumed=Decimal(0),
             expired=Decimal("250.0000000000"),
         )
 
@@ -3310,7 +3314,7 @@ def test_restore_wrongly_expired_credit_pack_bucket_dry_run_does_not_write(
     assert payload["buckets"][0]["repair_action"] == "repair"
     assert payload["buckets"][0]["restored_credits"] == 250
     assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
-    assert bucket.available_credits == Decimal("0")
+    assert bucket.available_credits == Decimal(0)
     assert bucket.expired_credits == Decimal("250.0000000000")
     assert adjustment_count == 0
 
@@ -3374,7 +3378,7 @@ def test_restore_wrongly_expired_credit_pack_bucket_is_idempotent(
             bucket_bid="bucket-restore-topup-idempotent",
             order_bid="order-restore-topup-idempotent",
             original=Decimal("250.0000000000"),
-            consumed=Decimal("0"),
+            consumed=Decimal(0),
             expired=Decimal("250.0000000000"),
         )
 
@@ -3411,7 +3415,7 @@ def test_restore_wrongly_expired_credit_pack_bucket_requires_matching_expire_led
             bucket_bid="bucket-restore-topup-manual",
             order_bid="order-restore-topup-manual",
             original=Decimal("250.0000000000"),
-            consumed=Decimal("0"),
+            consumed=Decimal(0),
             expired=Decimal("250.0000000000"),
             expire_ledger_amount=Decimal("-1.0000000000"),
         )
@@ -3448,7 +3452,7 @@ def test_restore_wrongly_expired_credit_pack_bucket_reports_partial_repaired_sta
             bucket_bid="bucket-restore-topup-partial-repaired",
             order_bid="order-restore-topup-partial-repaired",
             original=Decimal("250.0000000000"),
-            consumed=Decimal("0"),
+            consumed=Decimal(0),
             expired=Decimal("250.0000000000"),
         )
         _seed_wrongly_expired_credit_pack_bucket(
@@ -3457,7 +3461,7 @@ def test_restore_wrongly_expired_credit_pack_bucket_reports_partial_repaired_sta
             bucket_bid="bucket-restore-topup-partial-manual",
             order_bid="order-restore-topup-partial-manual",
             original=Decimal("250.0000000000"),
-            consumed=Decimal("0"),
+            consumed=Decimal(0),
             expired=Decimal("250.0000000000"),
             expire_ledger_amount=Decimal("-1.0000000000"),
         )
@@ -3496,8 +3500,8 @@ def _seed_wrongly_expired_credit_pack_bucket(
     wallet = CreditWallet(
         wallet_bid=wallet_bid,
         creator_bid=creator_bid,
-        available_credits=Decimal("0"),
-        reserved_credits=Decimal("0"),
+        available_credits=Decimal(0),
+        reserved_credits=Decimal(0),
         lifetime_granted_credits=original,
         lifetime_consumed_credits=consumed,
         last_settled_usage_id=0,
@@ -3520,8 +3524,8 @@ def _seed_wrongly_expired_credit_pack_bucket(
         source_bid=order_bid,
         priority=30,
         original_credits=original,
-        available_credits=Decimal("0"),
-        reserved_credits=Decimal("0"),
+        available_credits=Decimal(0),
+        reserved_credits=Decimal(0),
         consumed_credits=consumed,
         expired_credits=expired,
         effective_from=effective_from,
@@ -3542,7 +3546,7 @@ def _seed_wrongly_expired_credit_pack_bucket(
             effective_to=effective_to,
         ),
         amount=expire_ledger_amount if expire_ledger_amount is not None else -expired,
-        balance_after=Decimal("0"),
+        balance_after=Decimal(0),
         expires_at=effective_to,
         consumable_from=effective_from,
         metadata_json={},

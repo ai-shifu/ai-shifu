@@ -3,27 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from flask import Flask
-
-from flaskr.dao import db, retry_on_deadlock
-from flaskr.dao import uow
+from flaskr.dao import db, retry_on_deadlock, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
-from flaskr.util.datetime import now_utc, to_utc_iso
+from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc, to_utc_iso
 
-from .credit_notifications import (
-    enqueue_credit_notification as _enqueue_credit_notification,
-    stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
-)
+from .checkout import sync_billing_order
 from .consts import (
-    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_ORDER_STATUS_CANCELED,
     BILLING_ORDER_STATUS_FAILED,
     BILLING_ORDER_STATUS_INIT,
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
+    BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_RENEWAL_EVENT_STATUS_CANCELED,
     BILLING_RENEWAL_EVENT_STATUS_FAILED,
     BILLING_RENEWAL_EVENT_STATUS_LABELS,
@@ -40,38 +33,77 @@ from .consts import (
     BILLING_SUBSCRIPTION_STATUS_CANCELED,
     BILLING_SUBSCRIPTION_STATUS_EXPIRED,
     BILLING_SUBSCRIPTION_STATUS_LABELS,
-    CREDIT_NOTIFICATION_STATUS_PENDING,
 )
-from .checkout import sync_billing_order
-from .preorders import (
-    is_preorder_order as _is_preorder_order,
-    load_active_preorder_order as _load_active_preorder_order,
+from .credit_notifications import (
+    enqueue_credit_notification as _enqueue_credit_notification,
 )
-from .queries import (
-    calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
-    extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
+from .credit_notifications import (
+    pending_credit_notification_bids as _pending_credit_notification_bids,
 )
-from .reserved_renewal_activation import IncompleteReservedGrantActivationError
-from .renewal_event_transitions import (
-    RenewalEventClaimLostError,
-    assert_renewal_event_claim_current as _assert_renewal_event_claim_current,
-    bind_renewal_event_claim as _bind_renewal_event_claim,
-    complete_renewal_event as _complete_renewal_event,
-    fail_renewal_event as _fail_renewal_event,
-    release_renewal_event as _release_renewal_event,
-)
-from .subscriptions import (
-    activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
-    ensure_subscription_renewal_order,
-    is_paid_referral_invitation_renewal as _is_paid_referral_invitation_renewal,
-    load_billing_product_by_bid as _load_billing_product_by_bid,
-    load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
-    load_subscription_by_bid as _load_subscription_by_bid,
-    sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
+from .credit_notifications import (
+    stage_credit_granted_notification_for_order as _stage_credit_granted_notification_for_order,
 )
 from .models import BillingOrder, BillingRenewalEvent, BillingSubscription
+from .payment_policy import is_manual_payment_provider
+from .preorders import (
+    is_preorder_order as _is_preorder_order,
+)
+from .preorders import (
+    load_active_preorder_order as _load_active_preorder_order,
+)
 from .primitives import normalize_bid as _normalize_bid
+from .queries import (
+    calculate_self_managed_billing_cycle_end_after_boundary as _calculate_self_managed_billing_cycle_end_after_boundary,
+)
+from .queries import (
+    extract_resolved_order_cycle_start_at as _extract_resolved_order_cycle_start_at,
+)
+from .renewal_event_transitions import (
+    RenewalEventClaimLostError,
+)
+from .renewal_event_transitions import (
+    assert_renewal_event_claim_current as _assert_renewal_event_claim_current,
+)
+from .renewal_event_transitions import (
+    bind_renewal_event_claim as _bind_renewal_event_claim,
+)
+from .renewal_event_transitions import (
+    complete_renewal_event as _complete_renewal_event,
+)
+from .renewal_event_transitions import (
+    fail_renewal_event as _fail_renewal_event,
+)
+from .renewal_event_transitions import (
+    release_renewal_event as _release_renewal_event,
+)
+from .reserved_renewal_activation import IncompleteReservedGrantActivationError
+from .subscriptions import (
+    activate_subscription_for_paid_order as _activate_subscription_for_paid_order,
+)
+from .subscriptions import (
+    ensure_subscription_renewal_order,
+)
+from .subscriptions import (
+    is_paid_referral_invitation_renewal as _is_paid_referral_invitation_renewal,
+)
+from .subscriptions import (
+    load_billing_product_by_bid as _load_billing_product_by_bid,
+)
+from .subscriptions import (
+    load_latest_subscription_renewal_order as _load_latest_subscription_renewal_order,
+)
+from .subscriptions import (
+    load_subscription_by_bid as _load_subscription_by_bid,
+)
+from .subscriptions import (
+    sync_subscription_lifecycle_events as _sync_subscription_lifecycle_events,
+)
 from .wallets import _expire_credit_wallet_buckets_in_session
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flask import Flask
 
 _CLAIMABLE_EVENT_STATUSES = (
     BILLING_RENEWAL_EVENT_STATUS_PENDING,
@@ -215,6 +247,8 @@ def _fail_paid_renewal_activation_event(
 
 @dataclass(slots=True, frozen=True)
 class RenewalEventSnapshot:
+    """Capture a snapshot of renewal event."""
+
     renewal_event_bid: str | None
     subscription_bid: str | None
     creator_bid: str | None
@@ -226,6 +260,7 @@ class RenewalEventSnapshot:
     payload: Any
 
     def to_payload(self) -> dict[str, Any]:
+        """Serialize this result as an API payload."""
         return {
             "renewal_event_bid": self.renewal_event_bid,
             "subscription_bid": self.subscription_bid,
@@ -238,12 +273,15 @@ class RenewalEventSnapshot:
             "payload": self.payload,
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized payload field by key."""
         return self.to_payload()[key]
 
 
 @dataclass(slots=True, frozen=True)
 class RenewalEventResult:
+    """Capture the outcome recorded for a renewal event."""
+
     status: str
     event: RenewalEventSnapshot | None = None
     renewal_event_bid: str | None = None
@@ -256,6 +294,7 @@ class RenewalEventResult:
     order_status: int | None = None
 
     def to_task_payload(self) -> dict[str, Any]:
+        """Serialize this result for task processing."""
         payload: dict[str, Any] = {"status": self.status}
         if self.event is not None:
             payload.update(self.event.to_payload())
@@ -279,7 +318,8 @@ class RenewalEventResult:
             payload["order_status"] = self.order_status
         return payload
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
@@ -296,7 +336,6 @@ def claim_billing_renewal_event(
     Pure-DB CAS flow (no external calls), so a deadlock retry is safe: a
     replayed claim either wins the CAS again or reports ``already_claimed``.
     """
-
     with _app_context_scope(app), unit_of_work():
         status, event = _claim_target_renewal_event(
             renewal_event_bid=renewal_event_bid,
@@ -321,7 +360,6 @@ def run_billing_renewal_event(
     creator_bid: str = "",
 ) -> RenewalEventResult:
     """Claim and execute a renewal event with idempotent state transitions."""
-
     with _app_context_scope(app):
         # Must-persist step: the claim (PENDING/FAILED -> PROCESSING plus the
         # attempt_count increment) commits in its own unit of work BEFORE any
@@ -402,7 +440,6 @@ def retry_billing_renewal_event(
     payment_provider: str = "",
 ) -> RenewalEventResult:
     """Resolve the latest renewal order context and sync it with the provider."""
-
     del provider_reference_id, payment_provider
 
     with _app_context_scope(app):
@@ -530,14 +567,17 @@ def _execute_expire_subscription(
                     now=now,
                     bill_order_bid=paid_renewal_order.bill_order_bid,
                 )
-            notification_bid = _stage_preorder_credit_release_notification(
+            notification_bids = _stage_preorder_credit_release_notification(
                 app,
                 paid_renewal_order,
             )
             # External dispatch fires only after the staged notification row
             # and the event transition are durable; dropped on rollback.
             uow.on_commit(
-                lambda: _enqueue_credit_release_notification(app, notification_bid)
+                lambda: [
+                    _enqueue_credit_release_notification(app, bid)
+                    for bid in notification_bids
+                ]
             )
             _complete_renewal_event(event, now=now)
             return _result_from_event(
@@ -613,14 +653,17 @@ def _execute_downgrade_effective(
                     now=now,
                     bill_order_bid=paid_renewal_order.bill_order_bid,
                 )
-            notification_bid = _stage_preorder_credit_release_notification(
+            notification_bids = _stage_preorder_credit_release_notification(
                 app,
                 paid_renewal_order,
             )
             # External dispatch fires only after the staged notification row
             # and the event transition are durable; dropped on rollback.
             uow.on_commit(
-                lambda: _enqueue_credit_release_notification(app, notification_bid)
+                lambda: [
+                    _enqueue_credit_release_notification(app, bid)
+                    for bid in notification_bids
+                ]
             )
             _complete_renewal_event(event, now=now)
             return _result_from_event(
@@ -648,9 +691,9 @@ def _execute_downgrade_effective(
 def _stage_preorder_credit_release_notification(
     app: Flask,
     order: BillingOrder,
-) -> str:
+) -> tuple[str, ...]:
     if not _is_preorder_order(order):
-        return ""
+        return ()
     stage_result = _stage_credit_granted_notification_for_order(
         app,
         creator_bid=order.creator_bid,
@@ -658,9 +701,7 @@ def _stage_preorder_credit_release_notification(
         commit=False,
         enqueue=False,
     )
-    if stage_result.get("status") != CREDIT_NOTIFICATION_STATUS_PENDING:
-        return ""
-    return str(stage_result.get("notification_bid") or "").strip()
+    return _pending_credit_notification_bids(stage_result)
 
 
 def _enqueue_credit_release_notification(app: Flask, notification_bid: str) -> None:
@@ -734,8 +775,8 @@ def _load_primary_paid_renewal_order_for_cycle(
             else 1,
             0 if _is_preorder_order(row) else 1,
             1 if _is_paid_referral_invitation_renewal(row) else 0,
-            row.paid_at or row.created_at or datetime.min,
-            row.created_at or datetime.min,
+            row.paid_at or row.created_at or NAIVE_DATETIME_MIN,
+            row.created_at or NAIVE_DATETIME_MIN,
             row.id,
         )
     )
@@ -784,11 +825,11 @@ def _execute_subscription_renewal(
 ) -> RenewalEventResult:
     # Must-persist step: the renewal order row and the event payload's
     # bill_order_bid link commit BEFORE the payment-provider sync below.
-    # sync_billing_order runs in its own app context/session (on MySQL a
-    # separate connection), so it can only see committed rows; and if the
-    # provider call crashes mid-flight, the retry/reconcile flows resolve
-    # this same order through the payload link (and ensure_* reloads it by
-    # cycle) instead of creating a second charge context.
+    # sync_billing_order joins this session but owns its own unit of work
+    # (it is called outside any block here), so it must find committed rows;
+    # and if the provider call crashes mid-flight, the retry/reconcile flows
+    # resolve this same order through the payload link (and ensure_* reloads
+    # it by cycle) instead of creating a second charge context.
     with unit_of_work():
         subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
         if subscription is None:
@@ -828,7 +869,10 @@ def _execute_subscription_renewal(
                 bill_order_bid=order.bill_order_bid,
             )
 
-        if order.payment_provider == "pingxx" and not order.provider_reference_id:
+        if (
+            is_manual_payment_provider(order.payment_provider)
+            and not order.provider_reference_id
+        ):
             _complete_renewal_event(event, now=now)
             return _result_from_event(
                 "queued_for_reconcile",
@@ -840,8 +884,8 @@ def _execute_subscription_renewal(
 
     # Provider sync stays OUTSIDE any unit of work: it wraps a non-idempotent
     # external payment call and (see NOTE in _sync_billing_renewal_order)
-    # commits its own session. Confirm claim ownership immediately before the
-    # cross-transaction side effect, so stale workers stop before syncing.
+    # owns its own unit of work. Confirm claim ownership immediately before
+    # the cross-transaction side effect, so stale workers stop before syncing.
     with unit_of_work():
         subscription = _load_subscription_by_bid_for_update(event.subscription_bid)
         if subscription is None:
@@ -852,9 +896,9 @@ def _execute_subscription_renewal(
         _ensure_renewal_event_claim_current(event)
     result = _sync_billing_renewal_order(app, order=order, event=event)
     sync_status = str(result.status or "")
-    # The provider sync commits in its OWN session; `order` and `event` held
-    # here are now stale ORM instances. Expire them so anything uow #2 (or a
-    # future edit) reads is re-fetched instead of silently overwriting the
+    # The provider sync committed its own unit of work; `order` and `event`
+    # held here may be stale ORM instances. Expire them so anything uow #2 (or
+    # a future edit) reads is re-fetched instead of silently overwriting the
     # sync's writes with pre-sync values. Mirrors the exception path in
     # _sync_billing_renewal_order.
     db.session.expire_all()
@@ -979,14 +1023,16 @@ def _sync_billing_renewal_order(
     order: BillingOrder,
     event: BillingRenewalEvent | None,
 ) -> RenewalEventResult:
-    # NOTE(uow cross-module leak): checkout.sync_billing_order pushes its own
-    # app context (separate Flask-SQLAlchemy session), performs non-idempotent
-    # payment-provider calls, and commits that session itself. It therefore
-    # must never be invoked inside this module's unit_of_work or under
-    # retry_on_deadlock. Migrating checkout.py is a later B4 sub-batch; do
-    # not "fix" the commit from here.
+    # NOTE: checkout.sync_billing_order joins the caller's app context and
+    # session, performs non-idempotent payment-provider calls, and owns its
+    # own unit of work. It therefore must never be invoked inside this
+    # module's unit_of_work (the sync would join it and commit the renewal's
+    # staged rows mid-flight) or under retry_on_deadlock.
     bill_order_bid = str(order.bill_order_bid or "")
-    if order.payment_provider == "pingxx" and not order.provider_reference_id:
+    if (
+        is_manual_payment_provider(order.payment_provider)
+        and not order.provider_reference_id
+    ):
         return RenewalEventResult(
             status="pending",
             bill_order_bid=bill_order_bid or None,
@@ -1111,7 +1157,7 @@ def _load_target_renewal_event(
         )
         query = query.filter(
             BillingRenewalEvent.status.in_(
-                _CLAIMABLE_EVENT_STATUSES + (BILLING_RENEWAL_EVENT_STATUS_PROCESSING,)
+                (*_CLAIMABLE_EVENT_STATUSES, BILLING_RENEWAL_EVENT_STATUS_PROCESSING)
             )
         )
     else:

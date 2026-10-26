@@ -1,13 +1,15 @@
+"""Verify billing trial credits behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
-from flask import Flask, jsonify, request
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask, jsonify, request
+from flaskr import dao
+from flaskr.service.billing import trials
 from flaskr.service.billing.consts import (
     BILLING_LEGACY_NEW_CREATOR_TRIAL_PROGRAM_CODE,
     BILLING_ORDER_STATUS_PAID,
@@ -31,9 +33,10 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.trials import bootstrap_new_creator_trial_credits
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.repository import create_user_entity
+
 from tests.common.fixtures.bill_products import build_bill_products
 from tests.service.billing.route_loader import (
     load_billing_routes_module,
@@ -58,7 +61,7 @@ def _seed_creator(*, user_bid: str, is_creator: bool = True) -> None:
 
 
 @pytest.fixture
-def trial_billing_client(monkeypatch):
+def trial_billing_client(monkeypatch: object) -> object:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -73,8 +76,8 @@ def trial_billing_client(monkeypatch):
 
     dao.db.init_app(app)
 
-    @app.errorhandler(AppException)
-    def _handle_app_exception(error: AppException):
+    @app.errorhandler(AppError)
+    def _handle_app_exception(error: AppError) -> object:
         response = jsonify({"code": error.code, "message": error.message})
         response.status_code = 200
         return response
@@ -108,7 +111,7 @@ def trial_billing_client(monkeypatch):
 
 
 def test_billing_overview_returns_product_backed_eligible_trial_without_mutation(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -155,8 +158,46 @@ def test_billing_overview_returns_product_backed_eligible_trial_without_mutation
         )
 
 
+def test_trial_notification_enqueue_uses_legacy_bid_for_scalar_bid_list(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _OrderQuery:
+        def filter(self, *_args: object) -> _OrderQuery:
+            return self
+
+        def order_by(self, *_args: object) -> _OrderQuery:
+            return self
+
+        def first(self) -> SimpleNamespace:
+            return SimpleNamespace(
+                metadata_json={
+                    "credit_granted_notification_bids": "invalid-scalar-bids",
+                    "credit_granted_notification_bid": "legacy-notification-bid",
+                }
+            )
+
+    enqueued_bids: list[str] = []
+    app = Flask(__name__)
+    with app.app_context():
+        monkeypatch.setattr(
+            trials.BillingOrder,
+            "query",
+            _OrderQuery(),
+            raising=False,
+        )
+        monkeypatch.setattr(
+            trials,
+            "_enqueue_credit_notification",
+            lambda _app, *, notification_bid: enqueued_bids.append(notification_bid),
+        )
+
+        trials._enqueue_trial_credit_notification(app, "creator-trial")
+
+    assert enqueued_bids == ["legacy-notification-bid"]
+
+
 def test_trial_bootstrap_creates_manual_order_subscription_and_expire_event_once(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -214,7 +255,7 @@ def test_trial_bootstrap_creates_manual_order_subscription_and_expire_event_once
 
 
 def test_billing_overview_returns_granted_for_bootstrapped_trial_subscription(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -234,8 +275,8 @@ def test_billing_overview_returns_granted_for_bootstrapped_trial_subscription(
 
 
 def test_trial_bootstrap_skips_grant_when_billing_disabled(
-    trial_billing_client,
-    monkeypatch,
+    trial_billing_client: object,
+    monkeypatch: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -265,7 +306,7 @@ def test_trial_bootstrap_skips_grant_when_billing_disabled(
 
 
 def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     granted_at = datetime(2026, 4, 9, 12, 0, 0)
@@ -277,9 +318,9 @@ def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
             wallet_bid="wallet-legacy-trial",
             creator_bid="creator-trial",
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("100.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -330,7 +371,7 @@ def test_legacy_trial_ledger_marks_offer_granted_and_blocks_new_bootstrap(
 
 
 def test_trial_welcome_ack_route_writes_subscription_metadata_and_is_idempotent(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -372,7 +413,7 @@ def test_trial_welcome_ack_route_writes_subscription_metadata_and_is_idempotent(
 
 
 def test_trial_welcome_ack_route_falls_back_to_order_metadata(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():
@@ -415,7 +456,7 @@ def test_trial_welcome_ack_route_falls_back_to_order_metadata(
 
 
 def test_trial_welcome_ack_route_falls_back_to_legacy_trial_ledger_metadata(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     granted_at = datetime(2026, 4, 9, 12, 0, 0)
@@ -427,9 +468,9 @@ def test_trial_welcome_ack_route_falls_back_to_legacy_trial_ledger_metadata(
             wallet_bid="wallet-legacy-ack",
             creator_bid="creator-trial",
             available_credits=Decimal("100.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("100.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -476,7 +517,7 @@ def test_trial_welcome_ack_route_falls_back_to_legacy_trial_ledger_metadata(
 
 
 def test_trial_welcome_ack_route_returns_false_without_granted_trial(
-    trial_billing_client,
+    trial_billing_client: object,
 ) -> None:
     app = trial_billing_client.application
     with app.app_context():

@@ -1,29 +1,31 @@
+"""Verify ask provider adapter behavior."""
+
+import json
 import types
+from typing import Self
 
 import pytest
 import requests
-
 from flaskr.service.learn import ask_provider_adapters as module
 from flaskr.service.learn.ask_provider_adapters import (
     common,
     coze_adapter,
-    coze_workflow_adapter,
     dify_adapter,
     get_biji_knowledge_adapter,
-    volc_knowledge_adapter,
 )
+from urllib3.exceptions import NewConnectionError
 
 
 class _FakeResponse:
     def __init__(
         self,
-        lines=None,
-        status_code=200,
-        text="",
-        http_error=None,
-        json_data=None,
-        json_error=None,
-    ):
+        lines: object = None,
+        status_code: object = 200,
+        text: object = "",
+        http_error: object = None,
+        json_data: object = None,
+        json_error: object = None,
+    ) -> None:
         self._lines = lines or []
         self.status_code = status_code
         self.text = text
@@ -31,35 +33,67 @@ class _FakeResponse:
         self._json_data = json_data
         self._json_error = json_error
 
-    def iter_lines(self, decode_unicode=True):
-        _ = decode_unicode
-        for line in self._lines:
-            yield line
+    @property
+    def status(self) -> object:
+        return self.status_code
 
-    def raise_for_status(self):
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_exc_info: object) -> None:
+        return None
+
+    def iter_lines(self, decode_unicode: object = True) -> object:
+        _ = decode_unicode
+        yield from self._lines
+
+    def raise_for_status(self) -> None:
         if self._http_error is not None:
             raise self._http_error
 
-    def json(self):
+    def json(self) -> object:
         if self._json_error is not None:
             raise self._json_error
         return self._json_data
 
+    @property
+    def content(self) -> bytes:
+        return json.dumps(self._json_data).encode("utf-8")
 
-def test_dify_adapter_streams_success_content(app, monkeypatch):
+
+@pytest.fixture
+def dify_app(app: object, monkeypatch: object) -> object:
+    """Isolate Dify policy configuration from the shared Flask test app."""
+    monkeypatch.setitem(app.config, "DIFY_TRUSTED_ORIGINS", "")
+    return app
+
+
+def test_dify_adapter_streams_success_content(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
     adapter = module.DifyAskProviderAdapter()
     request_state = {}
 
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
-    def _fake_post(*_args, **kwargs):
-        request_state["json"] = kwargs.get("json")
+    def _fake_request(
+        _self: object,
+        method: object,
+        url: object,
+        **kwargs: object,
+    ) -> object:
+        request_state["method"] = method
+        request_state["url"] = url
+        request_state["headers"] = kwargs.get("headers")
+        request_state["json"] = json.loads(kwargs.get("body", b"{}"))
+        request_state["policy"] = _self.policy
         return _FakeResponse(
             lines=[
                 'data: {"event":"message","answer":"hello"}',
@@ -69,14 +103,14 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
         )
 
     monkeypatch.setattr(
-        dify_adapter.requests,
-        "post",
-        _fake_post,
+        dify_adapter.SafeOutboundClient,
+        "request",
+        _fake_request,
     )
 
     chunks = list(
         adapter.stream_answer(
-            app=app,
+            app=dify_app,
             user_id="user-1",
             user_query="hello",
             messages=[
@@ -95,6 +129,13 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
     )
 
     assert [chunk.content for chunk in chunks] == ["hello", " world"]
+    assert request_state["method"] == "POST"
+    assert request_state["url"] == "https://dify.example.com/chat-messages"
+    assert request_state["headers"] == {
+        "Authorization": "Bearer test-key",
+        "Content-Type": "application/json",
+    }
+    assert request_state["policy"].trusted_origins == frozenset()
     assert request_state["json"]["query"] == (
         "[system]\ncourse prompt\n\n"
         "[user]\nprevious question\n\n"
@@ -103,21 +144,198 @@ def test_dify_adapter_streams_success_content(app, monkeypatch):
     )
 
 
-def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
+def test_dify_adapter_maps_request_deadline_to_provider_timeout(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+
+    def _raise_deadline(*_args: object, **_kwargs: object) -> object:
+        message = "outbound request exceeded its total timeout"
+        raise dify_adapter.OutboundDeadlineExceededError(message)
+
+    monkeypatch.setattr(dify_adapter.SafeOutboundClient, "request", _raise_deadline)
+
+    with pytest.raises(module.AskProviderTimeoutError, match="dify request timeout"):
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "https://dify.example.com",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+
+
+def test_dify_adapter_maps_stream_deadline_to_provider_timeout(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+
+    class _DeadlineResponse(_FakeResponse):
+        def iter_lines(self, decode_unicode: object = True) -> object:
+            _ = decode_unicode
+            message = "outbound request exceeded its total timeout"
+            raise dify_adapter.OutboundDeadlineExceededError(message)
+            yield
+
+    monkeypatch.setattr(
+        dify_adapter.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _DeadlineResponse(),
+    )
+
+    with pytest.raises(module.AskProviderTimeoutError, match="dify request timeout"):
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "https://dify.example.com",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "base_url",
+    [
+        "http://127.0.0.1:80/v1",
+        "http://[::1]:80/v1",
+        "http://169.254.169.254/latest/meta-data",
+    ],
+)
+def test_dify_adapter_rejects_internal_destinations(
+    dify_app: object,
+    base_url: str,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+
+    with pytest.raises(
+        module.AskProviderError,
+        match="dify request was rejected or failed",
+    ):
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": base_url,
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+
+
+def test_dify_adapter_applies_deployment_trusted_origins(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+    captured = {}
+    monkeypatch.setitem(
+        dify_app.config,
+        "DIFY_TRUSTED_ORIGINS",
+        "http://dify.internal:5001",
+    )
+
+    def _fake_request(
+        client: object,
+        *_args: object,
+        **_kwargs: object,
+    ) -> object:
+        captured["policy"] = client.policy
+        return _FakeResponse(lines=["data: [DONE]"])
+
+    monkeypatch.setattr(dify_adapter.SafeOutboundClient, "request", _fake_request)
+
+    assert (
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "http://dify.internal:5001/v1",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+        == []
+    )
+    assert captured["policy"].trusted_origins == frozenset(
+        {"http://dify.internal:5001"}
+    )
+
+
+def test_dify_adapter_rejects_invalid_deployment_trusted_origin(
+    dify_app: object,
+    monkeypatch: object,
+) -> None:
+    adapter = module.DifyAskProviderAdapter()
+    monkeypatch.setitem(
+        dify_app.config,
+        "DIFY_TRUSTED_ORIGINS",
+        "http://user:secret@dify.internal:5001",
+    )
+
+    with pytest.raises(
+        module.AskProviderConfigError,
+        match="DIFY_TRUSTED_ORIGINS contains an invalid origin",
+    ):
+        list(
+            adapter.stream_answer(
+                app=dify_app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "base_url": "https://dify.example.com/v1",
+                        "api_key": "test-key",
+                    }
+                },
+            )
+        )
+
+
+def test_coze_adapter_timeout_raises_timeout_error(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.CozeAskProviderAdapter()
 
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
-    def _raise_timeout(*_args, **_kwargs):
-        raise requests.Timeout("timeout")
+    def _raise_timeout(*_args: object, **_kwargs: object) -> None:
+        message = "timeout"
+        raise coze_adapter.OutboundDeadlineExceededError(message)
 
-    monkeypatch.setattr(coze_adapter.requests, "post", _raise_timeout)
+    monkeypatch.setattr(common.SafeOutboundClient, "request", _raise_timeout)
 
     with pytest.raises(module.AskProviderTimeoutError):
         list(
@@ -137,7 +355,9 @@ def test_coze_adapter_timeout_raises_timeout_error(app, monkeypatch):
         )
 
 
-def test_stream_ask_provider_response_raises_error_for_unsupported_provider(app):
+def test_stream_ask_provider_response_raises_error_for_unsupported_provider(
+    app: object,
+) -> None:
     with pytest.raises(module.AskProviderConfigError):
         list(
             module.stream_ask_provider_response(
@@ -151,26 +371,23 @@ def test_stream_ask_provider_response_raises_error_for_unsupported_provider(app)
         )
 
 
-def test_coze_adapter_http_error_raises_provider_error(app, monkeypatch):
+def test_coze_adapter_http_error_raises_provider_error(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.CozeAskProviderAdapter()
 
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
-    http_error = requests.HTTPError("boom")
     monkeypatch.setattr(
-        coze_adapter.requests,
-        "post",
-        lambda *_args, **_kwargs: _FakeResponse(
-            text="coze bad request",
-            status_code=400,
-            http_error=http_error,
-        ),
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(status_code=400),
     )
 
     with pytest.raises(module.AskProviderError, match="coze request failed"):
@@ -191,21 +408,26 @@ def test_coze_adapter_http_error_raises_provider_error(app, monkeypatch):
         )
 
 
-def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
+def test_coze_workflow_adapter_streams_success_content(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.CozeWorkflowAskProviderAdapter()
     request_state = {}
 
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
-    def _fake_post(url, **kwargs):
+    def _fake_request(
+        _self: object, method: object, url: object, **kwargs: object
+    ) -> object:
+        request_state["method"] = method
         request_state["url"] = url
-        request_state["json"] = kwargs.get("json")
+        request_state["json"] = json.loads(kwargs.get("body", b"{}"))
         request_state["headers"] = kwargs.get("headers") or {}
         return _FakeResponse(
             json_data={
@@ -218,9 +440,9 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
         )
 
     monkeypatch.setattr(
-        coze_workflow_adapter.requests,
-        "post",
-        _fake_post,
+        common.SafeOutboundClient,
+        "request",
+        _fake_request,
     )
 
     chunks = list(
@@ -255,20 +477,22 @@ def test_coze_workflow_adapter_streams_success_content(app, monkeypatch):
     )
 
 
-def test_coze_workflow_adapter_nonzero_code_raises_provider_error(app, monkeypatch):
+def test_coze_workflow_adapter_nonzero_code_raises_provider_error(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.CozeWorkflowAskProviderAdapter()
 
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     monkeypatch.setattr(
-        coze_workflow_adapter.requests,
-        "post",
+        common.SafeOutboundClient,
+        "request",
         lambda *_args, **_kwargs: _FakeResponse(
             json_data={
                 "code": 5000,
@@ -280,7 +504,7 @@ def test_coze_workflow_adapter_nonzero_code_raises_provider_error(app, monkeypat
 
     with pytest.raises(
         module.AskProviderError,
-        match="coze_workflow error \\[5000\\]: service internal error, please retry after",
+        match="coze_workflow returned an error response",
     ):
         list(
             adapter.stream_answer(
@@ -298,7 +522,7 @@ def test_coze_workflow_adapter_nonzero_code_raises_provider_error(app, monkeypat
         )
 
 
-def test_dify_adapter_missing_shifu_config_raises_config_error(app):
+def test_dify_adapter_missing_shifu_config_raises_config_error(app: object) -> None:
     adapter = module.DifyAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="base_url/api_key"):
@@ -313,7 +537,7 @@ def test_dify_adapter_missing_shifu_config_raises_config_error(app):
         )
 
 
-def test_coze_adapter_missing_shifu_config_raises_config_error(app):
+def test_coze_adapter_missing_shifu_config_raises_config_error(app: object) -> None:
     adapter = module.CozeAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="api_key is required"):
@@ -328,7 +552,9 @@ def test_coze_adapter_missing_shifu_config_raises_config_error(app):
         )
 
 
-def test_coze_workflow_adapter_missing_shifu_config_raises_config_error(app):
+def test_coze_workflow_adapter_missing_shifu_config_raises_config_error(
+    app: object,
+) -> None:
     adapter = module.CozeWorkflowAskProviderAdapter()
 
     with pytest.raises(
@@ -345,20 +571,26 @@ def test_coze_workflow_adapter_missing_shifu_config_raises_config_error(app):
         )
 
 
-def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
+def test_coze_adapter_uses_default_base_url_when_missing(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.CozeAskProviderAdapter()
     request_state = {}
 
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
-    def _fake_post(url, **kwargs):
+    def _fake_request(
+        _self: object, method: object, url: object, **kwargs: object
+    ) -> object:
+        request_state["method"] = method
         request_state["url"] = url
+        request_state["json"] = json.loads(kwargs["body"])
         return _FakeResponse(
             lines=[
                 'data: {"event":"message","content":"ok"}',
@@ -366,7 +598,7 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
             ]
         )
 
-    monkeypatch.setattr(coze_adapter.requests, "post", _fake_post)
+    monkeypatch.setattr(common.SafeOutboundClient, "request", _fake_request)
 
     chunks = list(
         adapter.stream_answer(
@@ -384,26 +616,42 @@ def test_coze_adapter_uses_default_base_url_when_missing(app, monkeypatch):
     )
 
     assert request_state["url"] == "https://api.coze.cn/v3/chat"
+    assert request_state["json"]["bot_id"] == "bot-1"
     assert [chunk.content for chunk in chunks] == ["ok"]
 
 
-def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
+def test_volc_knowledge_adapter_streams_success_content(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.VolcKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     request_state = {}
 
-    def _fake_request(*_args, **kwargs):
-        request_state["method"] = kwargs.get("method")
+    monkeypatch.setattr(common.SafeOutboundClient, "new_deadline", lambda _self: 123.0)
+
+    def _fake_validate_url(_self: object, _url: object, **kwargs: object) -> object:
+        request_state["validation_deadline"] = kwargs.get("deadline")
+        return types.SimpleNamespace(
+            url="https://api-knowledgebase.mlp.cn-beijing.volces.com/api/knowledge/collection/search_knowledge"
+        )
+
+    monkeypatch.setattr(common.SafeOutboundClient, "validate_url", _fake_validate_url)
+
+    def _fake_request(
+        _self: object, method: object, url: object, **kwargs: object
+    ) -> object:
+        request_state["method"] = method
         request_state["headers"] = kwargs.get("headers") or {}
-        request_state["url"] = kwargs.get("url")
+        request_state["url"] = url
+        request_state["request_deadline"] = kwargs.get("deadline")
         return _FakeResponse(
             json_data={
                 "code": 0,
@@ -417,7 +665,7 @@ def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
         )
 
     monkeypatch.setattr(
-        volc_knowledge_adapter.requests,
+        common.SafeOutboundClient,
         "request",
         _fake_request,
     )
@@ -447,9 +695,155 @@ def test_volc_knowledge_adapter_streams_success_content(app, monkeypatch):
     )
     assert request_state["headers"]["X-Date"]
     assert request_state["headers"]["X-Content-Sha256"]
+    assert request_state["validation_deadline"] == 123.0
+    assert request_state["request_deadline"] == 123.0
 
 
-def test_volc_knowledge_adapter_missing_config_raises_error(app):
+@pytest.mark.parametrize(
+    ("domain", "normalized_url", "expected_host"),
+    [
+        (
+            "api-knowledgebase.mlp.cn-beijing.volces.com:443",
+            "https://api-knowledgebase.mlp.cn-beijing.volces.com/api/knowledge/collection/search_knowledge",
+            "api-knowledgebase.mlp.cn-beijing.volces.com",
+        ),
+        (
+            "api-knowledgebase.mlp.cn-beijing.volces.com.",
+            "https://api-knowledgebase.mlp.cn-beijing.volces.com/api/knowledge/collection/search_knowledge",
+            "api-knowledgebase.mlp.cn-beijing.volces.com",
+        ),
+    ],
+)
+def test_volc_signature_uses_the_normalized_transport_host(
+    app: object,
+    monkeypatch: object,
+    domain: str,
+    normalized_url: str,
+    expected_host: str,
+) -> None:
+    adapter = module.VolcKnowledgeAskProviderAdapter()
+    request_state = {}
+
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "validate_url",
+        lambda *_args, **_kwargs: types.SimpleNamespace(url=normalized_url),
+    )
+
+    def _fake_request(
+        _self: object, method: object, url: object, **kwargs: object
+    ) -> object:
+        request_state["method"] = method
+        request_state["url"] = url
+        request_state["headers"] = kwargs.get("headers") or {}
+        return _FakeResponse(json_data={"code": 0, "data": {"text": "ok"}})
+
+    monkeypatch.setattr(common.SafeOutboundClient, "request", _fake_request)
+
+    chunks = list(
+        adapter.stream_answer(
+            app=app,
+            user_id="user-1",
+            user_query="hello",
+            messages=[],
+            provider_config={
+                "config": {
+                    "account_id": "acc-1",
+                    "ak": "ak-1",
+                    "sk": "sk-1",
+                    "collection_name": "collection-1",
+                    "domain": domain,
+                }
+            },
+        )
+    )
+
+    assert [chunk.content for chunk in chunks] == ["ok"]
+    assert request_state["url"] == normalized_url
+    assert request_state["headers"]["Host"] == expected_host
+
+
+def test_safe_provider_client_uses_separate_read_and_total_timeouts(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+            "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS": 90,
+        }.get,
+    )
+
+    client = common.safe_provider_client(
+        app,
+        trusted_origins_config="COZE_TRUSTED_ORIGINS",
+    )
+
+    assert client.policy.read_timeout_seconds == 20
+    assert client.policy.total_timeout_seconds == 90
+
+
+def test_safe_provider_client_honors_total_timeout_below_read_timeout(
+    app: object,
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        common,
+        "get_config",
+        {
+            "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
+            "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS": 10,
+        }.get,
+    )
+
+    client = common.safe_provider_client(
+        app,
+        trusted_origins_config="COZE_TRUSTED_ORIGINS",
+    )
+
+    assert client.policy.read_timeout_seconds == 20
+    assert client.policy.total_timeout_seconds == 10
+
+
+@pytest.mark.parametrize("configured_value", ["invalid", 0, -1])
+def test_provider_total_timeout_rejects_invalid_config(
+    monkeypatch: object,
+    configured_value: object,
+) -> None:
+    monkeypatch.setattr(common, "get_config", lambda _name: configured_value)
+
+    with pytest.raises(ValueError, match="ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS"):
+        common.provider_total_timeout_seconds()
+
+
+def test_safe_provider_client_requires_https_by_default(app: object) -> None:
+    client = common.safe_provider_client(
+        app,
+        trusted_origins_config="COZE_TRUSTED_ORIGINS",
+    )
+
+    assert client.policy.allowed_schemes == frozenset({"https"})
+
+
+def test_safe_provider_client_allows_explicit_private_http_opt_in(
+    app: object, monkeypatch: object
+) -> None:
+    allow_insecure_http = True
+    monkeypatch.setitem(
+        app.config, "ASK_PROVIDER_ALLOW_INSECURE_HTTP", allow_insecure_http
+    )
+
+    client = common.safe_provider_client(
+        app,
+        trusted_origins_config="COZE_TRUSTED_ORIGINS",
+    )
+
+    assert client.policy.allowed_schemes == frozenset({"http", "https"})
+
+
+def test_volc_knowledge_adapter_missing_config_raises_error(app: object) -> None:
     adapter = module.VolcKnowledgeAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="account_id/ak/sk"):
@@ -469,20 +863,153 @@ def test_volc_knowledge_adapter_missing_config_raises_error(app):
         )
 
 
-def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatch):
+def test_volc_knowledge_connection_refused_is_not_reported_as_timeout(
+    app: object, monkeypatch: object
+) -> None:
+    adapter = module.VolcKnowledgeAskProviderAdapter()
+    normalized_url = (
+        "https://api-knowledgebase.mlp.cn-beijing.volces.com/"
+        "api/knowledge/collection/search_knowledge"
+    )
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "validate_url",
+        lambda *_args, **_kwargs: types.SimpleNamespace(url=normalized_url),
+    )
+
+    def _raise_connection_refused(*_args: object, **_kwargs: object) -> None:
+        raise NewConnectionError(None, "Connection refused")
+
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        _raise_connection_refused,
+    )
+
+    with pytest.raises(
+        module.AskProviderError,
+        match="volc_knowledge request was rejected or failed",
+    ) as exc_info:
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "account_id": "acc-1",
+                        "ak": "ak-1",
+                        "sk": "sk-1",
+                        "collection_name": "collection-1",
+                    }
+                },
+            )
+        )
+
+    assert not isinstance(exc_info.value, module.AskProviderTimeoutError)
+
+
+@pytest.mark.parametrize(
+    ("adapter", "provider_config", "error_message"),
+    [
+        (
+            module.CozeAskProviderAdapter(),
+            {
+                "config": {
+                    "api_key": "coze-secret",
+                    "bot_id": "bot-1",
+                    "base_url": "http://127.0.0.1",
+                }
+            },
+            "coze request was rejected or failed",
+        ),
+        (
+            module.CozeWorkflowAskProviderAdapter(),
+            {
+                "config": {
+                    "api_key": "coze-secret",
+                    "workflow_id": "workflow-1",
+                    "base_url": "http://169.254.169.254",
+                }
+            },
+            "coze_workflow request was rejected or failed",
+        ),
+        (
+            module.VolcKnowledgeAskProviderAdapter(),
+            {
+                "config": {
+                    "account_id": "acc-1",
+                    "ak": "ak-1",
+                    "sk": "sk-1",
+                    "collection_name": "collection-1",
+                    "domain": "[::1]",
+                    "scheme": "http",
+                }
+            },
+            "volc_knowledge request was rejected or failed",
+        ),
+    ],
+)
+def test_configurable_ask_providers_reject_internal_destinations(
+    app: object,
+    adapter: object,
+    provider_config: dict[str, object],
+    error_message: str,
+) -> None:
+    with pytest.raises(module.AskProviderError, match=error_message):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config=provider_config,
+            )
+        )
+
+
+def test_coze_absolute_api_path_is_still_checked_by_safe_outbound(
+    app: object,
+) -> None:
+    adapter = module.CozeAskProviderAdapter()
+
+    with pytest.raises(
+        module.AskProviderError,
+        match="coze request was rejected or failed",
+    ):
+        list(
+            adapter.stream_answer(
+                app=app,
+                user_id="user-1",
+                user_query="hello",
+                messages=[],
+                provider_config={
+                    "config": {
+                        "api_key": "coze-secret",
+                        "api_path": "http://127.0.0.1/private",
+                    }
+                },
+            )
+        )
+
+
+def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
 
     request_state = {}
 
-    def _fake_post(url, **kwargs):
+    def _fake_post(url: object, **kwargs: object) -> object:
         request_state["url"] = url
         request_state["headers"] = kwargs.get("headers") or {}
         request_state["json"] = kwargs.get("json")
@@ -518,7 +1045,7 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatc
 
     captured_context = {}
 
-    def _context_stream_factory(knowledge_context):
+    def _context_stream_factory(knowledge_context: object) -> object:
         captured_context["value"] = knowledge_context
         return iter(
             [
@@ -572,8 +1099,8 @@ def test_get_biji_knowledge_adapter_synthesizes_with_llm_context(app, monkeypatc
 
 
 def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -599,7 +1126,7 @@ def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
 
     captured_context = {}
 
-    def _context_stream_factory(knowledge_context):
+    def _context_stream_factory(knowledge_context: object) -> object:
         captured_context["value"] = knowledge_context
         return iter([types.SimpleNamespace(result="answer")])
 
@@ -629,8 +1156,8 @@ def test_get_biji_knowledge_adapter_skips_results_without_title_or_content(
 
 
 def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
@@ -643,7 +1170,7 @@ def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context
 
     captured_context = {}
 
-    def _context_stream_factory(knowledge_context):
+    def _context_stream_factory(knowledge_context: object) -> object:
         captured_context["value"] = knowledge_context
         return iter([types.SimpleNamespace(result="fallback answer")])
 
@@ -672,15 +1199,17 @@ def test_get_biji_knowledge_adapter_empty_results_synthesizes_with_empty_context
     assert [chunk.content for chunk in chunks] == ["fallback answer"]
 
 
-def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(app, monkeypatch):
+def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     monkeypatch.setattr(
         common,
         "get_config",
-        lambda key: {
+        {
             "ASK_PROVIDER_TIMEOUT_SECONDS": 20,
-        }.get(key),
+        }.get,
     )
     monkeypatch.setattr(
         get_biji_knowledge_adapter.requests,
@@ -722,7 +1251,7 @@ def test_get_biji_knowledge_adapter_without_runtime_emits_snippets(app, monkeypa
     ]
 
 
-def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
+def test_get_biji_knowledge_adapter_missing_config_raises_error(app: object) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
     with pytest.raises(
@@ -744,11 +1273,14 @@ def test_get_biji_knowledge_adapter_missing_config_raises_error(app):
         )
 
 
-def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatch):
+def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
 
-    def _raise_timeout(*_args, **_kwargs):
-        raise requests.Timeout("timeout")
+    def _raise_timeout(*_args: object, **_kwargs: object) -> None:
+        message = "timeout"
+        raise requests.Timeout(message)
 
     monkeypatch.setattr(get_biji_knowledge_adapter.requests, "post", _raise_timeout)
 
@@ -770,7 +1302,9 @@ def test_get_biji_knowledge_adapter_timeout_raises_timeout_error(app, monkeypatc
         )
 
 
-def test_get_biji_knowledge_adapter_http_error_raises_provider_error(app, monkeypatch):
+def test_get_biji_knowledge_adapter_http_error_raises_provider_error(
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
     http_error = requests.HTTPError("bad request")
 
@@ -805,9 +1339,10 @@ def test_get_biji_knowledge_adapter_http_error_raises_provider_error(app, monkey
 
 
 def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
+    monkeypatch.setattr(get_biji_knowledge_adapter, "_", lambda key: key)
 
     monkeypatch.setattr(
         get_biji_knowledge_adapter.requests,
@@ -845,32 +1380,44 @@ def test_get_biji_knowledge_adapter_api_error_includes_message_and_reason(
             )
         )
 
-    assert "membership" in (exc_info.value.user_message or "")
+    assert exc_info.value.user_message == "server.learn.askProviderNotMember"
 
 
 def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
-    app, monkeypatch
-):
+    app: object, monkeypatch: object
+) -> None:
     adapter = module.GetBijiKnowledgeAskProviderAdapter()
+    # Assert the selected message key independently of the active test locale.
+    monkeypatch.setattr(get_biji_knowledge_adapter, "_", lambda key: key)
     cases = [
         # Auth failures arrive as HTTP 401 with a business error body.
-        ({"code": 10004, "message": "unauthorized"}, 401, "API Key"),
-        ({"code": 10001, "message": "auth failed"}, 401, "API Key"),
+        (
+            {"code": 10004, "message": "unauthorized"},
+            401,
+            "server.learn.askProviderAuthFailed",
+        ),
+        (
+            {"code": 10001, "message": "auth failed"},
+            401,
+            "server.learn.askProviderAuthFailed",
+        ),
         (
             {"code": 10203, "message": "quota", "reason": "quota_daily_exceeded"},
             429,
-            "quota",
+            "server.learn.askProviderRateLimited",
         ),
         ({"code": 30000, "message": "internal"}, 500, None),
     ]
 
-    for error_body, status_code, expected_fragment in cases:
+    for error_body, status_code, expected_message_key in cases:
         monkeypatch.setattr(
             get_biji_knowledge_adapter.requests,
             "post",
-            lambda *_args, **_kwargs: _FakeResponse(
-                status_code=status_code,
-                json_data={"success": False, "data": None, "error": error_body},
+            lambda *_args, status_code=status_code, error_body=error_body, **_kwargs: (
+                _FakeResponse(
+                    status_code=status_code,
+                    json_data={"success": False, "data": None, "error": error_body},
+                )
             ),
         )
 
@@ -892,15 +1439,15 @@ def test_get_biji_knowledge_adapter_maps_business_errors_to_user_messages(
             )
 
         user_message = exc_info.value.user_message
-        if expected_fragment is None:
+        if expected_message_key is None:
             assert user_message is None, f"error {error_body} should have no mapping"
         else:
-            assert expected_fragment in (user_message or ""), (
-                f"error {error_body} should map to a message containing {expected_fragment}"
+            assert user_message == expected_message_key, (
+                f"error {error_body} should map to {expected_message_key}"
             )
 
 
-def test_render_knowledge_rule_and_section():
+def test_render_knowledge_rule_and_section() -> None:
     rule = common.render_knowledge_rule()
     section = common.render_knowledge_section("retrieved material", include_rule=False)
     section_with_rule = common.render_knowledge_section(
@@ -915,7 +1462,7 @@ def test_render_knowledge_rule_and_section():
     assert "{knowledge_rule}" not in section
 
 
-def test_apply_knowledge_context_fills_rule_and_section_placeholders():
+def test_apply_knowledge_context_fills_rule_and_section_placeholders() -> None:
     prompt = (
         "# rules\n- learned rule\n{knowledge_rule}\n- unlearned rule\n\n"
         "{knowledge_section}\n\n# settings"
@@ -933,7 +1480,7 @@ def test_apply_knowledge_context_fills_rule_and_section_placeholders():
     assert filled.count(rule) == 1
 
 
-def test_apply_knowledge_context_removes_rule_and_section_without_knowledge():
+def test_apply_knowledge_context_removes_rule_and_section_without_knowledge() -> None:
     prompt = (
         "# rules\n- learned rule\n{knowledge_rule}\n- unlearned rule\n\n"
         "{knowledge_section}\n\n# settings"
@@ -945,7 +1492,7 @@ def test_apply_knowledge_context_removes_rule_and_section_without_knowledge():
     assert filled == "# rules\n- learned rule\n- unlearned rule\n\n# settings"
 
 
-def test_apply_knowledge_context_appends_section_for_legacy_prompts():
+def test_apply_knowledge_context_appends_section_for_legacy_prompts() -> None:
     prompt = "legacy prompt without placeholder"
 
     filled = common.apply_knowledge_context(prompt, "retrieved material")
@@ -961,13 +1508,13 @@ def test_apply_knowledge_context_appends_section_for_legacy_prompts():
     assert common.render_knowledge_rule() in filled
 
 
-def test_apply_knowledge_context_keeps_legacy_prompt_without_knowledge():
+def test_apply_knowledge_context_keeps_legacy_prompt_without_knowledge() -> None:
     prompt = "legacy prompt without placeholder"
 
     assert common.apply_knowledge_context(prompt, "") == prompt
 
 
-def test_apply_knowledge_to_messages_updates_first_system_message():
+def test_apply_knowledge_to_messages_updates_first_system_message() -> None:
     messages = [
         {"role": "system", "content": "rules {knowledge_section} end"},
         {"role": "user", "content": "question"},
@@ -982,7 +1529,7 @@ def test_apply_knowledge_to_messages_updates_first_system_message():
     assert messages[0]["content"] == "rules {knowledge_section} end"
 
 
-def test_apply_knowledge_to_messages_prepends_system_when_missing():
+def test_apply_knowledge_to_messages_prepends_system_when_missing() -> None:
     messages = [{"role": "user", "content": "question"}]
 
     updated = common.apply_knowledge_to_messages(messages, "retrieved material")
@@ -995,7 +1542,7 @@ def test_apply_knowledge_to_messages_prepends_system_when_missing():
     assert unchanged == messages
 
 
-def test_llm_adapter_streams_from_runtime_factory(app):
+def test_llm_adapter_streams_from_runtime_factory(app: object) -> None:
     adapter = module.LlmAskProviderAdapter()
 
     runtime = module.AskProviderRuntime(
@@ -1023,7 +1570,7 @@ def test_llm_adapter_streams_from_runtime_factory(app):
     assert [chunk.content for chunk in chunks] == ["hello", " world"]
 
 
-def test_llm_adapter_missing_runtime_raises_config_error(app):
+def test_llm_adapter_missing_runtime_raises_config_error(app: object) -> None:
     adapter = module.LlmAskProviderAdapter()
 
     with pytest.raises(module.AskProviderConfigError, match="llm runtime"):
@@ -1038,7 +1585,7 @@ def test_llm_adapter_missing_runtime_raises_config_error(app):
         )
 
 
-def test_stream_ask_provider_response_uses_llm_adapter_runtime(app):
+def test_stream_ask_provider_response_uses_llm_adapter_runtime(app: object) -> None:
     runtime = module.AskProviderRuntime(
         llm_stream_factory=lambda: iter([types.SimpleNamespace(result="from-llm")])
     )
@@ -1056,3 +1603,372 @@ def test_stream_ask_provider_response_uses_llm_adapter_runtime(app):
     )
 
     assert [chunk.content for chunk in chunks] == ["from-llm"]
+
+
+def test_dify_transports_shared_course_memory_to_outbound_query(
+    dify_app: object, monkeypatch: object
+) -> None:
+    """Verify the actual adapter serializes the shared context, beyond builder-only claims."""
+    from flaskr.service.learn import follow_up_context
+    from flaskr.service.learn.agent import routing
+
+    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
+    monkeypatch.setattr(
+        follow_up_context, "load_follow_up_history", lambda **_kwargs: []
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    captured = {}
+
+    def request(
+        _self: object, _method: object, _url: object, **kwargs: object
+    ) -> object:
+        captured.update(json.loads(kwargs["body"]))
+        return _FakeResponse(
+            lines=['data: {"event":"message","answer":"reply"}', "data: [DONE]"]
+        )
+
+    monkeypatch.setattr(dify_adapter.SafeOutboundClient, "request", request)
+    conversation = follow_up_context.build_follow_up_conversation_context(
+        dify_app,
+        user_info=types.SimpleNamespace(user_id="learner"),
+        shifu_bid="course",
+        outline_item_bid="lesson",
+        progress_record_bid="progress",
+        follow_up_info=types.SimpleNamespace(ask_prompt="Answer the question."),
+        course_system_prompt=None,
+        use_learner_language=False,
+        runtime_language="en-US",
+        runtime_profiles={"practice_code": "STORED COURSE CODE"},
+    )
+    list(
+        module.DifyAskProviderAdapter().stream_answer(
+            app=dify_app,
+            user_id="learner",
+            user_query="Recall my code",
+            messages=[
+                *conversation.provider_messages,
+                {"role": "user", "content": "Recall my code"},
+            ],
+            provider_config={
+                "config": {
+                    "base_url": "https://dify.example.com",
+                    "api_key": "test-key",
+                }
+            },
+        )
+    )
+    assert "STORED COURSE CODE" in captured["query"]
+    assert "<course_memory>" in captured["query"]
+    assert "Recall my code" in captured["query"]
+
+
+@pytest.fixture
+def coze_request(app: object, monkeypatch: pytest.MonkeyPatch) -> object:
+    """Capture the real safe-client request without contacting a provider."""
+    captured = {}
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+
+    def request(_self: object, method: str, url: str, **kwargs: object) -> object:
+        """Capture serialized request data and return one safe streaming chunk."""
+        captured.update(method=method, url=url, payload=json.loads(kwargs["body"]))
+        return _FakeResponse(lines=['data: {"event":"message","content":"ok"}'])
+
+    monkeypatch.setattr(common.SafeOutboundClient, "request", request)
+
+    def send(messages: list, query: str = "Current question", **config: object) -> dict:
+        """Exercise the actual adapter with caller-selected context and configuration."""
+        chunks = list(
+            module.CozeAskProviderAdapter().stream_answer(
+                app=app,
+                user_id="learner",
+                user_query=query,
+                messages=messages,
+                provider_config={
+                    "config": {"api_key": "test-key", "bot_id": "bot", **config}
+                },
+            )
+        )
+        assert [chunk.content for chunk in chunks] == ["ok"]
+        return captured["payload"]
+
+    return send
+
+
+@pytest.mark.parametrize(
+    "api_path", ["/v3/chat", "/v3/chat/", "https://api.coze.cn/v3/chat?source=test"]
+)
+def test_coze_transmits_course_context_and_native_history(
+    coze_request: object, api_path: str
+) -> None:
+    """Native chat receives course data, prior answers and one final current question."""
+    messages = [
+        {
+            "role": "system",
+            "content": 'Course facts: "short examples"; untrusted data.',
+        },
+        {"role": "assistant", "content": "Selected lesson anchor"},
+        {"role": "user", "content": "Earlier question"},
+        {"role": "assistant", "content": "Earlier answer"},
+        {"role": "user", "content": "Current question"},
+    ]
+    original = json.loads(json.dumps(messages))
+    sent = coze_request(messages, api_path=api_path)["additional_messages"]
+    assert len(sent) == 5
+    assert sent[0]["role"] == "user"
+    assert json.loads(sent[0]["content"].split("\n", 1)[1])["course_context"] == [
+        messages[0]["content"]
+    ]
+    assert [(m["role"], m["content"]) for m in sent[1:]] == [
+        (m["role"], m["content"]) for m in messages[1:]
+    ]
+    assert all(m["content_type"] == "text" for m in sent)
+    assert all(m["type"] == "answer" for m in sent if m["role"] == "assistant")
+    assert all(m["type"] == "question" for m in sent if m["role"] == "user")
+    assert messages == original
+
+
+@pytest.mark.parametrize("with_context", [False, True])
+def test_coze_keeps_recent_history_within_api_message_limit(
+    coze_request: object, with_context: bool
+) -> None:
+    """Overflow drops oldest history while reserving current query and course context."""
+    history = [{"role": "assistant", "content": f"History {i}"} for i in range(140)]
+    messages = (
+        [{"role": "system", "content": "Course memory"}] if with_context else []
+    ) + history
+    sent = coze_request(messages)["additional_messages"]
+    assert len(sent) == 100
+    retained = sent[1:-1] if with_context else sent[:-1]
+    assert [m["content"] for m in retained] == [
+        m["content"] for m in history[-len(retained) :]
+    ]
+    assert sent[-1]["content"] == "Current question"
+    if with_context:
+        assert "Course memory" in sent[0]["content"]
+
+
+def test_coze_preserves_earlier_identical_questions_and_filters_non_chat_roles(
+    coze_request: object,
+) -> None:
+    """Deduplicate only the host's final query and omit tool or malformed content."""
+    sent = coze_request(
+        [
+            {"role": "user", "content": "Current question"},
+            {"role": "assistant", "content": "Old answer"},
+            {"role": "tool", "content": "Private tool result"},
+            {"role": [], "content": "Invalid role"},
+            {"role": "system", "content": {"not": "text"}},
+            {"role": "user", "content": "  "},
+            {"role": "user", "content": "Current question"},
+        ]
+    )["additional_messages"]
+    assert [(m["role"], m["content"]) for m in sent] == [
+        ("user", "Current question"),
+        ("assistant", "Old answer"),
+        ("user", "Current question"),
+    ]
+
+
+def test_coze_keeps_custom_payload_override_and_non_chat_endpoint(
+    coze_request: object,
+) -> None:
+    """Explicit payload ownership and bespoke endpoints retain their existing contract."""
+    messages = [{"role": "system", "content": "Course memory"}]
+    custom = [{"role": "user", "content": "Custom query", "content_type": "text"}]
+    payload = coze_request(
+        messages,
+        extra_body={"additional_messages": custom, "custom_variables": {"x": "y"}},
+    )
+    assert payload["additional_messages"] == custom
+    assert payload["custom_variables"] == {"x": "y"}
+    payload = coze_request(
+        messages, api_path="/custom/chat", conversation_id="existing"
+    )
+    assert payload["additional_messages"] == [
+        {"role": "user", "content": "Current question", "content_type": "text"}
+    ]
+    assert payload["conversation_id"] == "existing"
+
+
+def test_coze_unrelated_extra_body_preserves_context(coze_request: object) -> None:
+    """Bot parameters do not disable normal host context delivery."""
+    sent = coze_request(
+        [{"role": "system", "content": "Course memory"}],
+        extra_body={
+            "auto_save_history": False,
+            "custom_variables": {"goal": "practice"},
+        },
+    )
+    assert len(sent["additional_messages"]) == 2
+    assert "Course memory" in sent["additional_messages"][0]["content"]
+    assert sent["auto_save_history"] is False
+    assert sent["custom_variables"] == {"goal": "practice"}
+
+
+def test_coze_malformed_response_does_not_log_course_context(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A provider echo cannot expose newly transmitted memory in ordinary warnings."""
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "warning", lambda *args, **_kwargs: logged.append(args)
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(
+            lines=[
+                "data: not-json PRIVATE COURSE NOTE",
+                'data: {"event":"message","content":"ok"}',
+            ]
+        ),
+    )
+    chunks = list(
+        module.CozeAskProviderAdapter().stream_answer(
+            app,
+            "learner",
+            "Current question",
+            [{"role": "system", "content": "PRIVATE COURSE NOTE"}],
+            {"config": {"api_key": "test-key", "bot_id": "bot"}},
+        )
+    )
+    assert [chunk.content for chunk in chunks] == ["ok"]
+    assert logged
+    assert "PRIVATE COURSE NOTE" not in repr(logged)
+
+
+def test_coze_malformed_url_keeps_provider_error_contract(app: object) -> None:
+    """Native-path detection cannot leak URL parser exceptions past the adapter."""
+    with pytest.raises(
+        module.AskProviderError, match="coze request was rejected or failed"
+    ):
+        list(
+            module.CozeAskProviderAdapter().stream_answer(
+                app,
+                "learner",
+                "Current question",
+                [],
+                {
+                    "config": {
+                        "api_key": "test-key",
+                        "bot_id": "bot",
+                        "api_path": "https://[invalid/v3/chat",
+                    }
+                },
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        {"event": "error", "content": "PRIVATE COURSE NOTE"},
+        {"type": "error", "data": {"message": "PRIVATE COURSE NOTE"}},
+        {"type": "error", "detail": "PRIVATE COURSE NOTE"},
+        {"event": "conversation.chat.failed", "content": "PRIVATE COURSE NOTE"},
+    ],
+)
+def test_coze_error_echo_does_not_escape_into_host_logs(
+    app: object, monkeypatch: pytest.MonkeyPatch, error: dict
+) -> None:
+    """Provider exceptions must be safe for the host's existing exception warning."""
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(lines=["data: " + json.dumps(error)]),
+    )
+    with pytest.raises(
+        module.AskProviderError, match="coze returned an error event"
+    ) as raised:
+        list(
+            module.CozeAskProviderAdapter().stream_answer(
+                app,
+                "learner",
+                "Current question",
+                [{"role": "system", "content": "PRIVATE COURSE NOTE"}],
+                {"config": {"api_key": "test-key", "bot_id": "bot"}},
+            )
+        )
+    assert "PRIVATE COURSE NOTE" not in str(raised.value)
+    assert raised.value.__cause__ is None
+
+
+@pytest.mark.parametrize("event", ["error", "conversation.chat.failed"])
+@pytest.mark.parametrize("partial", [False, True])
+def test_coze_native_sse_failure_is_sanitized(
+    app: object, monkeypatch: pytest.MonkeyPatch, event: str, partial: bool
+) -> None:
+    """Separate native event/data frames fail safely before or after answer chunks."""
+    lines = ['data: {"content":"partial answer"}'] if partial else []
+    lines.extend(
+        [f"event: {event}", 'data: {"code":5000,"msg":"PRIVATE COURSE NOTE"}', ""]
+    )
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "warning", lambda *args, **_kwargs: logged.append(args)
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(lines=lines),
+    )
+    stream = module.CozeAskProviderAdapter().stream_answer(
+        app,
+        "learner",
+        "Current question",
+        [],
+        {"config": {"api_key": "test-key", "bot_id": "bot"}},
+    )
+    if partial:
+        assert next(stream).content == "partial answer"
+    with pytest.raises(
+        module.AskProviderError, match="coze returned an error event"
+    ) as raised:
+        next(stream)
+    assert "PRIVATE COURSE NOTE" not in str(raised.value)
+    assert not logged
+
+
+def test_coze_native_success_headers_are_not_malformed_payloads(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Valid event headers never produce spurious warnings or suppress answer data."""
+    logged = []
+    monkeypatch.setattr(
+        app.logger, "warning", lambda *args, **_kwargs: logged.append(args)
+    )
+    monkeypatch.setattr(common, "get_config", {"ASK_PROVIDER_TIMEOUT_SECONDS": 20}.get)
+    monkeypatch.setattr(
+        common.SafeOutboundClient,
+        "request",
+        lambda *_args, **_kwargs: _FakeResponse(
+            lines=[
+                "event: conversation.chat.created",
+                'data: {"status":"created"}',
+                "",
+                "event: conversation.message.delta",
+                'data: {"type":"answer","content":"ok"}',
+                "",
+                "event: conversation.chat.completed",
+                'data: {"status":"completed"}',
+                "",
+                "event: done",
+                "data: [DONE]",
+                "",
+            ]
+        ),
+    )
+    chunks = list(
+        module.CozeAskProviderAdapter().stream_answer(
+            app,
+            "learner",
+            "Current question",
+            [],
+            {"config": {"api_key": "test-key", "bot_id": "bot"}},
+        )
+    )
+    assert [chunk.content for chunk in chunks] == ["ok"]
+    assert not logged

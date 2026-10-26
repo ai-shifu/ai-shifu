@@ -1,33 +1,36 @@
-"""
-Promo functions
-"""
+"""Promo functions."""
 
-from contextlib import nullcontext
 import decimal
 
+from flask import Flask
+from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.service.common.pricing import calculate_percentage_amount
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc
 from sqlalchemy import and_, func, or_
+from sqlalchemy.sql.elements import ColumnElement
 
-from .models import (
-    CouponUsage as CouponUsageModel,
-    PromoCampaign,
-    PromoRedemption,
-)
-from ...dao import db
-from ...util.datetime import now_utc
 from .consts import (
     COUPON_BATCH_STATUS_ACTIVE,
     COUPON_BATCH_STATUS_INACTIVE,
     COUPON_STATUS_ACTIVE,
     COUPON_STATUS_USED,
+    COUPON_TYPE_FIXED,
+    COUPON_TYPE_PERCENT,
     PROMO_CAMPAIGN_APPLICATION_STATUS_APPLIED,
     PROMO_CAMPAIGN_APPLICATION_STATUS_VOIDED,
     PROMO_CAMPAIGN_JOIN_TYPE_AUTO,
     PROMO_CAMPAIGN_STATUS_ACTIVE,
     PROMO_CAMPAIGN_STATUS_INACTIVE,
 )
-from flask import Flask, has_app_context
-from ...util import generate_id
-from .consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
+from .models import (
+    CouponUsage as CouponUsageModel,
+)
+from .models import (
+    PromoCampaign,
+    PromoRedemption,
+)
 
 
 def _is_legacy_operator_promotion(record: object) -> bool:
@@ -37,14 +40,16 @@ def _is_legacy_operator_promotion(record: object) -> bool:
     )
 
 
-def is_coupon_enabled_for_runtime(coupon) -> bool:
+def is_coupon_enabled_for_runtime(coupon: object) -> bool:
+    """Return whether coupon enabled for runtime."""
     status = int(getattr(coupon, "status", 0) or 0)
     return status == COUPON_BATCH_STATUS_ACTIVE or (
         status == COUPON_BATCH_STATUS_INACTIVE and _is_legacy_operator_promotion(coupon)
     )
 
 
-def is_campaign_enabled_for_runtime(campaign) -> bool:
+def is_campaign_enabled_for_runtime(campaign: object) -> bool:
+    """Return whether campaign enabled for runtime."""
     status = int(getattr(campaign, "status", 0) or 0)
     return status == PROMO_CAMPAIGN_STATUS_ACTIVE or (
         status == PROMO_CAMPAIGN_STATUS_INACTIVE
@@ -52,7 +57,7 @@ def is_campaign_enabled_for_runtime(campaign) -> bool:
     )
 
 
-def _blank_legacy_bid_expression(column):
+def _blank_legacy_bid_expression(column: object) -> ColumnElement[bool]:
     normalized = func.coalesce(column, "")
     normalized = func.replace(normalized, "\t", "")
     normalized = func.replace(normalized, "\n", "")
@@ -60,7 +65,8 @@ def _blank_legacy_bid_expression(column):
     return func.trim(normalized) == ""
 
 
-def build_coupon_enabled_expression(model_or_columns):
+def build_coupon_enabled_expression(model_or_columns: object) -> ColumnElement[bool]:
+    """Build coupon enabled expression."""
     return or_(
         model_or_columns.status == COUPON_BATCH_STATUS_ACTIVE,
         and_(
@@ -71,7 +77,8 @@ def build_coupon_enabled_expression(model_or_columns):
     )
 
 
-def build_campaign_enabled_expression(model_or_columns):
+def build_campaign_enabled_expression(model_or_columns: object) -> ColumnElement[bool]:
+    """Build campaign enabled expression."""
     return or_(
         model_or_columns.status == PROMO_CAMPAIGN_STATUS_ACTIVE,
         and_(
@@ -82,19 +89,18 @@ def build_campaign_enabled_expression(model_or_columns):
     )
 
 
-def _app_context_scope(app: Flask):
-    return nullcontext() if has_app_context() else app.app_context()
+def timeout_coupon_code_rollback(
+    app: Flask, user_bid: object, order_bid: object
+) -> None:
+    """Timeout coupon code rollback.
 
-
-def timeout_coupon_code_rollback(app: Flask, user_bid, order_bid):
-    """
-    Timeout coupon code rollback
     Args:
         app: Flask app
         user_bid: User bid
-        order_bid: Order bid
+        order_bid: Order bid.
+
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         usage = CouponUsageModel.query.filter(
             CouponUsageModel.user_bid == user_bid,
             CouponUsageModel.order_bid == order_bid,
@@ -103,12 +109,11 @@ def timeout_coupon_code_rollback(app: Flask, user_bid, order_bid):
         if not usage:
             return
         usage.status = COUPON_STATUS_ACTIVE
-        db.session.commit()
 
 
 def void_promo_campaign_applications(app: Flask, user_bid: str, order_bid: str) -> None:
     """Mark applied promo campaign applications as voided for an order."""
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         PromoRedemption.query.filter(
             PromoRedemption.order_bid == order_bid,
             PromoRedemption.user_bid == user_bid,
@@ -121,7 +126,6 @@ def void_promo_campaign_applications(app: Flask, user_bid: str, order_bid: str) 
             },
             synchronize_session="fetch",
         )
-        db.session.commit()
 
 
 def _calculate_discount_amount(
@@ -130,11 +134,7 @@ def _calculate_discount_amount(
     if discount_type == COUPON_TYPE_FIXED:
         result = decimal.Decimal(value)
     elif discount_type == COUPON_TYPE_PERCENT:
-        result = (
-            decimal.Decimal(value)
-            * decimal.Decimal(payable_price)
-            / decimal.Decimal(100)
-        )
+        result = calculate_percentage_amount(payable_price, value)
     else:
         result = decimal.Decimal("0.00")
     return result.quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_HALF_UP)
@@ -149,7 +149,7 @@ def apply_promo_campaigns(
     payable_price: decimal.Decimal,
 ) -> list[PromoRedemption]:
     """Apply eligible promo campaigns to an order and create application records."""
-    with _app_context_scope(app):
+    with app_context_scope(app):
         now = now_utc()
 
         campaigns: list[PromoCampaign] = PromoCampaign.query.filter(
@@ -234,7 +234,7 @@ def query_promo_campaign_applications(
     app: Flask, order_bid: str, recalc_discount: bool
 ) -> list[PromoRedemption]:
     """Query promo campaign applications tied to an order."""
-    with _app_context_scope(app):
+    with app_context_scope(app):
         records: list[PromoRedemption] = PromoRedemption.query.filter(
             PromoRedemption.order_bid == order_bid,
             PromoRedemption.deleted == 0,

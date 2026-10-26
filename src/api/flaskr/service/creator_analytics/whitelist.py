@@ -19,25 +19,27 @@ builder, driven by :class:`TableSpec` flags:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import FrozenSet, Mapping, Optional, Type
+from typing import TYPE_CHECKING
 
+from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnLessonFeedback,
     LearnProgressRecord,
 )
-from flaskr.service.billing.models import BillingDailyUsageMetric
 from flaskr.service.order.models import Order
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.shifu.models import DraftShifu, PublishedShifu, ShifuUserArchive
 from flaskr.service.user.models import UserInfo
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
-ALLOWED_AGGREGATE_FUNCTIONS: FrozenSet[str] = frozenset(
+ALLOWED_AGGREGATE_FUNCTIONS: frozenset[str] = frozenset(
     {"count", "count_distinct", "sum", "avg", "min", "max"}
 )
 
-ALLOWED_OPERATORS: FrozenSet[str] = frozenset(
+ALLOWED_OPERATORS: frozenset[str] = frozenset(
     {
         "=",
         "!=",
@@ -60,31 +62,38 @@ class TableSpec:
     """Declarative whitelist for one analyzable table."""
 
     table_key: str
-    model: Type
-    selectable: FrozenSet[str]
-    filterable: FrozenSet[str]
-    groupable: FrozenSet[str]
-    aggregatable: Mapping[str, FrozenSet[str]]
+    model: type
+    selectable: frozenset[str]
+    filterable: frozenset[str]
+    groupable: frozenset[str]
+    aggregatable: Mapping[str, frozenset[str]]
     has_deleted: bool
     # True for shifu-scoped tables (sql_builder injects WHERE shifu_bid=:sb).
-    # False for global tables like user_users — permission is still enforced
-    # by funcs.run_dsl using get_user_shifu_permissions, but the SQL cannot
-    # filter by a column the table does not have.
+    # False for global tables like user_users. Permission is still enforced by
+    # funcs.run_dsl, and course_learner_scoped can add a relationship predicate
+    # when the table itself has no shifu_bid column.
     has_shifu_bid: bool = True
     # When non-None, sql_builder injects WHERE <col> = :__user_id (the caller).
     # Used for creator-owned metadata tables (shifu_published_shifus /
     # shifu_draft_shifus) so the row's creator must match the caller. Pairs
     # with has_shifu_bid for a double-gate: shifu permission AND row ownership.
-    creator_scoped_column: Optional[str] = None
+    creator_scoped_column: str | None = None
     # When True, sql_builder injects AND status = 1 to exclude rerolled /
     # superseded history rows. Only enabled where status semantics are
     # "1 = current, 0 = history" (e.g. learn_generated_blocks).
     auto_filter_status_active: bool = False
+    # Restrict a global user table to learners associated with the requested
+    # course through active progress or a successful manual-import order.
+    course_learner_scoped: bool = False
+    # Course metadata uses the highest non-deleted id for the requested shifu.
+    # Resolve that version before applying caller ownership or DSL filters,
+    # so a historical row cannot become current by matching a filter.
+    latest_course_version_only: bool = False
 
 
-_DIMENSION_AGGS: FrozenSet[str] = frozenset({"count", "count_distinct"})
-_NUMERIC_AGGS: FrozenSet[str] = frozenset({"count", "sum", "avg", "min", "max"})
-_TIMESTAMP_AGGS: FrozenSet[str] = frozenset({"count", "min", "max"})
+_DIMENSION_AGGS: frozenset[str] = frozenset({"count", "count_distinct"})
+_NUMERIC_AGGS: frozenset[str] = frozenset({"count", "sum", "avg", "min", "max"})
+_TIMESTAMP_AGGS: frozenset[str] = frozenset({"count", "min", "max"})
 
 
 WHITELIST: Mapping[str, TableSpec] = {
@@ -327,8 +336,8 @@ WHITELIST: Mapping[str, TableSpec] = {
     #     one anchor filter is present: user_bid (= or in) or
     #     user_identify (= only — no in/like/range to block enumeration)
     #   - groupable / aggregatable empty (no distribution probing)
-    #   - has_shifu_bid=False — table has no shifu_bid column; permission
-    #     is still gated by funcs.run_dsl via get_user_shifu_permissions
+    #   - has_shifu_bid=False — table has no shifu_bid column; permission is
+    #     gated by funcs.run_dsl and rows are course-learner scoped in SQL
     #   - per-query limit hard-capped to 50 (see dsl._USER_USERS_LIMIT_MAX)
     #   - nickname values pass through PII redaction in funcs
     #   - user_identify values pass through PII masking in funcs
@@ -344,6 +353,7 @@ WHITELIST: Mapping[str, TableSpec] = {
         aggregatable={},
         has_deleted=True,
         has_shifu_bid=False,
+        course_learner_scoped=True,
     ),
     # ------------------------------------------------------------------
     # Course metadata tables — answer "what is shifu_bid X currently
@@ -351,6 +361,10 @@ WHITELIST: Mapping[str, TableSpec] = {
     # Two-table layout: published_shifus is the live learner-facing title;
     # draft_shifus is the in-progress editor title. They can diverge after
     # rename (draft updated, not yet republished).
+    # Each exposes only the greatest non-deleted id for the requested course,
+    # matching ordinary course reads even when timestamps tie. A deleted newer
+    # row does not hide an older non-deleted version. User filters and ownership
+    # apply to this current version, never to the version-selection candidates.
     # Security model — double-gate:
     #   1. funcs.run_dsl checks get_user_shifu_permissions for view access
     #      on dsl.shifu_bid (caller is owner or co-author).
@@ -389,6 +403,7 @@ WHITELIST: Mapping[str, TableSpec] = {
         has_deleted=True,
         has_shifu_bid=True,
         creator_scoped_column="created_user_bid",
+        latest_course_version_only=True,
     ),
     "shifu_draft_shifus": TableSpec(
         table_key="shifu_draft_shifus",
@@ -400,11 +415,11 @@ WHITELIST: Mapping[str, TableSpec] = {
         has_deleted=True,
         has_shifu_bid=True,
         creator_scoped_column="created_user_bid",
+        latest_course_version_only=True,
     ),
 }
 
 
 def get_table_spec(table_key: str) -> TableSpec:
     """Return the spec for ``table_key`` or raise :class:`KeyError`."""
-
     return WHITELIST[table_key]

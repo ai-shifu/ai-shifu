@@ -1,0 +1,502 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import api from '@/api';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/lib/admin-date-time';
+import LearnOrdersTab from './LearnOrdersTab';
+
+let mockSearchParamsValue = '';
+const translationCache = new Map<string, { t: (key: string) => string }>();
+const baseTranslation = (namespace?: string | string[]) => {
+  const ns = Array.isArray(namespace) ? namespace[0] : namespace;
+  const cacheKey = ns || 'translation';
+  if (!translationCache.has(cacheKey)) {
+    translationCache.set(cacheKey, {
+      t: (key: string) => {
+        return ns && ns !== 'translation' ? `${ns}.${key}` : key;
+      },
+    });
+  }
+  return translationCache.get(cacheKey)!;
+};
+
+jest.mock('next/link', () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...props
+  }: React.PropsWithChildren<{ href: string }>) => (
+    <a
+      href={href}
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+}));
+
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(mockSearchParamsValue),
+}));
+
+jest.mock('@/api', () => ({
+  __esModule: true,
+  default: {
+    getAdminOperationOrdersOverview: jest.fn(),
+    getAdminOperationOrders: jest.fn(),
+  },
+}));
+
+jest.mock('@/store', () => ({
+  __esModule: true,
+  useEnvStore: (
+    selector: (state: {
+      loginMethodsEnabled: string[];
+      defaultLoginMethod: string;
+      currencySymbol: string;
+    }) => unknown,
+  ) =>
+    selector({
+      loginMethodsEnabled: ['phone'],
+      defaultLoginMethod: 'phone',
+      currencySymbol: '¥',
+    }),
+}));
+
+const mockBrowserTimeZone = jest.fn(() => 'America/Los_Angeles');
+
+jest.mock('@/lib/browser-timezone', () => ({
+  getBrowserTimeZone: () => mockBrowserTimeZone(),
+}));
+
+jest.mock('react-i18next', () => ({
+  useTranslation: (namespace?: string | string[]) => baseTranslation(namespace),
+}));
+
+jest.mock('@/components/loading', () => ({
+  __esModule: true,
+  default: () => <div data-testid='loading-indicator' />,
+}));
+
+jest.mock('@/components/ErrorDisplay', () => ({
+  __esModule: true,
+  default: ({ errorMessage }: { errorMessage: string }) => (
+    <div>{errorMessage}</div>
+  ),
+}));
+
+jest.mock('./OperatorOrderDetailSheet', () => ({
+  __esModule: true,
+  default: ({ open, orderBid }: { open: boolean; orderBid?: string }) => {
+    const detailLabel = `detail:${orderBid || ''}`;
+    return open ? <div>{detailLabel}</div> : null;
+  },
+}));
+
+jest.mock('@/components/ui/Select', () => {
+  const ReactModule = jest.requireActual('react') as typeof React;
+  const SelectContext = ReactModule.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  }>({
+    value: '',
+    onValueChange: () => undefined,
+  });
+
+  return {
+    __esModule: true,
+    Select: ({
+      value,
+      onValueChange,
+      children,
+    }: React.PropsWithChildren<{
+      value: string;
+      onValueChange: (value: string) => void;
+    }>) => (
+      <SelectContext.Provider value={{ value, onValueChange }}>
+        <div>{children}</div>
+      </SelectContext.Provider>
+    ),
+    SelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
+    SelectContent: ({ children }: React.PropsWithChildren) => (
+      <div>{children}</div>
+    ),
+    SelectItem: ({
+      value,
+      children,
+    }: React.PropsWithChildren<{ value: string }>) => {
+      const context = ReactModule.useContext(SelectContext);
+      return (
+        <button
+          type='button'
+          onClick={() => context.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
+    },
+  };
+});
+
+jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
+  __esModule: true,
+  default: ({
+    placeholder,
+    onChange,
+  }: {
+    placeholder: string;
+    onChange: (range: { start: string; end: string }) => void;
+  }) => (
+    <button
+      type='button'
+      data-testid={`date-range-${placeholder}`}
+      onClick={() => onChange({ start: '2026-07-02', end: '2026-07-02' })}
+    >
+      {placeholder}
+    </button>
+  ),
+}));
+
+const mockGetAdminOperationOrders = api.getAdminOperationOrders as jest.Mock;
+const mockGetAdminOperationOrdersOverview =
+  api.getAdminOperationOrdersOverview as jest.Mock;
+
+describe('LearnOrdersTab', () => {
+  beforeEach(() => {
+    mockSearchParamsValue = '';
+    mockGetAdminOperationOrdersOverview.mockReset();
+    mockGetAdminOperationOrders.mockReset();
+    mockBrowserTimeZone.mockReturnValue('America/Los_Angeles');
+    window.localStorage.clear();
+    mockGetAdminOperationOrdersOverview.mockResolvedValue({
+      total_order_count: 10,
+      paid_order_count: 6,
+      pending_order_count: 2,
+      refunded_order_count: 1,
+      closed_order_count: 1,
+      paid_amount_total: '456.78',
+    });
+    mockGetAdminOperationOrders.mockResolvedValue({
+      items: [
+        {
+          order_bid: 'order-1',
+          shifu_bid: 'course-1',
+          shifu_name: 'Course 1',
+          user_bid: 'user-1',
+          user_mobile: '13800138000',
+          user_email: '',
+          user_nickname: 'Tester',
+          payable_price: '99',
+          paid_price: '79',
+          discount_amount: '20',
+          status: 502,
+          status_key: 'server.order.orderStatusSuccess',
+          payment_channel: 'stripe',
+          payment_channel_key: 'module.order.paymentChannel.stripe',
+          order_source: 'user_purchase',
+          order_source_key: 'module.operationsOrder.source.userPurchase',
+          coupon_codes: ['FREE100'],
+          created_at: '2026-04-23T10:00:00Z',
+          updated_at: '2026-04-23T11:00:00Z',
+        },
+      ],
+      page: 1,
+      page_count: 1,
+      page_size: 20,
+      total: 1,
+    });
+  });
+
+  test('requests operator orders on first render with default filters', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrdersOverview).toHaveBeenCalledWith({});
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        course_query: '',
+        shifu_bid: '',
+        course_name: '',
+        status: '502',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(await screen.findByText('order-1')).toBeInTheDocument();
+    expect(screen.getByText('2026-04-23 03:00:00')).toBeInTheDocument();
+    expect(screen.queryByText('2026-04-23 10:00:00')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.operationsOrder.overview.activeFilter'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('module.operationsOrder.totalCount'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.overview.metrics.pendingOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.overview.metrics.refundedOrders',
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'module.operationsOrder.overview.metrics.closedOrders',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  test('activates and clears the paid overview card without refetching the default paid view', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.overview\.metrics\.paidOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+    expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.overview\.metrics\.paidOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('module.operationsOrder.overview.activeFilter'),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+  });
+
+  test('activates and clears the total overview card while restoring the default paid view', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /^module\.operationsOrder\.overview\.metrics\.totalOrders\b/,
+      }),
+    );
+
+    expect(
+      await screen.findByText('module.operationsOrder.overview.activeFilter'),
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        course_query: '',
+        shifu_bid: '',
+        course_name: '',
+        status: '',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    const clearButtons = screen.getAllByRole('button', {
+      name: /module\.operationsOrder\.overview\.metrics\.totalOrders/,
+    });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        course_query: '',
+        shifu_bid: '',
+        course_name: '',
+        status: '502',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+  });
+
+  test('hydrates the course filter from the url query', async () => {
+    mockSearchParamsValue = 'shifu_bid=course-1';
+
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        course_query: 'course-1',
+        shifu_bid: 'course-1',
+        course_name: '',
+        status: '502',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(screen.getByDisplayValue('course-1')).toBeInTheDocument();
+  });
+
+  test('prefers the combined course query from the url query', async () => {
+    mockSearchParamsValue = 'course_query=Course%201&shifu_bid=course-1';
+
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledWith({
+        page_index: 1,
+        page_size: 20,
+        user_keyword: '',
+        order_bid: '',
+        course_query: 'Course 1',
+        shifu_bid: 'course-1',
+        course_name: '',
+        status: '502',
+        order_source: '',
+        payment_channel: '',
+        start_time: '',
+        end_time: '',
+      });
+    });
+
+    expect(screen.getByDisplayValue('Course 1')).toBeInTheDocument();
+  });
+
+  test('submits combined course search without legacy course filters', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsOrder.filters.courseQueryPlaceholder',
+      ),
+      {
+        target: { value: 'Course 1' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsOrder.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          course_query: 'Course 1',
+          shifu_bid: '',
+          course_name: '',
+        }),
+      );
+    });
+  });
+
+  test('submits filters and opens detail drawer', async () => {
+    render(<LearnOrdersTab />);
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsOrder.filters.userKeywordPlaceholderPhone',
+      ),
+      {
+        target: { value: '13800138000' },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'common.core.expand',
+      }),
+    );
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        'module.operationsOrder.filters.orderIdPlaceholder',
+      ),
+      {
+        target: { value: 'order-1' },
+      },
+    );
+    fireEvent.click(
+      screen.getByTestId(
+        'date-range-module.operationsOrder.filters.timeRangePlaceholder',
+      ),
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.operationsOrder.filters.search',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockGetAdminOperationOrders).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          user_keyword: '13800138000',
+          order_bid: 'order-1',
+          start_time: formatAdminDateRangeStartUtc('2026-07-02'),
+          end_time: formatAdminDateRangeEndUtc('2026-07-02'),
+        }),
+      );
+    });
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'module.operationsOrder.table.view',
+      }),
+    );
+
+    expect(await screen.findByText('detail:order-1')).toBeInTheDocument();
+  });
+
+  test('shows error UI when getAdminOperationOrders fails', async () => {
+    mockGetAdminOperationOrders.mockRejectedValueOnce(new Error('network'));
+
+    render(<LearnOrdersTab />);
+
+    expect(await screen.findByText('network')).toBeInTheDocument();
+  });
+});

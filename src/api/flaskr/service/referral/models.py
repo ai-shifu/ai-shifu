@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     JSON,
     Column,
@@ -14,9 +16,6 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
-
-from flaskr.dao import db
 
 from .consts import (
     REFERRAL_ABNORMAL_STATUS_NORMAL,
@@ -31,11 +30,12 @@ from .consts import (
     REFERRAL_TRIGGER_INVITED_REGISTRATION,
 )
 
-
 REFERRAL_CREDIT_NUMERIC = Numeric(20, 10)
 
 
 class ReferralTableMixin:
+    """Provide shared columns for referral persistence models."""
+
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Primary key")
     deleted = Column(
         SmallInteger,
@@ -60,6 +60,8 @@ class ReferralTableMixin:
 
 
 class ReferralCampaign(ReferralTableMixin, db.Model):
+    """Persist referral campaign records."""
+
     __tablename__ = "referral_campaigns"
     __table_args__ = (
         UniqueConstraint("campaign_bid", name="uq_referral_campaigns_campaign_bid"),
@@ -94,6 +96,8 @@ class ReferralCampaign(ReferralTableMixin, db.Model):
 
 
 class ReferralCampaignRewardRule(ReferralTableMixin, db.Model):
+    """Persist referral campaign reward rule records."""
+
     __tablename__ = "referral_campaign_reward_rules"
     __table_args__ = (
         UniqueConstraint(
@@ -156,6 +160,7 @@ class ReferralCampaignRewardRule(ReferralTableMixin, db.Model):
     metadata_json = Column("metadata", JSON, nullable=True)
 
     def to_snapshot(self) -> dict[str, object]:
+        """Serialize this mutable reward rule into a point-in-time mapping."""
         amount = self.reward_credit_amount
         return {
             "reward_rule_bid": self.reward_rule_bid,
@@ -176,6 +181,8 @@ class ReferralCampaignRewardRule(ReferralTableMixin, db.Model):
 
 
 class ReferralInviteCode(ReferralTableMixin, db.Model):
+    """Persist referral invite code records."""
+
     __tablename__ = "referral_invite_codes"
     __table_args__ = (
         UniqueConstraint("invite_code_bid", name="uq_referral_invite_codes_code_bid"),
@@ -208,6 +215,8 @@ class ReferralInviteCode(ReferralTableMixin, db.Model):
 
 
 class ReferralInviteEvent(db.Model):
+    """Persist referral invite event records."""
+
     __tablename__ = "referral_invite_events"
     __table_args__ = (
         UniqueConstraint("event_bid", name="uq_referral_invite_events_event_bid"),
@@ -236,6 +245,8 @@ class ReferralInviteEvent(db.Model):
 
 
 class ReferralInviteRelation(ReferralTableMixin, db.Model):
+    """Persist referral invite relation records."""
+
     __tablename__ = "referral_invite_relations"
     __table_args__ = (
         UniqueConstraint("relation_bid", name="uq_referral_invite_relations_bid"),
@@ -284,6 +295,8 @@ class ReferralInviteRelation(ReferralTableMixin, db.Model):
 
 
 class ReferralInviteReward(ReferralTableMixin, db.Model):
+    """Persist referral invite reward records."""
+
     __tablename__ = "referral_invite_rewards"
     __table_args__ = (
         UniqueConstraint("reward_bid", name="uq_referral_invite_rewards_reward_bid"),

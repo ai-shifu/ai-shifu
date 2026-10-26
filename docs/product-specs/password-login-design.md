@@ -54,10 +54,10 @@ The project uses a factory pattern to manage authentication methods:
 
 ### 2.3 Frontend Structure
 
-- Login page: `src/cook-web/src/app/login/page.tsx`
-- Auth components: `src/cook-web/src/components/auth/`
-- Environment config: `src/cook-web/src/config/environment.ts` → `loginMethodsEnabled`
-- API layer: `src/cook-web/src/api/api.ts`
+- Login page: `src/web/src/app/login/page.tsx`
+- Auth components: `src/web/src/components/auth/`
+- Environment config: `src/web/src/config/environment.ts` → `loginMethodsEnabled`
+- API layer: `src/web/src/api/api.ts`
 
 ## 3. Technical Design
 
@@ -142,22 +142,22 @@ Added in `src/api/flaskr/route/user.py`:
 
 ### 3.4 Frontend Changes
 
-#### New: `src/cook-web/src/components/auth/PasswordLogin.tsx`
+#### New: `src/web/src/components/auth/PasswordLogin.tsx`
 
 - **Login mode**: Phone/email input + password input + login button
 - Password show/hide toggle
 - Terms acceptance checkbox
 
-#### Modified: `src/cook-web/src/app/login/page.tsx`
+#### Modified: `src/web/src/app/login/page.tsx`
 
 - `LoginMethod` type includes `'password'`
 - `renderLoginContent` renders `PasswordLogin` component
 
-#### Modified: `src/cook-web/src/config/environment.ts`
+#### Modified: `src/web/src/config/environment.ts`
 
 - `loginMethodsEnabled` supports `'password'` option
 
-#### Modified: `src/cook-web/src/api/api.ts`
+#### Modified: `src/web/src/api/api.ts`
 
 New API functions:
 - `loginPassword(identifier, password)`

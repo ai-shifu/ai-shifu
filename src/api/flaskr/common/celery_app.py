@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import importlib
 import os
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from celery import Celery, Task
 from celery.schedules import crontab
-from flask import Flask
+from celery.signals import worker_process_init
 
 from flaskr.common.config import get_explicit_env_override
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _DEFAULT_BROKER_URL = "redis://localhost:6379/0"
 _DEFAULT_BILLING_RENEWAL_CRON = "* * * * *"
@@ -21,25 +25,69 @@ _DEFAULT_BILLING_CREDIT_EXPIRING_CRON = "0 * * * *"
 _DEFAULT_BILLING_DAILY_USAGE_METRICS_CRON = "15 1 * * *"
 _DEFAULT_BILLING_DAILY_LEDGER_SUMMARY_CRON = "30 1 * * *"
 
-__CELERY_APP__: Celery | None = None
+
+@dataclass(slots=True)
+class _CeleryState:
+    app: Celery | None = None
+
+
+_celery_state = _CeleryState()
+
+
+def dispose_inherited_db_pools(flask_app: Flask) -> None:
+    """Drop DB pool state inherited across a process fork.
+
+    The celery parent builds the Flask app (validating a DB connection on
+    the way), then billiard forks the worker children, which inherit the
+    pool WITH the parent's open sockets. Concurrent children then
+    interleave the MySQL protocol on one shared connection - production
+    journals showed '-- pool checkout -- pid=1' followed by checkouts from
+    two different worker pids on the same server thread id (off-by-one
+    desync). dispose(close=False) discards the inherited pool without
+    closing the parent's file descriptors, mirroring the gunicorn
+    post_fork handling.
+    """
+    from flaskr.dao import db
+
+    with flask_app.app_context():
+        for bind_key, engine in db.engines.items():
+            try:
+                engine.dispose(close=False)
+            except Exception:
+                # One failing bind must not leave the remaining binds with
+                # their inherited pools.
+                flask_app.logger.exception(
+                    "fork pool dispose failed for bind %r", bind_key
+                )
 
 
 def create_celery_app(flask_app: Flask | None = None) -> Celery:
     """Build a Celery app bound to the Flask app context."""
-
     resolved_flask_app = flask_app or _load_flask_app()
+
+    @worker_process_init.connect(weak=False)
+    def _dispose_db_pools_after_fork(**_kwargs: object) -> None:
+        try:
+            dispose_inherited_db_pools(resolved_flask_app)
+        except Exception:  # pragma: no cover - never kill a booting worker
+            resolved_flask_app.logger.exception(
+                "celery worker fork pool dispose failed"
+            )
 
     class FlaskTask(Task):
         abstract = True
 
-        def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        def __call__(self, *args: object, **kwargs: object) -> object:
             with resolved_flask_app.app_context():
                 return self.run(*args, **kwargs)
 
     celery_app = Celery(
         resolved_flask_app.import_name,
         task_cls=FlaskTask,
-        include=("flaskr.service.billing.tasks", "flaskr.service.tts.tasks"),
+        include=(
+            "flaskr.service.billing.tasks",
+            "flaskr.service.user.tasks",
+        ),
     )
     celery_app.conf.update(_build_celery_config(resolved_flask_app))
     celery_app.flask_app = resolved_flask_app  # type: ignore[attr-defined]
@@ -50,14 +98,12 @@ def create_celery_app(flask_app: Flask | None = None) -> Celery:
 
 def get_celery_app(flask_app: Flask | None = None) -> Celery:
     """Return a cached Celery app or create one on demand."""
-
-    global __CELERY_APP__
-    if __CELERY_APP__ is None or flask_app is not None:
-        __CELERY_APP__ = create_celery_app(flask_app=flask_app)
-    return __CELERY_APP__
+    if _celery_state.app is None or flask_app is not None:
+        _celery_state.app = create_celery_app(flask_app=flask_app)
+    return _celery_state.app
 
 
-def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
+def _build_celery_config(flask_app: Flask) -> dict[str, object]:
     default_broker_url = "memory://" if flask_app.testing else _DEFAULT_BROKER_URL
     default_result_backend = "cache+memory://" if flask_app.testing else None
     # The CELERY_* keys are declared in flaskr/common/config.py, but this
@@ -89,12 +135,15 @@ def _build_celery_config(flask_app: Flask) -> dict[str, Any]:
         "task_ignore_result": False,
         "broker_connection_retry_on_startup": True,
         "timezone": flask_app.config.get("TZ", "UTC"),
-        "imports": ("flaskr.service.billing.tasks",),
+        "imports": (
+            "flaskr.service.billing.tasks",
+            "flaskr.service.user.tasks",
+        ),
         "beat_schedule": _build_billing_beat_schedule(flask_app),
     }
 
 
-def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, Any]:
+def _build_billing_beat_schedule(flask_app: Flask) -> dict[str, object]:
     return {
         "billing.dispatch_due_renewal_events.schedule": {
             "task": "billing.dispatch_due_renewal_events",
@@ -160,7 +209,7 @@ def _resolve_billing_crontab(
     flask_app: Flask,
     config_key: str,
     default_expression: str,
-):
+) -> crontab:
     # Raw env fallback for Flask apps not backed by the registry Config; the
     # BILLING_*_CRON keys are declared in flaskr/common/config.py.
     raw_expression = str(
@@ -178,11 +227,12 @@ def _resolve_billing_crontab(
     )
     fallback_schedule = _parse_crontab_expression(default_expression)
     if fallback_schedule is None:  # pragma: no cover - guarded by constants above
-        raise ValueError(f"Invalid default cron expression for {config_key}")
+        message = f"Invalid default cron expression for {config_key}"
+        raise ValueError(message)
     return fallback_schedule
 
 
-def _parse_crontab_expression(expression: str):
+def _parse_crontab_expression(expression: str) -> crontab | None:
     normalized_expression = " ".join(str(expression or "").split())
     parts = normalized_expression.split(" ")
     if len(parts) != 5 or any(not part for part in parts):
@@ -204,14 +254,15 @@ def _parse_crontab_expression(expression: str):
 def _load_flask_app() -> Flask:
     os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
     app_module = importlib.import_module("app")
-    return app_module.create_app()
+    return app_module.create_app(serving_http=False)
 
 
 def _register_default_tasks() -> None:
     importlib.import_module("flaskr.service.billing.tasks")
+    importlib.import_module("flaskr.service.user.tasks")
 
 
-def _to_bool(value: Any) -> bool:
+def _to_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     if isinstance(value, str):

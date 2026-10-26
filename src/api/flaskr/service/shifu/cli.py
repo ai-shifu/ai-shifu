@@ -9,7 +9,9 @@ import click
 from .repair import repair_shifu_outline_structure
 
 
-def register_shifu_commands(console, app) -> None:
+def register_shifu_commands(console: object, app: object) -> None:
+    """Register course-maintenance commands on the console group."""
+
     @console.group(name="shifu")
     def shifu_group() -> None:
         """Shifu maintenance commands for offline repair work."""
@@ -38,9 +40,8 @@ def register_shifu_commands(console, app) -> None:
     ) -> None:
         """Repair broken draft outline parent/position state and rebuild struct."""
         if not dry_run and not user_bid:
-            raise click.ClickException(
-                "Pass --user-bid for non-dry-run outline repair."
-            )
+            message = "Pass --user-bid for non-dry-run outline repair."
+            raise click.ClickException(message)
 
         payload = repair_shifu_outline_structure(
             app,

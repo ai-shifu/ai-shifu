@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
-from typing import Dict, Iterable
-import re
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
@@ -18,35 +21,38 @@ class TranslationError(Exception):
 
 
 def iter_locale_dirs() -> Iterable[Path]:
+    """Yield locale dirs."""
     if not I18N_DIR.exists():
-        raise TranslationError(f"Shared translation directory not found: {I18N_DIR}")
+        message = f"Shared translation directory not found: {I18N_DIR}"
+        raise TranslationError(message)
 
     for entry in sorted(I18N_DIR.iterdir()):
         if entry.is_dir() and not entry.name.startswith("."):
             yield entry
 
 
-def load_json(path: Path) -> Dict:
+def load_json(path: Path) -> dict:
+    """Load JSON."""
     try:
         return json.loads(path.read_text(encoding="utf-8"))
-    except Exception as exc:  # noqa: BLE001
-        raise TranslationError(f"Failed to parse JSON: {path} ({exc})") from exc
+    except Exception as exc:
+        message = f"Failed to parse JSON: {path} ({exc})"
+        raise TranslationError(message) from exc
 
 
-def flatten_translation(data, namespace: str) -> Dict[str, str]:
+def flatten_translation(data: object, namespace: str) -> dict[str, str]:
     """Flatten nested translation JSON to dot-separated keys."""
 
-    def _flatten(obj, prefix: str):
-        items: Dict[str, str] = {}
+    def _flatten(obj: object, prefix: str) -> dict[str, str]:
+        items: dict[str, str] = {}
         if isinstance(obj, dict):
             # __flat__ allows specifying exact keys without additional nesting
             flat_section = obj.get("__flat__")
             if isinstance(flat_section, dict):
                 for key, value in flat_section.items():
                     if not isinstance(value, str):
-                        raise TranslationError(
-                            f"Translation value for '{key}' must be string."
-                        )
+                        message = f"Translation value for '{key}' must be string."
+                        raise TranslationError(message)
                     items[key] = value
 
             for key, value in obj.items():
@@ -56,22 +62,22 @@ def flatten_translation(data, namespace: str) -> Dict[str, str]:
                 items.update(_flatten(value, next_prefix))
         else:
             if not isinstance(obj, str):
-                raise TranslationError(
-                    f"Translation value for '{prefix}' must be string."
-                )
+                message = f"Translation value for '{prefix}' must be string."
+                raise TranslationError(message)
             items[prefix] = obj
         return items
 
     return _flatten(data, namespace)
 
 
-def validate_locale_files(locale_dirs: Iterable[Path]):
-    files_per_locale: Dict[str, Dict[str, Path]] = {}
-    flattened_per_locale: Dict[str, Dict[str, Dict[str, str]]] = {}
+def validate_locale_files(locale_dirs: Iterable[Path]) -> None:
+    """Validate key parity and ICU placeholders across every locale."""
+    files_per_locale: dict[str, dict[str, Path]] = {}
+    flattened_per_locale: dict[str, dict[str, dict[str, str]]] = {}
 
     for locale_dir in locale_dirs:
-        files: Dict[str, Path] = {}
-        flattened: Dict[str, Dict[str, str]] = {}
+        files: dict[str, Path] = {}
+        flattened: dict[str, dict[str, str]] = {}
 
         for file_path in sorted(locale_dir.rglob("*.json")):
             rel = file_path.relative_to(locale_dir)
@@ -144,12 +150,10 @@ def validate_locale_files(locale_dirs: Iterable[Path]):
                 loc_placeholders = extract_placeholders(locale_map[key])
                 if ref_placeholders != loc_placeholders:
                     problems.append(
-                        (
-                            "ICU placeholder mismatch for key '"
-                            f"{namespace}.{key.split('.', 1)[-1]}"  # human-friendly
-                            f"' between '{reference_locale}' ({sorted(ref_placeholders)})"
-                            f" and '{locale}' ({sorted(loc_placeholders)})"
-                        )
+                        "ICU placeholder mismatch for key '"
+                        f"{namespace}.{key.split('.', 1)[-1]}"  # human-friendly
+                        f"' between '{reference_locale}' ({sorted(ref_placeholders)})"
+                        f" and '{locale}' ({sorted(loc_placeholders)})"
                     )
 
     if problems:
@@ -159,12 +163,19 @@ def validate_locale_files(locale_dirs: Iterable[Path]):
         raise TranslationError(message)
 
 
+def _require_locale_dirs() -> list[Path]:
+    """Return the locale directories, or fail when none exist."""
+    locale_dirs = list(iter_locale_dirs())
+    if not locale_dirs:
+        message = f"No locale directories found under {I18N_DIR}"
+        raise TranslationError(message)
+    return locale_dirs
+
+
 def main() -> int:
+    """Validate every shared locale and report translation contract drift."""
     try:
-        locale_dirs = list(iter_locale_dirs())
-        if not locale_dirs:
-            raise TranslationError(f"No locale directories found under {I18N_DIR}")
-        validate_locale_files(locale_dirs)
+        validate_locale_files(_require_locale_dirs())
     except TranslationError as error:
         print(str(error), file=sys.stderr)
         return 1

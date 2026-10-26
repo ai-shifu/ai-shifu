@@ -1,3 +1,5 @@
+"""Verify course uploads create missing resource records."""
+
 from types import SimpleNamespace
 
 from flaskr.dao import db
@@ -5,7 +7,9 @@ from flaskr.service.resource.models import Resource
 from flaskr.service.shifu import funcs
 
 
-def test_upload_file_creates_resource_when_resource_id_is_missing(app, monkeypatch):
+def test_upload_file_creates_resource_when_resource_id_is_missing(
+    app: object, monkeypatch: object
+) -> None:
     class DummyFile:
         filename = "avatar.png"
 
@@ -16,7 +20,7 @@ def test_upload_file_creates_resource_when_resource_id_is_missing(app, monkeypat
     )
 
     monkeypatch.setattr(funcs, "get_image_content_type", lambda _filename: "image/png")
-    monkeypatch.setattr(funcs, "upload_to_storage", lambda *args, **kwargs: uploaded)
+    monkeypatch.setattr(funcs, "upload_to_storage", lambda *_args, **_kwargs: uploaded)
 
     with app.app_context():
         db.session.query(Resource).filter_by(resource_id="missing-resource-id").delete()

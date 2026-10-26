@@ -13,7 +13,8 @@ governance work can be prioritized mechanically.
 - Gaps: the knowledge layout is versioned and indexed, but durable health still
   depends on scheduled gardening to keep `last_reviewed` data and retired-term
   cleanup current.
-- Next action: keep the generated inventory and harness health report green, and
+- Next action: keep generated-inventory and source-based harness checks passing,
+  refresh the optional health snapshot when inspecting repository status, and
   let the gardening workflow shrink stale references continuously.
 
 ### api
@@ -21,25 +22,38 @@ governance work can be prioritized mechanically.
 - Current grade: `B+`
 - Gaps: the Phase 2 backend overhaul added a golden SSE/JSON regression
   harness, moved transaction boundaries onto a shared unit-of-work with a
-  commit-site ratchet (155 grandfathered `db.session.commit()` sites outside
-  `dao/` remain, down from 213), decomposed the /run runtime into
+  commit-site ratchet (the 146 grandfathered `db.session.commit()` sites
+  outside `dao/` at the 2026-09 re-baseline, down from 213, were migrated to
+  zero in the batched plan
+  `docs/exec-plans/completed/uow-commit-site-migration.md`), decomposed the /run
+  runtime into
   emitter/recorder/state collaborators, and removed roughly 800 lines of dead
   code while the backend suite grew from 1,862 to 1,942 tests; the remaining
-  debt is the grandfathered commit sites, the widespread legacy `Model.query`
+  debt is the provider/LLM HTTP calls that still run inside a transaction,
+  the widespread legacy `Model.query`
   style, and a default Docker dev stack that still depends on a compatibility
   repair step plus live observability services for browser smoke validation.
-- Next action: ratchet the commit-site baseline down as touched modules
-  migrate to `unit_of_work()`, keep the golden fixtures byte-stable across
+- Next action: keep the commit-site baseline at zero (the ratchet now rejects
+  any new direct commit), keep the golden fixtures byte-stable across
   refactors, and keep `scripts/harness_diagnostics.py` plus the local
   observability stack in the standard smoke-failure workflow.
 
-### cook-web
+### Web frontend
 
 - Current grade: `B`
 - Gaps: route and component tests exist, but the browser harness still covers
-  only the minimum login, admin, and learner paths.
+  only the minimum login, admin, and learner paths. The shared Umami transport
+  and the highest-risk producer families now have privacy and regression
+  coverage. The legacy generic visit event and incorrect predecessor names in
+  the remediated publish, login, payment, billing, and course-creation families
+  are deleted rather than dual-written; untouched event families still need
+  complete versioned consumer contracts.
 - Next action: keep the Playwright smoke suite green under the default dev
-  harness and widen it only after the current three paths stay stable.
+  harness and widen it only after the current three paths stay stable. Verify
+  the new canonical series and their consumers after production deployment,
+  inventory remaining dashboard consumers, and enforce
+  `docs/references/frontend-product-analytics.md` for all new or changed Cook
+  Web Umami events.
 
 ### runtime harness
 

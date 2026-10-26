@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Post-process vulture output, excluding known false-positive classes:
+"""Post-process vulture output while excluding known false positives.
+
 - functions decorated with @inject or Flask route decorators (@*.route(...))
 - functions named register_* (route registration entry points)
 - __json__ methods
 - celery @shared_task functions
 - anything under migrations/
-Usage: filter_vulture.py <vulture-raw.txt> <src_api_root>
+Usage: filter_vulture.py <vulture-raw.txt> <src_api_root>.
 """
 
 import re
 import sys
-import os
 from collections import Counter
+from pathlib import Path
 
 RAW, ROOT = sys.argv[1], sys.argv[2]
 
@@ -22,17 +23,18 @@ LINE_RE = re.compile(
 file_cache = {}
 
 
-def get_lines(path):
+def get_lines(path: object) -> list[str]:
+    """Return cached source lines for one inventory path."""
     if path not in file_cache:
         try:
-            with open(os.path.join(ROOT, path), encoding="utf-8") as f:
+            with (Path(ROOT) / path).open(encoding="utf-8") as f:
                 file_cache[path] = f.readlines()
         except OSError:
             file_cache[path] = []
     return file_cache[path]
 
 
-def decorators_above(path, lineno):
+def decorators_above(path: object, lineno: object) -> list[str]:
     """Collect decorator text for the flagged symbol.
 
     Vulture flags the FIRST decorator's line for decorated defs, so scan
@@ -55,9 +57,9 @@ def decorators_above(path, lineno):
 
 
 kept, excluded = [], []
-with open(RAW, encoding="utf-8") as f:
-    for raw_line in f:
-        raw_line = raw_line.rstrip("\n")
+with Path(RAW).open(encoding="utf-8") as f:
+    for line in f:
+        raw_line = line.rstrip("\n")
         m = LINE_RE.match(raw_line)
         if not m:
             continue

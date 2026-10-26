@@ -31,7 +31,7 @@ PR3 scope notes (mirroring the emitter's PR1 conventions):
 """
 
 import queue
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.service.common import raise_error
@@ -41,12 +41,12 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_RESET,
 )
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle guard, typing only
     from flask import Flask
-
     from flaskr.service.learn.context_v2 import RunScriptContextV2, RunScriptInfo
     from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 
@@ -60,7 +60,7 @@ def _find_outline_path_or_raise(
     return path
 
 
-def _runtime():
+def _runtime() -> object:
     """Resolve the context_v2 module lazily.
 
     Lazy for two reasons: ``context_v2`` imports this module at load time
@@ -81,12 +81,14 @@ class RunStateResolver:
     """
 
     def __init__(self, context: "RunScriptContextV2") -> None:
+        """Bind read-side state resolution to its run context."""
         self._context = context
 
     # -- explicit runtime inputs, read from the context at call time --
 
     @property
     def app(self) -> "Flask":
+        """Return the Flask application for this run."""
         return self._context.app
 
     @property
@@ -98,7 +100,9 @@ class RunStateResolver:
         return self._context._preview_mode
 
     @property
-    def _outline_model(self):
+    def _outline_model(
+        self,
+    ) -> type[DraftOutlineItem] | type[PublishedOutlineItem]:
         return self._context._outline_model
 
     @property
@@ -106,29 +110,72 @@ class RunStateResolver:
         return self._context._user_info.user_id
 
     @property
-    def _current_outline_item(self):
+    def _current_outline_item(self) -> HistoryItem | None:
         return self._context._current_outline_item
 
     @property
     def _current_attend(self) -> LearnProgressRecord:
         return self._context._current_attend
 
+    def get_outline_metadata(
+        self, outline_bids: list[str]
+    ) -> dict[str, tuple[bool, str]]:
+        """Read transition visibility and titles from the run's outline version."""
+        if not outline_bids:
+            return {}
+        ctx = self._context
+        model = self._outline_model
+        filters = [model.outline_item_bid.in_(outline_bids)]
+        expected_ids = {}
+        if self._preview_mode:
+            filters.append(model.deleted == 0)
+        else:
+            if not ctx._shifu_model.query.filter(
+                ctx._shifu_model.shifu_bid == self._struct.bid,
+                ctx._shifu_model.deleted == 0,
+            ).first():
+                raise_error("server.shifu.shifuNotFound")
+            expected_ids = {bid: ctx._get_outline_row_id(bid) for bid in outline_bids}
+            if any(row_id is None for row_id in expected_ids.values()):
+                raise_error("server.shifu.outlineItemNotFound")
+            # Republish retires physical rows without changing a retained
+            # run's visibility, titles, or eligible next-lesson transitions.
+            filters.extend(
+                [
+                    model.id.in_(expected_ids.values()),
+                    model.shifu_bid == self._struct.bid,
+                ]
+            )
+        rows = (
+            db.session.query(
+                model.id, model.outline_item_bid, model.hidden, model.title
+            )
+            .filter(*filters)
+            .all()
+        )
+        metadata = {}
+        for row_id, bid, hidden, title in rows:
+            if not self._preview_mode and expected_ids.get(bid) != row_id:
+                raise_error("server.shifu.outlineItemNotFound")
+            metadata[bid] = (hidden, title)
+        if not self._preview_mode and set(metadata) != set(outline_bids):
+            raise_error("server.shifu.outlineItemNotFound")
+        return metadata
+
     # outline is a leaf when has block item as children
     # outline is a node when has outline item as children
     # outline is a leaf when has no children
     def is_leaf_outline_item(self, outline_item_info: "ShifuOutlineItemDto") -> bool:
+        """Return whether the outline item is a leaf lesson."""
         if outline_item_info.children:
             if outline_item_info.children[0].type == "block":
                 return True
             if outline_item_info.children[0].type == "outline":
                 return False
-        if outline_item_info.type == "outline":
-            return True
-        return False
+        return outline_item_info.type == "outline"
 
     def get_current_outline_block_count(self) -> int:
-        """
-        Determine the completion threshold for the current outline.
+        """Determine the completion threshold for the current outline.
 
         History metadata (`child_count` / block children) can lag behind the
         latest mdflow document. When that happens, relying on the history tree
@@ -170,7 +217,6 @@ class RunStateResolver:
                 ).get_all_blocks()
             )
             block_count_cache[outline_bid] = block_count
-            return block_count
         except Exception as exc:
             self.app.logger.warning(
                 "Load runtime block count failed for outline %s: %s",
@@ -179,9 +225,12 @@ class RunStateResolver:
                 exc_info=True,
             )
             return history_block_count
+        else:
+            return block_count
 
     # get the outline items to start or complete
     def get_next_outline_item(self) -> list[OutlineItemUpdateDTO]:
+        """Return reachable outline transitions to start or complete."""
         ctx = self._context
         res = []
         q = queue.Queue()
@@ -194,28 +243,17 @@ class RunStateResolver:
             if item.children:
                 for child in item.children:
                     q.put(child)
-        outline_item_info_db: list[tuple[str, bool, str]] = (
-            db.session.query(
-                self._outline_model.outline_item_bid,
-                self._outline_model.hidden,
-                self._outline_model.title,
-            )
-            .filter(
-                self._outline_model.outline_item_bid.in_(outline_ids),
-                self._outline_model.deleted == 0,
-            )
-            .all()
-        )
+        outline_metadata = self.get_outline_metadata(outline_ids)
         outline_item_hidden_map: dict[str, bool] = {
-            bid: hidden for bid, hidden, _title in outline_item_info_db
+            bid: hidden for bid, (hidden, _title) in outline_metadata.items()
         }
         outline_item_title_map: dict[str, str] = {
-            bid: title for bid, _hidden, title in outline_item_info_db
+            bid: title for bid, (_hidden, title) in outline_metadata.items()
         }
 
         def _mark_sub_node_completed(
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
-        ):
+        ) -> None:
             q = queue.Queue()
             q.put(self._struct)
             if ctx._is_leaf_outline_item(outline_item_info):
@@ -282,7 +320,7 @@ class RunStateResolver:
 
         def _mark_sub_node_start(
             outline_item_info: HistoryItem, res: list[OutlineItemUpdateDTO]
-        ):
+        ) -> None:
             path = _find_outline_path_or_raise(self._struct, outline_item_info.bid)
             for item in path:
                 if item.type == "outline":
@@ -320,6 +358,7 @@ class RunStateResolver:
     def has_next_outline_item(
         self, outline_updates: list[OutlineItemUpdateDTO]
     ) -> bool:
+        """Return whether another outline item is reachable."""
         if not outline_updates:
             return False
         current_bid = (
@@ -334,6 +373,7 @@ class RunStateResolver:
     def is_current_outline_completed(
         self, outline_updates: list[OutlineItemUpdateDTO]
     ) -> bool:
+        """Return whether the current outline item is complete."""
         if not outline_updates or not self._current_outline_item:
             return False
         current_bid = self._current_outline_item.bid
@@ -343,6 +383,7 @@ class RunStateResolver:
         )
 
     def get_outline_struct(self, outline_item_id: str) -> HistoryItem:
+        """Return the learner-visible outline structure, or None for an unknown BID."""
         q = queue.Queue()
         q.put(self._struct)
         outline_struct = None
@@ -356,7 +397,8 @@ class RunStateResolver:
                     q.put(child)
         return outline_struct
 
-    def get_outline_row_id(self, outline_item_bid: str) -> Union[int, None]:
+    def get_outline_row_id(self, outline_item_bid: str) -> int | None:
+        """Return the database row ID for an outline BID."""
         ctx = self._context
         if not outline_item_bid:
             return None
@@ -374,6 +416,7 @@ class RunStateResolver:
     def get_run_script_info(
         self, attend: LearnProgressRecord, is_ask: bool = False
     ) -> "RunScriptInfo":
+        """Return run-script state, or None when the outline is exhausted."""
         ctx = self._context
         runtime = _runtime()
         outline_item_id = attend.outline_item_bid
@@ -388,7 +431,7 @@ class RunStateResolver:
         mdflow_context = runtime.MdflowContextV2(document=outline_item_info.mdflow)
         block_list = mdflow_context.get_all_blocks()
         self.app.logger.info(
-            f"attend position: {attend.block_position} blocks:{len(block_list)}"
+            "attend position: %s blocks:%s", attend.block_position, len(block_list)
         )
         if attend.block_position >= len(block_list) and not is_ask:
             return None
@@ -400,6 +443,7 @@ class RunStateResolver:
         )
 
     def get_run_script_info_by_block_id(self, block_id: str) -> "RunScriptInfo":
+        """Return run-script state for a generated block."""
         ctx = self._context
         runtime = _runtime()
         generate_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(

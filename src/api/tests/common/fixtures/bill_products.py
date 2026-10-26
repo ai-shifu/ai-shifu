@@ -1,3 +1,5 @@
+"""Provide bill products support for common fixtures tests."""
+
 from .billing_products import (
     build_bill_products,
     build_billing_product,

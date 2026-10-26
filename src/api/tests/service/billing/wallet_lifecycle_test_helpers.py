@@ -1,3 +1,5 @@
+"""Provide wallet lifecycle test helpers support for service billing tests."""
+
 from __future__ import annotations
 
 from decimal import Decimal

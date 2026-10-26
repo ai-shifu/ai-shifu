@@ -1,17 +1,19 @@
+"""Verify shifu draft list behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
 
-import flaskr.dao as dao
+from flaskr import dao
+from flaskr.service.shifu.consts import STATUS_DRAFT, STATUS_PUBLISHED
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
-    PublishedShifu,
     PublishedOutlineItem,
+    PublishedShifu,
 )
 from flaskr.service.shifu.shifu_draft_funcs import get_shifu_draft_list
-from flaskr.service.shifu.consts import STATUS_DRAFT, STATUS_PUBLISHED
 
 
 def _seed_draft(
@@ -29,9 +31,9 @@ def _seed_draft(
         avatar_res_bid="res",
         keywords="test",
         llm="gpt",
-        llm_temperature=Decimal("0"),
+        llm_temperature=Decimal(0),
         llm_system_prompt="",
-        price=Decimal("0"),
+        price=Decimal(0),
         created_user_bid=owner_bid,
         updated_user_bid=owner_bid,
         created_at=created_at,
@@ -40,7 +42,9 @@ def _seed_draft(
     dao.db.session.add(draft)
 
 
-def test_get_shifu_draft_list_sorts_by_updated_at_desc_then_id_desc(app):
+def test_get_shifu_draft_list_sorts_by_updated_at_desc_then_id_desc(
+    app: object,
+) -> None:
     owner_bid = "draft-list-owner"
     with app.app_context():
         DraftShifu.query.filter(
@@ -104,7 +108,7 @@ def test_get_shifu_draft_list_sorts_by_updated_at_desc_then_id_desc(app):
     ]
 
 
-def test_get_shifu_draft_list_prefers_latest_outline_activity(app):
+def test_get_shifu_draft_list_prefers_latest_outline_activity(app: object) -> None:
     owner_bid = "draft-list-activity-owner"
     with app.app_context():
         DraftOutlineItem.query.filter(
@@ -143,12 +147,8 @@ def test_get_shifu_draft_list_prefers_latest_outline_activity(app):
                 parent_bid="",
                 position="01",
                 prerequisite_item_bids="",
-                llm="",
-                llm_temperature=Decimal("0"),
                 llm_system_prompt="",
                 ask_enabled_status=5101,
-                ask_llm="",
-                ask_llm_temperature=Decimal("0"),
                 ask_llm_system_prompt="",
                 content="",
                 type=0,
@@ -178,7 +178,7 @@ def test_get_shifu_draft_list_prefers_latest_outline_activity(app):
     ]
 
 
-def test_get_shifu_draft_list_ignores_published_outline_activity(app):
+def test_get_shifu_draft_list_ignores_published_outline_activity(app: object) -> None:
     owner_bid = "draft-list-published-outline-owner"
     with app.app_context():
         PublishedOutlineItem.query.filter(
@@ -215,12 +215,8 @@ def test_get_shifu_draft_list_ignores_published_outline_activity(app):
                 parent_bid="",
                 position="01",
                 prerequisite_item_bids="",
-                llm="",
-                llm_temperature=Decimal("0"),
                 llm_system_prompt="",
                 ask_enabled_status=5101,
-                ask_llm="",
-                ask_llm_temperature=Decimal("0"),
                 ask_llm_system_prompt="",
                 content="",
                 type=0,
@@ -250,7 +246,9 @@ def test_get_shifu_draft_list_ignores_published_outline_activity(app):
     ]
 
 
-def test_get_shifu_draft_list_marks_courses_with_published_versions(app):
+def test_get_shifu_draft_list_marks_courses_with_published_versions(
+    app: object,
+) -> None:
     owner_bid = "draft-list-published-state-owner"
     with app.app_context():
         PublishedShifu.query.filter(
@@ -285,9 +283,9 @@ def test_get_shifu_draft_list_marks_courses_with_published_versions(app):
                 avatar_res_bid="res",
                 keywords="test",
                 llm="gpt",
-                llm_temperature=Decimal("0"),
+                llm_temperature=Decimal(0),
                 llm_system_prompt="",
-                price=Decimal("0"),
+                price=Decimal(0),
                 created_user_bid=owner_bid,
                 updated_user_bid=owner_bid,
             )

@@ -1,0 +1,32 @@
+{
+  "__namespace__": "server.order",
+  "__flat__": {
+    "checkout": "Ir al pago",
+    "courseNotPaid": "Aún no has comprado este curso. Cómpralo para continuar.",
+    "emailAlreadyActivated": "El correo electrónico {email} ya tiene acceso a este curso.",
+    "importActivationFailed": "No se ha podido importar esta fila de activación. Revisa sus datos e inténtalo de nuevo.",
+    "learnStatusBranch": "Rama",
+    "learnStatusCompleted": "Completado",
+    "learnStatusInProgress": "En curso",
+    "learnStatusLocked": "Bloqueado",
+    "learnStatusNotStarted": "Disponible para estudiar",
+    "learnStatusRefund": "Reembolso",
+    "learnStatusReset": "Restablecido",
+    "learnStatusUnavailable": "No disponible",
+    "mobileAlreadyActivated": "El móvil {mobile} ya tiene acceso a este curso.",
+    "orderHasPaid": "El pedido ya se ha pagado.",
+    "orderNotFound": "No se ha encontrado el pedido.",
+    "orderPayExpired": "El pedido ha caducado. Haz uno nuevo.",
+    "orderRefundError": "No se ha podido tramitar el reembolso.",
+    "orderStatusError": "El estado actual del pedido no permite esta acción.",
+    "orderStatusInit": "Pago sin iniciar",
+    "orderStatusRefund": "Reembolsado",
+    "orderStatusSuccess": "Compra completada",
+    "orderStatusTimeout": "Caducado",
+    "orderStatusToBePaid": "Pendiente de pago",
+    "payItemBasePrice": "Precio base",
+    "payItemCoupon": "Descuento",
+    "payItemProduct": "Producto",
+    "payItemPromotion": "Promoción"
+  }
+}

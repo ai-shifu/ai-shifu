@@ -122,7 +122,7 @@ Reuse the shared-permission and activation-order helpers for:
 
 ### Frontend Wiring
 
-- Add one new API entry in `src/cook-web/src/api/api.ts`.
+- Add one new API entry in `src/web/src/api/api.ts`.
 - Keep the implementation inside `src/app/admin/operations/page.tsx` for the
   first version; extract later only if the dialog grows.
 - Refresh the current course list after success.

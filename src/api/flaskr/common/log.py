@@ -1,39 +1,53 @@
+"""Configure application logging and request context."""
+
 import logging
-import os
-from flask import Flask, request
-import uuid
-from logging.handlers import TimedRotatingFileHandler
 import socket
 import threading
 import time
+import uuid
 from datetime import datetime
-import pytz
-import colorlog
-import requests
+from logging.handlers import TimedRotatingFileHandler
+from pathlib import Path
 
+import colorlog
+import pytz
+import requests
+from flask import Flask, Response, request
+
+from .client_ip import resolve_client_ip
+from .http import is_sensitive_body
 from .observability import current_trace_ids
 from .request_context import thread_local
 
 
 class AppLoggerProxy:
-    def __init__(self, fallback: logging.Logger):
+    """Proxy application logging through the configured logger."""
+
+    def __init__(self, fallback: logging.Logger) -> None:
+        """Store the fallback logger used outside an application context."""
         self._fallback = fallback
 
     def _resolve(self) -> logging.Logger:
         try:
             from flask import current_app
 
-            return current_app.logger
+            # Resolved inside the try: attribute access on current_app raises
+            # outside an application context.
+            return current_app.logger  # noqa: TRY300
         except Exception:
             return self._fallback
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> object:
+        """Delegate attribute access to the active application logger."""
         return getattr(self._resolve(), name)
 
 
 class RequestFormatter(logging.Formatter):
-    def formatTime(self, record, datefmt=None):
+    """Format request-aware application log records."""
+
+    def formatTime(self, record: object, datefmt: object = None) -> str:  # noqa: N802 - logging.Formatter hook name
         # create time zone info
+        """Format a log timestamp in the fixed Asia/Shanghai timezone."""
         bj_time = pytz.timezone("Asia/Shanghai")
         # convert record.created (a float timestamp) to beijing time
         ct = datetime.fromtimestamp(record.created, bj_time)
@@ -46,7 +60,8 @@ class RequestFormatter(logging.Formatter):
                 s = ct.isoformat()
         return s
 
-    def format(self, record):
+    def format(self, record: object) -> str:
+        """Format a log record with request context."""
         try:
             request_id = getattr(thread_local, "request_id", "No_Request_ID")
             if request_id == "No_Request_ID":
@@ -77,9 +92,16 @@ class RequestFormatter(logging.Formatter):
 
 
 class FeishuLogHandler(logging.Handler):
+    """Deliver selected application log records to Feishu."""
+
     MAX_TEXT_LENGTH = 18000
 
-    def __init__(self, webhook_url):
+    def __init__(self, webhook_url: object) -> None:
+        """Initialize error-level webhook delivery with a re-entrancy guard.
+
+        Stores the Feishu webhook URL and creates thread-local delivery state to
+        prevent recursive logging when webhook delivery fails.
+        """
         super().__init__(level=logging.ERROR)
         self.webhook_url = webhook_url
         # This handler is attached to app.logger, so reporting a webhook
@@ -91,7 +113,7 @@ class FeishuLogHandler(logging.Handler):
         self._delivering = threading.local()
 
     def _build_message_text(self, log_entry: str) -> str:
-        text = f"师傅出错啦！\n{log_entry}\n"
+        text = f"师傅出错啦！\n{log_entry}\n"  # noqa: RUF001 - intentional fullwidth Chinese punctuation
         if len(text) <= self.MAX_TEXT_LENGTH:
             return text
         omitted = len(text) - self.MAX_TEXT_LENGTH
@@ -103,11 +125,12 @@ class FeishuLogHandler(logging.Handler):
         try:
             from flask import current_app
 
-            current_app.logger.warning(message, exc, exc_info=True)
+            current_app.logger.warning(message, exc, exc_info=exc)
         except Exception:
             logging.getLogger(__name__).warning(message, exc, exc_info=True)
 
-    def emit(self, record):
+    def emit(self, record: object) -> None:
+        """Deliver a formatted error record to Feishu."""
         if getattr(self._delivering, "active", False):
             return
         self._delivering.active = True
@@ -128,7 +151,10 @@ class FeishuLogHandler(logging.Handler):
 
 
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
-    def __init__(self, fmt, **kwargs):
+    """Format request logs with terminal color metadata."""
+
+    def __init__(self, fmt: object, **kwargs: object) -> None:
+        """Initialize the parent request and color log formatters."""
         super().__init__(fmt, **kwargs)
 
 
@@ -144,19 +170,21 @@ def _update_request_timing(status_code: int) -> None:
 
 
 def init_log(app: Flask) -> Flask:
+    """Configure request-aware application logging."""
+
     @app.before_request
-    def setup_logging():
+    def setup_logging() -> None:
         request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
         thread_local.request_id = request_id
         thread_local.url = request.path
         thread_local.status_code = "-"
         thread_local.duration_ms = "-"
-        if "X-Forwarded-For" in request.headers:
-            user_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
-        else:
-            user_ip = request.remote_addr
+        user_ip = resolve_client_ip()
         request.client_ip = user_ip
         thread_local.client_ip = user_ip
+        if is_sensitive_body():
+            app.logger.info("Request body: <sensitive body omitted>")
+            return
         if request.method == "POST":
             try:
                 request_body = {}
@@ -172,23 +200,26 @@ def init_log(app: Flask) -> Flask:
                     request_body["Form"] = request.form.to_dict()
                 else:
                     request_body["Raw"] = request.get_data(as_text=True)
-                app.logger.info(f"Request body: {request_body}")
-            except Exception as e:
-                app.logger.error(f"Failed to get request body: {e}")
+                app.logger.info("Request body: %s", request_body)
+            except Exception:
+                app.logger.exception("Failed to get request body")
         else:
-            app.logger.info(f"Request method: {request.method}")
+            app.logger.info("Request method: %s", request.method)
 
     @app.after_request
-    def after_request(response):
+    def after_request(response: Response) -> Response:
         try:
             _update_request_timing(response.status_code)
+            if is_sensitive_body():
+                app.logger.info("Response: <sensitive body omitted>")
+                return response
             if response.headers.get(
                 "Content-Type"
             ) and "text/event-stream" in response.headers.get("Content-Type"):
                 app.logger.info("Response: <SSE streaming response>")
 
                 @response.call_on_close
-                def log_sse_end():
+                def log_sse_end() -> None:
                     app.logger.info("SSE Response: <streaming ended>")
 
                 return response
@@ -196,9 +227,9 @@ def init_log(app: Flask) -> Flask:
                 app.logger.info("Response: <streaming response omitted>")
                 return response
             response_data = response.get_data(as_text=True)
-            app.logger.info(f"Response: {response_data}")
-        except Exception as e:
-            app.logger.error(f"Error logging response: {str(e)}")
+            app.logger.info("Response: %s", response_data)
+        except Exception:
+            app.logger.exception("Error logging response")
         return response
 
     host_name = socket.gethostname()
@@ -229,9 +260,8 @@ def init_log(app: Flask) -> Flask:
         },
     )
     log_file = app.config.get("LOGGING_PATH", "logs/ai-shifu.log")
-    log_dir = os.path.dirname(log_file)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    log_dir = str(Path(log_file).parent)
+    Path(log_dir).mkdir(parents=True, exist_ok=True)
     file_handler = TimedRotatingFileHandler(log_file, when="midnight", backupCount=7)
     file_handler.setFormatter(formatter)
     console_handler = logging.StreamHandler()

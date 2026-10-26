@@ -1,3 +1,5 @@
+"""Verify order import error specificity behavior."""
+
 from __future__ import annotations
 
 import flaskr.service.order.admin as order_admin
@@ -5,10 +7,11 @@ from flaskr.i18n import _
 
 
 def test_import_activation_orders_unexpected_failure_returns_specific_message(
-    app, monkeypatch
-):
-    def raise_unexpected(*_args, **_kwargs):
-        raise RuntimeError("boom")
+    app: object, monkeypatch: object
+) -> None:
+    def raise_unexpected(*_args: object, **_kwargs: object) -> None:
+        message = "boom"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(order_admin, "import_activation_order", raise_unexpected)
 
@@ -30,10 +33,11 @@ def test_import_activation_orders_unexpected_failure_returns_specific_message(
 
 
 def test_import_activation_orders_from_entries_unexpected_failure_returns_specific_message(
-    app, monkeypatch
-):
-    def raise_unexpected(*_args, **_kwargs):
-        raise RuntimeError("boom")
+    app: object, monkeypatch: object
+) -> None:
+    def raise_unexpected(*_args: object, **_kwargs: object) -> None:
+        message = "boom"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(order_admin, "import_activation_order", raise_unexpected)
 

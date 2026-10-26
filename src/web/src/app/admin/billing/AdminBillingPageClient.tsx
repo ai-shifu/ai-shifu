@@ -1,0 +1,178 @@
+'use client';
+
+import React from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import { useEnvStore } from '@/store';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { BillingCreditDetailsPanel } from '@/components/billing/BillingCreditDetailsPanel';
+import { BillingOverviewTab } from '@/components/billing/BillingOverviewTab';
+import { BillingRecentActivitySection } from './components/BillingRecentActivitySection';
+import { GlobalBillingPricing } from './components/GlobalBillingPricing';
+import AdminTitle, {
+  ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME,
+  ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME,
+  ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE,
+} from '@/app/admin/components/AdminTitle';
+import { resolveBillingTab, type BillingTab } from './billingTabs';
+import { isGlobalBillingExperience } from './billingExperience';
+
+type AdminBillingPageClientProps = {
+  initialTab?: BillingTab;
+};
+
+export function AdminBillingPageClient({
+  initialTab = 'packages',
+}: AdminBillingPageClientProps) {
+  const { t } = useTranslation();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
+  const paymentChannels = useEnvStore(state => state.paymentChannels);
+  const runtimeConfigLoaded = useEnvStore(state => state.runtimeConfigLoaded);
+  const useGlobalPricing = isGlobalBillingExperience(paymentChannels);
+  const activeTabFromUrl = React.useMemo(
+    () => resolveBillingTab(searchParams.get('tab') ?? initialTab),
+    [initialTab, searchParams],
+  );
+  const [activeTab, setActiveTab] = React.useState<BillingTab>(initialTab);
+  const [scrollToOrdersRequested, setScrollToOrdersRequested] =
+    React.useState(false);
+  const activeTabTitle =
+    activeTab === 'details'
+      ? t('module.billing.page.tabs.ledger')
+      : t('module.billing.page.tabs.plans');
+  const pageHeading = `${t('module.billing.page.title')} · ${activeTabTitle}`;
+
+  React.useEffect(() => {
+    setActiveTab(activeTabFromUrl);
+  }, [activeTabFromUrl]);
+
+  React.useEffect(() => {
+    if (!runtimeConfigLoaded || billingEnabled) {
+      return;
+    }
+    router.replace('/admin');
+  }, [billingEnabled, router, runtimeConfigLoaded]);
+
+  const updateTab = React.useCallback(
+    (nextTab: BillingTab) => {
+      setActiveTab(nextTab);
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set('tab', nextTab);
+      router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  const handleOpenOrdersSection = React.useCallback(() => {
+    updateTab('details');
+    setScrollToOrdersRequested(true);
+  }, [updateTab]);
+
+  React.useEffect(() => {
+    if (!scrollToOrdersRequested || activeTab !== 'details') {
+      return;
+    }
+    let canceled = false;
+    let attempts = 0;
+
+    const scrollWhenReady = () => {
+      if (canceled) {
+        return;
+      }
+      const target = document.getElementById('billing-recent-orders');
+      if (!target) {
+        if (attempts < 10) {
+          attempts += 1;
+          window.setTimeout(scrollWhenReady, 0);
+        }
+        return;
+      }
+      target.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+      setScrollToOrdersRequested(false);
+    };
+
+    scrollWhenReady();
+
+    return () => {
+      canceled = true;
+    };
+  }, [activeTab, scrollToOrdersRequested]);
+
+  if (!runtimeConfigLoaded || !billingEnabled) {
+    return null;
+  }
+
+  return (
+    <div
+      className='overscroll-none p-0'
+      data-testid='admin-billing-page'
+    >
+      <div className='px-1 pb-6'>
+        <h1 className='sr-only'>{pageHeading}</h1>
+        <Tabs
+          className='flex flex-col'
+          value={activeTab}
+          onValueChange={v => updateTab(v as BillingTab)}
+        >
+          <AdminTitle
+            tabs={
+              <TabsList
+                data-testid='admin-billing-tabs'
+                className={ADMIN_TITLE_HEADLINE_TABS_LIST_CLASSNAME}
+              >
+                <TabsTrigger
+                  value='packages'
+                  className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
+                  style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
+                >
+                  {t('module.billing.page.tabs.plans')}
+                </TabsTrigger>
+                <TabsTrigger
+                  value='details'
+                  className={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_CLASSNAME}
+                  style={ADMIN_TITLE_HEADLINE_TABS_TRIGGER_STYLE}
+                >
+                  {t('module.billing.page.tabs.ledger')}
+                </TabsTrigger>
+              </TabsList>
+            }
+          />
+
+          <TabsContent
+            className='mt-0'
+            value='packages'
+            data-testid='admin-billing-packages-panel'
+          >
+            <div className='pb-6'>
+              {useGlobalPricing ? (
+                <GlobalBillingPricing />
+              ) : (
+                <BillingOverviewTab onOpenOrdersTab={handleOpenOrdersSection} />
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            className='mt-0'
+            value='details'
+            data-testid='admin-billing-details-panel'
+          >
+            <div className='space-y-8 pb-6'>
+              <BillingCreditDetailsPanel
+                onUpgrade={() => updateTab('packages')}
+                showSubscriptionManagement={useGlobalPricing}
+              />
+              <BillingRecentActivitySection />
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}

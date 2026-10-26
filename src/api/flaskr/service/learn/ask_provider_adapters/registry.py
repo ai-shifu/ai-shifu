@@ -1,9 +1,15 @@
 """Ask provider adapter registry and routing entrypoints."""
 
-from typing import Any, Generator
+from collections.abc import Generator
 
 from flask import Flask
 
+from .base import (
+    AskProviderAdapter,
+    AskProviderChunk,
+    AskProviderConfigError,
+    AskProviderRuntime,
+)
 from .consts import (
     ASK_PROVIDER_COZE,
     ASK_PROVIDER_COZE_WORKFLOW,
@@ -11,13 +17,6 @@ from .consts import (
     ASK_PROVIDER_GET_BIJI_KNOWLEDGE,
     ASK_PROVIDER_LLM,
     ASK_PROVIDER_VOLC_KNOWLEDGE,
-)
-
-from .base import (
-    AskProviderAdapter,
-    AskProviderChunk,
-    AskProviderConfigError,
-    AskProviderRuntime,
 )
 from .coze_adapter import CozeAskProviderAdapter
 from .coze_workflow_adapter import CozeWorkflowAskProviderAdapter
@@ -28,6 +27,7 @@ from .volc_knowledge_adapter import VolcKnowledgeAskProviderAdapter
 
 
 def get_ask_provider_adapter(provider: str) -> AskProviderAdapter | None:
+    """Return ask provider adapter."""
     provider = (provider or "").strip().lower()
     if provider == ASK_PROVIDER_LLM:
         return LlmAskProviderAdapter()
@@ -49,13 +49,15 @@ def stream_ask_provider_response(
     provider: str,
     user_id: str,
     user_query: str,
-    messages: list[dict[str, Any]],
-    provider_config: dict[str, Any],
+    messages: list[dict[str, object]],
+    provider_config: dict[str, object],
     runtime: AskProviderRuntime | None = None,
 ) -> Generator[AskProviderChunk, None, None]:
+    """Stream ask provider response."""
     adapter = get_ask_provider_adapter(provider)
     if not adapter:
-        raise AskProviderConfigError(f"unsupported provider: {provider}")
+        message = f"unsupported provider: {provider}"
+        raise AskProviderConfigError(message)
     yield from adapter.stream_answer(
         app, user_id, user_query, messages, provider_config, runtime
     )

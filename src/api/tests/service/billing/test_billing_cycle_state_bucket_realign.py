@@ -1,9 +1,11 @@
+"""Verify billing cycle state bucket realign behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
@@ -12,11 +14,13 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+    CREDIT_SOURCE_TYPE_MANUAL,
     CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_TOPUP,
 )
 from flaskr.service.billing.cycle_state_transitions import (
     apply_paid_subscription_cycle_state,
+    realign_active_credit_bucket_effective_to,
     realign_active_topup_bucket_effective_to,
 )
 from flaskr.service.billing.models import (
@@ -24,6 +28,7 @@ from flaskr.service.billing.models import (
     CreditLedgerEntry,
     CreditWalletBucket,
 )
+
 from tests.service.billing.cycle_state_test_helpers import build_cycle_state_app
 
 
@@ -48,9 +53,9 @@ def test_realign_active_topup_bucket_effective_to_updates_bucket_and_grant_ledge
             priority=30,
             original_credits=Decimal("20.0000000000"),
             available_credits=Decimal("20.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=old_topup_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -65,9 +70,9 @@ def test_realign_active_topup_bucket_effective_to_updates_bucket_and_grant_ledge
             priority=30,
             original_credits=Decimal("5.0000000000"),
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=cycle_start + timedelta(days=1),
             effective_to=old_topup_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -82,9 +87,9 @@ def test_realign_active_topup_bucket_effective_to_updates_bucket_and_grant_ledge
             priority=20,
             original_credits=Decimal("50.0000000000"),
             available_credits=Decimal("50.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=old_topup_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -142,6 +147,99 @@ def test_realign_active_topup_bucket_effective_to_updates_bucket_and_grant_ledge
         assert subscription_bucket.effective_to == old_topup_end
 
 
+def test_subscription_realign_preserves_independent_manual_grant_expiry() -> None:
+    app = build_cycle_state_app()
+    creator_bid = "creator-cycle-state-manual"
+    cycle_start = datetime(2026, 8, 26, 8, 47, 0)
+    cycle_end = datetime(2026, 9, 24, 15, 59, 59)
+    manual_end = datetime(2027, 5, 15, 2, 14, 57)
+
+    with app.app_context():
+        dao.db.create_all()
+        subscription_bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-cycle-state-new-subscription",
+            wallet_bid="wallet-cycle-state-manual",
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid="order-cycle-state-new-subscription",
+            priority=20,
+            original_credits=Decimal("1000.0000000000"),
+            available_credits=Decimal("1000.0000000000"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
+            effective_from=datetime(2026, 8, 1, 0, 0, 0),
+            effective_to=manual_end,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+        )
+        manual_bucket = CreditWalletBucket(
+            wallet_bucket_bid="bucket-cycle-state-manual",
+            wallet_bid="wallet-cycle-state-manual",
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid="manual-grant-cycle-state",
+            priority=20,
+            original_credits=Decimal("55000.0000000000"),
+            available_credits=Decimal("23950.1400000000"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal("31049.8600000000"),
+            expired_credits=Decimal(0),
+            effective_from=datetime(2026, 5, 15, 2, 14, 57),
+            effective_to=manual_end,
+            status=CREDIT_BUCKET_STATUS_ACTIVE,
+            metadata_json={"grant_type": "manual_grant", "validity_preset": "1y"},
+        )
+        subscription_ledger = CreditLedgerEntry(
+            ledger_bid="ledger-cycle-state-new-subscription",
+            creator_bid=creator_bid,
+            wallet_bid=subscription_bucket.wallet_bid,
+            wallet_bucket_bid=subscription_bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_SUBSCRIPTION,
+            source_bid=subscription_bucket.source_bid,
+            idempotency_key="grant:order-cycle-state-new-subscription",
+            amount=Decimal("1000.0000000000"),
+            balance_after=Decimal("24950.1400000000"),
+            expires_at=manual_end,
+            consumable_from=subscription_bucket.effective_from,
+        )
+        manual_ledger = CreditLedgerEntry(
+            ledger_bid="ledger-cycle-state-manual",
+            creator_bid=creator_bid,
+            wallet_bid=manual_bucket.wallet_bid,
+            wallet_bucket_bid=manual_bucket.wallet_bucket_bid,
+            entry_type=CREDIT_LEDGER_ENTRY_TYPE_GRANT,
+            source_type=CREDIT_SOURCE_TYPE_MANUAL,
+            source_bid=manual_bucket.source_bid,
+            idempotency_key="operator_manual_grant:cycle-state-manual",
+            amount=Decimal("55000.0000000000"),
+            balance_after=Decimal("55000.0000000000"),
+            expires_at=manual_end,
+            consumable_from=manual_bucket.effective_from,
+            metadata_json={"grant_type": "manual_grant", "validity_preset": "1y"},
+        )
+        dao.db.session.add_all(
+            [subscription_bucket, manual_bucket, subscription_ledger, manual_ledger]
+        )
+        dao.db.session.commit()
+
+        realign_active_credit_bucket_effective_to(
+            creator_bid=creator_bid,
+            bucket_category=CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
+            effective_from=cycle_start,
+            effective_to=cycle_end,
+            include_effective_to_boundary=False,
+        )
+        dao.db.session.flush()
+
+        assert subscription_bucket.effective_to == cycle_end
+        assert subscription_ledger.expires_at == cycle_end
+        assert manual_bucket.effective_to == manual_end
+        assert manual_ledger.expires_at == manual_end
+
+
 def test_apply_paid_subscription_cycle_state_advances_renewal_and_realigns_topup() -> (
     None
 ):
@@ -173,9 +271,9 @@ def test_apply_paid_subscription_cycle_state_advances_renewal_and_realigns_topup
             priority=30,
             original_credits=Decimal("20.0000000000"),
             available_credits=Decimal("20.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 5, 1, 0, 0, 0),
             effective_to=old_topup_end,
             status=CREDIT_BUCKET_STATUS_ACTIVE,

@@ -7,16 +7,16 @@ inspect the resulting SQL text. No DB connection is required.
 from __future__ import annotations
 
 import pytest
-from sqlalchemy.dialects import mysql, sqlite
-
 from flaskr.service.creator_analytics.dsl import parse_dsl
 from flaskr.service.creator_analytics.sql_builder import build_statement
-
+from sqlalchemy.dialects import mysql, sqlite
 
 LIMIT_MAX = 1000
 
 
-def _compile_for(dialect, payload, dialect_name, user_id=""):
+def _compile_for(
+    dialect: object, payload: object, dialect_name: object, user_id: object = ""
+) -> object:
     dsl = parse_dsl(payload, limit_max=LIMIT_MAX, user_id=user_id)
     stmt = build_statement(dsl, dialect_name=dialect_name)
     return str(
@@ -27,11 +27,11 @@ def _compile_for(dialect, payload, dialect_name, user_id=""):
     )
 
 
-def _compile_mysql(payload, user_id=""):
+def _compile_mysql(payload: object, user_id: object = "") -> object:
     return _compile_for(mysql.dialect(), payload, "mysql", user_id=user_id)
 
 
-def _compile_sqlite(payload, user_id=""):
+def _compile_sqlite(payload: object, user_id: object = "") -> object:
     return _compile_for(sqlite.dialect(), payload, "sqlite", user_id=user_id)
 
 
@@ -252,10 +252,10 @@ def test_limit_and_offset_present() -> None:
 
 
 def test_generated_blocks_status_auto_injected() -> None:
-    """auto_filter_status_active=True on the spec must emit AND status = 1
-    even when the DSL has no status clause. Rerolled-history rows
-    (status=0) must never leak into a creator's follow-up count."""
+    """auto_filter_status_active=True on the spec must emit AND status = 1 even when the DSL has no status clause.
 
+    Rerolled-history rows (status=0) must never leak into a creator's follow-up count.
+    """
     sql = _compile_sqlite(
         {
             "shifu_bid": "shifu-abc",
@@ -269,10 +269,7 @@ def test_generated_blocks_status_auto_injected() -> None:
 
 
 def test_generated_blocks_status_explicit_filter_does_not_override_auto() -> None:
-    """If the caller explicitly filters status=1, the auto-injected predicate
-    is still present (idempotent — SQL would simply have two `status = 1`
-    clauses; AND-of-two-identical predicates is fine)."""
-
+    """If the caller explicitly filters status=1, the auto-injected predicate is still present (idempotent — SQL would simply have two `status = 1` clauses; AND-of-two-identical predicates is fine)."""
     sql = _compile_sqlite(
         {
             "shifu_bid": "shifu-abc",
@@ -295,7 +292,9 @@ def test_generated_blocks_status_explicit_filter_does_not_override_auto() -> Non
 # ---------------------------------------------------------------------------
 
 
-def _meta_payload(table_key="shifu_published_shifus", **overrides):
+def _meta_payload(
+    table_key: object = "shifu_published_shifus", **overrides: object
+) -> object:
     """Build a baseline DSL payload for shifu metadata-table compile tests."""
     base = {
         "shifu_bid": "shifu-abc",
@@ -308,10 +307,7 @@ def _meta_payload(table_key="shifu_published_shifus", **overrides):
 
 
 def test_shifu_meta_injects_created_user_bid_predicate() -> None:
-    """Metadata tables require WHERE created_user_bid = :__user_id in
-    addition to shifu_bid scope — row ownership enforcement on top of
-    the funcs.run_dsl permission check."""
-
+    """Metadata tables require WHERE created_user_bid = :__user_id in addition to shifu_bid scope — row ownership enforcement on top of the funcs.run_dsl permission check."""
     sql = _compile_sqlite(_meta_payload(), user_id="teacher-1")
     assert "created_user_bid = 'teacher-1'" in sql
     assert "shifu_bid = 'shifu-abc'" in sql
@@ -320,26 +316,30 @@ def test_shifu_meta_injects_created_user_bid_predicate() -> None:
 
 def test_shifu_draft_injects_created_user_bid_predicate() -> None:
     """Both metadata tables share the same double-gate."""
-
     sql = _compile_sqlite(
         _meta_payload(table_key="shifu_draft_shifus"), user_id="teacher-2"
     )
     assert "created_user_bid = 'teacher-2'" in sql
 
 
-def test_shifu_meta_without_caller_user_id_fails_compile() -> None:
-    """Missing caller_user_id is a hard error — sql_builder refuses rather
-    than emitting `WHERE created_user_bid = ''` which would accidentally
-    match legacy rows."""
+@pytest.mark.parametrize("table_key", ["shifu_draft_shifus", "shifu_published_shifus"])
+def test_current_metadata_version_compiles_for_both_dialects(table_key: str) -> None:
+    """The greatest active version is scoped to the requested course in SQL."""
+    for compile_statement in (_compile_sqlite, _compile_mysql):
+        sql = compile_statement(_meta_payload(table_key), user_id="teacher-1")
+        assert "max(course_versions.id)" in sql
+        assert "course_versions.shifu_bid = 'shifu-abc'" in sql
+        assert "course_versions.deleted = 0" in sql
 
+
+def test_shifu_meta_without_caller_user_id_fails_compile() -> None:
+    """Missing caller_user_id is a hard error — sql_builder refuses rather than emitting `WHERE created_user_bid = ''` which would accidentally match legacy rows."""
     with pytest.raises(ValueError, match="caller_user_id is required"):
         _compile_sqlite(_meta_payload())  # user_id defaults to ""
 
 
 def test_non_meta_table_does_not_inject_created_user_bid() -> None:
-    """The created_user_bid predicate must only appear for tables that
-    opt into it via creator_scoped_column."""
-
+    """The created_user_bid predicate must only appear for tables that opt into it via creator_scoped_column."""
     sql = _compile_sqlite(
         {
             "shifu_bid": "shifu-abc",
@@ -350,3 +350,22 @@ def test_non_meta_table_does_not_inject_created_user_bid() -> None:
         user_id="teacher-1",
     )
     assert "created_user_bid" not in sql
+
+
+def test_user_lookup_injects_course_learner_scope() -> None:
+    payload = {
+        "shifu_bid": "shifu-abc",
+        "table": "user_users",
+        "select": ["user_bid", "nickname"],
+        "where": [{"field": "user_bid", "op": "=", "value": "learner-1"}],
+        "limit": 1,
+    }
+
+    for compile_statement in (_compile_sqlite, _compile_mysql):
+        sql = compile_statement(payload, user_id="teacher-1")
+        assert "EXISTS" in sql
+        assert "learn_progress_records" in sql
+        assert "order_orders" in sql
+        assert "shifu_bid = 'shifu-abc'" in sql
+        assert "payment_channel = 'manual'" in sql
+        assert "status = 502" in sql

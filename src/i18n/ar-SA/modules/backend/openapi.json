@@ -1,0 +1,8 @@
+{
+  "__namespace__": "server.openapi",
+  "__flat__": {
+    "courseOwnershipRequired": "لا يمكن إدارة أذونات إلا للدورات التي أنشأتها بنفسك",
+    "invalidApiKey": "API Key أو معرّف المستخدم غير صالح",
+    "noActiveAuthorization": "لم يتم العثور على تفويض ساري لهذا المستخدم وهذه الدورة"
+  }
+}

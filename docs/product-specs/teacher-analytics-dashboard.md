@@ -2,7 +2,7 @@
 title: Teacher Analytics Dashboard (v1)
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-04-17
+last_reviewed: 2026-08-16
 canonical: true
 ---
 
@@ -10,7 +10,7 @@ canonical: true
 
 ## Background
 
-AI-Shifu already stores rich learning and conversation data for a published course (Shifu). This document proposes a **teacher-facing dashboard** (initial integration) to help course creators/collaborators understand:
+AI-Shifu stores rich learning and conversation data for a published course (Shifu). The implemented **teacher-facing dashboard** helps course owners understand:
 
 1. Learner progress
 2. Course completion
@@ -18,13 +18,12 @@ AI-Shifu already stores rich learning and conversation data for a published cour
 4. Learner personalization (profiles/variables)
 5. Follow-up details (Q/A logs)
 
-Requirements:
+The current implementation:
 
 - Provide **detailed views** (tables + drill-down per learner)
-- Provide **chart analysis** (ECharts)
-- Frontend chart library: **`echarts` + `echarts-for-react`**
+- Present aggregate values as reusable metric cards
+- Present courses, learners, follow-ups, and ratings through filterable, paginated tables
 - Prefer **additive changes** with minimal disturbance to existing business logic
-- Make chart components **wrappable/composable** for future reuse
 
 ## What We Have Today (Relevant Data Sources)
 
@@ -45,7 +44,8 @@ This is the **source of truth** for what learners can study in production mode.
     - `status` (`LEARN_STATUS_*`)
     - `block_position` (coarse pointer inside an outline’s block list)
     - `updated_at` (used as “last activity” proxy)
-  - Note: there can be multiple records per `(user_bid, outline_item_bid)`; code paths often pick the latest by `id`.
+  - Multiple records can exist per `(user_bid, outline_item_bid)`. Preserve the
+    metric-specific history rules below instead of selecting one latest row.
 
 ### Follow-up Q/A logs (追问)
 
@@ -64,61 +64,56 @@ This is the **source of truth** for what learners can study in production mode.
   - Course scope values: `shifu_bid == <course_id>` (custom variables collected during learning)
   - Read helper used in learning runtime: `flaskr.service.profile.funcs.get_user_profiles`
 
-### Enrollment candidates (optional enhancement)
+## Implemented course progress metrics
 
-- `order_orders` (`flaskr.service.order.models.Order`)
-  - Can be used to include “purchased but never started” learners.
-  - V1 can start with “learners with progress records”; optionally union orders later.
+The course-detail progress helpers in `flaskr/service/dashboard/funcs.py` use
+these distinct populations and histories:
 
-## Metrics Definitions (V1)
+- `_load_course_leaf_outline_bids` selects visible, non-deleted published
+  outlines and removes parents of visible outlines. It does not restrict the
+  set to normal lessons or expose `include_trial` / `include_guest` flags.
+- `_load_course_learner_bids` unions distinct users with any non-deleted,
+  non-reset progress record and users with successful, non-deleted manual
+  orders. It does not union every paid order.
+- `_load_dashboard_course_learned_lesson_count_map` counts distinct eligible
+  leaf lessons across all non-deleted, non-reset progress rows for each scoped
+  learner. `_load_dashboard_course_last_learning_map` takes `max(updated_at)`
+  across that learner's non-deleted, non-reset course rows. Neither selects a
+  latest row per lesson.
+- `_load_dashboard_course_completed_learner_bids` examines all non-deleted
+  status records for each learner/leaf lesson, ordered by `created_at`, then
+  `id`. A lesson counts as completed if any record is completed, or if a reset
+  record has a later record. Thus completed followed by in-progress still
+  counts, as does reset followed by restudy; reset alone does not. A learner is
+  completed only when every eligible leaf counts; an empty leaf set yields no
+  completed learners.
+- `learning_learner_count` counts learners with at least one learned leaf who
+  are not in the completed set. Learner display rows expose
+  `learned_lesson_count` and `last_learning_at`; the historical proposed
+  `completed_outline_count` / `progress_percent` fields are not their contract.
 
-### Outline set (what counts toward progress)
+- `_build_dashboard_course_learners` computes each row's `learning_status` from
+  `learned_lesson_count`, not the overview completion-history rule. With at
+  least one eligible leaf, a count at or above `total_lesson_count` yields
+  `completed`; a positive smaller count yields `learning`; zero yields
+  `not_started`. With no eligible leaves, it never returns `completed`.
+  For example, non-reset in-progress records for every leaf make the learner
+  row `completed` without making the learner part of the overview's completed
+  set. Keep these existing list and overview semantics separate.
 
-Default for V1:
-
-- Use **published** outline items from `LogPublishedStruct` + `PublishedOutlineItem`.
-- Exclude `hidden == 1`.
-- Count only `type == UNIT_TYPE_VALUE_NORMAL` as “required lessons”.
-
-Optional flags for future:
-
-- `include_trial=true`: include trial outlines
-- `include_guest=true`: include guest outlines
-
-### Learner set (who is included)
-
-Default for V1:
-
-- Learners are users who have **at least one** `LearnProgressRecord` for this `shifu_bid` (latest non-reset record).
-
-Optional later:
-
-- Union in paid orders (`Order.status == ORDER_STATUS_SUCCESS`) to include not-started learners.
-
-### Per-learner summary fields
-
-- `required_outline_total`
-- `completed_outline_count`
-- `in_progress_outline_count`
-- `progress_percent = completed / total` (0..1)
-- `last_active_at = max(updated_at)` across latest progress records
-- `follow_up_ask_count = count(MDASK)` (time-range aware for charting; total for per-learner)
-
-### Course-level overview
-
-- `learner_count`
-- `completion_count` (learners with `completed == total`)
-- `completion_rate`
-- `progress_distribution` (bucketed)
-- `follow_up_trend` (daily count within date range)
-- `top_outlines_by_follow_ups`
-- `top_learners_by_follow_ups`
+Use `DashboardCourseDetailDTO` and its nested DTOs for the `/detail` response
+(`basic_info`, aggregate `metrics`, and `learning_mode_metrics`). The separate
+`/learners` response uses `DashboardCourseDetailLearnersDTO`, whose `items` are
+`DashboardCourseDetailLearnerItemDTO` rows. Both DTO families live in
+`src/api/flaskr/service/dashboard/dtos.py`. Entry-page metrics have their own
+time-window and population contract in
+[Dashboard Entry Page Contract](dashboard-entry-page.md).
 
 ## Backend Design
 
-### New service module
+### Existing service module
 
-Add a new additive service module:
+The implemented dashboard service lives in:
 
 - `src/api/flaskr/service/dashboard/`
   - `dtos.py` (Pydantic DTOs with `__json__`)
@@ -130,77 +125,68 @@ Add a new additive service module:
 Teacher dashboard must be restricted:
 
 - Require login (existing `before_request` sets `request.user`)
-- Require Shifu permission:
-  - `shifu_permission_verification(app, request.user.user_id, shifu_bid, "view")`
+- Limit access to owned published courses. The entry page uses
+  `_load_dashboard_course_meta_map(user_id)`; course-specific builders use
+  `_load_dashboard_course_meta(user_id, shifu_bid)`. Both restrict
+  `PublishedShifu.created_user_bid` to the requesting user and exclude deleted
+  records and built-in demo courses.
+- Collaborator `view` permission does not grant dashboard access. These builders
+  do not call `shifu_permission_verification`; course-specific requests without
+  an eligible owned course are rejected.
 
-### Proposed endpoints (V1)
+### Implemented endpoints (V1)
 
-All endpoints under `/api/dashboard`, additive to avoid disturbing existing routes.
+All endpoints live under `/api/dashboard` and are additive to existing routes.
 
-1. `GET /api/dashboard/shifus/{shifu_bid}/outlines`
-   - Returns published outline list used for progress calculation and filtering.
+1. `GET /api/dashboard/entry`
+   - Returns summary cards and a paginated course table.
+   - Supports course keyword and UTC date-window filters. Learner/order counts
+     and course inclusion use progress/order `created_at`; progress `updated_at`
+     determines the displayed `last_active_at` only and cannot include a course.
 
-2. `GET /api/dashboard/shifus/{shifu_bid}/overview`
-   - Query params:
-     - `start_date` (YYYY-MM-DD, optional)
-     - `end_date` (YYYY-MM-DD, optional)
-     - `include_trial` / `include_guest` (optional)
-   - Returns KPI + chart-ready series (daily arrays, top-N arrays, buckets).
+2. `GET /api/dashboard/shifus/{shifu_bid}/detail`
+   - Returns course basics and aggregate metrics for the metric-card grid.
 
 3. `GET /api/dashboard/shifus/{shifu_bid}/learners`
-   - Query params:
-     - `page_index` (default 1)
-     - `page_size` (default 20, max 100)
-     - `keyword` (optional; matches user_bid / mobile / nickname)
-     - `sort` (optional; e.g. `last_active_at_desc`, `progress_desc`, `followups_desc`)
-   - Returns paginated learner summaries.
+   - Returns filterable, paginated learner summaries.
 
-4. `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}`
-   - Returns:
-     - outline progress statuses (per outline)
-     - learner core info
-     - learner course-scoped variables (from `get_user_profiles`)
-     - follow-up aggregates (count by outline, recent items)
+4. `GET /api/dashboard/shifus/{shifu_bid}/follow-ups`
+   - Returns summary cards and a filterable, paginated follow-up table.
 
-5. `GET /api/dashboard/shifus/{shifu_bid}/learners/{user_bid}/followups`
-   - Query params:
-     - `outline_item_bid` (optional filter)
-     - `start_time`, `end_time` (optional, ISO or `YYYY-MM-DD`)
-     - `page_index`, `page_size`
-   - Returns follow-up items (question/answer, timestamps, outline info).
+5. `GET /api/dashboard/shifus/{shifu_bid}/follow-ups/{generated_block_bid}/detail`
+   - Returns the selected follow-up, its answer, and the surrounding timeline.
+
+6. `GET /api/dashboard/shifus/{shifu_bid}/ratings`
+   - Returns summary cards and a filterable, paginated rating table.
 
 ### Data access patterns (important implementation notes)
 
-**Hard constraint: no database JOIN queries.**
+Query guidance reviewed against the implemented dashboard on 2026-09-26:
 
-- Do not use SQL JOIN / SQLAlchemy `.join()` / relationship eager-loading to combine tables.
-- For parent/child lookups, always:
-  1. Query the parent table first to get the parent keys (`*_bid`, `id`, `parent_bid`, etc.).
-  2. Query the child table with `IN (...)` using those keys.
-  3. Combine the result sets in Python with dict maps.
-- If an `IN (...)` list can grow large, chunk it (e.g. 500-1000 ids per query) and merge the chunks in memory.
+- Filter by the authorized course scope before aggregating or associating data.
+  Course-specific requests use the targeted ownership check; the entry page
+  uses its owned-course scope.
+- Use bounded SQL joins, subqueries, and grouped aggregates where the existing
+  query path requires them. Preserve one-row-per-learner or rating semantics
+  and avoid multiplying counts when joining one-to-many records.
+- Apply SQL filtering and pagination before hydrating page-only display fields
+  where filters can be resolved in SQL. The follow-up `source_status` path is
+  an explicit exception: it resolves candidate source status in Python, applies
+  that filter, then computes the filtered total and slices the page. Paginating
+  before that filter would give incorrect totals and incomplete pages.
+  Compute summary metrics over the full eligible scope, not only the page.
+- Retain the metric-specific progress history rules above. In particular,
+  completion needs ordered reset/completion history; activity and learned-lesson
+  aggregates use all eligible non-reset rows. Batch contact and other display
+  lookups instead of adding per-row queries. Python maps remain appropriate
+  for those bounded presentation joins.
+- Normalize date boundaries once and keep API timestamps in UTC. Query
+  optimizations must preserve empty-state, filter, ordering, and pagination
+  contracts covered by the dashboard route and query-contract tests.
 
-Examples:
-
-- Published outlines:
-  - Load `LogPublishedStruct` (parent) to obtain the outline `id` / `outline_item_bid` list.
-  - Load `PublishedOutlineItem` (child) with `PublishedOutlineItem.id.in_(...)`.
-  - Merge by `outline_item_bid` in Python.
-- Learner list:
-  - Load latest `LearnProgressRecord` rows first (parent) and collect `user_bid` list.
-  - Load `UserEntity` (child) with `UserEntity.user_bid.in_(...)`.
-  - Load `AuthCredential` (child) with `AuthCredential.user_bid.in_(...)`.
-  - Merge user + credential + progress in Python.
-
-Other important patterns:
-
-- Always use **latest** progress record per `(user_bid, outline_item_bid)`:
-  - Build a `max(id)` subquery grouped by `(user_bid, outline_item_bid)` with `status != LEARN_STATUS_RESET` and `deleted == 0`, then load full rows via `LearnProgressRecord.id.in_(subquery)`.
-- Avoid N+1 by batching with `IN (...)` queries:
-  - Batch-load users/credentials for learner lists.
-  - Batch-load ask counts via grouped queries on `learn_generated_blocks` (no joins).
-- Time range for trends:
-  - `DATE(created_at)` group-by for follow-up trend.
+The entry route and its four metrics are specified in
+[Dashboard Entry Page Contract](dashboard-entry-page.md); do not duplicate a
+second route or metric definition here.
 
 ### Swagger schemas
 
@@ -213,72 +199,56 @@ Follow existing convention:
 
 ### Route
 
-Add a new admin page:
+The dashboard uses these admin routes:
 
-- `src/cook-web/src/app/admin/dashboard/page.tsx`
-
-Minimal existing changes:
-
-- Add a new menu item in `src/cook-web/src/app/admin/layout.tsx` pointing to `/admin/dashboard`.
+- `src/web/src/app/admin/dashboard/page.tsx`
+- `src/web/src/app/admin/dashboard/[shifu_bid]/page.tsx`
+- `src/web/src/app/admin/dashboard/[shifu_bid]/follow-ups/page.tsx`
+- `src/web/src/app/admin/dashboard/[shifu_bid]/ratings/page.tsx`
 
 ### API client integration
 
-Add new endpoints to:
+Dashboard endpoints are registered in:
 
-- `src/cook-web/src/api/api.ts`
+- `src/web/src/api/api.ts`
 
 Then use the generated functions via `import api from '@/api'`.
 
-### Chart component architecture (ECharts)
+### Metric card and table architecture
 
-Add reusable primitives:
-
-- `src/cook-web/src/components/charts/EChart.tsx`
-  - Client-only wrapper around `echarts-for-react` via `next/dynamic`
-  - Props: `option`, `style`, `loading`, `onEvents`, `opts`, `notMerge`, `lazyUpdate`
-- `src/cook-web/src/components/charts/ChartCard.tsx`
-  - Standardized card chrome: title, subtitle, actions slot, chart area
-
-Option builders (future-friendly):
-
-- `src/cook-web/src/lib/charts/options.ts`
-  - `buildLineOption(...)`
-  - `buildBarOption(...)`
-  - Common theme tokens aligned with Tailwind variables
+- Reuse `CourseMetricsCardGrid` for course, follow-up, and rating summaries.
+- Reuse `AdminTableShell` for course, learner, follow-up, and rating lists so loading, empty state, footnotes, pagination, and sticky action columns stay consistent with the rest of the admin UI.
+- Keep route-specific filters and row actions in the corresponding dashboard page or focused child component.
 
 ### UI layout (V1)
 
-Dashboard page sections:
+Dashboard surfaces:
 
-1. Header controls
-   - Course selector (reuses existing shifu list API)
-   - Date range selector (reuse `Calendar` / `Popover` patterns from admin orders)
-2. KPI cards
-   - Learners, completion rate, follow-up totals, active learners (optional)
-3. Charts grid
-   - Progress distribution (bar)
-   - Follow-up trend (line)
-   - Top outlines by follow-ups (bar)
-4. Learner table + drill-down
-   - Table: learner info + progress + follow-ups + last active
-   - Row click opens a `Sheet` with tabs:
-     - Progress (outline list statuses)
-     - Follow-ups (Q/A list with filters)
-     - Personalization (variables table)
+1. Dashboard entry
+   - Course keyword and UTC date-window filters with the entry contract above
+   - Course, learner, order, and revenue summary cards
+   - Paginated course table with course-detail and order actions
+2. Course detail
+   - Basic course information and aggregate metric cards
+   - Filterable learner table with progress, status, follow-up count, and dates
+3. Follow-up detail
+   - Summary cards and a filterable follow-up table
+   - A sheet for the current Q/A record and its conversation timeline
+4. Ratings
+   - Summary cards and a filterable rating table
 
 ### i18n
 
-Add a new namespace file:
-
-- `src/i18n/en-US/modules/dashboard.json`
-- `src/i18n/zh-CN/modules/dashboard.json`
+Use the existing `modules/dashboard.json` namespace under each supported
+`src/i18n/<locale>/` directory. Supported locales come from
+[the shared locale list](../../src/i18n/locales.json).
 
 Keys example:
 
 - `module.dashboard.title`
-- `module.dashboard.kpi.learners`
-- `module.dashboard.chart.followUpsTrend`
-- `module.dashboard.table.progress`
+- `module.dashboard.entry.kpi.learners`
+- `module.dashboard.detail.metrics.completionRate`
+- `module.dashboard.detail.learners.columns.progress`
 
 ## Testing & Validation
 
@@ -288,17 +258,16 @@ Backend:
 - Focus on:
   - permission enforcement
   - outline set correctness (hidden excluded)
-  - “latest record” selection correctness
+  - metric-specific completion/reset history and non-reset aggregate semantics
   - pagination stability
 
 Frontend:
 
-- Basic render tests for chart wrappers (Jest)
+- Render and interaction tests for the dashboard entry, course detail, follow-up list/detail, and ratings pages (Jest)
 - Manual QA checklist:
-  - load dashboard
-  - switch course
-  - switch date range
-  - open learner detail and paginate follow-ups
+  - load the dashboard and filter the course table
+  - open a course detail and paginate/filter learners
+  - open follow-up and rating lists, exercise filters, and inspect a follow-up
 
 ## Risks / Open Questions
 

@@ -1,0 +1,436 @@
+import type { Dispatch, SetStateAction } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+
+import CourseModelSelect from '@/components/model-list/CourseModelSelect';
+import type { ModelIndex } from '@/types/shifu';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
+import { Switch } from '@/components/ui/Switch';
+import { Textarea } from '@/components/ui/Textarea';
+import { FormLabel } from '@/components/ui/Form';
+import { useToast } from '@/hooks/useToast';
+import type { ModelOption } from '@/types/shifu';
+import type { FollowUpVoice } from '@/lib/liveVoiceFollowUp';
+
+import { getLiveVoiceStyleI18nKey } from './live-voice-style';
+
+type AskPreviewMeta = {
+  provider: string;
+  requestedProvider: string;
+  fallbackUsed: boolean;
+};
+
+type AskProviderOption = {
+  value: string;
+  label: string;
+};
+
+const VOICE_STYLE_SEPARATOR = ' · ';
+
+type AskSettingsSectionProps = {
+  readonly?: boolean;
+  textDebugAllowed: boolean;
+  askProviderOptions: AskProviderOption[];
+  resolvedAskProvider: string;
+  askProviderLlmValue: string;
+  askModelIndex?: ModelIndex | null;
+  modelDisplayName?: string;
+  canRestoreText?: boolean;
+  checkingTextMode?: boolean;
+  onAskModelIndexChange?: (modelIndex: ModelIndex) => void;
+  liveAvailable?: boolean;
+  onFollowUpModeChange?: (mode: 'text' | 'live_voice') => void;
+  askModel: string;
+  onAskModelChange: (value: string) => void;
+  askModelOptions: ModelOption[];
+  isLiveVoiceFollowUp: boolean;
+  liveVoices: FollowUpVoice[];
+  liveVoice: string;
+  onLiveVoiceChange: (value: string) => void;
+  onAskProviderChange: (value: string) => void;
+  askProviderFieldEntries: Array<[string, any]>;
+  askProviderRequiredFields: Set<string>;
+  askProviderConfig: Record<string, any>;
+  setAskProviderConfig: Dispatch<SetStateAction<Record<string, any>>>;
+  askProviderObjectInputs: Record<string, string>;
+  setAskProviderObjectInputs: Dispatch<SetStateAction<Record<string, string>>>;
+  askPreviewLoading: boolean;
+  askPreviewQuery: string;
+  setAskPreviewQuery: Dispatch<SetStateAction<string>>;
+  handleAskPreview: () => void;
+  askPreviewMeta: AskPreviewMeta | null;
+  askPreviewResult: string;
+};
+
+export default function AskSettingsSection({
+  readonly,
+  textDebugAllowed,
+  askProviderOptions,
+  resolvedAskProvider,
+  askProviderLlmValue,
+  askModelIndex,
+  modelDisplayName,
+  canRestoreText = false,
+  checkingTextMode = false,
+  onAskModelIndexChange,
+  liveAvailable,
+  onFollowUpModeChange,
+  isLiveVoiceFollowUp,
+  liveVoices,
+  liveVoice,
+  onLiveVoiceChange,
+  onAskProviderChange,
+  askProviderFieldEntries,
+  askProviderRequiredFields,
+  askProviderConfig,
+  setAskProviderConfig,
+  askProviderObjectInputs,
+  setAskProviderObjectInputs,
+  askPreviewLoading,
+  askPreviewQuery,
+  setAskPreviewQuery,
+  handleAskPreview,
+  askPreviewMeta,
+  askPreviewResult,
+}: AskSettingsSectionProps) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const textConfigurationReadonly = readonly || !textDebugAllowed;
+
+  return (
+    <div className='mb-6'>
+      <div className='space-y-2 mb-4'>
+        <FormLabel className='text-sm font-medium text-foreground'>
+          {t('module.shifuSetting.askTitle')}
+        </FormLabel>
+        <Select
+          value={resolvedAskProvider}
+          onValueChange={onAskProviderChange}
+          disabled={textConfigurationReadonly || isLiveVoiceFollowUp}
+        >
+          <SelectTrigger className='h-9'>
+            <SelectValue
+              placeholder={t('module.shifuSetting.askProviderSelect')}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {askProviderOptions.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(resolvedAskProvider === askProviderLlmValue ||
+          !textDebugAllowed ||
+          isLiveVoiceFollowUp) && (
+          <div className='space-y-2 pt-2'>
+            <FormLabel className='text-sm font-medium text-foreground'>
+              {t('module.shifuSetting.askModel')}
+            </FormLabel>
+            <Select
+              value={isLiveVoiceFollowUp ? 'live_voice' : 'text'}
+              onValueChange={value =>
+                onFollowUpModeChange?.(value as 'text' | 'live_voice')
+              }
+              disabled={readonly}
+            >
+              <SelectTrigger className='h-9'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem
+                  value='text'
+                  disabled={
+                    checkingTextMode ||
+                    (!textDebugAllowed &&
+                      !canRestoreText &&
+                      isLiveVoiceFollowUp)
+                  }
+                >
+                  {t('module.shifuSetting.modelOptions.text')}
+                </SelectItem>
+                <SelectItem
+                  value='live_voice'
+                  disabled={!liveAvailable && !isLiveVoiceFollowUp}
+                >
+                  {t('module.shifuSetting.modelOptions.liveVoice')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            {!isLiveVoiceFollowUp && (
+              <CourseModelSelect
+                value={askModelIndex ?? null}
+                displayName={modelDisplayName}
+                onChange={modelIndex => onAskModelIndexChange?.(modelIndex)}
+                disabled={textConfigurationReadonly}
+              />
+            )}
+
+            {isLiveVoiceFollowUp && (
+              <div className='space-y-2 pt-2'>
+                <FormLabel className='text-sm font-medium text-foreground'>
+                  {t('module.shifuSetting.liveVoiceLabel')}
+                </FormLabel>
+                <p className='text-xs text-muted-foreground'>
+                  {t('module.shifuSetting.liveVoiceDescription')}
+                </p>
+                <Select
+                  value={liveVoice}
+                  onValueChange={onLiveVoiceChange}
+                  disabled={readonly}
+                >
+                  <SelectTrigger className='h-9'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {liveVoices.map(voice => {
+                      const styleKey = getLiveVoiceStyleI18nKey(voice.style);
+                      return (
+                        <SelectItem
+                          key={voice.voice_id}
+                          value={voice.voice_id}
+                        >
+                          {voice.voice_id}
+                          {styleKey && (
+                            <>
+                              {VOICE_STYLE_SEPARATOR}
+                              {t(styleKey)}
+                            </>
+                          )}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {askProviderFieldEntries.map(([fieldName, fieldSchema]) => {
+        const schemaType = String((fieldSchema as any)?.type || 'string');
+        const schemaFormat = String(
+          (fieldSchema as any)?.format || '',
+        ).toLowerCase();
+        const fieldLabel = (fieldSchema as any)?.title || fieldName || '';
+        const fieldHint = (fieldSchema as any)?.description || '';
+        const isRequired = askProviderRequiredFields.has(fieldName);
+        const displayLabel = isRequired ? `${fieldLabel} *` : fieldLabel;
+
+        if (schemaType === 'object') {
+          const rawValue =
+            askProviderObjectInputs[fieldName] ??
+            JSON.stringify(askProviderConfig[fieldName] ?? {}, null, 2);
+          return (
+            <div
+              key={fieldName}
+              className='space-y-2 mb-4'
+            >
+              <FormLabel className='text-sm font-medium text-foreground'>
+                {displayLabel}
+              </FormLabel>
+              {fieldHint && (
+                <p className='text-xs text-muted-foreground'>{fieldHint}</p>
+              )}
+              <Textarea
+                disabled={textConfigurationReadonly}
+                value={rawValue}
+                onChange={e =>
+                  setAskProviderObjectInputs(prev => ({
+                    ...prev,
+                    [fieldName]: e.target.value,
+                  }))
+                }
+                onBlur={() => {
+                  const nextRaw =
+                    askProviderObjectInputs[fieldName] ?? rawValue;
+                  const trimmed = String(nextRaw || '').trim();
+                  if (!trimmed) {
+                    if (isRequired) {
+                      toast({
+                        title: t(
+                          'module.shifuSetting.askProviderConfigRequired',
+                          { field: fieldLabel },
+                        ),
+                        variant: 'destructive',
+                      });
+                    }
+                    return;
+                  }
+                  try {
+                    const parsed = JSON.parse(trimmed);
+                    if (
+                      !parsed ||
+                      typeof parsed !== 'object' ||
+                      Array.isArray(parsed)
+                    ) {
+                      throw new Error('invalid object');
+                    }
+                    setAskProviderConfig(prev => ({
+                      ...prev,
+                      [fieldName]: parsed,
+                    }));
+                  } catch {
+                    toast({
+                      title: t(
+                        'module.shifuSetting.askProviderConfigInvalidJson',
+                        { field: fieldLabel },
+                      ),
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+                minRows={3}
+                maxRows={12}
+              />
+            </div>
+          );
+        }
+
+        const rawFieldValue = askProviderConfig[fieldName];
+        if (schemaType === 'boolean') {
+          return (
+            <div
+              key={fieldName}
+              className='flex items-start justify-between mb-4'
+            >
+              <div className='space-y-1'>
+                <FormLabel className='text-sm font-medium text-foreground'>
+                  {displayLabel}
+                </FormLabel>
+                {fieldHint && (
+                  <p className='text-xs text-muted-foreground'>{fieldHint}</p>
+                )}
+              </div>
+              <Switch
+                checked={Boolean(rawFieldValue)}
+                onCheckedChange={value =>
+                  setAskProviderConfig(prev => ({
+                    ...prev,
+                    [fieldName]: value,
+                  }))
+                }
+                disabled={textConfigurationReadonly}
+              />
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={fieldName}
+            className='space-y-2 mb-4'
+          >
+            <FormLabel className='text-sm font-medium text-foreground'>
+              {displayLabel}
+            </FormLabel>
+            {fieldHint && (
+              <p className='text-xs text-muted-foreground'>{fieldHint}</p>
+            )}
+            <Input
+              type={
+                schemaType === 'number' || schemaType === 'integer'
+                  ? 'number'
+                  : schemaFormat === 'password'
+                    ? 'password'
+                    : 'text'
+              }
+              min={(fieldSchema as any)?.minimum}
+              max={(fieldSchema as any)?.maximum}
+              value={rawFieldValue ?? ''}
+              onChange={e =>
+                setAskProviderConfig(prev => ({
+                  ...prev,
+                  [fieldName]: e.target.value,
+                }))
+              }
+              disabled={textConfigurationReadonly}
+              className='h-9'
+            />
+          </div>
+        );
+      })}
+
+      {isLiveVoiceFollowUp ? (
+        <div className='rounded-md border border-border bg-muted/40 px-3 py-3 text-sm text-muted-foreground'>
+          {t('module.shifuSetting.liveVoicePreviewHint')}
+        </div>
+      ) : (
+        <>
+          <div className='space-y-2 mb-4'>
+            <FormLabel className='text-sm font-medium text-foreground'>
+              {t('module.shifuSetting.askPreviewQuestion')}
+            </FormLabel>
+            <Input
+              disabled={textConfigurationReadonly || askPreviewLoading}
+              value={askPreviewQuery}
+              onChange={e => setAskPreviewQuery(e.target.value)}
+              placeholder={t(
+                'module.shifuSetting.askPreviewQuestionPlaceholder',
+              )}
+              className='h-9'
+            />
+          </div>
+
+          <div className='pt-2'>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={handleAskPreview}
+              disabled={textConfigurationReadonly || askPreviewLoading}
+              className='w-full'
+            >
+              {askPreviewLoading ? (
+                <>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                  {t('module.shifuSetting.askPreviewLoading')}
+                </>
+              ) : (
+                t('module.shifuSetting.askPreview')
+              )}
+            </Button>
+          </div>
+        </>
+      )}
+
+      {!isLiveVoiceFollowUp && askPreviewMeta && (
+        <p className='mt-3 text-xs text-muted-foreground'>
+          {askPreviewMeta.fallbackUsed
+            ? t('module.shifuSetting.askPreviewUsedFallback', {
+                provider: askPreviewMeta.requestedProvider,
+              })
+            : t('module.shifuSetting.askPreviewUsedProvider', {
+                provider: askPreviewMeta.provider,
+              })}
+        </p>
+      )}
+
+      {!isLiveVoiceFollowUp && askPreviewResult && (
+        <div className='space-y-2 mt-3'>
+          <FormLabel className='text-sm font-medium text-foreground'>
+            {t('module.shifuSetting.askPreviewResult')}
+          </FormLabel>
+          <Textarea
+            value={askPreviewResult}
+            readOnly
+            minRows={3}
+            maxRows={12}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

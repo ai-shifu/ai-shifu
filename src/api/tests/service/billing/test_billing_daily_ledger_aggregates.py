@@ -1,12 +1,14 @@
+"""Verify billing daily ledger aggregates behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.consts import (
     CREDIT_LEDGER_ENTRY_TYPE_CONSUME,
     CREDIT_LEDGER_ENTRY_TYPE_GRANT,
@@ -19,9 +21,12 @@ from flaskr.service.billing.daily_aggregates import (
 )
 from flaskr.service.billing.models import BillingDailyLedgerSummary, CreditLedgerEntry
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 
 @pytest.fixture
-def billing_daily_ledger_app(tmp_path):
+def billing_daily_ledger_app(tmp_path: object) -> Iterator[Flask]:
     db_path = tmp_path / "billing-daily-ledger.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -224,7 +229,7 @@ def _add_ledger_entry(
             source_bid=f"source-{ledger_bid}",
             idempotency_key=f"idempotency-{ledger_bid}",
             amount=amount,
-            balance_after=Decimal("0"),
+            balance_after=Decimal(0),
             metadata_json={},
             created_at=created_at,
             updated_at=created_at,

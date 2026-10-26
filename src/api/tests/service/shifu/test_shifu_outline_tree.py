@@ -8,18 +8,19 @@ blocked with a clear error instead of shipping a broken course.
 """
 
 import pytest
-from sqlalchemy import inspect as sa_inspect
-
 from flaskr.dao import db
-from flaskr.service.common.models import AppException
+from flaskr.service.common.models import AppError
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.shifu.shifu_outline_funcs import (
-    build_outline_tree,
     assert_outline_tree_publishable,
+    build_outline_tree,
 )
+from sqlalchemy import inspect as sa_inspect
 
 
-def _mk_item(shifu_bid, bid, position, parent_bid=""):
+def _mk_item(
+    shifu_bid: object, bid: object, position: object, parent_bid: object = ""
+) -> object:
     item = DraftOutlineItem()
     item.outline_item_bid = bid
     item.shifu_bid = shifu_bid
@@ -31,9 +32,8 @@ def _mk_item(shifu_bid, bid, position, parent_bid=""):
     return item
 
 
-def test_build_outline_tree_lifts_orphan_to_root(app):
-    """An orphan whose parent position is missing is attached at root, and its
-    own subtree stays attached to it — nothing is dropped."""
+def test_build_outline_tree_lifts_orphan_to_root(app: object) -> None:
+    """An orphan whose parent position is missing is attached at root, and its own subtree stays attached to it — nothing is dropped."""
     shifu_bid = "shifu_orphan_1"
     with app.app_context():
         _mk_item(shifu_bid, "root1", "01")
@@ -54,10 +54,11 @@ def test_build_outline_tree_lifts_orphan_to_root(app):
         assert [c.outline_id for c in orphan_node.children] == ["orphan_child"]
 
 
-def test_build_outline_tree_handles_empty_position_without_cycle(app):
-    """A degenerate empty position must not become its own child (which would
-    later blow up get_outline_tree_dto with RecursionError). It is lifted to
-    the root level like any other orphan."""
+def test_build_outline_tree_handles_empty_position_without_cycle(app: object) -> None:
+    """A degenerate empty position must not become its own child (which would later blow up get_outline_tree_dto with RecursionError).
+
+    It is lifted to the root level like any other orphan.
+    """
     shifu_bid = "shifu_empty_pos_1"
     with app.app_context():
         _mk_item(shifu_bid, "root1", "01")
@@ -80,7 +81,7 @@ def test_build_outline_tree_handles_empty_position_without_cycle(app):
         assert {d.bid for d in dtos} == {"root1", "broken"}
 
 
-def test_assert_publishable_passes_when_no_collision(app):
+def test_assert_publishable_passes_when_no_collision(app: object) -> None:
     """Orphans alone are tolerated (self-healed); publish is not blocked."""
     shifu_bid = "shifu_orphan_2"
     with app.app_context():
@@ -92,7 +93,7 @@ def test_assert_publishable_passes_when_no_collision(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_assert_publishable_raises_on_position_collision(app):
+def test_assert_publishable_raises_on_position_collision(app: object) -> None:
     """Two live nodes sharing a position cannot be reconciled -> block publish."""
     shifu_bid = "shifu_collision_1"
     with app.app_context():
@@ -101,13 +102,13 @@ def test_assert_publishable_raises_on_position_collision(app):
         _mk_item(shifu_bid, "b", "0101", parent_bid="root1")  # collision
         db.session.commit()
 
-        with pytest.raises(AppException) as exc_info:
+        with pytest.raises(AppError) as exc_info:
             assert_outline_tree_publishable(app, shifu_bid)
         # 4010 == server.shifu.outlineStructureBroken (see error_codes.json)
         assert exc_info.value.code == 4010
 
 
-def test_outline_tree_metadata_loader_does_not_read_content(app):
+def test_outline_tree_metadata_loader_does_not_read_content(app: object) -> None:
     shifu_bid = "shifu_outline_lightweight_1"
     with app.app_context():
         item = _mk_item(shifu_bid, "root1", "01")

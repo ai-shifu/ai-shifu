@@ -2,31 +2,47 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
-from flask import Flask
-
-from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG, normalize_usage_scene
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_DEBUG,
+    BILL_USAGE_SCENE_PROD,
+    BILL_USAGE_TYPE_LLM,
+    normalize_usage_scene,
+)
 from flaskr.service.shifu.utils import get_shifu_creator_bid
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 
 def resolve_shifu_creator_bid(app: Flask, shifu_bid: str) -> str | None:
     """Resolve the creator that owns a shifu for billing workflows."""
-
     normalized_shifu_bid = str(shifu_bid or "").strip()
     if not normalized_shifu_bid:
         return None
     return get_shifu_creator_bid(app, normalized_shifu_bid)
 
 
-def resolve_usage_creator_bid(app: Flask, usage: Any) -> str | None:
+def resolve_usage_creator_bid(app: Flask, usage: object) -> str | None:
     """Resolve the owning creator from a metering usage record or payload."""
-
     shifu_bid = _extract_usage_field(usage, "shifu_bid")
     if shifu_bid:
         return resolve_shifu_creator_bid(app, shifu_bid)
 
     raw_usage_scene = _extract_usage_field(usage, "usage_scene")
+    extra = (
+        usage.get("extra") if isinstance(usage, dict) else getattr(usage, "extra", None)
+    )
+    if (
+        raw_usage_scene
+        and normalize_usage_scene(raw_usage_scene) == BILL_USAGE_SCENE_PROD
+        and _extract_usage_field(usage, "usage_type") == str(BILL_USAGE_TYPE_LLM)
+        and isinstance(extra, dict)
+        and extra.get("billing_source") == "model_gateway"
+    ):
+        return _extract_usage_field(usage, "user_bid") or None
+
     if (
         raw_usage_scene
         and normalize_usage_scene(raw_usage_scene) == BILL_USAGE_SCENE_DEBUG
@@ -37,7 +53,7 @@ def resolve_usage_creator_bid(app: Flask, usage: Any) -> str | None:
     return None
 
 
-def _extract_usage_field(usage: Any, field_name: str) -> str:
+def _extract_usage_field(usage: object, field_name: str) -> str:
     if isinstance(usage, dict):
         value = usage.get(field_name, "")
     else:

@@ -1,5 +1,4 @@
-"""
-Baidu TTS Provider.
+"""Baidu TTS Provider.
 
 This module provides TTS synthesis using Baidu's Short Text Online Synthesis API.
 
@@ -8,29 +7,29 @@ API Reference:
 - Documentation: https://cloud.baidu.com/doc/SPEECH/s/mlbxh7xie
 """
 
-import logging
-import requests
-import time
 import hashlib
-from typing import Optional, List
+import logging
+import time
 
-from flaskr.common.config import get_config
-from flaskr.common.log import AppLoggerProxy
+import requests
+
 from flaskr.api.tts.base import (
+    AudioSettings,
     BaseTTSProvider,
+    ParamRange,
+    ProviderCapabilities,
+    ProviderConfig,
     TTSResult,
     VoiceSettings,
-    AudioSettings,
-    ProviderConfig,
-    ParamRange,
 )
-
+from flaskr.common.config import get_config
+from flaskr.common.log import AppLoggerProxy
 
 logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Baidu TTS API endpoints
 BAIDU_TTS_API_URL = "https://tsn.baidu.com/text2audio"
-BAIDU_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"
+BAIDU_TOKEN_URL = "https://aip.baidubce.com/oauth/2.0/token"  # noqa: S105 - endpoint URL
 
 # Baidu audio format mapping
 BAIDU_AUDIO_FORMATS = {
@@ -43,7 +42,7 @@ BAIDU_AUDIO_FORMATS = {
 # Baidu voice IDs - Complete list
 # Reference: https://ai.baidu.com/ai-doc/SPEECH/Rluv3uq3d
 BAIDU_VOICES = [
-    # 基础音库 (Basic - Free)
+    # 基础音库 group (Basic - Free)
     {
         "id": "0",
         "name": "度小美",
@@ -76,7 +75,7 @@ BAIDU_VOICES = [
         "gender": "child",
         "desc": "童声",
     },
-    # 精品音库 (Premium)
+    # 精品音库 group (Premium)
     {
         "id": "5",
         "name": "度逍遥",
@@ -666,13 +665,10 @@ _token_cache = {
 
 
 def _get_access_token(api_key: str, secret_key: str) -> str:
-    """
-    Get Baidu access token using API Key and Secret Key.
+    """Get Baidu access token using API Key and Secret Key.
 
     Token is cached and refreshed when expired.
     """
-    global _token_cache
-
     # Check cache
     current_time = time.time()
     if _token_cache["access_token"] and _token_cache["expires_at"] > current_time + 300:
@@ -692,7 +688,8 @@ def _get_access_token(api_key: str, secret_key: str) -> str:
 
         if "access_token" not in result:
             error_msg = result.get("error_description", "Unknown error")
-            raise ValueError(f"Failed to get Baidu access token: {error_msg}")
+            message = f"Failed to get Baidu access token: {error_msg}"
+            raise ValueError(message)
 
         access_token = result["access_token"]
         expires_in = result.get("expires_in", 2592000)  # Default 30 days
@@ -701,12 +698,14 @@ def _get_access_token(api_key: str, secret_key: str) -> str:
         _token_cache["access_token"] = access_token
         _token_cache["expires_at"] = current_time + expires_in
 
-        logger.info(f"Baidu access token obtained, expires in {expires_in} seconds")
-        return access_token
+        logger.info("Baidu access token obtained, expires in %s seconds", expires_in)
 
     except requests.RequestException as e:
-        logger.error(f"Failed to get Baidu access token: {e}")
-        raise ValueError(f"Failed to get Baidu access token: {e}")
+        logger.exception("Failed to get Baidu access token")
+        message = f"Failed to get Baidu access token: {e}"
+        raise ValueError(message) from e
+    else:
+        return access_token
 
 
 # Frontend-formatted voice list
@@ -728,16 +727,23 @@ BAIDU_VOICES_FRONTEND = [
 class BaiduTTSProvider(BaseTTSProvider):
     """TTS provider using Baidu Short Text Online Synthesis API."""
 
+    capabilities = ProviderCapabilities(
+        segment_max_bytes=1024,
+        segment_encoding="gbk",
+        auto_detectable=True,
+    )
+
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "baidu"
 
     def _get_credentials(self) -> tuple:
-        """
-        Get Baidu TTS credentials.
+        """Get Baidu TTS credentials.
 
         Returns:
             tuple: (api_key, secret_key)
+
         """
         api_key = get_config("BAIDU_TTS_API_KEY") or ""
         secret_key = get_config("BAIDU_TTS_SECRET_KEY") or ""
@@ -754,6 +760,7 @@ class BaiduTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="0",  # Default to Xiaomei
@@ -773,19 +780,18 @@ class BaiduTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return BAIDU_VOICES
 
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
-        """
-        Synthesize text to speech using Baidu TTS.
+        """Synthesize text to speech using Baidu TTS.
 
         Args:
             text: Text to synthesize (max 1024 GBK bytes, ~60 Chinese chars)
@@ -798,9 +804,12 @@ class BaiduTTSProvider(BaseTTSProvider):
 
         Raises:
             ValueError: If synthesis fails
+
         """
+        _ = model
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            error_message = "Text cannot be empty"
+            raise ValueError(error_message)
 
         # Check text length (1024 bytes limit, per Baidu docs).
         # NOTE: `requests` will URL-encode query params using UTF-8; do not pre-encode `tex`,
@@ -808,7 +817,8 @@ class BaiduTTSProvider(BaseTTSProvider):
         text_bytes = text.encode("utf-8", errors="replace")
         if len(text_bytes) > 1024:
             logger.warning(
-                f"Text exceeds Baidu limit ({len(text_bytes)} > 1024 bytes), truncating"
+                "Text exceeds Baidu limit (%s > 1024 bytes), truncating",
+                len(text_bytes),
             )
             # Truncate to fit
             text = text_bytes[:1024].decode("utf-8", errors="ignore")
@@ -823,16 +833,19 @@ class BaiduTTSProvider(BaseTTSProvider):
         api_key, secret_key = self._get_credentials()
 
         if not api_key or not secret_key:
-            raise ValueError(
+            error_message = (
                 "Baidu TTS credentials are not configured. "
                 "Set BAIDU_TTS_API_KEY and BAIDU_TTS_SECRET_KEY"
             )
+            raise ValueError(error_message)
 
         # Get access token
         access_token = _get_access_token(api_key, secret_key)
 
         # Generate unique client ID
-        cuid = hashlib.md5(f"ai-shifu-{api_key}".encode()).hexdigest()[:32]
+        cuid = hashlib.md5(
+            f"ai-shifu-{api_key}".encode(), usedforsecurity=False
+        ).hexdigest()[:32]
 
         # Map audio format
         audio_format = audio_settings.format.lower()
@@ -840,19 +853,17 @@ class BaiduTTSProvider(BaseTTSProvider):
 
         # Use provider-native ranges (0-15) for speed, pitch, and volume
         baidu_speed = (
-            int(round(voice_settings.speed)) if voice_settings.speed is not None else 5
+            round(voice_settings.speed) if voice_settings.speed is not None else 5
         )
         baidu_speed = max(0, min(15, baidu_speed))
 
         baidu_pitch = (
-            int(round(voice_settings.pitch)) if voice_settings.pitch is not None else 5
+            round(voice_settings.pitch) if voice_settings.pitch is not None else 5
         )
         baidu_pitch = max(0, min(15, baidu_pitch))
 
         baidu_volume = (
-            int(round(voice_settings.volume))
-            if voice_settings.volume is not None
-            else 5
+            round(voice_settings.volume) if voice_settings.volume is not None else 5
         )
         baidu_volume = max(0, min(15, baidu_volume))
 
@@ -872,9 +883,12 @@ class BaiduTTSProvider(BaseTTSProvider):
         }
 
         logger.debug(
-            f"Calling Baidu TTS API: voice={voice_settings.voice_id}, "
-            f"spd={baidu_speed}, pit={baidu_pitch}, vol={baidu_volume}, "
-            f"text_len={len(text)}"
+            "Calling Baidu TTS API: voice=%s, spd=%s, pit=%s, vol=%s, text_len=%s",
+            voice_settings.voice_id,
+            baidu_speed,
+            baidu_pitch,
+            baidu_volume,
+            len(text),
         )
 
         try:
@@ -897,8 +911,9 @@ class BaiduTTSProvider(BaseTTSProvider):
                 duration_ms = len(audio_data) // bytes_per_ms if bytes_per_ms > 0 else 0
 
                 logger.info(
-                    f"Baidu TTS synthesis completed: "
-                    f"size={len(audio_data)} bytes, duration~={duration_ms}ms"
+                    "Baidu TTS synthesis completed: size=%s bytes, duration~=%sms",
+                    len(audio_data),
+                    duration_ms,
                 )
 
                 return TTSResult(
@@ -909,19 +924,21 @@ class BaiduTTSProvider(BaseTTSProvider):
                     word_count=len(text),
                 )
 
-            else:
-                # Error response (JSON)
-                try:
-                    result = response.json()
-                    error_code = result.get("err_no", "unknown")
-                    error_msg = result.get("err_msg", "Unknown error")
-                    raise ValueError(f"Baidu TTS API error {error_code}: {error_msg}")
-                except ValueError:
-                    raise ValueError(f"Baidu TTS API error: {response.text[:200]}")
+            # Error response (JSON)
+            try:
+                result = response.json()
+            except ValueError as e:
+                message = f"Baidu TTS API error: {response.text[:200]}"
+                raise ValueError(message) from e
+            error_code = result.get("err_no", "unknown")
+            error_msg = result.get("err_msg", "Unknown error")
+            message = f"Baidu TTS API error {error_code}: {error_msg}"
+            raise ValueError(message)
 
         except requests.RequestException as e:
-            logger.error(f"Baidu TTS request failed: {e}")
-            raise ValueError(f"Baidu TTS request failed: {e}")
+            logger.exception("Baidu TTS request failed")
+            message = f"Baidu TTS request failed: {e}"
+            raise ValueError(message) from e
 
     def get_provider_config(self) -> ProviderConfig:
         """Get Baidu provider configuration for frontend."""

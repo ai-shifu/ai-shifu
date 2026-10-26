@@ -1,7 +1,21 @@
+"""Database, cache and session infrastructure."""
+
 import collections
 import contextlib
+import functools
 import itertools
+import logging
+import os
+import random
+import select as select_module
+import sys
+import time
+import traceback
+from collections.abc import Callable
+from pathlib import Path
+from typing import ParamSpec, TypeVar
 
+import sqlparse
 from flask import Flask
 from flask.globals import app_ctx
 from flask_sqlalchemy import SQLAlchemy
@@ -9,7 +23,6 @@ from redis import Redis
 from sqlalchemy import event
 from sqlalchemy import pool as sa_pool
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm.exc import FlushError
 from sqlalchemy.exc import (
     DisconnectionError,
     InterfaceError,
@@ -17,21 +30,12 @@ from sqlalchemy.exc import (
     ResourceClosedError,
     SQLAlchemyError,
 )
-import functools
-import random
-import select as select_module
-import sys
-import sqlparse
-import logging
-import time
-import traceback
-import os
+from sqlalchemy.orm.exc import FlushError
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
-
-# create a global db object
-db = None
-redis_client = None
 
 # Session scope tokens must never repeat. Flask-SQLAlchemy's stock scope
 # function keys the scoped-session registry on id(app_ctx) - a CPython memory
@@ -60,7 +64,40 @@ def _unique_app_ctx_scope() -> int:
     return token
 
 
-def _socket_has_unread_data(dbapi_connection, timeout: float = 0) -> bool:
+# Flask extensions are stable module objects; initialization binds them to an app
+# without rebinding every model's imported ``db`` reference.
+db = SQLAlchemy(session_options={"scopefunc": _unique_app_ctx_scope})
+
+
+class _RedisState:
+    """Own the optional process-local Redis client."""
+
+    def __init__(self) -> None:
+        self.client: Redis | None = None
+
+
+_redis_state = _RedisState()
+
+
+def get_redis_client() -> Redis | None:
+    """Return the configured Redis client, if Redis is enabled."""
+    return _redis_state.client
+
+
+def set_redis_client(client: Redis | None) -> None:
+    """Replace the Redis client through its single lifecycle owner."""
+    _redis_state.client = client
+
+
+def __getattr__(name: str) -> Redis | None:
+    """Expose the owned Redis client to plugins using the legacy import name."""
+    if name == "redis_client":
+        return get_redis_client()
+    message = f"module {__name__!r} has no attribute {name!r}"
+    raise AttributeError(message)
+
+
+def _socket_has_unread_data(dbapi_connection: object, timeout: float = 0) -> bool:
     """Return True when the DBAPI connection's socket has readable bytes.
 
     A healthy pooled MySQL connection is silent between transactions: every
@@ -100,15 +137,15 @@ def _socket_has_unread_data(dbapi_connection, timeout: float = 0) -> bool:
 _CHECKIN_PROBE_GRACE_SECONDS = 0.002
 
 
-def _server_thread_id(dbapi_connection):
+def _server_thread_id(dbapi_connection: object) -> int | None:
     """Best-effort MySQL server-side connection id for log correlation."""
     try:
         return dbapi_connection.thread_id()
-    except Exception:  # noqa: BLE001 - diagnostics only
+    except Exception:  # diagnostics only
         return None
 
 
-def _pool_diagnostics_logger():
+def _pool_diagnostics_logger() -> logging.Logger:
     """Log through the app logger when available.
 
     The app logger carries the RequestFormatter (request-id / trace context)
@@ -119,13 +156,17 @@ def _pool_diagnostics_logger():
     try:
         from flask import current_app
 
-        return current_app.logger
-    except Exception:  # noqa: BLE001 - outside app context
+        # Resolved inside the try: attribute access on current_app raises
+        # outside an application context.
+        return current_app.logger  # noqa: TRY300
+    except Exception:  # outside app context
         return logger
 
 
 @event.listens_for(sa_pool.Pool, "checkin")
-def _invalidate_desynced_connection_on_checkin(dbapi_connection, connection_record):
+def _invalidate_desynced_connection_on_checkin(
+    dbapi_connection: object, connection_record: object
+) -> None:
     if dbapi_connection is None:
         return
     if _socket_has_unread_data(dbapi_connection, timeout=_CHECKIN_PROBE_GRACE_SECONDS):
@@ -148,8 +189,9 @@ def _invalidate_desynced_connection_on_checkin(dbapi_connection, connection_reco
 
 @event.listens_for(sa_pool.Pool, "checkout")
 def _reject_desynced_connection_on_checkout(
-    dbapi_connection, connection_record, connection_proxy
-):
+    dbapi_connection: object, connection_record: object, connection_proxy: object
+) -> None:
+    _ = connection_proxy
     if _socket_has_unread_data(dbapi_connection):
         _pool_diagnostics_logger().warning(
             "Rejecting pooled DB connection with unread protocol data at "
@@ -158,9 +200,8 @@ def _reject_desynced_connection_on_checkout(
         )
         # DisconnectionError makes the pool discard this connection and
         # transparently retry the checkout with another one.
-        raise DisconnectionError(
-            "pooled connection has unread protocol data (desynced stream)"
-        )
+        message = "pooled connection has unread protocol data (desynced stream)"
+        raise DisconnectionError(message)
     # Protected liveness ping, replacing pool_pre_ping. The stock pre_ping
     # path is the one wire operation with NO BaseException protection: a
     # GreenletExit landing in COM_PING's recv escapes every layer, leaks the
@@ -174,23 +215,23 @@ def _reject_desynced_connection_on_checkout(
         _mark_checkout_boundary(connection_record)
         return
     try:
-        ping(False)
+        # MySQL's DBAPI ping() takes `reconnect` positionally.
+        ping(False)  # noqa: FBT003
     except BaseException as ping_exc:
         connection_record.invalidate(
             e=ping_exc if isinstance(ping_exc, Exception) else None
         )
         if isinstance(ping_exc, Exception):
             # Dead connection: let the pool retry with a fresh one.
-            raise DisconnectionError(
-                "pooled connection failed the checkout liveness ping"
-            ) from ping_exc
+            message = "pooled connection failed the checkout liveness ping"
+            raise DisconnectionError(message) from ping_exc
         # GreenletExit and friends propagate; the record is already
         # invalidated so nothing dirty can reach the pool.
         raise
     _mark_checkout_boundary(connection_record)
 
 
-def _mark_checkout_boundary(connection_record) -> None:
+def _mark_checkout_boundary(connection_record: object) -> None:
     # The journal lives in connection_record.info and therefore survives
     # checkin/checkout: without a boundary marker a dump can silently mix
     # statements from different requests that shared this pooled connection.
@@ -218,7 +259,7 @@ _STATEMENT_SNIPPET_CHARS = 90
 _CHECKOUT_BOUNDARY_MARKER = "-- pool checkout --"
 
 
-def _journal_from_info(info) -> collections.deque:
+def _journal_from_info(info: object) -> collections.deque:
     journal = info.get(_STATEMENT_JOURNAL_KEY)
     if journal is None:
         journal = collections.deque(maxlen=_STATEMENT_JOURNAL_SIZE)
@@ -226,14 +267,20 @@ def _journal_from_info(info) -> collections.deque:
     return journal
 
 
-def _statement_journal(connection) -> collections.deque:
+def _statement_journal(connection: object) -> collections.deque:
     return _journal_from_info(connection.info)
 
 
 @event.listens_for(Engine, "before_cursor_execute")
 def _intercept_desync_before_execute(
-    conn, cursor, statement, parameters, context, executemany
-):
+    conn: object,
+    cursor: object,
+    statement: object,
+    parameters: object,
+    context: object,
+    executemany: object,
+) -> None:
+    _ = (cursor, parameters, context, executemany)
     dbapi_connection = getattr(conn.connection, "dbapi_connection", None)
     if dbapi_connection is None:
         return
@@ -254,16 +301,23 @@ def _intercept_desync_before_execute(
         )
         with contextlib.suppress(Exception):
             conn.invalidate()
-        raise DisconnectionError(
+        message = (
             "connection has an unread response from a previous statement "
             "(interrupted exchange); refusing to execute on a desynced stream"
         )
+        raise DisconnectionError(message)
 
 
 @event.listens_for(Engine, "after_cursor_execute")
 def _journal_statement_after_execute(
-    conn, cursor, statement, parameters, context, executemany
-):
+    conn: object,
+    cursor: object,
+    statement: object,
+    parameters: object,
+    context: object,
+    executemany: object,
+) -> None:
+    _ = (parameters, context, executemany)
     with contextlib.suppress(Exception):
         _statement_journal(conn).append(
             (
@@ -281,7 +335,7 @@ MYSQL_DEADLOCK_ERRNO = 1213
 MYSQL_LOCK_WAIT_TIMEOUT_ERRNO = 1205
 
 
-def _operational_errno(exc: OperationalError):
+def _operational_errno(exc: OperationalError) -> int | None:
     orig = getattr(exc, "orig", None)
     args = getattr(orig, "args", None)
     return args[0] if args else None
@@ -352,7 +406,7 @@ def is_abnormal_stream_termination(exc: BaseException | None) -> bool:
     return is_protocol_interrupt_error(exc)
 
 
-def invalidate_session(*, source: str, session=None) -> bool:
+def invalidate_session(*, source: str, session: object = None) -> bool:
     """Discard the session's connection instead of returning it to the pool.
 
     ``Session.invalidate()`` rolls back the session state WITHOUT emitting
@@ -372,16 +426,17 @@ def invalidate_session(*, source: str, session=None) -> bool:
         if not hasattr(target, "invalidate") and callable(target):
             target = target()
         target.invalidate()
-        return True
-    except Exception:  # noqa: BLE001 - termination cleanup must not raise
+    except Exception:  # termination cleanup must not raise
         _pool_diagnostics_logger().warning(
             "%s: session invalidate failed", source, exc_info=True
         )
         return False
+    else:
+        return True
 
 
 def cleanup_session_after(
-    exc: BaseException | None, *, source: str, session=None
+    exc: BaseException | None, *, source: str, session: object = None
 ) -> str:
     """Classify a termination and clean the session accordingly.
 
@@ -400,8 +455,7 @@ def cleanup_session_after(
         return "noop"
     try:
         target.rollback()
-        return "rolled_back"
-    except Exception:  # noqa: BLE001 - escalate, never raise from cleanup
+    except Exception:  # escalate, never raise from cleanup
         _pool_diagnostics_logger().warning(
             "%s: rollback failed; escalating to session invalidate",
             source,
@@ -409,11 +463,12 @@ def cleanup_session_after(
         )
         invalidate_session(source=source, session=session)
         return "invalidated"
+    else:
+        return "rolled_back"
 
 
 def release_session_classified(*, source: str) -> None:
-    """Remove the scoped session, discarding the connection first when a
-    stream-interrupting exception is propagating.
+    """Remove the scoped session, discarding the connection first when a stream-interrupting exception is propagating.
 
     Designed for ``finally`` blocks: ``sys.exc_info()`` still sees the
     in-flight exception there - including BaseExceptions like GreenletExit
@@ -427,26 +482,25 @@ def release_session_classified(*, source: str) -> None:
         invalidate_session(source=source)
     try:
         db.session.remove()
-    except Exception:  # noqa: BLE001 - cleanup must not mask the original
+    except Exception:  # cleanup must not mask the original
         _pool_diagnostics_logger().warning(
             "%s db session cleanup failed", source, exc_info=True
         )
 
 
 def _rollback_quietly() -> bool:
-    """
-    Roll back the current session after a failed transaction. An OperationalError
-    leaves the session in a broken state, so this must run on every catch -
-    including non-retryable errors and the final attempt - otherwise later
-    operations in the same context raise InvalidRequestError. A rollback
-    failure means the connection itself is broken: escalate to invalidate and
-    report failure so the caller stops retrying on it.
+    """Roll back the current session after a failed transaction.
+
+    An OperationalError leaves the session in a broken state, so this must run on every
+    catch - including non-retryable errors and the final attempt - otherwise later
+    operations in the same context raise InvalidRequestError. A rollback failure means the
+    connection itself is broken: escalate to invalidate and report failure so the caller
+    stops retrying on it.
     """
     if db is None:
         return True
     try:
         db.session.rollback()
-        return True
     except SQLAlchemyError as rollback_exc:
         # A database-layer rollback failure means the connection itself is
         # broken; escalate to invalidate and tell the caller to stop
@@ -457,28 +511,31 @@ def _rollback_quietly() -> bool:
         )
         invalidate_session(source="retry_on_deadlock rollback failure")
         return False
-    except Exception as rollback_exc:  # noqa: BLE001 - best-effort cleanup
+    except Exception as rollback_exc:  # best-effort cleanup
         # Environmental failures (e.g. no app context in unit tests) keep the
         # legacy tolerant behavior: log and let the retry loop proceed.
         logger.warning("retry_on_deadlock rollback failed: %s", rollback_exc)
         return True
+    else:
+        return True
 
 
-def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
-    """
-    Retry a transactional function when MySQL reports a deadlock (1213) or a
-    lock wait timeout (1205). The failed transaction is rolled back on every
-    caught error so the session is left clean; retryable errors are retried with
-    exponential backoff plus jitter, while non-retryable errors and the final
-    attempt propagate unchanged. Protocol-interrupt errors (2013/2014) mean the
-    connection's response stream is desynced: the session is invalidated and
-    the error propagates immediately - neither rollback nor retry is safe on
+def retry_on_deadlock(
+    max_attempts: int = 3, backoff_seconds: float = 0.1
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Retry a transactional function when MySQL reports a deadlock (1213) or a lock wait timeout (1205).
+
+    The failed transaction is rolled back on every caught error so the session is left
+    clean; retryable errors are retried with exponential backoff plus jitter, while
+    non-retryable errors and the final attempt propagate unchanged. Protocol-interrupt
+    errors (2013/2014) mean the connection's response stream is desynced: the session is
+    invalidated and the error propagates immediately - neither rollback nor retry is safe on
     that connection.
     """
 
-    def decorator(func):
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: object, **kwargs: object) -> R:
             attempt = 0
             while True:
                 try:
@@ -507,15 +564,15 @@ def retry_on_deadlock(max_attempts: int = 3, backoff_seconds: float = 0.1):
                     # Exponential backoff with jitter to avoid re-colliding with
                     # the peer transaction under sustained lock contention.
                     delay = backoff_seconds * (2 ** (attempt - 1))
-                    time.sleep(delay + random.uniform(0, backoff_seconds))
+                    time.sleep(delay + random.uniform(0, backoff_seconds))  # noqa: S311 - retry jitter
 
         return wrapper
 
     return decorator
 
 
-def init_db(app: Flask):
-    global db
+def init_db(app: Flask) -> None:
+    """Initialize database."""
     if app.debug:
         logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
@@ -576,8 +633,6 @@ def init_db(app: Flask):
 
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = existing_options
 
-    if db is None:
-        db = SQLAlchemy(session_options={"scopefunc": _unique_app_ctx_scope})
     db.init_app(app)
 
     # Global last-resort guard: any interrupted path not covered by an
@@ -587,22 +642,26 @@ def init_db(app: Flask):
     # REVERSE registration order, so registering AFTER db.init_app makes
     # this run BEFORE the extension's session removal.
     @app.teardown_appcontext
-    def _invalidate_session_on_interrupted_teardown(exc):
+    def _invalidate_session_on_interrupted_teardown(exc: object) -> None:
         if exc is not None and is_abnormal_stream_termination(exc):
             invalidate_session(source="appcontext teardown interrupt")
 
     # Enable formatted SQL output in the development environment
     if app.debug:
 
-        def setup_sql_logging():
+        def setup_sql_logging() -> None:
             @event.listens_for(db.engine, "before_cursor_execute")
             def before_cursor_execute(
-                conn, cursor, statement, parameters, context, executemany
-            ):
+                conn: object,
+                cursor: object,
+                statement: object,
+                parameters: object,
+                context: object,
+                executemany: object,
+            ) -> None:
+                _ = (conn, cursor, context, executemany)
                 stack = traceback.extract_stack()
-                project_root = os.path.abspath(
-                    os.path.join(os.path.dirname(__file__), "../../../")
-                )
+                project_root = str((Path(__file__).parent / "../../../").resolve())
                 caller_info = "Unknown location"
 
                 for frame in reversed(stack[:-2]):
@@ -629,16 +688,15 @@ def init_db(app: Flask):
                 else:
                     raw_sql = formatted_sql
 
-                app.logger.info(f"\nLocation: {caller_info}\n{raw_sql}\n")
+                app.logger.info("\nLocation: %s\n%s\n", caller_info, raw_sql)
 
         # Set the event listener in the application context
         with app.app_context():
             setup_sql_logging()
 
 
-def init_redis(app: Flask):
-    global redis_client
-
+def init_redis(app: Flask) -> None:
+    """Initialize Redis."""
     host = app.config.get("REDIS_HOST")
     port = app.config.get("REDIS_PORT")
 
@@ -646,48 +704,58 @@ def init_redis(app: Flask):
         app.logger.warning(
             "Redis not configured: REDIS_HOST or REDIS_PORT is None - running without Redis"
         )
-        redis_client = None
+        set_redis_client(None)
         return
 
     app.logger.info(
-        "init redis {} {} {}".format(
-            app.config["REDIS_HOST"], app.config["REDIS_PORT"], app.config["REDIS_DB"]
-        )
+        "init redis %s %s %s",
+        app.config["REDIS_HOST"],
+        app.config["REDIS_PORT"],
+        app.config["REDIS_DB"],
     )
 
     if (
         app.config.get("REDIS_PASSWORD") is not None
         and app.config["REDIS_PASSWORD"] != ""
     ):
-        redis_client = Redis(
-            host=host,
-            port=port,
-            db=app.config["REDIS_DB"],
-            password=app.config["REDIS_PASSWORD"],
-            username=app.config.get("REDIS_USER", None),
+        set_redis_client(
+            Redis(
+                host=host,
+                port=port,
+                db=app.config["REDIS_DB"],
+                password=app.config["REDIS_PASSWORD"],
+                username=app.config.get("REDIS_USER", None),
+            )
         )
     else:
-        redis_client = Redis(
-            host=host,
-            port=port,
-            db=app.config["REDIS_DB"],
+        set_redis_client(
+            Redis(
+                host=host,
+                port=port,
+                db=app.config["REDIS_DB"],
+            )
         )
     app.logger.info("init redis done")
 
 
-def run_with_redis(app, key, timeout: int, func, args):
+def run_with_redis(
+    app: object, key: object, timeout: int, func: Callable[..., R], args: object
+) -> R | None:
+    """Run with Redis."""
     with app.app_context():
-        app.logger.info("run_with_redis start {}".format(key))
+        app.logger.info("run_with_redis start %s", key)
+        redis_client = get_redis_client()
+        if redis_client is None:
+            app.logger.info("run_with_redis skipped without Redis %s", key)
+            return None
         lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
         if lock.acquire(blocking=False):
-            app.logger.info("run_with_redis get lock {}".format(key))
+            app.logger.info("run_with_redis get lock %s", key)
             try:
                 return func(*args)
             finally:
-                try:
+                with contextlib.suppress(Exception):
                     lock.release()
-                except Exception:
-                    pass
         else:
-            app.logger.info("run_with_redis get lock failed {}".format(key))
+            app.logger.info("run_with_redis get lock failed %s", key)
             return None

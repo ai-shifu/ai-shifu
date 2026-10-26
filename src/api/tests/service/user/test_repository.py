@@ -1,17 +1,21 @@
+"""Verify user aggregates resolve active and legacy credentials."""
+
 import uuid
+from collections.abc import Iterator
 from datetime import datetime
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.dao import db
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
+    USER_STATE_PAID,
     USER_STATE_REGISTERED,
 )
-from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     create_user_entity,
@@ -20,10 +24,11 @@ from flaskr.service.user.repository import (
     load_user_aggregate_by_identifier,
     upsert_user_entity,
 )
+from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture
-def app():
+def app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.config.update(
         SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
@@ -55,7 +60,7 @@ def _insert_email_credential(
     state: int = CREDENTIAL_STATE_VERIFIED,
     created_at: datetime | None = None,
 ) -> AuthCredential:
-    credential_created_at = created_at or datetime.now()
+    credential_created_at = created_at or now_utc()
     credential = AuthCredential(
         credential_bid=uuid.uuid4().hex[:32],
         user_bid=user_bid,
@@ -109,15 +114,17 @@ def _create_user(
         state=USER_STATE_REGISTERED,
     )
     entity.is_operator = 1 if is_operator else 0
-    entity.created_at = datetime.now()
-    entity.updated_at = datetime.now()
+    entity.created_at = now_utc()
+    entity.updated_at = now_utc()
     db.session.flush()
     _insert_email_credential(user_bid, email)
     db.session.commit()
     return entity
 
 
-def test_load_user_aggregate_returns_expected_data(app, user_bid):
+def test_load_user_aggregate_returns_expected_data(
+    app: object, user_bid: object
+) -> None:
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     with app.app_context():
         _create_user(user_bid, email, is_operator=True)
@@ -142,7 +149,48 @@ def test_load_user_aggregate_returns_expected_data(app, user_bid):
             db.session.commit()
 
 
-def test_load_user_aggregate_by_identifier_uses_credentials(app, user_bid):
+def test_public_paid_state_normalizes_to_canonical_paid_state(
+    app: object, user_bid: str
+) -> None:
+    with app.app_context():
+        entity = create_user_entity(
+            user_bid=user_bid,
+            identify=f"{uuid.uuid4().hex[:12]}@example.com",
+            state=3,
+        )
+        db.session.commit()
+
+        aggregate = load_user_aggregate(user_bid)
+
+        assert entity.state == USER_STATE_PAID
+        assert aggregate is not None
+        assert aggregate.state == USER_STATE_PAID
+        assert aggregate.public_state == 3
+
+
+def test_persisted_legacy_paid_state_loads_as_canonical_paid_state(
+    app: object, user_bid: str
+) -> None:
+    with app.app_context():
+        entity = create_user_entity(
+            user_bid=user_bid,
+            identify=f"{uuid.uuid4().hex[:12]}@example.com",
+            state=USER_STATE_REGISTERED,
+        )
+        entity.state = 3
+        db.session.commit()
+
+        aggregate = load_user_aggregate(user_bid)
+
+        assert entity.state == 3
+        assert aggregate is not None
+        assert aggregate.state == USER_STATE_PAID
+        assert aggregate.public_state == 3
+
+
+def test_load_user_aggregate_by_identifier_uses_credentials(
+    app: object, user_bid: object
+) -> None:
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     with app.app_context():
         _create_user(user_bid, email)
@@ -157,7 +205,9 @@ def test_load_user_aggregate_by_identifier_uses_credentials(app, user_bid):
             db.session.commit()
 
 
-def test_load_user_aggregate_by_identifier_ignores_soft_deleted_direct_match(app):
+def test_load_user_aggregate_by_identifier_ignores_soft_deleted_direct_match(
+    app: object,
+) -> None:
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     deleted_user_bid = uuid.uuid4().hex[:32]
     active_user_bid = uuid.uuid4().hex[:32]
@@ -194,8 +244,8 @@ def test_load_user_aggregate_by_identifier_ignores_soft_deleted_direct_match(app
 
 
 def test_load_user_aggregate_by_identifier_finds_legacy_prefixed_phone_credential(
-    app,
-):
+    app: object,
+) -> None:
     phone = "15500008888"
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
@@ -223,7 +273,7 @@ def test_load_user_aggregate_by_identifier_finds_legacy_prefixed_phone_credentia
             db.session.commit()
 
 
-def test_upsert_user_entity_creates_and_updates_records(app):
+def test_upsert_user_entity_creates_and_updates_records(app: object) -> None:
     email = f"{uuid.uuid4().hex[:12]}@example.com"
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
@@ -248,7 +298,9 @@ def test_upsert_user_entity_creates_and_updates_records(app):
             db.session.commit()
 
 
-def test_get_first_verified_credential_created_at_prefers_earliest_verified(app):
+def test_get_first_verified_credential_created_at_prefers_earliest_verified(
+    app: object,
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         create_user_entity(
@@ -290,8 +342,8 @@ def test_get_first_verified_credential_created_at_prefers_earliest_verified(app)
 
 
 def test_get_first_verified_credential_created_at_returns_none_without_verified(
-    app,
-):
+    app: object,
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         create_user_entity(

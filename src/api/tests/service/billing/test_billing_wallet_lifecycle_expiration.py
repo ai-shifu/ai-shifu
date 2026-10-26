@@ -1,14 +1,12 @@
+"""Verify billing wallet lifecycle expiration behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
-import pytest
-from sqlalchemy.orm import attributes
-from sqlalchemy.orm.exc import ObjectDeletedError
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
@@ -27,7 +25,12 @@ from flaskr.service.billing.wallets import (
     _build_expire_ledger_idempotency_key,
     expire_credit_wallet_buckets,
 )
+from sqlalchemy.orm import attributes
+from sqlalchemy.orm.exc import ObjectDeletedError
 
+if TYPE_CHECKING:
+    import pytest
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 
@@ -40,9 +43,9 @@ def test_expire_credit_wallet_buckets_marks_bucket_expired_and_writes_ledger(
             wallet_bid="wallet-expire-1",
             creator_bid="creator-expire-1",
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("10.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -58,9 +61,9 @@ def test_expire_credit_wallet_buckets_marks_bucket_expired_and_writes_ledger(
                 priority=20,
                 original_credits=Decimal("2.5000000000"),
                 available_credits=Decimal("2.5000000000"),
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=datetime(2026, 4, 1, 0, 0, 0),
                 effective_to=datetime(2026, 4, 7, 0, 0, 0),
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -89,7 +92,7 @@ def test_expire_credit_wallet_buckets_marks_bucket_expired_and_writes_ledger(
         assert payload["bucket_count"] == 1
         assert payload["expired_credits"] == 2.5
         assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
-        assert bucket.available_credits == Decimal("0")
+        assert bucket.available_credits == Decimal(0)
         assert bucket.expired_credits == Decimal("2.5000000000")
         assert wallet.available_credits == Decimal("0E-10")
         assert ledger.entry_type == CREDIT_LEDGER_ENTRY_TYPE_EXPIRE
@@ -106,9 +109,9 @@ def test_expire_credit_wallet_buckets_skips_credit_pack_bucket(
             wallet_bid="wallet-expire-topup-skip",
             creator_bid="creator-expire-topup-skip",
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("2.5000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -122,9 +125,9 @@ def test_expire_credit_wallet_buckets_skips_credit_pack_bucket(
             priority=30,
             original_credits=Decimal("2.5000000000"),
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -156,7 +159,7 @@ def test_expire_credit_wallet_buckets_skips_credit_pack_bucket(
         assert payload["expired_credits"] == 0
         assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
         assert bucket.available_credits == Decimal("2.5000000000")
-        assert bucket.expired_credits == Decimal("0")
+        assert bucket.expired_credits == Decimal(0)
         assert wallet.available_credits == Decimal("0E-10")
         first_wallet_version = wallet.version
         assert ledgers == []
@@ -190,9 +193,9 @@ def test_expire_credit_wallet_buckets_uses_actual_mutation_time_for_bucket_updat
             wallet_bid="wallet-expire-mutation-time",
             creator_bid="creator-expire-mutation-time",
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("10.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -206,9 +209,9 @@ def test_expire_credit_wallet_buckets_uses_actual_mutation_time_for_bucket_updat
             priority=20,
             original_credits=Decimal("2.5000000000"),
             available_credits=Decimal("2.5000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -249,9 +252,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_with_conflicting_ledger(
             wallet_bid="wallet-expire-race",
             creator_bid="creator-expire-race",
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("5.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -271,9 +274,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_with_conflicting_ledger(
                     priority=20,
                     original_credits=Decimal(amount),
                     available_credits=Decimal(amount),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 1, 0, 0, 0),
                     effective_to=datetime(2026, 4, 7, 0, 0, 0),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -319,7 +322,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_with_conflicting_ledger(
             wallet_bucket_bid="bucket-ok"
         ).one()
         assert ok_bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
-        assert ok_bucket.available_credits == Decimal("0")
+        assert ok_bucket.available_credits == Decimal(0)
         # No duplicate ledger written for the conflicting bucket.
         conflict_ledgers = CreditLedgerEntry.query.filter_by(
             wallet_bucket_bid="bucket-conflict"
@@ -335,7 +338,7 @@ def test_expire_credit_wallet_buckets_allows_reused_bucket_after_legacy_expire(
             wallet_bid="wallet-expire-reused-legacy",
             creator_bid="creator-expire-reused-legacy",
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("15.0000000000"),
             lifetime_consumed_credits=Decimal("7.5000000000"),
             last_settled_usage_id=0,
@@ -351,7 +354,7 @@ def test_expire_credit_wallet_buckets_allows_reused_bucket_after_legacy_expire(
             priority=20,
             original_credits=Decimal("15.0000000000"),
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             consumed_credits=Decimal("7.5000000000"),
             expired_credits=Decimal("2.5000000000"),
             effective_from=datetime(2026, 5, 1, 0, 0, 0),
@@ -373,7 +376,7 @@ def test_expire_credit_wallet_buckets_allows_reused_bucket_after_legacy_expire(
                     source_bid="order-expire-reused-legacy-first-cycle",
                     idempotency_key=f"expire:{bucket.wallet_bucket_bid}",
                     amount=Decimal("-2.5000000000"),
-                    balance_after=Decimal("0"),
+                    balance_after=Decimal(0),
                     expires_at=datetime(2026, 4, 7, 0, 0, 0),
                     consumable_from=datetime(2026, 4, 1, 0, 0, 0),
                     metadata_json={},
@@ -407,7 +410,7 @@ def test_expire_credit_wallet_buckets_allows_reused_bucket_after_legacy_expire(
     assert payload["status"] == "expired"
     assert payload["bucket_count"] == 1
     assert bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
-    assert bucket.available_credits == Decimal("0")
+    assert bucket.available_credits == Decimal(0)
     assert bucket.expired_credits == Decimal("7.5000000000")
     assert wallet.available_credits == Decimal("0E-10")
     assert len(expire_ledgers) == 2
@@ -430,9 +433,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_realigned_during_refresh(
             wallet_bid="wallet-expire-realigned",
             creator_bid="creator-expire-realigned",
             available_credits=Decimal("4.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("4.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -446,9 +449,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_realigned_during_refresh(
             priority=20,
             original_credits=Decimal("4.0000000000"),
             available_credits=Decimal("4.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -461,7 +464,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_realigned_during_refresh(
 
         real_refresh = wallets_mod.db.session.refresh
 
-        def _refresh_with_realign(target_bucket):
+        def _refresh_with_realign(target_bucket: object) -> object:
             if (
                 isinstance(target_bucket, CreditWalletBucket)
                 and target_bucket.wallet_bucket_bid == "bucket-expire-realigned"
@@ -497,7 +500,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_realigned_during_refresh(
         assert payload["bucket_count"] == 0
         assert refreshed_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
         assert refreshed_bucket.available_credits == Decimal("4.0000000000")
-        assert refreshed_bucket.expired_credits == Decimal("0")
+        assert refreshed_bucket.expired_credits == Decimal(0)
         assert refreshed_bucket.effective_to == datetime(2026, 4, 7, 0, 0, 0)
         assert wallet.available_credits == Decimal("4.0000000000")
         assert ledgers == []
@@ -514,9 +517,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_consumed_before_write(
             wallet_bid="wallet-expire-consumed-before-write",
             creator_bid="creator-expire-consumed-before-write",
             available_credits=Decimal("6.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("6.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -530,9 +533,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_consumed_before_write(
             priority=20,
             original_credits=Decimal("4.0000000000"),
             available_credits=Decimal("4.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -548,9 +551,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_consumed_before_write(
             priority=20,
             original_credits=Decimal("2.0000000000"),
             available_credits=Decimal("2.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -562,7 +565,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_consumed_before_write(
         real_expire = wallets_mod._expire_bucket_available_credits_if_unchanged
         changed = {"done": False}
 
-        def _consume_before_expire(target_bucket, **kwargs):
+        def _consume_before_expire(target_bucket: object, **kwargs: object) -> object:
             if (
                 not changed["done"]
                 and target_bucket.wallet_bucket_bid
@@ -618,7 +621,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_consumed_before_write(
     assert payload["expired_credits"] == 2
     assert skipped_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
     assert skipped_bucket.available_credits == Decimal("1.0000000000")
-    assert skipped_bucket.expired_credits == Decimal("0")
+    assert skipped_bucket.expired_credits == Decimal(0)
     assert skipped_ledgers == []
     assert ok_bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
     assert len(ok_ledgers) == 1
@@ -636,9 +639,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_extended_before_write(
             wallet_bid="wallet-expire-extended-before-write",
             creator_bid="creator-expire-extended-before-write",
             available_credits=Decimal("6.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("6.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -652,9 +655,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_extended_before_write(
             priority=20,
             original_credits=Decimal("4.0000000000"),
             available_credits=Decimal("4.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -670,9 +673,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_extended_before_write(
             priority=20,
             original_credits=Decimal("2.0000000000"),
             available_credits=Decimal("2.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -684,7 +687,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_extended_before_write(
         real_expire = wallets_mod._expire_bucket_available_credits_if_unchanged
         changed = {"done": False}
 
-        def _extend_before_expire(target_bucket, **kwargs):
+        def _extend_before_expire(target_bucket: object, **kwargs: object) -> object:
             if (
                 not changed["done"]
                 and target_bucket.wallet_bucket_bid
@@ -727,7 +730,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_extended_before_write(
     assert payload["expired_credits"] == 2
     assert skipped_bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
     assert skipped_bucket.available_credits == Decimal("4.0000000000")
-    assert skipped_bucket.expired_credits == Decimal("0")
+    assert skipped_bucket.expired_credits == Decimal(0)
     assert skipped_bucket.effective_to == future_effective_to
     assert skipped_ledgers == []
     assert ok_bucket.status == CREDIT_BUCKET_STATUS_EXPIRED
@@ -743,10 +746,10 @@ def test_expire_credit_wallet_buckets_skips_empty_bucket_released_before_status_
         wallet = CreditWallet(
             wallet_bid="wallet-expire-empty-released-before-status",
             creator_bid="creator-expire-empty-released-before-status",
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("3.0000000000"),
             lifetime_granted_credits=Decimal("3.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -759,10 +762,10 @@ def test_expire_credit_wallet_buckets_skips_empty_bucket_released_before_status_
             source_bid="order-expire-empty-released-before-status",
             priority=20,
             original_credits=Decimal("3.0000000000"),
-            available_credits=Decimal("0"),
+            available_credits=Decimal(0),
             reserved_credits=Decimal("3.0000000000"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -774,7 +777,9 @@ def test_expire_credit_wallet_buckets_skips_empty_bucket_released_before_status_
         real_sync = wallets_mod._sync_empty_available_bucket_status_if_unchanged
         changed = {"done": False}
 
-        def _release_before_status_sync(target_bucket, **kwargs):
+        def _release_before_status_sync(
+            target_bucket: object, **kwargs: object
+        ) -> object:
             if not changed["done"]:
                 changed["done"] = True
                 CreditWalletBucket.query.filter(
@@ -782,14 +787,14 @@ def test_expire_credit_wallet_buckets_skips_empty_bucket_released_before_status_
                 ).update(
                     {
                         "available_credits": Decimal("3.0000000000"),
-                        "reserved_credits": Decimal("0"),
+                        "reserved_credits": Decimal(0),
                     },
                     synchronize_session=False,
                 )
                 CreditWallet.query.filter(CreditWallet.id == wallet.id).update(
                     {
                         "available_credits": Decimal("3.0000000000"),
-                        "reserved_credits": Decimal("0"),
+                        "reserved_credits": Decimal(0),
                     },
                     synchronize_session=False,
                 )
@@ -820,7 +825,7 @@ def test_expire_credit_wallet_buckets_skips_empty_bucket_released_before_status_
     assert payload["bucket_count"] == 0
     assert bucket.status == CREDIT_BUCKET_STATUS_ACTIVE
     assert bucket.available_credits == Decimal("3.0000000000")
-    assert bucket.reserved_credits == Decimal("0")
+    assert bucket.reserved_credits == Decimal(0)
     assert ledgers == []
 
 
@@ -835,9 +840,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_deleted_during_refresh(
             wallet_bid="wallet-expire-refresh-skip",
             creator_bid="creator-expire-refresh-skip",
             available_credits=Decimal("9.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("9.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -851,9 +856,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_deleted_during_refresh(
             priority=20,
             original_credits=Decimal("4.0000000000"),
             available_credits=Decimal("4.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -869,9 +874,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_deleted_during_refresh(
             priority=20,
             original_credits=Decimal("5.0000000000"),
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -882,7 +887,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_deleted_during_refresh(
 
         real_refresh = wallets_mod.db.session.refresh
 
-        def _refresh_with_deleted_bucket(target_bucket):
+        def _refresh_with_deleted_bucket(target_bucket: object) -> object:
             if (
                 isinstance(target_bucket, CreditWalletBucket)
                 and target_bucket.wallet_bucket_bid == "bucket-expire-refresh-skip"
@@ -927,9 +932,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_when_refresh_raises_deleted(
             wallet_bid="wallet-expire-refresh-error",
             creator_bid="creator-expire-refresh-error",
             available_credits=Decimal("8.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("8.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -943,9 +948,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_when_refresh_raises_deleted(
             priority=20,
             original_credits=Decimal("3.0000000000"),
             available_credits=Decimal("3.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -961,9 +966,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_when_refresh_raises_deleted(
             priority=20,
             original_credits=Decimal("5.0000000000"),
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
-            consumed_credits=Decimal("0"),
-            expired_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
+            consumed_credits=Decimal(0),
+            expired_credits=Decimal(0),
             effective_from=datetime(2026, 4, 1, 0, 0, 0),
             effective_to=datetime(2026, 4, 7, 0, 0, 0),
             status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -974,7 +979,7 @@ def test_expire_credit_wallet_buckets_skips_bucket_when_refresh_raises_deleted(
 
         real_refresh = wallets_mod.db.session.refresh
 
-        def _refresh_with_deleted_error(target_bucket):
+        def _refresh_with_deleted_error(target_bucket: object) -> object:
             if (
                 isinstance(target_bucket, CreditWalletBucket)
                 and target_bucket.wallet_bucket_bid == "bucket-expire-refresh-error"
@@ -1022,9 +1027,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_on_wallet_version_conflict(
             wallet_bid="wallet-version-race",
             creator_bid="creator-version-race",
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("5.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -1044,9 +1049,9 @@ def test_expire_credit_wallet_buckets_skips_bucket_on_wallet_version_conflict(
                     priority=20,
                     original_credits=Decimal(amount),
                     available_credits=Decimal(amount),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 1, 0, 0, 0),
                     effective_to=datetime(2026, 4, 7, 0, 0, 0),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -1060,10 +1065,11 @@ def test_expire_credit_wallet_buckets_skips_bucket_on_wallet_version_conflict(
         real_persist = wallets_mod.persist_credit_wallet_snapshot
         state = {"calls": 0}
 
-        def _persist_conflict_once(target_wallet, **kwargs):
+        def _persist_conflict_once(target_wallet: object, **kwargs: object) -> object:
             state["calls"] += 1
             if state["calls"] == 1:
-                raise RuntimeError("credit_wallet_version_conflict")
+                message = "credit_wallet_version_conflict"
+                raise RuntimeError(message)
             return real_persist(target_wallet, **kwargs)
 
         monkeypatch.setattr(

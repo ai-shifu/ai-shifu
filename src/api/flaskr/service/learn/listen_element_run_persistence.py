@@ -1,3 +1,5 @@
+"""Persist run-scoped listen-mode elements."""
+
 from __future__ import annotations
 
 import contextlib
@@ -7,10 +9,6 @@ import socket as socket_module
 
 from flask import current_app
 from flaskr.dao import db, invalidate_session
-from sqlalchemy import bindparam, text
-from sqlalchemy.exc import ResourceClosedError
-
-
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -41,9 +39,11 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
 )
 from flaskr.service.learn.type_state_machine import TypeInput
+from sqlalchemy import bindparam, text
+from sqlalchemy.exc import ResourceClosedError
 
 
-def _describe_desynced_connection(result, connection) -> str:
+def _describe_desynced_connection(result: object, connection: object) -> str:
     """Collect protocol-level forensics after a desynced SELECT.
 
     When this SELECT consumes a stale response packet, the DBAPI cursor holds
@@ -99,12 +99,14 @@ def _describe_desynced_connection(result, connection) -> str:
                 parts.append(f"socket_pending_header_hex={pending[:5].hex()}")
             else:
                 parts.append("socket_pending=none")
-        except Exception as probe_error:  # noqa: BLE001 - forensics only
+        except Exception as probe_error:  # forensics only
             parts.append(f"socket_probe_error={probe_error!r}")
     return " ".join(parts)
 
 
 class ListenElementRunPersistenceMixin:
+    """Provide persistence operations for listen-mode element runs."""
+
     _ACTIVE_ELEMENT_ROW_ID_SQL = text(
         """
         SELECT id
@@ -153,6 +155,14 @@ class ListenElementRunPersistenceMixin:
         if snapshots is None:
             return
         snapshots.pop(base_element_bid, None)
+
+    def finalized_element_identities(self) -> list[tuple[str, str]]:
+        """Expose final snapshot identities, including text persisted without a live patch."""
+        return [
+            (element.generated_block_bid, element_bid)
+            for element_bid, element in self._latest_element_snapshots.items()
+            if element.is_final and element.generated_block_bid and element_bid
+        ]
 
     def _load_block_meta(self, generated_block_bid: str) -> BlockMeta:
         if generated_block_bid in self._block_meta_cache:
@@ -221,7 +231,7 @@ class ListenElementRunPersistenceMixin:
             # later request that checks it out; the caller's rollback then
             # completes on session state alone.
             with contextlib.suppress(Exception):
-                current_app.logger.error(
+                current_app.logger.exception(
                     "Listen element SELECT hit a desynced connection; forensics: %s",
                     _describe_desynced_connection(result, connection),
                 )
@@ -523,6 +533,7 @@ class ListenElementRunPersistenceMixin:
         generated_block_bid: str = "",
         is_terminal: bool | None = None,
     ) -> RunElementSSEMessageDTO:
+        """Build a non-persisted message element."""
         seq = self._next_seq()
         emitted_event_type = (
             GeneratedType.DONE.value

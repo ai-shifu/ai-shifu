@@ -1,9 +1,12 @@
 {
   "__namespace__": "component.menus",
   "navigationMenus": {
-    "adminConsole": "管理后台",
-    "createCourse": "建一门课",
+    "about": "关于",
+    "adminConsole": "进入后台",
+    "createCourse": "我要建课",
     "language": "语言",
-    "personalInfo": "个性化设置"
+    "openSource": "开源项目",
+    "personalInfo": "个性化",
+    "version": "版本"
   }
 }

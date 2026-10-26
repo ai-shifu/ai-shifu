@@ -1,11 +1,16 @@
+"""Handle lesson feedback for learning sessions."""
+
 from __future__ import annotations
 
 import json
-
-from flask import Flask
-from sqlalchemy.exc import IntegrityError
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.dao.uow import (
+    app_context_scope,
+    require_transaction_owner,
+    unit_of_work,
+)
 from flaskr.i18n import _
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.const import CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE
@@ -18,12 +23,17 @@ from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 from flaskr.util import generate_id
 from flaskr.util.datetime import to_utc_iso
+from sqlalchemy.exc import IntegrityError
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _FEEDBACK_COMMENT_MAX_LENGTH = 1000
 _VALID_MODES = {"read", "listen"}
 
 
 def build_lesson_feedback_interaction_md() -> str:
+    """Build lesson feedback interaction md."""
     placeholder = _("server.learn.lessonFeedbackCommentPlaceholder")
     return (
         f"?[%{{{{{CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE}}}}}"
@@ -32,6 +42,7 @@ def build_lesson_feedback_interaction_md() -> str:
 
 
 def is_lesson_feedback_interaction(content: str | None) -> bool:
+    """Return whether lesson feedback interaction."""
     marker = f"%{{{{{CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE}}}}}"
     return bool(content and marker in content)
 
@@ -45,7 +56,7 @@ def _normalize_mode(mode: str | None) -> str:
     return normalized
 
 
-def _normalize_score(score) -> int:
+def _normalize_score(score: object) -> int:
     try:
         normalized = int(score)
     except (TypeError, ValueError):
@@ -116,75 +127,25 @@ def submit_lesson_feedback(
     user_bid: str,
     shifu_bid: str,
     outline_bid: str,
-    score,
+    score: object,
     comment: str | None,
     mode: str | None,
 ) -> dict:
+    """Submit lesson feedback."""
+    # The IntegrityError handler re-reads the winner in a fresh unit of work;
+    # nested, the conflict would only surface at the caller's commit.
+    require_transaction_owner("lesson feedback submission", app)
     normalized_score = _normalize_score(score)
     normalized_comment = _normalize_comment(comment)
     normalized_mode = _normalize_mode(mode)
 
-    with app.app_context():
+    with app_context_scope(app):
         progress_record_bid = _resolve_progress_record_bid(
             user_bid, shifu_bid, outline_bid
         )
-        existing = (
-            LearnLessonFeedback.query.filter(
-                LearnLessonFeedback.user_bid == user_bid,
-                LearnLessonFeedback.shifu_bid == shifu_bid,
-                LearnLessonFeedback.outline_item_bid == outline_bid,
-                LearnLessonFeedback.deleted == 0,
-            )
-            .order_by(LearnLessonFeedback.id.desc())
-            .first()
-        )
-        if not existing and not progress_record_bid:
-            raise_param_error("outline_bid")
-        if existing:
-            if not existing.bid:
-                existing.bid = existing.lesson_feedback_bid or generate_id(app)
-            if not existing.lesson_feedback_bid:
-                existing.lesson_feedback_bid = existing.bid
-            existing.score = normalized_score
-            existing.comment = normalized_comment
-            existing.mode = normalized_mode
-            if progress_record_bid:
-                existing.progress_record_bid = progress_record_bid
-            feedback_record = existing
-        else:
-            feedback_bid = generate_id(app)
-            feedback_record = LearnLessonFeedback(
-                bid=feedback_bid,
-                lesson_feedback_bid=feedback_bid,
-                shifu_bid=shifu_bid,
-                outline_item_bid=outline_bid,
-                progress_record_bid=progress_record_bid,
-                user_bid=user_bid,
-                score=normalized_score,
-                comment=normalized_comment,
-                mode=normalized_mode,
-                deleted=0,
-            )
-            db.session.add(feedback_record)
 
-        # Querying the generated block must not autoflush a newly-added feedback row.
-        # During concurrent submissions another request may have inserted the unique
-        # active feedback first; let the commit path catch that IntegrityError and
-        # merge into the existing row instead of surfacing a 500 from autoflush.
-        with db.session.no_autoflush:
-            _sync_feedback_to_generated_block(
-                user_bid,
-                shifu_bid,
-                outline_bid,
-                normalized_score,
-                normalized_comment,
-            )
-        try:
-            db.session.commit()
-        except IntegrityError:
-            # Handle race on unique active row: re-read and update instead of failing.
-            db.session.rollback()
-            feedback_record = (
+        def _load_active_feedback() -> LearnLessonFeedback | None:
+            return (
                 LearnLessonFeedback.query.filter(
                     LearnLessonFeedback.user_bid == user_bid,
                     LearnLessonFeedback.shifu_bid == shifu_bid,
@@ -194,27 +155,69 @@ def submit_lesson_feedback(
                 .order_by(LearnLessonFeedback.id.desc())
                 .first()
             )
-            if not feedback_record:
-                raise
-            if not feedback_record.bid:
-                feedback_record.bid = (
-                    feedback_record.lesson_feedback_bid or generate_id(app)
-                )
-            if not feedback_record.lesson_feedback_bid:
-                feedback_record.lesson_feedback_bid = feedback_record.bid
-            feedback_record.score = normalized_score
-            feedback_record.comment = normalized_comment
-            feedback_record.mode = normalized_mode
+
+        def _apply_feedback(record: LearnLessonFeedback) -> None:
+            if not record.bid:
+                record.bid = record.lesson_feedback_bid or generate_id(app)
+            if not record.lesson_feedback_bid:
+                record.lesson_feedback_bid = record.bid
+            record.score = normalized_score
+            record.comment = normalized_comment
+            record.mode = normalized_mode
             if progress_record_bid:
-                feedback_record.progress_record_bid = progress_record_bid
-            _sync_feedback_to_generated_block(
-                user_bid,
-                shifu_bid,
-                outline_bid,
-                normalized_score,
-                normalized_comment,
-            )
-            db.session.commit()
+                record.progress_record_bid = progress_record_bid
+
+        try:
+            with unit_of_work():
+                existing = _load_active_feedback()
+                if not existing and not progress_record_bid:
+                    raise_param_error("outline_bid")
+                if existing:
+                    _apply_feedback(existing)
+                    feedback_record = existing
+                else:
+                    feedback_bid = generate_id(app)
+                    feedback_record = LearnLessonFeedback(
+                        bid=feedback_bid,
+                        lesson_feedback_bid=feedback_bid,
+                        shifu_bid=shifu_bid,
+                        outline_item_bid=outline_bid,
+                        progress_record_bid=progress_record_bid,
+                        user_bid=user_bid,
+                        score=normalized_score,
+                        comment=normalized_comment,
+                        mode=normalized_mode,
+                        deleted=0,
+                    )
+                    db.session.add(feedback_record)
+
+                # Querying the generated block must not autoflush a newly-added
+                # feedback row. During concurrent submissions another request may
+                # have inserted the unique active feedback first; the commit
+                # raises IntegrityError and the fallback below merges into it.
+                with db.session.no_autoflush:
+                    _sync_feedback_to_generated_block(
+                        user_bid,
+                        shifu_bid,
+                        outline_bid,
+                        normalized_score,
+                        normalized_comment,
+                    )
+        except IntegrityError:
+            # Lost the race on the unique active row (our insert was rolled
+            # back): re-read the winner and apply this submission to it.
+            with unit_of_work():
+                feedback_record = _load_active_feedback()
+                if not feedback_record:
+                    raise
+                _apply_feedback(feedback_record)
+                _sync_feedback_to_generated_block(
+                    user_bid,
+                    shifu_bid,
+                    outline_bid,
+                    normalized_score,
+                    normalized_comment,
+                )
         return {
             "lesson_feedback_bid": feedback_record.lesson_feedback_bid,
             "shifu_bid": shifu_bid,
@@ -233,6 +236,7 @@ def list_lesson_feedbacks(
     page_index: int = 1,
     page_size: int = 20,
 ) -> dict:
+    """Return lesson feedbacks."""
     safe_page_index = max(int(page_index or 1), 1)
     safe_page_size = min(max(int(page_size or 20), 1), 100)
 

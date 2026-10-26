@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import ipaddress
 import re
 import socket
 import ssl
-from typing import Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
+
 import dns.resolver
-
-from flask import Flask
-
 from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.config import get_config
-from flaskr.util.uuid import generate_id
 from flaskr.util.datetime import now_utc
+from flaskr.util.uuid import generate_id
 
 from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_DISABLED,
@@ -25,23 +24,26 @@ from .consts import (
     BILLING_DOMAIN_BINDING_STATUS_LABELS,
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_BINDING_STATUS_VERIFIED,
-    BILLING_DOMAIN_SSL_STATUS_LABELS,
     BILLING_DOMAIN_SSL_STATUS_ACTIVE,
+    BILLING_DOMAIN_SSL_STATUS_LABELS,
     BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED,
     BILLING_DOMAIN_SSL_STATUS_PROVISIONING,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
     BILLING_DOMAIN_VERIFICATION_METHOD_LABELS,
 )
 from .dtos import (
-    BillingDomainBindResultDTO,
     BillingDomainBindingDTO,
     BillingDomainBindingsDTO,
+    BillingDomainBindResultDTO,
     RuntimeBillingDomainDTO,
 )
 from .entitlements import resolve_creator_entitlement_state
 from .models import BillingDomainBinding
 from .primitives import normalize_bid as _normalize_bid
 from .value_objects import JsonObjectMap
+
+if TYPE_CHECKING:
+    from flask import Flask
 
 _DOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -54,18 +56,22 @@ _DOMAIN_VERIFICATION_METHOD_CODES = {
 
 @dataclass(slots=True, frozen=True)
 class DomainVerificationResult:
+    """Capture the outcome of domain verification."""
+
     creator_bid: str
     action: str
     binding: BillingDomainBindingDTO
 
-    def to_task_payload(self) -> dict[str, Any]:
+    def to_task_payload(self) -> dict[str, object]:
+        """Serialize this result for task processing."""
         return {
             "creator_bid": self.creator_bid,
             "action": self.action,
             "binding": self.binding.__json__(),
         }
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a task-payload field by key."""
         return self.to_task_payload()[key]
 
 
@@ -74,7 +80,6 @@ def build_creator_domain_bindings(
     creator_bid: str,
 ) -> BillingDomainBindingsDTO:
     """Return the creator domain binding list and entitlement gate state."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     with app.app_context():
         entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
@@ -96,7 +101,6 @@ def build_creator_domain_bindings(
             custom_domain_enabled=custom_domain_enabled,
             items=[
                 _serialize_domain_binding(
-                    app,
                     row,
                     custom_domain_enabled=custom_domain_enabled,
                 )
@@ -108,10 +112,9 @@ def build_creator_domain_bindings(
 def manage_creator_domain_binding(
     app: Flask,
     creator_bid: str,
-    payload: dict[str, Any],
+    payload: dict[str, object],
 ) -> BillingDomainBindResultDTO:
     """Bind, verify, or disable a creator custom domain."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     action = _normalize_action(payload.get("action"))
     normalized_binding_bid = _normalize_bid(payload.get("domain_binding_bid"))
@@ -120,7 +123,7 @@ def manage_creator_domain_binding(
         strict=action == "bind" and not normalized_binding_bid,
     )
 
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         entitlement_state = resolve_creator_entitlement_state(normalized_creator_bid)
         custom_domain_enabled = bool(entitlement_state.custom_domain_enabled)
 
@@ -151,11 +154,9 @@ def manage_creator_domain_binding(
             )
 
         db.session.add(binding)
-        db.session.commit()
         return BillingDomainBindResultDTO(
             action=action,
             binding=_serialize_domain_binding(
-                app,
                 binding,
                 custom_domain_enabled=custom_domain_enabled,
             ),
@@ -167,11 +168,10 @@ def verify_domain_binding(
     *,
     creator_bid: str = "",
     domain_binding_bid: str = "",
-    host: Any = "",
-    verification_token: Any = "",
+    host: object = "",
+    verification_token: object = "",
 ) -> DomainVerificationResult:
     """Verify one domain binding by business id or host for background tasks."""
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     normalized_domain_binding_bid = _normalize_bid(domain_binding_bid)
     normalized_host = normalize_domain_host(host, strict=False)
@@ -206,9 +206,8 @@ def verify_domain_binding(
         )
 
 
-def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
+def resolve_creator_bid_by_host(app: Flask, host: object) -> str | None:
     """Resolve a verified creator custom domain back to creator_bid."""
-
     normalized_host = normalize_domain_host(host, strict=False)
     if not normalized_host:
         return None
@@ -234,7 +233,7 @@ def resolve_creator_bid_by_host(app: Flask, host: Any) -> str | None:
         return _normalize_bid(binding.creator_bid) or None
 
 
-def resolve_effective_custom_origin(app: Flask, creator_bid: Any) -> str | None:
+def resolve_effective_custom_origin(app: Flask, creator_bid: object) -> str | None:
     """Return the creator's effective custom-domain origin for building links.
 
     A binding is effective only when it is verified and the creator still has
@@ -242,7 +241,6 @@ def resolve_effective_custom_origin(app: Flask, creator_bid: Any) -> str | None:
     usable binding exists, otherwise ``None`` so callers fall back to the
     default public origin.
     """
-
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_creator_bid:
         return None
@@ -271,12 +269,11 @@ def resolve_effective_custom_origin(app: Flask, creator_bid: Any) -> str | None:
 
 def resolve_runtime_domain_result(
     app: Flask,
-    host: Any,
+    host: object,
     *,
     creator_bid: str = "",
 ) -> RuntimeBillingDomainDTO:
     """Return runtime-config domain metadata for the current request host."""
-
     normalized_host = normalize_domain_host(host, strict=False)
     normalized_creator_bid = _normalize_bid(creator_bid)
     if not normalized_host:
@@ -336,9 +333,8 @@ def resolve_runtime_domain_result(
         )
 
 
-def normalize_domain_host(value: Any, *, strict: bool = True) -> str:
+def normalize_domain_host(value: object, *, strict: bool = True) -> str:
     """Normalize a host string into a lowercase custom-domain host."""
-
     raw = str(value or "").strip()
     if not raw:
         if strict:
@@ -376,7 +372,7 @@ def _bind_creator_domain(
     creator_bid: str,
     host: str,
     domain_binding_bid: str,
-    verification_method: Any,
+    verification_method: object,
 ) -> BillingDomainBinding:
     if not host:
         raise_param_error("host")
@@ -446,7 +442,7 @@ def _verify_creator_domain(
     creator_bid: str,
     host: str,
     domain_binding_bid: str,
-    verification_token: Any,
+    verification_token: object,
 ) -> BillingDomainBinding:
     binding = _load_creator_domain_binding(
         creator_bid=creator_bid,
@@ -482,7 +478,9 @@ def _verify_creator_domain(
     return binding
 
 
-def _verify_domain_dns(binding: BillingDomainBinding, metadata: dict[str, Any]) -> bool:
+def _verify_domain_dns(
+    binding: BillingDomainBinding, metadata: dict[str, object]
+) -> bool:
     record_name = str(
         metadata.get("verification_record_name")
         or _build_verification_record_name(binding.host)
@@ -519,13 +517,14 @@ def _verify_domain_dns(binding: BillingDomainBinding, metadata: dict[str, Any]) 
 
 def _is_tls_ready(host: str) -> bool:
     """Return whether the host already presents a trusted matching certificate."""
-
     try:
         context = ssl.create_default_context()
         context.minimum_version = ssl.TLSVersion.TLSv1_2
-        with socket.create_connection((host, 443), timeout=5) as connection:
-            with context.wrap_socket(connection, server_hostname=host):
-                return True
+        with (
+            socket.create_connection((host, 443), timeout=5) as connection,
+            context.wrap_socket(connection, server_hostname=host),
+        ):
+            return True
     except (OSError, ssl.SSLError):
         return False
 
@@ -595,7 +594,6 @@ def _load_domain_binding_for_task(
 
 
 def _serialize_domain_binding(
-    app: Flask,
     row: BillingDomainBinding,
     *,
     custom_domain_enabled: bool = False,
@@ -634,14 +632,14 @@ def _serialize_domain_binding(
     )
 
 
-def _normalize_action(value: Any) -> str:
+def _normalize_action(value: object) -> str:
     normalized = _normalize_bid(value) or "bind"
     if normalized not in _DOMAIN_BINDING_ACTIONS:
         raise_param_error("action")
     return normalized
 
 
-def _normalize_verification_method(value: Any) -> int:
+def _normalize_verification_method(value: object) -> int:
     normalized = _normalize_bid(value)
     if not normalized:
         return BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT
@@ -667,16 +665,17 @@ def _is_invalid_host(host: str) -> bool:
         return True
     try:
         ipaddress.ip_address(host)
-        return True
     except ValueError:
         pass
+    else:
+        return True
     labels = host.split(".")
     if any(not label or len(label) > 63 for label in labels):
         return True
     return any(_DOMAIN_LABEL_RE.fullmatch(label) is None for label in labels)
 
 
-def _as_dict(value: Any) -> JsonObjectMap:
+def _as_dict(value: object) -> JsonObjectMap:
     if isinstance(value, dict):
         return JsonObjectMap(values={str(key): item for key, item in value.items()})
     return JsonObjectMap()

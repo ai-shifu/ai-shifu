@@ -1,12 +1,12 @@
+"""Verify billing wallet lifecycle snapshots behavior."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
-import pytest
-
-import flaskr.dao as dao
+from flaskr import dao
 from flaskr.service.billing.consts import (
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
     CREDIT_BUCKET_CATEGORY_FREE,
@@ -27,6 +27,9 @@ from flaskr.service.billing.wallets import (
     rebuild_credit_wallet_snapshots,
 )
 
+if TYPE_CHECKING:
+    import pytest
+    from flask import Flask
 
 pytest_plugins = ["tests.service.billing.wallet_lifecycle_app_fixture"]
 
@@ -47,7 +50,7 @@ def test_rebuild_credit_wallet_snapshots_recomputes_from_bucket_rows(
             available_credits=Decimal("999.0000000000"),
             reserved_credits=Decimal("999.0000000000"),
             lifetime_granted_credits=Decimal("10.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -76,7 +79,7 @@ def test_rebuild_credit_wallet_snapshots_recomputes_from_bucket_rows(
                     available_credits=Decimal("1.5000000000"),
                     reserved_credits=Decimal("0.2500000000"),
                     consumed_credits=Decimal("0.5000000000"),
-                    expired_credits=Decimal("0"),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 8, 0, 0, 0),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -94,7 +97,7 @@ def test_rebuild_credit_wallet_snapshots_recomputes_from_bucket_rows(
                     available_credits=Decimal("2.0000000000"),
                     reserved_credits=Decimal("0.5000000000"),
                     consumed_credits=Decimal("1.0000000000"),
-                    expired_credits=Decimal("0"),
+                    expired_credits=Decimal(0),
                     effective_from=datetime(2026, 4, 8, 0, 0, 0),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -136,7 +139,7 @@ def test_rebuild_credit_wallet_snapshots_excludes_non_consumable_bucket_rows(
             available_credits=Decimal("999.0000000000"),
             reserved_credits=Decimal("999.0000000000"),
             lifetime_granted_credits=Decimal("10.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -153,9 +156,9 @@ def test_rebuild_credit_wallet_snapshots_excludes_non_consumable_bucket_rows(
                     priority=20,
                     original_credits=Decimal("4.0000000000"),
                     available_credits=Decimal("4.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=snapshot_at - timedelta(days=1),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -171,9 +174,9 @@ def test_rebuild_credit_wallet_snapshots_excludes_non_consumable_bucket_rows(
                     priority=30,
                     original_credits=Decimal("6.0000000000"),
                     available_credits=Decimal("6.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=snapshot_at - timedelta(days=1),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -189,9 +192,9 @@ def test_rebuild_credit_wallet_snapshots_excludes_non_consumable_bucket_rows(
                     priority=20,
                     original_credits=Decimal("5.0000000000"),
                     available_credits=Decimal("5.0000000000"),
-                    reserved_credits=Decimal("0"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=snapshot_at + timedelta(days=1),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -261,7 +264,7 @@ def test_rebuild_credit_wallet_snapshots_keeps_current_bucket_with_reserved_bala
                     available_credits=Decimal("1684.7600000000"),
                     reserved_credits=Decimal("2050.0000000000"),
                     consumed_credits=Decimal("315.2400000000"),
-                    expired_credits=Decimal("0"),
+                    expired_credits=Decimal(0),
                     effective_from=current_period_start,
                     effective_to=current_period_end,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -277,9 +280,9 @@ def test_rebuild_credit_wallet_snapshots_keeps_current_bucket_with_reserved_bala
                     priority=30,
                     original_credits=Decimal("250.0000000000"),
                     available_credits=Decimal("234.7800000000"),
-                    reserved_credits=Decimal("0"),
+                    reserved_credits=Decimal(0),
                     consumed_credits=Decimal("15.2200000000"),
-                    expired_credits=Decimal("0"),
+                    expired_credits=Decimal(0),
                     effective_from=snapshot_at - timedelta(days=1),
                     effective_to=current_period_end,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -320,7 +323,7 @@ def test_rebuild_credit_wallet_snapshots_dry_run_reports_without_writing(
             available_credits=Decimal("999.0000000000"),
             reserved_credits=Decimal("3.0000000000"),
             lifetime_granted_credits=Decimal("20.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -338,8 +341,8 @@ def test_rebuild_credit_wallet_snapshots_dry_run_reports_without_writing(
                     original_credits=Decimal("7.0000000000"),
                     available_credits=Decimal("7.0000000000"),
                     reserved_credits=Decimal("1.0000000000"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=snapshot_at - timedelta(days=1),
                     effective_to=None,
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -356,8 +359,8 @@ def test_rebuild_credit_wallet_snapshots_dry_run_reports_without_writing(
                     original_credits=Decimal("13.0000000000"),
                     available_credits=Decimal("13.0000000000"),
                     reserved_credits=Decimal("2.0000000000"),
-                    consumed_credits=Decimal("0"),
-                    expired_credits=Decimal("0"),
+                    consumed_credits=Decimal(0),
+                    expired_credits=Decimal(0),
                     effective_from=snapshot_at + timedelta(days=1),
                     effective_to=snapshot_at + timedelta(days=31),
                     status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -406,9 +409,9 @@ def test_rebuild_credit_wallet_snapshots_dry_run_preserves_outer_transaction(
             wallet_bid="wallet-rebuild-dry-run-outer-1",
             creator_bid="creator-rebuild-dry-run-outer-1",
             available_credits=Decimal("999.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("1.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )
@@ -424,9 +427,9 @@ def test_rebuild_credit_wallet_snapshots_dry_run_preserves_outer_transaction(
                 priority=20,
                 original_credits=Decimal("1.0000000000"),
                 available_credits=Decimal("1.0000000000"),
-                reserved_credits=Decimal("0"),
-                consumed_credits=Decimal("0"),
-                expired_credits=Decimal("0"),
+                reserved_credits=Decimal(0),
+                consumed_credits=Decimal(0),
+                expired_credits=Decimal(0),
                 effective_from=snapshot_at - timedelta(days=1),
                 effective_to=None,
                 status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -439,9 +442,9 @@ def test_rebuild_credit_wallet_snapshots_dry_run_preserves_outer_transaction(
             wallet_bid="wallet-outer-marker-1",
             creator_bid="creator-outer-marker-1",
             available_credits=Decimal("5.0000000000"),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal("5.0000000000"),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
             last_settled_usage_id=0,
             version=0,
         )

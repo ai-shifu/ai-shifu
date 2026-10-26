@@ -1,12 +1,13 @@
+"""Verify reorder outline tree behavior."""
+
 from __future__ import annotations
 
 from decimal import Decimal
 
 import pytest
-
 from flaskr.dao import db
-from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu import shifu_outline_funcs
+from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_outline_funcs import (
     assert_outline_tree_publishable,
     reorder_outline_tree,
@@ -14,17 +15,17 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 
 
 @pytest.fixture(autouse=True)
-def _stub_reorder_side_effects(monkeypatch):
+def _stub_reorder_side_effects(monkeypatch: object) -> None:
     monkeypatch.setattr(
         shifu_outline_funcs,
         "cleanup_outline_history_versions",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
         raising=True,
     )
     monkeypatch.setattr(
         shifu_outline_funcs,
         "save_outline_tree_history",
-        lambda *args, **kwargs: None,
+        lambda *_args, **_kwargs: None,
         raising=True,
     )
 
@@ -39,7 +40,7 @@ def _seed_shifu(shifu_bid: str) -> None:
             keywords="",
             llm="gpt-test",
             llm_temperature=Decimal("0.3"),
-            price=Decimal("0"),
+            price=Decimal(0),
             deleted=0,
             created_user_bid="creator-1",
             updated_user_bid="creator-1",
@@ -63,12 +64,8 @@ def _add_outline(
             position=position,
             parent_bid=parent_bid,
             prerequisite_item_bids="",
-            llm="",
-            llm_temperature=Decimal("0.3"),
             llm_system_prompt="",
             ask_enabled_status=5101,
-            ask_llm="",
-            ask_llm_temperature=Decimal("0.3"),
             ask_llm_system_prompt="",
             deleted=0,
             created_user_bid="creator-1",
@@ -93,7 +90,9 @@ def _latest_outline_by_bid(shifu_bid: str) -> dict[str, DraftOutlineItem]:
     return latest_by_bid
 
 
-def test_reorder_outline_tree_updates_parent_bid_for_cross_parent_move(app):
+def test_reorder_outline_tree_updates_parent_bid_for_cross_parent_move(
+    app: object,
+) -> None:
     shifu_bid = "shifu_reorder_parent_fix"
     with app.app_context():
         _seed_shifu(shifu_bid)
@@ -128,7 +127,9 @@ def test_reorder_outline_tree_updates_parent_bid_for_cross_parent_move(app):
         assert_outline_tree_publishable(app, shifu_bid)
 
 
-def test_reorder_outline_tree_updates_parent_bid_when_promoting_child_to_root(app):
+def test_reorder_outline_tree_updates_parent_bid_when_promoting_child_to_root(
+    app: object,
+) -> None:
     shifu_bid = "shifu_reorder_root_fix"
     with app.app_context():
         _seed_shifu(shifu_bid)

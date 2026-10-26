@@ -1,12 +1,15 @@
+"""Verify billing admission behavior."""
+
 from __future__ import annotations
 
 from datetime import timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
+import flaskr.service.billing.api as billing_api
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.consts import (
     BILLING_ENTITLEMENT_PRIORITY_CLASS_VIP,
@@ -17,8 +20,8 @@ from flaskr.service.billing.consts import (
     CREDIT_BUCKET_CATEGORY_SUBSCRIPTION,
     CREDIT_BUCKET_CATEGORY_TOPUP,
     CREDIT_BUCKET_STATUS_ACTIVE,
-    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
     CREDIT_SOURCE_TYPE_MANUAL,
+    CREDIT_SOURCE_TYPE_SUBSCRIPTION,
 )
 from flaskr.service.billing.models import (
     BillingEntitlement,
@@ -28,18 +31,105 @@ from flaskr.service.billing.models import (
     CreditWalletBucket,
 )
 from flaskr.service.billing.subscriptions import repair_subscription_cycle_mismatches
-from flaskr.service.common.models import AppException, ERROR_CODE
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
     BILL_USAGE_SCENE_PREVIEW,
 )
 from flaskr.service.shifu.models import PublishedShifu
 from flaskr.util.datetime import now_utc
+
 from tests.common.fixtures.bill_products import build_bill_products
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+
+def test_preview_admission_checks_resolved_owner_before_wallet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Flask(__name__)
+    calls: list[tuple[str, object]] = []
+    expected_admission = object()
+
+    monkeypatch.setattr(
+        billing_api,
+        "resolve_shifu_creator_bid",
+        lambda _app, shifu_bid: "owner-1" if shifu_bid == "shifu-1" else None,
+    )
+    monkeypatch.setattr(
+        billing_api,
+        "assert_creator_debug_allowed",
+        lambda _app, creator_bid: calls.append(("debug", creator_bid)),
+    )
+    monkeypatch.setattr(
+        billing_api,
+        "admit_creator_usage",
+        lambda _app, **kwargs: (
+            calls.append(("wallet", kwargs)),
+            expected_admission,
+        )[1],
+    )
+
+    admission = billing_api.admit_creator_preview_usage(
+        app,
+        shifu_bid="shifu-1",
+    )
+
+    assert admission is expected_admission
+    assert calls == [
+        ("debug", "owner-1"),
+        (
+            "wallet",
+            {
+                "creator_bid": "owner-1",
+                "shifu_bid": "shifu-1",
+                "usage_scene": BILL_USAGE_SCENE_PREVIEW,
+            },
+        ),
+    ]
+
+
+def test_preview_admission_stops_when_owner_softlimit_disables_debug(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    app = Flask(__name__)
+    wallet_admission_called = False
+
+    monkeypatch.setattr(
+        billing_api,
+        "resolve_shifu_creator_bid",
+        lambda _app, _shifu_bid: "owner-softlimit",
+    )
+
+    def reject_debug(_app: Flask, _creator_bid: str) -> None:
+        from flaskr.service.common.models import raise_error
+
+        raise_error("server.billing.debugDisabledBySoftLimit")
+
+    def capture_wallet_admission(_app: Flask, **_kwargs: object) -> None:
+        nonlocal wallet_admission_called
+        wallet_admission_called = True
+
+    monkeypatch.setattr(billing_api, "assert_creator_debug_allowed", reject_debug)
+    monkeypatch.setattr(
+        billing_api,
+        "admit_creator_usage",
+        capture_wallet_admission,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        billing_api.admit_creator_preview_usage(
+            app,
+            shifu_bid="shifu-softlimit",
+        )
+
+    assert exc_info.value.code == ERROR_CODE["server.billing.debugDisabledBySoftLimit"]
+    assert wallet_admission_called is False
 
 
 @pytest.fixture
-def billing_admission_app(monkeypatch):
+def billing_admission_app(monkeypatch: object) -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -71,9 +161,9 @@ def _create_wallet(creator_bid: str, available_credits: str) -> CreditWallet:
         wallet_bid=f"wallet-{creator_bid}",
         creator_bid=creator_bid,
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
-        lifetime_granted_credits=Decimal("0"),
-        lifetime_consumed_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        lifetime_granted_credits=Decimal(0),
+        lifetime_consumed_credits=Decimal(0),
     )
 
 
@@ -82,8 +172,8 @@ def _create_bucket(
     *,
     category: int,
     available_credits: str,
-    effective_from=None,
-    effective_to=None,
+    effective_from: object = None,
+    effective_to: object = None,
     source_type: int = 0,
     source_bid: str | None = None,
 ) -> CreditWalletBucket:
@@ -97,9 +187,9 @@ def _create_bucket(
         priority=10,
         original_credits=Decimal(available_credits),
         available_credits=Decimal(available_credits),
-        reserved_credits=Decimal("0"),
-        consumed_credits=Decimal("0"),
-        expired_credits=Decimal("0"),
+        reserved_credits=Decimal(0),
+        consumed_credits=Decimal(0),
+        expired_credits=Decimal(0),
         effective_from=effective_from or dao.db.func.now(),
         effective_to=effective_to,
         status=CREDIT_BUCKET_STATUS_ACTIVE,
@@ -110,8 +200,8 @@ def _create_active_subscription(
     creator_bid: str,
     *,
     status: int = BILLING_SUBSCRIPTION_STATUS_ACTIVE,
-    current_period_start_at=None,
-    current_period_end_at=None,
+    current_period_start_at: object = None,
+    current_period_end_at: object = None,
 ) -> BillingSubscription:
     now = now_utc()
     return BillingSubscription(
@@ -176,7 +266,7 @@ def test_admit_creator_usage_rejects_topup_credits_without_active_subscription(
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-topup-no-sub-1",
@@ -270,19 +360,21 @@ def test_admit_creator_usage_rejects_missing_credits(
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-empty-1",
             usage_scene=BILL_USAGE_SCENE_PREVIEW,
         )
 
-    assert exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"]
+    assert (
+        exc_info.value.code == ERROR_CODE["server.billing.creditInsufficient"] == 7101
+    )
 
 
 def test_admit_creator_usage_skips_credit_checks_when_billing_disabled(
     billing_admission_app: Flask,
-    monkeypatch,
+    monkeypatch: object,
 ) -> None:
     with billing_admission_app.app_context():
         dao.db.session.add(
@@ -305,7 +397,7 @@ def test_admit_creator_usage_skips_credit_checks_when_billing_disabled(
 
     assert payload["allowed"] is True
     assert payload["creator_bid"] == "creator-disabled-1"
-    assert payload["wallet_available_credits"] == Decimal("0")
+    assert payload["wallet_available_credits"] == Decimal(0)
     assert payload["priority_class"] == "standard"
 
 
@@ -336,7 +428,7 @@ def test_admit_creator_usage_rejects_inactive_subscription_only_balance(
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-subscription-1",
@@ -429,7 +521,7 @@ def test_admit_creator_usage_rejects_expired_topup_bucket_even_if_wallet_snapsho
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-expired-topup-1",
@@ -461,7 +553,7 @@ def test_admit_creator_usage_rejects_future_bucket_before_effective_time(
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-future-bucket-1",
@@ -537,7 +629,7 @@ def test_repair_subscription_cycle_mismatches_restores_admission_for_current_buc
         )
         dao.db.session.commit()
 
-    with pytest.raises(AppException) as exc_info:
+    with pytest.raises(AppError) as exc_info:
         admit_creator_usage(
             billing_admission_app,
             shifu_bid="shifu-repair-cycle-1",

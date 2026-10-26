@@ -1,0 +1,137 @@
+'use client';
+
+import AdminCountCard from '@/app/admin/components/AdminCountCard';
+import { AdminMetricCard } from '@/app/admin/components/AdminMetricCard';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
+type MetricCard = {
+  label: string;
+  value: string;
+  tooltip?: string;
+  onClick?: () => void;
+  actionLabel?: string;
+};
+
+type CourseMetricsCardGridProps = {
+  title: string;
+  cards: MetricCard[];
+  gridClassName?: string;
+  size?: 'default' | 'compact';
+};
+
+const splitTrailingParenthetical = (label: string) => {
+  const matched = label.match(/^(.*?)(\s*\([^()]+\))$/);
+  if (!matched) {
+    return null;
+  }
+  const mainText = matched[1]?.trim() || '';
+  const suffixText = matched[2]?.trim() || '';
+  if (!mainText || !suffixText) {
+    return null;
+  }
+  return {
+    mainText,
+    suffixText,
+  };
+};
+
+export default function CourseMetricsCardGrid({
+  title,
+  cards,
+  gridClassName,
+  size = 'default',
+}: CourseMetricsCardGridProps) {
+  const emptyValue = '--';
+
+  return (
+    <Card>
+      <CardHeader className={size === 'compact' ? 'p-5 pb-3' : 'pb-4'}>
+        <CardTitle className='text-base font-semibold tracking-normal'>
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className={size === 'compact' ? 'p-5 pt-0' : undefined}>
+        <TooltipProvider delayDuration={150}>
+          <div
+            className={cn(
+              'grid gap-3 sm:grid-cols-2 xl:grid-cols-5',
+              gridClassName,
+            )}
+          >
+            {cards.map(card => {
+              const labelParts = splitTrailingParenthetical(card.label);
+              const cardTitle = (
+                <AdminTooltipText
+                  text={card.label}
+                  emptyValue={emptyValue}
+                  displayText={
+                    labelParts ? (
+                      <>
+                        <span className='break-words'>
+                          {labelParts.mainText}
+                        </span>{' '}
+                        <span className='inline-block whitespace-nowrap'>
+                          {labelParts.suffixText}
+                        </span>
+                      </>
+                    ) : undefined
+                  }
+                  className='line-clamp-2 whitespace-normal break-words'
+                />
+              );
+
+              if (card.tooltip) {
+                return (
+                  <AdminMetricCard
+                    key={card.label}
+                    label={cardTitle}
+                    value={card.value}
+                    tooltip={card.tooltip}
+                    onClick={card.onClick}
+                    actionLabel={card.actionLabel || card.label}
+                    variant='count'
+                    size={size}
+                    className='h-full text-left'
+                  />
+                );
+              }
+
+              if (card.onClick) {
+                return (
+                  <button
+                    key={card.label}
+                    type='button'
+                    aria-label={card.actionLabel || card.label}
+                    className='group text-left transition-colors'
+                    onClick={card.onClick}
+                  >
+                    <AdminCountCard
+                      title={cardTitle}
+                      value={card.value}
+                      className='h-full transition-colors group-hover:border-primary/30'
+                      valueClassName='transition-colors group-hover:text-primary'
+                      size={size}
+                    />
+                  </button>
+                );
+              }
+
+              return (
+                <AdminCountCard
+                  key={card.label}
+                  title={cardTitle}
+                  value={card.value}
+                  className='h-full text-left'
+                  size={size}
+                />
+              );
+            })}
+          </div>
+        </TooltipProvider>
+      </CardContent>
+    </Card>
+  );
+}

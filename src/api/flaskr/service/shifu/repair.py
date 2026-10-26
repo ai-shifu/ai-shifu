@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-
-from flask import Flask
+from typing import TYPE_CHECKING
 
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
@@ -18,9 +17,15 @@ from .shifu_outline_funcs import (
     build_outline_history_tree_from_outlines,
 )
 
+if TYPE_CHECKING:
+    from flask import Flask
+    from flask_sqlalchemy.query import Query
+
 
 @dataclass
 class OutlineStructureChange:
+    """Describe one repair to a course outline structure."""
+
     outline_item_bid: str
     old_parent_bid: str
     new_parent_bid: str
@@ -28,6 +33,7 @@ class OutlineStructureChange:
     new_position: str
 
     def to_payload(self) -> dict:
+        """Serialize this result for the outline repair CLI report."""
         return {
             "outline_item_bid": self.outline_item_bid,
             "old_parent_bid": self.old_parent_bid,
@@ -39,12 +45,15 @@ class OutlineStructureChange:
 
 @dataclass
 class OutlineStructureRepairRecord:
+    """Record outline structure repair details."""
+
     shifu_bid: str
     shifu_title: str
     issue_types: list[str]
     changed_outlines: list[OutlineStructureChange] = field(default_factory=list)
 
     def to_payload(self) -> dict:
+        """Serialize this result for the outline repair CLI report."""
         return {
             "shifu_bid": self.shifu_bid,
             "shifu_title": self.shifu_title,
@@ -56,10 +65,13 @@ class OutlineStructureRepairRecord:
 
 @dataclass
 class OutlineStructureSkippedRecord:
+    """Record outline structure skipped details."""
+
     shifu_bid: str
     reason: str
 
     def to_payload(self) -> dict:
+        """Serialize this result as an API payload."""
         return {
             "shifu_bid": self.shifu_bid,
             "reason": self.reason,
@@ -68,6 +80,8 @@ class OutlineStructureSkippedRecord:
 
 @dataclass
 class OutlineStructureRepairResult:
+    """Capture the repair outcome for outline structure."""
+
     status: str
     dry_run: bool
     scanned_shifu_count: int
@@ -78,6 +92,7 @@ class OutlineStructureRepairResult:
     skipped_records: list[OutlineStructureSkippedRecord] = field(default_factory=list)
 
     def to_payload(self) -> dict:
+        """Serialize this result as an API payload."""
         return {
             "status": self.status,
             "dry_run": self.dry_run,
@@ -90,7 +105,7 @@ class OutlineStructureRepairResult:
         }
 
 
-def _apply_shifu_scope(query, shifu_bids: list[str] | str | None):
+def _apply_shifu_scope(query: Query, shifu_bids: list[str] | str | None) -> Query:
     if shifu_bids is None:
         return query
     if isinstance(shifu_bids, str):
@@ -225,7 +240,8 @@ def _plan_outline_structure_repair(
         for item in siblings:
             bid = item.outline_item_bid
             if bid in visited:
-                raise RuntimeError(f"Cycle detected around outline {bid}")
+                message = f"Cycle detected around outline {bid}"
+                raise RuntimeError(message)
             visited.add(bid)
             next_suffix = _next_available_suffix(
                 used_suffixes,
@@ -277,8 +293,10 @@ def repair_shifu_outline_structure(
     shifu_bids: list[str] | None = None,
     dry_run: bool = False,
 ) -> OutlineStructureRepairResult:
+    """Repair shifu outline structure."""
     if not dry_run and not user_bid:
-        raise ValueError("user_bid is required when dry_run is False")
+        message = "user_bid is required when dry_run is False"
+        raise ValueError(message)
 
     with app.app_context():
         items = _load_latest_active_outline_items(shifu_bids)

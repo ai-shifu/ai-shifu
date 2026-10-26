@@ -1,0 +1,508 @@
+/**
+ * Centralized Environment Variable Management
+ *
+ * This module provides a unified interface for accessing all environment variables
+ * across the application. It uses the new standardized naming scheme.
+ *
+ * Supports retrieving environment variables at runtime
+ */
+
+interface EnvironmentConfig {
+  // Immutable Frontend Build Metadata
+  appVersion: string;
+  appBuildSha: string;
+
+  // Core API Configuration
+  apiBaseUrl: string;
+
+  // WeChat Integration
+  wechatAppId: string;
+  enableWechatCode: boolean;
+
+  // Payment Configuration
+  billingEnabled: boolean;
+  stripePublishableKey: string;
+  stripeEnabled: boolean;
+  paymentChannels: string[];
+
+  // UI Configuration
+  alwaysShowLessonTree: boolean;
+  logoHorizontal: string;
+  logoVertical: string;
+  logoWideUrl: string;
+  logoSquareUrl: string;
+  faviconUrl: string;
+
+  // Analytics & Tracking
+  umamiScriptSrc: string;
+  umamiWebsiteId: string;
+
+  // Development & Debugging Tools
+  enableEruda: boolean;
+
+  // Authentication Configuration
+  loginMethodsEnabled: string[];
+  defaultLoginMethod: string;
+
+  // Redirect Configuration
+  homeUrl: string;
+  contactUsUrl: string;
+  officialSiteUrl: string;
+  currencySymbol: string;
+
+  // Legal Documents Configuration
+  legalUrls: {
+    agreement: Record<
+      | 'zh-CN'
+      | 'en-US'
+      | 'de-DE'
+      | 'es-ES'
+      | 'fr-FR'
+      | 'ar-SA'
+      | 'th-TH'
+      | 'ur-PK',
+      string
+    >;
+    privacy: Record<
+      | 'zh-CN'
+      | 'en-US'
+      | 'de-DE'
+      | 'es-ES'
+      | 'fr-FR'
+      | 'ar-SA'
+      | 'th-TH'
+      | 'ur-PK',
+      string
+    >;
+  };
+}
+
+export const DEFAULT_OFFICIAL_SITE_URL = 'https://ai-shifu.cn';
+const SUPPORTED_LOGIN_METHODS = ['phone', 'email', 'google', 'password'];
+
+export function resolveOfficialSiteUrl(value?: string): string {
+  return (value || '').trim() || DEFAULT_OFFICIAL_SITE_URL;
+}
+
+/**
+ * Runtime helper for reading environment variables
+ * Executed on the server during SSR
+ */
+function getRuntimeEnv(key: string): string | undefined {
+  if (typeof window === 'undefined') {
+    // Server-side
+    return process.env[key];
+  }
+  return undefined;
+}
+
+/**
+ * Client-side retrieval for the API base URL
+ * Fetches /api/config at runtime so npm start can pick up env overrides
+ */
+let cachedApiBaseUrl: string = '';
+let configFetched: boolean = false;
+let configFetchPromise: Promise<string> | null = null;
+
+const normalizeApiBaseUrl = (value?: string): string => {
+  if (!value) return '';
+  return value.replace(/\/+$/, '');
+};
+
+async function getClientApiBaseUrl(): Promise<string> {
+  // Return cached value if already fetched
+  if (configFetched) {
+    return cachedApiBaseUrl;
+  }
+
+  // Prevent concurrent fetches
+  if (configFetchPromise) {
+    return configFetchPromise;
+  }
+
+  configFetchPromise = (async () => {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const config = await response.json();
+        cachedApiBaseUrl = normalizeApiBaseUrl(config.apiBaseUrl) || '';
+      }
+    } catch (error) {
+      console.warn('Failed to fetch runtime config:', error);
+      cachedApiBaseUrl = '';
+    }
+
+    configFetched = true;
+    return cachedApiBaseUrl;
+  })();
+
+  const result = await configFetchPromise;
+  configFetchPromise = null; // Reset after the request completes
+  return result;
+}
+
+/**
+ * Gets the unified API base URL
+ * Priority: runtime env > build-time env > empty string
+ */
+function getApiBaseUrl(): string {
+  // 1. Prefer runtime environment variables on the server
+  const runtimeApiUrl = normalizeApiBaseUrl(
+    getRuntimeEnv('NEXT_PUBLIC_API_BASE_URL'),
+  );
+  if (runtimeApiUrl) {
+    return runtimeApiUrl;
+  }
+
+  // 2. Clients fall back to the build value and update dynamically later
+  const buildTimeValue = normalizeApiBaseUrl(
+    process.env.NEXT_PUBLIC_API_BASE_URL,
+  );
+  return buildTimeValue || '';
+}
+
+/**
+ * Gets the dynamic API base URL (client-side)
+ */
+export async function getDynamicApiBaseUrl(): Promise<string> {
+  if (typeof window === 'undefined') {
+    // Server can return immediately
+    return getApiBaseUrl();
+  } else {
+    // Client fetches it dynamically
+    return getClientApiBaseUrl();
+  }
+}
+
+/**
+ * Reads resolved runtime configuration without suspending a lifecycle callback.
+ * An empty base is ready (same origin); undefined means it has not loaded yet.
+ */
+export function getCachedDynamicApiBaseUrl(): string | undefined {
+  if (typeof window === 'undefined') {
+    return getApiBaseUrl();
+  }
+  return configFetched ? cachedApiBaseUrl : undefined;
+}
+
+/**
+ * Gets WeChat App ID
+ */
+function getWeChatAppId(): string {
+  return '';
+}
+
+/**
+ * Gets WeChat code enabled status
+ */
+function getWeChatCodeEnabled(): boolean {
+  return true;
+}
+
+/**
+ * Gets billing enable flag
+ */
+function getBillingEnabled(): boolean {
+  return false;
+}
+
+/**
+ * Gets Stripe publishable key
+ */
+function getStripePublishableKey(): string {
+  return '';
+}
+
+/**
+ * Gets Stripe enable flag
+ */
+function getStripeEnabled(): boolean {
+  return false;
+}
+
+function parsePaymentChannels(value?: string): string[] {
+  if (!value) return ['pingxx', 'stripe'];
+  const channels = value
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean);
+  return channels.length > 0 ? channels : ['pingxx', 'stripe'];
+}
+
+function getPaymentChannels(): string[] {
+  return parsePaymentChannels();
+}
+
+/**
+ * Gets UI always show lesson tree
+ */
+function getUIAlwaysShowLessonTree(): boolean {
+  return false;
+}
+
+/**
+ * Gets UI logo horizontal
+ */
+function getUILogoHorizontal(): string {
+  return '';
+}
+
+/**
+ * Gets UI logo vertical
+ */
+function getUILogoVertical(): string {
+  return '';
+}
+
+/**
+ * Gets custom wide logo URL (runtime override)
+ */
+function getLogoWideUrl(): string {
+  return getRuntimeEnv('LOGO_WIDE_URL') || process.env.LOGO_WIDE_URL || '';
+}
+
+/**
+ * Gets custom square logo URL (runtime override)
+ */
+function getLogoSquareUrl(): string {
+  return getRuntimeEnv('LOGO_SQUARE_URL') || process.env.LOGO_SQUARE_URL || '';
+}
+
+/**
+ * Gets custom favicon URL (runtime override)
+ */
+function getFaviconUrl(): string {
+  return getRuntimeEnv('FAVICON_URL') || process.env.FAVICON_URL || '';
+}
+
+/**
+ * Gets analytics Umami script
+ */
+function getAnalyticsUmamiScript(): string {
+  return '';
+}
+
+/**
+ * Gets analytics Umami site ID
+ */
+function getAnalyticsUmamiSiteId(): string {
+  return '';
+}
+
+/**
+ * Gets debug Eruda enabled
+ */
+function getDebugErudaEnabled(): boolean {
+  return false;
+}
+
+/**
+ * Gets enabled login methods
+ */
+function getLoginMethodsEnabled(): string[] {
+  const envValue =
+    getRuntimeEnv('LOGIN_METHODS_ENABLED') ||
+    process.env.NEXT_PUBLIC_LOGIN_METHODS_ENABLED;
+  if (envValue) {
+    const methods = envValue
+      .split(',')
+      .map(m => m.trim().toLowerCase())
+      .filter(method => SUPPORTED_LOGIN_METHODS.includes(method));
+    if (methods.length > 0) return methods;
+  }
+  return ['phone'];
+}
+
+/**
+ * Gets default login method
+ */
+function getDefaultLoginMethod(): string {
+  const configured = (
+    getRuntimeEnv('DEFAULT_LOGIN_METHOD') ||
+    process.env.NEXT_PUBLIC_DEFAULT_LOGIN_METHOD ||
+    'phone'
+  )
+    .trim()
+    .toLowerCase();
+  const enabledMethods = getLoginMethodsEnabled();
+  return enabledMethods.includes(configured) ? configured : enabledMethods[0];
+}
+
+/**
+ * Gets home URL
+ */
+function getHomeUrl(): string {
+  return getRuntimeEnv('HOME_URL') || process.env.HOME_URL || '/admin';
+}
+
+/**
+ * Gets contact us URL
+ */
+function getContactUsUrl(): string {
+  return getRuntimeEnv('CONTACT_US_URL') || process.env.CONTACT_US_URL || '';
+}
+
+/**
+ * Gets official site URL
+ */
+function getOfficialSiteUrl(): string {
+  return resolveOfficialSiteUrl(
+    getRuntimeEnv('OFFICIAL_SITE_URL') || process.env.OFFICIAL_SITE_URL,
+  );
+}
+
+/**
+ * Gets currency symbol
+ */
+function getCurrencySymbol(): string {
+  return getRuntimeEnv('CURRENCY_SYMBOL') || process.env.CURRENCY_SYMBOL || '¥';
+}
+
+/**
+ * Gets legal document URLs for all supported languages
+ */
+function getLegalUrls(): {
+  agreement: {
+    'zh-CN': string;
+    'en-US': string;
+    'de-DE': string;
+    'es-ES': string;
+    'fr-FR': string;
+    'ar-SA': string;
+    'th-TH': string;
+    'ur-PK': string;
+  };
+  privacy: {
+    'zh-CN': string;
+    'en-US': string;
+    'de-DE': string;
+    'es-ES': string;
+    'fr-FR': string;
+    'ar-SA': string;
+    'th-TH': string;
+    'ur-PK': string;
+  };
+} {
+  return {
+    agreement: {
+      'zh-CN':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_ZH_CN') ||
+        process.env.LEGAL_AGREEMENT_URL_ZH_CN ||
+        '',
+      'en-US':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_EN_US') ||
+        process.env.LEGAL_AGREEMENT_URL_EN_US ||
+        '',
+      'de-DE':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_DE_DE') ||
+        process.env.LEGAL_AGREEMENT_URL_DE_DE ||
+        '',
+      'es-ES':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_ES_ES') ||
+        process.env.LEGAL_AGREEMENT_URL_ES_ES ||
+        '',
+      'fr-FR':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_FR_FR') ||
+        process.env.LEGAL_AGREEMENT_URL_FR_FR ||
+        '',
+      'ar-SA':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_AR_SA') ||
+        process.env.LEGAL_AGREEMENT_URL_AR_SA ||
+        '',
+      'th-TH':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_TH_TH') ||
+        process.env.LEGAL_AGREEMENT_URL_TH_TH ||
+        '',
+      'ur-PK':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_UR_PK') ||
+        process.env.LEGAL_AGREEMENT_URL_UR_PK ||
+        '',
+    },
+    privacy: {
+      'zh-CN':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_ZH_CN') ||
+        process.env.LEGAL_PRIVACY_URL_ZH_CN ||
+        '',
+      'en-US':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_EN_US') ||
+        process.env.LEGAL_PRIVACY_URL_EN_US ||
+        '',
+      'de-DE':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_DE_DE') ||
+        process.env.LEGAL_PRIVACY_URL_DE_DE ||
+        '',
+      'es-ES':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_ES_ES') ||
+        process.env.LEGAL_PRIVACY_URL_ES_ES ||
+        '',
+      'fr-FR':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_FR_FR') ||
+        process.env.LEGAL_PRIVACY_URL_FR_FR ||
+        '',
+      'ar-SA':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_AR_SA') ||
+        process.env.LEGAL_PRIVACY_URL_AR_SA ||
+        '',
+      'th-TH':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_TH_TH') ||
+        process.env.LEGAL_PRIVACY_URL_TH_TH ||
+        '',
+      'ur-PK':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_UR_PK') ||
+        process.env.LEGAL_PRIVACY_URL_UR_PK ||
+        '',
+    },
+  };
+}
+
+/**
+ * Environment configuration instance with new organized structure
+ */
+export const environment: EnvironmentConfig = {
+  // Next replaces these direct reads with constants from next.config.ts.
+  appVersion: process.env.NEXT_PUBLIC_APP_VERSION || '',
+  appBuildSha: process.env.NEXT_PUBLIC_APP_BUILD_SHA || '',
+
+  // Core API Configuration
+  apiBaseUrl: getApiBaseUrl(),
+
+  // WeChat Integration
+  wechatAppId: getWeChatAppId(),
+  enableWechatCode: getWeChatCodeEnabled(),
+
+  // Payment Configuration
+  billingEnabled: getBillingEnabled(),
+  stripePublishableKey: getStripePublishableKey(),
+  stripeEnabled: getStripeEnabled(),
+  paymentChannels: getPaymentChannels(),
+
+  // UI Configuration
+  alwaysShowLessonTree: getUIAlwaysShowLessonTree(),
+  logoHorizontal: getUILogoHorizontal(),
+  logoVertical: getUILogoVertical(),
+  logoWideUrl: getLogoWideUrl(),
+  logoSquareUrl: getLogoSquareUrl(),
+  faviconUrl: getFaviconUrl(),
+
+  // Analytics & Tracking
+  umamiScriptSrc: getAnalyticsUmamiScript(),
+  umamiWebsiteId: getAnalyticsUmamiSiteId(),
+
+  // Development & Debugging Tools
+  enableEruda: getDebugErudaEnabled(),
+
+  // Authentication Configuration
+  loginMethodsEnabled: getLoginMethodsEnabled(),
+  defaultLoginMethod: getDefaultLoginMethod(),
+
+  // Redirect Configuration
+  homeUrl: getHomeUrl(),
+  contactUsUrl: getContactUsUrl(),
+  officialSiteUrl: getOfficialSiteUrl(),
+  currencySymbol: getCurrencySymbol(),
+
+  // Legal Documents Configuration
+  legalUrls: getLegalUrls(),
+};
+
+export default environment;

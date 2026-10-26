@@ -29,7 +29,6 @@ body:
       description: Please select the product you are using
       options:
         - AI-Shifu web
-        - AI-Shifu cook
 
   - type: textarea
     attributes:

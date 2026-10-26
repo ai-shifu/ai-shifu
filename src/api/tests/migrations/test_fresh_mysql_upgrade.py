@@ -1,16 +1,17 @@
+"""Verify a fresh MySQL database upgrades to the single Alembic head."""
+
 import os
-from pathlib import Path
 import subprocess
 import sys
 import textwrap
 import uuid
+from pathlib import Path
 
 import pytest
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
-
 
 API_ROOT = Path(__file__).resolve().parents[2]
 SMOKE_FLAG = "RUN_MYSQL_MIGRATION_SMOKE"
@@ -23,12 +24,12 @@ def _get_expected_head() -> str:
     return ScriptDirectory.from_config(config).get_current_head()
 
 
-def test_alembic_migrations_have_single_head():
+def test_alembic_migrations_have_single_head() -> None:
     config = Config(str(API_ROOT / "migrations" / "alembic.ini"))
     config.set_main_option("script_location", str(API_ROOT / "migrations"))
     heads = ScriptDirectory.from_config(config).get_heads()
 
-    assert heads == ["b8d5f0a2c3e4"]
+    assert len(heads) == 1
 
 
 def _get_base_mysql_uri() -> str:
@@ -86,7 +87,8 @@ def _migration_subprocess_script() -> str:
         os.environ["SKIP_LOAD_DOTENV"] = "1"
         os.environ["SKIP_APP_AUTOCREATE"] = "1"
         os.environ["SECRET_KEY"] = "mysql-migration-smoke"
-        os.environ["DEFAULT_LLM_MODEL"] = "gpt-test"
+        os.environ["LLM_MODEL_1_NAME"] = "Test model"
+        os.environ["LLM_MODEL_1_ID"] = "gpt-test"
         os.environ["OPENAI_API_KEY"] = "test-key"
         os.environ["SAAS_DB_URI"] = os.environ["SQLALCHEMY_DATABASE_URI"]
         os.environ["ADMIN_DB_URI"] = os.environ["SQLALCHEMY_DATABASE_URI"]
@@ -137,7 +139,7 @@ def _migration_subprocess_script() -> str:
     )
 
 
-def test_fresh_mysql_upgrade_reaches_head():
+def test_fresh_mysql_upgrade_reaches_head() -> None:
     base_uri = _get_base_mysql_uri()
     temp_uri, database_name = _create_temp_database(base_uri)
     expected_head = _get_expected_head()
@@ -167,6 +169,19 @@ def test_fresh_mysql_upgrade_reaches_head():
             ).scalar_one()
         inspector = inspect(engine)
         tables = set(inspector.get_table_names())
+        user_columns = {
+            column["name"]: column for column in inspector.get_columns("user_users")
+        }
+        provider_price_indexes = {
+            index["name"]: tuple(index["column_names"])
+            for index in inspector.get_indexes("bill_product_provider_prices")
+        }
+        provider_price_unique_constraints = {
+            constraint["name"]: tuple(constraint["column_names"])
+            for constraint in inspector.get_unique_constraints(
+                "bill_product_provider_prices"
+            )
+        }
         engine.dispose()
 
         assert current_head == expected_head
@@ -175,6 +190,32 @@ def test_fresh_mysql_upgrade_reaches_head():
             "user_users",
             "var_variables",
             "learn_lesson_feedbacks",
+            "bill_product_provider_prices",
         }.issubset(tables)
+        assert str(user_columns["avatar"]["type"]).upper() == "TEXT"
+        assert provider_price_indexes[
+            "ix_bill_product_provider_prices_product_status"
+        ] == ("product_bid", "status")
+        assert provider_price_indexes[
+            "ix_bill_product_provider_prices_provider_product"
+        ] == ("provider", "provider_account_id", "provider_product_id")
+        assert provider_price_unique_constraints[
+            "uq_bill_product_provider_prices_provider_price"
+        ] == (
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "provider_price_id",
+            "provider_price_live_scope",
+        )
+        assert provider_price_unique_constraints[
+            "uq_bill_product_provider_prices_active_scope"
+        ] == (
+            "product_bid",
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "active_scope",
+        )
     finally:
         _drop_temp_database(base_uri, database_name)

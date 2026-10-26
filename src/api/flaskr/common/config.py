@@ -1,17 +1,56 @@
-import os
-import re
+"""Load application configuration from defaults and the environment."""
+
+from __future__ import annotations
+
 import json
 import logging
+import os
+import re
 from dataclasses import dataclass, field
-from typing import Any, Optional, Callable, Dict, List, Type
-from flask import Flask
+from decimal import Decimal, InvalidOperation
+from typing import TYPE_CHECKING, Any
+
 from flask import Config as FlaskConfig
+from flask import Flask
+
+from flaskr.common.client_ip import validate_trusted_proxy_cidrs
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class EnvironmentConfigError(Exception):
     """Exception raised for environment configuration errors."""
 
-    pass
+
+MAX_COURSE_PRICE = Decimal("99999999.99")
+
+
+def parse_nonnegative_cent_amount(value: object) -> Decimal:
+    """Parse an amount that fits the course-price DECIMAL(10, 2) columns."""
+    try:
+        amount = Decimal(str(value))
+        cent_amount = amount.quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        message = "must be a finite nonnegative amount with at most two decimals"
+        raise ValueError(message) from exc
+    if (
+        not amount.is_finite()
+        or amount < 0
+        or amount > MAX_COURSE_PRICE
+        or amount != cent_amount
+    ):
+        message = "must be a finite nonnegative amount with at most two decimals"
+        raise ValueError(message)
+    return cent_amount
+
+
+def _is_valid_nonnegative_cent_amount(value: object) -> bool:
+    try:
+        parse_nonnegative_cent_amount(value)
+    except ValueError:
+        return False
+    return True
 
 
 @dataclass
@@ -22,28 +61,29 @@ class EnvVar:
     required: bool = False  # Whether variable must be explicitly set in environment
     default: Any = None  # Default value if not set (only if required=False)
     example: Any = None  # Optional value to emit in generated example files
-    type: Type = str  # Using Type annotation to avoid conflict
+    type: type = str  # Using Type annotation to avoid conflict
     description: str = ""
-    validator: Optional[Callable[[Any], bool]] = None
+    validator: Callable[[Any], bool] | None = None
     secret: bool = False
     group: str = "general"
-    depends_on: List[str] = field(default_factory=list)
+    depends_on: list[str] = field(default_factory=list)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate EnvVar configuration after initialization."""
         if self.required and self.default is not None:
-            raise ValueError(
+            message = (
                 f"Environment variable '{self.name}' is marked as required "
                 "but has a default value. Required variables must not have defaults."
             )
+            raise ValueError(message)
 
-    def validate_value(self, value: Any) -> bool:
+    def validate_value(self, value: object) -> bool:
         """Validate the environment variable value."""
         if self.validator:
             return self.validator(value)
         return True
 
-    def convert_type(self, value: Any) -> Any:
+    def convert_type(self, value: object) -> object:
         """Convert string value to the specified type."""
         # Trim whitespace from string values before conversion
         if isinstance(value, str):
@@ -57,20 +97,24 @@ class EnvVar:
             if isinstance(value, str):
                 return value.lower() in ("true", "1", "yes", "on")
             return bool(value)
-        elif self.type is int:
+        if self.type is int:
             try:
                 return int(value)
-            except ValueError:
-                raise EnvironmentConfigError(
-                    f"Invalid integer value for {self.name}: {value}"
-                )
+            except ValueError as exc:
+                message = f"Invalid integer value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
         elif self.type is float:
             try:
                 return float(value)
-            except ValueError:
-                raise EnvironmentConfigError(
-                    f"Invalid float value for {self.name}: {value}"
-                )
+            except (TypeError, ValueError) as exc:
+                message = f"Invalid float value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
+        elif self.type is Decimal:
+            try:
+                return Decimal(str(value))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                message = f"Invalid decimal value for {self.name}: {value}"
+                raise EnvironmentConfigError(message) from exc
         elif self.type is list:
             if isinstance(value, str):
                 return [item.strip() for item in value.split(",") if item.strip()]
@@ -79,7 +123,7 @@ class EnvVar:
             return str(value)
 
 
-def _is_valid_rpm_limits_json(value: Any) -> bool:
+def _is_valid_rpm_limits_json(value: object) -> bool:
     """Validate the MINIMAX_TTS_RPM_LIMITS override map.
 
     Empty is allowed (no overrides). A non-empty value must be a JSON object
@@ -104,9 +148,8 @@ def _is_valid_rpm_limits_json(value: Any) -> bool:
     return True
 
 
-def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
+def parse_llm_model_max_output_tokens(value: object) -> dict[str, int]:
     """Parse a routed model id -> maximum output token JSON map."""
-
     if value in (None, ""):
         return {}
     if isinstance(value, dict):
@@ -115,28 +158,34 @@ def parse_llm_model_max_output_tokens(value: Any) -> Dict[str, int]:
         try:
             candidate = json.loads(value)
         except (TypeError, ValueError) as exc:
-            raise ValueError("must be a JSON object") from exc
+            message = "must be a JSON object"
+            raise ValueError(message) from exc
     if not isinstance(candidate, dict):
-        raise ValueError("must be a JSON object")
+        # ValueError is part of this parser's contract: callers only catch it.
+        message = "must be a JSON object"
+        raise ValueError(message)  # noqa: TRY004
 
-    parsed: Dict[str, int] = {}
+    parsed: dict[str, int] = {}
     for model, max_output_tokens in candidate.items():
         if not isinstance(model, str) or not model.strip():
-            raise ValueError("model ids must be non-empty strings")
+            message = "model ids must be non-empty strings"
+            raise ValueError(message)
         normalized_model = model.strip()
         if normalized_model in parsed:
-            raise ValueError("model ids must be unique after trimming whitespace")
+            message = "model ids must be unique after trimming whitespace"
+            raise ValueError(message)
         if (
             isinstance(max_output_tokens, bool)
             or not isinstance(max_output_tokens, int)
             or max_output_tokens <= 0
         ):
-            raise ValueError("maximum output token values must be positive integers")
+            message = "maximum output token values must be positive integers"
+            raise ValueError(message)
         parsed[normalized_model] = max_output_tokens
     return parsed
 
 
-def _is_valid_llm_model_max_output_tokens_json(value: Any) -> bool:
+def _is_valid_llm_model_max_output_tokens_json(value: object) -> bool:
     try:
         parse_llm_model_max_output_tokens(value)
     except ValueError:
@@ -145,7 +194,7 @@ def _is_valid_llm_model_max_output_tokens_json(value: Any) -> bool:
 
 
 # Environment variable registry
-ENV_VARS: Dict[str, EnvVar] = {
+ENV_VARS: dict[str, EnvVar] = {
     # Application Configuration
     "LOGGING_PATH": EnvVar(
         name="LOGGING_PATH",
@@ -322,44 +371,16 @@ ENV_VARS: Dict[str, EnvVar] = {
         description="Umami analytics site identifier",
         group="frontend",
     ),
-    "ANALYTICS_UMAMI_API_URL": EnvVar(
-        name="ANALYTICS_UMAMI_API_URL",
-        default="",
-        description="Umami management API base URL used by backend analytics reads",
-        group="analytics",
-    ),
-    "ANALYTICS_UMAMI_API_KEY": EnvVar(
-        name="ANALYTICS_UMAMI_API_KEY",
-        default="",
-        description="Umami API key for backend analytics reads",
-        secret=True,
-        group="analytics",
-    ),
-    "ANALYTICS_UMAMI_API_USERNAME": EnvVar(
-        name="ANALYTICS_UMAMI_API_USERNAME",
-        default="",
-        description="Umami username fallback for backend analytics reads",
-        group="analytics",
-    ),
-    "ANALYTICS_UMAMI_API_PASSWORD": EnvVar(
-        name="ANALYTICS_UMAMI_API_PASSWORD",
-        default="",
-        description="Umami password fallback for backend analytics reads",
-        secret=True,
-        group="analytics",
-    ),
-    "ANALYTICS_UMAMI_CACHE_EXPIRE_SECONDS": EnvVar(
-        name="ANALYTICS_UMAMI_CACHE_EXPIRE_SECONDS",
-        default=900,
-        type=int,
-        description="Course visit analytics cache expiration time in seconds",
-        group="analytics",
-    ),
-    "ANALYTICS_UMAMI_TIMEOUT_SECONDS": EnvVar(
-        name="ANALYTICS_UMAMI_TIMEOUT_SECONDS",
-        default=10,
-        type=int,
-        description="Timeout in seconds for backend Umami API requests",
+    "ANALYTICS_EXCLUDED_USER_IDS": EnvVar(
+        name="ANALYTICS_EXCLUDED_USER_IDS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated user business identifiers (user_bid, exposed as "
+            "user_id in APIs) excluded by the shared analytics tracking policy "
+            "once identified. "
+            "Empty means no users are excluded."
+        ),
         group="analytics",
     ),
     "ANALYTICS_DATABASE_URI": EnvVar(
@@ -396,7 +417,10 @@ ENV_VARS: Dict[str, EnvVar] = {
     "DEFAULT_LOGIN_METHOD": EnvVar(
         name="DEFAULT_LOGIN_METHOD",
         default="phone",
-        description='Default login method tab. Values: "phone" | "email" | "google"',
+        description=(
+            'Default login method tab. Values: "phone" | "email" | '
+            '"google" | "password"'
+        ),
         group="frontend",
     ),
     "DEBUG_ERUDA_ENABLED": EnvVar(
@@ -410,7 +434,7 @@ ENV_VARS: Dict[str, EnvVar] = {
         name="LOGIN_METHODS_ENABLED",
         default="phone",
         description="""Login methods exposed to users.
-Values: "phone" | "email" | "google" combinations (comma-separated)
+Values: "phone" | "email" | "google" | "password" combinations (comma-separated)
 Default: "phone".""",
         group="frontend",
     ),
@@ -466,10 +490,40 @@ Default: "phone".""",
         description="Service agreement URL for English (en-US) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_AGREEMENT_URL_DE_DE": EnvVar(
+        name="LEGAL_AGREEMENT_URL_DE_DE",
+        default="",
+        description="Service agreement URL for German (de-DE) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
     "LEGAL_AGREEMENT_URL_FR_FR": EnvVar(
         name="LEGAL_AGREEMENT_URL_FR_FR",
         default="",
         description="Service agreement URL for French (fr-FR) users. Leave empty to disable the link.",
+        group="legal",
+    ),
+    "LEGAL_AGREEMENT_URL_ES_ES": EnvVar(
+        name="LEGAL_AGREEMENT_URL_ES_ES",
+        default="",
+        description="Service agreement URL for Spanish (es-ES) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
+    "LEGAL_AGREEMENT_URL_AR_SA": EnvVar(
+        name="LEGAL_AGREEMENT_URL_AR_SA",
+        default="",
+        description="Service agreement URL for Arabic (ar-SA) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
+    "LEGAL_AGREEMENT_URL_UR_PK": EnvVar(
+        name="LEGAL_AGREEMENT_URL_UR_PK",
+        default="",
+        description="Service agreement URL for Urdu (ur-PK) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
+    "LEGAL_AGREEMENT_URL_TH_TH": EnvVar(
+        name="LEGAL_AGREEMENT_URL_TH_TH",
+        default="",
+        description="Service agreement URL for Thai (th-TH) users. Leave empty to use the English reference.",
         group="legal",
     ),
     "LEGAL_PRIVACY_URL_ZH_CN": EnvVar(
@@ -484,13 +538,54 @@ Default: "phone".""",
         description="Privacy policy URL for English (en-US) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_PRIVACY_URL_DE_DE": EnvVar(
+        name="LEGAL_PRIVACY_URL_DE_DE",
+        default="",
+        description="Privacy policy URL for German (de-DE) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
     "LEGAL_PRIVACY_URL_FR_FR": EnvVar(
         name="LEGAL_PRIVACY_URL_FR_FR",
         default="",
         description="Privacy policy URL for French (fr-FR) users. Leave empty to disable the link.",
         group="legal",
     ),
+    "LEGAL_PRIVACY_URL_ES_ES": EnvVar(
+        name="LEGAL_PRIVACY_URL_ES_ES",
+        default="",
+        description="Privacy policy URL for Spanish (es-ES) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
+    "LEGAL_PRIVACY_URL_AR_SA": EnvVar(
+        name="LEGAL_PRIVACY_URL_AR_SA",
+        default="",
+        description="Privacy policy URL for Arabic (ar-SA) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
+    "LEGAL_PRIVACY_URL_UR_PK": EnvVar(
+        name="LEGAL_PRIVACY_URL_UR_PK",
+        default="",
+        description="Privacy policy URL for Urdu (ur-PK) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
+    "LEGAL_PRIVACY_URL_TH_TH": EnvVar(
+        name="LEGAL_PRIVACY_URL_TH_TH",
+        default="",
+        description="Privacy policy URL for Thai (th-TH) users. Leave empty to use the English reference.",
+        group="legal",
+    ),
     # LLM Configuration
+    "MODEL_GATEWAY_CLIENT_ALLOWLIST": EnvVar(
+        name="MODEL_GATEWAY_CLIENT_ALLOWLIST",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated client IDs allowed to list and invoke gateway models. "
+            "Requests must send X-AI-Shifu-Client-ID and a user Bearer token. "
+            "Empty denies all clients; IDs are case-sensitive with no wildcard matching."
+        ),
+        group="llm",
+    ),
     "OPENAI_API_KEY": EnvVar(
         name="OPENAI_API_KEY",
         default="",
@@ -552,17 +647,10 @@ Default: "phone".""",
         secret=True,
         group="llm",
     ),
-    "GLM_API_KEY": EnvVar(
-        name="GLM_API_KEY",
-        default="",
-        description="Zhipu BigModel GLM API Key",
-        secret=True,
-        group="llm",
-    ),
     "BIGMODEL_API_KEY": EnvVar(
         name="BIGMODEL_API_KEY",
         default="",
-        description="Zhipu BigModel API Key (alternative format)",
+        description="Zhipu BigModel API key for GLM models",
         secret=True,
         group="llm",
     ),
@@ -592,6 +680,71 @@ Default: "phone".""",
         description="Optional Google Gemini API base URL (leave blank to use default)",
         group="llm",
     ),
+    "GEMINI_LIVE_ENABLED": EnvVar(
+        name="GEMINI_LIVE_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Expose the allowlisted Gemini Live model for voice follow-up sessions. "
+            "Keep disabled until compatible workers and the Redis recovery gate "
+            "are ready. Redis eviction can invalidate credential capacity "
+            "accounting even when credential rotation is disabled."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_ROTATION_ENABLED": EnvVar(
+        name="GEMINI_LIVE_ROTATION_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Allow bounded Gemini Live credential rotation. Requires compatible "
+            "workers, Redis and the credential-drain recovery gate. Eviction "
+            "can invalidate credential capacity accounting."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_GLOBAL_CREDENTIAL_LIMIT": EnvVar(
+        name="GEMINI_LIVE_GLOBAL_CREDENTIAL_LIMIT",
+        default=96,
+        type=int,
+        description="Maximum unexpired Gemini Live credentials across users when rotation is enabled.",
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_USER_CREDENTIAL_LIMIT": EnvVar(
+        name="GEMINI_LIVE_USER_CREDENTIAL_LIMIT",
+        default=8,
+        type=int,
+        description="Maximum unexpired Gemini Live credentials per user when rotation is enabled.",
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_ACTIVE_SESSION_LIMIT": EnvVar(
+        name="GEMINI_LIVE_ACTIVE_SESSION_LIMIT",
+        default=24,
+        type=int,
+        description="Maximum active Gemini Live session owners across users.",
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_USER_MINT_RATE_LIMIT": EnvVar(
+        name="GEMINI_LIVE_USER_MINT_RATE_LIMIT",
+        default=4,
+        type=int,
+        description="Maximum Gemini Live credential issuance attempts per user in a rolling minute.",
+        group="llm",
+        required=False,
+    ),
+    "GEMINI_LIVE_GLOBAL_MINT_RATE_LIMIT": EnvVar(
+        name="GEMINI_LIVE_GLOBAL_MINT_RATE_LIMIT",
+        default=24,
+        type=int,
+        description="Maximum Gemini Live credential issuance attempts across users in a rolling minute.",
+        group="llm",
+        required=False,
+    ),
     "QWEN_API_KEY": EnvVar(
         name="QWEN_API_KEY",
         default="",
@@ -613,17 +766,186 @@ Default: "phone".""",
         group="llm",
         required=False,
     ),
-    "DEFAULT_LLM_MODEL": EnvVar(
-        name="DEFAULT_LLM_MODEL",
-        default="",
-        description="""Default LLM model. Supported models:
-OpenAI: gpt-4o-latest, gpt-4o-mini, gpt-4, gpt-3.5-turbo, chatgpt-4o-latest
-ERNIE: ERNIE-4.0-8K, ERNIE-3.5-8K, ERNIE-3.5-128K, ERNIE-Speed-8K, ERNIE-Speed-128K
-GLM: glm-4, glm-4-air, glm-4-airx, glm-4-flash, glm-4v, glm-3-turbo
-Qwen: qwen-long, qwen-max, qwen-max-longcontext, qwen-plus, qwen-turbo, qwen2-*
-DeepSeek: deepseek-chat
-Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
+    "ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS": EnvVar(
+        name="ASK_PROVIDER_TOTAL_TIMEOUT_SECONDS",
+        default=300,
+        type=int,
+        description=(
+            "Maximum wall-clock seconds for one external ask provider request or "
+            "stream. This must remain bounded even when response chunks continue "
+            "arriving."
+        ),
         group="llm",
+        required=False,
+    ),
+    "ASK_PROVIDER_ALLOW_INSECURE_HTTP": EnvVar(
+        name="ASK_PROVIDER_ALLOW_INSECURE_HTTP",
+        default=False,
+        type=bool,
+        description=(
+            "Allow credential-bearing Coze and Volcengine-compatible provider "
+            "requests over plain HTTP. Leave disabled unless a trusted private "
+            "deployment cannot provide HTTPS."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "DIFY_TRUSTED_ORIGINS": EnvVar(
+        name="DIFY_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Dify origins allowed to resolve to private "
+            "addresses. Leave empty unless this deployment intentionally uses "
+            "a self-hosted Dify service, for example "
+            "http://host.docker.internal:5001."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "COZE_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze chat origins allowed to resolve to private "
+            "addresses. Leave empty unless this deployment intentionally uses a "
+            "self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "COZE_WORKFLOW_TRUSTED_ORIGINS": EnvVar(
+        name="COZE_WORKFLOW_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Coze workflow origins allowed to resolve to "
+            "private addresses. Leave empty unless this deployment intentionally "
+            "uses a self-hosted compatible service."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "VOLC_KNOWLEDGE_TRUSTED_ORIGINS": EnvVar(
+        name="VOLC_KNOWLEDGE_TRUSTED_ORIGINS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated exact Volcengine Knowledge origins allowed to resolve "
+            "to private addresses. Leave empty unless this deployment intentionally "
+            "uses a private compatible endpoint."
+        ),
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_1_NAME": EnvVar(
+        name="LLM_MODEL_1_NAME",
+        description="Optional display name for course model 1. Uses LLM_MODEL_1_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_1_ID": EnvVar(
+        name="LLM_MODEL_1_ID",
+        description="Routed text model ID for course model 1. Required at startup; no default.",
+        group="llm",
+        required=True,
+    ),
+    "LLM_MODEL_2_NAME": EnvVar(
+        name="LLM_MODEL_2_NAME",
+        description="Optional display name for course model 2. Uses LLM_MODEL_2_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_2_ID": EnvVar(
+        name="LLM_MODEL_2_ID",
+        description="Routed text model ID for course model 2. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_3_NAME": EnvVar(
+        name="LLM_MODEL_3_NAME",
+        description="Optional display name for course model 3. Uses LLM_MODEL_3_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_3_ID": EnvVar(
+        name="LLM_MODEL_3_ID",
+        description="Routed text model ID for course model 3. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_4_NAME": EnvVar(
+        name="LLM_MODEL_4_NAME",
+        description="Optional display name for course model 4. Uses LLM_MODEL_4_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_4_ID": EnvVar(
+        name="LLM_MODEL_4_ID",
+        description="Routed text model ID for course model 4. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_5_NAME": EnvVar(
+        name="LLM_MODEL_5_NAME",
+        description="Optional display name for course model 5. Uses LLM_MODEL_5_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_5_ID": EnvVar(
+        name="LLM_MODEL_5_ID",
+        description="Routed text model ID for course model 5. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_6_NAME": EnvVar(
+        name="LLM_MODEL_6_NAME",
+        description="Optional display name for course model 6. Uses LLM_MODEL_6_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_6_ID": EnvVar(
+        name="LLM_MODEL_6_ID",
+        description="Routed text model ID for course model 6. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_7_NAME": EnvVar(
+        name="LLM_MODEL_7_NAME",
+        description="Optional display name for course model 7. Uses LLM_MODEL_7_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_7_ID": EnvVar(
+        name="LLM_MODEL_7_ID",
+        description="Routed text model ID for course model 7. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_8_NAME": EnvVar(
+        name="LLM_MODEL_8_NAME",
+        description="Optional display name for course model 8. Uses LLM_MODEL_8_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_8_ID": EnvVar(
+        name="LLM_MODEL_8_ID",
+        description="Routed text model ID for course model 8. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_9_NAME": EnvVar(
+        name="LLM_MODEL_9_NAME",
+        description="Optional display name for course model 9. Uses LLM_MODEL_9_ID when unset or blank.",
+        group="llm",
+        required=False,
+    ),
+    "LLM_MODEL_9_ID": EnvVar(
+        name="LLM_MODEL_9_ID",
+        description="Routed text model ID for course model 9. Configuring this ID enables the model; no default.",
+        group="llm",
+        required=False,
     ),
     "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS": EnvVar(
         name="LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS",
@@ -633,29 +955,7 @@ Gemini: gemini-1.5-flash, gemini-1.5-flash-8b, gemini-1.5-pro""",
             "Fixed global 1x credit anchor for LLM output tokens, expressed as "
             "credits consumed per 1000 output tokens. This value is used for "
             "operator rate multiplier display, save conversion, and model-picker "
-            "multiplier labels. It must not be derived from DEFAULT_LLM_MODEL."
-        ),
-        group="llm",
-        required=False,
-    ),
-    "LLM_ALLOWED_MODELS": EnvVar(
-        name="LLM_ALLOWED_MODELS",
-        default=[],
-        type=list,
-        description=(
-            "Comma separated list of allowed LLM models to expose in UI. "
-            "When empty, all detected models are shown."
-        ),
-        group="llm",
-        required=False,
-    ),
-    "LLM_ALLOWED_MODEL_DISPLAY_NAMES": EnvVar(
-        name="LLM_ALLOWED_MODEL_DISPLAY_NAMES",
-        default=[],
-        type=list,
-        description=(
-            "Optional display names for allowed LLM models. Must match the "
-            "length and order of LLM_ALLOWED_MODELS. Ignored otherwise."
+            "multiplier labels. It is independent of configured model prices."
         ),
         group="llm",
         required=False,
@@ -757,6 +1057,17 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Redis key prefix",
         group="redis",
     ),
+    "TRUSTED_PROXY_CIDRS": EnvVar(
+        name="TRUSTED_PROXY_CIDRS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated nginx/CDN proxy networks allowed to supply "
+            "X-Forwarded-For; empty trusts no proxy"
+        ),
+        group="network",
+        validator=validate_trusted_proxy_cidrs,
+    ),
     # Celery Configuration
     "CELERY_BROKER_URL": EnvVar(
         name="CELERY_BROKER_URL",
@@ -846,6 +1157,96 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Token expiration time in seconds",
         group="auth",
     ),
+    "PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_FAILURE_WINDOW_SECONDS",
+        default=900,
+        type=int,
+        description="Fixed window for counting failed password sign-in attempts",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_MAX_FAILURES": EnvVar(
+        name="PASSWORD_LOGIN_MAX_FAILURES",
+        default=10,
+        type=int,
+        description="Failed password attempts before an account enters cooldown",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_COOLDOWN_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_COOLDOWN_SECONDS",
+        default=600,
+        type=int,
+        description="Password sign-in cooldown after too many failed attempts",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_LOCK_TIMEOUT_SECONDS",
+        default=30,
+        type=int,
+        description="Renewable Redis lock lease for one account sign-in",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_LOCK_WAIT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_LOCK_WAIT_SECONDS",
+        default=5,
+        type=int,
+        description="Maximum wait to serialize one account sign-in",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS": EnvVar(
+        name="PASSWORD_LOGIN_REDIS_TIMEOUT_SECONDS",
+        default=1,
+        type=int,
+        description="Redis connect and read timeout for password sign-in protection",
+        group="auth",
+        validator=lambda value: int(value) > 0,
+    ),
+    "DEVICE_AUTH_EXPIRE_TIME": EnvVar(
+        name="DEVICE_AUTH_EXPIRE_TIME",
+        default=600,
+        type=int,
+        description="Lifetime in seconds of a pending device authorization request",
+        group="auth",
+    ),
+    "DEVICE_AUTH_POLL_INTERVAL": EnvVar(
+        name="DEVICE_AUTH_POLL_INTERVAL",
+        default=5,
+        type=int,
+        description="Seconds a device client should wait between polls",
+        group="auth",
+    ),
+    "DEVICE_AUTH_MAX_LOOKUP_ATTEMPTS": EnvVar(
+        name="DEVICE_AUTH_MAX_LOOKUP_ATTEMPTS",
+        default=10,
+        type=int,
+        description="Failed pairing-code lookups allowed per IP before refusing",
+        group="auth",
+    ),
+    "DEVICE_AUTH_MAX_REQUESTS": EnvVar(
+        name="DEVICE_AUTH_MAX_REQUESTS",
+        default=20,
+        type=int,
+        description="Device authorization requests allowed per IP per window",
+        group="auth",
+    ),
+    "DEVICE_AUTH_ISSUE_WINDOW": EnvVar(
+        name="DEVICE_AUTH_ISSUE_WINDOW",
+        default=600,
+        type=int,
+        description="Window in seconds for counting device authorization requests",
+        group="auth",
+    ),
+    "DEVICE_AUTH_LOOKUP_WINDOW": EnvVar(
+        name="DEVICE_AUTH_LOOKUP_WINDOW",
+        default=600,
+        type=int,
+        description="Window in seconds for counting failed pairing-code lookups",
+        group="auth",
+    ),
     "RESET_PWD_CODE_EXPIRE_TIME": EnvVar(
         name="RESET_PWD_CODE_EXPIRE_TIME",
         default=300,
@@ -901,6 +1302,19 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         default="",
         description="OAuth client secret issued by Google",
         secret=True,
+        group="auth",
+    ),
+    "GOOGLE_OAUTH_REDIRECT_URI": EnvVar(
+        name="GOOGLE_OAUTH_REDIRECT_URI",
+        default="",
+        description=(
+            "Shared Google OAuth callback URL for every domain this deployment "
+            "serves. Google does not accept wildcards in a client's authorized "
+            "redirect URIs, so pinning one callback here keeps white-label "
+            "domains from each needing their own entry; the browser is handed "
+            "back to the domain it started from afterwards. Leave empty to "
+            "derive the callback from the requested origin."
+        ),
         group="auth",
     ),
     "GOOGLE_OAUTH_TOKEN_ENDPOINT": EnvVar(
@@ -1346,6 +1760,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Sampling rate for runtime HTTP traces (0.0 to 1.0).",
         group="monitoring",
     ),
+    "PROMETHEUS_MULTIPROC_DIR": EnvVar(
+        name="PROMETHEUS_MULTIPROC_DIR",
+        default="",
+        description="Optional fresh dedicated Gunicorn metrics directory. Leave unset for private per-master storage; do not export an empty value in single-process development.",
+        group="monitoring",
+    ),
     "INTERNAL_METRICS_PATH": EnvVar(
         name="INTERNAL_METRICS_PATH",
         default="/internal/metrics",
@@ -1454,6 +1874,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="SMTP sender email address",
         group="email",
     ),
+    "SMTP_SENDER_NAME": EnvVar(
+        name="SMTP_SENDER_NAME",
+        default="",
+        description="Optional SMTP sender display name",
+        group="email",
+    ),
     # Flask Configuration
     "FLASK_APP": EnvVar(
         name="FLASK_APP",
@@ -1496,9 +1922,44 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     # Minimum Shifu Price
     "MIN_SHIFU_PRICE": EnvVar(
         name="MIN_SHIFU_PRICE",
-        default=0.5,
-        type=float,
-        description="Minimum price of shifu",
+        default=Decimal("0.5"),
+        type=Decimal,
+        validator=_is_valid_nonnegative_cent_amount,
+        description="Minimum positive price of shifu; zero is free",
+        group="shifu",
+    ),
+    "DEFAULT_SHIFU_PRICE": EnvVar(
+        name="DEFAULT_SHIFU_PRICE",
+        default=Decimal("0.5"),
+        type=Decimal,
+        validator=_is_valid_nonnegative_cent_amount,
+        description="Default price assigned to a new shifu",
+        group="shifu",
+    ),
+    "FLOW_ENGINE_V2_ENABLED": EnvVar(
+        name="FLOW_ENGINE_V2_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Enable the MarkdownFlow 2.0 lesson engine for every course in this "
+            "deployment. Defaults to false (1.0). Set only in the target "
+            "deployment's environment, never shared database configuration. "
+            "The retired FLOW_ENGINE_V2_SHIFU_BIDS allowlist is ignored."
+        ),
+        group="shifu",
+        required=False,
+    ),
+    "LESSON_RESET_LIMIT": EnvVar(
+        name="LESSON_RESET_LIMIT",
+        default=0,
+        type=int,
+        validator=lambda value: int(value) >= 0,
+        description=(
+            "Maximum effective resets a learner may perform on one lesson of a "
+            "course. 0 disables the limit. Course owners and active collaborators "
+            "are exempt; preview resets are never counted. Usage is persisted in "
+            "learn_lesson_reset_records."
+        ),
         group="shifu",
     ),
     # TTS Configuration
@@ -1514,6 +1975,57 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         default="",
         description="Minimax group ID for API access",
         group="tts",
+    ),
+    "ELEVENLABS_API_KEY": EnvVar(
+        name="ELEVENLABS_API_KEY",
+        default="",
+        description="ElevenLabs API key for TTS synthesis",
+        secret=True,
+        group="tts",
+    ),
+    "ELEVENLABS_TTS_VOICES_JSON": EnvVar(
+        name="ELEVENLABS_TTS_VOICES_JSON",
+        default="",
+        description=(
+            "JSON array of approved ElevenLabs voices. Each item must contain "
+            'non-empty value and label fields, e.g. [{"value":"voice_id",'
+            '"label":"Display name"}].'
+        ),
+        group="tts",
+        required=False,
+    ),
+    "GEMINI_TTS_ENABLED": EnvVar(
+        name="GEMINI_TTS_ENABLED",
+        default=False,
+        type=bool,
+        description=(
+            "Expose Google Gemini as a TTS provider. Synthesis reuses "
+            "GEMINI_API_KEY, so this explicit switch keeps deployments that "
+            "only use Gemini for LLM calls from listing it as a voice option."
+        ),
+        group="tts",
+    ),
+    "GEMINI_TTS_API_URL": EnvVar(
+        name="GEMINI_TTS_API_URL",
+        default="https://generativelanguage.googleapis.com/v1beta",
+        description=(
+            "Base URL of the Gemini generateContent API used for speech "
+            "synthesis. Independent of GEMINI_API_URL, which configures the "
+            "LiteLLM chat endpoint."
+        ),
+        group="tts",
+    ),
+    "GEMINI_TTS_VOICES_JSON": EnvVar(
+        name="GEMINI_TTS_VOICES_JSON",
+        default="",
+        description=(
+            "Optional JSON array narrowing or relabeling the built-in Gemini "
+            "prebuilt voices. Each item must contain non-empty value and label "
+            'fields, e.g. [{"value":"Kore","label":"Kore (Firm)"}]. The value '
+            "must be a prebuilt voice name; empty exposes every built-in voice."
+        ),
+        group="tts",
+        required=False,
     ),
     "TTS_MAX_SEGMENT_CHARS": EnvVar(
         name="TTS_MAX_SEGMENT_CHARS",
@@ -1572,8 +2084,8 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
             "shared 1x anchor. Default 0.216 = omega(13.5%) x 1.6 chars/token. "
             "The picker multiplier is TTS char cost x this factor / the fixed "
             "LLM_CREDIT_1X_PER_1000_OUTPUT_TOKENS anchor, so TTS tiers stay on "
-            "the same scale as LLM model multipliers without depending on the "
-            "current DEFAULT_LLM_MODEL price."
+            "the same scale as LLM model multipliers without depending on any "
+            "configured model price."
         ),
         group="tts",
     ),
@@ -1754,7 +2266,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
 }
 
 # Derived Redis prefixes built from REDIS_KEY_PREFIX
-REDIS_KEY_SUFFIXES: Dict[str, str] = {
+REDIS_KEY_SUFFIXES: dict[str, str] = {
     "REDIS_KEY_PREFIX_USER": "user:",
     "REDIS_KEY_PREFIX_RESET_PWD": "reset_pwd:",
     "REDIS_KEY_PREFIX_PHONE": "phone:",
@@ -1766,15 +2278,18 @@ REDIS_KEY_SUFFIXES: Dict[str, str] = {
     "REDIS_KEY_PREFIX_PHONE_LIMIT": "phone_limit:",
     "REDIS_KEY_PREFIX_IP_BAN": "ip_ban:",
     "REDIS_KEY_PREFIX_IP_LIMIT": "ip_limit:",
+    "REDIS_KEY_PREFIX_DEVICE_AUTH": "device_auth:",
+    "REDIS_KEY_PREFIX_DEVICE_USER_CODE": "device_user_code:",
 }
 
 
 class EnhancedConfig:
     """Enhanced configuration management with validation and type safety."""
 
-    def __init__(self, env_vars: Dict[str, EnvVar]):
+    def __init__(self, env_vars: dict[str, EnvVar]) -> None:
+        """Register environment declarations with an empty, unvalidated cache."""
         self.env_vars = env_vars
-        self._cache: Dict[str, Any] = {}
+        self._cache: dict[str, Any] = {}
         self._validated = False
 
     def validate_environment(self, allow_conversion_errors: bool = False) -> None:
@@ -1789,7 +2304,6 @@ class EnhancedConfig:
             "ERNIE_API_ID",
             "ARK_API_KEY",
             "SILICON_API_KEY",
-            "GLM_API_KEY",
             "GEMINI_API_KEY",
             "DEEPSEEK_API_KEY",
             "QWEN_API_KEY",
@@ -1817,7 +2331,7 @@ class EnhancedConfig:
                 missing_required.append(f"- {var_name}: {env_var.description}")
                 continue
             # Get value (from environment or default)
-            value = raw_value if raw_value else env_var.default
+            value = raw_value or env_var.default
             # Validate value if present
             if value is not None and value != "":
                 try:
@@ -1829,7 +2343,7 @@ class EnhancedConfig:
                 except Exception as e:
                     # For optional fields, log and continue; required fields remain fatal
                     if env_var.required or not allow_conversion_errors:
-                        validation_errors.append(f"- {var_name}: {str(e)}")
+                        validation_errors.append(f"- {var_name}: {e!s}")
                     else:
                         logging.getLogger(__name__).warning(
                             "Non-fatal config conversion issue for %s: %s",
@@ -1849,7 +2363,7 @@ class EnhancedConfig:
             raise EnvironmentConfigError("\n\n".join(errors))
         self._validated = True
 
-    def get(self, key: str) -> Any:
+    def get(self, key: str) -> object:
         """Get configuration value with type conversion."""
         if key in self._cache:
             return self._cache[key]
@@ -1868,9 +2382,12 @@ class EnhancedConfig:
                     # Log warning about type conversion failure
                     logger = logging.getLogger(__name__)
                     logger.warning(
-                        f"Failed to convert environment variable '{key}' with value '{value}' "
-                        f"to type {env_var.type.__name__}. Using default value '{env_var.default}'. "
-                        f"Error: {str(e)}"
+                        "Failed to convert environment variable '%s' with value '%s' to type %s. Using default value '%s'. Error: %s",
+                        key,
+                        value,
+                        env_var.type.__name__,
+                        env_var.default,
+                        e,
                     )
                     value = env_var.default
             # Apply interpolation
@@ -1911,7 +2428,7 @@ class EnhancedConfig:
         except (TypeError, ValueError):
             return 0.0
 
-    def get_list(self, key: str) -> List[str]:
+    def get_list(self, key: str) -> list[str]:
         """Get list configuration value (comma-separated)."""
         value = self.get(key)
         if value is None:
@@ -1926,7 +2443,7 @@ class EnhancedConfig:
         """Interpolate environment variables in format ${VAR_NAME}."""
         pattern = re.compile(r"\$\{([^}]+)\}")
 
-        def replacer(match):
+        def replacer(match: re.Match[str]) -> str:
             var_name = match.group(1)
             return os.environ.get(var_name, match.group(0))
 
@@ -1934,22 +2451,19 @@ class EnhancedConfig:
 
     def debug_print(self) -> None:
         """Print all configuration values (excluding secrets) for debugging."""
-        print("\n=== Configuration Values ===")
+        print("\n=== Configuration Values ===")  # noqa: T201
         groups = {}
         for var_name, env_var in self.env_vars.items():
             if env_var.group not in groups:
                 groups[env_var.group] = []
             value = self.get(var_name)
-            if env_var.secret and value:
-                display_value = "[REDACTED]"
-            else:
-                display_value = str(value)
+            display_value = "[REDACTED]" if env_var.secret and value else str(value)
             groups[env_var.group].append(f"  {var_name}: {display_value}")
         for group, items in sorted(groups.items()):
-            print(f"\n[{group.upper()}]")
+            print(f"\n[{group.upper()}]")  # noqa: T201
             for item in sorted(items):
-                print(item)
-        print("\n" + "=" * 30 + "\n")
+                print(item)  # noqa: T201
+        print("\n" + "=" * 30 + "\n")  # noqa: T201
 
     def export_env_example(self) -> str:
         """Export full environment variable definitions as .env.example format."""
@@ -1963,10 +2477,11 @@ class EnhancedConfig:
 
         Returns:
             Formatted .env.example content as string
+
         """
 
         # Format values for .env output, handling lists as comma-separated strings
-        def format_value(env_var: EnvVar, value: Any) -> str:
+        def format_value(env_var: EnvVar, value: object) -> str:
             if value is None:
                 return ""
             if env_var.type is list:
@@ -1979,20 +2494,23 @@ class EnhancedConfig:
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
                 "# These are the bare minimum values that must be set.",
-                "# Start from docker/.env.example.full and configure at least one LLM API key.\n",
+                "# Start from docker/.env.example.full and configure a provider API key.",
+                "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
-                "# Copy this file to docker/.env (or .env) to boot the Docker stack with sane defaults",
-                "# Set at least one LLM API key (e.g., OPENAI_API_KEY) before using in production.\n",
+                "# Copy this file to docker/.env (or .env) and configure a provider API key.",
+                "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
+                "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
 
         lines = header_lines
         groups = {}
 
         # Filter and group variables
-        for var_name, env_var in self.env_vars.items():
+        for env_var in self.env_vars.values():
             # Apply filter
             if filter_type == "required" and not env_var.required:
                 continue
@@ -2001,17 +2519,26 @@ class EnhancedConfig:
                 groups[env_var.group] = []
             groups[env_var.group].append(env_var)
 
+        # Keep each numbered model's name and binding together in numeric order.
+        model_order = {
+            f"LLM_MODEL_{index}_{suffix}": f"LLM_MODEL_{index}_{position}"
+            for index in range(1, 10)
+            for position, suffix in enumerate(("NAME", "ID"))
+        }
+
         # Generate output for each group
-        for group, vars in sorted(groups.items()):
+        for group, group_vars in sorted(groups.items()):
             # Skip empty groups
-            if not vars:
+            if not group_vars:
                 continue
 
             lines.append(f"\n#{'=' * 60}")
             lines.append(f"# {group.replace('_', ' ').title()}")
             lines.append(f"#{'=' * 60}\n")
 
-            for env_var in sorted(vars, key=lambda x: x.name):
+            for env_var in sorted(
+                group_vars, key=lambda x: model_order.get(x.name, x.name)
+            ):
                 example_value = (
                     env_var.example if env_var.example is not None else env_var.default
                 )
@@ -2025,6 +2552,12 @@ class EnhancedConfig:
                 metadata = []
                 if env_var.required:
                     metadata.append("REQUIRED - must be set")
+                elif env_var.name in model_order and env_var.default is None:
+                    if env_var.name.endswith("_NAME"):
+                        model_id = env_var.name.removesuffix("_NAME") + "_ID"
+                        metadata.append(f"Optional - defaults to {model_id}")
+                    else:
+                        metadata.append("Optional - no default")
                 elif env_var.default is None:
                     metadata.append("Optional - handled by libraries")
                 else:
@@ -2062,7 +2595,12 @@ class EnhancedConfig:
                         value = ""
 
                 value_str = format_value(env_var, value)
-                lines.append(f'{env_var.name}="{value_str}"')
+                assignment = f'{env_var.name}="{value_str}"'
+                # prometheus_client tests key presence at import time: an empty
+                # assignment still enables mmap writers in single-process dev.
+                if env_var.name == "PROMETHEUS_MULTIPROC_DIR" and not value_str:
+                    assignment = "# " + assignment
+                lines.append(assignment)
                 lines.append("")
 
         # Add footer
@@ -2078,37 +2616,37 @@ class EnhancedConfig:
         return "\n".join(lines)
 
 
-# Global instance
-__INSTANCE__ = None
 __ENHANCED_CONFIG__ = EnhancedConfig(ENV_VARS)
 
 
 class Config(FlaskConfig):
     """Flask configuration wrapper with enhanced environment variable support."""
 
-    def __init__(self, parent: FlaskConfig, app: Flask, defaults: dict = {}):
-        global __INSTANCE__
+    _instance: Config | None = None
+
+    def __init__(self, parent: FlaskConfig, app: Flask) -> None:
+        """Bind parent and environment config, then populate Redis prefixes."""
         self.parent = parent
         self.app = app
         self.enhanced = __ENHANCED_CONFIG__
         # Reset shared cache per initialization to avoid cross-app contamination
         self.enhanced._cache.clear()
         self.enhanced._validated = False
-        __INSTANCE__ = self
+        Config._instance = self
         # Validate environment on initialization
         try:
             self.enhanced.validate_environment(allow_conversion_errors=True)
             app.logger.info("Environment configuration validated successfully")
-        except EnvironmentConfigError as e:
-            app.logger.error(f"Environment configuration error: {e}")
+        except EnvironmentConfigError:
+            app.logger.exception("Environment configuration error")
             raise
         self._populate_redis_prefixes()
 
-    def __getitem__(self, key: Any) -> Any:
+    def __getitem__(self, key: str) -> object:
         """Get configuration value using enhanced config first, with fallback to parent."""
         return self.get(key)
 
-    def __getattr__(self, key: Any) -> Any:
+    def __getattr__(self, key: str) -> object:
         """Get configuration attribute using enhanced config first."""
         try:
             return self.enhanced.get(key)
@@ -2118,7 +2656,7 @@ class Config(FlaskConfig):
         except Exception:
             return getattr(self.parent, key)
 
-    def __setitem__(self, key: Any, value: Any) -> None:
+    def __setitem__(self, key: str, value: object) -> None:
         """Set configuration value."""
         self.parent.__setitem__(key, value)
         os.environ[key] = str(value)
@@ -2138,7 +2676,7 @@ class Config(FlaskConfig):
             )
             self.parent.setdefault(key, derived_value)
 
-    def get(self, key: Any, default: Any = None) -> Any:
+    def get(self, key: str, default: object = None) -> object:
         """Get configuration value with fallback to parent and optional default.
 
         This method maintains compatibility with Flask's Config.get() API.
@@ -2149,6 +2687,7 @@ class Config(FlaskConfig):
 
         Returns:
             The configuration value, or default if not found
+
         """
         # Try enhanced config first
         try:
@@ -2175,9 +2714,8 @@ class Config(FlaskConfig):
         env_value = os.environ.get(key)
         if env_value is not None:
             self.app.logger.warning(
-                f"Configuration key '{key}' not defined in ENV_VARS registry. "
-                f"Falling back to environment variable value. "
-                f"Consider adding this to ENV_VARS in config.py for proper type conversion and validation."
+                "Configuration key '%s' not defined in ENV_VARS registry. Falling back to environment variable value. Consider adding this to ENV_VARS in config.py for proper type conversion and validation.",
+                key,
             )
             return env_value
 
@@ -2200,14 +2738,15 @@ class Config(FlaskConfig):
         """Get float configuration value."""
         return self.enhanced.get_float(key)
 
-    def get_list(self, key: str) -> List[str]:
+    def get_list(self, key: str) -> list[str]:
         """Get list configuration value."""
         return self.enhanced.get_list(key)
 
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
+    def __call__(self, *args: object, **kwds: object) -> object:
+        """Delegate callable compatibility behavior to the parent config."""
         return self.parent.__call__(*args, **kwds)
 
-    def setdefault(self, key: Any, default: Any = None) -> Any:
+    def setdefault(self, key: str, default: object = None) -> object:
         """Set default value if key doesn't exist.
 
         This method maintains compatibility with Flask's Config.setdefault() API.
@@ -2224,7 +2763,7 @@ class Config(FlaskConfig):
         return self.parent.setdefault(key, default)
 
 
-def get_config(key: str, default: Any = None) -> Any:
+def get_config(key: str, default: object = None) -> object:
     """Get configuration value.
 
     Args:
@@ -2233,8 +2772,9 @@ def get_config(key: str, default: Any = None) -> Any:
 
     Returns:
         Configuration value or default
+
     """
-    if __INSTANCE__ is None:
+    if Config._instance is None:
         # Before initialization, try to get from environment directly
         # This is needed for module-level calls like timezone setup
         if key in ENV_VARS:
@@ -2245,7 +2785,7 @@ def get_config(key: str, default: Any = None) -> Any:
             return value
         # For unknown keys, check environment directly
         return os.environ.get(key, default)
-    return __INSTANCE__.get(key, default)
+    return Config._instance.get(key, default)
 
 
 def has_explicit_env_override(key: str) -> bool:
@@ -2253,7 +2793,7 @@ def has_explicit_env_override(key: str) -> bool:
     return key in os.environ
 
 
-def get_explicit_env_override(key: str) -> Optional[str]:
+def get_explicit_env_override(key: str) -> str | None:
     """Return the raw environment value for a config key, or None when unset.
 
     Unlike ``get_config``, this never substitutes the registry default and

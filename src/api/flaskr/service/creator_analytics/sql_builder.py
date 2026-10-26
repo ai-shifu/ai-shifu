@@ -3,7 +3,7 @@
 The builder never accepts raw user strings into the SQL text — every column
 and operator passes through the whitelist enforced by
 :mod:`flaskr.service.creator_analytics.dsl`, and every value is bound via
-SQLAlchemy bindparam. Four cross-cutting predicates are applied automatically,
+SQLAlchemy bindparam. Cross-cutting predicates are applied automatically,
 driven by :class:`flaskr.service.creator_analytics.whitelist.TableSpec` flags:
 
 1. ``WHERE shifu_bid = :shifu_bid`` when ``has_shifu_bid`` is True — callers
@@ -17,6 +17,10 @@ driven by :class:`flaskr.service.creator_analytics.whitelist.TableSpec` flags:
 4. ``AND status = 1`` when ``auto_filter_status_active`` is True — used by
    ``learn_generated_blocks`` to drop rerolled history (``status = 0``) from
    every result, so creator counts reflect the current learner experience.
+5. Course-learner scope for global user lookups — a matching user must have
+   active progress or a successful manual-import order in the requested course.
+6. Course metadata selects the greatest non-deleted version id for the requested
+   course before ownership or caller filters, so historical titles stay hidden.
 
 The MySQL ``MAX_EXECUTION_TIME`` optimizer hint is injected only when the
 target dialect is MySQL — under SQLite (tests) the hint would not parse.
@@ -24,19 +28,31 @@ target dialect is MySQL — under SQLite (tests) the hint would not parse.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any
 
+from flaskr.service.learn.models import LearnProgressRecord
+from flaskr.service.order.consts import (
+    LEARN_STATUS_RESET,
+    ORDER_STATUS_SUCCESS,
+)
+from flaskr.service.order.models import Order
 from sqlalchemy import (
     Column,
     and_,
     bindparam,
+    exists,
     func,
+    or_,
     select,
 )
-from sqlalchemy.sql import Select
-from sqlalchemy.sql.elements import ColumnElement
 
-from .dsl import Aggregate, Filter, OrderBy, QueryDSL
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from sqlalchemy.sql import Select
+    from sqlalchemy.sql.elements import ColumnElement
+
+    from .dsl import Aggregate, Filter, OrderBy, QueryDSL
 
 
 def build_statement(
@@ -50,14 +66,12 @@ def build_statement(
     example ``"mysql"`` or ``"sqlite"``).  ``query_timeout_seconds`` only
     affects MySQL execution via the ``MAX_EXECUTION_TIME`` hint.
     """
-
     table = dsl.spec.model.__table__
 
-    select_items: list[ColumnElement[Any]] = []
-    for col_name in dsl.select:
-        select_items.append(table.c[col_name].label(col_name))
-    for agg in dsl.aggregates:
-        select_items.append(_compile_aggregate(table, agg))
+    select_items: list[ColumnElement[Any]] = [
+        table.c[col_name].label(col_name) for col_name in dsl.select
+    ]
+    select_items.extend(_compile_aggregate(table, agg) for agg in dsl.aggregates)
 
     stmt = select(*select_items).select_from(table)
 
@@ -66,13 +80,23 @@ def build_statement(
         # Shifu-scoped tables: the requested shifu_bid is enforced server-side
         # regardless of what the caller wrote in `where`. Tables without a
         # shifu_bid column (e.g. user_users) rely on funcs.run_dsl for the
-        # permission check plus DSL-level guards (mandatory where user_bid,
-        # capped limit, PII redaction).
+        # permission check plus their explicit row-scope policy below.
         where_clauses.append(
             table.c.shifu_bid == bindparam("__shifu_bid", value=dsl.shifu_bid)
         )
     if dsl.spec.has_deleted:
         where_clauses.append(table.c.deleted == 0)
+    if dsl.spec.latest_course_version_only:
+        versions = table.alias("course_versions")
+        latest_id = (
+            select(func.max(versions.c.id))
+            .where(
+                versions.c.shifu_bid == bindparam("__shifu_bid", value=dsl.shifu_bid),
+                versions.c.deleted == 0,
+            )
+            .scalar_subquery()
+        )
+        where_clauses.append(table.c.id == latest_id)
     if dsl.spec.creator_scoped_column:
         # Row-ownership enforcement on top of the shifu permission check in
         # funcs.run_dsl. The caller_user_id must be threaded through by the
@@ -80,16 +104,19 @@ def build_statement(
         # silently emit a WHERE col = '' clause that would always match
         # legacy rows whose creator field is empty.
         if not dsl.caller_user_id:
-            raise ValueError(
+            message = (
                 f"caller_user_id is required for creator-scoped table "
                 f"'{dsl.spec.table_key}'"
             )
+            raise ValueError(message)
         where_clauses.append(
             table.c[dsl.spec.creator_scoped_column]
             == bindparam("__user_id", value=dsl.caller_user_id)
         )
     if dsl.spec.auto_filter_status_active:
         where_clauses.append(table.c.status == 1)
+    if dsl.spec.course_learner_scoped:
+        where_clauses.append(_course_learner_scope(table, dsl.shifu_bid))
 
     for index, filt in enumerate(dsl.filters):
         where_clauses.append(_compile_filter(table.c[filt.field], filt, index))
@@ -114,6 +141,28 @@ def build_statement(
         )
 
     return stmt
+
+
+def _course_learner_scope(table: object, shifu_bid: str) -> ColumnElement[bool]:
+    """Restrict a user row to the dashboard's canonical course learner sources."""
+    progress = LearnProgressRecord.__table__
+    orders = Order.__table__
+    course_param = bindparam("__learner_shifu_bid", value=shifu_bid)
+    return or_(
+        exists().where(
+            progress.c.user_bid == table.c.user_bid,
+            progress.c.shifu_bid == course_param,
+            progress.c.deleted == 0,
+            progress.c.status != LEARN_STATUS_RESET,
+        ),
+        exists().where(
+            orders.c.user_bid == table.c.user_bid,
+            orders.c.shifu_bid == course_param,
+            orders.c.deleted == 0,
+            orders.c.payment_channel == "manual",
+            orders.c.status == ORDER_STATUS_SUCCESS,
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -156,10 +205,11 @@ def _compile_filter(column: Column, filt: Filter, index: int) -> ColumnElement[b
     if op == "is_not_null":
         return column.isnot(None)
 
-    raise ValueError(f"Unexpected DSL operator at sql_builder: {op!r}")
+    message = f"Unexpected DSL operator at sql_builder: {op!r}"
+    raise ValueError(message)
 
 
-def _compile_aggregate(table, agg: Aggregate) -> ColumnElement[Any]:
+def _compile_aggregate(table: object, agg: Aggregate) -> ColumnElement[object]:
     if agg.fn == "count":
         if agg.field is None:
             expr = func.count()
@@ -178,15 +228,16 @@ def _compile_aggregate(table, agg: Aggregate) -> ColumnElement[Any]:
     elif agg.fn == "max":
         expr = func.max(table.c[agg.field])
     else:
-        raise ValueError(f"Unexpected aggregate fn at sql_builder: {agg.fn!r}")
+        message = f"Unexpected aggregate fn at sql_builder: {agg.fn!r}"
+        raise ValueError(message)
     return expr.label(agg.alias)
 
 
 def _compile_order_by(
-    table,
+    table: object,
     order_by: Sequence[OrderBy],
     aggregates: Sequence[Aggregate],
-) -> list[ColumnElement[Any]]:
+) -> list[ColumnElement[object]]:
     aggregate_aliases = {agg.alias for agg in aggregates}
     compiled: list[ColumnElement[Any]] = []
     for item in order_by:
@@ -201,9 +252,10 @@ def _compile_order_by(
 
 
 def _aggregate_expression_by_alias(
-    table, aggregates: Sequence[Aggregate], alias: str
-) -> ColumnElement[Any]:
+    table: object, aggregates: Sequence[Aggregate], alias: str
+) -> ColumnElement[object]:
     for agg in aggregates:
         if agg.alias == alias:
             return _compile_aggregate(table, agg)
-    raise ValueError(f"Unknown aggregate alias: {alias!r}")
+    message = f"Unknown aggregate alias: {alias!r}"
+    raise ValueError(message)

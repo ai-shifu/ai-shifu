@@ -1,7 +1,8 @@
+"""Protect legacy boundary contracts."""
+
 from __future__ import annotations
 
 from flask import Flask
-
 from flaskr.route.config import register_config_handler
 from flaskr.route.order import register_order_handler
 from flaskr.service.metering.models import BillUsageRecord

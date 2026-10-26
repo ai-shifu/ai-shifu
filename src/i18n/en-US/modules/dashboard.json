@@ -5,7 +5,7 @@
       "chapterCount": "Chapter Count",
       "courseName": "Course Name",
       "createdAt": "Created At",
-      "learnerCount": "Learner Count",
+      "learnerCount": "Total Participants",
       "status": "Course Status",
       "statusLabels": {
         "published": "Published",
@@ -40,10 +40,10 @@
       },
       "filters": {
         "chapterKeyword": "Chapter",
-        "chapterKeywordPlaceholder": "Enter chapter / lesson name",
+        "chapterKeywordPlaceholder": "Chapter / lesson name",
         "followUpTime": "Follow-up Time",
         "lessonKeyword": "Lesson",
-        "lessonKeywordPlaceholder": "Enter lesson name",
+        "lessonKeywordPlaceholder": "Lesson name",
         "reset": "Reset",
         "resultCount": "Total {count}",
         "search": "Search",
@@ -51,10 +51,10 @@
         "sourceStatusAll": "All Statuses",
         "sourceStatusMissing": "Original Output Missing",
         "sourceStatusResolved": "Original Output Located",
-        "timePlaceholder": "Select time range",
+        "timePlaceholder": "Start time ~ End time",
         "userKeyword": "Learner",
-        "userKeywordPlaceholderEmail": "Enter nickname / email",
-        "userKeywordPlaceholderPhone": "Enter nickname / phone"
+        "userKeywordPlaceholderEmail": "Email / Nickname",
+        "userKeywordPlaceholderPhone": "Mobile / Nickname"
       },
       "summary": {
         "followUpCount": "Total Follow-ups",
@@ -93,13 +93,13 @@
       "empty": "No learners yet",
       "filters": {
         "lastLearningTime": "Last Learning Time",
-        "lastLearningTimePlaceholder": "Select time range",
+        "lastLearningTimePlaceholder": "Start time ~ End time",
         "learningStatus": "Learning Status",
         "statusAll": "All",
         "userKeyword": "Learner"
       },
-      "searchPlaceholderEmail": "Enter nickname / email",
-      "searchPlaceholderPhone": "Enter nickname / phone",
+      "searchPlaceholderEmail": "Email / Nickname",
+      "searchPlaceholderPhone": "Mobile / Nickname",
       "status": {
         "completed": "Completed",
         "learning": "Learning",
@@ -110,23 +110,47 @@
       "viewFollowUps": "View Follow-ups",
       "viewFollowUpsForLearner": "View follow-ups for {learner}"
     },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "Avg. Used per Learner",
+        "consumedCredits": "Credits Used",
+        "consumptionSpeed": "Daily Avg. Used (7 Days)",
+        "mode": "Learning Format",
+        "participants": "Learners"
+      },
+      "empty": "No learning format data yet",
+      "modes": {
+        "classroom": "Classroom",
+        "listen": "Listening",
+        "read": "Reading"
+      },
+      "scopeHint": "Compare credit consumption across reading, listening, and classroom formats to see how learners use this course.",
+      "title": "Learning Format"
+    },
     "metrics": {
-      "activeLearnersLast7Days": "Active Learners (7 Days)",
       "completedLearners": "Completers",
       "completionRate": "Completion Rate",
       "learningLearners": "Learners In Progress",
-      "newLearnersLast7Days": "New Learners (7 Days)",
       "orderAmount": "Order Amount",
       "orderCount": "Orders",
       "rating": "Course Rating",
       "title": "Core Data",
       "totalQuestions": "Follow-up Questions"
     },
+    "metricsTooltips": {
+      "completedLearners": "People who completed every lesson in this course.",
+      "completionRate": "The share of total participants who completed every lesson in this course.",
+      "learningLearners": "People who started the course but have not completed every lesson yet.",
+      "orderAmount": "The total amount users paid for this course. Redemption-code orders are not included.",
+      "orderCount": "Successful orders for this course, including paid and redemption-code orders.",
+      "rating": "The average lesson rating from learners, out of 5.",
+      "totalQuestions": "The total follow-up questions learners asked AI while studying this course. Open to see the details."
+    },
     "ratings": {
       "emptyValue": "--",
       "filters": {
         "chapterKeyword": "Chapter",
-        "chapterKeywordPlaceholder": "Enter chapter / lesson name",
+        "chapterKeywordPlaceholder": "Chapter / lesson name",
         "commentStatus": "Comment",
         "commentStatusAll": "All",
         "commentStatusCommented": "With Comment Only",
@@ -136,17 +160,17 @@
         "score": "Rating",
         "scoreAll": "All Ratings",
         "search": "Search",
-        "timePlaceholder": "Select time range",
+        "timePlaceholder": "Start time ~ End time",
         "userKeyword": "Learner",
-        "userKeywordPlaceholderEmail": "Enter nickname / email",
-        "userKeywordPlaceholderPhone": "Enter nickname / phone"
+        "userKeywordPlaceholderEmail": "Email / Nickname",
+        "userKeywordPlaceholderPhone": "Mobile / Nickname"
       },
       "scoreValue": "{score} Stars",
       "summary": {
         "averageScore": "Average Rating",
         "latestRatedAt": "Latest Rating",
         "ratingCount": "Ratings",
-        "scopeHint": "Review lesson ratings and creator-relevant feedback so you can spot satisfaction shifts and lessons that need refinement.",
+        "scopeHint": "Review learners’ lesson ratings and feedback to assess course satisfaction and identify content that needs improvement.",
         "userCount": "Learners Who Rated"
       },
       "table": {
@@ -161,7 +185,6 @@
       },
       "title": "Rating Data"
     },
-    "subtitle": "Basic course info, key metrics, and learner activity data are all powered by live reporting.",
     "title": "Course Detail"
   },
   "entry": {
@@ -181,17 +204,14 @@
       "orderAmount": "Order Amount",
       "orders": "Orders",
       "reset": "Reset",
-      "scopeNote": "Scope: Only data from courses you created and own is included. Collaborative courses are excluded.",
       "search": "Search",
-      "searchPlaceholder": "Search by course name / course id",
-      "title": "Course List",
-      "totalCount": "Total: {count}",
+      "searchPlaceholder": "Course ID / Course name",
       "viewCourse": "View Course",
       "viewOrders": "View Orders"
     }
   },
   "filters": {
-    "dateRangePlaceholder": "Select date range",
+    "dateRangePlaceholder": "Start time ~ End time",
     "reset": "Reset"
   },
   "messages": {

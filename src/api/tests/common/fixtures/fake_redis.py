@@ -1,36 +1,56 @@
+"""Provide fake Redis support for common fixtures tests."""
+
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class FakeRedisLock:
-    def __init__(self, locks: Dict[str, bool], key: str):
+    """Simulate Redis lock behavior for tests."""
+
+    def __init__(self, locks: dict[str, object], key: str) -> None:
+        """Bind a shared lock registry and key with an unheld state."""
         self._locks = locks
         self._key = key
         self._held = False
+        self._token: object | None = None
 
-    def acquire(self, blocking: bool = True, blocking_timeout: Optional[int] = None):
+    def acquire(
+        self,
+        blocking: bool = True,
+        blocking_timeout: int | None = None,
+        token: str | None = None,
+    ) -> object:
+        _ = (blocking, blocking_timeout)
         if self._locks.get(self._key, False):
             return False
-        self._locks[self._key] = True
+        self._token = token or True
+        self._locks[self._key] = self._token
         self._held = True
         return True
 
-    def release(self):
-        if self._held:
+    def release(self) -> None:
+        if self._held and self._locks.get(self._key) == self._token:
             self._locks.pop(self._key, None)
             self._held = False
 
+    def extend(self, additional_time: int, replace_ttl: bool = False) -> bool:
+        _ = (additional_time, replace_ttl)
+        return self._held and self._locks.get(self._key) == self._token
+
 
 class FakeRedis:
-    def __init__(self):
-        self._store: Dict[str, Any] = {}
-        self._expires: Dict[str, float] = {}
-        self._locks: Dict[str, bool] = {}
+    """Simulate Redis behavior for tests."""
+
+    def __init__(self) -> None:
+        """Initialize value, expiration, and lock registries for Redis tests."""
+        self._store: dict[str, Any] = {}
+        self._expires: dict[str, float] = {}
+        self._locks: dict[str, object] = {}
 
     def _now(self) -> float:
         return time.time()
 
-    def _encode(self, value: Any) -> bytes:
+    def _encode(self, value: object) -> bytes:
         if isinstance(value, bytes):
             return value
         if isinstance(value, (int, float, bool)):
@@ -49,12 +69,16 @@ class FakeRedis:
             return True
         return False
 
-    def get(self, key: str):
+    def get(self, key: str) -> object:
         if key not in self._store or self._is_expired(key):
             return None
         return self._store.get(key)
 
-    def getex(self, key: str, ex: Optional[int] = None, px: Optional[int] = None):
+    def exists(self, key: str) -> int:
+        """Return whether an unexpired key exists."""
+        return int(self.get(key) is not None)
+
+    def getex(self, key: str, ex: int | None = None, px: int | None = None) -> object:
         value = self.get(key)
         if value is None:
             return None
@@ -67,14 +91,15 @@ class FakeRedis:
     def set(
         self,
         key: str,
-        value: Any,
-        ex: Optional[int] = None,
-        px: Optional[int] = None,
+        value: object,
+        ex: int | None = None,
+        px: int | None = None,
         nx: bool = False,
         xx: bool = False,
-        *args,
-        **kwargs,
-    ):
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        _ = kwargs
         if ex is None and args:
             ex = args[0]
         if nx and self.get(key) is not None:
@@ -90,7 +115,7 @@ class FakeRedis:
             self._expires.pop(key, None)
         return True
 
-    def setex(self, key: str, time_in_seconds: int, value: Any):
+    def setex(self, key: str, time_in_seconds: int, value: object) -> object:
         return self.set(key, value, ex=time_in_seconds)
 
     def delete(self, *keys: str) -> int:
@@ -102,18 +127,40 @@ class FakeRedis:
                 self._expires.pop(key, None)
         return deleted
 
-    def incr(self, key: str, amount: int = 1):
+    def incr(self, key: str, amount: int = 1) -> object:
         current = self.get(key)
-        if current is None:
-            current_value = 0
-        else:
-            current_value = int(current)
+        current_value = 0 if current is None else int(current)
         new_value = current_value + amount
         self._store[key] = self._encode(new_value)
         ttl = self._expires.get(key)
         if ttl is not None:
             self._expires[key] = ttl
         return new_value
+
+    def eval(self, script: str, numkeys: int, *keys_and_args: object) -> object:
+        """Execute the password failure counter script used by authentication."""
+        if numkeys != 3 or "password_login" not in str(keys_and_args[0]):
+            message = "FakeRedis only supports the password login counter script"
+            raise NotImplementedError(message)
+        _ = script
+        failure_key = str(keys_and_args[0])
+        cooldown_key = str(keys_and_args[1])
+        lock_key = str(keys_and_args[2])
+        if self._locks.get(lock_key) != keys_and_args[-1]:
+            return 0 if len(keys_and_args) == 4 else -1
+        if len(keys_and_args) == 4:
+            return self.delete(failure_key, cooldown_key) >= 0
+        window_seconds = int(keys_and_args[3])
+        max_failures = int(keys_and_args[4])
+        cooldown_seconds = int(keys_and_args[5])
+        failures = int(self.incr(failure_key))
+        if failures == 1:
+            self._expires[failure_key] = self._now() + window_seconds
+        if failures >= max_failures:
+            started = self.set(cooldown_key, "1", ex=cooldown_seconds, nx=True)
+            if started:
+                self.delete(failure_key)
+        return failures
 
     def ttl(self, key: str) -> int:
         if key not in self._store:
@@ -124,18 +171,20 @@ class FakeRedis:
         if expires_at is None:
             return -1
         remaining = int(expires_at - self._now())
-        return remaining if remaining > 0 else 0
+        return max(0, remaining)
 
     def lock(
         self,
         key: str,
-        timeout: Optional[int] = None,
-        blocking_timeout: Optional[int] = None,
-    ):
+        timeout: int | None = None,
+        blocking_timeout: int | None = None,
+        thread_local: bool = True,
+    ) -> object:
+        _ = (timeout, blocking_timeout, thread_local)
         return FakeRedisLock(self._locks, key)
 
-    def ping(self):
+    def ping(self) -> object:
         return True
 
-    def close(self):
+    def close(self) -> None:
         return None

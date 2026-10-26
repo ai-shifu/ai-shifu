@@ -1,0 +1,230 @@
+{
+  "__namespace__": "module.dashboard",
+  "detail": {
+    "basicInfo": {
+      "chapterCount": "จำนวนบท",
+      "courseName": "ชื่อหลักสูตร",
+      "createdAt": "เวลาสร้าง",
+      "learnerCount": "ผู้เข้าร่วมทั้งหมด",
+      "status": "สถานะหลักสูตร",
+      "statusLabels": {
+        "published": "เผยแพร่แล้ว",
+        "unpublished": "ยังไม่เผยแพร่"
+      },
+      "title": "ข้อมูลพื้นฐาน"
+    },
+    "courseIdLabel": "รหัสหลักสูตร",
+    "followUps": {
+      "drawer": {
+        "currentRecordHint": "ดูคำถามต่อยอดปัจจุบันและคำตอบที่เกี่ยวข้อง เพื่อช่วยพิจารณาจุดที่ผู้เรียนติดขัดและความชัดเจนของการสื่อสารในหลักสูตร",
+        "fields": {
+          "currentAnswer": "คำตอบปัจจุบัน",
+          "currentFollowUp": "คำถามต่อยอดปัจจุบัน",
+          "followUpTime": "เวลาถามต่อ",
+          "lesson": "บทที่เกี่ยวข้อง",
+          "nickname": "ชื่อเล่น",
+          "turnIndex": "รอบ",
+          "user": "ผู้เรียน"
+        },
+        "sections": {
+          "basicInfo": "ข้อมูลพื้นฐาน",
+          "currentRecord": "บันทึกปัจจุบัน",
+          "timeline": "ไทม์ไลน์คำถามต่อยอด"
+        },
+        "timeline": {
+          "current": "ปัจจุบัน",
+          "student": "ผู้เรียน",
+          "teacher": "คำตอบของครู"
+        },
+        "title": "รายละเอียดคำถามต่อยอด"
+      },
+      "filters": {
+        "chapterKeyword": "บท",
+        "chapterKeywordPlaceholder": "ชื่อบท/บทเรียน",
+        "followUpTime": "เวลาถามต่อ",
+        "lessonKeyword": "บทเรียนย่อย",
+        "lessonKeywordPlaceholder": "ชื่อบทเรียนย่อย",
+        "reset": "รีเซ็ต",
+        "resultCount": "ทั้งหมด {count} รายการ",
+        "search": "ค้นหา",
+        "sourceStatus": "ตำแหน่งผลลัพธ์ต้นฉบับ",
+        "sourceStatusAll": "ทุกสถานะ",
+        "sourceStatusMissing": "ยังไม่พบตำแหน่งผลลัพธ์ต้นฉบับ",
+        "sourceStatusResolved": "พบตำแหน่งผลลัพธ์ต้นฉบับแล้ว",
+        "timePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
+        "userKeyword": "ผู้เรียน",
+        "userKeywordPlaceholderEmail": "อีเมล / ชื่อเล่น",
+        "userKeywordPlaceholderPhone": "หมายเลขโทรศัพท์ / ชื่อเล่น"
+      },
+      "summary": {
+        "followUpCount": "จำนวนคำถามต่อยอดสะสม",
+        "latestFollowUpAt": "เวลาถามต่อครั้งล่าสุด",
+        "lessonCount": "จำนวนบทเรียนที่เกี่ยวข้อง",
+        "scopeHint": "ดูคำถามที่ผู้เรียนถามเกี่ยวกับเนื้อหาหลักสูตร เพื่อช่วยหาจุดติดขัดที่พบบ่อยและบทที่ควรปรับปรุง",
+        "userCount": "จำนวนผู้เรียนที่ถามต่อ"
+      },
+      "table": {
+        "action": "การดำเนินการ",
+        "chapter": "บท",
+        "content": "เนื้อหาคำถามต่อยอด",
+        "createdAt": "เวลาถามต่อ",
+        "detailAction": "รายละเอียด",
+        "empty": "ยังไม่มีข้อมูลคำถามต่อยอด",
+        "lesson": "บทเรียนย่อย",
+        "sourceMissing": "ยังไม่พบตำแหน่งผลลัพธ์ต้นฉบับ",
+        "sourceResolved": "พบตำแหน่งผลลัพธ์ต้นฉบับแล้ว",
+        "title": "รายการคำถามต่อยอด",
+        "turnIndex": "รอบ",
+        "user": "ผู้เรียน"
+      },
+      "title": "ข้อมูลคำถามต่อยอด",
+      "turnIndex": "รอบที่ {count}",
+      "turnIndexHelp": "ลำดับรอบคำถามต่อยอดเรียงตามเวลาที่ถามภายในบันทึกการเรียนเดียวกัน"
+    },
+    "learners": {
+      "columns": {
+        "joinedAt": "เวลาเข้าร่วม",
+        "lastLearningAt": "เวลาเรียนล่าสุด",
+        "name": "ผู้เรียน",
+        "progress": "ความคืบหน้าการเรียน",
+        "questions": "จำนวนคำถามต่อยอดสะสม",
+        "status": "สถานะการเรียน"
+      },
+      "empty": "ยังไม่มีผู้เรียน",
+      "filters": {
+        "lastLearningTime": "เวลาเรียนล่าสุด",
+        "lastLearningTimePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
+        "learningStatus": "สถานะการเรียน",
+        "statusAll": "ทั้งหมด",
+        "userKeyword": "ผู้เรียน"
+      },
+      "searchPlaceholderEmail": "อีเมล / ชื่อเล่น",
+      "searchPlaceholderPhone": "หมายเลขโทรศัพท์ / ชื่อเล่น",
+      "status": {
+        "completed": "เรียนจบแล้ว",
+        "learning": "กำลังเรียน",
+        "notStarted": "ยังไม่เริ่ม"
+      },
+      "title": "รายชื่อผู้เรียน",
+      "totalCount": "ผู้เรียนทั้งหมด {count} คน",
+      "viewFollowUps": "ดูคำถามต่อยอด",
+      "viewFollowUpsForLearner": "ดูคำถามต่อยอดของ {learner}"
+    },
+    "learningModePerformance": {
+      "columns": {
+        "averageConsumedCredits": "ใช้เฉลี่ยต่อผู้เรียน",
+        "consumedCredits": "เครดิตที่ใช้",
+        "consumptionSpeed": "ใช้เฉลี่ยต่อวันใน 7 วัน",
+        "mode": "รูปแบบการเรียน",
+        "participants": "ผู้เรียน"
+      },
+      "empty": "ยังไม่มีข้อมูลรูปแบบการเรียน",
+      "modes": {
+        "classroom": "ห้องเรียน",
+        "listen": "ฟัง",
+        "read": "อ่าน"
+      },
+      "scopeHint": "เปรียบเทียบการใช้เครดิตของการอ่าน การฟัง และห้องเรียน เพื่อดูว่าผู้เรียนใช้หลักสูตรนี้อย่างไร",
+      "title": "รูปแบบการเรียน"
+    },
+    "metrics": {
+      "completedLearners": "จำนวนผู้เรียนที่เรียนจบ",
+      "completionRate": "อัตราเรียนจบ",
+      "learningLearners": "จำนวนผู้เรียนปัจจุบัน",
+      "orderAmount": "ยอดคำสั่งซื้อ",
+      "orderCount": "จำนวนคำสั่งซื้อ",
+      "rating": "คะแนนหลักสูตร",
+      "title": "ข้อมูลสำคัญ",
+      "totalQuestions": "จำนวนคำถามต่อยอด"
+    },
+    "metricsTooltips": {
+      "completedLearners": "จำนวนผู้ที่เรียนจบทุกบทเรียนของหลักสูตรนี้",
+      "completionRate": "สัดส่วนของผู้เข้าร่วมทั้งหมดที่เรียนจบทุกบทเรียนของหลักสูตรนี้",
+      "learningLearners": "จำนวนผู้ที่เริ่มเรียนแล้ว แต่ยังเรียนไม่ครบทุกบทเรียน",
+      "orderAmount": "ยอดรวมที่ผู้ใช้จ่ายสำหรับหลักสูตรนี้ ไม่รวมคำสั่งซื้อจากรหัสแลกรับ",
+      "orderCount": "จำนวนคำสั่งซื้อที่สำเร็จทั้งหมดของหลักสูตรนี้ รวมคำสั่งซื้อแบบชำระเงินและรหัสแลกรับ",
+      "rating": "คะแนนเฉลี่ยที่ผู้เรียนให้บทเรียน เต็ม 5 คะแนน",
+      "totalQuestions": "จำนวนคำถามต่อยอดทั้งหมดที่ผู้เรียนถาม AI ระหว่างเรียน เปิดเพื่อดูรายละเอียด"
+    },
+    "ratings": {
+      "emptyValue": "--",
+      "filters": {
+        "chapterKeyword": "บท",
+        "chapterKeywordPlaceholder": "ชื่อบท/บทเรียน",
+        "commentStatus": "เนื้อหาความคิดเห็น",
+        "commentStatusAll": "ทั้งหมด",
+        "commentStatusCommented": "ดูเฉพาะรายการที่มีความคิดเห็น",
+        "ratingTime": "เวลาให้คะแนน",
+        "reset": "รีเซ็ต",
+        "resultCount": "ทั้งหมด {count} รายการ",
+        "score": "คะแนน",
+        "scoreAll": "คะแนนทั้งหมด",
+        "search": "ค้นหา",
+        "timePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
+        "userKeyword": "ผู้เรียน",
+        "userKeywordPlaceholderEmail": "อีเมล / ชื่อเล่น",
+        "userKeywordPlaceholderPhone": "หมายเลขโทรศัพท์ / ชื่อเล่น"
+      },
+      "scoreValue": "{score} คะแนน",
+      "summary": {
+        "averageScore": "คะแนนเฉลี่ย",
+        "latestRatedAt": "เวลาให้คะแนนล่าสุด",
+        "ratingCount": "จำนวนคะแนน",
+        "scopeHint": "ดูคะแนนและความคิดเห็นของผู้เรียนต่อบทต่าง ๆ เพื่อช่วยประเมินความพึงพอใจและเนื้อหาที่ควรเสริม",
+        "userCount": "จำนวนผู้เรียนที่ให้คะแนน"
+      },
+      "table": {
+        "comment": "เนื้อหาความคิดเห็น",
+        "empty": "ยังไม่มีข้อมูลคะแนน",
+        "guestUser": "ผู้เรียนไม่ระบุชื่อ",
+        "lesson": "บท",
+        "ratedAt": "เวลาให้คะแนน",
+        "score": "คะแนน",
+        "title": "รายการคะแนน",
+        "user": "ผู้เรียน"
+      },
+      "title": "ข้อมูลคะแนน"
+    },
+    "title": "รายละเอียดหลักสูตร"
+  },
+  "entry": {
+    "kpi": {
+      "courses": "จำนวนหลักสูตร",
+      "learners": "ผู้เรียนทั้งหมด",
+      "orderAmount": "ยอดคำสั่งซื้อทั้งหมด",
+      "orders": "คำสั่งซื้อทั้งหมด"
+    },
+    "table": {
+      "action": "การดำเนินการ",
+      "course": "หลักสูตร",
+      "empty": "ยังไม่มีหลักสูตร",
+      "footnote": "จำนวนหลักสูตร: {count} (ขอบเขตสถิติ: นับเฉพาะข้อมูลหลักสูตรที่คุณสร้างและเป็นเจ้าของเอง ไม่รวมข้อมูลหลักสูตรที่ทำงานร่วมกัน)",
+      "lastActive": "ใช้งานล่าสุด",
+      "learners": "จำนวนผู้เรียน",
+      "orderAmount": "ยอดคำสั่งซื้อ",
+      "orders": "จำนวนคำสั่งซื้อ",
+      "reset": "รีเซ็ต",
+      "search": "ค้นหา",
+      "searchPlaceholder": "รหัสหลักสูตร / ชื่อหลักสูตร",
+      "viewCourse": "ดูหลักสูตร",
+      "viewOrders": "ดูคำสั่งซื้อ"
+    }
+  },
+  "filters": {
+    "dateRangePlaceholder": "เวลาเริ่มต้น ~ เวลาสิ้นสุด",
+    "reset": "รีเซ็ต"
+  },
+  "messages": {
+    "loadCourseDetailFailed": "โหลดรายละเอียดหลักสูตรไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadCoursesFailed": "โหลดรายการหลักสูตรไม่สำเร็จ โปรดรีเฟรชแล้วลองอีกครั้ง",
+    "loadFollowUpDetailFailed": "โหลดรายละเอียดคำถามต่อยอดไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadFollowUpsFailed": "โหลดข้อมูลคำถามต่อยอดไม่สำเร็จ โปรดรีเฟรชแล้วลองอีกครั้ง",
+    "loadLearnersFailed": "โหลดรายชื่อผู้เรียนไม่สำเร็จ โปรดลองอีกครั้งภายหลัง",
+    "loadRatingsFailed": "โหลดข้อมูลคะแนนไม่สำเร็จ โปรดรีเฟรชแล้วลองอีกครั้ง"
+  },
+  "pagination": {
+    "next": "หน้าถัดไป",
+    "prev": "หน้าก่อนหน้า"
+  },
+  "title": "ข้อมูล"
+}

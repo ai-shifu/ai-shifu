@@ -1,3 +1,5 @@
+"""Protect the Celery environment configuration contract."""
+
 from __future__ import annotations
 
 from flaskr.common.config import ENV_VARS, EnhancedConfig

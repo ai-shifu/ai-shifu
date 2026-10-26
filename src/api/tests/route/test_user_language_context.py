@@ -1,15 +1,17 @@
+"""Verify authenticated requests resolve normalized language context."""
+
 from types import SimpleNamespace
 
-from flask import Flask, jsonify
-
 import flaskr.route.user as user_route
+import pytest
+from flask import Flask, jsonify
 from flaskr.i18n import clear_language, get_current_language
 from flaskr.route.user import register_user_handler
 
 
 def test_authenticated_request_prefers_accept_language_for_runtime_context(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "test"
     monkeypatch.setattr(
@@ -20,7 +22,7 @@ def test_authenticated_request_prefers_accept_language_for_runtime_context(
     register_user_handler(app, "/api/user")
 
     @app.route("/runtime-language")
-    def runtime_language():
+    def runtime_language() -> object:
         return jsonify({"language": get_current_language()})
 
     try:
@@ -34,9 +36,15 @@ def test_authenticated_request_prefers_accept_language_for_runtime_context(
         clear_language()
 
 
+@pytest.mark.parametrize(
+    ("requested", "expected"),
+    [("zh-cn,zh;q=0.9", "zh-CN"), ("ur-IN,ur;q=0.9", "ur-PK"), ("UR_pk", "ur-PK")],
+)
 def test_authenticated_request_normalizes_accept_language_for_runtime_context(
-    monkeypatch,
-):
+    monkeypatch: object,
+    requested: str,
+    expected: str,
+) -> None:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "test"
     monkeypatch.setattr(
@@ -47,23 +55,23 @@ def test_authenticated_request_normalizes_accept_language_for_runtime_context(
     register_user_handler(app, "/api/user")
 
     @app.route("/runtime-language")
-    def runtime_language():
+    def runtime_language() -> object:
         return jsonify({"language": get_current_language()})
 
     try:
         response = app.test_client().get(
             "/runtime-language",
-            headers={"Token": "token", "Accept-Language": "zh-cn,zh;q=0.9"},
+            headers={"Token": "token", "Accept-Language": requested},
         )
         assert response.status_code == 200
-        assert response.get_json() == {"language": "zh-CN"}
+        assert response.get_json() == {"language": expected}
     finally:
         clear_language()
 
 
 def test_authenticated_request_reads_json_payload_language_for_runtime_context(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "test"
     monkeypatch.setattr(
@@ -74,7 +82,7 @@ def test_authenticated_request_reads_json_payload_language_for_runtime_context(
     register_user_handler(app, "/api/user")
 
     @app.route("/runtime-language", methods=["POST"])
-    def runtime_language():
+    def runtime_language() -> object:
         return jsonify({"language": get_current_language()})
 
     try:

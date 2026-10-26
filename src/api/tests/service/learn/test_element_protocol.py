@@ -8,16 +8,24 @@ Covers:
 - audio_segments accumulation
 """
 
+from __future__ import annotations
+
 import types
+from typing import TYPE_CHECKING
 
 import pytest
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from flask import Flask
+
 
 @pytest.fixture
-def adapter_app():
-    from flask import Flask
-    import flaskr.dao as dao
+def adapter_app() -> Iterator[Flask]:
     import flaskr.service.learn.models  # noqa: F401
+    from flask import Flask
+    from flaskr import dao
 
     app = Flask("test-handle-ask-adapter")
     app.config.update(
@@ -38,70 +46,70 @@ def adapter_app():
 
 
 class _FollowUpDummyGeneration:
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: object) -> None:
         self.kwargs = kwargs
         self.end_kwargs = {}
 
-    def end(self, **kwargs):
+    def end(self, **kwargs: object) -> None:
         self.end_kwargs = kwargs
 
 
 class _FollowUpDummySpan:
-    def __init__(self):
+    def __init__(self) -> None:
         self.generations = []
         self.updated = {}
         self.output = ""
 
-    def generation(self, **kwargs):
+    def generation(self, **kwargs: object) -> object:
         generation = _FollowUpDummyGeneration(**kwargs)
         self.generations.append(generation)
         return generation
 
-    def span(self, **_kwargs):
+    def span(self, **_kwargs: object) -> object:
         return _FollowUpDummySpan()
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
-    def event(self, **_kwargs):
+    def event(self, **_kwargs: object) -> None:
         return None
 
-    def end(self, output=None, **kwargs):
+    def end(self, output: object = None, **kwargs: object) -> None:
         self.output = output or ""
         self.end_kwargs = {"output": output, **kwargs}
 
 
 class _FollowUpDummyTrace:
-    def __init__(self):
+    def __init__(self) -> None:
         self.updated = {}
 
-    def span(self, **_kwargs):
+    def span(self, **_kwargs: object) -> object:
         return _FollowUpDummySpan()
 
-    def update(self, **kwargs):
+    def update(self, **kwargs: object) -> None:
         self.updated = kwargs
 
 
 class _FollowUpContext:
-    def __init__(self):
+    def __init__(self) -> None:
         self._shifu_info = types.SimpleNamespace(use_learner_language=0)
         self.langfuse_outputs = []
 
-    def get_system_prompt(self, _outline_bid: str):
+    def get_system_prompt(self, _outline_bid: str) -> object:
         return "COURSE_PROMPT"
 
-    def append_langfuse_output(self, value: str):
+    def append_langfuse_output(self, value: str) -> None:
         self.langfuse_outputs.append(value)
 
 
 class _FollowUpInfo:
-    def __init__(self, ask_provider_config):
+    def __init__(self, ask_provider_config: object) -> None:
         self.ask_prompt = "ASK_PROMPT::{shifu_system_message}"
         self.ask_model = "gpt-test"
         self.model_args = {"temperature": 0.2}
         self.ask_provider_config = ask_provider_config
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return {
             "ask_model": self.ask_model,
             "ask_provider_config": self.ask_provider_config,
@@ -109,21 +117,28 @@ class _FollowUpInfo:
 
 
 def _setup_handle_input_ask_test_doubles(
-    monkeypatch,
-    module,
-    ask_provider_config,
+    monkeypatch: object,
+    module: object,
+    ask_provider_config: object,
     *,
     patch_generated_blocks: bool = True,
-):
+) -> None:
     from flaskr.service.learn.ask_provider_adapters import AskProviderError
 
     class _DummyLLMSettings:
-        def __init__(self, model, temperature):
+        def __init__(
+            self, model: object, temperature: object, usage_metadata: object = None
+        ) -> None:
             self.model = model
+            self.usage_metadata = usage_metadata
             self.temperature = temperature
 
     class _DummyAskProviderRuntime:
-        def __init__(self, llm_stream_factory=None, llm_context_stream_factory=None):
+        def __init__(
+            self,
+            llm_stream_factory: object = None,
+            llm_context_stream_factory: object = None,
+        ) -> None:
             self.llm_stream_factory = llm_stream_factory
             self.llm_context_stream_factory = llm_context_stream_factory
 
@@ -174,7 +189,7 @@ def _setup_handle_input_ask_test_doubles(
 
         call_counter = {"index": 0}
 
-        def _fake_init_generated_block(*_args, **_kwargs):
+        def _fake_init_generated_block(*_args: object, **_kwargs: object) -> object:
             call_counter["index"] += 1
             return types.SimpleNamespace(
                 generated_block_bid=f"gb-{call_counter['index']}",
@@ -193,7 +208,9 @@ def _setup_handle_input_ask_test_doubles(
 
 
 class TestElementType:
-    def test_new_enum_values(self):
+    """Verify element type behavior."""
+
+    def test_new_enum_values(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementType
 
         expected = {
@@ -215,20 +232,20 @@ class TestElementType:
         actual = {et.value for et in ElementType if not et.name.startswith("_")}
         assert actual == expected
 
-    def test_legacy_aliases_exist(self):
+    def test_legacy_aliases_exist(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementType
 
         assert ElementType._SANDBOX.value == "sandbox"
         assert ElementType._PICTURE.value == "picture"
         assert ElementType._VIDEO.value == "video"
 
-    def test_invalid_value_raises(self):
+    def test_invalid_value_raises(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementType
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="nonexistent"):
             ElementType("nonexistent")
 
-    def test_element_type_codes_complete(self):
+    def test_element_type_codes_complete(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementType
         from flaskr.service.learn.listen_element_types import ELEMENT_TYPE_CODES
 
@@ -238,7 +255,7 @@ class TestElementType:
                 continue
             assert et in ELEMENT_TYPE_CODES, f"Missing code for {et}"
 
-    def test_legacy_mapping(self):
+    def test_legacy_mapping(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementType
         from flaskr.service.learn.listen_element_types import LEGACY_ELEMENT_TYPE_MAP
 
@@ -253,7 +270,9 @@ class TestElementType:
 
 
 class TestElementDTONewFields:
-    def _make_dto(self, **overrides):
+    """Verify element DTO new fields behavior."""
+
+    def _make_dto(self, **overrides: object) -> object:
         from flaskr.service.learn.learn_dtos import ElementDTO, ElementType
 
         defaults = {
@@ -266,7 +285,7 @@ class TestElementDTONewFields:
         defaults.update(overrides)
         return ElementDTO(**defaults)
 
-    def test_default_values(self):
+    def test_default_values(self) -> None:
         dto = self._make_dto()
         assert dto.is_renderable is True
         assert dto.is_new is True
@@ -276,7 +295,7 @@ class TestElementDTONewFields:
         assert dto.audio_url == ""
         assert dto.audio_segments == []
 
-    def test_json_includes_new_fields(self):
+    def test_json_includes_new_fields(self) -> None:
         dto = self._make_dto(
             is_renderable=False,
             is_new=False,
@@ -295,7 +314,7 @@ class TestElementDTONewFields:
         assert result["audio_url"] == "https://example.com/audio.mp3"
         assert len(result["audio_segments"]) == 1
 
-    def test_json_field_order(self):
+    def test_json_field_order(self) -> None:
         dto = self._make_dto()
         result = dto.__json__()
         keys = list(result.keys())
@@ -308,7 +327,7 @@ class TestElementDTONewFields:
         assert "audio_url" in keys
         assert "audio_segments" in keys
 
-    def test_final_json_marks_all_audio_segments_final(self):
+    def test_final_json_marks_all_audio_segments_final(self) -> None:
         dto = self._make_dto(
             is_final=True,
             audio_url="https://example.com/audio.mp3",
@@ -329,7 +348,7 @@ class TestElementDTONewFields:
             True,
         ]
 
-    def test_non_final_json_preserves_audio_segment_flags(self):
+    def test_non_final_json_preserves_audio_segment_flags(self) -> None:
         dto = self._make_dto(
             is_final=False,
             audio_segments=[
@@ -347,7 +366,9 @@ class TestElementDTONewFields:
 
 
 class TestRunMarkdownFlowDTO:
-    def test_private_mdflow_stream_parts_do_not_leak_into_json(self):
+    """Verify run markdown flow DTO behavior."""
+
+    def test_private_mdflow_stream_parts_do_not_leak_into_json(self) -> None:
         from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 
         dto = RunMarkdownFlowDTO(
@@ -372,14 +393,16 @@ class TestRunMarkdownFlowDTO:
 
 
 class TestTypeStateMachine:
-    def test_initial_state_is_idle(self):
+    """Verify type state machine behavior."""
+
+    def test_initial_state_is_idle(self) -> None:
         from flaskr.service.learn.type_state_machine import TypeState, TypeStateMachine
 
         sm = TypeStateMachine()
         assert sm.state == TypeState.IDLE
         assert not sm.is_terminated
 
-    def test_content_start_transitions_to_building(self):
+    def test_content_start_transitions_to_building(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeState,
@@ -391,7 +414,7 @@ class TestTypeStateMachine:
         assert out == "element"
         assert sm.state == TypeState.BUILDING
 
-    def test_content_start_with_is_new_false_transitions_to_patching(self):
+    def test_content_start_with_is_new_false_transitions_to_patching(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeState,
@@ -403,7 +426,7 @@ class TestTypeStateMachine:
         assert out == "element"
         assert sm.state == TypeState.PATCHING
 
-    def test_incremental_update_transitions_to_patching(self):
+    def test_incremental_update_transitions_to_patching(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeState,
@@ -416,7 +439,7 @@ class TestTypeStateMachine:
         assert out == "element"
         assert sm.state == TypeState.PATCHING
 
-    def test_block_break_returns_to_idle(self):
+    def test_block_break_returns_to_idle(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeState,
@@ -429,7 +452,7 @@ class TestTypeStateMachine:
         assert out == "break"
         assert sm.state == TypeState.IDLE
 
-    def test_audio_segment_preserves_state(self):
+    def test_audio_segment_preserves_state(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeState,
@@ -442,7 +465,7 @@ class TestTypeStateMachine:
         assert out == "audio_segment"
         assert sm.state == TypeState.BUILDING
 
-    def test_audio_complete_preserves_state(self):
+    def test_audio_complete_preserves_state(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeState,
@@ -455,7 +478,7 @@ class TestTypeStateMachine:
         assert out == "audio_complete"
         assert sm.state == TypeState.BUILDING
 
-    def test_done_terminates(self):
+    def test_done_terminates(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeState,
@@ -469,7 +492,7 @@ class TestTypeStateMachine:
         assert sm.state == TypeState.TERMINATED
         assert sm.is_terminated
 
-    def test_error_terminates(self):
+    def test_error_terminates(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeStateMachine,
@@ -480,7 +503,7 @@ class TestTypeStateMachine:
         assert out == "error"
         assert sm.is_terminated
 
-    def test_feed_after_terminated_raises(self):
+    def test_feed_after_terminated_raises(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeStateMachine,
@@ -491,7 +514,7 @@ class TestTypeStateMachine:
         with pytest.raises(ValueError, match="already terminated"):
             sm.feed(TypeInput.CONTENT_START)
 
-    def test_reset(self):
+    def test_reset(self) -> None:
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
             TypeState,
@@ -504,7 +527,7 @@ class TestTypeStateMachine:
         assert sm.state == TypeState.IDLE
         assert not sm.is_terminated
 
-    def test_full_lifecycle(self):
+    def test_full_lifecycle(self) -> None:
         """Test a realistic sequence: content -> audio -> break -> content -> done."""
         from flaskr.service.learn.type_state_machine import (
             TypeInput,
@@ -533,7 +556,9 @@ class TestTypeStateMachine:
 
 
 class TestVisualKindMapping:
-    def test_known_mappings(self):
+    """Verify visual kind mapping behavior."""
+
+    def test_known_mappings(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementType
         from flaskr.service.learn.listen_element_types import (
             _element_type_for_visual_kind,
@@ -553,7 +578,7 @@ class TestVisualKindMapping:
         assert _element_type_for_visual_kind("title") == ElementType.TITLE
         assert _element_type_for_visual_kind("text") == ElementType.TEXT
 
-    def test_unknown_defaults_to_text(self):
+    def test_unknown_defaults_to_text(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementType
         from flaskr.service.learn.listen_element_types import (
             _element_type_for_visual_kind,
@@ -568,12 +593,12 @@ class TestVisualKindMapping:
 # ---------------------------------------------------------------------------
 
 
-def _require_app(app):
+def _require_app(app: object) -> None:
     if app is None:
         pytest.skip("App fixture disabled")
 
 
-def test_is_new_false_applies_to_target_element_in_records(app):
+def test_is_new_false_applies_to_target_element_in_records(app: object) -> None:
     """is_new=false elements should be merged into their target in records output."""
     _require_app(app)
     import json
@@ -681,7 +706,7 @@ def test_is_new_false_applies_to_target_element_in_records(app):
     assert result.elements[0].is_final is True
 
 
-def test_records_ordered_by_sequence_number(app):
+def test_records_ordered_by_sequence_number(app: object) -> None:
     """Records should be sorted by sequence_number, run_event_seq, id."""
     _require_app(app)
     import json
@@ -760,7 +785,7 @@ def test_records_ordered_by_sequence_number(app):
     assert bids == ["el-a", "el-b", "el-c"]
 
 
-def test_records_merge_follow_up_history_after_anchor_element(app):
+def test_records_merge_follow_up_history_after_anchor_element(app: object) -> None:
     _require_app(app)
 
     from flaskr.dao import db
@@ -943,7 +968,7 @@ def test_records_merge_follow_up_history_after_anchor_element(app):
     ]
 
 
-def test_include_non_navigable_returns_events(app):
+def test_include_non_navigable_returns_events(app: object) -> None:
     """include_non_navigable=true should return full events stream."""
     _require_app(app)
     import json
@@ -1067,7 +1092,7 @@ def test_include_non_navigable_returns_events(app):
         assert "audio_complete" not in event_types
 
 
-def test_legacy_element_type_deserialized_to_new_enum(app):
+def test_legacy_element_type_deserialized_to_new_enum(app: object) -> None:
     """Legacy element_type values like 'sandbox' should map to new enum."""
     _require_app(app)
     import json
@@ -1135,7 +1160,7 @@ def test_legacy_element_type_deserialized_to_new_enum(app):
     assert result.elements[0].is_marker is True
 
 
-def test_non_text_elements_are_never_speakable_in_records(app):
+def test_non_text_elements_are_never_speakable_in_records(app: object) -> None:
     """Non-text elements must normalize is_speakable to false."""
     _require_app(app)
     import json
@@ -1213,7 +1238,9 @@ def test_non_text_elements_are_never_speakable_in_records(app):
     assert result.elements[0].is_speakable is False
 
 
-def test_interaction_elements_backfill_user_input_from_generated_blocks(app):
+def test_interaction_elements_backfill_user_input_from_generated_blocks(
+    app: object,
+) -> None:
     """Interaction record elements should expose submitted user input."""
     _require_app(app)
     import json
@@ -1308,7 +1335,111 @@ def test_interaction_elements_backfill_user_input_from_generated_blocks(app):
     assert element.payload.user_input == "agree"
 
 
-def test_live_interaction_events_use_ui_role_and_generated_input(adapter_app):
+def test_a_turn_block_s_lesson_text_is_not_read_as_the_learner_s_answer(
+    app: object,
+) -> None:
+    """A 2.0 turn keeps its question in the block that holds what it taught.
+
+    That block's generated content is the lesson text, not an answer. Read as the learner's
+    input, it pre-filled the question with the sentence before it, enabled its submit button
+    with nothing chosen, and sent the sentence as the answer.
+    """
+    _require_app(app)
+    import json
+
+    from flaskr.dao import db
+    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.models import (
+        LearnGeneratedBlock,
+        LearnGeneratedElement,
+        LearnProgressRecord,
+    )
+    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
+    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
+
+    user_bid = "user-turn-block"
+    shifu_bid = "shifu-turn-block"
+    outline_bid = "outline-turn-block"
+    progress_bid = "progress-turn-block"
+    generated_block_bid = "generated-turn-block"
+
+    with app.app_context():
+        LearnGeneratedElement.query.delete()
+        LearnGeneratedBlock.query.delete()
+        LearnProgressRecord.query.delete()
+        db.session.commit()
+
+        progress = LearnProgressRecord(
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            status=LEARN_STATUS_IN_PROGRESS,
+            block_position=0,
+        )
+        interaction_block = LearnGeneratedBlock(
+            generated_block_bid=generated_block_bid,
+            progress_record_bid=progress_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            user_bid=user_bid,
+            type=BLOCK_TYPE_MDCONTENT_VALUE,
+            role="teacher",
+            block_content_conf="",
+            generated_content="Pick one of these, then we go on:",
+            status=1,
+            deleted=0,
+            position=0,
+        )
+        interaction_element = LearnGeneratedElement(
+            element_bid="el-turn-block",
+            progress_record_bid=progress_bid,
+            user_bid=user_bid,
+            generated_block_bid=generated_block_bid,
+            outline_item_bid=outline_bid,
+            shifu_bid=shifu_bid,
+            run_session_bid="run-turn-block",
+            run_event_seq=1,
+            event_type="element",
+            role="ui",
+            element_index=0,
+            element_type="interaction",
+            element_type_code=205,
+            change_type="render",
+            target_element_bid="",
+            is_renderable=1,
+            is_new=1,
+            is_marker=1,
+            sequence_number=1,
+            is_speakable=0,
+            audio_url="",
+            audio_segments="[]",
+            is_navigable=0,
+            is_final=1,
+            content_text="?[Agree//agree][Disagree//disagree]",
+            payload=json.dumps({"audio": None, "previous_visuals": []}),
+            status=1,
+        )
+        db.session.add_all([progress, interaction_block, interaction_element])
+        db.session.commit()
+
+        result = get_listen_element_record(
+            app,
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            user_bid=user_bid,
+            preview_mode=False,
+        )
+
+    assert len(result.elements) == 1
+    element = result.elements[0]
+    assert element.payload is not None
+    assert not element.payload.user_input
+
+
+def test_live_interaction_events_use_ui_role_and_generated_input(
+    adapter_app: object,
+) -> None:
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
     from flaskr.service.learn.learn_dtos import (
@@ -1371,7 +1502,7 @@ def test_live_interaction_events_use_ui_role_and_generated_input(adapter_app):
         assert persisted.role == "ui"
 
 
-def test_backfill_populates_sequence_number_and_audio_url(app):
+def test_backfill_populates_sequence_number_and_audio_url(app: object) -> None:
     """Backfill should assign sequence_number and extract audio_url from payload."""
     _require_app(app)
 
@@ -1470,7 +1601,9 @@ def test_backfill_populates_sequence_number_and_audio_url(app):
 
 
 class TestElementPayloadAsks:
-    def test_payload_asks_none_by_default(self):
+    """Verify element payload asks behavior."""
+
+    def test_payload_asks_none_by_default(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
         payload = ElementPayloadDTO()
@@ -1478,7 +1611,7 @@ class TestElementPayloadAsks:
         serialized = payload.__json__()
         assert "asks" not in serialized
 
-    def test_payload_asks_serialization(self):
+    def test_payload_asks_serialization(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
         asks = [
@@ -1489,14 +1622,14 @@ class TestElementPayloadAsks:
         serialized = payload.__json__()
         assert serialized["asks"] == asks
 
-    def test_payload_asks_empty_list_serialization(self):
+    def test_payload_asks_empty_list_serialization(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
         payload = ElementPayloadDTO(asks=[])
         serialized = payload.__json__()
         assert serialized["asks"] == []
 
-    def test_payload_asks_deserialization(self):
+    def test_payload_asks_deserialization(self) -> None:
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
         from flaskr.service.learn.listen_element_payloads import (
             _deserialize_payload,
@@ -1512,14 +1645,14 @@ class TestElementPayloadAsks:
         restored = _deserialize_payload(raw)
         assert restored.asks == asks
 
-    def test_payload_asks_deserialization_missing(self):
+    def test_payload_asks_deserialization_missing(self) -> None:
         from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 
         raw = '{"audio": null, "previous_visuals": []}'
         restored = _deserialize_payload(raw)
         assert restored.asks is None
 
-    def test_payload_asks_deserialization_invalid_type(self):
+    def test_payload_asks_deserialization_invalid_type(self) -> None:
         from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 
         raw = '{"audio": null, "previous_visuals": [], "asks": "not_a_list"}'
@@ -1533,12 +1666,14 @@ class TestElementPayloadAsks:
 
 
 class TestGeneratedTypeAsk:
-    def test_ask_enum_exists(self):
+    """Verify generated type ask behavior."""
+
+    def test_ask_enum_exists(self) -> None:
         from flaskr.service.learn.learn_dtos import GeneratedType
 
         assert GeneratedType.ASK.value == "ask"
 
-    def test_ask_not_in_legacy_types(self):
+    def test_ask_not_in_legacy_types(self) -> None:
         from flaskr.service.learn.learn_dtos import GeneratedType
 
         legacy = {
@@ -1553,7 +1688,7 @@ class TestGeneratedTypeAsk:
 class TestAskContextLoading:
     """Tests for _is_valid_asks and _load_ask_context."""
 
-    def test_is_valid_asks_true(self):
+    def test_is_valid_asks_true(self) -> None:
         from flaskr.service.learn.handle_input_ask import _is_valid_asks
 
         asks = [
@@ -1562,20 +1697,21 @@ class TestAskContextLoading:
         ]
         assert _is_valid_asks(asks) is True
 
-    def test_is_valid_asks_empty(self):
+    def test_is_valid_asks_empty(self) -> None:
         from flaskr.service.learn.handle_input_ask import _is_valid_asks
 
         assert _is_valid_asks([]) is False
         assert _is_valid_asks(None) is False
 
-    def test_is_valid_asks_student_only(self):
+    def test_is_valid_asks_student_only(self) -> None:
         from flaskr.service.learn.handle_input_ask import _is_valid_asks
 
         asks = [{"role": "student", "content": "q"}]
         assert _is_valid_asks(asks) is False
 
-    def test_load_context_from_follow_up_elements(self):
+    def test_load_context_from_follow_up_elements(self) -> None:
         import types
+
         from flaskr.service.learn.handle_input_ask import _load_ask_context
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
@@ -1610,8 +1746,9 @@ class TestAskContextLoading:
         assert result[1] == {"role": "user", "content": "q1"}
         assert result[2] == {"role": "assistant", "content": "a1"}
 
-    def test_load_context_fallback_to_legacy_payload_asks(self):
+    def test_load_context_fallback_to_legacy_payload_asks(self) -> None:
         import types
+
         from flaskr.service.learn.handle_input_ask import _load_ask_context
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
@@ -1638,8 +1775,9 @@ class TestAskContextLoading:
         assert result[1] == {"role": "user", "content": "q1"}
         assert result[2] == {"role": "assistant", "content": "a1"}
 
-    def test_load_context_fallback_to_none(self):
+    def test_load_context_fallback_to_none(self) -> None:
         import types
+
         from flaskr.service.learn.handle_input_ask import _load_ask_context
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
@@ -1652,13 +1790,14 @@ class TestAskContextLoading:
         result = _load_ask_context(anchor, [], 10)
         assert result is None
 
-    def test_load_context_none_element(self):
+    def test_load_context_none_element(self) -> None:
         from flaskr.service.learn.handle_input_ask import _load_ask_context
 
         assert _load_ask_context(None, [], 10) is None
 
-    def test_load_context_truncation(self):
+    def test_load_context_truncation(self) -> None:
         import types
+
         from flaskr.service.learn.handle_input_ask import _load_ask_context
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
@@ -1687,17 +1826,20 @@ class TestAskContextLoading:
 class TestHandleAskAdapter:
     """Tests for ListenElementRunAdapter._handle_ask()."""
 
-    def test_handle_ask_creates_standalone_question_element(self, adapter_app):
+    def test_handle_ask_creates_standalone_question_element(
+        self, adapter_app: object
+    ) -> None:
         import json
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
+            ElementPayloadDTO,
             GeneratedType,
             RunMarkdownFlowDTO,
-            ElementPayloadDTO,
         )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
-        from flaskr.dao import db
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -1749,17 +1891,18 @@ class TestHandleAskAdapter:
             assert ask_rows[0].content_text == "user question here"
             assert ask_rows[0].role == "student"
 
-    def test_process_ask_persists_without_streaming(self, adapter_app):
+    def test_process_ask_persists_without_streaming(self, adapter_app: object) -> None:
         import json
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
+            ElementPayloadDTO,
             GeneratedType,
             RunMarkdownFlowDTO,
-            ElementPayloadDTO,
         )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
-        from flaskr.dao import db
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -1818,16 +1961,16 @@ class TestHandleAskAdapter:
             assert ask_row.role == "student"
             assert payload["anchor_element_bid"] == "anchor_elem_2"
 
-    def test_handle_ask_sets_anchor_bid_state(self, adapter_app):
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    def test_handle_ask_sets_anchor_bid_state(self, adapter_app: object) -> None:
+        from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
+            ElementPayloadDTO,
             GeneratedType,
             RunMarkdownFlowDTO,
-            ElementPayloadDTO,
         )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
-        from flaskr.dao import db
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -1869,18 +2012,21 @@ class TestHandleAskAdapter:
             assert adapter._current_ask_anchor_bid == "anchor_elem_3"
             assert adapter._current_ask_element_bid
 
-    def test_process_creates_standalone_answer_element(self, adapter_app):
+    def test_process_creates_standalone_answer_element(
+        self, adapter_app: object
+    ) -> None:
         import json
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+
+        from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
-        from flaskr.dao import db
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -1978,18 +2124,18 @@ class TestHandleAskAdapter:
             assert "asks" not in payload
 
     def test_process_streams_multi_chunk_follow_up_answer_but_persists_only_final_row(
-        self, adapter_app
-    ):
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+        self, adapter_app: object
+    ) -> None:
+        from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
-        from flaskr.dao import db
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -2092,17 +2238,19 @@ class TestHandleAskAdapter:
             assert answer_rows[0].content_text == "hello world"
             assert answer_rows[0].target_element_bid == logical_answer_bid
 
-    def test_process_creates_answer_element_for_patched_anchor_bid(self, adapter_app):
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    def test_process_creates_answer_element_for_patched_anchor_bid(
+        self, adapter_app: object
+    ) -> None:
+        from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
-        from flaskr.dao import db
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -2208,9 +2356,8 @@ class TestHandleAskAdapter:
             assert answer_row is not None
             assert answer_row.content_text == "answer"
 
-    def test_answer_audio_events_do_not_attach_audio(self, adapter_app):
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    def test_answer_audio_events_do_not_attach_audio(self, adapter_app: object) -> None:
+        from flaskr.dao import db
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -2219,8 +2366,9 @@ class TestHandleAskAdapter:
             GeneratedType,
             RunMarkdownFlowDTO,
         )
+        from flaskr.service.learn.listen_element_payloads import _serialize_payload
+        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
-        from flaskr.dao import db
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -2312,8 +2460,8 @@ class TestHandleAskAdapter:
             assert final_answer.payload.audio is None
 
     def test_handle_input_ask_provider_stream_returns_answer_element(
-        self, adapter_app, monkeypatch
-    ):
+        self, adapter_app: object, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn import handle_input_ask as module
         from flaskr.service.learn.learn_dtos import (
@@ -2380,7 +2528,7 @@ class TestHandleAskAdapter:
                     context=_FollowUpContext(),
                     user_info=types.SimpleNamespace(user_id="u1"),
                     attend_id="pr1",
-                    input="hello",
+                    user_input="hello",
                     outline_item_info=types.SimpleNamespace(
                         shifu_bid="s1", bid="o1", title="Outline", position=1
                     ),
@@ -2428,8 +2576,8 @@ class TestHandleAskAdapter:
             assert answer_row.content_text == "provider-answer"
 
     def test_handle_input_ask_provider_only_error_returns_answer_element(
-        self, adapter_app, monkeypatch
-    ):
+        self, adapter_app: object, monkeypatch: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn import handle_input_ask as module
         from flaskr.service.learn.ask_provider_adapters import AskProviderError
@@ -2456,10 +2604,11 @@ class TestHandleAskAdapter:
                 patch_generated_blocks=False,
             )
 
-            def _raise_provider_error(**_kwargs):
+            def _raise_provider_error(**_kwargs: object) -> object:
                 if False:
                     yield None
-                raise AskProviderError("provider failed")
+                message = "provider failed"
+                raise AskProviderError(message)
 
             monkeypatch.setattr(
                 module,
@@ -2501,7 +2650,7 @@ class TestHandleAskAdapter:
                     context=_FollowUpContext(),
                     user_info=types.SimpleNamespace(user_id="u1"),
                     attend_id="pr1",
-                    input="hello",
+                    user_input="hello",
                     outline_item_info=types.SimpleNamespace(
                         shifu_bid="s1", bid="o1", title="Outline", position=1
                     ),
@@ -2554,7 +2703,9 @@ class TestHandleAskAdapter:
 
 
 class TestRunMarkdownFlowDTOAnchorBid:
-    def test_default_anchor_element_bid_empty(self):
+    """Verify run markdown flow DTO anchor bid behavior."""
+
+    def test_default_anchor_element_bid_empty(self) -> None:
         from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 
         dto = RunMarkdownFlowDTO(
@@ -2567,7 +2718,7 @@ class TestRunMarkdownFlowDTOAnchorBid:
         serialized = dto.__json__()
         assert "anchor_element_bid" not in serialized
 
-    def test_anchor_element_bid_set(self):
+    def test_anchor_element_bid_set(self) -> None:
         from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 
         dto = RunMarkdownFlowDTO(
@@ -2583,7 +2734,9 @@ class TestRunMarkdownFlowDTOAnchorBid:
 
 
 class TestElementChangeTypeSemantics:
-    def test_text_patch_keeps_render_change_type(self, adapter_app):
+    """Verify element change type semantics behavior."""
+
+    def test_text_patch_keeps_render_change_type(self, adapter_app: object) -> None:
         from flaskr.service.learn.learn_dtos import (
             ElementChangeType,
             ElementType,
@@ -2630,8 +2783,8 @@ class TestElementChangeTypeSemantics:
             assert text_events[1].target_element_bid in ("", None)
 
     def test_gitdiff_element_uses_diff_change_type_without_forcing_patch(
-        self, adapter_app
-    ):
+        self, adapter_app: object
+    ) -> None:
         from flaskr.service.learn.learn_dtos import (
             ElementChangeType,
             ElementType,
@@ -2677,7 +2830,7 @@ class TestElementChangeTypeSemantics:
             assert diff_events[0].target_element_bid == diff_events[0].element_bid
             assert diff_events[1].target_element_bid == diff_events[0].element_bid
 
-    def test_html_after_text_creates_new_element(self, adapter_app):
+    def test_html_after_text_creates_new_element(self, adapter_app: object) -> None:
         from flaskr.service.learn.learn_dtos import (
             ElementType,
             GeneratedType,
@@ -2727,7 +2880,9 @@ class TestElementChangeTypeSemantics:
             assert html_events[1].target_element_bid in ("", None)
             assert html_events[0].element_bid != html_events[1].element_bid
 
-    def test_html_only_stream_does_not_keep_audio_on_finalize(self, adapter_app):
+    def test_html_only_stream_does_not_keep_audio_on_finalize(
+        self, adapter_app: object
+    ) -> None:
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -2802,7 +2957,9 @@ class TestElementChangeTypeSemantics:
             assert all(item.audio_url == "" for item in html_events)
             assert all(item.is_speakable is False for item in html_events)
 
-    def test_chunked_html_table_stream_stays_single_html_element(self, adapter_app):
+    def test_chunked_html_table_stream_stays_single_html_element(
+        self, adapter_app: object
+    ) -> None:
         from flaskr.service.learn.learn_dtos import (
             ElementType,
             GeneratedType,
@@ -2858,7 +3015,9 @@ class TestElementChangeTypeSemantics:
             assert html_events[3].target_element_bid in ("", None)
             assert len({item.element_bid for item in html_events}) == 1
 
-    def test_mdflow_stream_elements_are_not_rebuilt_from_av_contract(self, adapter_app):
+    def test_mdflow_stream_elements_are_not_rebuilt_from_av_contract(
+        self, adapter_app: object
+    ) -> None:
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             ElementType,
@@ -2980,8 +3139,8 @@ class TestElementChangeTypeSemantics:
             assert after_text.audio_url == ""
 
     def test_pending_audio_skips_image_stream_and_binds_to_following_text(
-        self, adapter_app
-    ):
+        self, adapter_app: object
+    ) -> None:
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -3095,8 +3254,8 @@ class TestElementChangeTypeSemantics:
             assert all(item.is_speakable is True for item in text_events)
 
     def test_fallback_text_patch_keeps_bound_audio_during_in_progress_history(
-        self, adapter_app
-    ):
+        self, adapter_app: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.const import ROLE_TEACHER
         from flaskr.service.learn.learn_dtos import (
@@ -3207,8 +3366,8 @@ class TestElementChangeTypeSemantics:
         assert history_element.content_text == "Hello world"
 
     def test_stream_text_patch_keeps_bound_audio_during_in_progress_history(
-        self, adapter_app
-    ):
+        self, adapter_app: object
+    ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.const import ROLE_TEACHER
         from flaskr.service.learn.learn_dtos import (
@@ -3317,8 +3476,8 @@ class TestElementChangeTypeSemantics:
         assert history_element.content_text == "Hello world"
 
     def test_live_audio_patches_mirror_progressive_subtitles_on_same_element(
-        self, adapter_app
-    ):
+        self, adapter_app: object
+    ) -> None:
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -3551,7 +3710,9 @@ class TestElementChangeTypeSemantics:
             },
         ]
 
-    def test_live_audio_patches_do_not_rewrite_same_count_updates(self, adapter_app):
+    def test_live_audio_patches_do_not_rewrite_same_count_updates(
+        self, adapter_app: object
+    ) -> None:
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -3697,7 +3858,9 @@ class TestElementChangeTypeSemantics:
         ] == [(0, 160), (220, 360)]
         assert final_patch.payload.audio.duration_ms == 360
 
-    def test_live_audio_patches_preserve_incoming_middle_cues(self, adapter_app):
+    def test_live_audio_patches_preserve_incoming_middle_cues(
+        self, adapter_app: object
+    ) -> None:
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -3863,7 +4026,9 @@ class TestElementChangeTypeSemantics:
         ] == [(0, 140), (140, 250), (250, 360)]
         assert final_patch.payload.audio.duration_ms == 360
 
-    def test_explicit_stream_audio_waits_for_matching_text_element(self, adapter_app):
+    def test_explicit_stream_audio_waits_for_matching_text_element(
+        self, adapter_app: object
+    ) -> None:
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,

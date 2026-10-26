@@ -1,15 +1,27 @@
+"""Verify built-in demo courses are identified without false matches."""
+
 from __future__ import annotations
 
-from flask import Flask
-import pytest
+import json
+from pathlib import Path
+from typing import TYPE_CHECKING
 
-import flaskr.dao as dao
-from flaskr.service.shifu.demo_courses import is_builtin_demo_shifu
+import pytest
+from flask import Flask
+from flaskr import dao
+from flaskr.service.shifu.demo_courses import (
+    get_demo_course_content_language,
+    get_demo_course_title_language,
+    is_builtin_demo_shifu,
+)
 from flaskr.service.shifu.models import PublishedShifu
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 @pytest.fixture
-def demo_course_app():
+def demo_course_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -43,6 +55,48 @@ def test_is_builtin_demo_shifu_matches_configured_demo_id(
     assert is_builtin_demo_shifu(demo_course_app, "demo-configured-1") is True
 
 
+def test_demo_course_title_language_uses_exact_configured_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = {
+        "DEMO_SHIFU_BID": "demo-zh",
+        "DEMO_EN_SHIFU_BID": "demo-en",
+    }
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": configured.get(key, default),
+    )
+
+    assert get_demo_course_title_language("demo-en") == "en-US"
+    assert get_demo_course_title_language("demo-zh") == "zh-CN"
+    assert get_demo_course_title_language("other-course") is None
+    assert get_demo_course_title_language("") is None
+
+    configured["DEMO_EN_SHIFU_BID"] = "demo-zh"
+    assert get_demo_course_title_language("demo-zh") is None
+
+
+def test_demo_course_content_language_uses_exact_configured_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configured = {
+        "DEMO_SHIFU_BID": "demo-zh",
+        "DEMO_EN_SHIFU_BID": "demo-en",
+    }
+    monkeypatch.setattr(
+        "flaskr.service.shifu.demo_courses.get_dynamic_config",
+        lambda key, default="": configured.get(key, default),
+    )
+
+    assert get_demo_course_content_language("demo-en") == "en-US"
+    assert get_demo_course_content_language("demo-zh") == "zh-CN"
+    assert get_demo_course_content_language("other-course") is None
+    assert get_demo_course_content_language("") is None
+
+    configured["DEMO_EN_SHIFU_BID"] = "demo-zh"
+    assert get_demo_course_content_language("demo-zh") is None
+
+
 def test_is_builtin_demo_shifu_matches_system_title_fallback(
     demo_course_app: Flask,
 ) -> None:
@@ -73,3 +127,13 @@ def test_is_builtin_demo_shifu_excludes_other_system_courses(
         dao.db.session.commit()
 
     assert is_builtin_demo_shifu(demo_course_app, "system-course-1") is False
+
+
+def test_cn_demo_does_not_advertise_retired_style_variable() -> None:
+    demo_path = Path(__file__).parents[3] / "demo_shifus" / "cn_demo.json"
+    demo = json.loads(demo_path.read_text(encoding="utf-8"))
+
+    assert "{{sys_user_style}} ：用户偏好的内容风格" not in json.dumps(
+        demo,
+        ensure_ascii=False,
+    )

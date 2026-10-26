@@ -2,12 +2,22 @@
 # gunicorn from /app (this file's directory); command-line flags from the
 # deployment entrypoint (e.g. -w) still take precedence over values here.
 
+"""Configure Gunicorn worker startup and lifecycle hooks."""
+
+import ctypes
+import gc
 import os
 import sys
 
+from flaskr.metrics_runtime import (
+    cleanup_metrics_directory,
+    mark_worker_exit,
+    prepare_metrics_directory,
+)
 
-def _gevent_worker_requested(argv) -> bool:
-    """True when the command line selects the gevent worker class.
+
+def _gevent_worker_requested(argv: object) -> bool:
+    """Report whether the command line selects the gevent worker class.
 
     Monkey-patching must match the worker class. The production deployment
     runs ``-k gthread``; patching gevent onto gthread workers turns their
@@ -43,6 +53,30 @@ if _gevent_worker_requested(sys.argv):
 
     monkey.patch_all()
 
+# glibc gives each thread that allocates its own malloc arena (up to 8 per CPU), and
+# freed memory stays in those arenas. Each gthread worker accumulates arenas as request,
+# engine-bridge and SDK threads come and go, so a worker's memory only grows. Two arenas
+# keep that bounded. Set before any thread exists; an explicit MALLOC_ARENA_MAX wins.
+M_ARENA_MAX = -8
+MALLOC_ARENAS = 2
+
+
+def _limit_malloc_arenas() -> bool:
+    """Cap glibc malloc arenas for this process and the workers it forks."""
+    if os.environ.get("MALLOC_ARENA_MAX"):
+        return False
+    try:
+        libc = ctypes.CDLL("libc.so.6")
+    except OSError:  # not glibc (e.g. macOS development)
+        return False
+    return bool(libc.mallopt(M_ARENA_MAX, MALLOC_ARENAS))
+
+
+_limit_malloc_arenas()
+
+# Bootstrap before preload imports prometheus_client and fixes its writer class.
+prepare_metrics_directory()
+
 # Mark the preload master so import-time initializers skip anything that
 # would start background threads here (e.g. the Langfuse/OTel batch
 # exporter). A thread started in the master registers an at-fork restart
@@ -58,7 +92,18 @@ os.environ["AI_SHIFU_PRELOAD_MASTER"] = "1"
 preload_app = True
 
 
-def post_fork(server, worker):
+def pre_fork(server: object, worker: object) -> None:
+    """Keep the preloaded app's objects shared with the forked worker.
+
+    Without this, the garbage collector touching inherited objects in a worker
+    copies the master's pages one by one, and each idle worker grows to about
+    100 MB of private memory. Frozen objects are never examined again.
+    """
+    _ = (server, worker)
+    gc.freeze()
+
+
+def post_fork(server: object, worker: object) -> None:
     """Reset per-process resources that must not be shared across fork.
 
     SQLAlchemy connection pools created in the master (the DB init in
@@ -67,6 +112,7 @@ def post_fork(server, worker):
     pool without closing the parent's file descriptors. redis-py connection
     pools are fork-safe already (pid check on checkout) and need no handling.
     """
+    _ = server
     os.environ.pop("AI_SHIFU_PRELOAD_MASTER", None)
 
     try:
@@ -79,7 +125,7 @@ def post_fork(server, worker):
     except Exception:  # pragma: no cover - defensive: never kill a booting worker
         worker.log.exception("post_fork engine dispose failed")
 
-    # Langfuse SDK v3 keeps per-public-key ResourceManager singletons and
+    # The Langfuse SDK keeps per-public-key ResourceManager singletons and
     # registers a global OpenTelemetry TracerProvider during master preload.
     # Both carry live httpx/TLS connections and a batch-export worker that
     # were created in the master; inherited across fork they are shared by
@@ -103,11 +149,10 @@ def post_fork(server, worker):
         worker.log.exception("post_fork hub observer install failed")
 
     try:
+        from flaskr.api.langfuse import init_langfuse
         from langfuse._client.resource_manager import LangfuseResourceManager
         from opentelemetry import trace as otel_trace_api
         from opentelemetry.util._once import Once
-
-        from flaskr.api.langfuse import init_langfuse
 
         LangfuseResourceManager._instances.clear()
         otel_trace_api._TRACER_PROVIDER = None
@@ -116,3 +161,30 @@ def post_fork(server, worker):
         init_langfuse(flask_app)
     except Exception:  # pragma: no cover - defensive: never kill a booting worker
         worker.log.exception("post_fork langfuse reinit failed")
+
+    # Live readiness may launch bounded retries. Like the exporter above,
+    # those threads belong to a worker, never to the preload master.
+    try:
+        from flaskr.service.learn.live_follow_up_routes import (
+            init_live_follow_up_readiness,
+        )
+
+        init_live_follow_up_readiness(flask_app)
+    except Exception:  # pragma: no cover - defensive: never kill a booting worker
+        worker.log.warning("post_fork Live readiness initialization unavailable")
+
+
+def child_exit(server: object, worker: object) -> None:
+    """Remove a reaped worker's live capacity gauges in the master."""
+    try:
+        mark_worker_exit(worker.pid)
+    except Exception:
+        server.log.exception("Prometheus worker cleanup failed")
+
+
+def on_exit(server: object) -> None:
+    """Release only this master's private metrics storage after workers exit."""
+    try:
+        cleanup_metrics_directory()
+    except Exception:
+        server.log.exception("Prometheus master cleanup failed")

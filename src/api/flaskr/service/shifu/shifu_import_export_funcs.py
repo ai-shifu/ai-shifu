@@ -1,44 +1,70 @@
-import json
-import os
-from flask import Flask
-from werkzeug.datastructures import FileStorage
-from decimal import Decimal
-from typing import Dict, Optional
+"""Import and export course structures."""
 
+import json
+from decimal import Decimal
+from pathlib import Path
+
+from flask import Flask
+from flaskr.api.llm.model_selection import course_model_selection
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
-from flaskr.util import generate_id
-from flaskr.util.datetime import now_utc, to_utc_iso
-from flaskr.service.common.models import raise_error
-from flaskr.service.shifu.models import DraftShifu, DraftOutlineItem
+from flaskr.dao.uow import app_context_scope, unit_of_work
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.common.models import raise_error, raise_param_error
+from flaskr.service.learn.api import (
+    is_live_follow_up_model,
+    normalize_live_follow_up_course_config,
+)
+from flaskr.service.shifu.consts import FLOW_ENGINE_DEFAULT
+from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
 from flaskr.service.shifu.shifu_draft_funcs import (
     get_latest_shifu_draft,
-    normalize_ask_provider_config,
     serialize_ask_provider_config,
 )
-from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.service.shifu.shifu_history_manager import (
     HistoryItem,
-    save_shifu_history,
     save_outline_tree_history,
+    save_shifu_history,
 )
-from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
+from flaskr.util import generate_id
+from flaskr.util.datetime import now_utc, to_utc_iso
 from markdown_flow import MarkdownFlow
+from werkzeug.datastructures import FileStorage
 
 
-def _extract_import_ask_provider_config(shifu_data: dict) -> str:
-    """
-    Extract and normalize ask_provider_config from import payload.
+def _import_model_selection(shifu_data: dict, field: str) -> str:
+    """Preserve imported strings while defaulting absent or null choices."""
+    value = shifu_data.get(field)
+    if value is None:
+        return "1"
+    if not isinstance(value, str):
+        raise_error("server.shifu.importFileInvalid")
+    return value
+
+
+def _extract_import_ask_provider_config(
+    shifu_data: dict,
+) -> str:
+    """Extract and normalize ask_provider_config from import payload.
+
     Keep legacy imports compatible by defaulting to "{}" when missing.
     """
-    if "ask_provider_config" not in shifu_data:
+    normalized, error_field = normalize_live_follow_up_course_config(
+        course_model=course_model_selection(shifu_data.get("llm", ""))["index"],
+        course_follow_up_model=shifu_data.get("ask_llm", ""),
+        provider_config=shifu_data.get("ask_provider_config", {}),
+    )
+    if error_field is not None:
+        raise_error("server.shifu.importFileInvalid")
+    has_live_follow_up = is_live_follow_up_model(shifu_data.get("ask_llm", ""))
+    if "ask_provider_config" not in shifu_data and not has_live_follow_up:
         return "{}"
-    return serialize_ask_provider_config(shifu_data.get("ask_provider_config"))
+    return serialize_ask_provider_config(normalized)
 
 
 def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
-    """
-    Export a shifu to a JSON file.
+    """Export a shifu to a JSON file.
 
     Args:
         app: Flask application instance
@@ -47,6 +73,7 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
     Returns:
         str: Success message
+
     """
     with app.app_context():
         # Get shifu draft
@@ -74,6 +101,22 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                 DraftOutlineItem.id.in_(outline_item_ids),
                 DraftOutlineItem.deleted == 0,
             ).all()
+        normalized_provider_config, live_contract_error = (
+            normalize_live_follow_up_course_config(
+                course_model=course_model_selection(shifu_draft.llm)["index"],
+                course_follow_up_model=shifu_draft.ask_llm,
+                provider_config=getattr(shifu_draft, "ask_provider_config", "{}"),
+            )
+        )
+        if live_contract_error is not None:
+            field = (
+                live_contract_error
+                if live_contract_error == "model"
+                else f"ask_provider_config.{live_contract_error}"
+                if live_contract_error in {"provider", "mode"}
+                else f"ask_provider_config.config.{live_contract_error}"
+            )
+            raise_param_error(field)
 
         # Build export data
         export_data = {
@@ -91,14 +134,13 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                 else 0,
                 "llm_system_prompt": shifu_draft.llm_system_prompt,
                 "ask_enabled_status": shifu_draft.ask_enabled_status,
+                "flow_engine": shifu_draft.flow_engine,
                 "ask_llm": shifu_draft.ask_llm,
                 "ask_llm_temperature": float(shifu_draft.ask_llm_temperature)
                 if shifu_draft.ask_llm_temperature
                 else 0.0,
                 "ask_llm_system_prompt": shifu_draft.ask_llm_system_prompt,
-                "ask_provider_config": normalize_ask_provider_config(
-                    getattr(shifu_draft, "ask_provider_config", "")
-                ),
+                "ask_provider_config": normalized_provider_config,
                 "price": float(shifu_draft.price) if shifu_draft.price else 0.0,
             },
             "outline_items": [
@@ -110,17 +152,9 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
                     "parent_bid": item.parent_bid,
                     "position": item.position,
                     "prerequisite_item_bids": item.prerequisite_item_bids,
-                    "llm": item.llm,
-                    "llm_temperature": float(item.llm_temperature)
-                    if item.llm_temperature
-                    else 0,
                     "llm_system_prompt": item.llm_system_prompt,
-                    "ask_enabled_status": item.ask_enabled_status,
-                    "ask_llm": item.ask_llm,
-                    "ask_llm_temperature": float(item.ask_llm_temperature)
-                    if item.ask_llm_temperature
-                    else 0.0,
                     "ask_llm_system_prompt": item.ask_llm_system_prompt,
+                    "ask_enabled_status": item.ask_enabled_status,
                     "content": item.content,
                 }
                 for item in outline_items
@@ -129,11 +163,8 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
         }
 
         # Write to file
-        os.makedirs(
-            os.path.dirname(file_path) if os.path.dirname(file_path) else ".",
-            exist_ok=True,
-        )
-        with open(file_path, "w", encoding="utf-8") as f:
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        with Path(file_path).open("w", encoding="utf-8") as f:
             json.dump(export_data, f, ensure_ascii=False, indent=2)
 
         return "success"
@@ -141,13 +172,11 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
 def import_shifu(
     app: Flask,
-    shifu_id: Optional[str],
+    shifu_id: str | None,
     file: FileStorage,
     user_id: str,
-    commit: bool = True,
 ) -> str:
-    """
-    Import a shifu from a JSON file.
+    """Import a shifu from a JSON file.
 
     Args:
         app: Flask application instance
@@ -158,25 +187,36 @@ def import_shifu(
 
     Returns:
         str: The shifu_bid of the imported shifu
+
     """
-    with app.app_context():
+    with app_context_scope(app), unit_of_work():
         # Read JSON file
         try:
             file_content = file.read()
             if isinstance(file_content, bytes):
                 file_content = file_content.decode("utf-8")
             import_data = json.loads(file_content)
-        except Exception as e:
-            app.logger.error(f"Failed to parse JSON file: {e}")
+        except Exception:
+            app.logger.exception("Failed to parse JSON file")
             raise_error("server.shifu.importFileInvalid")
 
         # Validate import data
-        if "shifu" not in import_data or "outline_items" not in import_data:
+        if (
+            not isinstance(import_data, dict)
+            or "shifu" not in import_data
+            or "outline_items" not in import_data
+        ):
             raise_error("server.shifu.importFileInvalid")
 
         shifu_data = import_data["shifu"]
         outline_items_data = import_data["outline_items"]
+        if not isinstance(shifu_data, dict) or not isinstance(outline_items_data, list):
+            raise_error("server.shifu.importFileInvalid")
+        if any(not isinstance(item, dict) for item in outline_items_data):
+            raise_error("server.shifu.importFileInvalid")
         structure_data = import_data.get("structure")
+        _import_model_selection(shifu_data, "llm")
+        _import_model_selection(shifu_data, "ask_llm")
         ask_provider_config = _extract_import_ask_provider_config(shifu_data)
 
         now_time = now_utc()
@@ -193,7 +233,7 @@ def import_shifu(
                 new_shifu.keywords = shifu_data.get("keywords", "")
                 new_shifu.description = shifu_data.get("description", "")
                 new_shifu.avatar_res_bid = shifu_data.get("avatar_res_bid", "")
-                new_shifu.llm = shifu_data.get("llm", "")
+                new_shifu.llm = _import_model_selection(shifu_data, "llm")
                 new_shifu.llm_temperature = Decimal(
                     str(shifu_data.get("llm_temperature", 0))
                 )
@@ -201,7 +241,12 @@ def import_shifu(
                 new_shifu.ask_enabled_status = shifu_data.get(
                     "ask_enabled_status", 5101
                 )
-                new_shifu.ask_llm = shifu_data.get("ask_llm", "")
+                # Files exported before the runtime setting existed have no key; they describe
+                # courses that ran on 1.0, which is what the default says.
+                new_shifu.flow_engine = shifu_data.get(
+                    "flow_engine", FLOW_ENGINE_DEFAULT
+                )
+                new_shifu.ask_llm = _import_model_selection(shifu_data, "ask_llm")
                 new_shifu.ask_llm_temperature = Decimal(
                     str(shifu_data.get("ask_llm_temperature", 0.0))
                 )
@@ -236,11 +281,12 @@ def import_shifu(
                     keywords=shifu_data.get("keywords", ""),
                     description=shifu_data.get("description", ""),
                     avatar_res_bid=shifu_data.get("avatar_res_bid", ""),
-                    llm=shifu_data.get("llm", ""),
+                    llm=_import_model_selection(shifu_data, "llm"),
                     llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                     llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
                     ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
-                    ask_llm=shifu_data.get("ask_llm", ""),
+                    flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
+                    ask_llm=_import_model_selection(shifu_data, "ask_llm"),
                     ask_llm_temperature=Decimal(
                         str(shifu_data.get("ask_llm_temperature", 0.0))
                     ),
@@ -272,11 +318,12 @@ def import_shifu(
                 keywords=shifu_data.get("keywords", ""),
                 description=shifu_data.get("description", ""),
                 avatar_res_bid=shifu_data.get("avatar_res_bid", ""),
-                llm=shifu_data.get("llm", ""),
+                llm=_import_model_selection(shifu_data, "llm"),
                 llm_temperature=Decimal(str(shifu_data.get("llm_temperature", 0))),
                 llm_system_prompt=shifu_data.get("llm_system_prompt", ""),
                 ask_enabled_status=shifu_data.get("ask_enabled_status", 5101),
-                ask_llm=shifu_data.get("ask_llm", ""),
+                flow_engine=shifu_data.get("flow_engine", FLOW_ENGINE_DEFAULT),
+                ask_llm=_import_model_selection(shifu_data, "ask_llm"),
                 ask_llm_temperature=Decimal(
                     str(shifu_data.get("ask_llm_temperature", 0.0))
                 ),
@@ -301,15 +348,15 @@ def import_shifu(
             save_shifu_history(app, user_id, shifu_bid, new_shifu.id)
 
         # Create mapping from old outline_item_bid to new outline_item_bid
-        old_to_new_bid_map: Dict[str, str] = {}
+        old_to_new_bid_map: dict[str, str] = {}
 
         # Create a map of old_bid -> outline_item_data
-        outline_items_by_old_bid: Dict[str, dict] = {
+        outline_items_by_old_bid: dict[str, dict] = {
             item["outline_item_bid"]: item for item in outline_items_data
         }
 
         # Create all outline items first (without parent_bid, will update later)
-        created_items: Dict[str, DraftOutlineItem] = {}
+        created_items: dict[str, DraftOutlineItem] = {}
 
         for item_data in outline_items_data:
             old_bid = item_data["outline_item_bid"]
@@ -325,15 +372,9 @@ def import_shifu(
                 parent_bid="",  # Will update after all items are created
                 position=item_data.get("position", ""),
                 prerequisite_item_bids="",  # Will update after all items are created
-                llm=item_data.get("llm", ""),
-                llm_temperature=Decimal(str(item_data.get("llm_temperature", 0))),
                 llm_system_prompt=item_data.get("llm_system_prompt", ""),
-                ask_enabled_status=item_data.get("ask_enabled_status", 5101),
-                ask_llm=item_data.get("ask_llm", ""),
-                ask_llm_temperature=Decimal(
-                    str(item_data.get("ask_llm_temperature", 0.0))
-                ),
                 ask_llm_system_prompt=item_data.get("ask_llm_system_prompt", ""),
+                ask_enabled_status=item_data.get("ask_enabled_status", 5101),
                 content=item_data.get("content", ""),
                 deleted=0,
                 created_at=now_time,
@@ -424,14 +465,11 @@ def import_shifu(
             new_structure = rebuild_structure(structure_data)
             if new_structure:
                 # Save outline tree history
-                outline_tree = new_structure.children if new_structure.children else []
+                outline_tree = new_structure.children or []
                 save_outline_tree_history(
                     app, user_id, shifu_bid, outline_tree, new_shifu.id
                 )
 
-        if commit:
-            db.session.commit()
-        else:
-            db.session.flush()
+        db.session.flush()
 
         return shifu_bid

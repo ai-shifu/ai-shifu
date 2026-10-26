@@ -33,7 +33,6 @@ a context back-reference — so the persistence surface stays portable.
 """
 
 from flask import Flask
-
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
@@ -43,6 +42,12 @@ class RunRecorder:
     """Transactional persistence steps for the /run runtime."""
 
     def __init__(self, app: Flask) -> None:
+        """Store the Flask app reference for recorder initialization.
+
+        Persistence methods resolve transactions from the active application context
+        through ``db.session``; the supplied app does not bind their persistence
+        context.
+        """
         self.app = app
 
     def save_new_progress_records(self, records: list[LearnProgressRecord]) -> None:

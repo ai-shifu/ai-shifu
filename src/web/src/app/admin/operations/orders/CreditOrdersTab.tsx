@@ -1,0 +1,1078 @@
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
+import api from '@/api';
+import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
+import AdminFilter from '@/app/admin/components/AdminFilter';
+import AdminTableShell from '@/components/admin/AdminTableShell';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
+import {
+  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+  ADMIN_TABLE_RESIZE_HANDLE_CLASS,
+  getAdminStickyRightCellClass,
+  getAdminStickyRightHeaderClass,
+} from '@/components/admin/adminTableStyles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+import ErrorDisplay from '@/components/ErrorDisplay';
+import { Button } from '@/components/ui/Button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/Table';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  formatAdminCount,
+  formatAdminCredits,
+  formatAdminPrice,
+} from '@/app/admin/lib/numberFormat';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
+import { resolveBillingOrderStatusLabel } from '@/lib/billing';
+import { ErrorWithCode } from '@/lib/request';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { cn } from '@/lib/utils';
+import {
+  resolveOperationCreditOrderKindLabel,
+  resolveOperationCreditOrderPaymentChannelLabel,
+  resolveOperationCreditOrderProductName,
+  resolveOperationCreditOrderStatusLabel,
+  resolveOperationCreditOrderValidityLabel,
+  resolveOperationCreditOrderProviderLabel,
+} from '../operation-credit-order-helpers';
+import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
+import type {
+  AdminOperationCreditOrderItem,
+  AdminOperationCreditOrderListResponse,
+  AdminOperationCreditOrderOverview,
+} from '../operation-credit-order-types';
+import OrderOverviewSection from './OrderOverviewSection';
+import CreditOrderDetailDialog from './CreditOrderDetailDialog';
+import {
+  ALL_OPTION_VALUE,
+  EMPTY_STATE_LABEL,
+  renderTooltipText,
+} from './orderUiShared';
+
+type CreditOrderFilters = {
+  creator_keyword: string;
+  product_keyword: string;
+  bill_order_bid: string;
+  credit_order_kind: string;
+  status: string;
+  has_available_credits: boolean;
+  payment_provider: string;
+  start_time: string;
+  end_time: string;
+};
+
+type ErrorState = { message: string; code?: number };
+type OverviewCard = {
+  key: string;
+  label: string;
+  value: string;
+  tooltip: string;
+  quickFilters?: Partial<CreditOrderFilters>;
+};
+
+const PAGE_SIZE = 20;
+const COLUMN_MIN_WIDTH = 90;
+const COLUMN_MAX_WIDTH = 420;
+const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsCreditOrdersColumnWidths';
+const DEFAULT_COLUMN_WIDTHS = {
+  createdAt: 180,
+  creator: 220,
+  orderKind: 140,
+  product: 220,
+  creditAmount: 130,
+  paidAmount: 140,
+  status: 120,
+  paymentChannel: 180,
+  validTo: 180,
+  orderId: 220,
+  action: 120,
+} as const;
+
+const EMPTY_CREDIT_ORDER_OVERVIEW: AdminOperationCreditOrderOverview = {
+  total_order_count: 0,
+  paid_order_count: 0,
+  pending_order_count: 0,
+  refunded_order_count: 0,
+  closed_order_count: 0,
+  canceled_order_count: 0,
+  available_credit_total: 0,
+  paid_amount_total: 0,
+  currency: 'CNY',
+  paid_amount_totals_by_currency: {},
+};
+
+type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
+
+const createDefaultFilters = (): CreditOrderFilters => ({
+  creator_keyword: '',
+  product_keyword: '',
+  bill_order_bid: '',
+  credit_order_kind: '',
+  status: 'paid',
+  has_available_credits: false,
+  payment_provider: '',
+  start_time: '',
+  end_time: '',
+});
+
+const createFiltersFromSearchParams = (searchParams: {
+  get: (key: string) => string | null;
+}): CreditOrderFilters => {
+  const billOrderBid = (searchParams.get('bill_order_bid') || '').trim();
+  return {
+    ...createDefaultFilters(),
+    bill_order_bid: billOrderBid,
+    status: billOrderBid
+      ? ''
+      : (searchParams.get('status') || createDefaultFilters().status).trim(),
+    creator_keyword: (searchParams.get('creator_keyword') || '').trim(),
+    product_keyword: (searchParams.get('product_keyword') || '').trim(),
+    credit_order_kind: (searchParams.get('credit_order_kind') || '').trim(),
+    payment_provider: (searchParams.get('payment_provider') || '').trim(),
+  };
+};
+
+const areCreditOrderFiltersEqual = (
+  left: CreditOrderFilters,
+  right: CreditOrderFilters,
+): boolean =>
+  left.creator_keyword === right.creator_keyword &&
+  left.product_keyword === right.product_keyword &&
+  left.bill_order_bid === right.bill_order_bid &&
+  left.credit_order_kind === right.credit_order_kind &&
+  left.status === right.status &&
+  left.has_available_credits === right.has_available_credits &&
+  left.payment_provider === right.payment_provider &&
+  left.start_time === right.start_time &&
+  left.end_time === right.end_time;
+
+/**
+ * t('module.operationsOrder.creditOrders.emptyList')
+ * t('module.operationsOrder.creditOrders.filters.creatorKeyword')
+ * t('module.operationsOrder.creditOrders.filters.creatorKeywordPlaceholderEmail')
+ * t('module.operationsOrder.creditOrders.filters.creatorKeywordPlaceholderPhone')
+ * t('module.operationsOrder.creditOrders.filters.productKeyword')
+ * t('module.operationsOrder.creditOrders.filters.productKeywordPlaceholder')
+ * t('module.operationsOrder.creditOrders.filters.orderKind')
+ * t('module.operationsOrder.creditOrders.filters.paymentProvider')
+ * t('module.operationsOrder.creditOrders.kind.other')
+ * t('module.operationsOrder.creditOrders.kind.plan')
+ * t('module.operationsOrder.creditOrders.kind.topup')
+ * t('module.operationsOrder.creditOrders.table.creator')
+ * t('module.operationsOrder.creditOrders.table.creditAmount')
+ * t('module.operationsOrder.creditOrders.table.orderId')
+ * t('module.operationsOrder.creditOrders.table.orderKind')
+ * t('module.operationsOrder.creditOrders.table.paymentChannel')
+ * t('module.operationsOrder.creditOrders.table.product')
+ * t('module.operationsOrder.creditOrders.table.validTo')
+ * t('module.operationsOrder.creditOrders.creditAmountValue')
+ */
+export default function CreditOrdersTab() {
+  const { t, i18n } = useTranslation();
+  const { t: tOperationsOrder } = useTranslation('module.operationsOrder');
+  const searchParams = useSearchParams();
+  const initialFilters = React.useMemo(
+    () => createFiltersFromSearchParams(searchParams),
+    [searchParams],
+  );
+  const loginMethodsEnabled = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
+  const defaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
+  const contactType = React.useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
+  const defaultCreatorName = React.useMemo(
+    () => t('module.user.defaultUserName'),
+    [t],
+  );
+  const [expanded, setExpanded] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<ErrorState | null>(null);
+  const [overview, setOverview] =
+    React.useState<AdminOperationCreditOrderOverview>(
+      EMPTY_CREDIT_ORDER_OVERVIEW,
+    );
+  const [overviewError, setOverviewError] = React.useState(false);
+  const [orders, setOrders] = React.useState<AdminOperationCreditOrderItem[]>(
+    [],
+  );
+  const [pageIndex, setPageIndex] = React.useState(1);
+  const [pageCount, setPageCount] = React.useState(0);
+  const [total, setTotal] = React.useState(0);
+  const [selectedBillOrderBid, setSelectedBillOrderBid] = React.useState('');
+  const [detailOpen, setDetailOpen] = React.useState(false);
+  const [draftFilters, setDraftFilters] = React.useState<CreditOrderFilters>(
+    () => initialFilters,
+  );
+  const [appliedFilters, setAppliedFilters] =
+    React.useState<CreditOrderFilters>(() => initialFilters);
+  const [activeOverviewCardKey, setActiveOverviewCardKey] = React.useState<
+    string | null
+  >(null);
+  const [overviewFiltersBeforeApply, setOverviewFiltersBeforeApply] =
+    React.useState<CreditOrderFilters | null>(null);
+  const requestIdRef = React.useRef(0);
+  const lastRequestedPageRef = React.useRef(1);
+  const { getColumnStyle, getResizeHandleProps } =
+    useAdminResizableColumns<ColumnKey>({
+      storageKey: COLUMN_WIDTH_STORAGE_KEY,
+      defaultWidths: DEFAULT_COLUMN_WIDTHS,
+      minWidth: COLUMN_MIN_WIDTH,
+      maxWidth: COLUMN_MAX_WIDTH,
+    });
+
+  const locale = i18n?.language || 'en-US';
+  const usesLatinLabels = !locale.startsWith('zh');
+  const filterControlClassName = cn(
+    'min-w-0 flex-1',
+    usesLatinLabels && 'xl:max-w-[220px]',
+  );
+  const creatorKeywordPlaceholder = React.useMemo(() => {
+    if (contactType === 'email') {
+      return tOperationsOrder(
+        'creditOrders.filters.creatorKeywordPlaceholderEmail',
+      );
+    }
+    return tOperationsOrder(
+      'creditOrders.filters.creatorKeywordPlaceholderPhone',
+    );
+  }, [contactType, tOperationsOrder]);
+
+  const fetchOverview = React.useCallback(async () => {
+    try {
+      const response = (await api.getAdminOperationCreditOrdersOverview(
+        {},
+      )) as AdminOperationCreditOrderOverview;
+      setOverview({
+        ...EMPTY_CREDIT_ORDER_OVERVIEW,
+        ...response,
+      });
+      setOverviewError(false);
+    } catch {
+      setOverviewError(true);
+    }
+  }, []);
+
+  const fetchOrders = React.useCallback(
+    async (targetPage: number, filters: CreditOrderFilters) => {
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      lastRequestedPageRef.current = targetPage;
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = (await api.getAdminOperationCreditOrders({
+          page_index: targetPage,
+          page_size: PAGE_SIZE,
+          creator_keyword: filters.creator_keyword.trim(),
+          product_keyword: filters.product_keyword.trim(),
+          ...(filters.bill_order_bid.trim()
+            ? { bill_order_bid: filters.bill_order_bid.trim() }
+            : {}),
+          credit_order_kind: filters.credit_order_kind,
+          status: filters.status,
+          ...(filters.has_available_credits
+            ? { has_available_credits: true }
+            : {}),
+          payment_provider: filters.payment_provider,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
+        })) as AdminOperationCreditOrderListResponse;
+
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+
+        setOrders(response.items || []);
+        setPageIndex(response.page || targetPage);
+        setPageCount(response.page_count || 0);
+        setTotal(response.total || 0);
+      } catch (requestError) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        const resolvedError = requestError as ErrorWithCode;
+        setError({
+          message: resolvedError.message || t('common.core.networkError'),
+          code: resolvedError.code,
+        });
+        setOrders([]);
+        setPageCount(0);
+        setTotal(0);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [t],
+  );
+
+  React.useEffect(() => {
+    void fetchOverview();
+  }, [fetchOverview]);
+
+  React.useEffect(() => {
+    void fetchOrders(1, appliedFilters);
+  }, [appliedFilters, fetchOrders]);
+
+  const resetOverviewQuickFilterState = React.useCallback(() => {
+    setActiveOverviewCardKey(null);
+    setOverviewFiltersBeforeApply(null);
+  }, []);
+
+  const applyOverviewQuickFilter = React.useCallback(
+    (cardKey: string, quickFilters: Partial<CreditOrderFilters>) => {
+      if (activeOverviewCardKey === cardKey) {
+        return;
+      }
+      const baselineFilters =
+        activeOverviewCardKey === null
+          ? appliedFilters
+          : overviewFiltersBeforeApply || appliedFilters;
+      if (activeOverviewCardKey === null) {
+        setOverviewFiltersBeforeApply(appliedFilters);
+      }
+      const nextFilters: CreditOrderFilters = {
+        ...baselineFilters,
+        ...quickFilters,
+      };
+      setActiveOverviewCardKey(cardKey);
+      setDraftFilters(current =>
+        areCreditOrderFiltersEqual(current, nextFilters)
+          ? current
+          : nextFilters,
+      );
+      if (areCreditOrderFiltersEqual(appliedFilters, nextFilters)) {
+        return;
+      }
+      setAppliedFilters(nextFilters);
+      setPageIndex(1);
+    },
+    [activeOverviewCardKey, appliedFilters, overviewFiltersBeforeApply],
+  );
+
+  const clearOverviewQuickFilter = React.useCallback(() => {
+    if (activeOverviewCardKey === null) {
+      return;
+    }
+    const restoredFilters =
+      overviewFiltersBeforeApply || createDefaultFilters();
+    resetOverviewQuickFilterState();
+    setDraftFilters(current =>
+      areCreditOrderFiltersEqual(current, restoredFilters)
+        ? current
+        : restoredFilters,
+    );
+    if (areCreditOrderFiltersEqual(appliedFilters, restoredFilters)) {
+      return;
+    }
+    setAppliedFilters(restoredFilters);
+    setPageIndex(1);
+  }, [
+    activeOverviewCardKey,
+    appliedFilters,
+    overviewFiltersBeforeApply,
+    resetOverviewQuickFilterState,
+  ]);
+
+  const overviewCards = React.useMemo<OverviewCard[]>(
+    () => [
+      {
+        key: 'total',
+        label: tOperationsOrder('creditOrders.overview.metrics.totalOrders'),
+        value: formatAdminCount(overview.total_order_count, locale),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.totalOrders'),
+        quickFilters: {
+          status: '',
+          has_available_credits: false,
+        },
+      },
+      {
+        key: 'paid',
+        label: tOperationsOrder('creditOrders.overview.metrics.paidOrders'),
+        value: formatAdminCount(overview.paid_order_count, locale),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidOrders'),
+        quickFilters: {
+          status: 'paid',
+          has_available_credits: false,
+        },
+      },
+      {
+        key: 'credit-amount',
+        label: tOperationsOrder('creditOrders.overview.metrics.creditAmount'),
+        value: tOperationsOrder('creditOrders.creditAmountValue', {
+          credits: formatAdminCredits(overview.available_credit_total, locale),
+        }),
+        tooltip: tOperationsOrder(
+          'creditOrders.overview.tooltips.creditAmount',
+        ),
+        quickFilters: {
+          status: 'paid',
+          has_available_credits: true,
+        },
+      },
+      {
+        key: 'paid-amount',
+        label: tOperationsOrder('creditOrders.overview.metrics.paidAmount'),
+        value: (() => {
+          const paidAmountEntries = Object.entries(
+            overview.paid_amount_totals_by_currency || {},
+          );
+          if (paidAmountEntries.length > 1) {
+            return paidAmountEntries
+              .map(([currency, amount]) =>
+                formatAdminPrice(amount, currency, locale),
+              )
+              .join(' / ');
+          }
+          if (paidAmountEntries.length === 1) {
+            const [currency, amount] = paidAmountEntries[0];
+            return formatAdminPrice(amount, currency, locale);
+          }
+          return formatAdminPrice(
+            overview.paid_amount_total,
+            overview.currency,
+            locale,
+          );
+        })(),
+        tooltip: tOperationsOrder('creditOrders.overview.tooltips.paidAmount'),
+      },
+    ],
+    [locale, overview, tOperationsOrder],
+  );
+
+  const activeOverviewCard = React.useMemo(
+    () =>
+      activeOverviewCardKey !== null
+        ? (overviewCards.find(card => card.key === activeOverviewCardKey) ??
+          null)
+        : null,
+    [activeOverviewCardKey, overviewCards],
+  );
+
+  const handleSearch = () => {
+    const nextFilters = draftFilters;
+    const shouldPreserveOverviewQuickFilter =
+      activeOverviewCardKey === 'credit-amount' &&
+      nextFilters.has_available_credits;
+    if (!shouldPreserveOverviewQuickFilter) {
+      resetOverviewQuickFilterState();
+    }
+    setDraftFilters(nextFilters);
+    setAppliedFilters(nextFilters);
+    setPageIndex(1);
+  };
+
+  const handleReset = () => {
+    const nextFilters = createDefaultFilters();
+    resetOverviewQuickFilterState();
+    setDraftFilters(nextFilters);
+    setAppliedFilters(nextFilters);
+    setPageIndex(1);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage < 1 || nextPage === pageIndex) {
+      return;
+    }
+    setPageIndex(nextPage);
+    void fetchOrders(nextPage, appliedFilters);
+  };
+
+  const renderResizeHandle = (key: ColumnKey) => (
+    <span
+      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
+      {...getResizeHandleProps(key)}
+    />
+  );
+
+  const statusOptions = [
+    { value: ALL_OPTION_VALUE, label: t('common.core.all') },
+    { value: 'pending', label: resolveBillingOrderStatusLabel(t, 'pending') },
+    { value: 'paid', label: resolveBillingOrderStatusLabel(t, 'paid') },
+    { value: 'failed', label: resolveBillingOrderStatusLabel(t, 'failed') },
+    { value: 'refunded', label: resolveBillingOrderStatusLabel(t, 'refunded') },
+    { value: 'timeout', label: resolveBillingOrderStatusLabel(t, 'timeout') },
+    { value: 'canceled', label: resolveBillingOrderStatusLabel(t, 'canceled') },
+    { value: 'init', label: resolveBillingOrderStatusLabel(t, 'init') },
+  ];
+
+  const orderKindOptions = [
+    { value: ALL_OPTION_VALUE, label: t('common.core.all') },
+    {
+      value: 'plan',
+      label: resolveOperationCreditOrderKindLabel(t, 'plan'),
+    },
+    {
+      value: 'topup',
+      label: resolveOperationCreditOrderKindLabel(t, 'topup'),
+    },
+  ];
+
+  const paymentProviderOptions = [
+    { value: ALL_OPTION_VALUE, label: t('common.core.all') },
+    {
+      value: 'pingxx',
+      label: resolveOperationCreditOrderProviderLabel(t, 'pingxx'),
+    },
+    {
+      value: 'stripe',
+      label: resolveOperationCreditOrderProviderLabel(t, 'stripe'),
+    },
+    {
+      value: 'manual',
+      label: resolveOperationCreditOrderProviderLabel(t, 'manual'),
+    },
+  ];
+
+  const primaryFilterItems = [
+    {
+      key: 'creator_keyword',
+      label: tOperationsOrder('creditOrders.filters.creatorKeyword'),
+      component: (
+        <AdminClearableInput
+          value={draftFilters.creator_keyword}
+          placeholder={creatorKeywordPlaceholder}
+          clearLabel={t('common.core.close')}
+          onChange={value =>
+            setDraftFilters(current => ({
+              ...current,
+              creator_keyword: value,
+            }))
+          }
+        />
+      ),
+    },
+    {
+      key: 'credit_order_kind',
+      label: tOperationsOrder('creditOrders.filters.orderKind'),
+      component: (
+        <Select
+          value={draftFilters.credit_order_kind || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setDraftFilters(current => ({
+              ...current,
+              credit_order_kind: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue
+              placeholder={tOperationsOrder('creditOrders.filters.orderKind')}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {orderKindOptions.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'status',
+      label: tOperationsOrder('filters.status'),
+      component: (
+        <Select
+          value={draftFilters.status || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setDraftFilters(current => ({
+              ...current,
+              status: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={tOperationsOrder('filters.status')} />
+          </SelectTrigger>
+          <SelectContent>
+            {statusOptions.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+  ];
+
+  const expandedFilterItems = [
+    ...primaryFilterItems,
+    {
+      key: 'bill_order_bid',
+      label: tOperationsOrder('filters.orderId'),
+      component: (
+        <AdminClearableInput
+          value={draftFilters.bill_order_bid}
+          placeholder={tOperationsOrder('filters.orderIdPlaceholder')}
+          clearLabel={t('common.core.close')}
+          onChange={value =>
+            setDraftFilters(current => ({
+              ...current,
+              bill_order_bid: value,
+            }))
+          }
+        />
+      ),
+    },
+    {
+      key: 'product_keyword',
+      label: tOperationsOrder('creditOrders.filters.productKeyword'),
+      component: (
+        <AdminClearableInput
+          value={draftFilters.product_keyword}
+          placeholder={tOperationsOrder(
+            'creditOrders.filters.productKeywordPlaceholder',
+          )}
+          clearLabel={t('common.core.close')}
+          onChange={value =>
+            setDraftFilters(current => ({
+              ...current,
+              product_keyword: value,
+            }))
+          }
+        />
+      ),
+    },
+    {
+      key: 'payment_provider',
+      label: tOperationsOrder('creditOrders.filters.paymentProvider'),
+      component: (
+        <Select
+          value={draftFilters.payment_provider || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            setDraftFilters(current => ({
+              ...current,
+              payment_provider: value === ALL_OPTION_VALUE ? '' : value,
+            }))
+          }
+        >
+          <SelectTrigger>
+            <SelectValue
+              placeholder={tOperationsOrder(
+                'creditOrders.filters.paymentProvider',
+              )}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {paymentProviderOptions.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'created_at',
+      label: tOperationsOrder('filters.createdAt'),
+      component: (
+        <AdminDateRangeFilter
+          startValue={draftFilters.start_time}
+          endValue={draftFilters.end_time}
+          placeholder={tOperationsOrder('filters.timeRangePlaceholder')}
+          resetLabel={tOperationsOrder('filters.reset')}
+          clearLabel={t('common.core.close')}
+          onChange={({ start, end }) =>
+            setDraftFilters(current => ({
+              ...current,
+              start_time: start,
+              end_time: end,
+            }))
+          }
+        />
+      ),
+    },
+  ];
+
+  if (error) {
+    return (
+      <div className='h-full p-0'>
+        <ErrorDisplay
+          errorCode={error.code || 0}
+          errorMessage={error.message}
+          onRetry={() =>
+            void fetchOrders(lastRequestedPageRef.current, appliedFilters)
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className='h-full p-0'>
+      <TooltipProvider delayDuration={150}>
+        <div className='mx-auto flex h-full max-w-7xl flex-col overflow-hidden'>
+          <OrderOverviewSection
+            title={tOperationsOrder('overview.title')}
+            cards={overviewCards.map(card => ({
+              key: card.key,
+              label: card.label,
+              value: card.value,
+              tooltip: card.tooltip,
+              onClick: card.quickFilters
+                ? () =>
+                    applyOverviewQuickFilter(card.key, card.quickFilters || {})
+                : undefined,
+            }))}
+            activeCardLabel={activeOverviewCard?.label ?? null}
+            activeFilterLabel={tOperationsOrder('overview.activeFilter')}
+            clearLabel={t('common.core.close')}
+            staleMessage={
+              overviewError ? tOperationsOrder('overview.staleData') : null
+            }
+            onClearActive={clearOverviewQuickFilter}
+            gridClassName='min-[1680px]:grid-cols-4'
+          />
+
+          <div className='mb-5 rounded-xl border border-border bg-white p-4 shadow-sm transition-all'>
+            <AdminFilter
+              items={expandedFilterItems}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              onReset={handleReset}
+              onSearch={handleSearch}
+              resetLabel={tOperationsOrder('filters.reset')}
+              searchLabel={tOperationsOrder('filters.search')}
+              expandLabel={t('common.core.expand')}
+              collapseLabel={t('common.core.collapse')}
+              collapsedCount={3}
+              className='bg-transparent'
+              contentClassName={filterControlClassName}
+              labelClassName='w-24 text-right'
+              collapsedGridClassName='gap-x-5 xl:grid-cols-3'
+              expandedGridClassName='gap-x-5 xl:grid-cols-3'
+              expandedActionsInline
+              expandedActionsClassName='xl:col-span-2'
+              labelColon
+            />
+          </div>
+
+          <div className='mb-3 text-sm text-muted-foreground'>
+            {tOperationsOrder('totalCount', { count: total })}
+          </div>
+
+          <AdminTableShell
+            loading={loading}
+            isEmpty={orders.length === 0}
+            emptyContent={tOperationsOrder('creditOrders.emptyList')}
+            emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
+            withTooltipProvider
+            tableWrapperClassName='max-h-[calc(100vh-21rem)] overflow-auto'
+            table={emptyRow => (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('createdAt')}
+                    >
+                      {tOperationsOrder('table.createdAt')}
+                      {renderResizeHandle('createdAt')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('creator')}
+                    >
+                      {tOperationsOrder('creditOrders.table.creator')}
+                      {renderResizeHandle('creator')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('orderKind')}
+                    >
+                      {tOperationsOrder('creditOrders.table.orderKind')}
+                      {renderResizeHandle('orderKind')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('product')}
+                    >
+                      {tOperationsOrder('creditOrders.table.product')}
+                      {renderResizeHandle('product')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('creditAmount')}
+                    >
+                      {tOperationsOrder('creditOrders.table.creditAmount')}
+                      {renderResizeHandle('creditAmount')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('paidAmount')}
+                    >
+                      {tOperationsOrder('table.paidAmount')}
+                      {renderResizeHandle('paidAmount')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('status')}
+                    >
+                      {tOperationsOrder('table.status')}
+                      {renderResizeHandle('status')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('paymentChannel')}
+                    >
+                      {tOperationsOrder('creditOrders.table.paymentChannel')}
+                      {renderResizeHandle('paymentChannel')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('validTo')}
+                    >
+                      {tOperationsOrder('creditOrders.table.validTo')}
+                      {renderResizeHandle('validTo')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('orderId')}
+                    >
+                      {tOperationsOrder('creditOrders.table.orderId')}
+                      {renderResizeHandle('orderId')}
+                    </TableHead>
+                    <TableHead
+                      className={getAdminStickyRightHeaderClass('text-center')}
+                      style={getColumnStyle('action')}
+                    >
+                      {tOperationsOrder('table.action')}
+                      {renderResizeHandle('action')}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {emptyRow}
+                  {orders.map(order => {
+                    const creatorDetailUrl = buildAdminOperationsUserDetailUrl(
+                      order.creator_bid,
+                    );
+                    const creatorContact =
+                      contactType === 'email'
+                        ? order.creator_email ||
+                          order.creator_mobile ||
+                          order.creator_identify ||
+                          order.creator_bid
+                        : order.creator_mobile ||
+                          order.creator_email ||
+                          order.creator_identify ||
+                          order.creator_bid;
+                    const creatorName =
+                      order.creator_nickname || defaultCreatorName;
+                    const kindLabel = resolveOperationCreditOrderKindLabel(
+                      t,
+                      order.credit_order_kind,
+                    );
+                    const productLabel = resolveOperationCreditOrderProductName(
+                      t,
+                      order,
+                      EMPTY_STATE_LABEL,
+                    );
+                    const creditAmountLabel = tOperationsOrder(
+                      'creditOrders.creditAmountValue',
+                      {
+                        credits: formatAdminCredits(
+                          order.credit_amount,
+                          locale,
+                        ),
+                      },
+                    );
+                    const paidAmountLabel = formatAdminPrice(
+                      order.paid_amount,
+                      order.currency,
+                      locale,
+                    );
+                    const statusLabel = resolveOperationCreditOrderStatusLabel(
+                      t,
+                      order.status,
+                      EMPTY_STATE_LABEL,
+                    );
+                    const paymentLabel =
+                      resolveOperationCreditOrderPaymentChannelLabel(t, order);
+                    const validityLabel =
+                      resolveOperationCreditOrderValidityLabel(
+                        t,
+                        locale,
+                        order.valid_from,
+                        order.valid_to,
+                        EMPTY_STATE_LABEL,
+                      );
+
+                    return (
+                      <TableRow key={order.bill_order_bid}>
+                        <TableCell
+                          className='overflow-hidden whitespace-nowrap border-r border-border text-center text-ellipsis'
+                          style={getColumnStyle('createdAt')}
+                        >
+                          {renderTooltipText(
+                            formatAdminUtcDateTime(order.created_at) ||
+                              EMPTY_STATE_LABEL,
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border px-3 py-2 align-middle'
+                          style={getColumnStyle('creator')}
+                        >
+                          <div className='space-y-1 text-center'>
+                            {creatorDetailUrl ? (
+                              <Link
+                                href={creatorDetailUrl}
+                                className='block truncate text-sm font-medium text-primary transition-colors hover:text-primary/80 hover:underline'
+                              >
+                                {creatorContact || EMPTY_STATE_LABEL}
+                              </Link>
+                            ) : (
+                              <div className='truncate text-sm font-medium text-foreground'>
+                                {creatorContact || EMPTY_STATE_LABEL}
+                              </div>
+                            )}
+                            <div className='truncate text-xs text-muted-foreground'>
+                              {creatorName}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                          style={getColumnStyle('orderKind')}
+                        >
+                          {renderTooltipText(kindLabel)}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border px-3 py-2 align-middle'
+                          style={getColumnStyle('product')}
+                        >
+                          <div className='truncate text-center text-sm font-medium text-foreground'>
+                            {productLabel}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                          style={getColumnStyle('creditAmount')}
+                        >
+                          {renderTooltipText(creditAmountLabel)}
+                        </TableCell>
+                        <TableCell
+                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                          style={getColumnStyle('paidAmount')}
+                        >
+                          {renderTooltipText(paidAmountLabel)}
+                        </TableCell>
+                        <TableCell
+                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                          style={getColumnStyle('status')}
+                        >
+                          {renderTooltipText(statusLabel)}
+                        </TableCell>
+                        <TableCell
+                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                          style={getColumnStyle('paymentChannel')}
+                        >
+                          {renderTooltipText(paymentLabel)}
+                        </TableCell>
+                        <TableCell
+                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                          style={getColumnStyle('validTo')}
+                        >
+                          {renderTooltipText(validityLabel)}
+                        </TableCell>
+                        <TableCell
+                          className='overflow-hidden whitespace-nowrap border-r border-border px-3 py-2 text-center text-ellipsis'
+                          style={getColumnStyle('orderId')}
+                        >
+                          {renderTooltipText(order.bill_order_bid)}
+                        </TableCell>
+                        <TableCell
+                          className={getAdminStickyRightCellClass(
+                            'whitespace-nowrap px-3 py-2 text-center',
+                          )}
+                          style={getColumnStyle('action')}
+                        >
+                          <Button
+                            size='sm'
+                            variant='ghost'
+                            className='text-primary hover:text-primary/80'
+                            onClick={() => {
+                              setSelectedBillOrderBid(order.bill_order_bid);
+                              setDetailOpen(true);
+                            }}
+                          >
+                            {tOperationsOrder('table.view')}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+            pagination={{
+              pageIndex,
+              pageCount,
+              onPageChange: handlePageChange,
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+              hideWhenSinglePage: true,
+            }}
+            footerClassName='mt-3'
+          />
+        </div>
+      </TooltipProvider>
+
+      <CreditOrderDetailDialog
+        open={detailOpen}
+        billOrderBid={selectedBillOrderBid}
+        onOpenChange={open => {
+          setDetailOpen(open);
+          if (!open) {
+            setSelectedBillOrderBid('');
+          }
+        }}
+      />
+    </div>
+  );
+}

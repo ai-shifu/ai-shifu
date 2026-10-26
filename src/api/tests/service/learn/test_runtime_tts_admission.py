@@ -1,14 +1,21 @@
+"""Verify runtime TTS admission behavior."""
+
 from __future__ import annotations
 
 import ast
+import contextlib
 import json
 import logging
-from pathlib import Path
 import sys
-from types import ModuleType
-from types import SimpleNamespace
+import uuid
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
 
+import pytest
 from flask import Flask
+from flaskr.dao import db
+from flaskr.dao.uow import unit_of_work
+from flaskr.service.shifu.models import DraftOutlineItem, PublishedOutlineItem
 
 
 def _install_litellm_stub() -> None:
@@ -16,8 +23,15 @@ def _install_litellm_stub() -> None:
         return
 
     litellm_stub = ModuleType("litellm")
+
+    def get_model_info(*args: object, **kwargs: object) -> None:
+        _ = args, kwargs
+        message = "unknown model"
+        raise ValueError(message)
+
     litellm_stub.get_max_tokens = lambda _model: 4096
-    litellm_stub.completion = lambda *args, **kwargs: iter([])
+    litellm_stub.get_model_info = get_model_info
+    litellm_stub.completion = lambda *_args, **_kwargs: iter([])
     sys.modules["litellm"] = litellm_stub
 
 
@@ -55,21 +69,9 @@ def _install_openai_responses_stub() -> None:
 
     response_function_tool_call = type("ResponseFunctionToolCall", (), {})
     response_text_config = type("ResponseTextConfigParam", (), {})
-    setattr(
-        response_function_mod,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
-    setattr(
-        response_text_mod,
-        "ResponseTextConfigParam",
-        response_text_config,
-    )
-    setattr(
-        responses_pkg,
-        "ResponseFunctionToolCall",
-        response_function_tool_call,
-    )
+    response_function_mod.ResponseFunctionToolCall = response_function_tool_call
+    response_text_mod.ResponseTextConfigParam = response_text_config
+    responses_pkg.ResponseFunctionToolCall = response_function_tool_call
 
     sys.modules["openai.types.responses"] = responses_pkg
     sys.modules["openai.types.responses.response"] = response_mod
@@ -92,7 +94,8 @@ def _find_register_learn_routes() -> ast.FunctionDef:
     for node in _MODULE.body:
         if isinstance(node, ast.FunctionDef) and node.name == "register_learn_routes":
             return node
-    raise AssertionError("register_learn_routes not found")
+    message = "register_learn_routes not found"
+    raise AssertionError(message)
 
 
 def _find_nested_route(name: str) -> ast.FunctionDef:
@@ -100,7 +103,8 @@ def _find_nested_route(name: str) -> ast.FunctionDef:
     for node in register_fn.body:
         if isinstance(node, ast.FunctionDef) and node.name == name:
             return node
-    raise AssertionError(f"{name} not found inside register_learn_routes")
+    message = f"{name} not found inside register_learn_routes"
+    raise AssertionError(message)
 
 
 def _collect_called_names(node: ast.AST) -> set[str]:
@@ -125,10 +129,13 @@ def _find_call_by_name(node: ast.AST, name: str) -> ast.Call:
             return child
         if isinstance(func, ast.Attribute) and func.attr == name:
             return child
-    raise AssertionError(f"{name} call not found")
+    message = f"{name} call not found"
+    raise AssertionError(message)
 
 
-def _mock_user(monkeypatch, user_id: str, *, is_creator: bool = False):
+def _mock_user(
+    monkeypatch: object, user_id: str, *, is_creator: bool = False
+) -> object:
     dummy_user = SimpleNamespace(
         user_id=user_id,
         is_creator=is_creator,
@@ -142,7 +149,28 @@ def _mock_user(monkeypatch, user_id: str, *, is_creator: bool = False):
     return dummy_user
 
 
-def test_stream_passthrough_releases_request_db_session(monkeypatch):
+@pytest.fixture
+def builtin_demo_outline(app: Flask) -> object:
+    course_bid = uuid.uuid4().hex
+    outline_bid = uuid.uuid4().hex
+    with app.app_context(), unit_of_work():
+        for model in (DraftOutlineItem, PublishedOutlineItem):
+            db.session.add(
+                model(
+                    shifu_bid=course_bid,
+                    outline_item_bid=outline_bid,
+                    title="Builtin demo lesson",
+                    position=0,
+                    deleted=0,
+                )
+            )
+    yield SimpleNamespace(course_bid=course_bid, outline_bid=outline_bid)
+    with app.app_context(), unit_of_work():
+        for model in (DraftOutlineItem, PublishedOutlineItem):
+            model.query.filter_by(outline_item_bid=outline_bid).delete()
+
+
+def test_stream_passthrough_releases_request_db_session(monkeypatch: object) -> None:
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -153,7 +181,7 @@ def test_stream_passthrough_releases_request_db_session(monkeypatch):
         SimpleNamespace(session=SimpleNamespace(remove=lambda: calls.append("remove"))),
     )
 
-    def _messages():
+    def _messages() -> object:
         calls.append("iterate")
         yield 'data: {"type":"done"}\n\n'
 
@@ -171,15 +199,18 @@ def test_stream_passthrough_releases_request_db_session(monkeypatch):
     assert calls == ["remove", "iterate", "remove"]
 
 
-def test_stream_passthrough_ignores_request_db_session_remove_failure(monkeypatch):
+def test_stream_passthrough_ignores_request_db_session_remove_failure(
+    monkeypatch: object,
+) -> None:
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
     calls = []
 
-    def _remove():
+    def _remove() -> None:
         calls.append("remove")
-        raise RuntimeError("remove failed")
+        message = "remove failed"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(
         routes,
@@ -187,7 +218,7 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(monkeypatc
         SimpleNamespace(session=SimpleNamespace(remove=_remove)),
     )
 
-    def _messages():
+    def _messages() -> object:
         calls.append("iterate")
         yield 'data: {"type":"done"}\n\n'
 
@@ -205,8 +236,10 @@ def test_stream_passthrough_ignores_request_db_session_remove_failure(monkeypatc
     assert calls == ["remove", "iterate", "remove"]
 
 
-def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
-    from flaskr.service.common.models import AppException
+def test_stream_sse_logs_business_errors_as_warning(
+    monkeypatch: object, caplog: object
+) -> None:
+    from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -216,8 +249,9 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
         SimpleNamespace(session=SimpleNamespace(remove=lambda: None)),
     )
 
-    def _messages():
-        raise AppException("TTS provider quota exceeded", 45000292)
+    def _messages() -> object:
+        message = "TTS provider quota exceeded"
+        raise AppError(message, 45000292)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
@@ -227,11 +261,8 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
             close_log="closed",
             error_log="synthesize generated block audio failed",
         )
-        with caplog.at_level(logging.WARNING):
-            try:
-                list(resp.response)
-            except AppException:
-                pass
+        with caplog.at_level(logging.WARNING), contextlib.suppress(AppError):
+            list(resp.response)
 
     assert (
         "synthesize generated block audio failed: TTS provider quota exceeded"
@@ -240,7 +271,9 @@ def test_stream_sse_logs_business_errors_as_warning(monkeypatch, caplog):
     assert not [record for record in caplog.records if record.levelno >= logging.ERROR]
 
 
-def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
+def test_stream_sse_keeps_unexpected_errors_at_error_level(
+    monkeypatch: object, caplog: object
+) -> None:
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -250,8 +283,9 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
         SimpleNamespace(session=SimpleNamespace(remove=lambda: None)),
     )
 
-    def _messages():
-        raise RuntimeError("tts worker crashed")
+    def _messages() -> object:
+        message = "tts worker crashed"
+        raise RuntimeError(message)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
@@ -261,20 +295,17 @@ def test_stream_sse_keeps_unexpected_errors_at_error_level(monkeypatch, caplog):
             close_log="closed",
             error_log="synthesize generated block audio failed",
         )
-        with caplog.at_level(logging.ERROR):
-            try:
-                list(resp.response)
-            except RuntimeError:
-                pass
+        with caplog.at_level(logging.ERROR), contextlib.suppress(RuntimeError):
+            list(resp.response)
 
     assert "synthesize generated block audio failed" in caplog.text
     assert [record for record in caplog.records if record.levelno >= logging.ERROR]
 
 
 def test_stream_sse_emits_error_event_for_business_error_with_factory(
-    monkeypatch, caplog
-):
-    from flaskr.service.common.models import AppException
+    monkeypatch: object, caplog: object
+) -> None:
+    from flaskr.service.common.models import AppError
     from flaskr.service.learn import routes
 
     app = Flask(__name__)
@@ -284,8 +315,9 @@ def test_stream_sse_emits_error_event_for_business_error_with_factory(
         SimpleNamespace(session=SimpleNamespace(remove=lambda: None)),
     )
 
-    def _messages():
-        raise AppException("TTS provider quota exceeded", 45000292)
+    def _messages() -> object:
+        message = "TTS provider quota exceeded"
+        raise AppError(message, 45000292)
         yield  # pragma: no cover
 
     with app.test_request_context("/api/learn/shifu/s/generated-blocks/g/tts"):
@@ -354,8 +386,9 @@ def test_run_route_passes_admission_payload_to_run_script() -> None:
 
 
 def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
-    monkeypatch, test_client, app
-):
+    monkeypatch: object, test_client: object, app: object
+) -> None:
+    _ = app
     _mock_user(monkeypatch, "user-preview")
     monkeypatch.setattr(
         "flaskr.service.learn.routes.is_builtin_demo_shifu",
@@ -373,7 +406,7 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
     )
     monkeypatch.setattr(
         "flaskr.service.learn.context_v2.RunScriptPreviewContextV2.stream_preview",
-        lambda self, **_kwargs: iter(
+        lambda _self, **_kwargs: iter(
             [
                 {
                     "type": "element",
@@ -398,13 +431,13 @@ def test_preview_route_skips_admission_and_runtime_slot_for_builtin_demo(
 
 
 def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
-    monkeypatch, test_client
-):
+    builtin_demo_outline: object, monkeypatch: object, test_client: object
+) -> None:
     _mock_user(monkeypatch, "user-run")
 
     monkeypatch.setattr(
         "flaskr.service.learn.routes.is_builtin_demo_shifu",
-        lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
+        lambda _app, shifu_bid: shifu_bid == builtin_demo_outline.course_bid,
     )
     monkeypatch.setattr(
         "flaskr.service.learn.routes.admit_creator_usage",
@@ -413,7 +446,7 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
         ),
     )
 
-    def _fake_run_script(*_args, **kwargs):
+    def _fake_run_script(*_args: object, **kwargs: object) -> object:
         assert "runtime_admission_payload" not in kwargs
         yield 'data: {"type":"done","event_type":"done","content":""}\n\n'
 
@@ -423,7 +456,8 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
     )
 
     resp = test_client.put(
-        "/api/learn/shifu/builtin-demo-1/run/outline-1",
+        f"/api/learn/shifu/{builtin_demo_outline.course_bid}/run/"
+        f"{builtin_demo_outline.outline_bid}",
         json={"input": "hello"},
         headers={"Token": "test-token"},
     )
@@ -435,17 +469,17 @@ def test_run_route_skips_runtime_admission_payload_for_builtin_demo(
 
 
 def test_run_route_uses_payload_language_as_generation_snapshot(
-    monkeypatch, test_client
-):
+    builtin_demo_outline: object, monkeypatch: object, test_client: object
+) -> None:
     _mock_user(monkeypatch, "user-run-language")
     captured = {}
 
     monkeypatch.setattr(
         "flaskr.service.learn.routes.is_builtin_demo_shifu",
-        lambda _app, shifu_bid: shifu_bid == "builtin-demo-1",
+        lambda _app, shifu_bid: shifu_bid == builtin_demo_outline.course_bid,
     )
 
-    def _fake_run_script(*_args, **kwargs):
+    def _fake_run_script(*_args: object, **kwargs: object) -> object:
         captured.update(kwargs)
         yield 'data: {"type":"done","event_type":"done","content":""}\n\n'
 
@@ -455,7 +489,8 @@ def test_run_route_uses_payload_language_as_generation_snapshot(
     )
 
     resp = test_client.put(
-        "/api/learn/shifu/builtin-demo-1/run/outline-1",
+        f"/api/learn/shifu/{builtin_demo_outline.course_bid}/run/"
+        f"{builtin_demo_outline.outline_bid}",
         json={"input": "hello", "language": "fr-FR"},
         headers={
             "Token": "test-token",

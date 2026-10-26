@@ -1,24 +1,183 @@
+"""Verify user identify behavior."""
+
+import logging
+import threading
 import uuid
+
+import pytest
+
+
+class _FakeRedisLock:
+    def __init__(
+        self,
+        locks: dict[str, bool],
+        key: str,
+        acquire_outcome: bool | Exception = True,
+        extend_outcome: bool | Exception = True,
+    ) -> None:
+        self._locks = locks
+        self._key = key
+        self._acquire_outcome = acquire_outcome
+        self._extend_outcome = extend_outcome
+        self._held = False
+        self.extend_calls: list[tuple[int, bool]] = []
+        self.extended = threading.Event()
+
+    def acquire(
+        self, blocking: bool = True, blocking_timeout: int | None = None
+    ) -> bool:
+        _ = (blocking, blocking_timeout)
+        if isinstance(self._acquire_outcome, Exception):
+            raise self._acquire_outcome
+        if not self._acquire_outcome:
+            return False
+        if self._locks.get(self._key, False):
+            return False
+        self._locks[self._key] = True
+        self._held = True
+        return True
+
+    def release(self) -> None:
+        if self._held:
+            self._locks.pop(self._key, None)
+            self._held = False
+
+    def extend(self, additional_time: int, replace_ttl: bool = False) -> bool:
+        self.extend_calls.append((additional_time, replace_ttl))
+        self.extended.set()
+        if isinstance(self._extend_outcome, Exception):
+            raise self._extend_outcome
+        return self._held and self._extend_outcome
 
 
 class _FakeRedis:
-    def __init__(self, values=None):
+    def __init__(
+        self,
+        values: object = None,
+        *,
+        lock_acquire_outcome: bool | Exception = True,
+        lock_extend_outcome: bool | Exception = True,
+    ) -> None:
         self.values = dict(values or {})
+        self.lock_acquire_outcome = lock_acquire_outcome
+        self.lock_extend_outcome = lock_extend_outcome
         self.deleted = []
+        self.locks: dict[str, bool] = {}
+        self.last_lock: _FakeRedisLock | None = None
+        self.lock_thread_local: bool | None = None
 
-    def get(self, key):
+    def get(self, key: object) -> object:
         return self.values.get(key)
 
-    def delete(self, *keys):
+    def set(
+        self,
+        key: str,
+        value: object,
+        ex: int | None = None,
+        px: int | None = None,
+        nx: bool = False,
+        xx: bool = False,
+        *_args: object,
+        **_kwargs: object,
+    ) -> object:
+        _ = (ex, px)
+        if nx and key in self.values:
+            return False
+        if xx and key not in self.values:
+            return False
+        self.values[key] = value
+        return True
+
+    def incr(self, key: str, amount: int = 1) -> int:
+        value = int(self.values.get(key, 0)) + amount
+        self.values[key] = value
+        return value
+
+    def lock(
+        self,
+        key: str,
+        timeout: int | None = None,
+        blocking_timeout: int | None = None,
+        thread_local: bool = True,
+    ) -> _FakeRedisLock:
+        _ = (timeout, blocking_timeout)
+        self.lock_thread_local = thread_local
+        self.last_lock = _FakeRedisLock(
+            self.locks,
+            key,
+            self.lock_acquire_outcome,
+            self.lock_extend_outcome,
+        )
+        return self.last_lock
+
+    def delete(self, *keys: str) -> object:
         self.deleted.extend(keys)
+        for key in keys:
+            self.values.pop(key, None)
         return len(keys)
 
 
-def _reset_user_auth_tables():
+@pytest.mark.parametrize(
+    ("flow_name", "verify_name", "credentials"),
+    [
+        (
+            "email_flow",
+            "verify_email_code",
+            {"email": "user@example.com", "code": "1234"},
+        ),
+        (
+            "phone_flow",
+            "verify_phone_code",
+            {"phone": "15500001111", "code": "1234"},
+        ),
+    ],
+)
+def test_login_flows_do_not_override_distributed_verification_lock(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    flow_name: str,
+    verify_name: str,
+    credentials: dict[str, str],
+) -> None:
+    from flaskr.service.user import email_flow, phone_flow
+
+    flow = {"email_flow": email_flow, "phone_flow": phone_flow}[flow_name]
+    captured_kwargs: dict[str, object] = {}
+
+    class _VerificationCapturedError(Exception):
+        pass
+
+    def _stop_after_verification(*_args: object, **kwargs: object) -> None:
+        captured_kwargs.update(kwargs)
+        raise _VerificationCapturedError
+
+    monkeypatch.setattr(flow, "consume_verification_code", _stop_after_verification)
+
+    with pytest.raises(_VerificationCapturedError):
+        getattr(flow, verify_name)(app, user_id=None, **credentials)
+
+    assert "cache_provider" not in captured_kwargs
+
+
+def _use_verification_cache(
+    monkeypatch: pytest.MonkeyPatch,
+    cache: _FakeRedis,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    monkeypatch.setattr(verification_codes, "redis", cache)
+    monkeypatch.setattr(verification_codes, "distributed_lock_cache", cache)
+
+
+def _reset_user_auth_tables() -> None:
     from flaskr.dao import db
     from flaskr.service.user.models import (
         AuthCredential,
+    )
+    from flaskr.service.user.models import (
         UserInfo as UserEntity,
+    )
+    from flaskr.service.user.models import (
         UserToken as UserTokenModel,
     )
 
@@ -46,17 +205,18 @@ def _reset_shifu_tables() -> None:
     db.session.commit()
 
 
-def test_phone_flow_marks_temp_phone_claim_as_created_new_user(tmp_path, monkeypatch):
+def test_phone_flow_marks_temp_phone_claim_as_created_new_user(
+    tmp_path: object, monkeypatch: object
+) -> None:
     from flask import Flask
-    from flask_sqlalchemy import SQLAlchemy
-
     from flaskr import dao
-    import flaskr.service.user.phone_flow as phone_flow
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.consts import (
         USER_STATE_REGISTERED,
         USER_STATE_UNREGISTERED,
     )
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
+    from flaskr.service.user.models import AuthCredential
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     app = Flask(__name__)
     db_uri = f"sqlite:///{tmp_path / 'phone-claim.db'}"
@@ -75,8 +235,6 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(tmp_path, monkeyp
         ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO=False,
     )
 
-    if dao.db is None:
-        dao.db = SQLAlchemy()
     dao.db.init_app(app)
 
     fake_redis = _FakeRedis()
@@ -123,8 +281,84 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(tmp_path, monkeyp
         assert credential is not None
 
 
-def test_phone_flow_sets_user_identify(app):
-    import flaskr.service.user.phone_flow as phone_flow
+def test_email_flow_marks_temp_email_claim_as_created_new_user(
+    tmp_path: object, monkeypatch: object
+) -> None:
+    from flask import Flask
+    from flaskr import dao
+    from flaskr.service.user import email_flow
+    from flaskr.service.user.consts import (
+        USER_STATE_REGISTERED,
+        USER_STATE_UNREGISTERED,
+    )
+    from flaskr.service.user.models import AuthCredential
+    from flaskr.service.user.models import UserInfo as UserEntity
+
+    app = Flask(__name__)
+    db_uri = f"sqlite:///{tmp_path / 'email-claim.db'}"
+    app.config.update(
+        SECRET_KEY="test-secret-key",
+        SQLALCHEMY_DATABASE_URI=db_uri,
+        SQLALCHEMY_BINDS={
+            "ai_shifu_saas": db_uri,
+            "ai_shifu_admin": db_uri,
+        },
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        TOKEN_EXPIRE_TIME=60 * 60,
+        UNIVERSAL_VERIFICATION_CODE="9999",
+        REDIS_KEY_PREFIX_MAIL_CODE="test:email:",
+        REDIS_KEY_PREFIX_USER="test:user:",
+        ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO=False,
+    )
+
+    dao.db.init_app(app)
+
+    monkeypatch.setattr(email_flow, "redis", _FakeRedis(), raising=False)
+    monkeypatch.setattr(email_flow, "init_first_course", lambda *_args: False)
+
+    with app.app_context():
+        dao.db.create_all()
+        temp_user_bid = uuid.uuid4().hex
+        email = "guest@example.com"
+        dao.db.session.add(
+            UserEntity(
+                user_bid=temp_user_bid,
+                user_identify=temp_user_bid,
+                nickname="",
+                language="en-US",
+                state=USER_STATE_UNREGISTERED,
+                deleted=0,
+            )
+        )
+        dao.db.session.commit()
+
+        token, created_new_user, _ctx = email_flow.verify_email_code(
+            app,
+            user_id=temp_user_bid,
+            email=email,
+            code="9999",
+            language="en-US",
+        )
+
+        entity = UserEntity.query.filter_by(user_bid=temp_user_bid).first()
+        credential = AuthCredential.query.filter_by(
+            user_bid=temp_user_bid,
+            provider_name="email",
+            identifier=email,
+        ).first()
+
+        assert token.userInfo.user_id == temp_user_bid
+        assert created_new_user is True
+        assert entity is not None
+        assert entity.user_identify == email
+        assert entity.state == USER_STATE_REGISTERED
+        assert credential is not None
+
+
+def test_phone_flow_sets_user_identify(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo as UserEntity
 
     # Bypass code storage by using universal code
@@ -132,8 +366,7 @@ def test_phone_flow_sets_user_identify(app):
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
 
-        # Monkeypatch redis in module scope
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         try:
@@ -152,56 +385,72 @@ def test_phone_flow_sets_user_identify(app):
             _reset_user_auth_tables()
 
 
-def test_email_flow_sets_user_identify(app):
-    import flaskr.service.user.email_flow as email_flow
+def test_email_flow_sets_user_identify(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.user import email_flow
     from flaskr.service.user.models import UserInfo as UserEntity
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        email_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         try:
             raw_email = "TestUser@Example.com"
-            token, _created, _ctx = email_flow.verify_email_code(
+            token, _created, context = email_flow.verify_email_code(
                 app, user_id=None, email=raw_email, code="9999"
             )
 
             entity = UserEntity.query.filter_by(user_bid=token.userInfo.user_id).first()
             assert entity is not None
             assert entity.user_identify == raw_email.lower()
+            assert context["creator_granted_now"] is True
         finally:
             _reset_user_auth_tables()
 
 
-def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
+def test_send_email_code_stores_lowercase_identifier(
+    app: object, monkeypatch: object
+) -> None:
+    from email import message_from_string
+
     import flaskr.service.user.utils as user_utils
     from flaskr.dao import db
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
     from flaskr.service.user.models import UserVerifyCode
+
     from tests.common.fixtures.fake_redis import FakeRedis
 
     class _FakeSMTP:
-        def __init__(self, *_args, **_kwargs):
-            self.sent_to = None
+        sent_message = ""
+        sent_to = ""
 
-        def starttls(self):
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def starttls(self) -> None:
             return None
 
-        def login(self, *_args):
+        def login(self, *_args: object) -> None:
             return None
 
-        def sendmail(self, _sender, recipient, _message):
-            self.sent_to = recipient
-            return None
+        def sendmail(self, _sender: object, recipient: object, message: object) -> None:
+            type(self).sent_to = recipient
+            type(self).sent_message = message
 
-        def quit(self):
+        def quit(self) -> None:
             return None
 
     fake_redis = FakeRedis()
     monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(verification_codes, "redis", fake_redis)
+    monkeypatch.setattr(verification_codes, "get_redis_client", lambda: None)
     monkeypatch.setattr(user_utils.smtplib, "SMTP", _FakeSMTP, raising=False)
-    monkeypatch.setattr(user_utils.random, "choices", lambda _chars, k: list("1234"))
+    fixed_digits = iter("1234")
+    monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
 
     with app.app_context():
         app.config.update(
@@ -236,6 +485,24 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
             assert record is not None
             assert record.verify_code == "1234"
             assert record.verify_code_send == 1
+
+            message = message_from_string(_FakeSMTP.sent_message)
+            assert _FakeSMTP.sent_to == normalized_email
+            assert message["Subject"] == "AI-Shifu verification code"
+            parts = {part.get_content_type(): part for part in message.walk()}
+            assert "text/plain" in parts
+            assert "text/html" in parts
+            plain_body = parts["text/plain"].get_payload(decode=True).decode()
+            html_body = parts["text/html"].get_payload(decode=True).decode()
+            assert "Verification code: 1234" in plain_body
+            assert "It expires in 5 minutes" in plain_body
+            assert "Verify your AI-Shifu account" in html_body
+            assert "1234" in html_body
+            assert "Please do not reply" in html_body
+
+            with pytest.raises(AppError) as exc_info:
+                user_utils.send_email_code(app, raw_email)
+            assert exc_info.value.code == 1033
         finally:
             UserVerifyCode.query.filter(
                 UserVerifyCode.mail.in_([raw_email, normalized_email])
@@ -243,15 +510,501 @@ def test_send_email_code_stores_lowercase_identifier(app, monkeypatch):
             db.session.commit()
 
 
-def test_phone_flow_verifies_code_from_db_when_cache_missing(app):
-    import flaskr.service.user.phone_flow as phone_flow
+def test_send_email_code_rejects_invalid_email_before_challenge(
+    app: object, monkeypatch: object
+) -> None:
+    import flaskr.service.user.utils as user_utils
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.user.models import UserVerifyCode
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(
+        user_utils.smtplib,
+        "SMTP",
+        lambda *_args, **_kwargs: pytest.fail(
+            "invalid emails must not open an SMTP connection"
+        ),
+    )
+    prepare_calls: list[str] = []
+    monkeypatch.setattr(
+        user_utils,
+        "_prepare_verification_challenge",
+        lambda *_args, **_kwargs: prepare_calls.append("called"),
+    )
+
+    with app.app_context():
+        with pytest.raises(AppError) as exc_info:
+            user_utils.send_email_code(app, "not-an-email")
+
+        assert exc_info.value.code == ERROR_CODE["server.common.paramsError"]
+        assert "email" in exc_info.value.message
+        assert prepare_calls == []
+        assert UserVerifyCode.query.filter_by(mail="not-an-email").first() is None
+        assert fake_redis._store == {}
+
+
+@pytest.mark.parametrize(
+    ("policy_name", "identifier", "next_identifier", "expected_rate_code"),
+    [
+        ("_SMS_CHALLENGE_POLICY", "13800138000", "13800138001", 1012),
+        (
+            "_EMAIL_CHALLENGE_POLICY",
+            "learner@example.com",
+            "next@example.com",
+            1033,
+        ),
+    ],
+)
+def test_prepare_verification_challenge_shares_limits_and_persistence(
+    monkeypatch: object,
+    policy_name: str,
+    identifier: str,
+    next_identifier: str,
+    expected_rate_code: int,
+) -> None:
+    import contextlib
+    from types import SimpleNamespace
+
+    import flaskr.service.user.utils as user_utils
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    fake_redis = FakeRedis()
+    captured_records: list[dict[str, object]] = []
+    lock_observations: list[bool] = []
+    delivery_observations: list[bool] = []
+    monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(
+        verification_codes,
+        "distributed_lock_cache",
+        fake_redis,
+    )
+    monkeypatch.setattr(user_utils.time, "time", lambda: 100)
+    monkeypatch.setattr(
+        user_utils.secrets,
+        "choice",
+        lambda _characters: "1",
+    )
+
+    def _capture_record(**kwargs: object) -> object:
+        lock_key = (
+            verification_codes._verification_attempt_key(
+                fake_app,
+                "email" if policy.verify_code_type == 2 else "sms",
+                identifier,
+            )
+            + ":lock"
+        )
+        lock_observations.append(fake_redis._locks.get(lock_key, False))
+        captured_records.append(kwargs)
+        return SimpleNamespace(verify_code_send=0)
+
+    monkeypatch.setattr(
+        user_utils,
+        "create_user_verify_code",
+        _capture_record,
+    )
+    # No Flask app here: neutralize the unit-of-work boundaries so the test
+    # keeps exercising the cache/lock/delivery ordering only.
+    monkeypatch.setattr(user_utils, "unit_of_work", contextlib.nullcontext)
+    monkeypatch.setattr(
+        user_utils,
+        "_redis_prefix",
+        lambda current_app, config_key: current_app.config[config_key],
+    )
+
+    fake_app = SimpleNamespace(
+        logger=logging.getLogger("test.verification.challenge"),
+        config={
+            "SECRET_KEY": "test-verification-attempt-key",
+            "REDIS_KEY_PREFIX_IP_BAN": "test:ip-ban:",
+            "REDIS_KEY_PREFIX_IP_LIMIT": "test:ip-limit:",
+            "REDIS_KEY_PREFIX_PHONE_LIMIT": "test:phone-limit:",
+            "REDIS_KEY_PREFIX_PHONE_CODE": "test:phone-code:",
+            "REDIS_KEY_PREFIX_MAIL_LIMIT": "test:mail-limit:",
+            "REDIS_KEY_PREFIX_MAIL_CODE": "test:mail-code:",
+            "IP_SMS_LIMIT_COUNT": 2,
+            "IP_SMS_LIMIT_TIME": 60,
+            "IP_MAIL_LIMIT_COUNT": 2,
+            "IP_MAIL_LIMIT_TIME": 60,
+            "IP_BAN_TIME": 300,
+            "SMS_CODE_INTERVAL": 60,
+            "PHONE_CODE_EXPIRE_TIME": 300,
+            "MAIL_CODE_INTERVAL": 60,
+            "MAIL_CODE_EXPIRE_TIME": 300,
+            "REDIS_HOST": "redis",
+            "REDIS_PORT": 6379,
+        },
+    )
+    policy = getattr(user_utils, policy_name)
+
+    def _deliver(_challenge: object) -> bool:
+        lock_key = (
+            verification_codes._verification_attempt_key(
+                fake_app,
+                "email" if policy.verify_code_type == 2 else "sms",
+                identifier,
+            )
+            + ":lock"
+        )
+        delivery_observations.append(fake_redis._locks.get(lock_key, False))
+        return True
+
+    with pytest.raises(AppError) as delivery_error:
+        user_utils._prepare_verification_challenge(
+            fake_app,
+            identifier,
+            None,
+            policy,
+            lambda _challenge: False,
+        )
+    assert delivery_error.value.code == 9999
+    assert (
+        fake_redis.get(
+            user_utils._redis_prefix(fake_app, policy.code_prefix_config) + identifier
+        )
+        is None
+    )
+    assert (
+        fake_redis.get(
+            user_utils._redis_prefix(fake_app, policy.identifier_limit_prefix_config)
+            + identifier
+        )
+        is None
+    )
+    captured_records.clear()
+    lock_observations.clear()
+
+    challenge = user_utils._prepare_verification_challenge(
+        fake_app,
+        identifier,
+        "203.0.113.10",
+        policy,
+        _deliver,
+    )
+
+    assert challenge.code == "1111"
+    assert challenge.expire_in == 300
+    assert (
+        fake_redis.get(
+            user_utils._redis_prefix(fake_app, policy.code_prefix_config) + identifier
+        )
+        == b"1111"
+    )
+    assert captured_records == [
+        {
+            "mail": identifier if policy.verify_code_type == 2 else None,
+            "phone": identifier if policy.verify_code_type == 1 else None,
+            "verify_code": "1111",
+            "verify_code_type": policy.verify_code_type,
+            "ip": "203.0.113.10",
+        }
+    ]
+    assert lock_observations == [True]
+    assert delivery_observations == [True]
+    assert challenge.record.verify_code_send == 1
+    assert fake_redis._locks == {}
+
+    with pytest.raises(AppError) as rate_error:
+        user_utils._prepare_verification_challenge(
+            fake_app,
+            identifier,
+            "203.0.113.10",
+            policy,
+            _deliver,
+        )
+    assert rate_error.value.code == expected_rate_code
+
+    with pytest.raises(AppError) as ip_error:
+        user_utils._prepare_verification_challenge(
+            fake_app,
+            next_identifier,
+            "203.0.113.10",
+            policy,
+            _deliver,
+        )
+    assert ip_error.value.code == 9999
+
+
+def test_prepare_verification_challenge_fails_when_attempt_reset_is_not_durable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    import flaskr.service.user.utils as user_utils
+    from flaskr.service.user import verification_codes
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    identifier = "learner@example.com"
+    fake_app = SimpleNamespace(
+        logger=logging.getLogger("test.verification.challenge"),
+        config={
+            "SECRET_KEY": "test-verification-attempt-key",
+            "REDIS_KEY_PREFIX_MAIL_LIMIT": "test:mail-limit:",
+            "REDIS_KEY_PREFIX_MAIL_CODE": "test:mail-code:",
+            "MAIL_CODE_INTERVAL": 60,
+            "MAIL_CODE_EXPIRE_TIME": 300,
+            "REDIS_HOST": "redis",
+            "REDIS_PORT": 6379,
+        },
+    )
+    attempt_key = verification_codes._verification_attempt_key(
+        fake_app,
+        "email",
+        identifier,
+    )
+
+    class _AttemptResetUnavailableRedis(FakeRedis):
+        def delete(self, *keys: str) -> int:
+            if attempt_key in keys:
+                unavailable_message = "Redis unavailable"
+                raise ConnectionError(unavailable_message)
+            return super().delete(*keys)
+
+    strict_cache = _AttemptResetUnavailableRedis()
+    fallback_cache = FakeRedis()
+    delivered = False
+    monkeypatch.setattr(user_utils, "redis", fallback_cache)
+    monkeypatch.setattr(
+        verification_codes,
+        "distributed_lock_cache",
+        strict_cache,
+    )
+    configured_client = object()
+    monkeypatch.setattr(
+        verification_codes,
+        "get_redis_client",
+        lambda: configured_client,
+    )
+    monkeypatch.setattr(
+        user_utils,
+        "_redis_prefix",
+        lambda current_app, config_key: current_app.config[config_key],
+    )
+
+    def _deliver(_challenge: object) -> bool:
+        nonlocal delivered
+        delivered = True
+        return True
+
+    with pytest.raises(ConnectionError, match="Redis unavailable"):
+        user_utils._prepare_verification_challenge(
+            fake_app,
+            identifier,
+            None,
+            user_utils._EMAIL_CHALLENGE_POLICY,
+            _deliver,
+        )
+
+    assert not delivered
+    assert fallback_cache.get("test:mail-code:" + identifier) is None
+
+
+def test_send_email_code_uses_implicit_ssl_and_closes_failed_connection(
+    app: object, monkeypatch: object, caplog: pytest.LogCaptureFixture
+) -> None:
+    import flaskr.service.user.utils as user_utils
     from flaskr.dao import db
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user.models import UserVerifyCode
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    class _FailingSMTPSSL:
+        initialized_with: tuple[object, object] | None = None
+        quit_called = False
+
+        def __init__(
+            self, server: object, port: object, timeout: object = None
+        ) -> None:
+            type(self).initialized_with = (server, port)
+            type(self).timeout = timeout
+
+        def login(self, *_args: object) -> None:
+            return None
+
+        def sendmail(self, *_args: object) -> None:
+            raise user_utils.smtplib.SMTPRecipientsRefused(
+                {"ssl@example.com": (550, b"recipient rejected")}
+            )
+
+        def quit(self) -> None:
+            type(self).quit_called = True
+
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(user_utils.smtplib, "SMTP_SSL", _FailingSMTPSSL)
+    monkeypatch.setattr(
+        user_utils.smtplib,
+        "SMTP",
+        lambda *_args, **_kwargs: pytest.fail("STARTTLS must not be used for port 465"),
+    )
+    fixed_digits = iter("2468")
+    monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
+
+    email = "ssl@example.com"
+    smtp_config = {
+        "REDIS_KEY_PREFIX_MAIL_CODE": "test:mail:",
+        "REDIS_KEY_PREFIX_MAIL_LIMIT": "test:mail-limit:",
+        "MAIL_CODE_EXPIRE_TIME": "300",
+        "MAIL_CODE_INTERVAL": "60",
+        "SMTP_SENDER": "sender@example.com",
+        "SMTP_SERVER": "smtp.example.com",
+        "SMTP_PORT": "465",
+        "SMTP_USERNAME": "sender@example.com",
+        "SMTP_PASSWORD": "secret",
+    }
+    for key, value in smtp_config.items():
+        monkeypatch.setenv(key, value)
+        app.config.enhanced._cache.pop(key, None)
+
+    app.logger.addHandler(caplog.handler)
+    with app.app_context(), caplog.at_level(logging.WARNING):
+        try:
+            with pytest.raises(AppError):
+                user_utils.send_email_code(app, email)
+
+            assert _FailingSMTPSSL.initialized_with == ("smtp.example.com", 465)
+            assert _FailingSMTPSSL.timeout == 10.0
+            assert _FailingSMTPSSL.quit_called is True
+            assert "auth_event=email_verification_code_failed" in caplog.text
+            assert "error_type=SMTPRecipientsRefused" in caplog.text
+            assert email not in caplog.text
+        finally:
+            app.logger.removeHandler(caplog.handler)
+            UserVerifyCode.query.filter_by(mail=email).delete(synchronize_session=False)
+            db.session.commit()
+            for key in smtp_config:
+                app.config.enhanced._cache.pop(key, None)
+
+
+def test_send_email_code_uses_requested_language_and_singular_expiry(
+    app: object, monkeypatch: object
+) -> None:
+    from email import message_from_string
+    from email.header import decode_header, make_header
+
+    import flaskr.service.user.utils as user_utils
+    from flaskr.dao import db
+    from flaskr.service.user.models import UserVerifyCode
+
+    from tests.common.fixtures.fake_redis import FakeRedis
+
+    class _FakeSMTP:
+        sent_message = ""
+
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def starttls(self) -> None:
+            return None
+
+        def login(self, *_args: object) -> None:
+            return None
+
+        def sendmail(
+            self, _sender: object, _recipient: object, message: object
+        ) -> None:
+            type(self).sent_message = message
+
+        def quit(self) -> None:
+            return None
+
+    fake_redis = FakeRedis()
+    monkeypatch.setattr(user_utils, "redis", fake_redis, raising=False)
+    monkeypatch.setattr(user_utils.smtplib, "SMTP", _FakeSMTP, raising=False)
+    fixed_digits = iter("5678")
+    monkeypatch.setattr(user_utils.secrets, "choice", lambda _chars: next(fixed_digits))
+
+    with app.app_context():
+        app.config.update(
+            REDIS_KEY_PREFIX_MAIL_CODE="test:mail:",
+            REDIS_KEY_PREFIX_MAIL_LIMIT="test:mail-limit:",
+            MAIL_CODE_INTERVAL=60,
+            SMTP_SENDER="sender@example.com",
+            SMTP_SERVER="smtp.example.com",
+            SMTP_PORT=587,
+            SMTP_USERNAME="sender@example.com",
+            SMTP_PASSWORD="secret",
+        )
+        original_expire_time = app.config["MAIL_CODE_EXPIRE_TIME"]
+        app.config["MAIL_CODE_EXPIRE_TIME"] = 60
+        user_utils.set_language("en-US")
+        email = "french@example.com"
+        try:
+            user_utils.send_email_code(app, email, language="fr-FR")
+
+            message = message_from_string(_FakeSMTP.sent_message)
+            subject = str(make_header(decode_header(message["Subject"])))
+            assert subject == "Code de vérification AI-Shifu"
+            parts = {part.get_content_type(): part for part in message.walk()}
+            plain_body = parts["text/plain"].get_payload(decode=True).decode()
+            html_body = parts["text/html"].get_payload(decode=True).decode()
+            assert "Code de vérification : 5678" in plain_body
+            assert "Il expire dans une minute." in plain_body
+            assert "1 minutes" not in plain_body
+            assert "Ce code expire dans une minute." in html_body
+            assert "1 minutes" not in html_body
+            assert '<html lang="fr-FR" dir="ltr">' in html_body
+
+            _subject, _plain_body, arabic_html_body = (
+                user_utils._format_email_verification_message(
+                    "5678", 60, language="ar-SA"
+                )
+            )
+            assert '<html lang="ar-SA" dir="rtl">' in arabic_html_body
+
+            arabic_subject, _plain_body, arabic_variant_html_body = (
+                user_utils._format_email_verification_message(
+                    "5678", 60, language="ar-AE"
+                )
+            )
+            assert arabic_subject == "رمز التحقق من AI-Shifu"
+            assert '<html lang="ar-SA" dir="rtl">' in arabic_variant_html_body
+
+            for expire_seconds, expected_duration in (
+                (120, "دقيقتين"),
+                (300, "5 دقائق"),
+                (660, "11 دقيقةً"),
+                (6000, "100 دقيقة"),
+            ):
+                _subject, arabic_plain_body, arabic_plural_html_body = (
+                    user_utils._format_email_verification_message(
+                        "5678", expire_seconds, language="ar-SA"
+                    )
+                )
+                assert expected_duration in arabic_plain_body
+                assert expected_duration in arabic_plural_html_body
+
+            thai_subject, _plain_body, thai_html_body = (
+                user_utils._format_email_verification_message("5678", 60, language="th")
+            )
+            assert thai_subject == "รหัสยืนยัน AI-Shifu"
+            assert '<html lang="th-TH" dir="ltr">' in thai_html_body
+            assert user_utils.get_current_language() == "en-US"
+        finally:
+            app.config["MAIL_CODE_EXPIRE_TIME"] = original_expire_time
+            UserVerifyCode.query.filter_by(mail=email).delete(synchronize_session=False)
+            db.session.commit()
+
+
+def test_phone_flow_verifies_code_from_db_when_cache_missing(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.dao import db
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserVerifyCode
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         phone = "15500002222"
         code = "1234"
@@ -277,16 +1030,18 @@ def test_phone_flow_verifies_code_from_db_when_cache_missing(app):
         assert updated.verify_code_used == 1
 
 
-def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app):
-    import flaskr.service.user.phone_flow as phone_flow
+def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-    from flaskr.service.user.models import UserVerifyCode
+    from flaskr.service.user import phone_flow
+    from flaskr.service.user.models import AuthCredential, UserVerifyCode
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         phone = "15500005555"
@@ -325,16 +1080,18 @@ def test_phone_flow_normalizes_cn_prefix_when_verifying_db_code(app):
             _reset_user_auth_tables()
 
 
-def test_phone_flow_accepts_prefixed_pending_db_code(app):
-    import flaskr.service.user.phone_flow as phone_flow
+def test_phone_flow_accepts_prefixed_pending_db_code(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
-    from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
-    from flaskr.service.user.models import UserVerifyCode
+    from flaskr.service.user import phone_flow
+    from flaskr.service.user.models import AuthCredential, UserVerifyCode
+    from flaskr.service.user.models import UserInfo as UserEntity
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         phone = "15500006666"
@@ -373,9 +1130,11 @@ def test_phone_flow_accepts_prefixed_pending_db_code(app):
             _reset_user_auth_tables()
 
 
-def test_consume_verification_code_accepts_prefixed_pending_cache_key(app):
-    import flaskr.service.user.verification_codes as verification_codes
+def test_consume_verification_code_accepts_prefixed_pending_cache_key(
+    app: object,
+) -> None:
     from flaskr.dao import db
+    from flaskr.service.user import verification_codes
     from flaskr.service.user.models import UserVerifyCode
 
     with app.app_context():
@@ -384,6 +1143,7 @@ def test_consume_verification_code_accepts_prefixed_pending_cache_key(app):
         prefix = app.config["REDIS_KEY_PREFIX_PHONE_CODE"]
         fake_redis = _FakeRedis({f"{prefix}+86{phone}": code})
         verification_codes.redis = fake_redis
+        verification_codes.distributed_lock_cache = fake_redis
 
         record = UserVerifyCode(
             phone=f"+86{phone}",
@@ -411,10 +1171,331 @@ def test_consume_verification_code_accepts_prefixed_pending_cache_key(app):
             db.session.commit()
 
 
-def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app):
-    import flaskr.service.user.phone_flow as phone_flow
+def test_database_verification_code_claim_is_single_use(app: object) -> None:
+    from flaskr.dao import db
+    from flaskr.service.user import verification_codes
+    from flaskr.service.user.models import UserVerifyCode
+
+    email = "single-claim@example.com"
+    code = "2468"
+    with app.app_context():
+        record = UserVerifyCode(
+            phone="",
+            mail=email,
+            verify_code=code,
+            verify_code_type=2,
+            verify_code_send=1,
+            verify_code_used=0,
+            user_ip="",
+        )
+        db.session.add(record)
+        db.session.commit()
+        try:
+            first_status = verification_codes._consume_latest_code_from_db(
+                app,
+                kind="email",
+                identifier=email,
+                code=code,
+            )
+            second_status = verification_codes._consume_latest_code_from_db(
+                app,
+                kind="email",
+                identifier=email,
+                code=code,
+            )
+
+            assert first_status == "ok"
+            assert second_status == "expired"
+        finally:
+            UserVerifyCode.query.filter_by(id=record.id).delete()
+            db.session.commit()
+
+
+def test_verification_code_lock_renews_redis_lease(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    fake_redis = _FakeRedis()
+    monkeypatch.setattr(
+        verification_codes,
+        "VERIFICATION_LOCK_RENEW_INTERVAL_SECONDS",
+        0.01,
+    )
+
+    with (
+        app.app_context(),
+        verification_codes.verification_code_lock(
+            app,
+            kind="email",
+            identifier="learner@example.com",
+            cache_provider=fake_redis,
+        ),
+    ):
+        lock = fake_redis.last_lock
+        assert lock is not None
+        assert lock.extended.wait(timeout=1)
+
+    assert fake_redis.lock_thread_local is False
+    assert lock.extend_calls
+    assert all(
+        call
+        == (
+            verification_codes.VERIFICATION_LOCK_TIMEOUT_SECONDS,
+            True,
+        )
+        for call in lock.extend_calls
+    )
+    assert not fake_redis.locks
+
+
+@pytest.mark.parametrize(
+    ("redis_host", "redis_port", "expected_provider"),
+    [
+        ("", None, "fallback"),
+        ("redis", 6379, "strict"),
+    ],
+)
+def test_verification_cache_provider_distinguishes_disabled_and_configured_redis(
+    monkeypatch: pytest.MonkeyPatch,
+    redis_host: str,
+    redis_port: int | None,
+    expected_provider: str,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    fallback_cache = _FakeRedis()
+    strict_cache = _FakeRedis()
+    monkeypatch.setattr(verification_codes, "redis", fallback_cache)
+    monkeypatch.setattr(verification_codes, "distributed_lock_cache", strict_cache)
+    monkeypatch.setattr(
+        verification_codes,
+        "get_redis_client",
+        lambda: object() if redis_host and redis_port else None,
+    )
+
+    provider = verification_codes.verification_cache_provider()
+
+    expected = fallback_cache if expected_provider == "fallback" else strict_cache
+    assert provider is expected
+
+
+def test_verification_code_lock_does_not_use_process_local_fallback(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
+
+    email = "learner@example.com"
+    code = "2468"
+    fallback_cache = _FakeRedis(
+        {app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email: code}
+    )
+    distributed_cache = _FakeRedis(lock_acquire_outcome=ConnectionError())
+    monkeypatch.setattr(verification_codes, "redis", fallback_cache)
+    monkeypatch.setattr(
+        verification_codes,
+        "distributed_lock_cache",
+        distributed_cache,
+    )
+    configured_client = object()
+    monkeypatch.setattr(
+        verification_codes,
+        "get_redis_client",
+        lambda: configured_client,
+    )
+
+    with app.app_context(), pytest.raises(AppError):
+        verification_codes.consume_verification_code(
+            app,
+            identifier=email,
+            code=code,
+        )
+
+    assert distributed_cache.last_lock is not None
+    assert fallback_cache.last_lock is None
+
+
+@pytest.mark.parametrize(
+    "extend_outcome",
+    [False, ConnectionError("Redis unavailable")],
+    ids=["rejected", "redis-error"],
+)
+def test_verification_code_lock_fails_closed_when_renewal_is_lost(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    extend_outcome: bool | Exception,
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
+
+    fake_redis = _FakeRedis(lock_extend_outcome=extend_outcome)
+    monkeypatch.setattr(
+        verification_codes,
+        "VERIFICATION_LOCK_RENEW_INTERVAL_SECONDS",
+        0.01,
+    )
+
+    def _use_verification_lock() -> None:
+        with verification_codes.verification_code_lock(
+            app,
+            kind="email",
+            identifier="learner@example.com",
+            cache_provider=fake_redis,
+        ):
+            lock = fake_redis.last_lock
+            assert lock is not None
+            assert lock.extended.wait(timeout=1)
+
+    with app.app_context(), pytest.raises(AppError):
+        _use_verification_lock()
+
+    assert not fake_redis.locks
+
+
+@pytest.mark.parametrize(
+    ("identifier", "kind", "prefix_config"),
+    [
+        ("claimed@example.com", "email", "REDIS_KEY_PREFIX_MAIL_CODE"),
+        ("15500008888", "sms", "REDIS_KEY_PREFIX_PHONE_CODE"),
+    ],
+)
+def test_consumed_code_tombstone_blocks_db_fallback_before_commit(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    identifier: str,
+    kind: str,
+    prefix_config: str,
+) -> None:
+    from flaskr.service.common.models import AppError
+    from flaskr.service.user import verification_codes
+
+    code = "2468"
+    code_key = app.config[prefix_config] + identifier
+    fake_redis = _FakeRedis({code_key: code})
+    _use_verification_cache(monkeypatch, fake_redis)
+    attempt_key = verification_codes._verification_attempt_key(
+        app,
+        kind,
+        identifier,
+    )
+    db_fallback_calls: list[tuple[str, str]] = []
+
+    def _consume_without_committing(
+        _app: object,
+        *,
+        kind: str,
+        identifier: str,
+        code: str,
+    ) -> str:
+        _ = (_app, code)
+        db_fallback_calls.append((kind, identifier))
+        return "ok"
+
+    monkeypatch.setattr(
+        verification_codes,
+        "_consume_latest_code_from_db",
+        _consume_without_committing,
+    )
+
+    with app.app_context():
+        verification_codes.consume_verification_code(
+            app,
+            identifier=identifier,
+            code=code,
+        )
+
+        assert code_key not in fake_redis.values
+        assert (
+            fake_redis.values[attempt_key]
+            == verification_codes.VERIFICATION_CODE_CONSUMED_MARKER
+        )
+
+        with pytest.raises(AppError):
+            verification_codes.consume_verification_code(
+                app,
+                identifier=identifier,
+                code=code,
+            )
+
+    assert db_fallback_calls == [(kind, identifier)]
+
+
+def test_consume_verification_code_fails_when_replay_state_cannot_be_persisted(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    email = "learner@example.com"
+    code = "2468"
+    code_key = app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email
+
+    class _ReplayStateUnavailableRedis(_FakeRedis):
+        def set(
+            self,
+            key: str,
+            value: object,
+            ex: int | None = None,
+            px: int | None = None,
+            nx: bool = False,
+            xx: bool = False,
+            *_args: object,
+            **_kwargs: object,
+        ) -> object:
+            if key == verification_codes._verification_attempt_key(app, "email", email):
+                unavailable_message = "Redis unavailable"
+                raise ConnectionError(unavailable_message)
+            return super().set(key, value, ex=ex, px=px, nx=nx, xx=xx)
+
+    strict_cache = _ReplayStateUnavailableRedis({code_key: code})
+    fallback_cache = _FakeRedis({code_key: code})
+    monkeypatch.setattr(verification_codes, "distributed_lock_cache", strict_cache)
+    monkeypatch.setattr(verification_codes, "redis", fallback_cache)
+    monkeypatch.setattr(
+        verification_codes,
+        "_consume_latest_code_from_db",
+        lambda *_args, **_kwargs: "ok",
+    )
+
+    with app.app_context(), pytest.raises(ConnectionError, match="Redis unavailable"):
+        verification_codes.consume_verification_code(
+            app,
+            identifier=email,
+            code=code,
+            kind="email",
+            cache_provider=strict_cache,
+        )
+
+    assert code_key in strict_cache.values
+    assert fallback_cache.deleted == []
+
+
+def test_email_challenge_identifier_cannot_overlap_verification_state_keys(
+    app: object,
+) -> None:
+    from flaskr.service.user import verification_codes
+
+    victim_email = "victim@example.com"
+    attempt_key = verification_codes._verification_attempt_key(
+        app,
+        "email",
+        victim_email,
+    )
+    mail_code_prefix = app.config["REDIS_KEY_PREFIX_MAIL_CODE"]
+
+    assert mail_code_prefix + f"attempts:{victim_email}" != attempt_key
+    assert mail_code_prefix + f"attempts:{victim_email}:lock" != attempt_key + ":lock"
+
+
+def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
     from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+    from flaskr.service.user import phone_flow
     from flaskr.service.user.models import UserInfo as UserEntity
 
     shifu_bid = uuid.uuid4().hex[:32]
@@ -422,7 +1503,7 @@ def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app):
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        phone_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         _reset_user_auth_tables()
         _reset_shifu_tables()
@@ -462,15 +1543,17 @@ def test_phone_flow_bootstrap_sets_draft_owner_for_published_demo(app):
             _reset_user_auth_tables()
 
 
-def test_email_flow_verifies_code_from_db_when_cache_missing(app):
-    import flaskr.service.user.email_flow as email_flow
+def test_email_flow_verifies_code_from_db_when_cache_missing(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from flaskr.dao import db
+    from flaskr.service.user import email_flow
     from flaskr.service.user.models import UserVerifyCode
 
     with app.app_context():
         app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
         app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
-        email_flow.redis = _FakeRedis()
+        _use_verification_cache(monkeypatch, _FakeRedis())
 
         email = "test.user@example.com"
         code = "5678"
@@ -494,3 +1577,66 @@ def test_email_flow_verifies_code_from_db_when_cache_missing(app):
         updated = UserVerifyCode.query.filter_by(id=record.id).first()
         assert updated is not None
         assert updated.verify_code_used == 1
+
+
+def test_email_flow_invalidates_code_after_five_failed_attempts(
+    app: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.dao import db
+    from flaskr.service.common.models import ERROR_CODE, AppError
+    from flaskr.service.user import email_flow, verification_codes
+    from flaskr.service.user.models import UserVerifyCode
+
+    with app.app_context():
+        app.config["UNIVERSAL_VERIFICATION_CODE"] = "9999"
+        app.config["ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO"] = False
+
+        email = "limited@example.com"
+        code = "5678"
+        code_key = app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email
+        fake_redis = _FakeRedis({code_key: code})
+        _use_verification_cache(monkeypatch, fake_redis)
+
+        attempt_key = verification_codes._verification_attempt_key(
+            app,
+            "email",
+            email,
+        )
+
+        record = UserVerifyCode(
+            phone="",
+            mail=email,
+            verify_code=code,
+            verify_code_type=2,
+            verify_code_send=1,
+            verify_code_used=0,
+            user_ip="",
+        )
+        db.session.add(record)
+        db.session.commit()
+
+        for _attempt in range(5):
+            with pytest.raises(AppError) as exc_info:
+                email_flow.verify_email_code(
+                    app,
+                    user_id=None,
+                    email=email,
+                    code="0000",
+                )
+            assert exc_info.value.code == ERROR_CODE["server.user.mailCheckError"]
+
+        assert fake_redis.values[attempt_key] == 5
+        assert code_key not in fake_redis.values
+
+        with pytest.raises(AppError) as exc_info:
+            email_flow.verify_email_code(
+                app,
+                user_id=None,
+                email=email,
+                code=code,
+            )
+        assert exc_info.value.code == ERROR_CODE["server.user.mailSendExpired"]
+
+        updated = UserVerifyCode.query.filter_by(id=record.id).first()
+        assert updated is not None
+        assert updated.verify_code_used == 0

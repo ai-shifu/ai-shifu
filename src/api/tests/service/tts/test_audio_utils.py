@@ -1,62 +1,107 @@
+"""Verify audio utility behavior."""
+
 import io
+from typing import ClassVar
 
 import pytest
-
 from flaskr.service.tts import audio_utils
 
 
 class _FakeSegment:
-    append_crossfades: list[int] = []
+    append_crossfades: ClassVar[list[int]] = []
 
-    def __init__(self, duration_ms: int):
+    def __init__(self, duration_ms: int) -> None:
         self.duration_ms = duration_ms
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.duration_ms
 
-    def append(self, other, crossfade=100):
+    def append(self, other: object, crossfade: object = 100) -> object:
         _FakeSegment.append_crossfades.append(crossfade)
         if crossfade > len(self):
-            raise ValueError(
+            message = (
                 f"Crossfade is longer than original AudioSegment "
                 f"({crossfade}ms > {len(self)}ms)"
             )
+            raise ValueError(message)
         if crossfade > len(other):
-            raise ValueError(
+            message = (
                 f"Crossfade is longer than the appended AudioSegment "
                 f"({crossfade}ms > {len(other)}ms)"
             )
+            raise ValueError(message)
         return _FakeSegment(self.duration_ms + len(other) - crossfade)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: object) -> "_FakeSegment":
         if isinstance(key, slice):
             start = int(key.start or 0)
             stop = int(key.stop if key.stop is not None else self.duration_ms)
             return _FakeSegment(max(stop - start, 0))
         return self
 
-    def export(self, output_io, format="mp3", bitrate="128k"):
+    def export(
+        self,
+        output_io: object,
+        format: object = "mp3",  # noqa: A002 - mirrors the pydub API
+        bitrate: object = "128k",
+    ) -> None:
         _ = (format, bitrate)
-        output_io.write(f"duration={self.duration_ms}".encode("utf-8"))
+        output_io.write(f"duration={self.duration_ms}".encode())
 
 
 class _FakeAudioSegment:
     @staticmethod
-    def from_mp3(segment_io: io.BytesIO):
+    def from_mp3(segment_io: io.BytesIO) -> "_FakeSegment":
         duration = int(segment_io.getvalue().decode("utf-8"))
         return _FakeSegment(duration)
 
 
 class _PartiallyBrokenAudioSegment:
     @staticmethod
-    def from_mp3(segment_io: io.BytesIO):
+    def from_mp3(segment_io: io.BytesIO) -> "_FakeSegment":
         payload = segment_io.getvalue()
         if payload == b"BAD":
-            raise ValueError("Decoding failed")
+            message = "Decoding failed"
+            raise ValueError(message)
         return _FakeSegment(int(payload.decode("utf-8")))
 
 
-def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch):
+class _RecordingAudioSegment:
+    from_file_formats: ClassVar[list[str]] = []
+
+    @staticmethod
+    def from_file(segment_io: io.BytesIO, format: object = "mp3") -> "_FakeSegment":  # noqa: A002 - mirrors the pydub API
+        _RecordingAudioSegment.from_file_formats.append(format)
+        return _FakeSegment(int(segment_io.getvalue().decode("utf-8")))
+
+
+def test_try_get_audio_duration_ms_decodes_with_the_requested_format(
+    monkeypatch: object,
+) -> None:
+    _RecordingAudioSegment.from_file_formats.clear()
+    monkeypatch.setattr(
+        audio_utils, "AudioSegment", _RecordingAudioSegment, raising=False
+    )
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    assert audio_utils.try_get_audio_duration_ms(b"420", audio_format="wav") == 420
+    assert _RecordingAudioSegment.from_file_formats == ["wav"]
+
+
+def test_get_audio_duration_ms_estimates_when_decoding_fails(
+    monkeypatch: object,
+) -> None:
+    monkeypatch.setattr(
+        audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
+    )
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
+
+    assert audio_utils.get_audio_duration_ms(b"BAD", audio_format="mp3") == (
+        audio_utils._estimated_duration_ms(b"BAD")
+    )
+
+
+def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch: object) -> None:
     _FakeSegment.append_crossfades.clear()
     monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
     monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
@@ -67,7 +112,9 @@ def test_concat_audio_mp3_does_not_crossfade_by_default(monkeypatch):
     assert output == b"duration=182"
 
 
-def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(monkeypatch):
+def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(
+    monkeypatch: object,
+) -> None:
     _FakeSegment.append_crossfades.clear()
     monkeypatch.setattr(audio_utils, "AudioSegment", _FakeAudioSegment, raising=False)
     monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", True)
@@ -78,7 +125,7 @@ def test_concat_audio_mp3_caps_explicit_crossfade_for_short_segments(monkeypatch
     assert output == b"duration=130"
 
 
-def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch):
+def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch: object) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -89,8 +136,8 @@ def test_concat_audio_mp3_raises_on_partial_decode_failure(monkeypatch):
 
 
 def test_concat_audio_best_effort_reexports_decodable_segments_on_partial_failure(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -101,7 +148,9 @@ def test_concat_audio_best_effort_reexports_decodable_segments_on_partial_failur
     assert output == b"duration=180"
 
 
-def test_concat_audio_best_effort_drops_undecodable_single_segment(monkeypatch):
+def test_concat_audio_best_effort_drops_undecodable_single_segment(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -112,7 +161,9 @@ def test_concat_audio_best_effort_drops_undecodable_single_segment(monkeypatch):
     assert output == b""
 
 
-def test_concat_audio_best_effort_drops_undecodable_multiple_segments(monkeypatch):
+def test_concat_audio_best_effort_drops_undecodable_multiple_segments(
+    monkeypatch: object,
+) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -124,8 +175,8 @@ def test_concat_audio_best_effort_drops_undecodable_multiple_segments(monkeypatc
 
 
 def test_export_audio_range_does_not_return_invalid_bytes_after_decode_failure(
-    monkeypatch,
-):
+    monkeypatch: object,
+) -> None:
     monkeypatch.setattr(
         audio_utils, "AudioSegment", _PartiallyBrokenAudioSegment, raising=False
     )
@@ -139,3 +190,41 @@ def test_export_audio_range_does_not_return_invalid_bytes_after_decode_failure(
 
     assert output == b""
     assert duration_ms == 0
+
+
+def test_pcm_duration_ms_uses_sample_geometry() -> None:
+    assert audio_utils.pcm_duration_ms(b"", sample_rate=24000) == 0
+    # 16-bit mono at 24 kHz is 48000 bytes per second.
+    assert audio_utils.pcm_duration_ms(b"\x00" * 48000, sample_rate=24000) == 1000
+    assert audio_utils.pcm_duration_ms(b"\x00" * 48000, sample_rate=16000) == 1500
+    assert (
+        audio_utils.pcm_duration_ms(b"\x00" * 48000, sample_rate=24000, channels=2)
+        == 500
+    )
+
+
+def test_export_pcm_to_mp3_returns_empty_for_empty_input() -> None:
+    assert audio_utils.export_pcm_to_mp3(b"", sample_rate=24000) == b""
+
+
+def test_export_pcm_to_mp3_requires_pydub(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(audio_utils, "PYDUB_AVAILABLE", False)
+    with pytest.raises(ValueError, match="pydub is required"):
+        audio_utils.export_pcm_to_mp3(b"\x00\x00", sample_rate=24000)
+
+
+def test_export_pcm_to_mp3_produces_decodable_mp3() -> None:
+    if not audio_utils.PYDUB_AVAILABLE:
+        pytest.skip("pydub/ffmpeg not available")
+    from pydub.utils import which
+
+    if not which("ffmpeg"):
+        pytest.skip("ffmpeg not available")
+
+    pcm = b"\x00\x00" * 24000  # one second of silence, 16-bit mono
+    mp3 = audio_utils.export_pcm_to_mp3(pcm, sample_rate=24000)
+
+    assert mp3
+    duration = audio_utils.try_get_audio_duration_ms(mp3, audio_format="mp3")
+    assert duration is not None
+    assert 900 <= duration <= 1100

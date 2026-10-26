@@ -1,0 +1,11 @@
+{
+  "__namespace__": "server.common",
+  "__flat__": {
+    "nicknameNotAllowed": "ชื่อเล่นที่คุณป้อนไม่เป็นไปตามข้อกำหนด",
+    "operationFailed": "บริการขัดข้อง โปรดลองอีกครั้งภายหลัง",
+    "paramsError": "พารามิเตอร์ไม่ถูกต้อง {param_message}",
+    "systemError": "ข้อผิดพลาดของระบบ",
+    "unexpectedError": "บริการยังไม่พร้อมใช้งาน โปรดลองอีกครั้งภายหลัง",
+    "unknownError": "ข้อผิดพลาดที่ไม่ทราบสาเหตุ"
+  }
+}

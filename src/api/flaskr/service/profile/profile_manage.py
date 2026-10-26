@@ -1,25 +1,29 @@
+"""Manage profile-variable definitions and course usage."""
+
 import hashlib
 
 from flask import Flask
-from markdown_flow import MarkdownFlow
-from sqlalchemy import func, inspect, text
-
-from ...dao import db
 from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import db
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
+from markdown_flow import MarkdownFlow
+from markdown_flow.variable_names import normalize_variable_name
+from sqlalchemy import func, inspect, text
+
 from .dtos import (
-    ColorSetting,
     DEFAULT_COLOR_SETTINGS,
+    ColorSetting,
     ProfileItemDefinition,
 )
 from .models import (
-    CONST_PROFILE_TYPE_TEXT,
     CONST_PROFILE_SCOPE_SYSTEM,
     CONST_PROFILE_SCOPE_USER,
+    CONST_PROFILE_TYPE_TEXT,
     PROFILE_CONF_TYPE_PROFILE,
     PROFILE_SHOW_TYPE_ALL,
     PROFILE_TYPE_INPUT_TEXT,
@@ -28,10 +32,7 @@ from .models import (
 
 
 def _collect_used_variables(app: Flask, shifu_bid: str) -> set[str]:
-    """
-    Collect variable names referenced across the latest mdflow content
-    for all draft outline items under a shifu.
-    """
+    """Collect variable names referenced across the latest mdflow content for all draft outline items under a shifu."""
     with app.app_context():
         latest_ids_subquery = (
             db.session.query(
@@ -77,7 +78,7 @@ def _build_color_from_definition(definition: Variable) -> ColorSetting:
     seed = (definition.key or "") + (definition.variable_bid or "")
     color_index = 0
     if seed and DEFAULT_COLOR_SETTINGS:
-        digest = hashlib.md5(seed.encode("utf-8")).digest()
+        digest = hashlib.md5(seed.encode("utf-8"), usedforsecurity=False).digest()
         color_index = int.from_bytes(digest[:4], "big") % len(DEFAULT_COLOR_SETTINGS)
     return DEFAULT_COLOR_SETTINGS[color_index]
 
@@ -85,10 +86,7 @@ def _build_color_from_definition(definition: Variable) -> ColorSetting:
 def convert_variable_definition_to_profile_item_definition(
     definition: Variable,
 ) -> ProfileItemDefinition:
-    """
-    Convert variable definition model to legacy response DTO shape.
-    """
-
+    """Convert variable definition model to legacy response DTO shape."""
     scope = (
         CONST_PROFILE_SCOPE_SYSTEM
         if definition.shifu_bid == ""
@@ -101,35 +99,35 @@ def convert_variable_definition_to_profile_item_definition(
         _("PROFILE.PROFILE_TYPE_TEXT"),
         "",
         scope,
-        _("PROFILE.PROFILE_SCOPE_{}".format(scope).upper()),
+        _(f"PROFILE.PROFILE_SCOPE_{scope}".upper()),
         definition.variable_bid,
         bool(definition.is_hidden),
     )
 
 
 def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
-    """
-    Determine custom profile keys that are not referenced in any outline content.
-    """
+    """Determine custom profile keys that are not referenced in any outline content."""
     definitions = get_profile_item_definition_list(app, parent_id=shifu_bid)
     used_variables = _collect_used_variables(app, shifu_bid)
-    unused_keys: list[str] = []
-    for definition in definitions:
-        if (
-            definition.profile_scope == CONST_PROFILE_SCOPE_USER
-            and definition.profile_key
-            and definition.profile_key not in used_variables
-        ):
-            unused_keys.append(definition.profile_key)
+    unused_keys: list[str] = [
+        definition.profile_key
+        for definition in definitions
+        if definition.profile_scope == CONST_PROFILE_SCOPE_USER
+        and definition.profile_key
+        and definition.profile_key not in used_variables
+    ]
     return unused_keys
 
 
 def get_profile_item_definition_list(
-    app: Flask, parent_id: str, type: str = "all"
+    app: Flask, parent_id: str, definition_type: str = "all"
 ) -> list[ProfileItemDefinition]:
-    _ = type  # Kept for backward compatibility with existing callers.
+    """Return profile item definition list."""
+    _ = definition_type  # Kept for backward compatibility with existing callers.
     normalized_parent_id = parent_id or ""
-    with app.app_context():
+    # Join the caller's session so a read-back inside an open unit of work
+    # sees that unit's own uncommitted writes.
+    with app_context_scope(app):
         definitions = (
             Variable.query.filter(
                 Variable.shifu_bid.in_([normalized_parent_id, ""]),
@@ -147,15 +145,14 @@ def get_profile_item_definition_list(
 def update_profile_item_hidden_state(
     app: Flask, parent_id: str, profile_keys: list[str], hidden: bool, user_id: str
 ) -> list[ProfileItemDefinition]:
-    """
-    Update is_hidden flag for given custom profile keys.
-    """
+    """Update is_hidden flag for given custom profile keys."""
     if not parent_id:
         raise_error("server.profile.parentIdRequired")
     if not profile_keys:
         return get_profile_item_definition_list(app, parent_id=parent_id)
 
-    with app.app_context():
+    selected_keys = set(profile_keys)
+    with app_context_scope(app), unit_of_work():
         target_items = (
             Variable.query.filter(
                 Variable.shifu_bid == parent_id,
@@ -165,21 +162,22 @@ def update_profile_item_hidden_state(
             .order_by(Variable.id.asc())
             .all()
         )
-        if target_items:
-            for item in target_items:
-                item.is_hidden = 1 if hidden else 0
-                item.updated_at = now_utc()
-                item.updated_user_bid = user_id or ""
-            db.session.commit()
-        return get_profile_item_definition_list(app, parent_id=parent_id)
+        for item in target_items:
+            # SQL membership may include distinct keys under a case-folding collation.
+            if item.key not in selected_keys:
+                continue
+            item.is_hidden = 1 if hidden else 0
+            item.updated_at = now_utc()
+            item.updated_user_bid = user_id or ""
+    # Read back after the block: the list helper joins this session, so it
+    # returns the committed state here and the staged state when nested.
+    return get_profile_item_definition_list(app, parent_id=parent_id)
 
 
 def hide_unused_profile_items(
     app: Flask, parent_id: str, user_id: str
 ) -> list[ProfileItemDefinition]:
-    """
-    Hide all custom profile items that are not referenced in any outline content.
-    """
+    """Hide all custom profile items that are not referenced in any outline content."""
     unused_keys = get_unused_profile_keys(app, parent_id)
     if not unused_keys:
         return get_profile_item_definition_list(app, parent_id=parent_id)
@@ -193,9 +191,7 @@ def hide_unused_profile_items(
 
 
 def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
-    """
-    Return custom profile keys split by whether they are referenced in any outline content.
-    """
+    """Return custom profile keys split by whether they are referenced in any outline content."""
     if not parent_id:
         raise_error("server.profile.parentIdRequired")
 
@@ -221,18 +217,32 @@ def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
     }
 
 
-def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
-    with app.app_context():
+def add_profile_item_quick(
+    app: Flask, parent_id: str, key: str, user_id: str
+) -> ProfileItemDefinition:
+    """Add profile item quick."""
+    with app_context_scope(app), unit_of_work():
         if not parent_id:
             raise_error("server.profile.prarentRequired")
         if not key:
             raise_error("server.profile.keyRequire")
-        ret = add_profile_item_quick_internal(app, parent_id, key, user_id)
-        db.session.commit()
-        return ret
+        key = _normalize_definition_key(key)
+        return add_profile_item_quick_internal(app, parent_id, key, user_id)
 
 
-def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_id: str):
+def _normalize_definition_key(key: str) -> str:
+    """Apply the script's exact name contract before persisting a definition."""
+    normalized = normalize_variable_name(key) if isinstance(key, str) else None
+    if normalized is None:
+        raise_error("server.profile.keyInvalid")
+    return normalized
+
+
+def add_profile_item_quick_internal(
+    app: Flask, parent_id: str, key: str, user_id: str
+) -> ProfileItemDefinition:
+    """Add profile item quick internal."""
+    key = _normalize_definition_key(key)
     bind = db.session.get_bind()
     inspector = inspect(bind)
     tables = set(inspector.get_table_names())
@@ -241,17 +251,16 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
         legacy_scope = (
             CONST_PROFILE_SCOPE_SYSTEM if not parent_id else CONST_PROFILE_SCOPE_USER
         )
-        legacy_item = (
+        legacy_candidates = (
             db.session.execute(
                 text(
                     """
-                SELECT profile_id
+                SELECT profile_id, profile_key
                 FROM profile_item
                 WHERE parent_id = :parent_id
                   AND profile_key = :profile_key
                   AND status = 1
                 ORDER BY id ASC
-                LIMIT 1
                 """
                 ),
                 {
@@ -260,7 +269,10 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
                 },
             )
             .mappings()
-            .first()
+            .all()
+        )
+        legacy_item = next(
+            (item for item in legacy_candidates if item["profile_key"] == key), None
         )
         if legacy_item:
             return ProfileItemDefinition(
@@ -270,9 +282,9 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
                 _("PROFILE.PROFILE_TYPE_TEXT"),
                 "",
                 legacy_scope,
-                _("PROFILE.PROFILE_SCOPE_{}".format(legacy_scope).upper()),
+                _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
                 legacy_item["profile_id"],
-                False,
+                is_hidden=False,
             )
 
         profile_id = generate_id(app)
@@ -354,19 +366,23 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
             _("PROFILE.PROFILE_TYPE_TEXT"),
             "",
             legacy_scope,
-            _("PROFILE.PROFILE_SCOPE_{}".format(legacy_scope).upper()),
+            _(f"PROFILE.PROFILE_SCOPE_{legacy_scope}".upper()),
             profile_id,
-            False,
+            is_hidden=False,
         )
 
-    existing = (
-        Variable.query.filter(
-            Variable.key == key,
-            Variable.shifu_bid.in_([parent_id, ""]),
-            Variable.deleted == 0,
-        )
-        .order_by(Variable.id.asc())
-        .first()
+    # SQL narrows candidates; Python equality preserves identity under case-folding collations.
+    existing = next(
+        (
+            row
+            for row in Variable.query.filter(
+                Variable.key == key,
+                Variable.shifu_bid.in_([parent_id, ""]),
+                Variable.deleted == 0,
+            ).order_by(Variable.id.asc())
+            if row.key == key
+        ),
+        None,
     )
     if existing:
         return convert_variable_definition_to_profile_item_definition(existing)
@@ -392,7 +408,9 @@ def add_profile_i18n(
     language: str,
     profile_item_remark: str,
     user_id: str,
-):
+) -> None:
+    """Add profile i18n."""
+    _ = app
     bind = db.session.get_bind()
     inspector = inspect(bind)
     tables = set(inspector.get_table_names())
@@ -463,17 +481,15 @@ def save_profile_item(
     parent_id: str,
     user_id: str,
     key: str,
-):
-    """
-    Save (create/update) a custom variable definition.
-    """
-
-    with app.app_context():
+) -> ProfileItemDefinition:
+    """Save (create/update) a custom variable definition."""
+    with app_context_scope(app), unit_of_work():
         normalized_parent_id = parent_id or ""
         if normalized_parent_id == "" and user_id != "":
             raise_error("server.profile.systemProfileNotAllowUpdate")
         if not key:
             raise_error("server.profile.keyRequired")
+        key = _normalize_definition_key(key)
 
         system_conflict_query = Variable.query.filter(
             Variable.shifu_bid == "",
@@ -484,7 +500,8 @@ def save_profile_item(
             system_conflict_query = system_conflict_query.filter(
                 Variable.variable_bid != profile_id
             )
-        if system_conflict_query.first():
+        # The database collation must not merge distinct text keys such as Name and name.
+        if any(row.key == key for row in system_conflict_query):
             raise_error("server.profile.systemProfileKeyExist")
 
         if profile_id:
@@ -496,12 +513,13 @@ def save_profile_item(
             if not definition:
                 raise_error("server.profile.notFound")
 
-            exist_item = Variable.query.filter(
+            candidates = Variable.query.filter(
                 Variable.shifu_bid == normalized_parent_id,
                 Variable.deleted == 0,
                 Variable.key == key,
                 Variable.variable_bid != profile_id,
-            ).first()
+            )
+            exist_item = next((row for row in candidates if row.key == key), None)
             if exist_item:
                 raise_error("server.profile.keyExist")
 
@@ -509,11 +527,12 @@ def save_profile_item(
             definition.updated_at = now_utc()
             definition.updated_user_bid = user_id or ""
         else:
-            exist_item = Variable.query.filter(
+            candidates = Variable.query.filter(
                 Variable.shifu_bid == normalized_parent_id,
                 Variable.deleted == 0,
                 Variable.key == key,
-            ).first()
+            )
+            exist_item = next((row for row in candidates if row.key == key), None)
             if exist_item:
                 raise_error("server.profile.keyExist")
 
@@ -528,12 +547,12 @@ def save_profile_item(
             )
             db.session.add(definition)
 
-        db.session.commit()
         return convert_variable_definition_to_profile_item_definition(definition)
 
 
-def delete_profile_item(app: Flask, user_id: str, profile_id: str):
-    with app.app_context():
+def delete_profile_item(app: Flask, user_id: str, profile_id: str) -> bool:
+    """Delete profile item."""
+    with app_context_scope(app), unit_of_work():
         definition = Variable.query.filter(
             Variable.variable_bid == profile_id,
             Variable.deleted == 0,
@@ -546,5 +565,4 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
         definition.deleted = 1
         definition.updated_at = now_utc()
         definition.updated_user_bid = user_id or ""
-        db.session.commit()
         return True

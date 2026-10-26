@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-Replay exported generated blocks through markdown-flow 0.2.55 StreamFormatter
-and the listen-mode element adapter.
+"""Replay exported generated blocks through markdown-flow 0.2.55 StreamFormatter and the listen-mode element adapter.
 
 This script validates the new internal chain:
 
@@ -29,39 +27,40 @@ import tempfile
 from collections import Counter, OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 os.environ.setdefault("SKIP_LOAD_DOTENV", "1")
 os.environ.setdefault("SKIP_APP_AUTOCREATE", "1")
 os.environ.setdefault("SKIP_DB_MIGRATIONS_FOR_TESTS", "1")
 
+from typing import TYPE_CHECKING
+
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
+from flaskr import dao
 from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.ext.compiler import compiles
 
-from flaskr import dao
-
-if dao.db is None:
-    dao.db = SQLAlchemy()
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 @compiles(LONGTEXT, "sqlite")
-def _compile_longtext_sqlite(_type, _compiler, **_kw):
+def _compile_longtext_sqlite(_type: object, _compiler: object, **_kw: object) -> object:
     return "TEXT"
 
 
 @compiles(BIGINT, "sqlite")
-def _compile_bigint_sqlite(_type, _compiler, **_kw):
+def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object) -> object:
     return "INTEGER"
 
 
 DEFAULT_CHUNK_SIZES = (1, 2, 3, 5, 8, 13)
-DEFAULT_MDFLOW_ROOT = "/tmp/mdflow255"
+DEFAULT_MDFLOW_ROOT = str(Path(tempfile.gettempdir()) / "mdflow255")
 
 
 @dataclass
 class BlockSample:
+    """Represent one MarkdownFlow block used by an audit script."""
+
     id: int
     generated_block_bid: str
     shifu_bid: str
@@ -75,6 +74,8 @@ class BlockSample:
 
 @dataclass
 class ExpectedStreamElement:
+    """Describe one stream element expected by an audit script."""
+
     number: int
     stream_type: str
     content_text: str
@@ -82,6 +83,8 @@ class ExpectedStreamElement:
 
 @dataclass
 class AnalysisResult:
+    """Capture findings from a stream-analysis script."""
+
     mode: str
     sample: BlockSample
     issues: list[str]
@@ -91,12 +94,13 @@ class AnalysisResult:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse arguments for the MarkdownFlow listen-adapter check."""
     parser = argparse.ArgumentParser(
         description="Check markdown-flow 0.2.55 stream parts against ListenElementRunAdapter."
     )
     parser.add_argument(
         "--input",
-        default="/tmp/latest_generate_blocks_b64.jsonl",
+        default=str(Path(tempfile.gettempdir()) / "latest_generate_blocks_b64.jsonl"),
         help="Path to JSONL exported from generated blocks",
     )
     parser.add_argument(
@@ -178,14 +182,15 @@ def _load_samples(path: Path, limit: int) -> list[BlockSample]:
     return samples
 
 
-def _bootstrap_mdflow(mdflow_root: str):
+def _bootstrap_mdflow(mdflow_root: str) -> object:
     root = Path(mdflow_root)
     init_file = root / "markdown_flow" / "__init__.py"
     if not init_file.exists():
-        raise SystemExit(
+        message = (
             f"markdown-flow root not found or incomplete: {root}. "
             "Expected markdown_flow/__init__.py"
         )
+        raise SystemExit(message)
 
     sys.path.insert(0, str(root))
     for name in list(sys.modules):
@@ -194,10 +199,11 @@ def _bootstrap_mdflow(mdflow_root: str):
 
     markdown_flow = importlib.import_module("markdown_flow")
     if not hasattr(markdown_flow, "StreamFormatter"):
-        raise SystemExit(
+        message = (
             f"markdown-flow loaded from {markdown_flow.__file__} "
             "does not expose StreamFormatter"
         )
+        raise SystemExit(message)
     return markdown_flow
 
 
@@ -224,25 +230,27 @@ def _make_app() -> tuple[Flask, str]:
 def _format_stream_parts(
     content: str,
     chunk_sizes: tuple[int, ...],
-    stream_formatter_cls,
+    stream_formatter_cls: object,
 ) -> list[tuple[str, str, int]]:
     formatter = stream_formatter_cls()
     parts: list[tuple[str, str, int]] = []
 
     for chunk in _iter_chunks(content, chunk_sizes):
-        for item in formatter.process(chunk):
-            parts.append(
-                (str(item.content or ""), str(item.type or ""), int(item.number))
-            )
-    for item in formatter.flush():
-        parts.append((str(item.content or ""), str(item.type or ""), int(item.number)))
+        parts.extend(
+            (str(item.content or ""), str(item.type or ""), int(item.number))
+            for item in formatter.process(chunk)
+        )
+    parts.extend(
+        (str(item.content or ""), str(item.type or ""), int(item.number))
+        for item in formatter.flush()
+    )
     return parts
 
 
 def _group_expected_stream_elements(
     parts: list[tuple[str, str, int]],
 ) -> list[ExpectedStreamElement]:
-    grouped: "OrderedDict[int, ExpectedStreamElement]" = OrderedDict()
+    grouped: OrderedDict[int, ExpectedStreamElement] = OrderedDict()
     for content, stream_type, number in parts:
         if not content or not stream_type:
             continue
@@ -532,7 +540,7 @@ def _analyze_stream_only(
             )
 
         for idx, (expected_item, observed_item) in enumerate(
-            zip(expected, observed), start=1
+            zip(expected, observed, strict=False), start=1
         ):
             expected_type = _element_type_from_mdflow_stream(
                 expected_item.stream_type, expected_item.content_text
@@ -715,10 +723,12 @@ def _print_summary(
 
 
 def main() -> int:
+    """Check the MarkdownFlow listen adapter against captured fixtures."""
     args = parse_args()
     input_path = Path(args.input)
     if not input_path.exists():
-        raise SystemExit(f"Input file not found: {input_path}")
+        message = f"Input file not found: {input_path}"
+        raise SystemExit(message)
 
     chunk_sizes = (
         tuple(int(part.strip()) for part in args.chunk_sizes.split(",") if part.strip())
@@ -734,7 +744,8 @@ def main() -> int:
 
     samples = _load_samples(input_path, limit=args.limit)
     if not samples:
-        raise SystemExit("No samples loaded")
+        error_message = "No samples loaded"
+        raise SystemExit(error_message)
 
     app, temp_dir = _make_app()
     try:

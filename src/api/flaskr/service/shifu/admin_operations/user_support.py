@@ -1,3 +1,5 @@
+"""Handle user support for course-administration operations."""
+
 from __future__ import annotations
 
 from flaskr.service.shifu.admin import (
@@ -15,6 +17,7 @@ from flaskr.service.shifu.admin import (
     OPERATOR_USER_ROLE_LEARNER,
     OPERATOR_USER_ROLE_OPERATOR,
     OPERATOR_USER_ROLE_REGULAR,
+    OPERATOR_USER_STATUS_CANCELLED,
     OPERATOR_USER_STATUS_PAID,
     OPERATOR_USER_STATUS_REGISTERED,
     OPERATOR_USER_STATUS_TRIAL,
@@ -55,6 +58,7 @@ __all__ = [
     "OPERATOR_USER_ROLE_LEARNER",
     "OPERATOR_USER_ROLE_OPERATOR",
     "OPERATOR_USER_ROLE_REGULAR",
+    "OPERATOR_USER_STATUS_CANCELLED",
     "OPERATOR_USER_STATUS_PAID",
     "OPERATOR_USER_STATUS_REGISTERED",
     "OPERATOR_USER_STATUS_TRIAL",

@@ -3,16 +3,15 @@
 
 from __future__ import annotations
 
-from argparse import ArgumentParser
 import json
-from pathlib import Path
 import os
 import re
 import sys
+from argparse import ArgumentParser
+from pathlib import Path
 from urllib.parse import urlencode
 
 import requests
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOG_DIR = ROOT / "logs"
@@ -38,6 +37,7 @@ REQUEST_METADATA_PATTERN = re.compile(
 
 
 def parse_args() -> ArgumentParser:
+    """Parse command-line arguments for the harness diagnostics tool."""
     parser = ArgumentParser(
         description="Summarize backend log evidence for a given X-Request-ID."
     )
@@ -61,6 +61,7 @@ def parse_args() -> ArgumentParser:
 
 
 def iter_log_files(log_dir: Path) -> list[Path]:
+    """Yield log files."""
     return sorted(
         (path for path in log_dir.glob("ai-shifu.log*") if path.is_file()),
         key=lambda path: path.stat().st_mtime,
@@ -69,6 +70,7 @@ def iter_log_files(log_dir: Path) -> list[Path]:
 
 
 def detect_langfuse_mode() -> str:
+    """Detect langfuse mode."""
     keys = (
         os.getenv("LANGFUSE_PUBLIC_KEY", "").strip(),
         os.getenv("LANGFUSE_SECRET_KEY", "").strip(),
@@ -78,15 +80,19 @@ def detect_langfuse_mode() -> str:
 
 
 def collect_matches(log_files: list[Path], request_id: str) -> list[tuple[Path, str]]:
+    """Collect matches."""
     matches: list[tuple[Path, str]] = []
     for path in log_files:
-        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-            if request_id in line:
-                matches.append((path, line))
+        matches.extend(
+            (path, line)
+            for line in path.read_text(encoding="utf-8", errors="replace").splitlines()
+            if request_id in line
+        )
     return matches
 
 
 def extract_trace_ids(lines: list[str]) -> list[str]:
+    """Extract trace IDs."""
     trace_ids: list[str] = []
     for line in lines:
         for pattern in TRACE_ID_PATTERNS:
@@ -99,6 +105,7 @@ def extract_trace_ids(lines: list[str]) -> list[str]:
 
 
 def extract_request_metadata(lines: list[str]) -> dict[str, str]:
+    """Extract request metadata."""
     for line in reversed(lines):
         match = REQUEST_METADATA_PATTERN.search(line)
         if match:
@@ -116,6 +123,7 @@ def _safe_get_json(url: str, params: dict | None = None) -> tuple[bool, dict | s
 
 
 def query_loki(loki_url: str, request_id: str) -> dict[str, object]:
+    """Query loki."""
     query = f'{{job="ai-shifu-api"}} |= "{request_id}"'
     ok, payload = _safe_get_json(f"{loki_url}/loki/api/v1/query", {"query": query})
     result: dict[str, object] = {"reachable": ok, "query": query}
@@ -130,6 +138,7 @@ def query_loki(loki_url: str, request_id: str) -> dict[str, object]:
 
 
 def query_tempo(tempo_url: str, trace_ids: list[str]) -> list[dict[str, object]]:
+    """Query tempo."""
     summaries: list[dict[str, object]] = []
     for trace_id in trace_ids:
         ok, payload = _safe_get_json(f"{tempo_url}/api/traces/{trace_id}")
@@ -160,6 +169,7 @@ def query_tempo(tempo_url: str, trace_ids: list[str]) -> list[dict[str, object]]
 def query_prometheus(
     prometheus_url: str, request_metadata: dict[str, str]
 ) -> dict[str, object]:
+    """Query prometheus."""
     path = request_metadata.get("url")
     status = request_metadata.get("status")
     if not path or not status or status == "-":
@@ -187,6 +197,7 @@ def build_grafana_links(
     trace_ids: list[str],
     prometheus_query: str | None,
 ) -> dict[str, str]:
+    """Build grafana links."""
     links: dict[str, str] = {}
     if loki_query:
         links["loki_explore"] = (
@@ -202,6 +213,7 @@ def build_grafana_links(
 
 
 def main() -> int:
+    """Collect linked runtime diagnostics for one request."""
     parser = parse_args()
     args = parser.parse_args()
 

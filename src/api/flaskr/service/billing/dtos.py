@@ -3,26 +3,29 @@
 from __future__ import annotations
 
 from datetime import datetime
-
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
-
 from flaskr.common.swagger import register_schema_to_swagger
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BillingBaseDTO(BaseModel):
     """Base DTO with stable JSON serialization for common route responses."""
 
+    __hash__ = None
+
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     def __json__(self) -> dict[str, Any]:
+        """Return aliased model fields as JSON-compatible data."""
         return self.model_dump(mode="python", by_alias=True)
 
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> object:
+        """Return a serialized DTO field by key."""
         return self.__json__()[key]
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
+        """Compare the DTO with a serialized mapping or model."""
         if isinstance(other, dict):
             return self.__json__() == other
         return super().__eq__(other)
@@ -30,12 +33,16 @@ class BillingBaseDTO(BaseModel):
 
 @register_schema_to_swagger
 class BillingRouteItemDTO(BillingBaseDTO):
+    """Represent the billing route item API payload."""
+
     method: str
     path: str
 
 
 @register_schema_to_swagger
 class BillingCapabilityEntryPointDTO(BillingBaseDTO):
+    """Represent the billing capability entry point API payload."""
+
     kind: str
     method: str | None = None
     path: str | None = None
@@ -44,6 +51,8 @@ class BillingCapabilityEntryPointDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingCapabilityDTO(BillingBaseDTO):
+    """Represent the billing capability API payload."""
+
     key: str
     status: str
     audience: str
@@ -55,6 +64,8 @@ class BillingCapabilityDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingRouteBootstrapDTO(BillingBaseDTO):
+    """Represent the billing route bootstrap API payload."""
+
     service: str
     status: str
     path_prefix: str
@@ -66,6 +77,8 @@ class BillingRouteBootstrapDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingCatalogCampaignDTO(BillingBaseDTO):
+    """Represent the billing catalog campaign API payload."""
+
     campaign_bid: str
     benefit_type: str
     discount_type: str | None = None
@@ -77,6 +90,8 @@ class BillingCatalogCampaignDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingPlanDTO(BillingBaseDTO):
+    """Represent the billing plan API payload."""
+
     product_bid: str
     product_code: str
     product_type: str
@@ -96,6 +111,8 @@ class BillingPlanDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingTopupProductDTO(BillingBaseDTO):
+    """Represent the billing topup product API payload."""
+
     product_bid: str
     product_code: str
     product_type: str
@@ -111,12 +128,16 @@ class BillingTopupProductDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingCatalogDTO(BillingBaseDTO):
+    """Represent the billing catalog API payload."""
+
     plans: list[BillingPlanDTO]
     topups: list[BillingTopupProductDTO]
 
 
 @register_schema_to_swagger
 class BillingWalletSnapshotDTO(BillingBaseDTO):
+    """Represent the billing wallet snapshot API payload."""
+
     available_credits: int | float
     reserved_credits: int | float
     lifetime_granted_credits: int | float
@@ -125,9 +146,12 @@ class BillingWalletSnapshotDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingSubscriptionDTO(BillingBaseDTO):
+    """Represent the billing subscription API payload."""
+
     subscription_bid: str
     product_bid: str
     product_code: str
+    product_name_key: str = ""
     status: str
     billing_provider: str
     current_period_start_at: datetime | None = None
@@ -141,6 +165,8 @@ class BillingSubscriptionDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingAlertDTO(BillingBaseDTO):
+    """Represent the billing alert API payload."""
+
     code: str
     severity: str
     message_key: str
@@ -151,6 +177,8 @@ class BillingAlertDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingTrialOfferDTO(BillingBaseDTO):
+    """Represent the billing trial offer API payload."""
+
     enabled: bool
     status: str
     product_bid: str
@@ -170,12 +198,16 @@ class BillingTrialOfferDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingTrialWelcomeAckDTO(BillingBaseDTO):
+    """Represent the billing trial welcome ack API payload."""
+
     acknowledged: bool
     acknowledged_at: datetime | None = None
 
 
 @register_schema_to_swagger
 class BillingOverviewDTO(BillingBaseDTO):
+    """Represent the billing overview API payload."""
+
     creator_bid: str
     wallet: BillingWalletSnapshotDTO
     subscription: BillingSubscriptionDTO | None = None
@@ -188,6 +220,8 @@ class BillingOverviewDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingEntitlementsDTO(BillingBaseDTO):
+    """Represent the billing entitlements API payload."""
+
     branding_enabled: bool
     custom_domain_enabled: bool
     custom_wechat_enabled: bool = False
@@ -199,6 +233,8 @@ class BillingEntitlementsDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingWalletBucketDTO(BillingBaseDTO):
+    """Represent the billing wallet bucket API payload."""
+
     wallet_bucket_bid: str
     category: str
     credit_asset_kind: str = "unknown"
@@ -213,11 +249,15 @@ class BillingWalletBucketDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingWalletBucketListDTO(BillingBaseDTO):
+    """Represent the billing wallet bucket list API payload."""
+
     items: list[BillingWalletBucketDTO]
 
 
 @register_schema_to_swagger
 class BillingMetricBreakdownDTO(BillingBaseDTO):
+    """Represent the billing metric breakdown API payload."""
+
     billing_metric: str
     billing_metric_code: int | None = None
     raw_amount: int
@@ -230,6 +270,8 @@ class BillingMetricBreakdownDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingBucketMetricBreakdownDTO(BillingBaseDTO):
+    """Represent the billing bucket metric breakdown API payload."""
+
     billing_metric: str
     billing_metric_code: int | None = None
     consumed_credits: int | float
@@ -237,6 +279,8 @@ class BillingBucketMetricBreakdownDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingBucketBreakdownDTO(BillingBaseDTO):
+    """Represent the billing bucket breakdown API payload."""
+
     wallet_bucket_bid: str
     bucket_category: str
     source_type: str
@@ -251,6 +295,8 @@ class BillingBucketBreakdownDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingLedgerMetadataDTO(BillingBaseDTO):
+    """Represent the billing ledger metadata API payload."""
+
     usage_bid: str | None = None
     usage_scene: str | None = None
     course_name: str | None = None
@@ -263,6 +309,8 @@ class BillingLedgerMetadataDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingLedgerItemDTO(BillingBaseDTO):
+    """Represent the billing ledger item API payload."""
+
     ledger_bid: str
     wallet_bucket_bid: str
     entry_type: str
@@ -280,6 +328,8 @@ class BillingLedgerItemDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingLedgerPageDTO(BillingBaseDTO):
+    """Represent the billing ledger page API payload."""
+
     items: list[BillingLedgerItemDTO]
     page: int
     page_count: int
@@ -289,6 +339,8 @@ class BillingLedgerPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingDailyUsageMetricDTO(BillingBaseDTO):
+    """Represent the billing daily usage metric API payload."""
+
     daily_usage_metric_bid: str
     stat_date: str
     shifu_bid: str
@@ -306,6 +358,8 @@ class BillingDailyUsageMetricDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingDailyUsageMetricsPageDTO(BillingBaseDTO):
+    """Represent the billing daily usage metrics page API payload."""
+
     items: list[BillingDailyUsageMetricDTO]
     page: int
     page_count: int
@@ -315,6 +369,8 @@ class BillingDailyUsageMetricsPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingDailyLedgerSummaryDTO(BillingBaseDTO):
+    """Represent the billing daily ledger summary API payload."""
+
     daily_ledger_summary_bid: str
     stat_date: str
     entry_type: str
@@ -327,6 +383,8 @@ class BillingDailyLedgerSummaryDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingDailyLedgerSummaryPageDTO(BillingBaseDTO):
+    """Represent the billing daily ledger summary page API payload."""
+
     items: list[BillingDailyLedgerSummaryDTO]
     page: int
     page_count: int
@@ -336,6 +394,8 @@ class BillingDailyLedgerSummaryPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingRenewalEventDTO(BillingBaseDTO):
+    """Represent the billing renewal event API payload."""
+
     renewal_event_bid: str
     event_type: str
     status: str
@@ -348,6 +408,8 @@ class BillingRenewalEventDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingOrderSummaryDTO(BillingBaseDTO):
+    """Represent the billing order summary API payload."""
+
     bill_order_bid: str
     creator_bid: str
     product_bid: str
@@ -367,6 +429,8 @@ class BillingOrderSummaryDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingOrderDetailDTO(BillingOrderSummaryDTO):
+    """Represent the billing order detail API payload."""
+
     metadata: dict[str, Any] | None = None
     failure_code: str = ""
     refunded_at: datetime | None = None
@@ -375,6 +439,8 @@ class BillingOrderDetailDTO(BillingOrderSummaryDTO):
 
 @register_schema_to_swagger
 class BillingOrdersPageDTO(BillingBaseDTO):
+    """Represent the billing orders page API payload."""
+
     items: list[BillingOrderSummaryDTO]
     page: int
     page_count: int
@@ -384,6 +450,8 @@ class BillingOrdersPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingCheckoutResultDTO(BillingBaseDTO):
+    """Represent the billing checkout result API payload."""
+
     bill_order_bid: str
     provider: str
     payment_mode: str
@@ -407,6 +475,8 @@ class BillingCheckoutResultDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingOrderSyncResultDTO(BillingBaseDTO):
+    """Represent the billing order sync result API payload."""
+
     bill_order_bid: str
     status: str
     expires_at: datetime | None = None
@@ -415,6 +485,8 @@ class BillingOrderSyncResultDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingRefundResultDTO(BillingBaseDTO):
+    """Represent the billing refund result API payload."""
+
     bill_order_bid: str
     provider: str
     status: str
@@ -423,11 +495,13 @@ class BillingRefundResultDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingSubscriptionDTO(BillingSubscriptionDTO):
+    """Represent the admin billing subscription API payload."""
+
     creator_bid: str
     creator_identify: str = ""
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
-    product_name_key: str = ""
     next_product_code: str = ""
     next_product_name_key: str = ""
     wallet: BillingWalletSnapshotDTO
@@ -437,6 +511,8 @@ class AdminBillingSubscriptionDTO(BillingSubscriptionDTO):
 
 @register_schema_to_swagger
 class BillingSubscriptionsPageDTO(BillingBaseDTO):
+    """Represent the billing subscriptions page API payload."""
+
     items: list[AdminBillingSubscriptionDTO]
     page: int
     page_count: int
@@ -446,9 +522,12 @@ class BillingSubscriptionsPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingEntitlementDTO(BillingEntitlementsDTO):
+    """Represent the admin billing entitlement API payload."""
+
     creator_bid: str
     creator_identify: str = ""
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
     source_kind: str
     source_type: str = ""
@@ -462,6 +541,8 @@ class AdminBillingEntitlementDTO(BillingEntitlementsDTO):
 
 @register_schema_to_swagger
 class BillingEntitlementsPageDTO(BillingBaseDTO):
+    """Represent the billing entitlements page API payload."""
+
     items: list[AdminBillingEntitlementDTO]
     page: int
     page_count: int
@@ -471,6 +552,8 @@ class BillingEntitlementsPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingDomainBindingDTO(BillingBaseDTO):
+    """Represent the billing domain binding API payload."""
+
     domain_binding_bid: str
     creator_bid: str
     host: str
@@ -487,6 +570,8 @@ class BillingDomainBindingDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingDomainBindingsDTO(BillingBaseDTO):
+    """Represent the billing domain bindings API payload."""
+
     creator_bid: str
     custom_domain_enabled: bool
     items: list[BillingDomainBindingDTO]
@@ -494,14 +579,19 @@ class BillingDomainBindingsDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingDomainBindResultDTO(BillingBaseDTO):
+    """Represent the billing domain bind result API payload."""
+
     action: str
     binding: BillingDomainBindingDTO
 
 
 @register_schema_to_swagger
 class AdminBillingOrderDTO(BillingOrderSummaryDTO):
+    """Represent the admin billing order API payload."""
+
     creator_identify: str = ""
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
     product_name_key: str = ""
     product_credit_amount: int | float = 0
@@ -513,6 +603,8 @@ class AdminBillingOrderDTO(BillingOrderSummaryDTO):
 
 @register_schema_to_swagger
 class AdminBillingCampaignProductOptionDTO(BillingBaseDTO):
+    """Represent the admin billing campaign product option API payload."""
+
     product_bid: str
     product_code: str
     product_type: str
@@ -532,12 +624,16 @@ class AdminBillingCampaignProductOptionDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingCampaignProductOptionsDTO(BillingBaseDTO):
+    """Represent the admin billing campaign product options API payload."""
+
     plans: list[AdminBillingCampaignProductOptionDTO] = Field(default_factory=list)
     topups: list[AdminBillingCampaignProductOptionDTO] = Field(default_factory=list)
 
 
 @register_schema_to_swagger
 class AdminBillingCampaignDTO(BillingBaseDTO):
+    """Represent the admin billing campaign API payload."""
+
     campaign_bid: str
     name: str
     note: str = ""
@@ -550,6 +646,7 @@ class AdminBillingCampaignDTO(BillingBaseDTO):
     product_types: list[str] = Field(default_factory=list)
     product_names: list[str] = Field(default_factory=list)
     has_custom_product_rules: bool = False
+    provider_discount_summary: dict[str, object] = Field(default_factory=dict)
     computed_status: str
     hit_order_count: int = 0
     start_at: datetime | None
@@ -561,6 +658,8 @@ class AdminBillingCampaignDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingCampaignDetailDTO(BillingBaseDTO):
+    """Represent the admin billing campaign detail API payload."""
+
     campaign: AdminBillingCampaignDTO
     products: list[AdminBillingCampaignProductOptionDTO] = Field(default_factory=list)
     created_user_bid: str = ""
@@ -569,6 +668,8 @@ class AdminBillingCampaignDetailDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingCampaignsPageDTO(BillingBaseDTO):
+    """Represent the admin billing campaigns page API payload."""
+
     items: list[AdminBillingCampaignDTO]
     page: int
     page_count: int
@@ -578,6 +679,8 @@ class AdminBillingCampaignsPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class OperatorCreditOrderGrantDTO(BillingBaseDTO):
+    """Represent the operator credit order grant API payload."""
+
     granted_credits: int | float
     valid_from: datetime | None = None
     valid_to: datetime | None = None
@@ -587,6 +690,8 @@ class OperatorCreditOrderGrantDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class OperatorCreditOrderDTO(BillingBaseDTO):
+    """Represent the operator credit order API payload."""
+
     bill_order_bid: str
     creator_bid: str
     creator_identify: str = ""
@@ -620,6 +725,8 @@ class OperatorCreditOrderDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class OperatorCreditOrderOverviewDTO(BillingBaseDTO):
+    """Represent the operator credit order overview API payload."""
+
     total_order_count: int = 0
     paid_order_count: int = 0
     pending_order_count: int = 0
@@ -634,6 +741,8 @@ class OperatorCreditOrderOverviewDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class OperatorCreditOrdersPageDTO(BillingBaseDTO):
+    """Represent the operator credit orders page API payload."""
+
     items: list[OperatorCreditOrderDTO]
     page: int
     page_count: int
@@ -643,6 +752,8 @@ class OperatorCreditOrdersPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class OperatorCreditOrderDetailDTO(BillingBaseDTO):
+    """Represent the operator credit order detail API payload."""
+
     order: OperatorCreditOrderDTO
     metadata: dict[str, Any] | None = None
     grant: OperatorCreditOrderGrantDTO | None = None
@@ -650,13 +761,18 @@ class OperatorCreditOrderDetailDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingDailyUsageMetricDTO(BillingDailyUsageMetricDTO):
+    """Represent the admin billing daily usage metric API payload."""
+
     creator_bid: str
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
 
 
 @register_schema_to_swagger
 class AdminBillingDailyUsageMetricsPageDTO(BillingBaseDTO):
+    """Represent the admin billing daily usage metrics page API payload."""
+
     items: list[AdminBillingDailyUsageMetricDTO]
     page: int
     page_count: int
@@ -666,8 +782,11 @@ class AdminBillingDailyUsageMetricsPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingFocusTeacherDTO(BillingBaseDTO):
+    """Represent the admin billing focus teacher API payload."""
+
     creator_bid: str
     creator_mobile: str = ""
+    creator_email: str = ""
     creator_nickname: str = ""
     credits_7d: int | float = 0
     credits_30d: int | float = 0
@@ -683,6 +802,8 @@ class AdminBillingFocusTeacherDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingFocusTeachersPageDTO(BillingBaseDTO):
+    """Represent the admin billing focus teachers page API payload."""
+
     items: list[AdminBillingFocusTeacherDTO]
     page: int
     page_count: int
@@ -692,11 +813,15 @@ class AdminBillingFocusTeachersPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class AdminBillingDailyLedgerSummaryDTO(BillingDailyLedgerSummaryDTO):
+    """Represent the admin billing daily ledger summary API payload."""
+
     creator_bid: str
 
 
 @register_schema_to_swagger
 class AdminBillingDailyLedgerSummaryPageDTO(BillingBaseDTO):
+    """Represent the admin billing daily ledger summary page API payload."""
+
     items: list[AdminBillingDailyLedgerSummaryDTO]
     page: int
     page_count: int
@@ -706,6 +831,8 @@ class AdminBillingDailyLedgerSummaryPageDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingWalletRefDTO(BillingBaseDTO):
+    """Represent the billing wallet ref API payload."""
+
     wallet_bid: str
     available_credits: int | float
     reserved_credits: int | float
@@ -713,6 +840,8 @@ class BillingWalletRefDTO(BillingBaseDTO):
 
 @register_schema_to_swagger
 class BillingLedgerAdjustResultDTO(BillingBaseDTO):
+    """Represent the billing ledger adjust result API payload."""
+
     status: str
     adjustment_bid: str | None = None
     creator_bid: str | None = None
@@ -723,21 +852,32 @@ class BillingLedgerAdjustResultDTO(BillingBaseDTO):
 
 
 class RuntimeLocalizedUrlDTO(BillingBaseDTO):
+    """Represent the runtime localized URL API payload."""
+
     zh_cn: str = Field(alias="zh-CN")
     en_us: str = Field(alias="en-US")
+    de_de: str = Field(alias="de-DE")
+    es_es: str = Field(alias="es-ES")
     fr_fr: str = Field(alias="fr-FR")
+    ar_sa: str = Field(alias="ar-SA")
+    th_th: str = Field(alias="th-TH")
+    ur_pk: str = Field(default="", alias="ur-PK")
 
 
 class RuntimeLegalUrlsDTO(BillingBaseDTO):
+    """Represent the runtime legal urls API payload."""
+
     agreement: RuntimeLocalizedUrlDTO
     privacy: RuntimeLocalizedUrlDTO
 
 
 class RuntimeBillingEntitlementsDTO(BillingEntitlementsDTO):
-    pass
+    """Represent the runtime billing entitlements API payload."""
 
 
 class RuntimeBillingBrandingDTO(BillingBaseDTO):
+    """Represent the runtime billing branding API payload."""
+
     logo_wide_url: str | None = None
     logo_square_url: str | None = None
     favicon_url: str | None = None
@@ -746,6 +886,8 @@ class RuntimeBillingBrandingDTO(BillingBaseDTO):
 
 
 class RuntimeBillingDomainDTO(BillingBaseDTO):
+    """Represent the runtime billing domain API payload."""
+
     request_host: str | None = None
     matched: bool
     is_custom_domain: bool
@@ -756,38 +898,51 @@ class RuntimeBillingDomainDTO(BillingBaseDTO):
 
 
 class RuntimeBillingContextDTO(BillingBaseDTO):
+    """Represent the runtime billing context API payload."""
+
     entitlements: RuntimeBillingEntitlementsDTO
     branding: RuntimeBillingBrandingDTO
     domain: RuntimeBillingDomainDTO
 
 
 class RuntimeConfigDTO(BillingBaseDTO):
-    defaultLlmModel: str
-    wechatAppId: str
-    enableWechatCode: bool
-    billingEnabled: bool
-    billingCreditPrecision: int
-    stripePublishableKey: str
-    stripeEnabled: bool
-    paymentChannels: list[str]
-    payOrderExpireSeconds: int
-    alwaysShowLessonTree: bool
-    logoWideUrl: str
-    logoSquareUrl: str
-    faviconUrl: str
-    umamiScriptSrc: str
-    umamiWebsiteId: str
-    enableEruda: bool
-    loginMethodsEnabled: list[str]
-    defaultLoginMethod: str
-    googleOauthRedirect: str
-    homeUrl: str
-    contactUsUrl: str
-    officialSiteUrl: str
-    currencySymbol: str
-    legalUrls: RuntimeLegalUrlsDTO
+    """Represent the runtime config API payload."""
+
+    wechat_app_id: str = Field(alias="wechatAppId")
+    enable_wechat_code: bool = Field(alias="enableWechatCode")
+    billing_enabled: bool = Field(alias="billingEnabled")
+    billing_credit_precision: int = Field(alias="billingCreditPrecision")
+    stripe_publishable_key: str = Field(alias="stripePublishableKey")
+    stripe_enabled: bool = Field(alias="stripeEnabled")
+    payment_channels: list[str] = Field(alias="paymentChannels")
+    pay_order_expire_seconds: int = Field(alias="payOrderExpireSeconds")
+    always_show_lesson_tree: bool = Field(alias="alwaysShowLessonTree")
+    logo_wide_url: str = Field(alias="logoWideUrl")
+    logo_square_url: str = Field(alias="logoSquareUrl")
+    favicon_url: str = Field(alias="faviconUrl")
+    umami_script_src: str = Field(alias="umamiScriptSrc")
+    umami_website_id: str = Field(alias="umamiWebsiteId")
+    enable_eruda: bool = Field(alias="enableEruda")
+    login_methods_enabled: list[str] = Field(alias="loginMethodsEnabled")
+    default_login_method: str = Field(alias="defaultLoginMethod")
+    google_oauth_redirect: str = Field(alias="googleOauthRedirect")
+    home_url: str = Field(alias="homeUrl")
+    contact_us_url: str = Field(alias="contactUsUrl")
+    official_site_url: str = Field(alias="officialSiteUrl")
+    currency_symbol: str = Field(alias="currencySymbol")
+    default_course_price: float = Field(default=0.5, alias="defaultCoursePrice")
+    minimum_paid_course_price: float = Field(
+        default=0.5, alias="minimumPaidCoursePrice"
+    )
+    legal_urls: RuntimeLegalUrlsDTO = Field(alias="legalUrls")
     entitlements: RuntimeBillingEntitlementsDTO
     branding: RuntimeBillingBrandingDTO
     domain: RuntimeBillingDomainDTO
-    customizationCapabilities: dict[str, bool] = Field(default_factory=dict)
-    paymentConfigurationReady: bool = False
+    customization_capabilities: dict[str, bool] = Field(
+        default_factory=dict,
+        alias="customizationCapabilities",
+    )
+    payment_configuration_ready: bool = Field(
+        default=False,
+        alias="paymentConfigurationReady",
+    )

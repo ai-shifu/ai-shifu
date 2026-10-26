@@ -1,15 +1,24 @@
+"""Verify onboarding HTTP route behavior."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import uuid
-
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta, timezone
 
 from flaskr.dao import db
-from flaskr.service.user.onboarding import _serialize_datetime
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.models import UserOnboardingState
-from flaskr.service.user.utils import generate_token
+from flaskr.service.user.onboarding import _serialize_datetime
+from flaskr.service.user.utils import generate_token as generate_uncommitted_token
+from flaskr.util.datetime import now_utc
+from sqlalchemy.exc import IntegrityError
+
+
+def generate_token(app: object, user_bid: str) -> str:
+    """Issue the durable session expected by the following HTTP request."""
+    token = generate_uncommitted_token(app, user_bid)
+    db.session.commit()
+    return token
 
 
 def _create_user(
@@ -29,15 +38,15 @@ def _create_user(
         state=1,
         is_creator=1 if is_creator else 0,
         is_operator=1 if is_operator else 0,
-        created_at=created_at or datetime.now(),
+        created_at=created_at or now_utc(),
         creator_activated_at=creator_activated_at,
-        updated_at=created_at or datetime.now(),
+        updated_at=created_at or now_utc(),
     )
     db.session.add(user)
     return user
 
 
-def test_serialize_datetime_emits_explicit_utc_suffix():
+def test_serialize_datetime_emits_explicit_utc_suffix() -> None:
     assert _serialize_datetime(None) is None
     assert _serialize_datetime(datetime(2026, 6, 17, 12, 5, 0)) == (
         "2026-06-17T12:05:00Z"
@@ -51,8 +60,8 @@ def test_serialize_datetime_emits_explicit_utc_suffix():
 
 
 def test_onboarding_status_returns_eligible_creator_scene_state(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     now = datetime(2026, 6, 17, 12, 0, 0)
 
@@ -88,7 +97,7 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses._load_shifu_demo_metadata",
-        lambda app, shifu_bid: (
+        lambda _app, shifu_bid: (
             [("AI Shifu Guide Course", "system")]
             if shifu_bid == "demo-zh-course"
             else [("AI-Shifu Creation Guide", "system")]
@@ -117,8 +126,8 @@ def test_onboarding_status_returns_eligible_creator_scene_state(
 
 
 def test_onboarding_status_allows_operator_creator_when_new_creator_gate_matches(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(
@@ -158,8 +167,8 @@ def test_onboarding_status_allows_operator_creator_when_new_creator_gate_matches
 
 
 def test_onboarding_status_treats_old_user_newly_activated_as_existing_rollout(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     created_at = datetime(2026, 6, 1, 12, 0, 0)
     creator_activated_at = datetime(2026, 6, 12, 9, 30, 0)
@@ -200,8 +209,8 @@ def test_onboarding_status_treats_old_user_newly_activated_as_existing_rollout(
 
 
 def test_onboarding_status_includes_existing_creator_rollout_segment(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     created_at = datetime(2026, 5, 1, 12, 0, 0)
 
@@ -242,8 +251,8 @@ def test_onboarding_status_includes_existing_creator_rollout_segment(
 
 
 def test_onboarding_status_excludes_existing_creator_before_rollout_switch(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():
@@ -283,8 +292,8 @@ def test_onboarding_status_excludes_existing_creator_before_rollout_switch(
 
 
 def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_missing(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():
@@ -298,7 +307,7 @@ def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_miss
 
     class _MockDateTime(datetime):
         @classmethod
-        def utcnow(cls):
+        def utcnow(cls) -> datetime:
             return cls(2026, 6, 23, 10, 0, 0)
 
     monkeypatch.setattr("flaskr.service.user.onboarding.datetime", _MockDateTime)
@@ -328,8 +337,8 @@ def test_onboarding_status_uses_conservative_fallback_when_new_creator_gate_miss
 
 
 def test_onboarding_status_stays_ineligible_when_all_rollout_gates_missing(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
 
     with app.app_context():
@@ -364,7 +373,9 @@ def test_onboarding_status_stays_ineligible_when_all_rollout_gates_missing(
     assert payload["data"]["user_segment"] == "ineligible"
 
 
-def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
+def test_complete_onboarding_scene_is_idempotent(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -379,7 +390,7 @@ def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses.get_dynamic_config",
-        lambda key, default="": default,
+        lambda _key, default="": default,
     )
 
     payload = {
@@ -412,7 +423,9 @@ def test_complete_onboarding_scene_is_idempotent(app, test_client, monkeypatch):
         assert len(rows) == 1
 
 
-def test_complete_onboarding_scene_records_skipped(app, test_client, monkeypatch):
+def test_complete_onboarding_scene_records_skipped(
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -454,8 +467,8 @@ def test_complete_onboarding_scene_records_skipped(app, test_client, monkeypatch
 
 
 def test_complete_onboarding_scene_rejects_invalid_status(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -493,8 +506,8 @@ def test_complete_onboarding_scene_rejects_invalid_status(
 
 
 def test_complete_course_editor_onboarding_accepts_direct_editor_entry(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -534,8 +547,8 @@ def test_complete_course_editor_onboarding_accepts_direct_editor_entry(
 
 
 def test_complete_course_editor_onboarding_accepts_skills_create(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -575,8 +588,8 @@ def test_complete_course_editor_onboarding_accepts_skills_create(
 
 
 def test_complete_onboarding_scene_handles_integrity_error(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     completed_at = datetime(2026, 6, 17, 12, 5, 0)
 
@@ -603,16 +616,17 @@ def test_complete_onboarding_scene_handles_integrity_error(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.demo_courses.get_dynamic_config",
-        lambda key, default="": default,
+        lambda _key, default="": default,
     )
 
     original_commit = db.session.commit
     state = {"raised": False}
 
-    def flaky_commit():
+    def flaky_commit() -> object:
         if not state["raised"]:
             state["raised"] = True
-            raise IntegrityError("duplicate", None, None)
+            message = "duplicate"
+            raise IntegrityError(message, None, None)
         return original_commit()
 
     monkeypatch.setattr(db.session, "commit", flaky_commit)
@@ -635,8 +649,8 @@ def test_complete_onboarding_scene_handles_integrity_error(
 
 
 def test_complete_onboarding_scene_rejects_ineligible_user(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(
@@ -649,7 +663,7 @@ def test_complete_onboarding_scene_rejects_ineligible_user(
 
     monkeypatch.setattr(
         "flaskr.service.user.onboarding.get_dynamic_config",
-        lambda key, default="": default,
+        lambda _key, default="": default,
     )
 
     response = test_client.post(
@@ -668,8 +682,8 @@ def test_complete_onboarding_scene_rejects_ineligible_user(
 
 
 def test_complete_onboarding_scene_handles_non_object_payload(
-    app, test_client, monkeypatch
-):
+    app: object, test_client: object, monkeypatch: object
+) -> None:
     user_bid = uuid.uuid4().hex[:32]
     with app.app_context():
         _create_user(user_bid=user_bid, created_at=datetime(2026, 6, 17, 12, 0, 0))
@@ -678,7 +692,7 @@ def test_complete_onboarding_scene_handles_non_object_payload(
 
     monkeypatch.setattr(
         "flaskr.service.user.onboarding.get_dynamic_config",
-        lambda key, default="": default,
+        lambda _key, default="": default,
     )
 
     response = test_client.post(

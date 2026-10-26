@@ -1,7 +1,10 @@
-from flask import Flask
-import pytest
+"""Verify billable usage is persisted and queued for settlement."""
 
-import flaskr.dao as dao
+from collections.abc import Iterator
+
+import pytest
+from flask import Flask
+from flaskr import dao
 from flaskr.service.metering import UsageContext, record_llm_usage, record_tts_usage
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_DEBUG,
@@ -11,13 +14,14 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_TYPE_TTS,
 )
 from flaskr.service.metering.models import BillUsageRecord
+from flaskr.service.shifu.models import PublishedShifu
 from flaskr.util.uuid import generate_id
 
 _BUILTIN_DEMO_SHIFU_BID = "demo-configured-1"
 
 
 @pytest.fixture
-def metering_app():
+def metering_app() -> Iterator[Flask]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -37,7 +41,7 @@ def metering_app():
         dao.db.drop_all()
 
 
-def test_record_llm_usage_persists(metering_app):
+def test_record_llm_usage_persists(metering_app: object) -> None:
     with metering_app.app_context():
         context = UsageContext(
             user_bid="user-1",
@@ -67,10 +71,39 @@ def test_record_llm_usage_persists(metering_app):
         assert record.billable == 1
 
 
+def test_record_llm_usage_attaches_learning_mode_metadata(
+    metering_app: object,
+) -> None:
+    with metering_app.app_context():
+        usage_bid = record_llm_usage(
+            metering_app,
+            UsageContext(
+                user_bid="user-learning-mode-1",
+                shifu_bid="shifu-learning-mode-1",
+                usage_scene=BILL_USAGE_SCENE_PROD,
+                learning_mode="classroom",
+            ),
+            provider="openai",
+            model="gpt-test",
+            is_stream=False,
+            input=10,
+            output=20,
+            total=30,
+            extra={"usage_source": "lesson"},
+        )
+        record = BillUsageRecord.query.filter_by(usage_bid=usage_bid).first()
+
+    assert record is not None
+    assert record.extra == {
+        "usage_source": "lesson",
+        "learning_mode": "classroom",
+    }
+
+
 def test_record_llm_usage_enqueues_settlement_for_billable_root_usage(
-    metering_app,
+    metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -96,7 +129,7 @@ def test_record_llm_usage_enqueues_settlement_for_billable_root_usage(
     assert captured == [usage_bid]
 
 
-def test_record_tts_usage_preview_defaults_to_billable_on(metering_app):
+def test_record_tts_usage_preview_defaults_to_billable_on(metering_app: object) -> None:
     with metering_app.app_context():
         context = UsageContext(
             user_bid="user-2",
@@ -150,9 +183,9 @@ def test_record_tts_usage_preview_defaults_to_billable_on(metering_app):
 
 
 def test_record_tts_usage_only_enqueues_root_billable_record(
-    metering_app,
+    metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -201,7 +234,9 @@ def test_record_tts_usage_only_enqueues_root_billable_record(
     assert captured == [parent_usage_bid]
 
 
-def test_record_debug_usage_respects_explicit_non_billable_override(metering_app):
+def test_record_debug_usage_respects_explicit_non_billable_override(
+    metering_app: object,
+) -> None:
     with metering_app.app_context():
         context = UsageContext(
             user_bid="user-3",
@@ -226,9 +261,9 @@ def test_record_debug_usage_respects_explicit_non_billable_override(metering_app
 
 
 def test_record_llm_usage_skips_settlement_enqueue_for_non_billable_usage(
-    metering_app,
+    metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -256,9 +291,9 @@ def test_record_llm_usage_skips_settlement_enqueue_for_non_billable_usage(
 
 
 def test_record_llm_usage_marks_builtin_demo_course_non_billable(
-    metering_app,
+    metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -294,9 +329,9 @@ def test_record_llm_usage_marks_builtin_demo_course_non_billable(
 
 
 def test_record_tts_usage_marks_builtin_demo_course_non_billable(
-    metering_app,
+    metering_app: object,
     monkeypatch: pytest.MonkeyPatch,
-):
+) -> None:
     captured: list[str] = []
     monkeypatch.setattr(
         "flaskr.service.metering.recorder._enqueue_usage_settlement",
@@ -336,31 +371,34 @@ def test_record_tts_usage_marks_builtin_demo_course_non_billable(
     assert captured == []
 
 
-def test_persist_cleanup_targets_failed_session_inside_context(app, monkeypatch):
-    """Cleanup must run inside the pushed context (targeting the session that
-    failed) and classify the failure: ordinary errors roll back, protocol
-    interrupts invalidate."""
+def test_persist_cleanup_targets_failed_session_inside_context(
+    app: object, monkeypatch: object
+) -> None:
+    """The autonomous unit of work cleans up INSIDE the pushed context (targeting the session that failed) and classifies the failure: ordinary errors roll back, protocol interrupts invalidate."""
     from flask import current_app
-    from sqlalchemy.exc import ResourceClosedError
-
+    from flaskr import dao
     from flaskr.service.metering import recorder as recorder_module
+    from sqlalchemy.exc import ResourceClosedError
 
     events = []
 
-    def _fake_cleanup(exc, *, source, session=None):
+    def _fake_cleanup(exc: object, *, source: object, session: object = None) -> object:
         # Must be called while the pushed app context is active.
+        _ = (source, session)
         events.append((type(exc).__name__, current_app._get_current_object() is app))
         return "cleaned"
 
-    monkeypatch.setattr(recorder_module, "cleanup_session_after", _fake_cleanup)
+    monkeypatch.setattr(dao, "cleanup_session_after", _fake_cleanup)
 
     class _FailingSession:
-        def add(self, _record):
+        def add(self, _record: object) -> None:
             pass
 
-        def commit(self):
-            raise ResourceClosedError("desynced")
+        def commit(self) -> None:
+            message = "desynced"
+            raise ResourceClosedError(message)
 
+    monkeypatch.setattr(dao, "db", type("D", (), {"session": _FailingSession()}))
     monkeypatch.setattr(
         recorder_module, "db", type("D", (), {"session": _FailingSession()})
     )
@@ -371,26 +409,30 @@ def test_persist_cleanup_targets_failed_session_inside_context(app, monkeypatch)
     assert events == [("ResourceClosedError", True)]
 
 
-def test_persist_invalidates_on_base_exception_interrupt(app, monkeypatch):
+def test_persist_invalidates_on_base_exception_interrupt(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr import dao
     from flaskr.service.metering import recorder as recorder_module
 
     invalidations = []
     monkeypatch.setattr(
-        recorder_module,
+        dao,
         "invalidate_session",
-        lambda *, source, session=None: invalidations.append(source) or True,
+        lambda *, source, _session=None: invalidations.append(source) or True,
     )
 
     class _Interrupt(BaseException):
         pass
 
     class _InterruptedSession:
-        def add(self, _record):
+        def add(self, _record: object) -> None:
             pass
 
-        def commit(self):
-            raise _Interrupt()
+        def commit(self) -> None:
+            raise _Interrupt
 
+    monkeypatch.setattr(dao, "db", type("D", (), {"session": _InterruptedSession()}))
     monkeypatch.setattr(
         recorder_module, "db", type("D", (), {"session": _InterruptedSession()})
     )
@@ -398,4 +440,140 @@ def test_persist_invalidates_on_base_exception_interrupt(app, monkeypatch):
     with pytest.raises(_Interrupt):
         recorder_module._persist_usage_record(app, object())
 
-    assert invalidations == ["usage metering persist interrupt"]
+    # The unit of work discards the connection first; the app-context
+    # teardown then invalidates again as defense in depth.
+    assert invalidations[0] == "unit_of_work interrupt"
+
+
+@pytest.mark.parametrize("kind", ["llm", "tts"])
+@pytest.mark.parametrize("course_kind", ["ordinary", "title_demo", "configured_demo"])
+def test_native_usage_classifies_cold_course_without_a_caller_context(
+    metering_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    kind: str,
+    course_kind: str,
+) -> None:
+    """Cold real database/config reads must work on the engine's native thread."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from flask import has_app_context
+    from flaskr.dao.uow import unit_of_work
+    from flaskr.service.shifu import demo_courses
+
+    course = f"native-{course_kind}-{kind}"
+    queued: list[str] = []
+    monkeypatch.setattr(demo_courses, "_demo_metadata_cache", {})
+
+    def configured(key: str, default: str = "") -> str:
+        """Require a real context for configuration-backed demo classification."""
+        assert has_app_context()
+        return (
+            course
+            if course_kind == "configured_demo" and key == "DEMO_EN_SHIFU_BID"
+            else default
+        )
+
+    monkeypatch.setattr(demo_courses, "get_dynamic_config", configured)
+    monkeypatch.setattr(
+        "flaskr.service.metering.recorder._enqueue_usage_settlement",
+        lambda _app, *, usage_bid: queued.append(usage_bid),
+    )
+    with unit_of_work():
+        dao.db.session.add(
+            PublishedShifu(
+                shifu_bid=course,
+                title="AI-Shifu Creation Guide"
+                if course_kind == "title_demo"
+                else "Regular course",
+                created_user_bid="system" if course_kind == "title_demo" else "teacher",
+            )
+        )
+
+    def record() -> str:
+        """Persist usage from a native thread and verify temporary scope cleanup."""
+        assert not has_app_context()
+        context = UsageContext(user_bid="native-learner", shifu_bid=course)
+        common = {
+            "provider": "test",
+            "model": "test-model",
+            "is_stream": True,
+            "input": 8,
+            "output": 13,
+            "total": 21,
+        }
+        if kind == "llm":
+            usage_bid = record_llm_usage(metering_app, context, **common)
+        else:
+            usage_bid = record_tts_usage(
+                metering_app, context, word_count=13, duration_ms=100, **common
+            )
+        assert not has_app_context()
+        return usage_bid
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        usage_bid = executor.submit(record).result(timeout=10)
+    row = BillUsageRecord.query.filter_by(usage_bid=usage_bid).one()
+    assert row.shifu_bid == course
+    assert row.billable == int(course_kind == "ordinary")
+    assert queued == ([usage_bid] if course_kind == "ordinary" else [])
+
+
+def test_classification_reuses_the_caller_session_without_committing(
+    metering_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Request-owned pending writes and callbacks stay in their original transaction."""
+    from flaskr.dao.uow import on_commit, unit_of_work
+    from flaskr.service.metering.recorder import _resolve_billable
+    from flaskr.service.shifu import demo_courses
+
+    monkeypatch.setattr(demo_courses, "_demo_metadata_cache", {})
+    monkeypatch.setattr(
+        demo_courses, "get_dynamic_config", lambda _key, default="": default
+    )
+    session = dao.db.session()
+    callbacks: list[str] = []
+
+    def abort_caller() -> None:
+        """Classify pending rows without committing the caller's transaction."""
+        with unit_of_work():
+            dao.db.session.add(
+                PublishedShifu(shifu_bid="pending-caller-course", title="Pending")
+            )
+            dao.db.session.add(
+                PublishedShifu(
+                    shifu_bid="pending-title-demo",
+                    title="AI-Shifu Creation Guide",
+                    created_user_bid="system",
+                )
+            )
+            on_commit(lambda: callbacks.append("committed"))
+            assert (
+                _resolve_billable(
+                    metering_app,
+                    context=UsageContext(shifu_bid="pending-title-demo"),
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                )
+                == 0
+            )
+            assert (
+                _resolve_billable(
+                    metering_app,
+                    context=UsageContext(shifu_bid="ordinary-unpublished-course"),
+                    usage_scene=BILL_USAGE_SCENE_PROD,
+                )
+                == 1
+            )
+            assert dao.db.session() is session
+            message = "abort caller"
+            raise RuntimeError(message)
+
+    with pytest.raises(RuntimeError, match="abort caller"):
+        abort_caller()
+    assert (
+        PublishedShifu.query.filter_by(shifu_bid="pending-caller-course").first()
+        is None
+    )
+    assert callbacks == []
+    assert (
+        PublishedShifu.query.filter_by(shifu_bid="pending-title-demo").first() is None
+    )

@@ -1,29 +1,42 @@
-"""
-Tests for TTS streaming finalize segmentation improvements.
+"""Tests for TTS streaming finalize segmentation improvements.
 
 Verifies that the finalize() method properly segments remaining text
 instead of submitting it all at once, preventing burst delivery of
 final segments.
 """
 
-import pytest
+from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 
+import pytest
 from flaskr.api.tts import TTSResult
 from flaskr.service.learn.learn_dtos import GeneratedType
-from flaskr.service.tts.streaming_tts import StreamingTTSProcessor, TTSSegment
+from flaskr.service.tts.streaming_tts import (
+    StreamingTTSProcessor,
+    TTSSegment,
+    _should_skip_non_speakable_tts_text,
+)
+
+
+@pytest.fixture(autouse=True)
+def _stub_unit_of_work(monkeypatch: object) -> None:
+    # The MagicMock app pushes no real Flask context, and save_audio_record
+    # is mocked in every finalize test; the boundary itself is not under test.
+    monkeypatch.setattr(
+        "flaskr.service.tts.streaming_tts.unit_of_work", nullcontext, raising=False
+    )
 
 
 @pytest.fixture
-def mock_app():
+def mock_app() -> object:
     """Create a mock Flask app."""
     app = MagicMock()
     app.config = {}
     return app
 
 
-def create_test_processor(mock_app, **kwargs):
-    """Helper to create a StreamingTTSProcessor with test defaults."""
+def create_test_processor(mock_app: object, **kwargs: object) -> object:
+    """Create a StreamingTTSProcessor with test defaults."""
     defaults = {
         "app": mock_app,
         "generated_block_bid": "test-block",
@@ -40,18 +53,674 @@ def create_test_processor(mock_app, **kwargs):
 class TestFinalizeSegmentation:
     """Tests for finalize segmentation improvements."""
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @pytest.mark.parametrize("after_boundary", [False, True], ids=["initial", "after"])
+    @pytest.mark.parametrize(
+        ("closer", "complete_sentence"),
+        [(")", True), ("]", False), ("）", False), ("】", True)],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_adjacent_nonquote_closer_only_strips_after_consumed_boundary(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        closer: str,
+        complete_sentence: bool,
+        after_boundary: bool,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+        expected = []
+        if after_boundary:
+            list(processor.process_chunk("First."))
+            expected.append("First.")
+
+        ending = "." if complete_sentence else ""
+        list(processor.process_chunk(f"{closer}**Next**{ending} Tail fragment"))
+        prefix = "" if after_boundary else closer
+        if complete_sentence:
+            expected.append(f"{prefix}Next.")
+            assert processor._buffer[processor._raw_offset :] == " Tail fragment"
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == (
+            expected
+        )
+
+        raw_length = len(processor._buffer)
+        list(processor.finalize())
+        expected.append(
+            "Tail fragment" if complete_sentence else f"{prefix}Next Tail fragment"
+        )
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == expected
+        assert [segment.index for segment in submitted_segments] == list(
+            range(len(expected))
+        )
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        ("opener", "closer"),
+        [
+            ('"', '"'),
+            ("'", "'"),
+            ("\"'", "'\""),
+            ("»", "«"),
+            ("›", "‹"),
+            ("”", "”"),
+            ("’", "’"),
+        ],
+        ids=[
+            "double",
+            "single",
+            "nested",
+            "guillemets",
+            "single-guillemets",
+            "swedish",
+            "curly-single",
+        ],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_quote_openers_at_chunk_end_remain_with_the_next_sentence(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        opener: str,
+        closer: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+
+        list(processor.process_chunk(f"First.{opener}"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "First."
+        ]
+        assert processor._raw_offset == len("First.")
+        assert processor._buffer[processor._raw_offset :] == opener
+
+        list(processor.process_chunk(f"Next.{closer}"))
+        raw_length = len(processor._buffer)
+        assert processor._raw_offset == raw_length
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == [
+            "First.",
+            f"{opener}Next.{closer}",
+        ]
+        assert [segment.index for segment in submitted_segments] == [0, 1]
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        ("opener", "closer"),
+        [('"', '"'), ("'", "'"), ("»", "«"), ("›", "‹"), ("”", "”"), ("’", "’")],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_matched_quote_closer_at_chunk_end_is_submitted_immediately(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        opener: str,
+        closer: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+        first = f"{opener}First.{closer}"
+
+        list(processor.process_chunk(first))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            first
+        ]
+        assert processor._raw_offset == len(first)
+
+        list(processor.process_chunk(" Next."))
+        list(processor.finalize())
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            first,
+            "Next.",
+        ]
+
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_deferred_ascii_opener_survives_markdown_offsets_and_finalize_tail(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+
+        list(processor.process_chunk('**First**."'))
+        assert mock_executor.submit.call_args.args[1].text == "First."
+        assert processor._raw_offset == len("**First**.")
+        assert processor._buffer[processor._raw_offset :] == '"'
+
+        list(processor.process_chunk('Final **fragment**"'))
+        assert mock_executor.submit.call_count == 1
+        assert processor._buffer[processor._raw_offset :] == '"Final **fragment**"'
+        raw_length = len(processor._buffer)
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == [
+            "First.",
+            '"Final fragment"',
+        ]
+        assert [segment.index for segment in submitted_segments] == [0, 1]
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        ("first", "continuation", "expected_before_body"),
+        [
+            ("First.", "«!!", ["First.", "«!!"]),
+            ("First.", "»!!", ["First.", "»!!"]),
+            ("First.", "›!!", ["First.", "›!!"]),
+            ("First.", "”!!", ["First.", "”!!"]),
+            ("„Hallo!", "!!“", ["„Hallo!"]),
+        ],
+        ids=[
+            "new-opener-provider-content",
+            "reversed-guillemet-provider-content",
+            "reversed-single-guillemet-provider-content",
+            "swedish-quote-provider-content",
+            "matched-closer-continuation",
+        ],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_quote_context_distinguishes_provider_content_from_boundary_continuation(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        first: str,
+        continuation: str,
+        expected_before_body: list[str],
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+        assert not _should_skip_non_speakable_tts_text(continuation, "aliyun")
+
+        list(processor.process_chunk(first))
+        list(processor.process_chunk(continuation))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == (
+            expected_before_body
+        )
+
+        list(processor.process_chunk(" Next. Tail fragment"))
+        assert processor._buffer[processor._raw_offset :] == " Tail fragment"
+        raw_length = len(processor._buffer)
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        expected = [*expected_before_body, "Next.", "Tail fragment"]
+        assert [segment.text for segment in submitted_segments] == expected
+        assert [segment.index for segment in submitted_segments] == list(
+            range(len(expected))
+        )
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        ("chunks", "expected"),
+        [
+            (["„Hallo!“ Weiter."], ["„Hallo!“", "Weiter."]),
+            (["„Hallo!", "“ Weiter."], ["„Hallo!", "Weiter."]),
+            (["„Hallo!", "“", " Weiter."], ["„Hallo!", "Weiter."]),
+            (["„Hallo!", "“"], ["„Hallo!"]),
+            (["﹁你好。﹂ 下一句。"], ["﹁你好。﹂", "下一句。"]),
+            (["﹁你好。", "﹂下一句。"], ["﹁你好。", "下一句。"]),
+            (["﹁你好。", "﹂", "下一句。"], ["﹁你好。", "下一句。"]),
+            (["﹁你好。", "﹂"], ["﹁你好。"]),
+            (["﹃你好。﹄ 下一句。"], ["﹃你好。﹄", "下一句。"]),
+            (["﹃你好。", "﹄下一句。"], ["﹃你好。", "下一句。"]),
+            (["﹃你好。", "﹄", "下一句。"], ["﹃你好。", "下一句。"]),
+            (["﹃你好。", "﹄"], ["﹃你好。"]),
+        ],
+        ids=[
+            "german-whole",
+            "german-mixed-closer",
+            "german-standalone-closer",
+            "german-finalize-closer",
+            "vertical-corner-whole",
+            "vertical-corner-mixed-closer",
+            "vertical-corner-standalone-closer",
+            "vertical-corner-finalize-closer",
+            "vertical-white-corner-whole",
+            "vertical-white-corner-mixed-closer",
+            "vertical-white-corner-standalone-closer",
+            "vertical-white-corner-finalize-closer",
+        ],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_paired_closing_quotes_do_not_leak_into_following_segments(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        chunks: list[str],
+        expected: list[str],
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+
+        for index, chunk in enumerate(chunks):
+            list(processor.process_chunk(chunk))
+            if index == 0 and len(chunks) > 1:
+                assert mock_executor.submit.call_args.args[1].text == chunk
+                assert processor._raw_offset == len(chunk)
+
+        raw_length = len(processor._buffer)
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == expected
+        assert [segment.index for segment in submitted_segments] == list(
+            range(len(expected))
+        )
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(("opener", "closer"), [("「", "」"), ("“", "”")])
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_next_sentence_opener_survives_chunk_boundary_and_markdown_offsets(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        opener: str,
+        closer: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+
+        list(processor.process_chunk(f"第一句。{opener}"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "第一句。"
+        ]
+        assert processor._buffer[processor._raw_offset :] == opener
+
+        list(processor.process_chunk(f"**第二句**。{closer} 尾部内容"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "第一句。",
+            f"{opener}第二句。{closer}",
+        ]
+        assert processor._buffer[processor._raw_offset :] == " 尾部内容"
+
+        raw_length = len(processor._buffer)
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == [
+            "第一句。",
+            f"{opener}第二句。{closer}",
+            "尾部内容",
+        ]
+        assert [segment.index for segment in submitted_segments] == [0, 1, 2]
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize("after_boundary", [False, True], ids=["initial", "after"])
+    @pytest.mark.parametrize(
+        "complete_sentence", [False, True], ids=["tail", "sentence"]
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_mixed_closer_prefix_keeps_markdown_offsets_and_following_text(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        after_boundary: bool,
+        complete_sentence: bool,
+    ) -> None:
+        """Consume a preceding sentence's closer without borrowing the next text."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="aliyun")
+        first = "«هل تسمعني؟"
+        expected_texts = []
+        if after_boundary:
+            list(processor.process_chunk(first))
+            expected_texts.append(first)
+        ending = "۔" if complete_sentence else ""
+        mixed_chunk = f"» **نعم**{ending} 尾部内容"
+
+        list(processor.process_chunk(mixed_chunk))
+        if complete_sentence:
+            expected_texts.append("نعم۔" if after_boundary else "» نعم۔")
+            assert processor._buffer[processor._raw_offset :] == " 尾部内容"
+        else:
+            assert processor._buffer[processor._raw_offset :] == mixed_chunk
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == (
+            expected_texts
+        )
+
+        raw_length = len(processor._buffer)
+        list(processor.finalize())
+        expected_texts.append(
+            "尾部内容"
+            if complete_sentence
+            else ("نعم 尾部内容" if after_boundary else "» نعم 尾部内容")
+        )
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == expected_texts
+        assert [segment.index for segment in submitted_segments] == list(
+            range(len(expected_texts))
+        )
+        assert processor._raw_offset == raw_length
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        ("first_sentence", "next_sentence", "expected"),
+        [
+            ("First.", '"Next."', '"Next."'),
+            ("First.", "«Next.»", "«Next.»"),
+            ("First.", "« Bonjour. »", "« Bonjour. »"),
+            ("First.", '" Next."', '" Next."'),
+            ("First.", "’tis fine.", "’tis fine."),
+            ("First.", "»Hallo«.", "»Hallo«."),
+            ("First.", "» Hallo! «", "» Hallo! «"),
+            ("«First.", '» "Next."', '"Next."'),
+        ],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_sentence_boundary_preserves_next_sentence_opening_quote(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        first_sentence: str,
+        next_sentence: str,
+        expected: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+
+        list(processor.process_chunk(first_sentence))
+        list(processor.process_chunk(f" {next_sentence}"))
+        list(processor.finalize())
+
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            first_sentence,
+            expected,
+        ]
+
+    @pytest.mark.parametrize(
+        ("tts_provider", "body", "tail"),
+        [
+            ("aliyun", "😀!", "😀😀"),
+            ("baidu", "∞!", "∞∞"),
+            ("volcengine_http", "😀!", "--"),
+        ],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_mixed_closer_prefix_preserves_provider_symbol_content(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        tts_provider: str,
+        body: str,
+        tail: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider=tts_provider)
+        assert not _should_skip_non_speakable_tts_text(body, tts_provider)
+        assert not _should_skip_non_speakable_tts_text(tail, tts_provider)
+
+        list(processor.process_chunk("«هل تسمعني؟"))
+        list(processor.process_chunk(f"» {body} {tail}"))
+        list(processor.finalize())
+
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "«هل تسمعني؟",
+            body,
+            tail,
+        ]
+
+    @pytest.mark.parametrize(
+        ("tts_provider", "chunks", "complete_sentence"),
+        [
+            ("aliyun", ["”»"], False),
+            ("baidu", ["”", "»"], False),
+            ("volcengine_http", ["”»!!"], True),
+        ],
+        ids=["whole-closers", "chunked-closers", "initial-punctuation"],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_initial_punctuation_preserves_provider_non_speakable_text_policy(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        tts_provider: str,
+        chunks: list[str],
+        complete_sentence: bool,
+    ) -> None:
+        """Initial punctuation is content, not a consumed sentence's continuation."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider=tts_provider)
+        text = "".join(chunks)
+        assert not _should_skip_non_speakable_tts_text(text, tts_provider)
+
+        for chunk in chunks:
+            list(processor.process_chunk(chunk))
+        submitted_texts = [
+            call.args[1].text for call in mock_executor.submit.call_args_list
+        ]
+        assert submitted_texts == ([text] if complete_sentence else [])
+
+        list(processor.finalize())
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            text
+        ]
+        assert mock_executor.submit.call_args.args[1].index == 0
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        ("tts_provider", "tail"),
+        [("aliyun", "😀😀"), ("baidu", "∞∞"), ("volcengine_http", "--")],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_symbol_segments_preserve_provider_non_speakable_text_policy(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        tts_provider: str,
+        tail: str,
+    ) -> None:
+        """Leave symbol-only content to providers that accept non-speakable text."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider=tts_provider)
+        for text in ["😀!", "∞!", tail]:
+            assert not _should_skip_non_speakable_tts_text(text, tts_provider)
+
+        list(processor.process_chunk(f"😀! ∞! {tail}"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "😀!",
+            "∞!",
+        ]
+
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == ["😀!", "∞!", tail]
+        assert [segment.index for segment in submitted_segments] == [0, 1, 2]
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize("chunked", [False, True], ids=["whole", "chunked"])
+    @pytest.mark.parametrize(
+        ("first", "punctuation", "second", "tail"),
+        [
+            ("Ready?", "!!", "Next.", "Final fragment"),
+            ("«هل تسمعني؟", "؟!»", "نعم أسمعك۔", "ثم نتابع"),
+            ("「यह पहला वाक्य है।", "।」", "यह दूसरा वाक्य है।", "आगे का पाठ"),
+            ("မင်္ဂလာပါ။", "။။", "နေကောင်းလား။", "ကျေးဇူးတင်ပါတယ်"),
+        ],
+        ids=["english", "arabic", "hindi", "burmese"],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_punctuation_continuations_do_not_submit_extra_segments(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        first: str,
+        punctuation: str,
+        second: str,
+        tail: str,
+        chunked: bool,
+    ) -> None:
+        """Punctuation arriving after a spoken sentence must not trigger TTS."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+        chunks = [first, punctuation, f" {second} {tail}"]
+        if chunked:
+            list(processor.process_chunk(chunks[0]))
+            assert mock_executor.submit.call_count == 1
+            list(processor.process_chunk(chunks[1]))
+            assert mock_executor.submit.call_count == 1
+            list(processor.process_chunk(chunks[2]))
+        else:
+            list(processor.process_chunk("".join(chunks)))
+
+        expected_first = first if chunked else first + punctuation
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            expected_first,
+            second,
+        ]
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == [
+            expected_first,
+            second,
+            tail,
+        ]
+        assert [segment.index for segment in submitted_segments] == [0, 1, 2]
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        "tts_provider", ["tencent", "aliyun", "baidu", "volcengine_http"]
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_finalize_does_not_submit_closing_quote_fragment(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        tts_provider: str,
+    ) -> None:
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider=tts_provider)
+
+        list(processor.process_chunk("«“هل تسمعني؟"))
+        list(processor.process_chunk("”»"))
+        list(processor.finalize())
+
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            "«“هل تسمعني؟"
+        ]
+        assert processor._buffer == ""
+
+    @pytest.mark.parametrize(
+        ("first", "second", "ending", "tail"),
+        [
+            ("هل تسمعني", "نعم أسمعك", "؟", "ثم نتابع"),
+            ("یہ پہلا جملہ ہے", "یہ دوسرا جملہ ہے", "۔", "مزید متن"),
+            ("यह पहला वाक्य है", "यह दूसरा वाक्य है", "।", "आगे का पाठ"),
+            ("မင်္ဂလာပါ", "နေကောင်းလား", "။", "ကျေးဇူးတင်ပါတယ်"),
+        ],
+        ids=["arabic", "urdu", "hindi", "burmese"],
+    )
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
+    @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
+    def test_multilingual_stream_preserves_markdown_offsets_and_final_fragment(
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        first: str,
+        second: str,
+        ending: str,
+        tail: str,
+    ) -> None:
+        """Submit Unicode sentence boundaries promptly without losing the tail."""
+        mock_is_configured.return_value = True
+        processor = create_test_processor(mock_app, tts_provider="tencent")
+
+        list(processor.process_chunk(first))
+        mock_executor.submit.assert_not_called()
+
+        split_at = len(second) // 2
+        list(processor.process_chunk(f"{ending} **{second[:split_at]}"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            f"{first}{ending}"
+        ]
+        assert processor._raw_offset == len(first + ending)
+
+        list(processor.process_chunk(f"{second[split_at:]}**{ending} {tail}"))
+        assert [call.args[1].text for call in mock_executor.submit.call_args_list] == [
+            f"{first}{ending}",
+            f"{second}{ending}",
+        ]
+        assert processor._buffer[processor._raw_offset :] == f" {tail}"
+
+        list(processor.finalize())
+        submitted_segments = [
+            call.args[1] for call in mock_executor.submit.call_args_list
+        ]
+        assert [segment.text for segment in submitted_segments] == [
+            f"{first}{ending}",
+            f"{second}{ending}",
+            tail,
+        ]
+        assert [segment.index for segment in submitted_segments] == [0, 1, 2]
+        assert processor._buffer == ""
+
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_process_chunk_submits_only_after_sentence_boundary(
-        self, mock_is_configured, mock_executor, mock_app
-    ):
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
         """Test stream-time submission waits for a full sentence ending."""
         mock_is_configured.return_value = True
 
         processor = create_test_processor(mock_app)
         submitted_texts = []
 
-        def mock_submit(*args, **kwargs):
+        def mock_submit(*args: object, **kwargs: object) -> object:
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -71,11 +740,14 @@ class TestFinalizeSegmentation:
         list(processor.process_chunk("!"))
         assert submitted_texts == ["Hello without ending still no ending!"]
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_in_segments_splits_at_sentence_boundaries(
-        self, mock_is_configured, mock_executor, mock_app
-    ):
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
         """Test that remaining text is split at sentence boundaries."""
         mock_is_configured.return_value = True
 
@@ -91,9 +763,11 @@ class TestFinalizeSegmentation:
         # Track submitted tasks
         submitted_texts = []
 
-        def mock_submit(*args, **kwargs):
-            # Args: (_synthesize_in_thread, segment, voice_settings, audio_settings, provider, model)
+        def mock_submit(*args: object, **kwargs: object) -> object:
+            # Positional args are the thread target followed by segment,
+            # voice settings, audio settings, provider and model.
             # Capture the segment text from args[1]
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -110,14 +784,17 @@ class TestFinalizeSegmentation:
         # Verify multiple segments were submitted
         assert len(submitted_texts) > 0
         # Each segment should end at a sentence boundary (except possibly the last)
-        for i, text in enumerate(submitted_texts[:-1]):
+        for _i, text in enumerate(submitted_texts[:-1]):
             assert text.rstrip().endswith((".", "!", "?", "。", "！", "？"))
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_does_not_split_by_char_count_without_sentence(
-        self, mock_is_configured, mock_executor, mock_app
-    ):
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
         """Test that text without sentence boundaries is submitted as one segment."""
         mock_is_configured.return_value = True
 
@@ -131,8 +808,10 @@ class TestFinalizeSegmentation:
 
         submitted_texts = []
 
-        def mock_submit(*args, **kwargs):
-            # Args: (_synthesize_in_thread, segment, voice_settings, audio_settings, provider, model)
+        def mock_submit(*args: object, **kwargs: object) -> object:
+            # Positional args are the thread target followed by segment,
+            # voice settings, audio settings, provider and model.
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -147,11 +826,14 @@ class TestFinalizeSegmentation:
 
         assert submitted_texts == [remaining_text]
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_short_text(
-        self, mock_is_configured, mock_executor, mock_app
-    ):
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
         """Test handling of very short remaining text."""
         mock_is_configured.return_value = True
 
@@ -162,8 +844,10 @@ class TestFinalizeSegmentation:
 
         submitted_texts = []
 
-        def mock_submit(*args, **kwargs):
-            # Args: (_synthesize_in_thread, segment, voice_settings, audio_settings, provider, model)
+        def mock_submit(*args: object, **kwargs: object) -> object:
+            # Positional args are the thread target followed by segment,
+            # voice settings, audio settings, provider and model.
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -180,11 +864,14 @@ class TestFinalizeSegmentation:
         assert len(submitted_texts) == 1
         assert submitted_texts[0] == "Hi"
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_empty_string(
-        self, mock_is_configured, mock_executor, mock_app
-    ):
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
         """Test handling of empty remaining text."""
         mock_is_configured.return_value = True
 
@@ -196,11 +883,14 @@ class TestFinalizeSegmentation:
         # Should not submit anything
         assert mock_executor.submit.call_count == 0
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_handles_whitespace_only(
-        self, mock_is_configured, mock_executor, mock_app
-    ):
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
         """Test handling of whitespace-only remaining text."""
         mock_is_configured.return_value = True
 
@@ -212,11 +902,15 @@ class TestFinalizeSegmentation:
         # Should not submit anything
         assert mock_executor.submit.call_count == 0
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_submit_remaining_text_logs_segment_info(
-        self, mock_is_configured, mock_executor, mock_app, caplog
-    ):
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+        caplog: object,
+    ) -> None:
         """Test that segment submission is properly logged."""
         mock_is_configured.return_value = True
 
@@ -224,7 +918,8 @@ class TestFinalizeSegmentation:
 
         remaining_text = "First sentence. Second sentence."
 
-        def mock_submit(*args, **kwargs):
+        def mock_submit(*args: object, **kwargs: object) -> object:
+            _ = (args, kwargs)
             future = MagicMock()
             future.result.return_value = None
             return future
@@ -248,12 +943,12 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_tencent_empty_audio_segment_retries_once(
         self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_record_usage,
-        mock_sleep,
-        mock_app,
-    ):
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_record_usage: object,
+        mock_sleep: object,
+        mock_app: object,
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
             ValueError("No audio data received from Tencent TTS"),
@@ -295,12 +990,12 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_tencent_empty_audio_failure_logs_text_after_retry(
         self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_sleep,
-        mock_logger,
-        mock_app,
-    ):
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_sleep: object,
+        mock_logger: object,
+        mock_app: object,
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = ValueError(
             "No audio data received from Tencent TTS"
@@ -326,7 +1021,7 @@ class TestStreamingSynthesisRetries:
         assert result.error == "No audio data received from Tencent TTS"
         assert result.is_ready is True
         warning_args = mock_logger.warning.call_args.args
-        error_args = mock_logger.error.call_args.args
+        error_args = mock_logger.exception.call_args.args
         assert "text_preview=%r" in warning_args[0]
         assert "这句有文字但腾讯没返回。" in warning_args
         assert "text_preview=%r" in error_args[0]
@@ -338,17 +1033,24 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     @pytest.mark.parametrize(
         "tts_provider",
-        ["tencent", "tencent_texttovoice", "volcengine", "minimax"],
+        [
+            "elevenlabs",
+            "gemini",
+            "tencent",
+            "tencent_texttovoice",
+            "volcengine",
+            "minimax",
+        ],
     )
     def test_non_speakable_segment_skips_configured_provider_call(
         self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_record_usage,
-        mock_logger,
-        mock_app,
-        tts_provider,
-    ):
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_record_usage: object,
+        mock_logger: object,
+        mock_app: object,
+        tts_provider: object,
+    ) -> None:
         mock_is_configured.return_value = True
         app_context = MagicMock()
         app_context.__enter__.return_value = None
@@ -383,11 +1085,11 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_minimax_http_stream_skips_non_speakable_request(
         self,
-        mock_is_configured,
-        mock_minimax_provider,
-        mock_logger,
-        mock_app,
-    ):
+        mock_is_configured: object,
+        mock_minimax_provider: object,
+        mock_logger: object,
+        mock_app: object,
+    ) -> None:
         mock_is_configured.return_value = True
         processor = create_test_processor(mock_app, tts_provider="minimax")
 
@@ -413,11 +1115,11 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_timestamp_stream_skips_non_speakable_request(
         self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_logger,
-        mock_app,
-    ):
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_logger: object,
+        mock_app: object,
+    ) -> None:
         mock_is_configured.return_value = True
         processor = create_test_processor(mock_app, tts_provider="volcengine")
 
@@ -444,12 +1146,12 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_empty_audio_segment_retries_once(
         self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_record_usage,
-        mock_sleep,
-        mock_app,
-    ):
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_record_usage: object,
+        mock_sleep: object,
+        mock_app: object,
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
             ValueError("No audio data received"),
@@ -499,16 +1201,16 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_finalizes_whole_text_with_provider_subtitles(
         self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_concat_audio,
-        mock_get_duration,
-        mock_upload,
-        mock_record_segment_usage,
-        mock_record_aggregate_usage,
-        mock_save_audio_record,
-        mock_app,
-    ):
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_concat_audio: object,
+        mock_get_duration: object,
+        mock_upload: object,
+        mock_record_segment_usage: object,
+        mock_record_aggregate_usage: object,
+        mock_save_audio_record: object,
+        mock_app: object,
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.return_value = TTSResult(
             audio_data=b"provider-audio",
@@ -525,7 +1227,7 @@ class TestStreamingSynthesisRetries:
                 }
             ],
         )
-        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_concat_audio.side_effect = b"".join
         mock_get_duration.return_value = 500
         mock_upload.return_value = ("https://example.com/audio.mp3", "bucket")
 
@@ -575,17 +1277,17 @@ class TestStreamingSynthesisRetries:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_volcengine_whole_text_empty_audio_retries_once(
         self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_concat_audio,
-        mock_get_duration,
-        mock_upload,
-        mock_record_segment_usage,
-        mock_record_aggregate_usage,
-        mock_save_audio_record,
-        mock_sleep,
-        mock_app,
-    ):
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_concat_audio: object,
+        mock_get_duration: object,
+        mock_upload: object,
+        mock_record_segment_usage: object,
+        mock_record_aggregate_usage: object,
+        mock_save_audio_record: object,
+        mock_sleep: object,
+        mock_app: object,
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.side_effect = [
             ValueError("No audio data received"),
@@ -605,7 +1307,7 @@ class TestStreamingSynthesisRetries:
                 ],
             ),
         ]
-        mock_concat_audio.side_effect = lambda parts: b"".join(parts)
+        mock_concat_audio.side_effect = b"".join
         mock_get_duration.return_value = 400
         mock_upload.return_value = ("https://example.com/retry.mp3", "bucket")
 
@@ -630,11 +1332,14 @@ class TestStreamingSynthesisRetries:
 class TestOffsetDriftRegression:
     """Regression tests for offset drift when markdown becomes complete across chunks."""
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_bold_spanning_chunks_no_text_loss(
-        self, mock_is_configured, mock_executor, mock_app
-    ):
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
         """Bold markers completing across chunks must not cause text loss.
 
         Regression: when **bold** spans the processed/unprocessed boundary,
@@ -646,7 +1351,8 @@ class TestOffsetDriftRegression:
         processor = create_test_processor(mock_app)
         submitted_texts = []
 
-        def mock_submit(*args, **kwargs):
+        def mock_submit(*args: object, **kwargs: object) -> object:
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -676,18 +1382,22 @@ class TestOffsetDriftRegression:
             f"Text 'Third' was lost. Submitted: {submitted_texts}"
         )
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_link_spanning_chunks_no_text_loss(
-        self, mock_is_configured, mock_executor, mock_app
-    ):
+        self,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
         """Links completing across chunks must not lose surrounding text."""
         mock_is_configured.return_value = True
 
         processor = create_test_processor(mock_app)
         submitted_texts = []
 
-        def mock_submit(*args, **kwargs):
+        def mock_submit(*args: object, **kwargs: object) -> object:
+            _ = kwargs
             if len(args) > 1:
                 segment = args[1]
                 if hasattr(segment, "text"):
@@ -718,11 +1428,11 @@ class TestFinalizeDelayManagement:
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     def test_ready_segments_use_provider_subtitles_bounded_to_duration(
         self,
-        mock_is_configured,
-        mock_synthesize_text,
-        mock_record_segment_usage,
-        mock_app,
-    ):
+        mock_is_configured: object,
+        mock_synthesize_text: object,
+        mock_record_segment_usage: object,
+        mock_app: object,
+    ) -> None:
         mock_is_configured.return_value = True
         mock_synthesize_text.return_value = TTSResult(
             audio_data=b"fake_audio_data",
@@ -764,13 +1474,18 @@ class TestFinalizeDelayManagement:
             (500, 1000),
         ]
 
-    @patch("flaskr.service.tts.streaming_tts._tts_executor")
+    @patch("flaskr.service.tts.streaming_tts._tts_executor_state.executor")
     @patch("flaskr.service.tts.streaming_tts.is_tts_configured")
     @patch("flaskr.service.tts.streaming_tts.time.sleep")
     def test_yield_ready_segments_adds_delay_between_segments(
-        self, mock_sleep, mock_is_configured, mock_executor, mock_app
-    ):
+        self,
+        mock_sleep: object,
+        mock_is_configured: object,
+        mock_executor: object,
+        mock_app: object,
+    ) -> None:
         """Test that _yield_ready_segments adds delay between segment yields."""
+        _ = mock_executor
         mock_is_configured.return_value = True
 
         processor = create_test_processor(mock_app)

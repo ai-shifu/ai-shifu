@@ -1,4 +1,4 @@
-"""backfill billing product plan tier metadata
+"""backfill billing product plan tier metadata.
 
 Revision ID: 0a7c4d8e9f12
 Revises: f4a6b8c2d9e1
@@ -11,9 +11,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "0a7c4d8e9f12"

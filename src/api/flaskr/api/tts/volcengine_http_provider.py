@@ -1,5 +1,4 @@
-"""
-Volcengine HTTP TTS Provider.
+"""Volcengine HTTP TTS Provider.
 
 This module provides TTS synthesis using Volcengine's HTTP v1/tts API
 (ByteDance TTS). See docs/bytedance-tts-api.md for request/response format.
@@ -10,21 +9,20 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import Optional, List
 
 import requests
 from requests import Response
 
-from flaskr.common.config import get_config, get_explicit_env_override
 from flaskr.api.tts.base import (
+    AudioSettings,
     BaseTTSProvider,
+    ParamRange,
+    ProviderCapabilities,
+    ProviderConfig,
     TTSResult,
     VoiceSettings,
-    AudioSettings,
-    ProviderConfig,
-    ParamRange,
 )
-
+from flaskr.common.config import get_config, get_explicit_env_override
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +105,15 @@ VOLCENGINE_HTTP_EMOTIONS = [
 class VolcengineHttpTTSProvider(BaseTTSProvider):
     """TTS provider using Volcengine HTTP v1/tts API."""
 
+    capabilities = ProviderCapabilities(
+        segment_max_bytes=1024,
+        segment_encoding="utf-8",
+        auto_detectable=True,
+    )
+
     @property
     def provider_name(self) -> str:
+        """Return the provider's stable configuration name."""
         return "volcengine_http"
 
     def _get_credentials(self) -> tuple[str, str, str]:
@@ -125,6 +130,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         return app_id, token, cluster
 
     def is_configured(self) -> bool:
+        """Return whether this provider has usable credentials."""
         app_id, token, cluster = self._get_credentials()
         return bool(app_id and token and cluster)
 
@@ -134,6 +140,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         Notes:
         - Per-Shifu voice settings are stored in the database.
         - This method only provides a provider-level fallback.
+
         """
         return VoiceSettings(
             voice_id="BV700_streaming",
@@ -144,6 +151,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         )
 
     def get_default_audio_settings(self) -> AudioSettings:
+        """Return this provider's default audio settings."""
         return AudioSettings(
             format="mp3",
             sample_rate=get_config("VOLCENGINE_TTS_SAMPLE_RATE") or 24000,
@@ -151,7 +159,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
             channel=1,
         )
 
-    def get_supported_voices(self) -> List[dict]:
+    def get_supported_voices(self) -> list[dict]:
         """Get list of supported voices."""
         return VOLCENGINE_HTTP_VOICES
 
@@ -166,8 +174,7 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         return rate
 
     def _resolve_pitch_ratio(self, pitch: int) -> float:
-        """
-        Convert integer pitch to Volcengine pitch_ratio (0.1-3.0).
+        """Convert integer pitch to Volcengine pitch_ratio (0.1-3.0).
 
         The UI uses integer pitch values, where 10 maps to 1.0.
         """
@@ -180,20 +187,23 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
     def synthesize(
         self,
         text: str,
-        voice_settings: Optional[VoiceSettings] = None,
-        audio_settings: Optional[AudioSettings] = None,
-        model: Optional[str] = None,
+        voice_settings: VoiceSettings | None = None,
+        audio_settings: AudioSettings | None = None,
+        model: str | None = None,
     ) -> TTSResult:
+        """Synthesize speech with this provider."""
         if not text or not text.strip():
-            raise ValueError("Text cannot be empty")
+            exception_message = "Text cannot be empty"
+            raise ValueError(exception_message)
 
         app_id, token, cluster = self._get_credentials()
         if not app_id or not token or not cluster:
-            raise ValueError(
+            exception_message = (
                 "Volcengine HTTP TTS credentials are not configured. "
                 "Set VOLCENGINE_TTS_APP_KEY, VOLCENGINE_TTS_ACCESS_KEY, "
                 "and VOLCENGINE_TTS_CLUSTER_ID"
             )
+            raise ValueError(exception_message)
 
         if not voice_settings:
             voice_settings = self.get_default_voice_settings()
@@ -243,8 +253,8 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 timeout=60,
             )
         except requests.RequestException as exc:
-            logger.error(
-                "Volcengine HTTP TTS request error: url=%s reqid=%s cluster=%s voice=%s encoding=%s rate=%s text_len=%s err=%s",
+            logger.exception(
+                "Volcengine HTTP TTS request error: url=%s reqid=%s cluster=%s voice=%s encoding=%s rate=%s text_len=%s",
                 VOLCENGINE_HTTP_TTS_URL,
                 req_id,
                 payload["app"]["cluster"],
@@ -252,10 +262,9 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 encoding,
                 sample_rate,
                 len(text),
-                exc,
-                exc_info=True,
             )
-            raise ValueError(f"Volcengine HTTP TTS request failed: {exc}") from exc
+            error_message = f"Volcengine HTTP TTS request failed: {exc}"
+            raise ValueError(error_message) from exc
 
         if response.status_code != 200:
             self._log_http_error_response(
@@ -271,16 +280,17 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 response.raise_for_status()
             except requests.RequestException as exc:
                 body_preview = (response.text or "")[:2000]
-                raise ValueError(
+                error_message = (
                     f"Volcengine HTTP TTS HTTP {response.status_code}: "
                     f"{body_preview or response.reason}"
-                ) from exc
+                )
+                raise ValueError(error_message) from exc
 
         try:
             result = response.json()
         except ValueError as exc:
             body_preview = (response.text or "")[:2000]
-            logger.error(
+            logger.exception(
                 "Volcengine HTTP TTS invalid JSON response: url=%s status=%s reqid=%s content_type=%s body=%s",
                 response.url,
                 response.status_code,
@@ -288,7 +298,8 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 response.headers.get("Content-Type", ""),
                 body_preview,
             )
-            raise ValueError("Volcengine HTTP TTS response is not valid JSON") from exc
+            exception_message = "Volcengine HTTP TTS response is not valid JSON"
+            raise ValueError(exception_message) from exc
 
         code = result.get("code")
         message = result.get("message") or ""
@@ -301,18 +312,19 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
                 code,
                 message,
             )
-            raise ValueError(f"Volcengine HTTP TTS error {code}: {message}")
+            error_message = f"Volcengine HTTP TTS error {code}: {message}"
+            raise ValueError(error_message)
 
         audio_base64 = result.get("data") or ""
         if not audio_base64:
-            raise ValueError("No audio data in Volcengine HTTP TTS response")
+            exception_message = "No audio data in Volcengine HTTP TTS response"
+            raise ValueError(exception_message)
 
         try:
             audio_data = base64.b64decode(audio_base64)
         except (ValueError, TypeError) as exc:
-            raise ValueError(
-                "Invalid base64 audio data from Volcengine HTTP TTS"
-            ) from exc
+            exception_message = "Invalid base64 audio data from Volcengine HTTP TTS"
+            raise ValueError(exception_message) from exc
 
         duration_ms = 0
         addition = result.get("addition")
@@ -353,8 +365,8 @@ class VolcengineHttpTTSProvider(BaseTTSProvider):
         Notes:
         - Never log credentials (token).
         - Avoid logging full request text; use only text_len.
-        """
 
+        """
         body_preview = (response.text or "")[:2000]
         # Keep only a small, stable subset of headers to avoid log noise and
         # reduce the risk of accidentally logging sensitive data.

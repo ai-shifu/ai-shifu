@@ -18,16 +18,15 @@ mid-flow. These tests pin the new semantics:
 
 from __future__ import annotations
 
-from datetime import datetime
-from decimal import Decimal
 import os
 import secrets
+from datetime import datetime
+from decimal import Decimal
 from types import SimpleNamespace
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
 from flaskr.dao import uow
 from flaskr.i18n import load_translations
 from flaskr.service.billing import credit_notifications
@@ -59,10 +58,11 @@ from flaskr.service.user.repository import (
     mark_user_roles,
     upsert_credential,
 )
+from flaskr.util.datetime import now_utc
 
 
 @pytest.fixture
-def credit_notification_uow_app(tmp_path) -> Flask:
+def credit_notification_uow_app(tmp_path: object) -> Flask:
     db_path = tmp_path / "credit-notification-uow.sqlite"
     db_uri = f"sqlite:///{db_path}"
 
@@ -92,7 +92,7 @@ def credit_notification_uow_app(tmp_path) -> Flask:
 
 
 @pytest.fixture(autouse=True)
-def _neutralize_savepoints_on_sqlite(monkeypatch):
+def _neutralize_savepoints_on_sqlite(monkeypatch: object) -> None:
     """Make begin_nested a no-op under the SQLite test engine.
 
     ``_stage_notification_record`` wraps its INSERT in
@@ -108,7 +108,7 @@ def _neutralize_savepoints_on_sqlite(monkeypatch):
 
     from sqlalchemy.orm import Session
 
-    monkeypatch.setattr(Session, "begin_nested", lambda self: nullcontext())
+    monkeypatch.setattr(Session, "begin_nested", lambda _self: nullcontext())
 
 
 def _seed_creator(
@@ -161,7 +161,7 @@ def _seed_notification_template(
         sync_status="synced",
         error_code="",
         error_message="",
-        last_synced_at=datetime(2026, 5, 22, 0, 0, 0),
+        last_synced_at=now_utc(),
         metadata_json={},
     )
     dao.db.session.add(template)
@@ -222,9 +222,9 @@ def _seed_wallet(*, creator_bid: str, available_credits: str = "2") -> None:
             wallet_bid=f"wallet-{creator_bid}",
             creator_bid=creator_bid,
             available_credits=Decimal(available_credits),
-            reserved_credits=Decimal("0"),
+            reserved_credits=Decimal(0),
             lifetime_granted_credits=Decimal(available_credits),
-            lifetime_consumed_credits=Decimal("0"),
+            lifetime_consumed_credits=Decimal(0),
         )
     )
     dao.db.session.commit()
@@ -250,8 +250,16 @@ def _seed_credit_ledger(*, ledger_bid: str, creator_bid: str) -> None:
     dao.db.session.commit()
 
 
-def _stub_send_sms(monkeypatch: pytest.MonkeyPatch, sends: list[dict]):
-    def fake_send(app, mobile, *, template_code, template_params, sign_name=None):
+def _stub_send_sms(monkeypatch: pytest.MonkeyPatch, sends: list[dict]) -> None:
+    def fake_send(
+        app: object,
+        mobile: object,
+        *,
+        template_code: object,
+        template_params: object,
+        sign_name: object = None,
+    ) -> object:
+        _ = (app, sign_name)
         sends.append(
             {
                 "mobile": mobile,
@@ -293,10 +301,11 @@ def test_scan_item_failure_is_isolated_from_neighbor_items(
 
     original_stage = credit_notifications._stage_notification_record
 
-    def staging_then_boom(app_arg, **kwargs):
+    def staging_then_boom(app_arg: object, **kwargs: object) -> object:
         result = original_stage(app_arg, **kwargs)
         if kwargs.get("creator_bid") == "creator-uow-2":
-            raise RuntimeError("boom in creator-uow-2")
+            message = "boom in creator-uow-2"
+            raise RuntimeError(message)
         return result
 
     monkeypatch.setattr(
@@ -400,8 +409,9 @@ def test_failed_provider_marker_persists_and_stays_retryable(
     )
     notification_bid = str(staged["notification_bid"])
 
-    def crashing_send(*_args, **_kwargs):
-        raise RuntimeError("provider connection dropped")
+    def crashing_send(*_args: object, **_kwargs: object) -> None:
+        message = "provider connection dropped"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(credit_notifications, "send_sms_ali", crashing_send)
     failed = deliver_credit_notification(app, notification_bid=notification_bid)
@@ -447,7 +457,7 @@ def test_granted_dispatch_fires_after_commit_and_drops_on_rollback(
 
     # Nested: the outer failure drops the deferred dispatch — the legacy code
     # committed and enqueued mid-flow and could never be taken back.
-    with pytest.raises(RuntimeError, match="outer boom"):
+    def stage_then_fail() -> None:
         with uow.unit_of_work():
             staged = stage_credit_granted_notification(
                 app,
@@ -457,7 +467,11 @@ def test_granted_dispatch_fires_after_commit_and_drops_on_rollback(
             )
             assert staged["status"] == CREDIT_NOTIFICATION_STATUS_PENDING
             assert enqueued == []  # not yet durable, must not dispatch
-            raise RuntimeError("outer boom")
+            message = "outer boom"
+            raise RuntimeError(message)
+
+    with pytest.raises(RuntimeError, match="outer boom"):
+        stage_then_fail()
     dao.db.session.expire_all()
     assert enqueued == []
     assert (

@@ -1,0 +1,16 @@
+{
+  "__namespace__": "server.file",
+  "__flat__": {
+    "fileDownloadFailed": "فائل ڈاؤن لوڈ ناکام ہو گئی۔",
+    "fileTypeNotSupport": "غیر تعاون یافتہ فائل کی اقسام",
+    "fileUploadFailed": "فائل اپ لوڈ ناکام ہو گئی۔",
+    "videoBilibiliApiError": "Bilibili API غلطی لوٹاتا ہے۔",
+    "videoBilibiliApiRequestFailed": "Bilibili API کی درخواست ناکام ہوگئی",
+    "videoGetInfoError": "ویڈیو کی معلومات حاصل کرتے وقت ایک خرابی پیش آگئی",
+    "videoInvalidBilibiliLink": "غلط Bilibili ویڈیو لنک",
+    "videoNetworkError": "ویڈیو نیٹ ورک کی خرابی۔",
+    "videoParseError": "ویڈیو پارس کرنے میں خرابی۔",
+    "videoUnsupportedVideoSite": "یہ ویڈیو ویب سائٹ ابھی تک تعاون یافتہ نہیں ہے۔",
+    "videoUrlRequired": "ویڈیو لنک درکار ہے۔"
+  }
+}

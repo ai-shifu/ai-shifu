@@ -1,0 +1,6 @@
+{
+  "__namespace__": "server.check",
+  "__flat__": {
+    "checkRiskControlReject": "Der eingegebene Inhalt ist nicht zulässig. Bitte überprüfen Sie ihn."
+  }
+}

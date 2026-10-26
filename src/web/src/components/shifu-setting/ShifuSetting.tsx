@@ -1,0 +1,2668 @@
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import Link from 'next/link';
+import { SSE } from 'sse.js';
+import { Plus, Minus, Settings, Volume2, Loader2, Square } from 'lucide-react';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { uploadFile } from '@/lib/file';
+import { buildTraceHeaders } from '@/lib/request-trace';
+import {
+  type ErrorWithCode,
+  attachSseBusinessResponseFallback,
+} from '@/lib/request';
+import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
+import {
+  DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+  resolveCourseCreditInsufficientAudience,
+  isCreditInsufficientBusinessCode,
+  showCreditInsufficientToast,
+} from '@/lib/creditInsufficientToast';
+import { BILLING_PACKAGES_HREF } from '@/lib/billingNavigation';
+import { getResolvedBaseURL } from '@/lib/envUtils';
+import { normalizeShifuDetail } from '@/lib/shifu-normalize';
+import { isAllowedCoursePrice } from '@/lib/coursePricePolicy';
+import {
+  type AudioSegment,
+  mergeAudioSegmentByUniqueKey,
+  normalizeAudioSegmentPayload,
+} from '@/lib/audio-utils';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/Sheet';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Textarea } from '@/components/ui/Textarea';
+import { Switch } from '@/components/ui/Switch';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/Form';
+import { useTranslation } from 'react-i18next';
+import api from '@/api';
+import useExclusiveAudio from '@/hooks/useExclusiveAudio';
+import {
+  createAudioContext,
+  decodeAudioBufferFromBase64,
+  playAudioBuffer,
+  resumeAudioContext,
+} from '@/lib/audio-playback';
+import { useToast } from '@/hooks/useToast';
+
+import ModelList from '@/components/model-list';
+import CourseModelSelect from '@/components/model-list/CourseModelSelect';
+import type { ModelIndex } from '@/types/shifu';
+import { useEnvStore } from '@/store';
+import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
+import { useShifu, useUserStore } from '@/store';
+import { useTracking } from '@/hooks/useTracking';
+import { useBillingOverview } from '@/hooks/useBillingData';
+import {
+  AskProviderSchemaValidationError,
+  buildAskProviderConfigForSubmit as buildAskProviderConfigBySchema,
+} from '@/components/shifu-setting/ask-provider-schema';
+import AskSettingsSection from '@/components/shifu-setting/AskSettingsSection';
+import { buildShifuSettingSaveAnalytics } from '@/components/shifu-setting/shifuSettingAnalytics';
+import {
+  buildClonedVoiceListParams,
+  buildMiniMaxVoiceOptions,
+  getCustomVoiceIdValidator,
+  isMiniMaxProvider,
+  isValidMiniMaxCustomVoiceId,
+  providerSupportsClonedVoices,
+  shouldPreserveCustomMiniMaxVoice,
+  MINIMAX_PROVIDER,
+  type RegisteredClonedVoice,
+} from '@/components/shifu-setting/cloned-voice-options';
+import {
+  buildTtsModelOptionValue,
+  filterTtsVoicesForModel,
+  getDefaultTtsModelOption,
+  normalizeTtsModelOptions,
+  parseTtsModelOptionValue,
+  type TtsModelOption,
+} from '@/components/shifu-setting/tts-model-options';
+import {
+  normalizeAskProviders,
+  normalizeTtsProviders,
+  type AskConfigMetadata,
+  type TTSProviderConfig,
+} from '@/components/shifu-setting/settings-config-options';
+import {
+  buildOnboardingTargetProps,
+  ONBOARDING_TARGET_IDS,
+} from '@/lib/onboardingTargets';
+import {
+  getFollowUpModelCatalog,
+  type FollowUpModelCatalogItem,
+} from '@/lib/liveVoiceFollowUp';
+
+const asModelIndex = (model: string | null | undefined): ModelIndex | null =>
+  model && /^[1-9]$/.test(model) ? (model as ModelIndex) : null;
+
+interface Shifu {
+  description: string;
+  bid: string;
+  keywords: string[];
+  model: string;
+  model_fallback?: boolean;
+  model_display_name?: string;
+  ask_model_fallback?: boolean;
+  ask_model_display_name?: string;
+  name: string;
+  preview_url: string;
+  price: number;
+  avatar: string;
+  url: string;
+  system_prompt?: string;
+  ask_enabled_status?: number;
+  ask_model?: string;
+  ask_system_prompt?: string;
+  follow_up_mode?: 'text' | 'live_voice';
+  ask_provider_config?: {
+    provider?: string;
+    mode?: string;
+    config?: Record<string, any>;
+  };
+  archived?: boolean;
+  created_user_bid?: string;
+  canPublish?: boolean;
+  can_publish?: boolean;
+  // TTS Configuration
+  tts_enabled?: boolean;
+  tts_provider?: string;
+  tts_model?: string;
+  tts_voice_id?: string;
+  tts_speed?: number;
+  tts_pitch?: number;
+  tts_emotion?: string;
+  default_listen_mode_enabled?: boolean;
+  // Language Output Configuration
+  use_learner_language?: boolean;
+}
+
+const ASK_MODE_ENABLE = 5103;
+const ASK_PROVIDER_LLM = 'llm';
+const ASK_PROVIDER_MODE_PROVIDER_ONLY = 'provider_only';
+const DEFAULT_LIVE_VOICE = 'Kore';
+const TTS_PREVIEW_CURRENT_TARGET = 'tts-current';
+
+type InitialAskConfiguration = {
+  model: string;
+  interactionMode: 'text' | 'live_voice';
+  providerConfig: {
+    provider: string;
+    mode: string;
+    config: Record<string, unknown>;
+  };
+};
+
+export default function ShifuSettingDialog({
+  shifuId,
+  onSave,
+  triggerTargetId,
+  openSignal,
+  shouldStayOpen,
+}: {
+  shifuId: string;
+  onSave: () => void;
+  triggerTargetId?: string;
+  openSignal?: string;
+  shouldStayOpen?: boolean;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const lastAppliedOpenSignalRef = useRef<string | null>(null);
+  const openedByOnboardingRef = useRef(false);
+  const { t, i18n } = useTranslation();
+  const currentLanguage = i18n.resolvedLanguage || i18n.language;
+  const { currentShifu } = useShifu();
+  const currentUser = useUserStore(state => state.userInfo);
+  const currentUserId = currentUser?.user_bid || currentUser?.user_id || '';
+  const isCourseOwner = currentUser
+    ? Boolean(
+        currentShifu?.created_user_bid &&
+        currentShifu.created_user_bid === currentUserId,
+      )
+    : null;
+  const creditInsufficientAudience = resolveCourseCreditInsufficientAudience({
+    previewMode: true,
+    isCurrentUserCourseOwner: isCourseOwner,
+  });
+  const { toast } = useToast();
+  const currencySymbol = useEnvStore(state => state.currencySymbol);
+  const minimumPaidCoursePrice = useEnvStore(
+    state => state.minimumPaidCoursePrice,
+  );
+  const billingEnabled = useEnvStore(state => state.billingEnabled === 'true');
+  const { data: billingOverview } = useBillingOverview();
+  const debugAllowed =
+    isCourseOwner !== null &&
+    (!isCourseOwner ||
+      !billingEnabled ||
+      billingOverview?.debug_allowed === true);
+  const debugBlockedByCredits =
+    isCourseOwner === true &&
+    billingEnabled &&
+    billingOverview?.debug_allowed === false;
+  const selectModelHint = t('module.shifuSetting.modelOptions.hint');
+  const [keywords, setKeywords] = useState(['AIGC']);
+  const [shifuImage, setShifuImage] = useState<File | null>(null);
+  const [imageError, setImageError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState('');
+  const { trackEvent } = useTracking();
+  const { requestExclusive, releaseExclusive } = useExclusiveAudio();
+  // Ask configuration state
+  const [askModel, setAskModel] = useState('');
+  const [askModelIndex, setAskModelIndex] = useState<ModelIndex | null>(null);
+  const textModelIndexDraftRef = useRef<ModelIndex | null>('1');
+  const followUpModeRequestRef = useRef(0);
+  const [checkingTextMode, setCheckingTextMode] = useState(false);
+  const legacyTextModelRef = useRef('');
+  const modelEditVersionRef = useRef({ main: 0, followUp: 0 });
+  const modelSelectionRef = useRef({ main: '1', followUp: '1' });
+  const savedModelEditVersionRef = useRef({ main: 0, followUp: 0 });
+  const settingsSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const [modelSelectionRevision, setModelSelectionRevision] = useState(0);
+  const [mainModelFallback, setMainModelFallback] = useState(false);
+  const [followUpModelFallback, setFollowUpModelFallback] = useState(false);
+  const [mainModelDisplayName, setMainModelDisplayName] = useState('');
+  const [followUpModelDisplayName, setFollowUpModelDisplayName] = useState('');
+  const markModelEdited = useCallback(
+    (field: 'main' | 'followUp', value: string) => {
+      modelSelectionRef.current[field] = value;
+      modelEditVersionRef.current[field]++;
+      setModelSelectionRevision(previous => previous + 1);
+      if (field === 'main') setMainModelFallback(false);
+      else setFollowUpModelFallback(false);
+    },
+    [],
+  );
+  const [followUpModels, setFollowUpModels] = useState<
+    FollowUpModelCatalogItem[]
+  >([]);
+  const initialAskConfigurationRef = useRef<InitialAskConfiguration | null>(
+    null,
+  );
+  const askProviderEditedRef = useRef(false);
+  const [askProvider, setAskProvider] = useState(ASK_PROVIDER_LLM);
+  const [liveVoiceDraft, setLiveVoiceDraft] = useState(DEFAULT_LIVE_VOICE);
+  const [askProviderConfig, setAskProviderConfig] = useState<
+    Record<string, any>
+  >({});
+  const [askProviderObjectInputs, setAskProviderObjectInputs] = useState<
+    Record<string, string>
+  >({});
+  const [askPreviewLoading, setAskPreviewLoading] = useState(false);
+  const [askPreviewQuery, setAskPreviewQuery] = useState('');
+  const [askPreviewResult, setAskPreviewResult] = useState('');
+  const [askPreviewMeta, setAskPreviewMeta] = useState<{
+    provider: string;
+    requestedProvider: string;
+    fallbackUsed: boolean;
+  } | null>(null);
+
+  // TTS Configuration state
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [ttsProvider, setTtsProvider] = useState('');
+  const [ttsModel, setTtsModel] = useState('');
+  const [ttsVoiceId, setTtsVoiceId] = useState('');
+  const [ttsSpeed, setTtsSpeed] = useState<number | null>(1.0);
+  const [ttsSpeedInput, setTtsSpeedInput] = useState<string>('1.0');
+  const [defaultListenModeEnabled, setDefaultListenModeEnabled] =
+    useState(false);
+  const [minimaxClonedVoices, setMinimaxClonedVoices] = useState<
+    RegisteredClonedVoice[]
+  >([]);
+  const [minimaxManualVoiceId, setMinimaxManualVoiceId] = useState('');
+  const ttsProviderToastShownRef = useRef(false);
+  const settingsRequestSeqRef = useRef(0);
+
+  // Language Output Configuration state
+  const [useLearnerLanguage, setUseLearnerLanguage] = useState(false);
+  const open = internalOpen;
+  const isOnboardingOpen = Boolean(shouldStayOpen);
+
+  const updateOpen = useCallback((nextOpen: boolean) => {
+    setInternalOpen(nextOpen);
+  }, []);
+
+  useEffect(() => {
+    followUpModeRequestRef.current++;
+    setCheckingTextMode(false);
+    return () => {
+      followUpModeRequestRef.current++;
+    };
+  }, [open, shifuId]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    let cancelled = false;
+    setFollowUpModels([]);
+    void getFollowUpModelCatalog()
+      .then(items => {
+        if (cancelled) {
+          return;
+        }
+        setFollowUpModels(Array.isArray(items) ? items : []);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFollowUpModels([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!openSignal) {
+      lastAppliedOpenSignalRef.current = null;
+      return;
+    }
+    if (lastAppliedOpenSignalRef.current === openSignal) {
+      return;
+    }
+    lastAppliedOpenSignalRef.current = openSignal;
+    openedByOnboardingRef.current = true;
+    setInternalOpen(true);
+  }, [openSignal]);
+
+  useEffect(() => {
+    if (shouldStayOpen !== false || !openedByOnboardingRef.current) {
+      return;
+    }
+    openedByOnboardingRef.current = false;
+    setInternalOpen(false);
+  }, [shouldStayOpen]);
+
+  // TTS Preview state
+  const [ttsPreviewLoading, setTtsPreviewLoading] = useState(false);
+  const [ttsPreviewPlaying, setTtsPreviewPlaying] = useState(false);
+  const [ttsPreviewTarget, setTtsPreviewTarget] = useState<string | null>(null);
+  const ttsPreviewSessionRef = useRef(0);
+  const ttsPreviewStreamRef = useRef<any>(null);
+  const ttsPreviewAudioContextRef = useRef<AudioContext | null>(null);
+  const ttsPreviewSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const ttsPreviewSegmentsRef = useRef<AudioSegment[]>([]);
+  const ttsPreviewSegmentIndexRef = useRef(0);
+  const ttsPreviewIsPlayingRef = useRef(false);
+  const ttsPreviewIsStreamingRef = useRef(false);
+  const ttsPreviewWaitingRef = useRef(false);
+
+  const closeTtsPreviewStream = useCallback(() => {
+    if (ttsPreviewStreamRef.current) {
+      ttsPreviewStreamRef.current.close();
+      ttsPreviewStreamRef.current = null;
+    }
+    ttsPreviewIsStreamingRef.current = false;
+  }, []);
+
+  const clearTtsPreviewAudio = useCallback(() => {
+    ttsPreviewIsPlayingRef.current = false;
+    ttsPreviewWaitingRef.current = false;
+    ttsPreviewSegmentsRef.current = [];
+    ttsPreviewSegmentIndexRef.current = 0;
+
+    if (ttsPreviewSourceRef.current) {
+      try {
+        ttsPreviewSourceRef.current.stop();
+        ttsPreviewSourceRef.current.disconnect();
+      } catch {
+        // Ignore stop errors
+      }
+      ttsPreviewSourceRef.current = null;
+    }
+
+    if (ttsPreviewAudioContextRef.current) {
+      const context = ttsPreviewAudioContextRef.current;
+      ttsPreviewAudioContextRef.current = null;
+      context.close().catch(() => {});
+    }
+  }, []);
+
+  const cleanupTtsPreview = useCallback(() => {
+    ttsPreviewSessionRef.current += 1;
+    closeTtsPreviewStream();
+    clearTtsPreviewAudio();
+    releaseExclusive();
+  }, [clearTtsPreviewAudio, closeTtsPreviewStream, releaseExclusive]);
+
+  const stopTtsPreview = useCallback(() => {
+    cleanupTtsPreview();
+    setTtsPreviewLoading(false);
+    setTtsPreviewPlaying(false);
+    setTtsPreviewTarget(null);
+  }, [cleanupTtsPreview]);
+
+  const playPreviewSegment = useCallback(
+    async (index: number, sessionId: number) => {
+      if (ttsPreviewSessionRef.current !== sessionId) {
+        return;
+      }
+
+      ttsPreviewSegmentIndexRef.current = index;
+      const segments = ttsPreviewSegmentsRef.current;
+      if (index >= segments.length) {
+        if (ttsPreviewIsStreamingRef.current) {
+          ttsPreviewWaitingRef.current = true;
+          return;
+        }
+        stopTtsPreview();
+        return;
+      }
+
+      ttsPreviewWaitingRef.current = false;
+      setTtsPreviewLoading(true);
+
+      try {
+        let audioContext = ttsPreviewAudioContextRef.current;
+        if (!audioContext) {
+          audioContext = createAudioContext();
+          ttsPreviewAudioContextRef.current = audioContext;
+        }
+
+        await resumeAudioContext(audioContext);
+        if (ttsPreviewSessionRef.current !== sessionId) {
+          return;
+        }
+
+        const segment = segments[index];
+        const audioBuffer = await decodeAudioBufferFromBase64(
+          audioContext,
+          segment.audioData,
+        );
+        if (ttsPreviewSessionRef.current !== sessionId) {
+          return;
+        }
+
+        const sourceNode = playAudioBuffer(audioContext, audioBuffer, () => {
+          if (ttsPreviewSessionRef.current !== sessionId) {
+            return;
+          }
+          if (ttsPreviewIsPlayingRef.current) {
+            playPreviewSegment(index + 1, sessionId);
+          }
+        });
+        ttsPreviewSourceRef.current = sourceNode;
+        setTtsPreviewLoading(false);
+        setTtsPreviewPlaying(true);
+        ttsPreviewIsPlayingRef.current = true;
+      } catch (error) {
+        console.error('Failed to play TTS preview segment:', error);
+        if (
+          ttsPreviewSessionRef.current === sessionId &&
+          ttsPreviewIsPlayingRef.current
+        ) {
+          playPreviewSegment(index + 1, sessionId);
+          return;
+        }
+        stopTtsPreview();
+      }
+    },
+    [stopTtsPreview],
+  );
+
+  // TTS Config from backend
+  const [ttsConfig, setTtsConfig] = useState<{
+    providers: TTSProviderConfig[];
+    model_options: TtsModelOption[];
+  } | null>(null);
+  const [askConfigMeta, setAskConfigMeta] = useState<AskConfigMetadata | null>(
+    null,
+  );
+
+  // Fetch TTS config from backend
+  useEffect(() => {
+    let cancelled = false;
+    const fetchConfig = async () => {
+      try {
+        const requestLanguage = currentLanguage || undefined;
+        const [ttsConfigResponse, askConfigResponse] = await Promise.all([
+          api.ttsConfig({ language: requestLanguage }),
+          api.askConfig({ language: requestLanguage }),
+        ]);
+        // Ignore stale responses when the language changed mid-flight so a
+        // slower earlier request cannot overwrite the current-language config.
+        if (cancelled) {
+          return;
+        }
+        setTtsConfig({
+          providers: normalizeTtsProviders(ttsConfigResponse?.providers),
+          model_options: normalizeTtsModelOptions(
+            ttsConfigResponse?.model_options,
+          ),
+        });
+        setAskConfigMeta({
+          ...askConfigResponse,
+          providers: normalizeAskProviders(askConfigResponse?.providers),
+        });
+      } catch (error) {
+        console.error('Failed to fetch config:', error);
+      }
+    };
+    fetchConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentLanguage]);
+
+  const resolvedProvider = (() => {
+    const provider = (ttsProvider || '').trim();
+    const fallbackProvider =
+      getDefaultTtsModelOption(ttsConfig?.model_options || [])?.provider ||
+      ttsConfig?.providers?.[0]?.name ||
+      '';
+    if (!provider) {
+      return fallbackProvider;
+    }
+    if (ttsConfig?.providers?.length) {
+      const exists = ttsConfig.providers.some(p => p.name === provider);
+      return exists ? provider : fallbackProvider || provider;
+    }
+    return provider;
+  })();
+  const isMiniMaxTtsProvider = isMiniMaxProvider(resolvedProvider);
+  const providerSupportsCloning =
+    providerSupportsClonedVoices(resolvedProvider);
+
+  const refreshMinimaxVoiceData = useCallback(async () => {
+    if (!shifuId || !providerSupportsCloning) return;
+    try {
+      const result = (await api.listMinimaxTtsVoices(
+        buildClonedVoiceListParams(resolvedProvider, shifuId),
+      )) as { voices?: RegisteredClonedVoice[] };
+      setMinimaxClonedVoices(result?.voices || []);
+    } catch (error) {
+      console.error('Failed to refresh registered TTS voices:', error);
+    }
+  }, [providerSupportsCloning, resolvedProvider, shifuId]);
+  useEffect(() => {
+    if (!ttsEnabled) return;
+    const options = ttsConfig?.model_options || [];
+    if (!options.length) return;
+    const currentValue = buildTtsModelOptionValue(resolvedProvider, ttsModel);
+    if (currentValue && options.some(option => option.value === currentValue)) {
+      return;
+    }
+    const fallback = getDefaultTtsModelOption(options)!;
+    setTtsProvider(fallback.provider);
+    setTtsModel(fallback.model);
+  }, [resolvedProvider, ttsEnabled, ttsModel, ttsConfig]);
+
+  // Get current provider config
+  const currentProviderConfig =
+    ttsConfig?.providers.find(p => p.name === resolvedProvider) ||
+    ttsConfig?.providers[0];
+
+  const ttsModelOptions = useMemo(
+    () => ttsConfig?.model_options || [],
+    [ttsConfig?.model_options],
+  );
+  const ttsModelSelectValue = buildTtsModelOptionValue(
+    resolvedProvider,
+    ttsModel,
+  );
+
+  // Get voices for current provider
+  const ttsVoiceOptions = useMemo(
+    () =>
+      filterTtsVoicesForModel(currentProviderConfig?.voices || [], ttsModel),
+    [currentProviderConfig?.voices, ttsModel],
+  );
+
+  const minimaxStatusLabels = useMemo(
+    () => ({
+      queued: t('module.shifuSetting.minimaxCloneStatus.queued'),
+      processing: t('module.shifuSetting.minimaxCloneStatus.processing'),
+      billing_pending: t(
+        'module.shifuSetting.minimaxCloneStatus.billing_pending',
+      ),
+      failed: t('module.shifuSetting.minimaxCloneStatus.failed'),
+      ready: t('module.shifuSetting.minimaxCloneStatus.ready'),
+    }),
+    [t],
+  );
+  const formatMiniMaxClonedVoiceLabel = useCallback(
+    (name: string) =>
+      t('module.shifuSetting.minimaxCloneVoiceOptionLabel', { name }),
+    [t],
+  );
+  const mergedTtsVoiceOptions = useMemo(() => {
+    if (!providerSupportsCloning) {
+      return ttsVoiceOptions.map(option => ({
+        ...option,
+        source: 'built_in' as const,
+        disabled: false,
+      }));
+    }
+    // Cloned voices show under whatever model the teacher selected (like
+    // MiniMax): the built-in list is already model-filtered upstream, and
+    // provider-specific clone resources are inferred backend-side.
+    return buildMiniMaxVoiceOptions({
+      builtInVoices: ttsVoiceOptions,
+      clonedVoices: minimaxClonedVoices.filter(
+        voice => (voice.provider || MINIMAX_PROVIDER) === resolvedProvider,
+      ),
+      currentVoiceId: ttsVoiceId,
+      clonedVoiceLabelFormatter: formatMiniMaxClonedVoiceLabel,
+      manualLabel: t('module.shifuSetting.minimaxManualVoiceLabel'),
+      statusLabels: minimaxStatusLabels,
+      manualVoiceValidator: getCustomVoiceIdValidator(resolvedProvider),
+    });
+  }, [
+    formatMiniMaxClonedVoiceLabel,
+    minimaxClonedVoices,
+    minimaxStatusLabels,
+    providerSupportsCloning,
+    resolvedProvider,
+    t,
+    ttsVoiceId,
+    ttsVoiceOptions,
+  ]);
+  const builtInTtsVoiceOptions = useMemo(
+    () => mergedTtsVoiceOptions.filter(option => option.source === 'built_in'),
+    [mergedTtsVoiceOptions],
+  );
+  const clonedTtsVoiceOptions = useMemo(
+    () => mergedTtsVoiceOptions.filter(option => option.source === 'cloned'),
+    [mergedTtsVoiceOptions],
+  );
+  const manualTtsVoiceOptions = useMemo(
+    () => mergedTtsVoiceOptions.filter(option => option.source === 'manual'),
+    [mergedTtsVoiceOptions],
+  );
+
+  useEffect(() => {
+    if (!open || !ttsEnabled || !providerSupportsCloning) {
+      return;
+    }
+    refreshMinimaxVoiceData();
+  }, [providerSupportsCloning, open, refreshMinimaxVoiceData, ttsEnabled]);
+  const normalizeSpeed = useCallback(
+    (value: number) => {
+      const min = currentProviderConfig?.speed.min ?? 0.5;
+      const max = currentProviderConfig?.speed.max ?? 2.0;
+      const clamped = Math.min(Math.max(value, min), max);
+      return Number(clamped.toFixed(1));
+    },
+    [currentProviderConfig?.speed.max, currentProviderConfig?.speed.min],
+  );
+  const speedMin = currentProviderConfig?.speed?.min ?? 0.5;
+  const speedMax = currentProviderConfig?.speed?.max ?? 2.0;
+  const speedStep = currentProviderConfig?.speed?.step ?? 0.1;
+  const speedValue = normalizeSpeed(ttsSpeed ?? speedMin);
+  const isSpeedAtMin = speedValue <= speedMin;
+  const isSpeedAtMax = speedValue >= speedMax;
+  useEffect(() => {
+    if (ttsSpeed === null || Number.isNaN(ttsSpeed)) {
+      setTtsSpeedInput('');
+    } else {
+      setTtsSpeedInput(ttsSpeed.toFixed(1));
+    }
+  }, [ttsSpeed]);
+
+  const askProviderOptions =
+    askConfigMeta?.providers?.map(item => ({
+      value: item.provider,
+      label: item.title || item.provider,
+    })) || [];
+  // ModelList's empty-value Default alias inherits the effective model's
+  // disabled flag, so preserve that model as a valid round-trip target too.
+  const savedAskModel =
+    initialAskConfigurationRef.current?.model ||
+    (followUpModels.find(item => item.is_default) || followUpModels[0])?.model;
+  const followUpModelOptions = useMemo(
+    () =>
+      followUpModels.map(item => ({
+        value: item.model,
+        label: item.display_name,
+        creditMultiplier: item.credit_multiplier ?? null,
+        creditMultiplierLabel: item.credit_multiplier_label || '',
+        isDefault: item.is_default,
+        disabled:
+          !debugAllowed &&
+          item.interaction_mode !== 'live_voice' &&
+          item.model !== savedAskModel,
+      })),
+    [debugAllowed, followUpModels, savedAskModel],
+  );
+  const selectedFollowUpModel = followUpModels.find(
+    item => item.model === askModel,
+  );
+  const preservedAskConfiguration = initialAskConfigurationRef.current;
+  const isUncataloguedExistingAskModel = Boolean(
+    // The empty Default alias also needs its saved config while no catalog
+    // is available; absence of metadata must not erase provider settings.
+    (askModel || !followUpModels.length) &&
+    preservedAskConfiguration?.model === askModel &&
+    !selectedFollowUpModel,
+  );
+  const isLiveVoiceFollowUp =
+    !askModelIndex &&
+    (selectedFollowUpModel?.interaction_mode === 'live_voice' ||
+      (isUncataloguedExistingAskModel &&
+        preservedAskConfiguration?.interactionMode === 'live_voice'));
+  const selectedLiveVoice = liveVoiceDraft;
+  const resolvedAskProvider = (() => {
+    if (isLiveVoiceFollowUp) {
+      return ASK_PROVIDER_LLM;
+    }
+    const provider = (askProvider || '').trim().toLowerCase();
+    if (!provider) {
+      return askConfigMeta?.providers?.[0]?.provider || ASK_PROVIDER_LLM;
+    }
+    if (askConfigMeta?.providers?.length) {
+      const exists = askConfigMeta.providers.some(p => p.provider === provider);
+      return exists
+        ? provider
+        : askConfigMeta.providers[0]?.provider || provider;
+    }
+    return provider;
+  })();
+  const currentAskProviderMeta =
+    askConfigMeta?.providers?.find(
+      item => item.provider === resolvedAskProvider,
+    ) || askConfigMeta?.providers?.[0];
+  const askProviderFieldEntries = useMemo(
+    () =>
+      isLiveVoiceFollowUp
+        ? []
+        : Object.entries(currentAskProviderMeta?.json_schema?.properties || {}),
+    [currentAskProviderMeta, isLiveVoiceFollowUp],
+  );
+  const askProviderRequiredFields = useMemo(
+    () =>
+      new Set(
+        isLiveVoiceFollowUp
+          ? []
+          : currentAskProviderMeta?.json_schema?.required || [],
+      ),
+    [currentAskProviderMeta, isLiveVoiceFollowUp],
+  );
+  const getAskProviderDefaultConfig = useCallback(
+    (provider: string) => {
+      const config =
+        askConfigMeta?.providers?.find(item => item.provider === provider)
+          ?.default_config || {};
+      return config && typeof config === 'object' && !Array.isArray(config)
+        ? { ...config }
+        : {};
+    },
+    [askConfigMeta],
+  );
+  const handleAskProviderChange = useCallback(
+    (value: string) => {
+      askProviderEditedRef.current = true;
+      setAskProvider(value);
+      setAskProviderConfig(getAskProviderDefaultConfig(value));
+      setAskProviderObjectInputs({});
+    },
+    [getAskProviderDefaultConfig],
+  );
+
+  const handleAskModelChange = useCallback(
+    (value: string) => {
+      followUpModeRequestRef.current++;
+      setCheckingTextMode(false);
+      setAskModel(value);
+      const selectedModel = followUpModels.find(item => item.model === value);
+      const isLive = selectedModel?.interaction_mode === 'live_voice';
+      markModelEdited('followUp', isLive ? value : asModelIndex(value) || '1');
+      if (isLive) {
+        setAskModelIndex(null);
+        const allowedVoiceIds = new Set(
+          (selectedModel?.voices || []).map(voice => voice.voice_id),
+        );
+        setLiveVoiceDraft(previous =>
+          allowedVoiceIds.has(previous) ? previous : DEFAULT_LIVE_VOICE,
+        );
+      } else {
+        setAskModelIndex(asModelIndex(value) || '1');
+      }
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
+    },
+    [followUpModels, markModelEdited],
+  );
+
+  const handleFollowUpModeChange = useCallback(
+    async (mode: 'text' | 'live_voice') => {
+      if (currentShifu?.readonly) return;
+      const version = ++followUpModeRequestRef.current;
+      if (mode === 'live_voice') {
+        const live = followUpModels.find(
+          item => item.interaction_mode === 'live_voice',
+        );
+        if (live) handleAskModelChange(live.model);
+        return;
+      }
+      const model = legacyTextModelRef.current;
+      let modelIndex = textModelIndexDraftRef.current || '1';
+      if (modelIndex) {
+        setCheckingTextMode(true);
+        let available = false;
+        try {
+          const options = await api.getCourseModelOptions({});
+          if (Array.isArray(options)) {
+            const option = options.find(option => option.index === modelIndex);
+            // A removed slot follows the same fallback as saved course values.
+            if (!option) modelIndex = '1';
+            available = options.some(
+              option =>
+                option.index === modelIndex && option.available === true,
+            );
+          }
+        } catch {
+          // Keep the saved mode when availability cannot be confirmed.
+        }
+        if (version !== followUpModeRequestRef.current) return;
+        setCheckingTextMode(false);
+        if (!available) {
+          toast({
+            title: t('module.shifuSetting.modelOptions.unavailable'),
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      setAskModel(model);
+      setAskModelIndex(modelIndex);
+      markModelEdited('followUp', modelIndex);
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
+    },
+    [
+      currentShifu?.readonly,
+      followUpModels,
+      handleAskModelChange,
+      markModelEdited,
+      t,
+      toast,
+    ],
+  );
+
+  const applyMinimaxManualVoiceId = useCallback(() => {
+    const normalizedVoiceId = minimaxManualVoiceId.trim();
+    if (!isValidMiniMaxCustomVoiceId(normalizedVoiceId)) {
+      toast({
+        title: t('module.shifuSetting.minimaxManualVoiceInvalid'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    setTtsVoiceId(normalizedVoiceId);
+    setMinimaxManualVoiceId('');
+  }, [minimaxManualVoiceId, t, toast]);
+
+  useEffect(() => {
+    if (!askConfigMeta?.providers?.length) return;
+    const provider = (askProvider || '').trim().toLowerCase();
+    if (
+      provider &&
+      askConfigMeta.providers.some(item => item.provider === provider)
+    ) {
+      return;
+    }
+    const fallbackProvider = askConfigMeta.providers[0].provider;
+    setAskProvider(fallbackProvider);
+    setAskProviderConfig(getAskProviderDefaultConfig(fallbackProvider));
+    setAskProviderObjectInputs({});
+  }, [askConfigMeta, askProvider, getAskProviderDefaultConfig]);
+
+  const buildAskProviderConfigForSubmit = useCallback(() => {
+    if (isLiveVoiceFollowUp) {
+      return { live_voice: selectedLiveVoice };
+    }
+    try {
+      const config = buildAskProviderConfigBySchema({
+        schema: currentAskProviderMeta?.json_schema,
+        providerConfig: askProviderConfig as Record<string, unknown>,
+        objectInputs: askProviderObjectInputs,
+      });
+      const preservedLiveVoice =
+        typeof askProviderConfig.live_voice === 'string'
+          ? askProviderConfig.live_voice.trim()
+          : '';
+      if (preservedLiveVoice) {
+        return {
+          ...config,
+          live_voice: preservedLiveVoice,
+        };
+      }
+      return config;
+    } catch (error) {
+      if (error instanceof AskProviderSchemaValidationError) {
+        const fieldSchema =
+          currentAskProviderMeta?.json_schema?.properties?.[error.field];
+        const fieldLabel = String(fieldSchema?.title || error.field);
+
+        if (error.code === 'required') {
+          throw new Error(
+            t('module.shifuSetting.askProviderConfigRequired', {
+              field: fieldLabel,
+            }),
+          );
+        }
+
+        if (error.code === 'out_of_range') {
+          throw new Error(
+            t('module.shifuSetting.askProviderConfigOutOfRange', {
+              field: fieldLabel,
+              min: String(fieldSchema?.minimum ?? ''),
+              max: String(fieldSchema?.maximum ?? ''),
+            }),
+          );
+        }
+
+        throw new Error(
+          t('module.shifuSetting.askProviderConfigInvalidJson', {
+            field: fieldLabel,
+          }),
+        );
+      }
+
+      throw error;
+    }
+  }, [
+    askProviderConfig,
+    askProviderObjectInputs,
+    currentAskProviderMeta,
+    isLiveVoiceFollowUp,
+    selectedLiveVoice,
+    t,
+  ]);
+
+  // Sanitize and default selections when provider/config changes
+  useEffect(() => {
+    if (!ttsConfig || !resolvedProvider) return;
+    const provider = ttsConfig.providers.find(p => p.name === resolvedProvider);
+    if (!provider) return;
+
+    if (ttsModelOptions.length > 0) {
+      const currentValue = buildTtsModelOptionValue(resolvedProvider, ttsModel);
+      const modelValues = new Set(ttsModelOptions.map(option => option.value));
+      const fallbackModel = getDefaultTtsModelOption(ttsModelOptions)!;
+      if (ttsEnabled) {
+        if (!currentValue || !modelValues.has(currentValue)) {
+          setTtsProvider(fallbackModel.provider);
+          setTtsModel(fallbackModel.model);
+        }
+      } else if (ttsModel && currentValue && !modelValues.has(currentValue)) {
+        setTtsModel('');
+      }
+    }
+
+    if (provider.voices?.length > 0 || mergedTtsVoiceOptions.length > 0) {
+      const selectableVoiceOptions = mergedTtsVoiceOptions.filter(
+        option => !option.disabled,
+      );
+      const voiceValues = new Set(selectableVoiceOptions.map(v => v.value));
+      const fallbackVoice = selectableVoiceOptions[0]?.value || '';
+      const currentClonedVoice = providerSupportsClonedVoices(provider.name)
+        ? minimaxClonedVoices.find(
+            voice =>
+              (voice.voice_id || '').trim() === ttsVoiceId &&
+              (voice.provider || MINIMAX_PROVIDER) === provider.name,
+          )
+        : undefined;
+      const preserveCustomVoice =
+        !currentClonedVoice &&
+        shouldPreserveCustomMiniMaxVoice({
+          providerName: provider.name,
+          supportsCustomVoiceId: provider.supports_custom_voice_id,
+          voiceId: ttsVoiceId,
+          builtInVoices: ttsVoiceOptions,
+        });
+      if (ttsEnabled) {
+        const nextVoice =
+          voiceValues.has(ttsVoiceId) || preserveCustomVoice
+            ? ttsVoiceId
+            : fallbackVoice;
+        if (nextVoice && nextVoice !== ttsVoiceId) {
+          setTtsVoiceId(nextVoice);
+        }
+      } else if (
+        ttsVoiceId &&
+        !voiceValues.has(ttsVoiceId) &&
+        !preserveCustomVoice
+      ) {
+        setTtsVoiceId('');
+      }
+    }
+  }, [
+    ttsConfig,
+    resolvedProvider,
+    ttsModel,
+    ttsVoiceId,
+    ttsEnabled,
+    ttsModelOptions,
+    ttsVoiceOptions,
+    mergedTtsVoiceOptions,
+    minimaxClonedVoices,
+  ]);
+  // Define the validation schema using Zod
+  const shifuSchema = z.object({
+    name: z
+      .string()
+      .min(1, t('module.shifuSetting.shifuNameEmpty'))
+      .max(
+        TITLE_MAX_LENGTH,
+        t('module.shifuSetting.shifuNameMaxLength', {
+          maxLength: TITLE_MAX_LENGTH,
+        }),
+      ),
+    description: z
+      .string()
+      .min(0, t('module.shifuSetting.shifuDescriptionEmpty'))
+      .max(500, t('module.shifuSetting.shifuDescriptionMaxLength')),
+    model: z.string(),
+    systemPrompt: z
+      .string()
+      .max(20000, t('module.shifuSetting.shifuPromptMaxLength')),
+    price: z
+      .string()
+      .min(1, t('module.shifuSetting.shifuPriceEmpty'))
+      .regex(/^\d+(\.\d{1,2})?$/, t('module.shifuSetting.shifuPriceFormat')),
+  });
+
+  const form = useForm({
+    resolver: zodResolver(shifuSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      model: '',
+      systemPrompt: '',
+      price: '',
+    },
+  });
+  const isDirty = form.formState.isDirty;
+
+  // Handle keyword addition
+  const handleAddKeyword = () => {
+    const keyword = (
+      document.getElementById('keywordInput') as any
+    )?.value.trim();
+    if (keyword && !keywords.includes(keyword)) {
+      setKeywords([...keywords, keyword]);
+      (document.getElementById('keywordInput') as any).value = '';
+    }
+  };
+
+  // Handle keyword removal
+  const handleRemoveKeyword = keyword => {
+    setKeywords(keywords.filter(k => k !== keyword));
+  };
+
+  // Handle image upload
+  const handleImageUpload = async e => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file size
+      if (file.size > 2 * 1024 * 1024) {
+        setImageError(t('module.shifuSetting.fileSizeLimit'));
+        setShifuImage(null);
+        return;
+      }
+
+      // Validate file type
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        setImageError(t('module.shifuSetting.supportedFormats'));
+        setShifuImage(null);
+        return;
+      }
+
+      setShifuImage(file);
+      setImageError('');
+
+      // Upload the file
+      try {
+        setIsUploading(true);
+        setUploadProgress(0);
+
+        // Use the uploadFile function from file.ts
+        const response = await uploadFile(
+          file,
+          '/api/shifu/upfile',
+          undefined,
+          undefined,
+          progress => {
+            setUploadProgress(progress);
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+
+        const res = await response.json();
+        if (res.code !== 0) {
+          throw new Error(res.message);
+        }
+        setUploadedImageUrl(res.data); // Assuming the API returns the image URL in a 'url' field
+      } catch (error) {
+        console.error('Upload error:', error);
+        setImageError(t('module.shifuSetting.uploadFailed'));
+      } finally {
+        setIsUploading(false);
+      }
+    }
+  };
+
+  // Handle form submission
+  const onSubmit = useCallback(
+    async (
+      data: any,
+      needClose = true,
+      saveType: 'auto' | 'manual' = 'manual',
+    ) => {
+      const modelEditSnapshot = { ...modelEditVersionRef.current };
+      const modelSelectionSnapshot = { ...modelSelectionRef.current };
+      const settingsRequestSnapshot = settingsRequestSeqRef.current;
+      const previousSave = settingsSaveQueueRef.current;
+      let releaseSave!: () => void;
+      settingsSaveQueueRef.current = new Promise<void>(resolve => {
+        releaseSave = resolve;
+      });
+      try {
+        // Preserve invocation order at the server as well as in local state.
+        // A slower earlier save must never overwrite a newer selection.
+        await previousSave;
+        if (settingsRequestSeqRef.current !== settingsRequestSnapshot) return;
+        const providerForSubmit =
+          resolvedProvider ||
+          getDefaultTtsModelOption(ttsConfig?.model_options || [])?.provider ||
+          ttsConfig?.providers?.[0]?.name ||
+          '';
+        const askProviderForSubmit =
+          resolvedAskProvider ||
+          askConfigMeta?.default?.provider ||
+          ASK_PROVIDER_LLM;
+        const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
+        const shouldPreserveExistingAskConfiguration = Boolean(
+          preservedAskConfiguration &&
+          !askProviderEditedRef.current &&
+          // Missing model/provider metadata must not discard a saved provider
+          // configuration when the teacher only changes unrelated settings.
+          (isUncataloguedExistingAskModel ||
+            (!isLiveVoiceFollowUp &&
+              !askConfigMeta?.providers?.some(
+                provider =>
+                  provider.provider ===
+                  preservedAskConfiguration.providerConfig.provider,
+              ))),
+        );
+        const askConfigForSubmit = shouldPreserveExistingAskConfiguration
+          ? preservedAskConfiguration!.providerConfig.config
+          : buildAskProviderConfigForSubmit();
+
+        if (ttsEnabled && !providerForSubmit) {
+          if (!ttsProviderToastShownRef.current && saveType === 'manual') {
+            toast({
+              title: t('module.shifuSetting.ttsProviderRequiredTitle'),
+              description: t('module.shifuSetting.ttsProviderRequiredDesc'),
+              variant: 'destructive',
+            });
+            ttsProviderToastShownRef.current = true;
+          }
+          return;
+        }
+
+        const includeMainModel =
+          modelEditSnapshot.main > savedModelEditVersionRef.current.main;
+        const includeFollowUpModel =
+          modelEditSnapshot.followUp >
+          savedModelEditVersionRef.current.followUp;
+        // Omit temperatures so hidden settings keep their saved values.
+        const payload = {
+          description: data.description,
+          shifu_bid: shifuId,
+          keywords: keywords,
+          ...(includeMainModel
+            ? { model: asModelIndex(modelSelectionSnapshot.main) || '1' }
+            : {}),
+          name: data.name,
+          price: Number(data.price),
+          avatar: uploadedImageUrl,
+          system_prompt: data.systemPrompt,
+          ask_enabled_status: ASK_MODE_ENABLE,
+          ...(includeFollowUpModel
+            ? { ask_model: modelSelectionSnapshot.followUp }
+            : {}),
+          ask_system_prompt: '',
+          ask_provider_config: {
+            provider: shouldPreserveExistingAskConfiguration
+              ? preservedAskConfiguration!.providerConfig.provider
+              : askProviderForSubmit,
+            mode: shouldPreserveExistingAskConfiguration
+              ? preservedAskConfiguration!.providerConfig.mode
+              : askModeForSubmit,
+            config: askConfigForSubmit,
+          },
+          // TTS Configuration
+          tts_enabled: ttsEnabled,
+          tts_provider: providerForSubmit,
+          tts_model: ttsModel,
+          tts_voice_id: ttsVoiceId,
+          tts_speed: speedValue,
+          tts_pitch: 0,
+          tts_emotion: '',
+          default_listen_mode_enabled: ttsEnabled
+            ? defaultListenModeEnabled
+            : false,
+          // Language Output Configuration
+          use_learner_language: useLearnerLanguage,
+        };
+        const savedDetail = await api.saveShifuDetail({ ...payload });
+        const effectiveMainIndex =
+          asModelIndex(savedDetail?.model) || asModelIndex(data.model) || '1';
+        const effectiveFollowUpIndex =
+          asModelIndex(savedDetail?.ask_model) ||
+          asModelIndex(modelSelectionSnapshot.followUp);
+        const effectiveMainFallback =
+          savedDetail?.model_fallback ??
+          (includeMainModel ? false : mainModelFallback);
+        const effectiveFollowUpFallback =
+          savedDetail?.ask_model_fallback ??
+          (includeFollowUpModel ? false : followUpModelFallback);
+        if (settingsRequestSeqRef.current === settingsRequestSnapshot) {
+          if (includeMainModel)
+            savedModelEditVersionRef.current.main = Math.max(
+              savedModelEditVersionRef.current.main,
+              modelEditSnapshot.main,
+            );
+          if (includeFollowUpModel)
+            savedModelEditVersionRef.current.followUp = Math.max(
+              savedModelEditVersionRef.current.followUp,
+              modelEditSnapshot.followUp,
+            );
+          // Do not overwrite selections made while this save was in flight.
+          if (modelEditVersionRef.current.main === modelEditSnapshot.main) {
+            modelSelectionRef.current.main = effectiveMainIndex;
+            form.setValue('model', effectiveMainIndex);
+            setMainModelFallback(effectiveMainFallback);
+            if (savedDetail?.model_display_name)
+              setMainModelDisplayName(savedDetail.model_display_name);
+          }
+          if (
+            modelEditVersionRef.current.followUp === modelEditSnapshot.followUp
+          ) {
+            if (!isLiveVoiceFollowUp) {
+              modelSelectionRef.current.followUp =
+                effectiveFollowUpIndex || '1';
+              textModelIndexDraftRef.current = effectiveFollowUpIndex || '1';
+              setAskModelIndex(effectiveFollowUpIndex || '1');
+            }
+            setFollowUpModelFallback(effectiveFollowUpFallback);
+            if (savedDetail?.ask_model_display_name)
+              setFollowUpModelDisplayName(savedDetail.ask_model_display_name);
+          }
+        }
+        try {
+          void Promise.resolve(
+            trackEvent(
+              'creator_shifu_setting_save',
+              buildShifuSettingSaveAnalytics({
+                shifuBid: shifuId,
+                saveType,
+                ttsEnabled,
+                defaultListenModeEnabled,
+                useLearnerLanguage,
+                followUpMode: isLiveVoiceFollowUp ? 'live_voice' : 'text',
+                price: Number(data.price),
+                mainModelIndex: effectiveMainIndex,
+                followUpModelIndex: effectiveFollowUpIndex,
+                mainModelFallback: effectiveMainFallback,
+                followUpModelFallback: effectiveFollowUpFallback,
+              }),
+            ),
+          ).catch(() => {});
+        } catch {
+          // Analytics is best-effort and must never affect a successful save.
+        }
+        if (onSave) {
+          onSave();
+        }
+        if (
+          needClose &&
+          settingsRequestSeqRef.current === settingsRequestSnapshot &&
+          modelEditVersionRef.current.main === modelEditSnapshot.main &&
+          modelEditVersionRef.current.followUp === modelEditSnapshot.followUp
+        ) {
+          updateOpen(false);
+        }
+      } catch (error) {
+        if (!currentShifu?.readonly && error instanceof Error) {
+          toast({
+            title: error.message || t('common.core.unknownError'),
+            variant: 'destructive',
+          });
+        }
+        if (currentShifu?.readonly) {
+          updateOpen(false);
+        }
+      } finally {
+        releaseSave();
+      }
+    },
+    [
+      shifuId,
+      keywords,
+      uploadedImageUrl,
+      onSave,
+      currentShifu?.readonly,
+      trackEvent,
+      ttsEnabled,
+      resolvedProvider,
+      ttsConfig,
+      ttsModel,
+      ttsVoiceId,
+      speedValue,
+      defaultListenModeEnabled,
+      useLearnerLanguage,
+      isLiveVoiceFollowUp,
+      isUncataloguedExistingAskModel,
+      preservedAskConfiguration,
+      askConfigMeta,
+      mainModelFallback,
+      followUpModelFallback,
+      form,
+      buildAskProviderConfigForSubmit,
+      resolvedAskProvider,
+      toast,
+      t,
+      updateOpen,
+    ],
+  );
+
+  const latestOnSubmitRef = useRef(onSubmit);
+  latestOnSubmitRef.current = onSubmit;
+
+  const init = async () => {
+    const requestSeq = settingsRequestSeqRef.current + 1;
+    settingsRequestSeqRef.current = requestSeq;
+    const isActiveRequest = () => settingsRequestSeqRef.current === requestSeq;
+
+    ttsProviderToastShownRef.current = false;
+    initialAskConfigurationRef.current = null;
+    askProviderEditedRef.current = false;
+    modelEditVersionRef.current = { main: 0, followUp: 0 };
+    savedModelEditVersionRef.current = { main: 0, followUp: 0 };
+    setSettingsLoading(true);
+    try {
+      const result = normalizeShifuDetail(
+        (await api.getShifuDetail({
+          shifu_bid: shifuId,
+        })) as Shifu,
+      );
+
+      if (!isActiveRequest()) {
+        return;
+      }
+
+      if (result) {
+        form.reset({
+          name: result.name,
+          description: result.description,
+          price: (result.price ?? 0).toFixed(2),
+          model: asModelIndex(result.model) || '1',
+          systemPrompt: result.system_prompt || '',
+        });
+        const rawAskProviderConfig =
+          result.ask_provider_config &&
+          typeof result.ask_provider_config === 'object' &&
+          !Array.isArray(result.ask_provider_config)
+            ? result.ask_provider_config
+            : {};
+        const rawAskProviderInnerConfig =
+          rawAskProviderConfig.config &&
+          typeof rawAskProviderConfig.config === 'object' &&
+          !Array.isArray(rawAskProviderConfig.config)
+            ? rawAskProviderConfig.config
+            : {};
+        const normalizedInitialProvider = String(
+          rawAskProviderConfig.provider || ASK_PROVIDER_LLM,
+        ).toLowerCase();
+        const normalizedInitialMode = String(
+          rawAskProviderConfig.mode || ASK_PROVIDER_MODE_PROVIDER_ONLY,
+        ).toLowerCase();
+        const hasPersistedLiveVoiceContract =
+          normalizedInitialProvider === ASK_PROVIDER_LLM &&
+          normalizedInitialMode === ASK_PROVIDER_MODE_PROVIDER_ONLY &&
+          typeof rawAskProviderInnerConfig.live_voice === 'string' &&
+          Boolean(rawAskProviderInnerConfig.live_voice.trim());
+        initialAskConfigurationRef.current = {
+          model: result.ask_model || '',
+          interactionMode:
+            result.follow_up_mode === 'live_voice'
+              ? 'live_voice'
+              : result.follow_up_mode === 'text'
+                ? 'text'
+                : hasPersistedLiveVoiceContract
+                  ? 'live_voice'
+                  : 'text',
+          providerConfig: {
+            provider: normalizedInitialProvider,
+            mode: normalizedInitialMode,
+            config: { ...rawAskProviderInnerConfig },
+          },
+        };
+        setMainModelFallback(result.model_fallback === true);
+        setFollowUpModelFallback(result.ask_model_fallback === true);
+        setMainModelDisplayName(result.model_display_name || '');
+        setFollowUpModelDisplayName(result.ask_model_display_name || '');
+        modelSelectionRef.current = {
+          main: asModelIndex(result.model) || '1',
+          followUp:
+            initialAskConfigurationRef.current.interactionMode === 'live_voice'
+              ? result.ask_model || ''
+              : asModelIndex(result.ask_model) || '1',
+        };
+        setAskModel(result.ask_model || '');
+        setAskModelIndex(
+          initialAskConfigurationRef.current.interactionMode === 'live_voice'
+            ? null
+            : asModelIndex(result.ask_model) || '1',
+        );
+        textModelIndexDraftRef.current =
+          initialAskConfigurationRef.current.interactionMode === 'live_voice'
+            ? '1'
+            : asModelIndex(result.ask_model) || '1';
+        legacyTextModelRef.current =
+          initialAskConfigurationRef.current.interactionMode === 'live_voice'
+            ? ''
+            : result.ask_model || '';
+        setAskProvider(
+          (rawAskProviderConfig.provider || ASK_PROVIDER_LLM).toLowerCase(),
+        );
+        setAskProviderConfig(rawAskProviderInnerConfig);
+        setLiveVoiceDraft(
+          String(rawAskProviderInnerConfig.live_voice || DEFAULT_LIVE_VOICE),
+        );
+        setAskProviderObjectInputs({});
+        setAskPreviewLoading(false);
+        setAskPreviewQuery('');
+        setAskPreviewResult('');
+        setAskPreviewMeta(null);
+        setKeywords(result.keywords || []);
+        setUploadedImageUrl(result.avatar || '');
+        // Set TTS Configuration
+        setTtsEnabled(result.tts_enabled || false);
+        setTtsProvider((result.tts_provider || '').toLowerCase());
+        setTtsModel(result.tts_model || '');
+        setTtsVoiceId(result.tts_voice_id || '');
+        setTtsSpeed(result.tts_speed ?? 1.0);
+        setDefaultListenModeEnabled(
+          Boolean(result.tts_enabled && result.default_listen_mode_enabled),
+        );
+        setTtsSpeedInput(
+          result.tts_speed === null || result.tts_speed === undefined
+            ? ''
+            : String(result.tts_speed),
+        );
+        // Set Language Output Configuration
+        setUseLearnerLanguage(result.use_learner_language ?? false);
+      }
+    } catch (error) {
+      if (!isActiveRequest()) {
+        return;
+      }
+      console.error('Failed to load shifu settings:', error);
+      toast({
+        title:
+          error instanceof Error
+            ? error.message
+            : t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+    } finally {
+      if (isActiveRequest()) {
+        setSettingsLoading(false);
+      }
+    }
+  };
+
+  const handleTtsPreview = useCallback(() => {
+    const targetKey = TTS_PREVIEW_CURRENT_TARGET;
+    const previewVoiceId = (ttsVoiceId || '').trim();
+    const sameTargetActive =
+      (ttsPreviewPlaying || ttsPreviewLoading) &&
+      ttsPreviewTarget === targetKey;
+
+    if (sameTargetActive) {
+      stopTtsPreview();
+      return;
+    }
+    if (
+      !shifuId ||
+      currentShifu?.readonly ||
+      creditInsufficientAudience === null
+    ) {
+      return;
+    }
+    if (ttsPreviewPlaying || ttsPreviewLoading) {
+      stopTtsPreview();
+    }
+
+    if (debugBlockedByCredits) {
+      showCreditInsufficientToast({
+        audience: creditInsufficientAudience,
+        code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+      });
+      return;
+    }
+    if (!debugAllowed) {
+      return;
+    }
+
+    const sessionId = ttsPreviewSessionRef.current + 1;
+    ttsPreviewSessionRef.current = sessionId;
+    requestExclusive(stopTtsPreview);
+    setTtsPreviewTarget(targetKey);
+    setTtsPreviewLoading(true);
+    setTtsPreviewPlaying(true);
+    ttsPreviewIsPlayingRef.current = true;
+    ttsPreviewIsStreamingRef.current = true;
+    ttsPreviewWaitingRef.current = true;
+    ttsPreviewSegmentsRef.current = [];
+    ttsPreviewSegmentIndexRef.current = 0;
+    closeTtsPreviewStream();
+
+    const baseUrl = getResolvedBaseURL();
+    const token = useUserStore.getState().getToken();
+    const traceHeaders = buildTraceHeaders({
+      'Content-Type': 'application/json',
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+            Token: token,
+          }
+        : {}),
+    });
+    const source = new SSE(`${baseUrl}/api/shifu/tts/preview`, {
+      headers: traceHeaders.headers,
+      payload: JSON.stringify({
+        shifu_bid: shifuId,
+        provider: resolvedProvider,
+        model: ttsModel || '',
+        voice_id: previewVoiceId,
+        speed: speedValue,
+        pitch: 0,
+        emotion: '',
+      }),
+      method: 'POST',
+    });
+
+    attachSseBusinessResponseFallback(source, {
+      requestToken: token,
+      meta: {
+        url: `${baseUrl}/api/shifu/tts/preview`,
+        method: 'POST',
+        requestToken: token,
+        requestId: traceHeaders.requestId,
+        harnessRunId: traceHeaders.harnessRunId,
+        creditInsufficientAudience,
+      },
+      onHandled: () => {
+        if (ttsPreviewSessionRef.current === sessionId) {
+          stopTtsPreview();
+        }
+      },
+    });
+
+    source.addEventListener('message', event => {
+      const raw = event?.data;
+      if (!raw) return;
+      const payload = String(raw).trim();
+      if (!payload) return;
+
+      try {
+        const response = JSON.parse(payload);
+        if (ttsPreviewSessionRef.current !== sessionId) {
+          return;
+        }
+
+        if (response?.type === 'audio_segment') {
+          const segmentPayload = response.content ?? response.data;
+          if (!segmentPayload) return;
+          const mappedSegment = normalizeAudioSegmentPayload(segmentPayload);
+          if (!mappedSegment) {
+            return;
+          }
+
+          const updatedSegments = mergeAudioSegmentByUniqueKey(
+            'tts-preview',
+            ttsPreviewSegmentsRef.current,
+            mappedSegment,
+          );
+          if (updatedSegments !== ttsPreviewSegmentsRef.current) {
+            ttsPreviewSegmentsRef.current = updatedSegments;
+          }
+
+          if (ttsPreviewWaitingRef.current) {
+            playPreviewSegment(ttsPreviewSegmentIndexRef.current, sessionId);
+          }
+          return;
+        }
+
+        if (response?.type === 'audio_complete') {
+          ttsPreviewIsStreamingRef.current = false;
+          setTtsPreviewLoading(false);
+          closeTtsPreviewStream();
+          if (ttsPreviewSegmentsRef.current.length === 0) {
+            stopTtsPreview();
+          }
+        }
+      } catch (error) {
+        console.warn('TTS preview stream parse error:', error);
+      }
+    });
+
+    source.addEventListener('error', error => {
+      if (ttsPreviewSessionRef.current !== sessionId) {
+        return;
+      }
+      console.error('TTS preview stream failed:', error);
+      stopTtsPreview();
+    });
+
+    source.stream();
+    ttsPreviewStreamRef.current = source;
+  }, [
+    resolvedProvider,
+    shifuId,
+    currentShifu?.readonly,
+    creditInsufficientAudience,
+    ttsModel,
+    ttsVoiceId,
+    speedValue,
+    ttsPreviewPlaying,
+    ttsPreviewLoading,
+    ttsPreviewTarget,
+    closeTtsPreviewStream,
+    playPreviewSegment,
+    requestExclusive,
+    stopTtsPreview,
+    debugAllowed,
+    debugBlockedByCredits,
+  ]);
+
+  // Cleanup TTS preview audio on unmount
+  useEffect(() => {
+    return () => {
+      cleanupTtsPreview();
+    };
+  }, [cleanupTtsPreview]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    init();
+  }, [shifuId, open]);
+
+  const submitForm = useCallback(
+    async (needClose = true, saveType: 'auto' | 'manual' = 'manual') => {
+      if (currentShifu?.readonly) {
+        updateOpen(false);
+        return true;
+      }
+      if (settingsLoading) {
+        if (needClose) {
+          updateOpen(true);
+        }
+        return false;
+      }
+      // The optional catalog must not gate saving/closing. The loaded course
+      // configuration is preserved when its model is not in the catalog yet.
+      const settingsRequestSnapshot = settingsRequestSeqRef.current;
+      const isNameValid = await form.trigger('name');
+      if (settingsRequestSeqRef.current !== settingsRequestSnapshot)
+        return false;
+      const isPriceValid = await form.trigger('price');
+      // A newer callback may belong to another course. Cancel the old submit
+      // before reading its form values or applying its validation outcome.
+      if (settingsRequestSeqRef.current !== settingsRequestSnapshot)
+        return false;
+      if (!isPriceValid) {
+        if (needClose) {
+          updateOpen(true);
+        }
+        return false;
+      }
+      const priceValue = parseFloat(form.getValues('price') || '0');
+      if (!isAllowedCoursePrice(priceValue, minimumPaidCoursePrice)) {
+        form.setError('price', {
+          type: 'manual',
+          message: t('server.shifu.shifuPriceTooLow', {
+            min_shifu_price: minimumPaidCoursePrice,
+          }),
+        });
+        if (needClose) {
+          updateOpen(true);
+        }
+        return false;
+      }
+      if (!isNameValid) {
+        if (needClose) {
+          updateOpen(true);
+        }
+        return false;
+      }
+      await latestOnSubmitRef.current(form.getValues(), needClose, saveType);
+      return true;
+    },
+    [
+      currentShifu?.readonly,
+      form,
+      minimumPaidCoursePrice,
+      settingsLoading,
+      t,
+      updateOpen,
+    ],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    if (
+      !isDirty &&
+      modelEditVersionRef.current.main ===
+        savedModelEditVersionRef.current.main &&
+      modelEditVersionRef.current.followUp ===
+        savedModelEditVersionRef.current.followUp
+    ) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      submitForm(false, 'auto');
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [open, submitForm, isDirty, modelSelectionRevision, onSubmit]);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (isOnboardingOpen && !nextOpen) {
+        updateOpen(true);
+        return;
+      }
+      if (!nextOpen) {
+        followUpModeRequestRef.current++;
+        setCheckingTextMode(false);
+        submitForm(true, 'manual');
+        return;
+      }
+      updateOpen(true);
+    },
+    [isOnboardingOpen, submitForm, updateOpen],
+  );
+
+  const handleAskPreview = useCallback(async () => {
+    if (
+      !shifuId ||
+      creditInsufficientAudience === null ||
+      currentShifu?.readonly ||
+      askPreviewLoading
+    ) {
+      return;
+    }
+    if (debugBlockedByCredits) {
+      showCreditInsufficientToast({
+        audience: creditInsufficientAudience,
+        code: DEBUG_DISABLED_BY_SOFTLIMIT_BUSINESS_CODE,
+      });
+      return;
+    }
+    if (!debugAllowed) {
+      return;
+    }
+    const query = askPreviewQuery.trim();
+    if (!query) {
+      toast({
+        title: t('module.shifuSetting.askPreviewQuestionRequired'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let askConfigForSubmit: Record<string, unknown> = {};
+    try {
+      askConfigForSubmit = buildAskProviderConfigForSubmit();
+    } catch (error) {
+      toast({
+        title:
+          error instanceof Error
+            ? error.message
+            : t('common.core.unknownError'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const askProviderForSubmit =
+      resolvedAskProvider ||
+      askConfigMeta?.default?.provider ||
+      ASK_PROVIDER_LLM;
+    const askModeForSubmit = ASK_PROVIDER_MODE_PROVIDER_ONLY;
+
+    setAskPreviewLoading(true);
+    try {
+      const response = (await api.askPreview(
+        {
+          shifu_bid: shifuId,
+          query,
+          ...(modelEditVersionRef.current.followUp !==
+          savedModelEditVersionRef.current.followUp
+            ? { ask_model: askModelIndex || askModel }
+            : {}),
+          ask_system_prompt: '',
+          ask_provider_config: {
+            provider: askProviderForSubmit,
+            mode: askModeForSubmit,
+            config: askConfigForSubmit,
+          },
+        },
+        { skipErrorToast: true, creditInsufficientAudience },
+      )) as {
+        answer?: string;
+        provider?: string;
+        requested_provider?: string;
+        fallback_used?: boolean;
+      };
+
+      const answer = String(response?.answer || '').trim();
+      setAskPreviewResult(answer);
+      setAskPreviewMeta({
+        provider: String(response?.provider || ''),
+        requestedProvider: String(response?.requested_provider || ''),
+        fallbackUsed: Boolean(response?.fallback_used),
+      });
+    } catch (error) {
+      const businessCode = (error as ErrorWithCode | undefined)?.code;
+      if (isCreditInsufficientBusinessCode(businessCode)) {
+        showCreditInsufficientToast({
+          audience: creditInsufficientAudience,
+          code: businessCode,
+        });
+      } else {
+        showAiServiceErrorToast({
+          message: error instanceof Error ? error.message : '',
+          fallbackMessage: t('common.core.unknownError'),
+          includeUnknown: true,
+          unavailableMessage: t('module.preview.aiDebugUnavailable'),
+        });
+      }
+      setAskPreviewResult('');
+      setAskPreviewMeta(null);
+    } finally {
+      setAskPreviewLoading(false);
+    }
+  }, [
+    askConfigMeta?.default?.provider,
+    askModel,
+    askModelIndex,
+    askPreviewLoading,
+    askPreviewQuery,
+    buildAskProviderConfigForSubmit,
+    currentShifu?.readonly,
+    shifuId,
+    creditInsufficientAudience,
+    debugAllowed,
+    debugBlockedByCredits,
+    resolvedAskProvider,
+    t,
+    toast,
+  ]);
+
+  return (
+    <>
+      <Sheet
+        open={open}
+        modal={!isOnboardingOpen}
+        onOpenChange={handleOpenChange}
+      >
+        <SheetTrigger asChild>
+          <div
+            className='flex items-center justify-center rounded-lg cursor-pointer'
+            {...buildOnboardingTargetProps(
+              triggerTargetId || ONBOARDING_TARGET_IDS.editorSettingsEntry,
+            )}
+          >
+            <Settings size={16} />
+          </div>
+        </SheetTrigger>
+        <SheetContent
+          side='end'
+          hideOverlay={isOnboardingOpen}
+          onInteractOutside={event => {
+            if (isOnboardingOpen) {
+              event.preventDefault();
+            }
+          }}
+          className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
+        >
+          <SheetHeader className='px-6 pt-[19px] pb-4'>
+            <SheetTitle className='text-lg font-medium'>
+              {t('module.shifuSetting.title')}
+            </SheetTitle>
+          </SheetHeader>
+          <div className='h-px w-full bg-border' />
+          <Form {...form}>
+            <form
+              onSubmit={event => {
+                if (settingsLoading) {
+                  event.preventDefault();
+                  return;
+                }
+                const settingsRequestSnapshot = settingsRequestSeqRef.current;
+                return form.handleSubmit(data => {
+                  if (settingsRequestSeqRef.current !== settingsRequestSnapshot)
+                    return;
+                  return latestOnSubmitRef.current(data, true, 'manual');
+                })(event);
+              }}
+              className='flex-1 flex flex-col overflow-hidden'
+            >
+              <div className='flex-1 overflow-y-auto px-6 pt-6'>
+                <FormField
+                  control={form.control}
+                  name='name'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.shifuName')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          disabled={currentShifu?.readonly}
+                          maxLength={TITLE_MAX_LENGTH}
+                          placeholder={t(
+                            'module.shifuSetting.shifuNamePlaceholder',
+                          )}
+                        />
+                      </FormControl>
+                      {/* <div className='text-xs text-muted-foreground text-right'>
+                      {(field.value?.length ?? 0)}/50
+                    </div> */}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='description'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.shifuDescription')}
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          maxLength={500}
+                          placeholder={t(
+                            'module.shifuSetting.shifuDescriptionPlaceholder',
+                          )}
+                          rows={4}
+                          disabled={currentShifu?.readonly}
+                        />
+                      </FormControl>
+                      {/* <div className='text-xs text-muted-foreground text-right'>
+                      {(field.value?.length ?? 0)}/300
+                    </div> */}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className='space-y-3 mb-4'>
+                  <p className='text-sm font-medium text-foreground'>
+                    {t('module.shifuSetting.shifuAvatar')}
+                  </p>
+                  <span className='text-xs text-muted-foreground'>
+                    {t('module.shifuSetting.imageFormatHint')}
+                  </span>
+                  <div className='flex flex-col gap-3'>
+                    {uploadedImageUrl ? (
+                      <div className='relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden'>
+                        <img
+                          src={uploadedImageUrl}
+                          alt={t('module.shifuSetting.shifuAvatar')}
+                          className='w-full h-full object-cover'
+                        />
+                        <button
+                          type='button'
+                          onClick={() =>
+                            document.getElementById('imageUpload')?.click()
+                          }
+                          className='absolute inset-0 flex items-center justify-center bg-black/30 text-white opacity-0 transition-opacity hover:opacity-100'
+                        >
+                          <Plus className='h-5 w-5' />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className='border-2 border-dashed border-muted-foreground/30 rounded-lg w-24 h-24 flex flex-col items-center justify-center cursor-pointer bg-muted/20'
+                        onClick={() =>
+                          document.getElementById('imageUpload')?.click()
+                        }
+                      >
+                        <Plus className='h-6 w-6 mb-1 text-muted-foreground' />
+                        <p className='text-xs text-muted-foreground'>
+                          {t('module.shifuSetting.upload')}
+                        </p>
+                      </div>
+                    )}
+                    <input
+                      id='imageUpload'
+                      type='file'
+                      accept='image/jpeg,image/png'
+                      onChange={handleImageUpload}
+                      className='hidden'
+                      disabled={currentShifu?.readonly}
+                    />
+
+                    {isUploading && (
+                      <div className='space-y-2 mb-4'>
+                        <div className='w-full bg-muted rounded-full h-2'>
+                          <div
+                            className='bg-primary h-2 rounded-full'
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                        <p className='text-xs text-muted-foreground text-center'>
+                          {t('module.shifuSetting.uploading')} {uploadProgress}%
+                        </p>
+                      </div>
+                    )}
+                    {imageError && (
+                      <p className='text-xs text-destructive'>{imageError}</p>
+                    )}
+                    {!imageError &&
+                      shifuImage &&
+                      !isUploading &&
+                      !uploadedImageUrl && (
+                        <p className='text-xs text-emerald-600'>
+                          {t('module.shifuSetting.selected')}:{' '}
+                          {shifuImage?.name}
+                        </p>
+                      )}
+                  </div>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name='model'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.shifuModel')}
+                      </FormLabel>
+                      <p className='text-xs text-muted-foreground'>
+                        {selectModelHint}
+                      </p>
+                      <FormControl>
+                        <CourseModelSelect
+                          disabled={currentShifu?.readonly}
+                          value={asModelIndex(field.value)}
+                          displayName={mainModelDisplayName}
+                          onChange={index => {
+                            markModelEdited('main', index);
+                            field.onChange(index);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='systemPrompt'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <div className='flex items-center gap-2'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.shifuPrompt')}
+                        </FormLabel>
+                      </div>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.shifuPromptHint')}
+                      </p>
+                      <FormControl>
+                        <Textarea
+                          disabled={currentShifu?.readonly}
+                          {...field}
+                          maxLength={20000}
+                          placeholder={t(
+                            'module.shifuSetting.shifuPromptPlaceholder',
+                          )}
+                          minRows={3}
+                          maxRows={30}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {debugBlockedByCredits ? (
+                  <div className='mb-4 flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900'>
+                    <span>
+                      {t('module.billing.creditInsufficient.teacherSoftlimit')}
+                    </span>
+                    <Button
+                      asChild
+                      type='button'
+                      variant='link'
+                      size='sm'
+                      className='h-auto shrink-0 p-0 text-amber-900'
+                    >
+                      <Link href={BILLING_PACKAGES_HREF}>
+                        {t('module.billing.alerts.actions.checkoutTopup')}
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
+
+                <div>
+                  <AskSettingsSection
+                    readonly={currentShifu?.readonly}
+                    textDebugAllowed={debugAllowed}
+                    askProviderOptions={askProviderOptions}
+                    resolvedAskProvider={resolvedAskProvider}
+                    askProviderLlmValue={ASK_PROVIDER_LLM}
+                    askModel={askModel}
+                    onAskModelChange={handleAskModelChange}
+                    askModelOptions={followUpModelOptions}
+                    askModelIndex={askModelIndex}
+                    modelDisplayName={followUpModelDisplayName}
+                    canRestoreText={
+                      initialAskConfigurationRef.current?.interactionMode ===
+                      'text'
+                    }
+                    checkingTextMode={checkingTextMode}
+                    onAskModelIndexChange={modelIndex => {
+                      followUpModeRequestRef.current++;
+                      setCheckingTextMode(false);
+                      setAskModelIndex(modelIndex);
+                      markModelEdited('followUp', modelIndex);
+                      textModelIndexDraftRef.current = modelIndex;
+                      setAskPreviewResult('');
+                      setAskPreviewMeta(null);
+                    }}
+                    liveAvailable={followUpModels.some(
+                      item => item.interaction_mode === 'live_voice',
+                    )}
+                    onFollowUpModeChange={handleFollowUpModeChange}
+                    isLiveVoiceFollowUp={isLiveVoiceFollowUp}
+                    liveVoices={selectedFollowUpModel?.voices || []}
+                    liveVoice={selectedLiveVoice}
+                    onLiveVoiceChange={setLiveVoiceDraft}
+                    onAskProviderChange={handleAskProviderChange}
+                    askProviderFieldEntries={askProviderFieldEntries}
+                    askProviderRequiredFields={askProviderRequiredFields}
+                    askProviderConfig={askProviderConfig}
+                    setAskProviderConfig={value => {
+                      askProviderEditedRef.current = true;
+                      setAskProviderConfig(value);
+                    }}
+                    askProviderObjectInputs={askProviderObjectInputs}
+                    setAskProviderObjectInputs={value => {
+                      askProviderEditedRef.current = true;
+                      setAskProviderObjectInputs(value);
+                    }}
+                    askPreviewLoading={askPreviewLoading}
+                    askPreviewQuery={askPreviewQuery}
+                    setAskPreviewQuery={setAskPreviewQuery}
+                    handleAskPreview={handleAskPreview}
+                    askPreviewMeta={askPreviewMeta}
+                    askPreviewResult={askPreviewResult}
+                  />
+                </div>
+
+                {/* Language Output Configuration Section */}
+                <div className='mb-6'>
+                  <div className='flex items-start justify-between'>
+                    <div className='space-y-1'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.useLearnerLanguageTitle')}
+                      </FormLabel>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.useLearnerLanguageDescription')}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={useLearnerLanguage}
+                      onCheckedChange={setUseLearnerLanguage}
+                      disabled={currentShifu?.readonly}
+                    />
+                  </div>
+                </div>
+
+                {/* TTS Configuration Section */}
+                <div className='mb-6'>
+                  <div
+                    className='flex items-start justify-between mb-4'
+                    {...buildOnboardingTargetProps(
+                      ONBOARDING_TARGET_IDS.editorCourseListenMode,
+                    )}
+                  >
+                    <div className='space-y-1'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        {t('module.shifuSetting.ttsTitle')}
+                      </FormLabel>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.ttsDescription')}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={ttsEnabled}
+                      onCheckedChange={setTtsEnabled}
+                      disabled={currentShifu?.readonly || settingsLoading}
+                    />
+                  </div>
+
+                  {ttsEnabled && (
+                    <>
+                      <div className='flex items-start justify-between mb-4'>
+                        <div className='space-y-1 pr-4'>
+                          <FormLabel className='text-sm font-medium text-foreground'>
+                            {t('module.shifuSetting.defaultListenModeTitle')}
+                          </FormLabel>
+                          <p className='text-xs text-muted-foreground'>
+                            {t(
+                              'module.shifuSetting.defaultListenModeDescription',
+                            )}
+                          </p>
+                        </div>
+                        <Switch
+                          checked={defaultListenModeEnabled}
+                          onCheckedChange={setDefaultListenModeEnabled}
+                          disabled={currentShifu?.readonly || settingsLoading}
+                        />
+                      </div>
+
+                      {/* Model Selection */}
+                      <div className='space-y-2 mb-4'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.ttsModel')}
+                        </FormLabel>
+                        <ModelList
+                          disabled={currentShifu?.readonly}
+                          className='h-9'
+                          value={ttsModelSelectValue}
+                          options={ttsModelOptions}
+                          showDefaultOption={false}
+                          onChange={value => {
+                            const next = parseTtsModelOptionValue(
+                              value,
+                              ttsModelOptions,
+                            );
+                            setTtsProvider(next.provider);
+                            setTtsModel(next.model);
+                            const nextProviderConfig =
+                              ttsConfig?.providers.find(
+                                p => p.name === next.provider,
+                              );
+                            // Keep the current voice; the sanitizing effect
+                            // picks a fallback only when it is no longer valid,
+                            // preserving cloned/manual selections that still fit.
+                            if (nextProviderConfig?.speed) {
+                              setTtsSpeed(nextProviderConfig.speed.default);
+                            }
+                          }}
+                        />
+                      </div>
+
+                      {/* Voice Selection */}
+                      <div className='space-y-2 mb-4'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.ttsVoice')}
+                        </FormLabel>
+                        <Select
+                          value={ttsVoiceId}
+                          onValueChange={value => {
+                            setTtsVoiceId(value);
+                            // Look up merged options: cloned voices carry a
+                            // resource_id too (volcengine seed-icl-2.0), and
+                            // selecting one must switch the model with it.
+                            const selectedVoice = mergedTtsVoiceOptions.find(
+                              option => option.value === value,
+                            );
+                            const inferredResourceId =
+                              selectedVoice?.resource_id;
+                            if (
+                              inferredResourceId &&
+                              inferredResourceId !== ttsModel
+                            ) {
+                              setTtsModel(inferredResourceId);
+                            }
+                          }}
+                          disabled={currentShifu?.readonly}
+                        >
+                          <SelectTrigger className='h-9'>
+                            <SelectValue
+                              placeholder={t(
+                                'module.shifuSetting.ttsSelectVoice',
+                              )}
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {providerSupportsCloning ? (
+                              <>
+                                {clonedTtsVoiceOptions.length > 0 ? (
+                                  <SelectGroup>
+                                    <SelectLabel>
+                                      {t(
+                                        'module.shifuSetting.minimaxVoiceGroupCloned',
+                                      )}
+                                    </SelectLabel>
+                                    {clonedTtsVoiceOptions.map(option => (
+                                      <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                        disabled={option.disabled}
+                                      >
+                                        <span className='truncate'>
+                                          {option.label}
+                                        </span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectGroup>
+                                ) : null}
+                                {builtInTtsVoiceOptions.length > 0 ? (
+                                  <>
+                                    {clonedTtsVoiceOptions.length > 0 ? (
+                                      <SelectSeparator />
+                                    ) : null}
+                                    <SelectGroup>
+                                      <SelectLabel>
+                                        {t(
+                                          'module.shifuSetting.minimaxVoiceGroupBuiltIn',
+                                        )}
+                                      </SelectLabel>
+                                      {builtInTtsVoiceOptions.map(option => (
+                                        <SelectItem
+                                          key={option.value}
+                                          value={option.value}
+                                          disabled={option.disabled}
+                                        >
+                                          <span className='truncate'>
+                                            {option.label}
+                                          </span>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </>
+                                ) : null}
+                                {manualTtsVoiceOptions.length > 0 ? (
+                                  <>
+                                    {clonedTtsVoiceOptions.length > 0 ||
+                                    builtInTtsVoiceOptions.length > 0 ? (
+                                      <SelectSeparator />
+                                    ) : null}
+                                    <SelectGroup>
+                                      <SelectLabel>
+                                        {t(
+                                          'module.shifuSetting.minimaxVoiceGroupManual',
+                                        )}
+                                      </SelectLabel>
+                                      {manualTtsVoiceOptions.map(option => (
+                                        <SelectItem
+                                          key={option.value}
+                                          value={option.value}
+                                          disabled={option.disabled}
+                                        >
+                                          <span className='flex min-w-0 items-center justify-between gap-2'>
+                                            <span className='truncate'>
+                                              {option.label}
+                                            </span>
+                                            <Badge
+                                              variant='secondary'
+                                              className='shrink-0'
+                                            >
+                                              {t(
+                                                'module.shifuSetting.minimaxManualVoiceBadge',
+                                              )}
+                                            </Badge>
+                                          </span>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectGroup>
+                                  </>
+                                ) : null}
+                              </>
+                            ) : (
+                              mergedTtsVoiceOptions.map(option => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                  disabled={option.disabled}
+                                >
+                                  <span className='truncate'>
+                                    {option.label}
+                                  </span>
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+
+                        {isMiniMaxTtsProvider &&
+                          currentProviderConfig?.supports_custom_voice_id && (
+                            <div className='flex gap-2'>
+                              <Input
+                                value={minimaxManualVoiceId}
+                                onChange={event =>
+                                  setMinimaxManualVoiceId(event.target.value)
+                                }
+                                placeholder={t(
+                                  'module.shifuSetting.minimaxManualVoicePlaceholder',
+                                )}
+                                disabled={currentShifu?.readonly}
+                                className='h-9 flex-1'
+                              />
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='sm'
+                                onClick={applyMinimaxManualVoiceId}
+                                disabled={currentShifu?.readonly}
+                              >
+                                {t(
+                                  'module.shifuSetting.minimaxManualVoiceApply',
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                      </div>
+
+                      {/* Speed Adjustment */}
+                      <div className='space-y-2 mb-4'>
+                        <FormLabel className='text-sm font-medium text-foreground'>
+                          {t('module.shifuSetting.ttsSpeed')}
+                        </FormLabel>
+                        <p className='text-xs text-muted-foreground'>
+                          {t('module.shifuSetting.ttsSpeedHint')} (
+                          {currentProviderConfig?.speed.min} -{' '}
+                          {currentProviderConfig?.speed.max})
+                        </p>
+                        <div className='flex items-center gap-2'>
+                          <Input
+                            type='text'
+                            inputMode='decimal'
+                            value={ttsSpeedInput}
+                            onChange={e => {
+                              setTtsSpeedInput(e.target.value);
+                            }}
+                            onBlur={() => {
+                              const parsed = Number(ttsSpeedInput);
+                              const clamped = Number.isFinite(parsed)
+                                ? normalizeSpeed(parsed)
+                                : speedValue;
+                              setTtsSpeed(clamped);
+                              setTtsSpeedInput(clamped.toFixed(1));
+                            }}
+                            disabled={currentShifu?.readonly}
+                            className='h-9 flex-1'
+                          />
+                          {!currentShifu?.readonly && (
+                            <div className='flex items-center gap-2'>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isSpeedAtMin}
+                                onClick={() =>
+                                  setTtsSpeed(() => {
+                                    const next = normalizeSpeed(
+                                      speedValue - speedStep,
+                                    );
+                                    setTtsSpeedInput(next.toFixed(1));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Minus className='h-4 w-4' />
+                              </Button>
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='icon'
+                                disabled={isSpeedAtMax}
+                                onClick={() =>
+                                  setTtsSpeed(() => {
+                                    const next = normalizeSpeed(
+                                      speedValue + speedStep,
+                                    );
+                                    setTtsSpeedInput(next.toFixed(1));
+                                    return next;
+                                  })
+                                }
+                                className='h-9 w-9'
+                              >
+                                <Plus className='h-4 w-4' />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* TTS Preview Button */}
+                      <div className='pt-2'>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          onClick={() => handleTtsPreview()}
+                          disabled={
+                            (ttsPreviewLoading &&
+                              ttsPreviewTarget ===
+                                TTS_PREVIEW_CURRENT_TARGET) ||
+                            !debugAllowed
+                          }
+                          className='w-full'
+                        >
+                          {ttsPreviewLoading &&
+                          ttsPreviewTarget === TTS_PREVIEW_CURRENT_TARGET ? (
+                            <>
+                              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                              {t('module.shifuSetting.ttsPreviewLoading')}
+                            </>
+                          ) : ttsPreviewPlaying &&
+                            ttsPreviewTarget === TTS_PREVIEW_CURRENT_TARGET ? (
+                            <>
+                              <Square className='mr-2 h-4 w-4' />
+                              {t('module.shifuSetting.ttsPreviewStop')}
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className='mr-2 h-4 w-4' />
+                              {t('module.shifuSetting.ttsPreview')}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div className='space-y-2 mb-4'>
+                  <span className='text-sm font-medium text-foreground'>
+                    {t('module.shifuSetting.keywords')}
+                  </span>
+                  <div className='flex flex-wrap gap-2'>
+                    {keywords.map((keyword, index) => (
+                      <Badge
+                        key={index}
+                        variant='secondary'
+                        className='flex items-center gap-1'
+                      >
+                        {keyword}
+                        <button
+                          type='button'
+                          disabled={currentShifu?.readonly}
+                          onClick={() => handleRemoveKeyword(keyword)}
+                          className='text-xs ml-1 hover:text-destructive'
+                        >
+                          ×
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className='flex gap-2'>
+                    <Input
+                      id='keywordInput'
+                      disabled={currentShifu?.readonly}
+                      placeholder={t('module.shifuSetting.inputKeywords')}
+                      className='flex-1 h-9'
+                    />
+                    {!currentShifu?.readonly && (
+                      <Button
+                        type='button'
+                        onClick={handleAddKeyword}
+                        variant='outline'
+                        size='sm'
+                      >
+                        {t('module.shifuSetting.addKeyword')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name='price'
+                  render={({ field }) => (
+                    <FormItem className='space-y-2 mb-4'>
+                      <FormLabel className='text-sm font-medium text-foreground'>
+                        <span className='flex items-center gap-2'>
+                          <span>
+                            {t('module.shifuSetting.price')}
+                            {/* {currencySymbol ? (
+                          <span className='text-muted-foreground text-sm pl-1'>
+                            （{t('module.shifuSetting.priceUnit')}：{currencySymbol}）
+                          </span>
+                        ) : null} */}
+                          </span>
+                        </span>
+                      </FormLabel>
+                      <p className='text-xs text-muted-foreground'>
+                        {t('module.shifuSetting.priceUnit')}: {currencySymbol}
+                      </p>
+                      <FormControl>
+                        <Input
+                          disabled={currentShifu?.readonly}
+                          className='h-9'
+                          {...field}
+                          placeholder={t('module.shifuSetting.number')}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <div className='h-px w-full bg-border' />
+            </form>
+          </Form>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}

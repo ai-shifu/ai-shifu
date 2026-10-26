@@ -1,14 +1,16 @@
+"""Handle rate references for creator billing."""
+
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+from typing import TYPE_CHECKING
 
-from flaskr.service.billing.models import CreditUsageRate
-from flaskr.service.common.credit_rate_references import (
-    load_llm_credit_1x_unit_cost,
-)
+if TYPE_CHECKING:
+    from flaskr.service.billing.models import CreditUsageRate
 
 
 def rate_unit_cost(rate: CreditUsageRate | None) -> Decimal | None:
+    """Return rate unit cost."""
     if rate is None:
         return None
     try:
@@ -19,26 +21,20 @@ def rate_unit_cost(rate: CreditUsageRate | None) -> Decimal | None:
 
 
 def format_credit_multiplier(value: Decimal | None) -> str | None:
+    """Format credit multiplier."""
     if value is None or value <= 0:
         return None
     rounded = value.quantize(Decimal("0.01"))
-    text = format(rounded.normalize(), "f").rstrip("0").rstrip(".")
+    if rounded == rounded.to_integral_value():
+        # Whole numbers must not lose trailing zeros: stripping "30" to "3".
+        text = str(int(rounded))
+    else:
+        text = format(rounded.normalize(), "f").rstrip("0").rstrip(".")
     return f"{text or '0'}x"
 
 
-def load_default_llm_reference_cost(default_model: str | None = None) -> Decimal | None:
-    """Backward-compatible alias for the fixed LLM 1x anchor.
-
-    DEFAULT_LLM_MODEL no longer participates in multiplier calculation; it only
-    decides which LLM is selected by default. Keep the old function name so
-    existing callers share the fixed anchor without a broad rename.
-    """
-
-    _ = default_model
-    return load_llm_credit_1x_unit_cost()
-
-
 def resolve_llm_rate_identity(model: str) -> tuple[str, list[str]]:
+    """Resolve LLM rate identity."""
     normalized = str(model or "").strip()
     if not normalized:
         return "", []

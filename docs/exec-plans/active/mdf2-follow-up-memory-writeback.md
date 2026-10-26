@@ -1,0 +1,125 @@
+# Admit and persist memory from completed follow-up answers
+
+## Purpose / Big Picture
+
+The shared follow-up reader now sees current-course notes. Complete the default
+text LLM path with declared-or-requested writes, reusing the existing memory tool,
+semantic admission, gateway, native-thread bridge and scoped profile facade.
+
+## Progress
+
+- [x] 2026-10-09T02:05:00Z: Start from manually merged #3056, main 676d60528.
+  Final backend CI passes 10,781 tests / 23 expected skips, plus eight contracts.
+- [x] 2026-10-09T02:20:00Z: Real sim baseline responds to an explicit remember
+  request but stores no matching note. Actual tool, provider-fallback, storage,
+  retained-version, deletion/reset and rollback regressions pass.
+- [x] 2026-10-09T02:20:00Z: Host/factory integration passes 109 focused tests,
+  including idle cancellation and declared system-profile scope. First extended
+  suite passes 4,826 tests / four subtests / eleven expected skips.
+- [x] 2026-10-09T02:29:00Z: Final extended suite passes 4,828 tests / four
+  subtests / eleven expected skips. All three real gateway factory regressions
+  pass separately (default, fallback and Get Biji synthesis). Repository gates
+  pass with the new helper staged; architecture drift remains zero.
+- [x] 2026-10-09T02:32:00Z: Open #3057 (d5f4e86f2), deploy exact sim tree
+  a0a5bb63a, build 438 / Drone 5229, deployments 2098/2099. Both replicas
+  pass 33 runtime hashes. Initial CI passes, but two fresh HTTP learners decline
+  explicit memory without calling the tool; storage confirms neither value saved.
+- [x] 2026-10-09T02:40:00Z: Adopt retired-publication and concurrent-value
+  review findings; four real storage regressions pass in 238 focused tests.
+  Clarify main-Agent versus admission/guardrail budgets and document touched helpers.
+- [x] 2026-10-09T02:58:00Z: Runtime 68e8f2524 / sim 5e764f784 passes
+  eight real HTTP checks: two fresh learners save and recall from another lesson;
+  one updates then recalls from a third lesson; casual and quoted/negated cases
+  remain unstored. Build 439 / Drone 5230 and deployments 2100/2101 succeed;
+  both replicas match 36 hashes and log no test notes or old full-message lines.
+  Local regression passes 4,833 tests / four subtests / eleven expected skips.
+  Technical CI passes, including 171 selected backend tests, eight contracts and
+  the runtime browser checks. Three Devin opinions and the docstring warning have
+  original-thread replies; updated docstring coverage is 95%.
+- [x] 2026-10-09T03:08:00Z: Adopt the additional global-profile race finding.
+  Compare row versions and canonical account fields, lock account before global
+  rows, and route the existing canonical language alias to account storage without
+  duplicating settings labels. Real settings/direct-canonical corrections and
+  normal nickname/language writes pass 32 focused tests. Final extended suite,
+  repository gates, deployment and the new original-thread reply are pending.
+- [ ] Verify the final global-profile protection on sim and finish AI replies.
+
+## Surprises & Discoveries
+
+Follow-up history flushes during streaming, then its host commits after the stream
+fully drains. The native engine bridge already owns asynchronous model execution
+and cancellation under gevent. Reusing it avoids running an event loop on request
+greenlets. External provider-only answers must remain independent of LLM setup.
+
+## Decision Log
+
+- Keep ordinary 1.0 and external provider-only routing unchanged. Only an actual
+  contextual LLM call gets the memory tool; no hidden extraction call per question.
+- Author permission comes from the active lesson's main script collection names,
+  not references, course instructions, old questions or provider knowledge.
+- Reuse engine remember admission and capacity checks; raw current learner input
+  is the only request evidence. Declared system fields retain existing semantics;
+  all other values stay in the current course. Deleted keys require new consent.
+- Buffer approved updates on the native producer. On completed consumption, stage
+  them on the host with the existing post-stream history commit. No DB writes on
+  the producer, failed calls, rejected guardrails, disconnects or previews.
+- Lock the original learning attempt and compare deletion generations during the
+  final write. A reset or concurrent deletion cannot be undone by stale output.
+  Course-value row versions also reject late proposals after newer corrections.
+  Registered global values additionally compare canonical account snapshots; the
+  final write locks the account before global compatibility rows.
+- Keep host memory capability instructions after authored course instructions;
+  visible answer formatting cannot disable tool calls. Undeclared keys remain
+  eligible only through explicit current-request admission.
+
+## Outcomes & Retrospective
+
+Completed real text follow-up checks establish saved values, fresh-lesson recall,
+updates and refused casual/quoted writes. A final global-profile protection revision
+is under validation. Existing first-entry teaching calls have course/lesson IDs but
+can lack an attempt ID; their separate accounting follow-up is recorded outside
+this PR. New follow-up/admission calls have full attribution.
+
+## Context and Orientation
+
+handle_input_ask.py constructs providers and contextual LLM factories.
+context_v2.py owns post-stream history durability. agent/engine/tools.py owns
+remember admission/capacity; agent/bridge.py owns thread/loop cancellation.
+The memory facade stages scoped variables and filters deletion generations.
+
+## Plan of Work
+
+Use a small follow-up Agent with only the existing remember tool. Preserve the
+shared context and provider registry. Buffer successful tool proposals, then let
+the existing text host stage them in its final transaction with ask history.
+
+## Concrete Steps
+
+1. Exercise actual FunctionModel tool calls: declared/requested/denied/deleted,
+   capacity, actual current-input evidence, failed streams and consumer closure.
+2. Cover real storage and host dispatch: course/user isolation, reset/deletion races,
+   preview isolation and atomic rollback with history.
+3. Verify normal provider factories, metering, local gates and sim HTTP behavior.
+4. Reply to every AI opinion in its original discussion; user merges main.
+
+## Validation and Acceptance
+
+Completed eligible text follow-ups persist admitted facts and subsequent fresh
+requests recall them. Casual undeclared facts, forged quotes, system/reference
+writes without author permission and stale/deleted attempts do not persist.
+Tool events never enter user SSE or visible classroom history. Ordinary no-tool answers
+use one existing model request; there is no extraction call per question. Each
+answer-generation Agent permits at most five answer-generation model requests and three tool calls; undeclared
+proposals can add up to three independently bounded admission requests. Provider-only and Live writes are not completed
+by this increment; their existing context and routing remain intact.
+
+## Idempotence and Recovery
+
+Only dedicated internal sim learners receive test writes. Sim shares the CN
+production database; production probes are read-only. Private evidence stays out
+of Git. No production engine switch or 1.0 removal.
+
+## Interfaces and Dependencies
+
+No schema, dependency, environment variable or public SSE changes. Any internal
+optional handoff parameter is coordinated between the text host and ask handler.

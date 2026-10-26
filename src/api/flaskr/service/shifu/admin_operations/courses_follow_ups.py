@@ -6,23 +6,21 @@ Split mechanically out of the former giant module (backend overhaul B5).
 from __future__ import annotations
 
 import math
-from datetime import datetime
-from typing import Any, Dict, Optional, Sequence, Set
-from flask import Flask
-from sqlalchemy import and_, or_
+from typing import TYPE_CHECKING, Any
+
 from flaskr.dao import db
-from flaskr.service.learn.learn_dtos import ElementType
-from flaskr.service.learn.listen_element_payloads import _deserialize_payload
+from flaskr.service.common.models import (
+    raise_param_error,
+)
 from flaskr.service.learn.const import (
     ROLE_STUDENT,
     ROLE_TEACHER,
 )
+from flaskr.service.learn.learn_dtos import ElementType
+from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
-)
-from flaskr.service.common.models import (
-    raise_param_error,
 )
 from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseFollowUpCurrentRecordDTO,
@@ -33,17 +31,6 @@ from flaskr.service.shifu.admin_dtos_courses import (
     AdminOperationCourseFollowUpSummaryDTO,
     AdminOperationCourseFollowUpTimelineItemDTO,
 )
-from flaskr.service.shifu.consts import (
-    BLOCK_TYPE_MDASK_VALUE,
-    BLOCK_TYPE_MDANSWER_VALUE,
-    BLOCK_TYPE_MDINTERACTION_VALUE,
-    BLOCK_TYPE_MDCONTENT_VALUE,
-)
-from flaskr.service.user.models import (
-    AuthCredential,
-    UserInfo as UserEntity,
-)
-
 from flaskr.service.shifu.admin_operations.courses_shared import (
     COURSE_FOLLOW_UP_LIST_MAX_PAGE_SIZE,
     _build_course_outline_context_map,
@@ -51,9 +38,29 @@ from flaskr.service.shifu.admin_operations.courses_shared import (
     _load_user_map,
     _normalize_identifier,
 )
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
+from flaskr.service.user.models import (
+    AuthCredential,
+)
+from flaskr.service.user.models import (
+    UserInfo as UserEntity,
+)
+from sqlalchemy import and_, or_
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from datetime import datetime
+
+    from flask import Flask
+    from sqlalchemy.sql.selectable import Subquery
 
 
-def _build_course_follow_up_base_subquery(shifu_bid: str):
+def _build_course_follow_up_base_subquery(shifu_bid: str) -> Subquery:
     return (
         db.session.query(
             LearnGeneratedBlock.id.label("id"),
@@ -85,8 +92,8 @@ def _build_course_follow_up_base_subquery(shifu_bid: str):
 
 
 def _build_follow_up_user_keyword_filter(
-    user_bid_column: Any, keyword: str
-) -> Any | None:
+    user_bid_column: object, keyword: str
+) -> object | None:
     normalized = _normalize_identifier(keyword)
     if not normalized:
         return None
@@ -120,9 +127,9 @@ def _build_follow_up_user_keyword_filter(
 
 
 def _resolve_follow_up_matching_outline_bids(
-    outline_context_map: Dict[str, Dict[str, str]],
+    outline_context_map: dict[str, dict[str, str]],
     chapter_keyword: str,
-) -> Optional[Set[str]]:
+) -> set[str] | None:
     normalized_keyword = str(chapter_keyword or "").strip().lower()
     if not normalized_keyword:
         return None
@@ -174,7 +181,7 @@ def _resolve_follow_up_answer_content(block: LearnGeneratedBlock | None) -> str:
 
 def _load_follow_up_groups_for_progress_record(
     progress_record_bid: str,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
     normalized_progress_record_bid = str(progress_record_bid or "").strip()
     if not normalized_progress_record_bid:
         return []
@@ -218,7 +225,7 @@ def _load_follow_up_groups_for_progress_record(
 
 def _load_follow_up_groups_for_progress_records(
     progress_record_bids: Sequence[str],
-) -> dict[str, list[dict[str, Any]]]:
+) -> dict[str, list[dict[str, object]]]:
     normalized_progress_record_bids = sorted(
         {
             str(progress_record_bid or "").strip()
@@ -293,7 +300,7 @@ def _resolve_follow_up_source_from_element(
     answer_generated_block_bid: str,
     fallback_position: int,
     ask_created_at: datetime | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     normalized_answer_generated_block_bid = str(
         answer_generated_block_bid or ""
     ).strip()
@@ -384,7 +391,7 @@ def _resolve_follow_up_source_from_element(
 
 def _resolve_follow_up_source_from_blocks(
     ask_block: LearnGeneratedBlock,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     progress_record_bid = str(
         getattr(ask_block, "progress_record_bid", "") or ""
     ).strip()
@@ -454,7 +461,7 @@ def _resolve_follow_up_source(
     *,
     ask_block: LearnGeneratedBlock,
     answer_block: LearnGeneratedBlock | None,
-) -> dict[str, Any]:
+) -> dict[str, object]:
     fallback_position = int(getattr(ask_block, "position", 0) or 0)
     if answer_block is not None:
         source = _resolve_follow_up_source_from_element(
@@ -559,9 +566,10 @@ def get_operator_course_follow_ups(
     shifu_bid: str,
     page_index: int,
     page_size: int,
-    filters: Optional[dict] = None,
+    filters: dict | None = None,
     include_summary: bool = True,
 ) -> AdminOperationCourseFollowUpListDTO:
+    """Return operator course follow ups."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         if not normalized_shifu_bid:
@@ -818,6 +826,7 @@ def get_operator_course_follow_up_detail(
     shifu_bid: str,
     generated_block_bid: str,
 ) -> AdminOperationCourseFollowUpDetailDTO:
+    """Return operator course follow up detail."""
     with app.app_context():
         normalized_shifu_bid = str(shifu_bid or "").strip()
         normalized_generated_block_bid = str(generated_block_bid or "").strip()

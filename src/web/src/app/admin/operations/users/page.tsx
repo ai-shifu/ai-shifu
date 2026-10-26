@@ -1,0 +1,1743 @@
+'use client';
+
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useTranslation } from 'react-i18next';
+import { useSWRConfig } from 'swr';
+import api from '@/api';
+import AdminClearableInput from '@/components/admin/AdminClearableInput';
+import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
+import AdminFilter from '@/app/admin/components/AdminFilter';
+import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
+import AdminTitle from '@/app/admin/components/AdminTitle';
+import AdminTableShell from '@/components/admin/AdminTableShell';
+import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
+import AdminRowActions from '@/app/admin/components/AdminRowActions';
+import { AdminMetricCardGroup } from '@/app/admin/components/AdminMetricCard';
+import {
+  formatAdminCount,
+  formatAdminCredits,
+} from '@/app/admin/lib/numberFormat';
+import {
+  ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
+  ADMIN_TABLE_RESIZE_HANDLE_CLASS,
+  getAdminStickyRightCellClass,
+  getAdminStickyRightHeaderClass,
+} from '@/components/admin/adminTableStyles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+import {
+  formatAdminDateRangeEndUtc,
+  formatAdminDateRangeStartUtc,
+} from '@/app/admin/lib/dateTime';
+import ErrorDisplay from '@/components/ErrorDisplay';
+import Loading from '@/components/loading';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/Table';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { useEnvStore } from '@/store';
+import type { EnvStoreState } from '@/types/store';
+import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
+import { buildBillingSwrKey } from '@/lib/billing';
+import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { ErrorWithCode } from '@/lib/request';
+import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
+import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
+import { formatOperatorUtcDateTime } from './dateTime';
+import { normalizeLoginMethodLabelKey } from './loginMethodUtils';
+import UserCreditDeductionDialog from './UserCreditDeductionDialog';
+import UserCreditGrantDialog from './UserCreditGrantDialog';
+import UserCancellationDialog from './UserCancellationDialog';
+import UserContactChangeDialog from './[user_bid]/UserContactChangeDialog';
+import useOperatorGuard from '../useOperatorGuard';
+import type {
+  AdminOperationUserCourseItem,
+  AdminOperationUserDetailResponse,
+  AdminOperationUserItem,
+  AdminOperationUserListResponse,
+  AdminOperationUserOverview,
+} from '../operation-user-types';
+
+type UserFilters = {
+  user_query: string;
+  identifier: string;
+  nickname: string;
+  user_status: string;
+  user_role: string;
+  start_time: string;
+  end_time: string;
+};
+
+type UserQuickFilterKey =
+  | ''
+  | 'creator'
+  | 'learner'
+  | 'registered'
+  | 'paid'
+  | 'created_last_30d'
+  | 'registered_last_30d'
+  | 'learning_active_30d'
+  | 'paid_last_30d'
+  | 'guest';
+
+type ErrorState = { message: string; code?: number };
+
+const PAGE_SIZE = 20;
+const COURSE_DIALOG_DETAIL_CACHE_LIMIT = 50;
+const ALL_OPTION_VALUE = '__all__';
+const EMPTY_STATE_LABEL = '--';
+const USER_STATUS_UNREGISTERED = 'unregistered';
+const USER_STATUS_PAID = 'paid';
+const USER_QUICK_FILTER_CREATOR = 'creator';
+const USER_QUICK_FILTER_LEARNER = 'learner';
+const USER_QUICK_FILTER_REGISTERED = 'registered';
+const USER_QUICK_FILTER_PAID = 'paid';
+const USER_QUICK_FILTER_CREATED_LAST_30D = 'created_last_30d';
+const USER_QUICK_FILTER_REGISTERED_LAST_30D = 'registered_last_30d';
+const USER_QUICK_FILTER_LEARNING_ACTIVE_30D = 'learning_active_30d';
+const USER_QUICK_FILTER_PAID_LAST_30D = 'paid_last_30d';
+const USER_QUICK_FILTER_GUEST = 'guest';
+const QUICK_FILTER_STRUCTURED_FIELDS = new Set<keyof UserFilters>([
+  'user_status',
+  'user_role',
+  'start_time',
+  'end_time',
+]);
+const COLUMN_MIN_WIDTH = 90;
+const COLUMN_MAX_WIDTH = 420;
+const COLUMN_WIDTH_STORAGE_KEY = 'adminOperationsUsersColumnWidths';
+const DEFAULT_COLUMN_WIDTHS = {
+  userId: 260,
+  mobile: 150,
+  nickname: 120,
+  status: 110,
+  role: 120,
+  loginMethods: 150,
+  registrationSource: 130,
+  learningCourses: 240,
+  createdCourses: 240,
+  totalPaidAmount: 140,
+  availableCredits: 140,
+  creditsExpireAt: 180,
+  lastLoginAt: 180,
+  lastLearningAt: 180,
+  createdAt: 180,
+  updatedAt: 180,
+  action: 120,
+} as const;
+const EMPTY_USER_OVERVIEW: AdminOperationUserOverview = {
+  total_user_count: 0,
+  registered_user_count: 0,
+  creator_user_count: 0,
+  learner_user_count: 0,
+  paid_user_count: 0,
+  created_last_30d_user_count: 0,
+  registered_last_30d_user_count: 0,
+  learning_active_30d_user_count: 0,
+  paid_last_30d_user_count: 0,
+  guest_user_count: 0,
+};
+type ColumnKey = keyof typeof DEFAULT_COLUMN_WIDTHS;
+const createDefaultFilters = (): UserFilters => ({
+  user_query: '',
+  identifier: '',
+  nickname: '',
+  user_status: '',
+  user_role: '',
+  start_time: '',
+  end_time: '',
+});
+
+const readCachedCourseDialogDetail = (
+  cache: Map<string, AdminOperationUserDetailResponse>,
+  userBid: string,
+) => {
+  const cachedDetail = cache.get(userBid);
+  if (!cachedDetail) {
+    return null;
+  }
+
+  // Refresh insertion order so the map behaves like a tiny LRU cache.
+  cache.delete(userBid);
+  cache.set(userBid, cachedDetail);
+  return cachedDetail;
+};
+
+const cacheCourseDialogDetail = (
+  cache: Map<string, AdminOperationUserDetailResponse>,
+  userBid: string,
+  detail: AdminOperationUserDetailResponse,
+) => {
+  if (cache.has(userBid)) {
+    cache.delete(userBid);
+  }
+  cache.set(userBid, detail);
+
+  if (cache.size <= COURSE_DIALOG_DETAIL_CACHE_LIMIT) {
+    return;
+  }
+
+  const oldestUserBid = cache.keys().next().value;
+  if (oldestUserBid) {
+    cache.delete(oldestUserBid);
+  }
+};
+
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const buildCreatedLast30DaysFilters = (): Pick<
+  UserFilters,
+  'start_time' | 'end_time'
+> => {
+  const endDate = new Date();
+  const startDate = new Date(endDate);
+  startDate.setDate(endDate.getDate() - 29);
+  return {
+    start_time: formatLocalDate(startDate),
+    end_time: formatLocalDate(endDate),
+  };
+};
+
+const renderTooltipText = (text?: string, className?: string) => {
+  return (
+    <AdminTooltipText
+      text={text}
+      emptyValue={EMPTY_STATE_LABEL}
+      className={className}
+    />
+  );
+};
+
+type CourseDialogState = {
+  user: AdminOperationUserItem;
+  courses: AdminOperationUserCourseItem[];
+  type: 'learning' | 'created';
+  loading: boolean;
+  error: string;
+};
+
+type CourseListPreviewProps = {
+  count: number;
+  emptyLabel: string;
+  ariaLabel: string;
+  onView: () => void;
+};
+
+const CourseListPreview = ({
+  count,
+  emptyLabel,
+  ariaLabel,
+  onView,
+}: CourseListPreviewProps) => {
+  if (count <= 0) {
+    return (
+      <div className='py-1 text-center text-sm text-muted-foreground'>
+        {emptyLabel}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type='button'
+      aria-label={`${ariaLabel} (${count})`}
+      className='py-1 text-center text-sm font-semibold text-primary transition-colors hover:text-primary/80'
+      onClick={onView}
+    >
+      {count}
+    </button>
+  );
+};
+
+/**
+ * t('module.operationsUser.title')
+ * t('module.operationsUser.emptyList')
+ * t('module.operationsUser.overview.title')
+ * t('module.operationsUser.overview.activeFilter')
+ * t('module.operationsUser.overview.metrics.totalUsers')
+ * t('module.operationsUser.overview.metrics.registeredUsers')
+ * t('module.operationsUser.overview.metrics.creators')
+ * t('module.operationsUser.overview.metrics.learners')
+ * t('module.operationsUser.overview.metrics.paidUsers')
+ * t('module.operationsUser.overview.metrics.newUsers30d')
+ * t('module.operationsUser.overview.metrics.registeredUsers30d')
+ * t('module.operationsUser.overview.metrics.learningActive30d')
+ * t('module.operationsUser.overview.metrics.paidUsers30d')
+ * t('module.operationsUser.overview.metrics.guests')
+ * t('module.operationsUser.overview.tooltips.totalUsers')
+ * t('module.operationsUser.overview.tooltips.registeredUsers')
+ * t('module.operationsUser.overview.tooltips.creators')
+ * t('module.operationsUser.overview.tooltips.learners')
+ * t('module.operationsUser.overview.tooltips.paidUsers')
+ * t('module.operationsUser.overview.tooltips.newUsers30d')
+ * t('module.operationsUser.overview.tooltips.registeredUsers30d')
+ * t('module.operationsUser.overview.tooltips.learningActive30d')
+ * t('module.operationsUser.overview.tooltips.paidUsers30d')
+ * t('module.operationsUser.overview.tooltips.guests')
+ * t('module.operationsUser.filters.mobile')
+ * t('module.operationsUser.filters.email')
+ * t('module.operationsUser.filters.user')
+ * t('module.operationsUser.filters.userPlaceholderEmail')
+ * t('module.operationsUser.filters.userPlaceholderPhone')
+ * t('module.operationsUser.filters.userPlaceholderPhoneEmail')
+ * t('module.operationsUser.filters.nickname')
+ * t('module.operationsUser.filters.status')
+ * t('module.operationsUser.filters.role')
+ * t('module.operationsUser.filters.createdAt')
+ * t('module.operationsUser.table.userId')
+ * t('module.operationsUser.table.mobile')
+ * t('module.operationsUser.table.email')
+ * t('module.operationsUser.table.guestUser')
+ * t('module.operationsUser.table.nickname')
+ * t('module.operationsUser.table.status')
+ * t('module.operationsUser.table.role')
+ * t('module.operationsUser.table.loginMethods')
+ * t('module.operationsUser.table.registrationSource')
+ * t('module.operationsUser.table.learningCourses')
+ * t('module.operationsUser.table.createdCourses')
+ * t('module.operationsUser.table.totalPaidAmount')
+ * t('module.operationsUser.table.availableCredits')
+ * t('module.operationsUser.table.creditsExpireAt')
+ * t('module.operationsUser.table.lastLoginAt')
+ * t('module.operationsUser.table.lastLearningAt')
+ * t('module.operationsUser.table.createdAt')
+ * t('module.operationsUser.table.updatedAt')
+ * t('module.operationsUser.table.action')
+ * t('module.operationsUser.actions.grantCredits')
+ * t('module.operationsUser.actions.deductCredits')
+ * t('module.operationsUser.actions.cancelAccount')
+ * t('module.operationsUser.actions.moreForUser')
+ * t('module.operationsUser.courseSummary.empty')
+ * t('module.operationsUser.courseSummary.dialog.learningTitle')
+ * t('module.operationsUser.courseSummary.dialog.createdTitle')
+ * t('module.operationsUser.courseSummary.dialog.description')
+ * t('module.operationsUser.courseSummary.dialog.courseName')
+ * t('module.operationsUser.courseSummary.dialog.courseId')
+ * t('module.operationsUser.courseSummary.dialog.status')
+ * t('module.operationsUser.statusLabels.unregistered')
+ * t('module.operationsUser.statusLabels.registered')
+ * t('module.operationsUser.statusLabels.paid')
+ * t('module.operationsUser.statusLabels.cancelled')
+ * t('module.operationsUser.statusLabels.unknown')
+ * t('module.operationsCourse.statusLabels.published')
+ * t('module.operationsCourse.statusLabels.unpublished')
+ * t('module.operationsUser.roleLabels.regular')
+ * t('module.operationsUser.roleLabels.creator')
+ * t('module.operationsUser.roleLabels.operator')
+ * t('module.operationsUser.roleLabels.learner')
+ * t('module.operationsUser.roleLabels.unknown')
+ * t('module.operationsUser.loginMethodLabels.phone')
+ * t('module.operationsUser.loginMethodLabels.email')
+ * t('module.operationsUser.loginMethodLabels.google')
+ * t('module.operationsUser.loginMethodLabels.wechat')
+ * t('module.operationsUser.loginMethodLabels.unknown')
+ * t('module.operationsUser.registrationSourceLabels.phone')
+ * t('module.operationsUser.registrationSourceLabels.email')
+ * t('module.operationsUser.registrationSourceLabels.google')
+ * t('module.operationsUser.registrationSourceLabels.wechat')
+ * t('module.operationsUser.registrationSourceLabels.imported')
+ * t('module.operationsUser.registrationSourceLabels.unknown')
+ * t('module.user.defaultUserName')
+ */
+export default function AdminOperationUsersPage() {
+  const { t, i18n } = useTranslation();
+  const { t: tOperationsUsers } = useTranslation('module.operationsUser');
+  const { t: tOperationsCourse } = useTranslation('module.operationsCourse');
+  const { isReady } = useOperatorGuard();
+  const loginMethodsEnabled = useEnvStore(
+    (state: EnvStoreState) => state.loginMethodsEnabled,
+  );
+  const defaultLoginMethod = useEnvStore(
+    (state: EnvStoreState) => state.defaultLoginMethod,
+  );
+  const currencySymbol = useEnvStore(
+    (state: EnvStoreState) => state.currencySymbol || '',
+  );
+  const defaultUserName = React.useMemo(
+    () => t('module.user.defaultUserName'),
+    [t],
+  );
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<ErrorState | null>(null);
+  const [userOverview, setUserOverview] =
+    useState<AdminOperationUserOverview>(EMPTY_USER_OVERVIEW);
+  const [userOverviewError, setUserOverviewError] = useState('');
+  const [users, setUsers] = useState<AdminOperationUserItem[]>([]);
+  const [pageIndex, setPageIndex] = useState(1);
+  const [pageCount, setPageCount] = useState(0);
+  const [courseDialog, setCourseDialog] = useState<CourseDialogState | null>(
+    null,
+  );
+  const [grantDialogUser, setGrantDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [deductionDialogUser, setDeductionDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [cancellationDialogUser, setCancellationDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [contactChangeDialogUser, setContactChangeDialogUser] =
+    useState<AdminOperationUserItem | null>(null);
+  const [draftFilters, setDraftFilters] = useState<UserFilters>(() =>
+    createDefaultFilters(),
+  );
+  const [appliedFilters, setAppliedFilters] = useState<UserFilters>(() =>
+    createDefaultFilters(),
+  );
+  const [quickFilter, setQuickFilter] = useState<UserQuickFilterKey>('');
+  const requestIdRef = useRef(0);
+  const courseDialogRequestIdRef = useRef(0);
+  const courseDialogDetailCacheRef = useRef(
+    new Map<string, AdminOperationUserDetailResponse>(),
+  );
+  const courseDialogDetailRequestCacheRef = useRef(
+    new Map<string, Promise<AdminOperationUserDetailResponse>>(),
+  );
+  const { mutate } = useSWRConfig();
+  const lastRequestedPageRef = useRef(1);
+  const { getColumnStyle, getResizeHandleProps } =
+    useAdminResizableColumns<ColumnKey>({
+      storageKey: COLUMN_WIDTH_STORAGE_KEY,
+      defaultWidths: DEFAULT_COLUMN_WIDTHS,
+      minWidth: COLUMN_MIN_WIDTH,
+      maxWidth: COLUMN_MAX_WIDTH,
+    });
+
+  const resolveStatusLabel = useCallback(
+    (status: string) => {
+      const normalized =
+        status === 'trial' ? 'registered' : status || 'unknown';
+      return tOperationsUsers(`statusLabels.${normalized}`);
+    },
+    [tOperationsUsers],
+  );
+
+  const resolveRoleLabel = useCallback(
+    (role: string) => {
+      const normalized = role || 'unknown';
+      return tOperationsUsers(`roleLabels.${normalized}`);
+    },
+    [tOperationsUsers],
+  );
+
+  const canGrantBenefitsToUser = useCallback(
+    (user: AdminOperationUserItem) =>
+      user.user_roles.includes('creator') ||
+      user.user_roles.includes('operator'),
+    [],
+  );
+
+  const resolveLoginMethodLabel = useCallback(
+    (method: string) => {
+      const normalized = normalizeLoginMethodLabelKey(method);
+      return tOperationsUsers(`loginMethodLabels.${normalized}`);
+    },
+    [tOperationsUsers],
+  );
+
+  const resolveRegistrationSourceLabel = useCallback(
+    (source: string) => {
+      const normalized = source || 'unknown';
+      return tOperationsUsers(`registrationSourceLabels.${normalized}`);
+    },
+    [tOperationsUsers],
+  );
+
+  const resolveCourseStatusLabel = useCallback(
+    (status: string) => {
+      if (status === 'published') {
+        return tOperationsCourse('statusLabels.published');
+      }
+      if (status === 'unpublished') {
+        return tOperationsCourse('statusLabels.unpublished');
+      }
+      const unknownLabel = tOperationsCourse('statusLabels.unknown');
+      return status ? `${unknownLabel} (${status})` : unknownLabel;
+    },
+    [tOperationsCourse],
+  );
+
+  const contactType = React.useMemo(
+    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+    [defaultLoginMethod, loginMethodsEnabled],
+  );
+  const userQueryPlaceholder = React.useMemo(() => {
+    const normalizedMethods = Array.isArray(loginMethodsEnabled)
+      ? loginMethodsEnabled
+      : String(loginMethodsEnabled || '').split(',');
+    const methodSet = new Set(
+      normalizedMethods
+        .map(method => method.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const hasPhone = methodSet.has('phone');
+    const hasEmail = methodSet.has('email') || methodSet.has('google');
+
+    if (hasPhone && hasEmail) {
+      return tOperationsUsers('filters.userPlaceholderPhoneEmail');
+    }
+    if (contactType === 'email') {
+      return tOperationsUsers('filters.userPlaceholderEmail');
+    }
+    return tOperationsUsers('filters.userPlaceholderPhone');
+  }, [contactType, loginMethodsEnabled, tOperationsUsers]);
+  const contactColumnLabel = React.useMemo(
+    () =>
+      contactType === 'email'
+        ? tOperationsUsers('table.email')
+        : tOperationsUsers('table.mobile'),
+    [contactType, tOperationsUsers],
+  );
+  const guestUserLabel = React.useMemo(
+    () => tOperationsUsers('table.guestUser'),
+    [tOperationsUsers],
+  );
+  const resolveCreditsExpireAtLabel = React.useCallback(
+    (user: AdminOperationUserItem) => {
+      if (user.credits_expire_at) {
+        return formatOperatorUtcDateTime(user.credits_expire_at);
+      }
+      if (Number(user.available_credits || 0) > 0) {
+        return tOperationsUsers('credits.longTerm');
+      }
+      return EMPTY_STATE_LABEL;
+    },
+    [tOperationsUsers],
+  );
+
+  const fetchUserOverview = useCallback(async () => {
+    try {
+      const response = (await api.getAdminOperationUsersOverview({})) as
+        | AdminOperationUserOverview
+        | undefined;
+      setUserOverview(response ?? EMPTY_USER_OVERVIEW);
+      setUserOverviewError('');
+    } catch (requestError) {
+      const resolvedError = requestError as ErrorWithCode;
+      setUserOverviewError(
+        resolvedError.message || t('common.core.networkError'),
+      );
+    }
+  }, [t]);
+
+  const fetchUsers = useCallback(
+    async (
+      targetPage: number,
+      filters: UserFilters,
+      nextQuickFilter?: UserQuickFilterKey,
+    ) => {
+      const resolvedQuickFilter = nextQuickFilter ?? '';
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      lastRequestedPageRef.current = targetPage;
+      setLoading(true);
+      setError(null);
+      try {
+        const response = (await api.getAdminOperationUsers({
+          page_index: targetPage,
+          page_size: PAGE_SIZE,
+          user_query: filters.user_query.trim(),
+          identifier: filters.identifier.trim(),
+          nickname: filters.nickname.trim(),
+          user_status: filters.user_status,
+          user_role: filters.user_role,
+          quick_filter: resolvedQuickFilter,
+          start_time: formatAdminDateRangeStartUtc(filters.start_time),
+          end_time: formatAdminDateRangeEndUtc(filters.end_time),
+        })) as AdminOperationUserListResponse;
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        setUsers(response.items || []);
+        setPageIndex(response.page || targetPage);
+        setPageCount(response.page_count || 0);
+      } catch (requestError) {
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
+        const resolvedError = requestError as ErrorWithCode;
+        setError({
+          message: resolvedError.message || t('common.core.networkError'),
+          code: resolvedError.code,
+        });
+        setUsers([]);
+        setPageCount(0);
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [t],
+  );
+
+  const buildCourseDialogStateFromDetail = useCallback(
+    (
+      user: AdminOperationUserItem,
+      type: 'learning' | 'created',
+      detail: AdminOperationUserDetailResponse,
+    ): CourseDialogState => ({
+      user,
+      type,
+      courses:
+        type === 'learning'
+          ? detail.learning_courses || []
+          : detail.created_courses || [],
+      loading: false,
+      error: '',
+    }),
+    [],
+  );
+
+  const getCourseDialogDetail = useCallback(
+    async (userBid: string) => {
+      const normalizedUserBid = userBid.trim();
+      if (!normalizedUserBid) {
+        throw new Error(t('common.core.networkError'));
+      }
+      const cachedDetail = readCachedCourseDialogDetail(
+        courseDialogDetailCacheRef.current,
+        normalizedUserBid,
+      );
+      if (cachedDetail) {
+        return cachedDetail;
+      }
+
+      const inFlightRequest =
+        courseDialogDetailRequestCacheRef.current.get(normalizedUserBid);
+      if (inFlightRequest) {
+        return inFlightRequest;
+      }
+      const request = (
+        api.getAdminOperationUserDetail({
+          user_bid: normalizedUserBid,
+        }) as Promise<AdminOperationUserDetailResponse>
+      )
+        .then(detail => {
+          cacheCourseDialogDetail(
+            courseDialogDetailCacheRef.current,
+            normalizedUserBid,
+            detail,
+          );
+          return detail;
+        })
+        .finally(() => {
+          courseDialogDetailRequestCacheRef.current.delete(normalizedUserBid);
+        });
+
+      courseDialogDetailRequestCacheRef.current.set(normalizedUserBid, request);
+      return request;
+    },
+    [t],
+  );
+
+  const openCourseDialog = useCallback(
+    async (user: AdminOperationUserItem, type: 'learning' | 'created') => {
+      const requestId = courseDialogRequestIdRef.current + 1;
+      courseDialogRequestIdRef.current = requestId;
+
+      const normalizedUserBid = user.user_bid.trim();
+      const cachedDetail = readCachedCourseDialogDetail(
+        courseDialogDetailCacheRef.current,
+        normalizedUserBid,
+      );
+      if (cachedDetail) {
+        setCourseDialog(
+          buildCourseDialogStateFromDetail(user, type, cachedDetail),
+        );
+        return;
+      }
+
+      setCourseDialog({
+        user,
+        type,
+        courses: [],
+        loading: true,
+        error: '',
+      });
+
+      try {
+        const detail = await getCourseDialogDetail(user.user_bid);
+        if (requestId !== courseDialogRequestIdRef.current) {
+          return;
+        }
+        setCourseDialog(buildCourseDialogStateFromDetail(user, type, detail));
+      } catch (requestError) {
+        if (requestId !== courseDialogRequestIdRef.current) {
+          return;
+        }
+        const resolvedError = requestError as ErrorWithCode;
+        setCourseDialog({
+          user,
+          type,
+          courses: [],
+          loading: false,
+          error: resolvedError.message || t('common.core.networkError'),
+        });
+      }
+    },
+    [buildCourseDialogStateFromDetail, getCourseDialogDetail, t],
+  );
+
+  React.useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+    const initialFilters = createDefaultFilters();
+    setDraftFilters(initialFilters);
+    setAppliedFilters(initialFilters);
+    setQuickFilter('');
+    void (async () => {
+      await fetchUsers(1, initialFilters, '');
+      await fetchUserOverview();
+    })();
+  }, [fetchUserOverview, fetchUsers, isReady]);
+
+  const clearQuickFilterIfConflicted = useCallback(
+    (key: keyof UserFilters, value: string) => {
+      if (!quickFilter) {
+        return;
+      }
+      if (!QUICK_FILTER_STRUCTURED_FIELDS.has(key)) {
+        return;
+      }
+
+      if (quickFilter === USER_QUICK_FILTER_PAID && key === 'user_status') {
+        if (value === USER_STATUS_PAID) {
+          return;
+        }
+        setQuickFilter('');
+        return;
+      }
+
+      if (quickFilter === USER_QUICK_FILTER_GUEST && key === 'user_status') {
+        if (value === USER_STATUS_UNREGISTERED) {
+          return;
+        }
+        setQuickFilter('');
+        return;
+      }
+
+      if (quickFilter === USER_QUICK_FILTER_CREATED_LAST_30D) {
+        const expected = buildCreatedLast30DaysFilters();
+        if (
+          (key === 'start_time' && value !== expected.start_time) ||
+          (key === 'end_time' && value !== expected.end_time)
+        ) {
+          setQuickFilter('');
+          return;
+        }
+        if (key === 'user_status' || key === 'user_role') {
+          setQuickFilter('');
+        }
+        return;
+      }
+
+      setQuickFilter('');
+    },
+    [quickFilter],
+  );
+
+  const updateDraftFilter = useCallback(
+    (key: keyof UserFilters, value: string) => {
+      clearQuickFilterIfConflicted(key, value);
+      setDraftFilters(current => ({
+        ...current,
+        [key]: value,
+      }));
+    },
+    [clearQuickFilterIfConflicted],
+  );
+
+  const handleSearch = () => {
+    const nextFilters = { ...draftFilters };
+    setAppliedFilters(nextFilters);
+    setPageIndex(1);
+    void fetchUsers(1, nextFilters, quickFilter);
+  };
+
+  const handleReset = () => {
+    const nextFilters = createDefaultFilters();
+    setDraftFilters(nextFilters);
+    setAppliedFilters(nextFilters);
+    setQuickFilter('');
+    setPageIndex(1);
+    void fetchUsers(1, nextFilters, '');
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage < 1 || nextPage === pageIndex) {
+      return;
+    }
+    setPageIndex(nextPage);
+    void fetchUsers(nextPage, appliedFilters, quickFilter);
+  };
+
+  const handleGrantSuccess = useCallback(() => {
+    void fetchUsers(pageIndex, appliedFilters, quickFilter);
+    void mutate(buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY));
+  }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
+
+  const handleDeductionSuccess = useCallback(() => {
+    setDeductionDialogUser(null);
+    void fetchUsers(pageIndex, appliedFilters, quickFilter);
+    void mutate(buildBillingSwrKey(BILLING_OVERVIEW_SWR_KEY));
+  }, [appliedFilters, fetchUsers, mutate, pageIndex, quickFilter]);
+
+  const renderResizeHandle = (key: ColumnKey) => (
+    <span
+      className={ADMIN_TABLE_RESIZE_HANDLE_CLASS}
+      {...getResizeHandleProps(key)}
+    />
+  );
+
+  const statusOptions = [
+    {
+      value: ALL_OPTION_VALUE,
+      label: t('common.core.all'),
+    },
+    {
+      value: 'unregistered',
+      label: resolveStatusLabel('unregistered'),
+    },
+    {
+      value: 'registered',
+      label: resolveStatusLabel('registered'),
+    },
+    {
+      value: 'paid',
+      label: resolveStatusLabel('paid'),
+    },
+    {
+      value: 'cancelled',
+      label: resolveStatusLabel('cancelled'),
+    },
+  ];
+
+  const roleOptions = [
+    {
+      value: ALL_OPTION_VALUE,
+      label: t('common.core.all'),
+    },
+    {
+      value: 'regular',
+      label: resolveRoleLabel('regular'),
+    },
+    {
+      value: 'creator',
+      label: resolveRoleLabel('creator'),
+    },
+    {
+      value: 'learner',
+      label: resolveRoleLabel('learner'),
+    },
+    {
+      value: 'operator',
+      label: resolveRoleLabel('operator'),
+    },
+  ];
+
+  const applyQuickFilter = useCallback(
+    (targetQuickFilter: UserQuickFilterKey) => {
+      if (targetQuickFilter && targetQuickFilter === quickFilter) {
+        const cleared = createDefaultFilters();
+        setDraftFilters(cleared);
+        setAppliedFilters(cleared);
+        setQuickFilter('');
+        setPageIndex(1);
+        void fetchUsers(1, cleared, '');
+        return;
+      }
+
+      const nextFilters = createDefaultFilters();
+      if (targetQuickFilter === USER_QUICK_FILTER_PAID) {
+        nextFilters.user_status = USER_STATUS_PAID;
+      } else if (targetQuickFilter === USER_QUICK_FILTER_GUEST) {
+        nextFilters.user_status = USER_STATUS_UNREGISTERED;
+      } else if (targetQuickFilter === USER_QUICK_FILTER_CREATED_LAST_30D) {
+        Object.assign(nextFilters, buildCreatedLast30DaysFilters());
+      }
+
+      setDraftFilters(nextFilters);
+      setAppliedFilters(nextFilters);
+      setQuickFilter(targetQuickFilter);
+      setPageIndex(1);
+      void fetchUsers(1, nextFilters, targetQuickFilter);
+    },
+    [fetchUsers, quickFilter],
+  );
+
+  const overviewCards = useMemo(
+    () => [
+      {
+        key: 'total',
+        label: tOperationsUsers('overview.metrics.totalUsers'),
+        value: userOverview.total_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.totalUsers'),
+        quickFilterKey: '' as UserQuickFilterKey,
+      },
+      {
+        key: 'registered',
+        label: tOperationsUsers('overview.metrics.registeredUsers'),
+        value: userOverview.registered_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.registeredUsers'),
+        quickFilterKey: USER_QUICK_FILTER_REGISTERED as UserQuickFilterKey,
+      },
+      {
+        key: 'paid',
+        label: tOperationsUsers('overview.metrics.paidUsers'),
+        value: userOverview.paid_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.paidUsers'),
+        quickFilterKey: USER_QUICK_FILTER_PAID as UserQuickFilterKey,
+      },
+      {
+        key: 'creators',
+        label: tOperationsUsers('overview.metrics.creators'),
+        value: userOverview.creator_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.creators'),
+        quickFilterKey: USER_QUICK_FILTER_CREATOR as UserQuickFilterKey,
+      },
+      {
+        key: 'learners',
+        label: tOperationsUsers('overview.metrics.learners'),
+        value: userOverview.learner_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.learners'),
+        quickFilterKey: USER_QUICK_FILTER_LEARNER as UserQuickFilterKey,
+      },
+      {
+        key: 'guests',
+        label: tOperationsUsers('overview.metrics.guests'),
+        value: userOverview.guest_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.guests'),
+        quickFilterKey: USER_QUICK_FILTER_GUEST as UserQuickFilterKey,
+      },
+      {
+        key: 'new-30d',
+        label: tOperationsUsers('overview.metrics.newUsers30d'),
+        value: userOverview.created_last_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.newUsers30d'),
+        quickFilterKey:
+          USER_QUICK_FILTER_CREATED_LAST_30D as UserQuickFilterKey,
+      },
+      {
+        key: 'registered-30d',
+        label: tOperationsUsers('overview.metrics.registeredUsers30d'),
+        value: userOverview.registered_last_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.registeredUsers30d'),
+        quickFilterKey:
+          USER_QUICK_FILTER_REGISTERED_LAST_30D as UserQuickFilterKey,
+      },
+      {
+        key: 'learning-active-30d',
+        label: tOperationsUsers('overview.metrics.learningActive30d'),
+        value: userOverview.learning_active_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.learningActive30d'),
+        quickFilterKey:
+          USER_QUICK_FILTER_LEARNING_ACTIVE_30D as UserQuickFilterKey,
+      },
+      {
+        key: 'paid-30d',
+        label: tOperationsUsers('overview.metrics.paidUsers30d'),
+        value: userOverview.paid_last_30d_user_count,
+        tooltip: tOperationsUsers('overview.tooltips.paidUsers30d'),
+        quickFilterKey: USER_QUICK_FILTER_PAID_LAST_30D as UserQuickFilterKey,
+      },
+    ],
+    [tOperationsUsers, userOverview],
+  );
+
+  const activeQuickFilterCard = useMemo(() => {
+    if (!quickFilter) {
+      return null;
+    }
+    return (
+      overviewCards.find(card => card.quickFilterKey === quickFilter) ?? null
+    );
+  }, [overviewCards, quickFilter]);
+
+  const collapsedFilterItems = [
+    {
+      key: 'user_query',
+      label: tOperationsUsers('filters.user'),
+      component: (
+        <AdminClearableInput
+          value={draftFilters.user_query}
+          placeholder={userQueryPlaceholder}
+          clearLabel={t('common.core.close')}
+          onChange={value => updateDraftFilter('user_query', value)}
+        />
+      ),
+    },
+    {
+      key: 'user_status',
+      label: tOperationsUsers('filters.status'),
+      component: (
+        <Select
+          value={draftFilters.user_status || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            updateDraftFilter(
+              'user_status',
+              value === ALL_OPTION_VALUE ? '' : value,
+            )
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={tOperationsUsers('filters.status')} />
+          </SelectTrigger>
+          <SelectContent>
+            {statusOptions.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: 'user_role',
+      label: tOperationsUsers('filters.role'),
+      component: (
+        <Select
+          value={draftFilters.user_role || ALL_OPTION_VALUE}
+          onValueChange={value =>
+            updateDraftFilter(
+              'user_role',
+              value === ALL_OPTION_VALUE ? '' : value,
+            )
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={tOperationsUsers('filters.role')} />
+          </SelectTrigger>
+          <SelectContent>
+            {roleOptions.map(option => (
+              <SelectItem
+                key={option.value}
+                value={option.value}
+              >
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ),
+    },
+  ];
+
+  const expandedFirstRowFilterItems = [...collapsedFilterItems];
+
+  const expandedSecondRowFilterItems = [
+    {
+      key: 'created_at',
+      label: tOperationsUsers('filters.createdAt'),
+      component: (
+        <AdminDateRangeFilter
+          startValue={draftFilters.start_time}
+          endValue={draftFilters.end_time}
+          placeholder={`${t('module.operationsCourse.filters.startTime')} ~ ${t('module.operationsCourse.filters.endTime')}`}
+          resetLabel={t('module.order.filters.reset')}
+          clearLabel={t('common.core.close')}
+          onChange={({ start, end }) => {
+            updateDraftFilter('start_time', start);
+            updateDraftFilter('end_time', end);
+          }}
+        />
+      ),
+    },
+  ];
+
+  if (!isReady) {
+    return <Loading />;
+  }
+
+  if (error) {
+    return (
+      <div className='h-full p-0'>
+        <ErrorDisplay
+          errorCode={error.code || 0}
+          errorMessage={error.message}
+          onRetry={() =>
+            fetchUsers(
+              lastRequestedPageRef.current,
+              appliedFilters,
+              quickFilter,
+            )
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className='h-full p-0'>
+      <TooltipProvider delayDuration={150}>
+        <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
+          <AdminBreadcrumb items={[{ label: tOperationsUsers('title') }]} />
+          <AdminTitle title={tOperationsUsers('title')} />
+
+          <AdminMetricCardGroup
+            title={tOperationsUsers('overview.title')}
+            items={overviewCards.map(card => ({
+              key: card.key,
+              label: card.label,
+              value: formatAdminCount(card.value, i18n.language),
+              tooltip: card.tooltip,
+              onClick: () => applyQuickFilter(card.quickFilterKey),
+            }))}
+            gridClassName='grid-cols-2 md:grid-cols-4 xl:grid-cols-5'
+            staleMessage={
+              userOverviewError ? tOperationsUsers('overview.staleData') : null
+            }
+            activeFilter={
+              activeQuickFilterCard
+                ? {
+                    label: tOperationsUsers('overview.activeFilter'),
+                    value: activeQuickFilterCard.label,
+                    clearAriaLabel: `${activeQuickFilterCard.label} ${t(
+                      'common.core.close',
+                    )}`,
+                    onClear: () => applyQuickFilter(''),
+                  }
+                : null
+            }
+          />
+
+          <div className='rounded-xl border border-border bg-white p-4 mb-5 shadow-sm transition-all'>
+            <div className='space-y-4'>
+              <AdminFilter
+                items={[
+                  ...expandedFirstRowFilterItems,
+                  ...expandedSecondRowFilterItems,
+                ]}
+                expanded={expanded}
+                onExpandedChange={setExpanded}
+                onReset={handleReset}
+                onSearch={handleSearch}
+                resetLabel={t('module.order.filters.reset')}
+                searchLabel={t('module.order.filters.search')}
+                expandLabel={t('common.core.expand')}
+                collapseLabel={t('common.core.collapse')}
+                collapsedCount={3}
+                className='bg-transparent'
+                contentClassName='min-w-0'
+                labelClassName='w-20 text-right'
+                collapsedGridClassName='gap-x-5 xl:grid-cols-3'
+                expandedGridClassName='gap-x-5 xl:grid-cols-3'
+                expandedActionsInline
+                expandedActionsClassName='xl:col-start-3'
+                labelColon
+              />
+            </div>
+          </div>
+
+          <AdminTableShell
+            loading={loading}
+            isEmpty={users.length === 0}
+            emptyContent={tOperationsUsers('emptyList')}
+            emptyColSpan={Object.keys(DEFAULT_COLUMN_WIDTHS).length}
+            tableWrapperClassName='max-h-[calc(100vh-18rem)] overflow-auto'
+            table={emptyRow => (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('userId')}
+                    >
+                      {tOperationsUsers('table.userId')}
+                      {renderResizeHandle('userId')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('mobile')}
+                    >
+                      {contactColumnLabel}
+                      {renderResizeHandle('mobile')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('nickname')}
+                    >
+                      {tOperationsUsers('table.nickname')}
+                      {renderResizeHandle('nickname')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('status')}
+                    >
+                      {tOperationsUsers('table.status')}
+                      {renderResizeHandle('status')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('role')}
+                    >
+                      {tOperationsUsers('table.role')}
+                      {renderResizeHandle('role')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('loginMethods')}
+                    >
+                      {tOperationsUsers('table.loginMethods')}
+                      {renderResizeHandle('loginMethods')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('registrationSource')}
+                    >
+                      {tOperationsUsers('table.registrationSource')}
+                      {renderResizeHandle('registrationSource')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('learningCourses')}
+                    >
+                      {tOperationsUsers('table.learningCourses')}
+                      {renderResizeHandle('learningCourses')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('createdCourses')}
+                    >
+                      {tOperationsUsers('table.createdCourses')}
+                      {renderResizeHandle('createdCourses')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('totalPaidAmount')}
+                    >
+                      {tOperationsUsers('table.totalPaidAmount')}
+                      {renderResizeHandle('totalPaidAmount')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('availableCredits')}
+                    >
+                      {tOperationsUsers('table.availableCredits')}
+                      {renderResizeHandle('availableCredits')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('creditsExpireAt')}
+                    >
+                      {tOperationsUsers('table.creditsExpireAt')}
+                      {renderResizeHandle('creditsExpireAt')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('lastLoginAt')}
+                    >
+                      {tOperationsUsers('table.lastLoginAt')}
+                      {renderResizeHandle('lastLoginAt')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('lastLearningAt')}
+                    >
+                      {tOperationsUsers('table.lastLearningAt')}
+                      {renderResizeHandle('lastLearningAt')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('createdAt')}
+                    >
+                      {tOperationsUsers('table.createdAt')}
+                      {renderResizeHandle('createdAt')}
+                    </TableHead>
+                    <TableHead
+                      className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
+                      style={getColumnStyle('updatedAt')}
+                    >
+                      {tOperationsUsers('table.updatedAt')}
+                      {renderResizeHandle('updatedAt')}
+                    </TableHead>
+                    <TableHead
+                      className={getAdminStickyRightHeaderClass('text-center')}
+                      style={getColumnStyle('action')}
+                    >
+                      {tOperationsUsers('table.action')}
+                      {renderResizeHandle('action')}
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {emptyRow}
+                  {users.map(user => {
+                    const primaryContact =
+                      contactType === 'email'
+                        ? user.email?.trim() || ''
+                        : user.mobile?.trim() || '';
+                    const isGuestUser =
+                      !user.mobile?.trim() && !user.email?.trim();
+                    const userDetailUrl = buildAdminOperationsUserDetailUrl(
+                      user.user_bid,
+                    );
+                    const loginMethods = user.login_methods.length
+                      ? user.login_methods
+                          .map(resolveLoginMethodLabel)
+                          .join(' / ')
+                      : EMPTY_STATE_LABEL;
+                    const registrationSource = resolveRegistrationSourceLabel(
+                      user.registration_source,
+                    );
+                    return (
+                      <TableRow key={user.user_bid}>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('userId')}
+                        >
+                          {userDetailUrl ? (
+                            <Link
+                              href={userDetailUrl}
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='text-primary transition-colors hover:text-primary/80 hover:underline'
+                            >
+                              {renderTooltipText(user.user_bid)}
+                            </Link>
+                          ) : (
+                            renderTooltipText(user.user_bid)
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('mobile')}
+                        >
+                          {isGuestUser ? (
+                            <span className='text-sm text-muted-foreground'>
+                              {guestUserLabel}
+                            </span>
+                          ) : userDetailUrl && primaryContact ? (
+                            <Link
+                              href={userDetailUrl}
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='text-primary transition-colors hover:text-primary/80 hover:underline'
+                            >
+                              {renderTooltipText(primaryContact)}
+                            </Link>
+                          ) : (
+                            renderTooltipText(primaryContact)
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('nickname')}
+                        >
+                          {renderTooltipText(user.nickname || defaultUserName)}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('status')}
+                        >
+                          {renderTooltipText(
+                            resolveStatusLabel(user.user_status),
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('role')}
+                        >
+                          {renderTooltipText(resolveRoleLabel(user.user_role))}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('loginMethods')}
+                        >
+                          {renderTooltipText(loginMethods)}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('registrationSource')}
+                        >
+                          {renderTooltipText(registrationSource)}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('learningCourses')}
+                        >
+                          <CourseListPreview
+                            count={
+                              user.learning_course_count ??
+                              user.learning_courses.length
+                            }
+                            emptyLabel={EMPTY_STATE_LABEL}
+                            ariaLabel={tOperationsUsers(
+                              'table.learningCourses',
+                            )}
+                            onView={() =>
+                              void openCourseDialog(user, 'learning')
+                            }
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('createdCourses')}
+                        >
+                          <CourseListPreview
+                            count={
+                              user.created_course_count ??
+                              user.created_courses.length
+                            }
+                            emptyLabel={EMPTY_STATE_LABEL}
+                            ariaLabel={tOperationsUsers('table.createdCourses')}
+                            onView={() =>
+                              void openCourseDialog(user, 'created')
+                            }
+                          />
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('totalPaidAmount')}
+                        >
+                          {renderTooltipText(
+                            `${currencySymbol}${user.total_paid_amount || '0'}`,
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('availableCredits')}
+                        >
+                          {userDetailUrl && user.available_credits ? (
+                            <Link
+                              href={`${userDetailUrl}#credits`}
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='text-primary transition-colors hover:text-primary/80 hover:underline'
+                            >
+                              {renderTooltipText(
+                                user.available_credits
+                                  ? formatAdminCredits(
+                                      Number(user.available_credits),
+                                      i18n.language,
+                                    )
+                                  : EMPTY_STATE_LABEL,
+                              )}
+                            </Link>
+                          ) : (
+                            renderTooltipText(
+                              user.available_credits
+                                ? formatAdminCredits(
+                                    Number(user.available_credits),
+                                    i18n.language,
+                                  )
+                                : EMPTY_STATE_LABEL,
+                            )
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('creditsExpireAt')}
+                        >
+                          {renderTooltipText(resolveCreditsExpireAtLabel(user))}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('lastLoginAt')}
+                        >
+                          {renderTooltipText(
+                            formatOperatorUtcDateTime(user.last_login_at),
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('lastLearningAt')}
+                        >
+                          {renderTooltipText(
+                            formatOperatorUtcDateTime(user.last_learning_at),
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='border-r border-border last:border-r-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('createdAt')}
+                        >
+                          {renderTooltipText(
+                            formatOperatorUtcDateTime(user.created_at),
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className='whitespace-nowrap overflow-hidden text-ellipsis text-center'
+                          style={getColumnStyle('updatedAt')}
+                        >
+                          {renderTooltipText(
+                            formatOperatorUtcDateTime(user.updated_at),
+                          )}
+                        </TableCell>
+                        <TableCell
+                          className={getAdminStickyRightCellClass(
+                            'whitespace-nowrap text-center',
+                          )}
+                          style={getColumnStyle('action')}
+                        >
+                          <div className='flex justify-center'>
+                            <AdminRowActions
+                              label={t('common.core.more')}
+                              ariaLabel={tOperationsUsers(
+                                'actions.moreForUser',
+                                {
+                                  user: user.user_bid,
+                                },
+                              )}
+                              actions={[
+                                {
+                                  key: 'change-contact',
+                                  label: tOperationsUsers(
+                                    `contactChange.${contactType}.action`,
+                                  ),
+                                  disabled: user.user_status === 'cancelled',
+                                  onClick: () =>
+                                    setContactChangeDialogUser(user),
+                                },
+                                {
+                                  key: 'grant-credits',
+                                  label: tOperationsUsers(
+                                    'actions.grantCredits',
+                                  ),
+                                  disabled: !canGrantBenefitsToUser(user),
+                                  onClick: () => setGrantDialogUser(user),
+                                },
+                                {
+                                  key: 'deduct-credits',
+                                  label: tOperationsUsers(
+                                    'actions.deductCredits',
+                                  ),
+                                  disabled:
+                                    user.user_status === 'cancelled' ||
+                                    !canGrantBenefitsToUser(user) ||
+                                    Number(user.available_credits) <= 0,
+                                  onClick: () => setDeductionDialogUser(user),
+                                },
+                                {
+                                  key: 'cancel-account',
+                                  label: tOperationsUsers(
+                                    'actions.cancelAccount',
+                                  ),
+                                  disabled:
+                                    user.user_status === 'cancelled' ||
+                                    user.user_role === 'operator' ||
+                                    user.user_roles.includes('operator'),
+                                  onClick: () =>
+                                    setCancellationDialogUser(user),
+                                },
+                              ]}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+            pagination={{
+              pageIndex,
+              pageCount,
+              onPageChange: handlePageChange,
+              prevLabel: t('module.order.paginationPrev'),
+              nextLabel: t('module.order.paginationNext'),
+              prevAriaLabel: t('module.order.paginationPrevAriaLabel'),
+              nextAriaLabel: t('module.order.paginationNextAriaLabel'),
+              hideWhenSinglePage: true,
+            }}
+          />
+          <Dialog
+            open={Boolean(courseDialog)}
+            onOpenChange={open => {
+              if (!open) {
+                courseDialogRequestIdRef.current += 1;
+                setCourseDialog(null);
+              }
+            }}
+          >
+            <DialogContent className='sm:max-w-3xl'>
+              <DialogHeader className='space-y-2'>
+                <DialogTitle>
+                  {courseDialog?.type === 'learning'
+                    ? tOperationsUsers('courseSummary.dialog.learningTitle')
+                    : tOperationsUsers('courseSummary.dialog.createdTitle')}
+                </DialogTitle>
+                <DialogDescription>
+                  {tOperationsUsers('courseSummary.dialog.description', {
+                    user:
+                      courseDialog?.user.nickname ||
+                      defaultUserName ||
+                      courseDialog?.user.email ||
+                      courseDialog?.user.mobile ||
+                      courseDialog?.user.user_bid ||
+                      EMPTY_STATE_LABEL,
+                  })}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className='rounded-lg border border-border'>
+                <div className='max-h-[60vh] overflow-auto'>
+                  {courseDialog?.loading ? (
+                    <div className='flex h-40 items-center justify-center'>
+                      <Loading />
+                    </div>
+                  ) : courseDialog?.error ? (
+                    <div className='flex h-40 items-center justify-center px-6 text-sm text-destructive'>
+                      {courseDialog.error}
+                    </div>
+                  ) : (
+                    <Table className='table-fixed'>
+                      <colgroup>
+                        <col className='w-[34%]' />
+                        <col className='w-[46%]' />
+                        <col className='w-[20%]' />
+                      </colgroup>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                            {tOperationsUsers(
+                              'courseSummary.dialog.courseName',
+                            )}
+                          </TableHead>
+                          <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                            {tOperationsUsers('courseSummary.dialog.courseId')}
+                          </TableHead>
+                          <TableHead className='bg-muted text-center sticky top-0 z-20'>
+                            {tOperationsUsers('courseSummary.dialog.status')}
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {courseDialog?.courses?.length ? (
+                          courseDialog.courses.map(course => {
+                            const courseDetailUrl =
+                              buildAdminOperationsCourseDetailUrl(
+                                course.shifu_bid,
+                              );
+                            return (
+                              <TableRow
+                                key={`${courseDialog.type}-${course.shifu_bid}`}
+                              >
+                                <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
+                                  {courseDetailUrl ? (
+                                    <Link
+                                      href={courseDetailUrl}
+                                      className='inline-block max-w-full text-primary transition-colors hover:text-primary/80 hover:underline'
+                                    >
+                                      <AdminTooltipText
+                                        text={course.course_name}
+                                        emptyValue={EMPTY_STATE_LABEL}
+                                      />
+                                    </Link>
+                                  ) : (
+                                    <AdminTooltipText
+                                      text={course.course_name}
+                                      emptyValue={EMPTY_STATE_LABEL}
+                                    />
+                                  )}
+                                </TableCell>
+                                <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis'>
+                                  <AdminTooltipText
+                                    text={course.shifu_bid}
+                                    emptyValue={EMPTY_STATE_LABEL}
+                                  />
+                                </TableCell>
+                                <TableCell className='max-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-center'>
+                                  <AdminTooltipText
+                                    text={resolveCourseStatusLabel(
+                                      course.course_status,
+                                    )}
+                                    emptyValue={EMPTY_STATE_LABEL}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        ) : (
+                          <TableEmpty colSpan={3}>
+                            {tOperationsUsers('courseSummary.empty')}
+                          </TableEmpty>
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <UserCreditGrantDialog
+            open={Boolean(grantDialogUser)}
+            user={grantDialogUser}
+            onOpenChange={nextOpen => {
+              if (!nextOpen) {
+                setGrantDialogUser(null);
+              }
+            }}
+            onGranted={handleGrantSuccess}
+          />
+          <UserCreditDeductionDialog
+            open={Boolean(deductionDialogUser)}
+            user={deductionDialogUser}
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setDeductionDialogUser(null);
+            }}
+            onDeducted={handleDeductionSuccess}
+          />
+          <UserCancellationDialog
+            open={Boolean(cancellationDialogUser)}
+            user={cancellationDialogUser}
+            contactType={contactType}
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setCancellationDialogUser(null);
+            }}
+            onCancelled={() => {
+              setCancellationDialogUser(null);
+              void fetchUsers(pageIndex, appliedFilters, quickFilter);
+              void fetchUserOverview();
+            }}
+          />
+          <UserContactChangeDialog
+            open={Boolean(contactChangeDialogUser)}
+            userBid={contactChangeDialogUser?.user_bid || ''}
+            contactType={contactType}
+            currentIdentifier={
+              contactType === 'email'
+                ? contactChangeDialogUser?.email || ''
+                : contactChangeDialogUser?.mobile || ''
+            }
+            onOpenChange={nextOpen => {
+              if (!nextOpen) setContactChangeDialogUser(null);
+            }}
+            onChanged={() => {
+              setContactChangeDialogUser(null);
+              void fetchUsers(pageIndex, appliedFilters, quickFilter);
+            }}
+          />
+        </div>
+      </TooltipProvider>
+    </div>
+  );
+}

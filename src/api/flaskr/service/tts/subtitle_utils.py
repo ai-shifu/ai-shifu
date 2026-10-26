@@ -1,11 +1,14 @@
+"""Provide subtitle utilities for TTS."""
+
 from __future__ import annotations
 
 from typing import Any
 
 
 def normalize_subtitle_cues(
-    subtitle_cues: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
-) -> list[dict[str, Any]]:
+    subtitle_cues: list[dict[str, object]] | tuple[dict[str, object], ...] | None,
+) -> list[dict[str, object]]:
+    """Normalize subtitle cues."""
     normalized: list[dict[str, Any]] = []
     for raw_item in list(subtitle_cues or []):
         item: dict[str, Any] | None = None
@@ -53,13 +56,14 @@ def normalize_subtitle_cues(
 
 
 def append_subtitle_cue(
-    subtitle_cues: list[dict[str, Any]],
+    subtitle_cues: list[dict[str, object]],
     *,
     text: str,
     duration_ms: int,
     segment_index: int,
     position: int = 0,
-) -> list[dict[str, Any]]:
+) -> list[dict[str, object]]:
+    """Append subtitle cue."""
     cue_text = str(text or "").strip()
     if not cue_text:
         return subtitle_cues

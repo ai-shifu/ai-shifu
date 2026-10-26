@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from flaskr.dao import db
+from flaskr.util.datetime import now_utc
 from sqlalchemy import (
     JSON,
     Column,
+    Computed,
     DateTime,
     Index,
     Integer,
@@ -15,33 +18,37 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.mysql import BIGINT
-from flaskr.util.datetime import now_utc
-
-from flaskr.dao import db
 
 from .consts import (
-    BILLING_MODE_MANUAL,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE,
+    BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_DRAFT,
     BILLING_DOMAIN_BINDING_STATUS_PENDING,
     BILLING_DOMAIN_SSL_STATUS_NOT_REQUESTED,
     BILLING_DOMAIN_VERIFICATION_METHOD_DNS_TXT,
-    BILLING_ORDER_STATUS_INIT,
-    BILLING_ORDER_TYPE_MANUAL,
-    BILLING_PRODUCT_STATUS_ACTIVE,
-    BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_ENTITLEMENT_ANALYTICS_TIER_BASIC,
     BILLING_ENTITLEMENT_PRIORITY_CLASS_STANDARD,
     BILLING_ENTITLEMENT_SUPPORT_TIER_SELF_SERVE,
-    CREDIT_ROUNDING_MODE_CEIL,
+    BILLING_MODE_MANUAL,
+    BILLING_ORDER_STATUS_INIT,
+    BILLING_ORDER_TYPE_MANUAL,
+    BILLING_PRODUCT_STATUS_ACTIVE,
+    BILLING_PROVIDER_CATALOG_EVENT_STATUS_RECEIVED,
+    BILLING_PROVIDER_CATALOG_HEALTH_UNLINKED,
+    BILLING_PROVIDER_PRICE_STATUS_ACTIVE,
+    BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+    BILLING_RENEWAL_EVENT_STATUS_PENDING,
     BILLING_SUBSCRIPTION_STATUS_DRAFT,
     CREDIT_BUCKET_STATUS_ACTIVE,
+    CREDIT_ROUNDING_MODE_CEIL,
     CREDIT_USAGE_RATE_STATUS_ACTIVE,
 )
-
 
 CREDIT_NUMERIC = Numeric(20, 10)
 
 
 class BillingTableMixin:
+    """Provide shared columns for billing persistence models."""
+
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Primary key")
     deleted = Column(
         SmallInteger,
@@ -66,6 +73,8 @@ class BillingTableMixin:
 
 
 class BillingProduct(BillingTableMixin, db.Model):
+    """Persist billing product records."""
+
     __tablename__ = "bill_products"
     __table_args__ = (
         UniqueConstraint(
@@ -186,7 +195,470 @@ class BillingProduct(BillingTableMixin, db.Model):
     )
 
 
+class BillingProductProviderPrice(BillingTableMixin, db.Model):
+    """Persist billing product provider price records."""
+
+    __tablename__ = "bill_product_provider_prices"
+    __table_args__ = (
+        UniqueConstraint(
+            "provider_price_bid",
+            name="uq_bill_product_provider_prices_bid",
+        ),
+        UniqueConstraint(
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "provider_price_id",
+            "provider_price_live_scope",
+            name="uq_bill_product_provider_prices_provider_price",
+        ),
+        UniqueConstraint(
+            "product_bid",
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "active_scope",
+            name="uq_bill_product_provider_prices_active_scope",
+        ),
+        Index(
+            "ix_bill_product_provider_prices_product_status",
+            "product_bid",
+            "status",
+        ),
+        Index(
+            "ix_bill_product_provider_prices_provider_status",
+            "provider",
+            "status",
+        ),
+        Index(
+            "ix_bill_product_provider_prices_provider_product",
+            "provider",
+            "provider_account_id",
+            "provider_product_id",
+        ),
+        {"comment": "Provider price mappings for billing products"},
+    )
+
+    provider_price_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider price mapping business identifier",
+    )
+    product_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing product business identifier",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Payment provider name",
+    )
+    provider_account_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider account identifier",
+    )
+    provider_product_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider product identifier",
+    )
+    provider_price_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider price identifier",
+    )
+    livemode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Provider live mode flag",
+    )
+    currency = Column(
+        String(16),
+        nullable=False,
+        default="",
+        comment="Provider price currency code",
+    )
+    unit_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Provider price unit amount",
+    )
+    billing_mode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Billing mode code validated against the provider price",
+    )
+    billing_interval = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Billing interval code validated against the provider price",
+    )
+    billing_interval_count = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Billing interval count validated against the provider price",
+    )
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_PROVIDER_PRICE_STATUS_DRAFT,
+        index=True,
+        comment="Provider price mapping status code",
+    )
+    provider_price_live_scope = Column(
+        String(16),
+        Computed(
+            "CASE WHEN deleted = 0 THEN 'live' ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one live provider price mapping",
+    )
+    active_scope = Column(
+        String(16),
+        Computed(
+            f"CASE WHEN status = {BILLING_PROVIDER_PRICE_STATUS_ACTIVE} "
+            "AND deleted = 0 THEN 'active' ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one active price per SKU scope",
+    )
+    validated_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Last provider validation timestamp",
+    )
+    activated_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Activation timestamp",
+    )
+    retired_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Retirement timestamp",
+    )
+    validation_error = Column(
+        Text,
+        nullable=True,
+        comment="Last validation error summary",
+    )
+    metadata_json = Column(
+        "metadata",
+        JSON,
+        nullable=True,
+        comment="Provider price mapping metadata",
+    )
+
+
+class BillingProviderCatalogSnapshot(BillingTableMixin, db.Model):
+    """Persist the latest provider catalog object snapshot."""
+
+    __tablename__ = "bill_provider_catalog_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "catalog_snapshot_bid",
+            name="uq_bill_provider_catalog_snapshots_bid",
+        ),
+        UniqueConstraint(
+            "provider",
+            "provider_account_id",
+            "livemode",
+            "object_type",
+            "object_id",
+            "live_scope",
+            name="uq_bill_provider_catalog_snapshots_object",
+        ),
+        Index(
+            "ix_bill_provider_catalog_snapshots_parent",
+            "provider",
+            "provider_account_id",
+            "parent_object_id",
+        ),
+        Index(
+            "ix_bill_provider_catalog_snapshots_health",
+            "provider",
+            "health_status",
+            "updated_at",
+        ),
+        {"comment": "Provider catalog object snapshots"},
+    )
+
+    catalog_snapshot_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog snapshot business identifier",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Payment provider name",
+    )
+    provider_account_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider account identifier",
+    )
+    livemode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Provider live mode flag",
+    )
+    object_type = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog object type",
+    )
+    object_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog object identifier",
+    )
+    parent_object_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Parent provider catalog object identifier",
+    )
+    active = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Provider active flag",
+    )
+    provider_created_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Provider creation timestamp",
+    )
+    last_event_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Latest applied provider event identifier",
+    )
+    last_event_type = Column(
+        String(128),
+        nullable=False,
+        default="",
+        comment="Latest applied provider event type",
+    )
+    last_event_created_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Latest applied provider event timestamp",
+    )
+    last_seen_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Latest local sync timestamp",
+    )
+    health_status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_PROVIDER_CATALOG_HEALTH_UNLINKED,
+        index=True,
+        comment="Provider catalog health status",
+    )
+    pending_issue_code = Column(
+        String(128),
+        nullable=False,
+        default="",
+        comment="Pending catalog issue code",
+    )
+    linked_product_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Suggested or linked billing product business identifier",
+    )
+    metadata_json = Column(
+        "metadata",
+        JSON,
+        nullable=True,
+        comment="Provider catalog metadata",
+    )
+    raw_payload = Column(
+        JSON,
+        nullable=True,
+        comment="Provider catalog raw payload",
+    )
+    live_scope = Column(
+        String(16),
+        Computed(
+            "CASE WHEN deleted = 0 THEN 'live' ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one live catalog snapshot",
+    )
+
+
+class BillingProviderCatalogEvent(BillingTableMixin, db.Model):
+    """Persist provider catalog webhook and reconcile inbox events."""
+
+    __tablename__ = "bill_provider_catalog_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "catalog_event_bid",
+            name="uq_bill_provider_catalog_events_bid",
+        ),
+        UniqueConstraint(
+            "provider",
+            "provider_event_id",
+            "live_scope",
+            name="uq_bill_provider_catalog_events_provider_event",
+        ),
+        Index(
+            "ix_bill_provider_catalog_events_object",
+            "provider",
+            "provider_account_id",
+            "object_type",
+            "object_id",
+        ),
+        Index(
+            "ix_bill_provider_catalog_events_status",
+            "processing_status",
+            "created_at",
+        ),
+        {"comment": "Provider catalog event inbox"},
+    )
+
+    catalog_event_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog event business identifier",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Payment provider name",
+    )
+    provider_event_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider event identifier",
+    )
+    event_type = Column(
+        String(128),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider event type",
+    )
+    event_source = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Webhook, reconcile, or manual sync source",
+    )
+    provider_account_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider account identifier",
+    )
+    livemode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Provider live mode flag",
+    )
+    object_type = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog object type",
+    )
+    object_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider catalog object identifier",
+    )
+    parent_object_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Parent provider catalog object identifier",
+    )
+    event_created_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Provider event timestamp",
+    )
+    processed_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Local processing timestamp",
+    )
+    processing_status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_PROVIDER_CATALOG_EVENT_STATUS_RECEIVED,
+        index=True,
+        comment="Provider catalog event processing status",
+    )
+    processing_error = Column(
+        Text,
+        nullable=True,
+        comment="Safe processing error summary",
+    )
+    raw_payload = Column(
+        JSON,
+        nullable=True,
+        comment="Provider catalog event raw payload",
+    )
+    live_scope = Column(
+        String(16),
+        Computed(
+            "CASE WHEN deleted = 0 THEN 'live' ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one live provider event",
+    )
+
+
 class BillingSubscription(BillingTableMixin, db.Model):
+    """Persist billing subscription records."""
+
     __tablename__ = "bill_subscriptions"
     __table_args__ = (
         UniqueConstraint(
@@ -300,6 +772,8 @@ class BillingSubscription(BillingTableMixin, db.Model):
 
 
 class BillingOrder(BillingTableMixin, db.Model):
+    """Persist billing order records."""
+
     __tablename__ = "bill_orders"
     __table_args__ = (
         UniqueConstraint(
@@ -457,6 +931,8 @@ class BillingOrder(BillingTableMixin, db.Model):
 
 
 class BillingCampaign(BillingTableMixin, db.Model):
+    """Persist billing campaign records."""
+
     __tablename__ = "bill_campaigns"
     __table_args__ = (
         UniqueConstraint(
@@ -558,6 +1034,8 @@ class BillingCampaign(BillingTableMixin, db.Model):
 
 
 class BillingCampaignProduct(BillingTableMixin, db.Model):
+    """Persist billing campaign product records."""
+
     __tablename__ = "bill_campaign_products"
     __table_args__ = (
         UniqueConstraint(
@@ -620,7 +1098,246 @@ class BillingCampaignProduct(BillingTableMixin, db.Model):
     )
 
 
+class BillingCampaignProviderDiscount(BillingTableMixin, db.Model):
+    """Persist provider discount mappings for billing campaigns."""
+
+    __tablename__ = "bill_campaign_provider_discounts"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_provider_discount_bid",
+            name="uq_bill_campaign_provider_discounts_bid",
+        ),
+        UniqueConstraint(
+            "provider",
+            "provider_account_id",
+            "provider_coupon_id",
+            "provider_coupon_live_scope",
+            name="uq_bill_campaign_provider_discounts_coupon",
+        ),
+        UniqueConstraint(
+            "campaign_bid",
+            "product_bid",
+            "product_provider_price_bid",
+            "provider",
+            "provider_account_id",
+            "active_scope",
+            name="uq_bill_campaign_provider_discounts_active_scope",
+        ),
+        Index(
+            "ix_bill_campaign_provider_discounts_campaign_product",
+            "campaign_bid",
+            "product_bid",
+            "product_provider_price_bid",
+            "provider",
+            "provider_account_id",
+        ),
+        Index(
+            "ix_bill_campaign_provider_discounts_product_status",
+            "product_bid",
+            "status",
+        ),
+        {"comment": "Provider discounts published from billing campaigns"},
+    )
+
+    campaign_provider_discount_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Campaign provider discount business identifier",
+    )
+    campaign_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing campaign business identifier",
+    )
+    product_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing product business identifier",
+    )
+    product_provider_price_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Billing product provider price mapping business identifier",
+    )
+    provider = Column(
+        String(32),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Payment provider name",
+    )
+    provider_account_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider account identifier",
+    )
+    provider_product_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Provider product identifier",
+    )
+    provider_price_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider price identifier",
+    )
+    provider_coupon_id = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Provider coupon identifier",
+    )
+    livemode = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Provider live mode flag",
+    )
+    benefit_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Campaign benefit type code",
+    )
+    discount_type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Campaign discount type code",
+    )
+    list_price_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="List price amount in minor units",
+    )
+    campaign_price_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Campaign price amount in minor units",
+    )
+    discount_amount = Column(
+        BIGINT,
+        nullable=False,
+        default=0,
+        comment="Discount amount in minor units",
+    )
+    discount_percent = Column(
+        Numeric(6, 2),
+        nullable=False,
+        default=0,
+        comment="Discount percent value",
+    )
+    currency = Column(
+        String(16),
+        nullable=False,
+        default="",
+        comment="Currency code",
+    )
+    duration = Column(
+        String(16),
+        nullable=False,
+        default="once",
+        comment="Provider discount duration",
+    )
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_DRAFT,
+        index=True,
+        comment="Provider discount status code",
+    )
+    provider_coupon_live_scope = Column(
+        String(16),
+        Computed(
+            "CASE WHEN deleted = 0 AND provider_coupon_id <> '' THEN 'live' "
+            "ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one live provider coupon mapping",
+    )
+    active_scope = Column(
+        String(16),
+        Computed(
+            f"CASE WHEN status = {BILLING_CAMPAIGN_PROVIDER_DISCOUNT_STATUS_ACTIVE} "
+            "AND deleted = 0 THEN 'active' ELSE NULL END",
+            persisted=True,
+        ),
+        nullable=True,
+        comment="Generated key enforcing one active discount per campaign SKU price",
+    )
+    validated_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Last provider validation timestamp",
+    )
+    activated_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Activation timestamp",
+    )
+    retired_at = Column(
+        DateTime,
+        nullable=True,
+        comment="Retirement timestamp",
+    )
+    failure_code = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="Provider discount failure code",
+    )
+    failure_message = Column(
+        String(500),
+        nullable=False,
+        default="",
+        comment="Provider discount failure message",
+    )
+    replaces_discount_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Previous provider discount business identifier",
+    )
+    metadata_json = Column(
+        "metadata",
+        JSON,
+        nullable=True,
+        comment="Provider discount metadata",
+    )
+    created_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Creator user business identifier",
+    )
+    updated_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        index=True,
+        comment="Last updater user business identifier",
+    )
+
+
 class CreditWallet(BillingTableMixin, db.Model):
+    """Persist credit wallet records."""
+
     __tablename__ = "credit_wallets"
     __table_args__ = (
         UniqueConstraint(
@@ -684,6 +1401,8 @@ class CreditWallet(BillingTableMixin, db.Model):
 
 
 class CreditWalletBucket(BillingTableMixin, db.Model):
+    """Persist credit wallet bucket records."""
+
     __tablename__ = "credit_wallet_buckets"
     __table_args__ = (
         UniqueConstraint(
@@ -816,6 +1535,8 @@ class CreditWalletBucket(BillingTableMixin, db.Model):
 
 
 class CreditLedgerEntry(BillingTableMixin, db.Model):
+    """Persist credit ledger entry records."""
+
     __tablename__ = "credit_ledger_entries"
     __table_args__ = (
         UniqueConstraint(
@@ -926,6 +1647,8 @@ class CreditLedgerEntry(BillingTableMixin, db.Model):
 
 
 class NotificationRecord(BillingTableMixin, db.Model):
+    """Persist notification record records."""
+
     __tablename__ = "notification_records"
     __table_args__ = (
         UniqueConstraint(
@@ -1015,6 +1738,21 @@ class NotificationRecord(BillingTableMixin, db.Model):
         default="",
         index=True,
         comment="Target user business identifier",
+    )
+    recipient_type = Column(
+        String(32),
+        nullable=False,
+        default="mobile",
+        server_default="mobile",
+        comment="Recipient contact type",
+    )
+    recipient_snapshot = Column(
+        String(255),
+        nullable=False,
+        default="",
+        server_default="",
+        index=True,
+        comment="Recipient contact snapshot",
     )
     mobile_snapshot = Column(
         String(32),
@@ -1113,6 +1851,8 @@ class NotificationRecord(BillingTableMixin, db.Model):
 
 
 class NotificationTemplate(BillingTableMixin, db.Model):
+    """Persist notification template records."""
+
     __tablename__ = "notification_templates"
     __table_args__ = (
         UniqueConstraint(
@@ -1171,6 +1911,21 @@ class NotificationTemplate(BillingTableMixin, db.Model):
         Text,
         nullable=True,
         comment="Provider template content",
+    )
+    locale = Column(
+        String(16),
+        nullable=True,
+        comment="Email template locale",
+    )
+    email_subject = Column(
+        Text,
+        nullable=True,
+        comment="Email template subject",
+    )
+    email_html_body = Column(
+        Text,
+        nullable=True,
+        comment="Email template HTML body",
     )
     template_status = Column(
         String(64),
@@ -1237,6 +1992,8 @@ class NotificationTemplate(BillingTableMixin, db.Model):
 
 
 class CreditUsageRate(BillingTableMixin, db.Model):
+    """Persist credit usage rate records."""
+
     __tablename__ = "credit_usage_rates"
     __table_args__ = (
         UniqueConstraint(
@@ -1343,6 +2100,8 @@ class CreditUsageRate(BillingTableMixin, db.Model):
 
 
 class BillingRenewalEvent(BillingTableMixin, db.Model):
+    """Persist billing renewal event records."""
+
     __tablename__ = "bill_renewal_events"
     __table_args__ = (
         UniqueConstraint(
@@ -1435,6 +2194,8 @@ class BillingRenewalEvent(BillingTableMixin, db.Model):
 
 
 class BillingEntitlement(BillingTableMixin, db.Model):
+    """Persist billing entitlement records."""
+
     __tablename__ = "bill_entitlements"
     __table_args__ = (
         UniqueConstraint(
@@ -1531,6 +2292,8 @@ class BillingEntitlement(BillingTableMixin, db.Model):
 
 
 class BillingDomainBinding(BillingTableMixin, db.Model):
+    """Persist billing domain binding records."""
+
     __tablename__ = "bill_domain_bindings"
     __table_args__ = (
         UniqueConstraint(
@@ -1609,6 +2372,8 @@ class BillingDomainBinding(BillingTableMixin, db.Model):
 
 
 class BillingDailyUsageMetric(BillingTableMixin, db.Model):
+    """Persist billing daily usage metric records."""
+
     __tablename__ = "bill_daily_usage_metrics"
     __table_args__ = (
         UniqueConstraint(
@@ -1725,6 +2490,8 @@ class BillingDailyUsageMetric(BillingTableMixin, db.Model):
 
 
 class BillingDailyLedgerSummary(BillingTableMixin, db.Model):
+    """Persist billing daily ledger summary records."""
+
     __tablename__ = "bill_daily_ledger_summary"
     __table_args__ = (
         UniqueConstraint(

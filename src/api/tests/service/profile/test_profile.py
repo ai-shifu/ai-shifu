@@ -1,13 +1,137 @@
-import flaskr.service.profile.profile_manage as profile_manage
+"""Verify learner-profile definitions, visibility, and variable usage."""
+
+import pytest
+from flaskr.dao import db
+from flaskr.service.profile import profile_manage
+from flaskr.service.profile.funcs import (
+    get_profile_labels,
+    get_user_profile_labels,
+    update_user_profile_with_lable,
+)
+from flaskr.service.profile.models import VariableValue
 from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,
     get_profile_item_definition_list,
-    hide_unused_profile_items,
     get_profile_variable_usage,
+    hide_unused_profile_items,
 )
+from flaskr.service.user.repository import create_user_entity, load_user_aggregate
 
 
-def test_add_profile_item_quick_creates_definition(app):
+def test_profile_language_options_use_shared_locale_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_locale_labels",
+        lambda: {"es-ES": "Español", "ja-JP": "日本語"},
+    )
+
+    language = get_profile_labels()["language"]
+
+    assert language["items"] == ["Español", "日本語"]
+    assert language["items_mapping"] == {
+        "es-ES": "Español",
+        "ja-JP": "日本語",
+    }
+
+
+@pytest.mark.parametrize(
+    ("stored_language", "expected_language"),
+    [
+        ("en", "en-US"),
+        (" EN_us ", "en-US"),
+        ("en-GB", "en-US"),
+        ("fr-CA", "fr-FR"),
+        ("ar", "ar-SA"),
+        ("ar_AE", "ar-SA"),
+        ("th", "th-TH"),
+        ("zh-Hans-CN", "zh-CN"),
+        ("English", "en-US"),
+        ("th-TH", "th-TH"),
+        ("unsupported", "zh-CN"),
+        ("", "en-US"),
+    ],
+)
+def test_profile_language_round_trip_preserves_legacy_locale(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    stored_language: str,
+    expected_language: str,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [],
+    )
+
+    with app.app_context():
+        user_bid = f"profile-language-{stored_language}"
+        create_user_entity(
+            user_bid=user_bid,
+            identify=user_bid,
+            language=stored_language,
+        )
+        db.session.flush()
+        original_language = load_user_aggregate(user_bid).language
+
+        profiles = get_user_profile_labels(app, user_bid, "course-one").profiles
+        language_profile = next(item for item in profiles if item.key == "language")
+        expected_label = get_profile_labels()["language"]["items_mapping"][
+            expected_language
+        ]
+        assert language_profile.value == expected_label
+        # Reading a display label must not rewrite persisted preferences.
+        assert load_user_aggregate(user_bid).language == original_language
+
+        update_user_profile_with_lable(
+            app,
+            user_bid,
+            [language_profile],
+            update_all=True,
+            course_id="course-one",
+        )
+        assert load_user_aggregate(user_bid).language == expected_language
+
+
+@pytest.mark.parametrize("with_aggregate", [False, True])
+def test_sex_label_resolves_stored_string_without_requiring_aggregate(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    with_aggregate: bool,
+) -> None:
+    monkeypatch.setattr(
+        "flaskr.service.profile.funcs.get_profile_item_definition_list",
+        lambda *_args, **_kwargs: [],
+    )
+
+    with app.app_context():
+        user_bid = f"sex-label-string-{with_aggregate}"
+        if with_aggregate:
+            create_user_entity(
+                user_bid=user_bid,
+                identify=user_bid,
+                nickname="Test learner",
+                language="en-US",
+            )
+        db.session.add(
+            VariableValue(
+                variable_value_bid=f"sex-value-{with_aggregate}",
+                variable_bid="sex-variable",
+                shifu_bid="",
+                user_bid=user_bid,
+                key="sex",
+                value="2",
+            )
+        )
+        db.session.commit()
+
+        labels = get_user_profile_labels(app, user_bid, "course-one").profiles
+        female_label = get_profile_labels()["sex"]["items_mapping"][2]
+
+    assert next(item.value for item in labels if item.key == "sex") == female_label
+
+
+def test_add_profile_item_quick_creates_definition(app: object) -> None:
     with app.app_context():
         definition = add_profile_item_quick(
             app,
@@ -21,14 +145,14 @@ def test_add_profile_item_quick_creates_definition(app):
         assert any(item.profile_key == "favorite_color" for item in definitions)
 
 
-def test_hide_unused_profile_items_no_unused(monkeypatch):
+def test_hide_unused_profile_items_no_unused(monkeypatch: object) -> None:
     calls = []
 
-    def fake_get_unused(_app, parent_id):
+    def fake_get_unused(_app: object, parent_id: object) -> object:
         calls.append(("unused", parent_id))
         return []
 
-    def fake_get_defs(_app, parent_id=None):
+    def fake_get_defs(_app: object, parent_id: object = None) -> object:
         calls.append(("defs", parent_id))
         return ["defs"]
 
@@ -46,14 +170,20 @@ def test_hide_unused_profile_items_no_unused(monkeypatch):
     assert ("defs", "shifu_bid") in calls
 
 
-def test_hide_unused_profile_items_updates_hidden(monkeypatch):
+def test_hide_unused_profile_items_updates_hidden(monkeypatch: object) -> None:
     calls = []
 
-    def fake_get_unused(_app, parent_id):
+    def fake_get_unused(_app: object, parent_id: object) -> object:
         calls.append(("unused", parent_id))
         return ["v1", "v2"]
 
-    def fake_update(_app, parent_id, profile_keys, hidden, user_id):
+    def fake_update(
+        _app: object,
+        parent_id: object,
+        profile_keys: object,
+        hidden: object,
+        user_id: object,
+    ) -> object:
         calls.append(("update", parent_id, tuple(profile_keys), hidden, user_id))
         return ["updated"]
 
@@ -69,10 +199,12 @@ def test_hide_unused_profile_items_updates_hidden(monkeypatch):
     assert ("update", "shifu_bid", ("v1", "v2"), True, "user_bid") in calls
 
 
-def test_get_profile_variable_usage_groups_keys(monkeypatch):
+def test_get_profile_variable_usage_groups_keys(monkeypatch: object) -> None:
     calls = []
 
-    def fake_get_defs(_app, parent_id=None, _type="all"):
+    def fake_get_defs(
+        _app: object, parent_id: object = None, _type: object = "all"
+    ) -> object:
         calls.append(("defs", parent_id))
         return [
             # system key should be ignored
@@ -83,7 +215,7 @@ def test_get_profile_variable_usage_groups_keys(monkeypatch):
             object.__class__("obj", (), {"profile_scope": "user", "profile_key": "k2"}),
         ]
 
-    def fake_collect(_app, parent_id):
+    def fake_collect(_app: object, parent_id: object) -> object:
         calls.append(("collect", parent_id))
         return {"k2"}
 

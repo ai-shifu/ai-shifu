@@ -1,19 +1,21 @@
+"""Verify billing renewal compensation behavior."""
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from flask import Flask
 import pytest
-
-import flaskr.dao as dao
+from flask import Flask
+from flaskr import dao
+from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.consts import (
     BILLING_ORDER_STATUS_PAID,
     BILLING_ORDER_STATUS_PENDING,
     BILLING_ORDER_TYPE_SUBSCRIPTION_RENEWAL,
     BILLING_SUBSCRIPTION_STATUS_ACTIVE,
 )
-from flaskr.service.billing.checkout import sync_billing_order
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingSubscription,
@@ -23,17 +25,23 @@ from flaskr.service.billing.models import (
 )
 from flaskr.service.billing.webhooks import apply_billing_stripe_notification
 from flaskr.service.order.payment_providers.base import PaymentNotificationResult
+
 from tests.common.fixtures.bill_products import build_bill_products
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _MONTHLY_PLAN_CREDITS = Decimal("5.0000000000")
 
 
 def _utc_epoch(value: datetime) -> int:
-    return int(value.replace(tzinfo=timezone.utc).timestamp())
+    return int(value.replace(tzinfo=UTC).timestamp())
 
 
 @pytest.fixture
-def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch):
+def billing_renewal_compensation_env(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[dict[str, object]]:
     app = Flask(__name__)
     app.testing = True
     app.config.update(
@@ -50,7 +58,10 @@ def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch):
     sync_state: dict[str, dict] = {"subscription": {}}
 
     class FakeStripeProvider:
-        def sync_reference(self, *, provider_reference: str, reference_type: str, app):
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
             assert reference_type == "subscription"
             assert provider_reference == sync_state["subscription"]["id"]
             return PaymentNotificationResult(
@@ -62,7 +73,7 @@ def billing_renewal_compensation_env(monkeypatch: pytest.MonkeyPatch):
 
     monkeypatch.setattr(
         "flaskr.service.billing.checkout.get_payment_provider",
-        lambda channel: FakeStripeProvider(),
+        lambda _channel: FakeStripeProvider(),
     )
 
     with app.app_context():
@@ -128,7 +139,7 @@ def _create_renewal_order(
 
 
 def test_sync_billing_order_marks_subscription_renewal_paid(
-    billing_renewal_compensation_env,
+    billing_renewal_compensation_env: object,
 ) -> None:
     app = billing_renewal_compensation_env["app"]
     sync_state = billing_renewal_compensation_env["sync_state"]
@@ -193,7 +204,7 @@ def test_sync_billing_order_marks_subscription_renewal_paid(
 
 
 def test_stripe_subscription_webhook_matches_pending_renewal_order_and_grants(
-    billing_renewal_compensation_env,
+    billing_renewal_compensation_env: object,
 ) -> None:
     app = billing_renewal_compensation_env["app"]
     cycle_start_at = datetime(2026, 7, 1, 0, 0, 0)

@@ -1,0 +1,135 @@
+/**
+ * File upload utility functions
+ */
+import { useUserStore } from '@/store';
+import { getDynamicApiBaseUrl } from '@/config/environment';
+import { getStringEnv } from '@/lib/envUtils';
+import { buildTraceHeaders } from './request-trace';
+
+/**
+ * Upload a file to the server using FormData and fetch
+ * @param file - The file to upload
+ * @param url - The API endpoint URL
+ * @param params - Additional parameters to include in the request
+ * @param headers - Additional headers to include in the request
+ * @param onProgress - Optional callback for upload progress
+ * @returns Promise with the server response
+ */
+export const uploadFile = async (
+  file: File,
+  url: string,
+  params?: Record<string, string>,
+  headers?: Record<string, string>,
+  onProgress?: (progress: number) => void,
+): Promise<Response> => {
+  // Create a new FormData instance
+  const formData = new FormData();
+
+  // Append the file to the FormData
+  formData.append('file', file);
+
+  // Handle URL
+  let fullUrl = url;
+  if (!fullUrl.startsWith('http')) {
+    if (typeof window !== 'undefined') {
+      // Client: use cached API base URL to avoid repeated requests
+      const siteHost = await getDynamicApiBaseUrl();
+      fullUrl = (siteHost || window.location.origin || '') + url;
+    } else {
+      // Fallback for server-side rendering
+      fullUrl = (getStringEnv('baseURL') || '') + url;
+    }
+  }
+  // Append any additional parameters
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+  }
+
+  // If we have a progress callback and the browser supports XMLHttpRequest
+  if (onProgress && typeof XMLHttpRequest !== 'undefined') {
+    return new Promise(async (resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      xhr.open('POST', fullUrl);
+
+      // Get token
+      const token = useUserStore.getState().getToken();
+
+      const traceHeaders = buildTraceHeaders({
+        ...(headers || {}),
+        ...(token
+          ? {
+              Authorization: `Bearer ${token}`,
+              Token: token,
+            }
+          : {}),
+      });
+      Object.entries(traceHeaders.headers).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+
+      xhr.upload.addEventListener('progress', event => {
+        if (event.lengthComputable) {
+          const progress = Math.round((event.loaded / event.total) * 100);
+          onProgress(progress);
+        }
+      });
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const response = new Response(xhr.response, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers: new Headers(
+              xhr
+                .getAllResponseHeaders()
+                .split('\r\n')
+                .filter(Boolean)
+                .reduce(
+                  (acc, header) => {
+                    const [key, value] = header.split(': ');
+                    acc[key.toLowerCase()] = value;
+                    return acc;
+                  },
+                  {} as Record<string, string>,
+                ),
+            ),
+          });
+          resolve(response);
+        } else {
+          reject(new Error(`HTTP Error: ${xhr.status}`));
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('Network Error'));
+      };
+
+      xhr.send(formData);
+    });
+  } else {
+    // Use standard fetch API if no progress tracking is needed
+    // Get token
+    const token = useUserStore.getState().getToken();
+
+    const traceHeaders = buildTraceHeaders({
+      ...(headers || {}),
+      ...(token
+        ? {
+            Authorization: `Bearer ${token}`,
+            Token: token,
+          }
+        : {}),
+    });
+
+    const requestOptions: RequestInit = {
+      method: 'POST',
+      body: formData,
+      headers: traceHeaders.headers,
+    };
+
+    return fetch(url, requestOptions);
+  }
+};

@@ -12,10 +12,9 @@ Handles:
 
 import ast
 import os
+from pathlib import Path
 
-ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-)
+ROOT = str((Path(__file__).resolve().parent / ".." / "..").resolve())
 
 CALLED_PREFIX = {
     "flaskr/route/common.py": "",
@@ -32,18 +31,20 @@ CALLED_PREFIX = {
 
 route_files = []
 for base in ("flaskr/route", "flaskr/service", "flaskr/common"):
-    for dirpath, dirnames, filenames in os.walk(os.path.join(ROOT, base)):
+    for dirpath, dirnames, filenames in os.walk(str(Path(ROOT) / base)):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         for fn in filenames:
             if fn.endswith(".py"):
-                p = os.path.join(dirpath, fn)
-                if ".route(" in open(p, encoding="utf-8").read():
-                    route_files.append(os.path.relpath(p, ROOT))
+                p = str(Path(dirpath) / fn)
+                with Path(p).open(encoding="utf-8") as route_file:
+                    if ".route(" in route_file.read():
+                        route_files.append(os.path.relpath(p, ROOT))
 
 results = []
 
 
-def literal(node, env):
+def literal(node: object, env: object) -> object:
+    """Resolve an AST expression to its route-path text."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     if isinstance(node, ast.Name):
@@ -58,10 +59,10 @@ def literal(node, env):
             elif isinstance(v, ast.FormattedValue):
                 out += literal(v.value, env)
         return out
-    return "<expr:%s>" % ast.unparse(node)
+    return f"<expr:{ast.unparse(node)}>"
 
 
-def config_get_default(node):
+def config_get_default(node: object) -> object:
     """app.config.get('KEY', 'default') -> 'default'."""
     if (
         isinstance(node, ast.Call)
@@ -75,7 +76,8 @@ def config_get_default(node):
     return None
 
 
-def collect_routes(scope_body, env, rel):
+def collect_routes(scope_body: object, env: object, rel: object) -> None:
+    """Collect routes."""
     for node in scope_body:
         if (
             isinstance(node, ast.Assign)
@@ -111,8 +113,9 @@ def collect_routes(scope_body, env, rel):
                                 methods = ast.literal_eval(kw.value)
                             except Exception:
                                 methods = ["<dyn>"]
-                    for m in methods:
-                        results.append((m, path, rel, node.lineno, node.name))
+                    results.extend(
+                        (m, path, rel, node.lineno, node.name) for m in methods
+                    )
             # recurse into nested scopes (rare but cheap)
             collect_routes(node.body, dict(env), rel)
         elif isinstance(node, (ast.If, ast.With, ast.Try, ast.For, ast.While)):
@@ -123,7 +126,8 @@ def collect_routes(scope_body, env, rel):
 
 
 for rel in sorted(route_files):
-    src = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+    with (Path(ROOT) / rel).open(encoding="utf-8") as route_file:
+        src = route_file.read()
     tree = ast.parse(src)
     for fn in tree.body:
         if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -141,7 +145,7 @@ for rel in sorted(route_files):
             ):
                 env[arg.arg] = a.defaults[di].value
         # keyword-only defaults
-        for arg, d in zip(a.kwonlyargs, a.kw_defaults):
+        for arg, d in zip(a.kwonlyargs, a.kw_defaults, strict=False):
             if (
                 d is not None
                 and isinstance(d, ast.Constant)
@@ -180,8 +184,9 @@ for rel in sorted(route_files):
                                 methods = ast.literal_eval(kw.value)
                             except Exception:
                                 methods = ["<dyn>"]
-                    for m in methods:
-                        results.append((m, path, rel, node.lineno, node.name))
+                    results.extend(
+                        (m, path, rel, node.lineno, node.name) for m in methods
+                    )
 
 seen = set()
 unresolved = 0

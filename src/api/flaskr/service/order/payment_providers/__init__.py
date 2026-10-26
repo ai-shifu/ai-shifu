@@ -1,10 +1,12 @@
+"""Payment provider adapters."""
+
 from .base import (
-    PaymentProvider,
-    PaymentRequest,
     PaymentCreationResult,
     PaymentNotificationResult,
+    PaymentProvider,
     PaymentRefundRequest,
     PaymentRefundResult,
+    PaymentRequest,
     SubscriptionUpdateResult,
 )
 
@@ -15,7 +17,8 @@ def register_payment_provider(provider_cls: type[PaymentProvider]) -> None:
     """Register a payment provider class keyed by its declared channel."""
     channel = provider_cls.channel
     if not channel:
-        raise ValueError("Payment provider must declare a non-empty channel")
+        message = "Payment provider must declare a non-empty channel"
+        raise ValueError(message)
     _PROVIDER_REGISTRY[channel] = provider_cls
 
 
@@ -24,24 +27,27 @@ def get_payment_provider(channel: str) -> PaymentProvider:
     try:
         provider_cls = _PROVIDER_REGISTRY[channel]
     except KeyError as exc:
-        raise ValueError(f"Unsupported payment channel: {channel}") from exc
+        message = f"Unsupported payment channel: {channel}"
+        raise ValueError(message) from exc
     return provider_cls()
 
 
 __all__ = [
-    "PaymentProvider",
-    "PaymentRequest",
     "PaymentCreationResult",
     "PaymentNotificationResult",
+    "PaymentProvider",
     "PaymentRefundRequest",
     "PaymentRefundResult",
+    "PaymentRequest",
     "SubscriptionUpdateResult",
-    "register_payment_provider",
     "get_payment_provider",
+    "register_payment_provider",
 ]
 
 # Ensure built-in providers are registered on import.
-from . import pingxx  # noqa: E402,F401
-from . import stripe  # noqa: E402,F401
-from . import alipay  # noqa: E402,F401
-from . import wechatpay  # noqa: E402,F401
+from . import (  # noqa: E402
+    alipay,  # noqa: F401
+    pingxx,  # noqa: F401
+    stripe,  # noqa: F401
+    wechatpay,  # noqa: F401
+)

@@ -1,4 +1,4 @@
-"""add billing order expires_at
+"""add billing order expires_at.
 
 Revision ID: c5d8e1f2a3b4
 Revises: b8c1d2e3f4a5
@@ -8,9 +8,8 @@ Create Date: 2026-06-09 15:40:00.000000
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision = "c5d8e1f2a3b4"
 down_revision = "b8c1d2e3f4a5"
