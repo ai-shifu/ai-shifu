@@ -54,7 +54,11 @@ Password login also resolves the identifier stored in a usable password
 credential, independently of later changes to the canonical contact. Both
 password entrypoints and the token-issuance recheck use the same resolution;
 conflicting identifiers across accounts are rejected rather than guessed.
-Console recovery retains that password login path. Ordinary OTP and recovery
+Console recovery retains that password login path. Its selector is the original
+setup identifier and its target is the stable account/password-credential
+mapping. An operator contact replacement may update the password login
+identifier without changing that console selector; recovery does not recreate
+the replaced contact or add a login alias. Ordinary OTP and recovery
 continue to follow the current canonical or bound phone/email contact; a
 password-only identifier does not itself create a verified contact binding.
 Google email-based account association likewise requires a verified email claim;

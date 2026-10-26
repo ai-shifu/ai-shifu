@@ -265,6 +265,33 @@ refers to the same account, and setup does not claim contact verification.
   stub before the memory test imported the real SDK executor. Both groups
   passed independently without source, fixture, assertion or skip changes.
   New-head full CI remains authoritative for their combined target set.
+- [x] 2026-10-26 11:37 UTC: Published `64f77c5d` using the exact prior-head
+  lease. All seven Actions passed on test merge `88deeb48`, including 15,456
+  backend passes /15 skips /278 warnings (557.12s, full/no deselection), 3,518
+  frontend tests and four Runtime browser cases on their first attempt (8.3s).
+  Runtime's verified artifact shows Gunicorn master PID 1 did not start a
+  watcher; worker PID 61 did. No earlier hub assertion appears and all four
+  installation-status requests returned 200. Native arm64 API/Web image smoke
+  passed; publication steps were skipped. No coverage was collected.
+- [x] 2026-10-26 11:37 UTC: Current-head review identified a related console
+  recovery regression after operator contact replacement. Two real issued-code
+  verification/replacement/recovery tests failed at the old mutable-identifier
+  comparison. Preserve the initial console selector and validate the locked
+  account/credential IDs after re-reading the binding instead. Keep legacy
+  username matching strict, ordinary contact login separate, and sessions
+  revoked. New email/phone, decoy-account, changed-binding and revoked-state
+  controls passed (22 new cases); the focused recovery set passed 30 cases.
+  The adjacent set passed 140 with one existing fixture TCP-bind `EPERM`.
+  Installation guidance now explains the stable selector in both languages.
+- [ ] 2026-10-26 11:37 UTC: Complete user-domain/HTTP/CLI and repository checks,
+  publish the recovery review correction, reply to its verified thread and
+  obtain that new head's CI. The `64f77c5d` successes remain historical evidence.
+- [x] 2026-10-26 11:40 UTC: Complete user-domain, installation HTTP, console
+  and contract regression passed 1,191 tests with 273 warnings in 176.71s.
+  The sole failure was the existing rate-limit fixture's TCP listener bind
+  `EPERM`, before its behavior assertions. No test was skipped or weakened.
+  Independent final review confirmed stable mapping, real verification,
+  decoy isolation, legacy checks and matching documentation without a blocker.
 - [ ] 2026-10-25 UTC: The single-check rerun request returned HTTP 404 through
   the current GitHub connection; no rerun is confirmed from that request.
   Do not retry it or widen permissions. Observe the final source revision's

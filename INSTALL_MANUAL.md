@@ -597,7 +597,11 @@ docker compose -f docker-compose.latest.yml exec ai-shifu-api \
   flask console reset-admin-password --identifier owner@example.com
 ```
 
-Enter the account's actual login identifier in place of `owner@example.com`.
+Enter the identifier originally chosen during administrator setup in place of
+`owner@example.com`. This console recovery selector stays unchanged if an
+operator later replaces the account's contact; recovery follows the same
+stored account and password credential. Sign in with the current password
+login identifier after a contact replacement.
 Recovery prompts for a hidden new password and revokes the previous sessions. It does not reopen
 Web setup. An existing installation can explicitly create its first local
 administrator through the server-console command without replacing existing

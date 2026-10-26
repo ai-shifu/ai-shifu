@@ -66,6 +66,7 @@ docker compose -f docker-compose.latest.yml up -d
 - `LLM_MODEL_1_ID` 必填且没有默认值；2–9 号模型 ID 可选，支持跳号。所有编号的 `NAME` 均可选，未填写或留空时直接显示该编号配置的模型 ID；只有名称、没有模型 ID 的编号不会展示。历史课程中的无效选择自动使用 1 号，无需数据清洗。
 - 已有安装升级前，请按照[编号模型升级说明](INSTALL_MANUAL.md#upgrading-to-numbered-models)完成新编号配置，再启动新镜像；latest、固定版本和开发模式均适用。
 - 新安装通过服务器控制台获取一次性初始化码，创建本地管理员和老师账号，并自动获得内置 Demo 课程的所有权。短信、SMTP 和 OAuth 可在需要学员登录或通知时再配置，详见[首位管理员初始化](INSTALL_MANUAL.md#first-administrator-setup)。
+- 控制台密码恢复始终使用首次初始化时填写的标识，即使运营人员后来替换了账号的联系方式。恢复会重置同一账号的当前密码并撤销旧会话；登录时使用当前的密码登录标识。
 - 默认不配置通用验证码。普通部署需要使用已配置的短信或邮件服务商实际签发的验证码。隔离的开发或测试环境可按[显式开发登录说明](INSTALL_MANUAL.md#local-demo-login)启用测试旁路。
 - 已有部署必须[升级 API 代码或镜像并移除旧旁路配置](INSTALL_MANUAL.md#upgrading-existing-verification-code-deployments)；仅修改环境示例文件不会修复旧镜像。
 - `docker-compose.latest.yml` 使用 `:latest` 镜像标签，适合希望获取最新构建的场景（或在本地构建 `:latest` 镜像后启动）；全新安装固定版本时，需同时使用下方的 `docker-compose.yml` 与 `docker-compose.secret-key.yml`。

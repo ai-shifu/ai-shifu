@@ -116,10 +116,17 @@ def lock_local_admin_credentials(
     if credential_bid:
         account_query = account_query.filter_by(credential_bid=credential_bid)
     account = account_query.populate_existing().with_for_update().first()
-    if account is None:
+    if account is None or account.credential_bid != credential.credential_bid:
         raise_error("server.user.invalidCredentials")
     validate_local_binding(account, account.identifier)
-    if credential.identifier != account.identifier:
+    # The setup contact is a durable console recovery key. Ordinary contact
+    # replacement may rename the same password credential without changing this
+    # binding; authority comes from its locked user/credential IDs. Legacy names
+    # still require their explicit, unchanged password mapping.
+    if (
+        account.identifier_kind == "legacy_username"
+        and credential.identifier != account.identifier
+    ):
         raise_error("server.user.invalidCredentials")
     return user, account, credential
 

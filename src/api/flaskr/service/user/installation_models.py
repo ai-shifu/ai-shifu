@@ -37,7 +37,7 @@ class InstallationState(db.Model):
 
 
 class LocalAdminAccount(db.Model):
-    """Bind an unverified contact login identifier to its local password credential."""
+    """Record the original setup identifier and stable account/password mapping."""
 
     __tablename__ = "user_local_admin_accounts"
 

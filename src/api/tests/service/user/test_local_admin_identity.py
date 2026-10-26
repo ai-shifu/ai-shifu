@@ -13,13 +13,19 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.user import local_accounts, password_flow
+from flaskr.service.user import (
+    email_flow,
+    local_accounts,
+    operator_contact_change,
+    password_flow,
+    phone_flow,
+)
 from flaskr.service.user.auth import get_provider
 from flaskr.service.user.auth.base import VerificationRequest
 from flaskr.service.user.auth.providers import password as password_provider
 from flaskr.service.user.consts import CREDENTIAL_STATE_UNVERIFIED
 from flaskr.service.user.installation_models import LocalAdminAccount
-from flaskr.service.user.models import AuthCredential, UserToken
+from flaskr.service.user.models import AuthCredential, UserToken, UserVerifyCode
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.password_utils import verify_password
 from flaskr.service.user.repository import (
@@ -382,6 +388,268 @@ def test_console_reset_revokes_sessions_and_rejects_inflight_old_password_eviden
         with pytest.raises(AppError):
             _verify(app, identifier)
         assert _verify(app, identifier, "Recovered123").user.user_id == user_bid
+
+
+def _verify_and_replace_admin_contact(
+    app: Flask,
+    user_bid: str,
+    identifier: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> str:
+    kind = "email" if "@" in identifier else "phone"
+    replacement = (
+        f"replacement_{uuid.uuid4().hex[:12]}@example.com"
+        if kind == "email"
+        else f"139{uuid.uuid4().int % 100_000_000:08d}"
+    )
+    monkeypatch.setattr(
+        operator_contact_change, "resolve_primary_contact_type", lambda: kind
+    )
+    record = UserVerifyCode(
+        mail=identifier if kind == "email" else "",
+        phone=identifier if kind == "phone" else "",
+        verify_code="5678",
+        verify_code_type=2 if kind == "email" else 1,
+        verify_code_send=1,
+        verify_code_used=0,
+    )
+    with unit_of_work():
+        db.session.add(record)
+    if kind == "email":
+        token, created, _context = email_flow.verify_email_code(
+            app, user_id=user_bid, email=identifier, code="5678"
+        )
+    else:
+        token, created, _context = phone_flow.verify_phone_code(
+            app, user_id=user_bid, phone=identifier, code="5678"
+        )
+    assert token.userInfo.user_id == user_bid
+    assert not created
+    assert record.verify_code_used == 1
+    with unit_of_work():
+        db.session.delete(record)
+    operator_contact_change.change_operator_user_contact(
+        app,
+        user_bid=user_bid,
+        operator_user_bid=user_bid,
+        contact_type=kind,
+        new_identifier=replacement,
+        reason="Synthetic administrator contact replacement",
+    )
+    return replacement
+
+
+def test_console_reset_preserves_recovery_after_verified_contact_replacement(
+    app: Flask, local_admin: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_bid, identifier = local_admin
+    cache = FakeRedis()
+    monkeypatch.setattr(token_store, "_cache", cache)
+    with app.app_context():
+        credential_bid = (
+            LocalAdminAccount.query.filter_by(user_bid=user_bid).one().credential_bid
+        )
+        replacement = _verify_and_replace_admin_contact(
+            app, user_bid, identifier, monkeypatch
+        )
+        result = _verify(app, replacement)
+        with unit_of_work():
+            token_store.save(
+                app,
+                user_id=user_bid,
+                token="after-contact-replacement",
+                ttl_seconds=300,
+            )
+        token_key = token_store._cache_key(app, "after-contact-replacement")
+        assert cache.get(token_key)
+
+        local_accounts.reset_local_admin_password(
+            app, identifier=identifier, new_password="Recovered123"
+        )
+
+        binding = LocalAdminAccount.query.filter_by(user_bid=user_bid).one()
+        credential = AuthCredential.query.filter_by(credential_bid=credential_bid).one()
+        assert binding.identifier == identifier
+        assert binding.credential_bid == credential.credential_bid
+        assert credential.identifier == replacement
+        assert UserEntity.query.filter_by(user_bid=user_bid).one().user_identify == (
+            replacement
+        )
+        assert UserToken.query.filter_by(user_id=user_bid).count() == 0
+        assert cache.get(token_key) is None
+        with pytest.raises(AppError):
+            local_accounts.reset_local_admin_password(
+                app, identifier=replacement, new_password="UnboundReset123"
+            )
+        with pytest.raises(AppError), unit_of_work():
+            _confirm(result)
+        with pytest.raises(AppError):
+            _verify(app, replacement)
+        with pytest.raises(AppError):
+            _verify(app, identifier, "Recovered123")
+        assert _verify(app, replacement, "Recovered123").user.user_id == user_bid
+
+
+def test_console_reset_does_not_touch_a_new_owner_of_the_original_contact(
+    app: Flask, local_admin: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_bid, identifier = local_admin
+    ordinary_bid = uuid.uuid4().hex
+    try:
+        with app.app_context():
+            replacement = _verify_and_replace_admin_contact(
+                app, user_bid, identifier, monkeypatch
+            )
+            with unit_of_work():
+                create_user_entity(user_bid=ordinary_bid, identify=identifier)
+                ordinary_credential = password_flow.write_password_credential(
+                    app,
+                    user_bid=ordinary_bid,
+                    identifier=identifier,
+                    new_password="Ordinary123",
+                )
+                token_store.save(
+                    app,
+                    user_id=ordinary_bid,
+                    token="ordinary-owner-token",
+                    ttl_seconds=300,
+                )
+            original_hash = get_password_hash(ordinary_credential)
+
+            local_accounts.reset_local_admin_password(
+                app, identifier=identifier, new_password="Recovered123"
+            )
+
+            assert get_password_hash(ordinary_credential) == original_hash
+            assert UserToken.query.filter_by(user_id=ordinary_bid).count() == 1
+            assert _verify(app, identifier, "Ordinary123").user.user_id == ordinary_bid
+            assert _verify(app, replacement, "Recovered123").user.user_id == user_bid
+            assert (
+                not UserEntity.query.filter_by(user_bid=ordinary_bid).one().is_operator
+            )
+    finally:
+        with app.app_context(), unit_of_work():
+            UserToken.query.filter_by(user_id=ordinary_bid).delete()
+            AuthCredential.query.filter_by(user_bid=ordinary_bid).delete()
+            UserEntity.query.filter_by(user_bid=ordinary_bid).delete()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "user_deleted",
+        "operator",
+        "user_state",
+        "binding_deleted",
+        "credential_deleted",
+        "credential_provider",
+        "credential_state",
+    ],
+)
+def test_console_reset_requires_an_active_operator_and_bound_password_credential(
+    app: Flask, local_admin: tuple[str, str], mutation: str
+) -> None:
+    user_bid, identifier = local_admin
+    with app.app_context():
+        binding = LocalAdminAccount.query.filter_by(user_bid=user_bid).one()
+        credential = AuthCredential.query.filter_by(
+            credential_bid=binding.credential_bid
+        ).one()
+        original_hash = get_password_hash(credential)
+        with unit_of_work():
+            user = UserEntity.query.filter_by(user_bid=user_bid).one()
+            if mutation == "user_deleted":
+                user.deleted = 1
+            elif mutation == "operator":
+                user.is_operator = 0
+            elif mutation == "user_state":
+                user.state = 0
+            elif mutation == "binding_deleted":
+                binding.deleted = 1
+            elif mutation == "credential_deleted":
+                credential.deleted = 1
+            elif mutation == "credential_provider":
+                credential.provider_name = "email" if "@" in identifier else "phone"
+            else:
+                credential.state = CREDENTIAL_STATE_UNVERIFIED
+        with pytest.raises(AppError) as error:
+            local_accounts.reset_local_admin_password(
+                app, identifier=identifier, new_password="RejectedReset123"
+            )
+        assert error.value.code == ERROR_CODE["server.user.invalidCredentials"]
+        assert get_password_hash(credential) == original_hash
+
+
+def test_console_reset_rejects_a_binding_reassigned_while_locking_its_credential(
+    app: Flask, local_admin: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_bid, identifier = local_admin
+    original_lock = local_accounts.lock_password_credential
+    with app.app_context():
+        binding = LocalAdminAccount.query.filter_by(user_bid=user_bid).one()
+        original_bid = binding.credential_bid
+        original_credential = AuthCredential.query.filter_by(
+            credential_bid=original_bid
+        ).one()
+        original_hash = get_password_hash(original_credential)
+        with unit_of_work():
+            replacement_credential = password_flow.write_password_credential(
+                app,
+                user_bid=user_bid,
+                identifier=f"another_{uuid.uuid4().hex[:12]}@example.com",
+                new_password="Another123",
+            )
+        replacement_bid = replacement_credential.credential_bid
+        replacement_hash = get_password_hash(replacement_credential)
+
+        def reassign_after_lock(**kwargs: str) -> tuple[UserEntity, AuthCredential]:
+            locked = original_lock(**kwargs)
+            LocalAdminAccount.query.filter_by(user_bid=user_bid).update(
+                {LocalAdminAccount.credential_bid: replacement_bid},
+                synchronize_session=False,
+            )
+            db.session.flush()
+            return locked
+
+        monkeypatch.setattr(
+            local_accounts, "lock_password_credential", reassign_after_lock
+        )
+        with pytest.raises(AppError) as error:
+            local_accounts.reset_local_admin_password(
+                app, identifier=identifier, new_password="RejectedReset123"
+            )
+        assert error.value.code == ERROR_CODE["server.user.invalidCredentials"]
+        db.session.expire_all()
+        assert binding.credential_bid == original_bid
+        assert get_password_hash(original_credential) == original_hash
+        assert get_password_hash(replacement_credential) == replacement_hash
+
+
+def test_console_reset_rejects_a_legacy_name_with_a_different_password_identifier(
+    app: Flask, local_admin: tuple[str, str]
+) -> None:
+    user_bid, _identifier = local_admin
+    legacy = f"old_{uuid.uuid4().hex[:12]}"
+    with app.app_context():
+        binding = LocalAdminAccount.query.filter_by(user_bid=user_bid).one()
+        credential = AuthCredential.query.filter_by(
+            credential_bid=binding.credential_bid
+        ).one()
+        original_hash = get_password_hash(credential)
+        with unit_of_work():
+            binding.identifier = legacy
+            binding.identifier_kind = "legacy_username"
+            credential.identifier = credential.subject_id = legacy + "_changed"
+            credential.subject_format = "local_username"
+            UserEntity.query.filter_by(
+                user_bid=user_bid
+            ).one().user_identify = f"local:{user_bid}"
+        with pytest.raises(AppError) as error:
+            local_accounts.reset_local_admin_password(
+                app, identifier=legacy, new_password="RejectedReset123"
+            )
+        assert error.value.code == ERROR_CODE["server.user.invalidCredentials"]
+        assert get_password_hash(credential) == original_hash
 
 
 def test_console_reset_rolls_back_password_when_durable_session_revoke_fails(
