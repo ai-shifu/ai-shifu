@@ -236,6 +236,35 @@ refers to the same account, and setup does not claim contact verification.
   commit and normally push it on top of `1adc7be3`, reply to the verified review
   finding, and obtain its own exact-head CI results. Keep the prior Runtime
   failure and gevent evidence rather than treating earlier successes as new CI.
+- [x] 2026-10-26 11:17 UTC: The published identifier correction `5f8775b4`
+  passed six Actions: the complete backend run passed 15,448 tests with 15
+  skipped, and the frontend passed 3,518 tests. Runtime failed before
+  credentials on both the original attempt and one controlled same-source
+  retry. Neither result counts for the following source revision.
+- [x] 2026-10-26 11:17 UTC: The user requested rebasing and correcting CI.
+  Backed up the clean published head and rebased all 13 commits onto main
+  `8a055ce9` without conflicts; range-diff confirmed identical feature patches.
+  Main's unrelated LLM trace and course-footer changes remain intact.
+- [x] 2026-10-26 11:17 UTC: Reproduced the exact gevent callback assertion
+  with a real thread and watchdog polling observer started before fork (five
+  failures each; five no-thread controls passed). Runtime logs show the
+  development observer starting in the preload master. Defer observer
+  construction there and start it in `post_worker_init`, after gevent reinit
+  and WSGI loading. Ordinary local development retains hot reload. Seven unit
+  regressions and the real watcher probe failed before the correction; the
+  framework and worker-lifecycle run then passed 85 tests with two warnings.
+  The assertion alone does not prove the request stall's full mechanism;
+  Linux production-image Runtime acceptance is still required.
+- [ ] 2026-10-26 11:17 UTC: Complete the repository gate, publish the rebased
+  lifecycle correction using the exact published-head lease, and follow its
+  new head's CI. Preserve worker classes, timeouts, retries and harness cases.
+- [x] 2026-10-26 11:21 UTC: Full repository pre-commit passed. The final
+  lifecycle run passed 85 tests; main's LLM/tracing integration plus contracts
+  passed 311 in a separate interpreter. An initial mixed run passed 395 with
+  one existing collection-order conflict: `test_llm` installed its LiteLLM
+  stub before the memory test imported the real SDK executor. Both groups
+  passed independently without source, fixture, assertion or skip changes.
+  New-head full CI remains authoritative for their combined target set.
 - [ ] 2026-10-25 UTC: The single-check rerun request returned HTTP 404 through
   the current GitHub connection; no rerun is confirmed from that request.
   Do not retry it or widen permissions. Observe the final source revision's
