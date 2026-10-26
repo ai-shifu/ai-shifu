@@ -23,7 +23,7 @@ User-facing workflow and page behavior specifications live here.
 - [Dashboard Entry Page Contract](../product-specs/dashboard-entry-page.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-09-26` | Canonical: `true`
 - [First-run administrator setup](../product-specs/first-run-admin-setup.md)
-  - Status: `implemented` | Owner: `frontend-backend` | Last reviewed: `2026-10-25` | Canonical: `true`
+  - Status: `implemented` | Owner: `frontend-backend` | Last reviewed: `2026-10-26` | Canonical: `true`
 - [Embedded Gemini Live Follow-Up Analytics](../product-specs/gemini-live-follow-up-analytics.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-16` | Canonical: `true`
 - [Language Selection Analytics](../product-specs/language-selection-analytics.md)

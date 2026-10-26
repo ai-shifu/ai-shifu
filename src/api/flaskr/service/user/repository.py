@@ -223,6 +223,12 @@ class UserAggregate:
         return self.user_bid
 
     @property
+    def has_local_password(self) -> bool:
+        """Return the verified local credential fact without implying a contact."""
+        credential = self._preferred_identifier("local_password")
+        return bool(credential and credential.is_verified)
+
+    @property
     def display_name(self) -> str:
         """Return the learner-facing display name."""
         return self.nickname
@@ -269,7 +275,6 @@ class UserAggregate:
 
     def to_user_info(self) -> UserInfo:
         """Convert the aggregate into public user information."""
-        local_credential = self._preferred_identifier("local_password")
         return UserInfo(
             user_id=self.user_bid,
             username=self.username,
@@ -282,7 +287,7 @@ class UserAggregate:
             user_avatar=self.avatar,
             is_creator=self.is_creator,
             is_operator=self.is_operator,
-            has_local_password=bool(local_credential and local_credential.is_verified),
+            has_local_password=self.has_local_password,
         )
 
 

@@ -23,6 +23,8 @@ from flaskr.service.shifu.models import LogPublishedStruct, PublishedOutlineItem
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.util import generate_id
 
+from tests.common.fixtures.local_identity import local_user_aggregate
+
 
 class LearnRecordFallbackTests(unittest.TestCase):
     """Verify learn record fallback behavior."""
@@ -299,6 +301,67 @@ class LearnRecordFallbackTests(unittest.TestCase):
         assert len(result.records) == 2
         assert "_sys_login" in result.records[0].content
         assert is_lesson_feedback_interaction(result.records[1].content)
+
+    def test_verified_local_identity_removes_satisfied_login_history_gate(self) -> None:
+        self._seed_struct(["outline-1", "outline-2"])
+        progress = self._create_progress(LEARN_STATUS_COMPLETED)
+        self._add_interaction_block(progress, "?[Sign in//_sys_login]")
+        with self.app.test_request_context():
+            request.user = local_user_aggregate(
+                user_bid=progress.user_bid
+            ).to_user_info()
+            result = get_learn_record(
+                self.app,
+                progress.shifu_bid,
+                progress.outline_item_bid,
+                progress.user_bid,
+                preview_mode=False,
+            )
+        assert not any("_sys_login" in record.content for record in result.records)
+        assert any(
+            CONTEXT_INTERACTION_NEXT in record.content for record in result.records
+        )
+
+    def test_unverified_local_identity_keeps_login_history_gate(self) -> None:
+        self._seed_struct(["outline-1", "outline-2"])
+        progress = self._create_progress(LEARN_STATUS_COMPLETED)
+        self._add_interaction_block(progress, "?[Sign in//_sys_login]")
+        with self.app.test_request_context():
+            request.user = local_user_aggregate(
+                user_bid=progress.user_bid, verified=False
+            ).to_user_info()
+            result = get_learn_record(
+                self.app,
+                progress.shifu_bid,
+                progress.outline_item_bid,
+                progress.user_bid,
+                preview_mode=False,
+            )
+        assert any("_sys_login" in record.content for record in result.records)
+        assert not any(
+            CONTEXT_INTERACTION_NEXT in record.content for record in result.records
+        )
+
+    def test_email_identity_removes_satisfied_login_history_gate(self) -> None:
+        self._seed_struct(["outline-1", "outline-2"])
+        progress = self._create_progress(LEARN_STATUS_COMPLETED)
+        self._add_interaction_block(progress, "?[Sign in//_sys_login]")
+        aggregate = local_user_aggregate(user_bid=progress.user_bid, verified=False)
+        aggregate.credentials.clear()
+        aggregate.identify = "learner@example.com"
+        with self.app.test_request_context():
+            request.user = aggregate.to_user_info()
+            result = get_learn_record(
+                self.app,
+                progress.shifu_bid,
+                progress.outline_item_bid,
+                progress.user_bid,
+                preview_mode=False,
+            )
+        assert not any("_sys_login" in record.content for record in result.records)
+        assert any(
+            CONTEXT_INTERACTION_NEXT in record.content for record in result.records
+        )
 
     def test_no_next_button_when_completed_with_pay_gate(self) -> None:
         self._seed_struct(["outline-1", "outline-2"])

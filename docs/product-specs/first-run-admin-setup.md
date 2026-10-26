@@ -2,7 +2,7 @@
 title: First-run administrator setup
 status: implemented
 owner_surface: frontend-backend
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 canonical: true
 ---
 
@@ -23,6 +23,14 @@ the administrator area with creator and demo permissions. Email/phone are not
 required and are not marked verified. After completion, `/admin-login` provides
 local password login even when learner password login is disabled. Existing
 phone/email/OAuth administrators retain their existing login route.
+
+A repository-resolved, verified local password identity also satisfies learner
+trial-entry and login-interaction gates. These gates use the same persisted
+identity fact as the public local-password marker, rather than inferring login
+from a username or administrator role. This does not verify contact ownership,
+grant a purchase, or bypass payment gates. Temporary identities and unverified
+local credentials do not satisfy the local-identity branch of login checks;
+existing phone/email behavior remains unchanged.
 
 The code is short lived, single use and bound to the installation's persistent
 state and selected browser origin. It cannot authenticate an arbitrary account

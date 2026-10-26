@@ -85,6 +85,20 @@ methods. Preserve the ordinary verification-code security boundary.
   and four production-image browser cases passed on the first attempt. These
   CI results are separate from the earlier multi-run local union and do not
   count for later heads. CI did not collect new coverage.
+- [x] 2026-10-26 UTC: Reproduced a new learner-login review finding with five
+  failing controls for verified contactless local identities. Centralized the
+  persisted local-credential fact and shared server-resolved login predicate
+  across trial entry, interaction continuation, event emission and history.
+  The nine targeted modules passed 258 tests and four subtests after the fix;
+  negative cases retain guest, unverified-local and payment restrictions.
+  Aggregate and DTO facts agree for active, unverified and deleted credentials.
+  Subsequent-head CI still needs its own results; these are local regressions.
+- [x] 2026-10-26 UTC: The broader local learn/user/common run recorded 5,157
+  passes, 93 skips and two failures during loopback-listener setup with
+  socket-bind `EPERM`. The skips comprise 92 real-Redis cases and one MySQL
+  case. A required-Redis supplement stopped on its first Unix-socket bind
+  error, with no tests counted as passed. No permissions were widened or tests
+  suppressed; the new head's full CI must cover these environment-blocked cases.
 - [ ] 2026-10-25 UTC: The single-check rerun request returned HTTP 404 through
   the current GitHub connection; no rerun is confirmed from that request.
   Do not retry it or widen permissions. Observe the final source revision's

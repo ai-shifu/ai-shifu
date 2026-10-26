@@ -20,6 +20,18 @@ USE_STATE_VALUES = {
 }
 
 
+def has_login_identity(user: object) -> bool:
+    """Recognize an identity already resolved by authenticated request handling.
+
+    This does not validate tokens or assert phone/email ownership.
+    """
+    return bool(
+        getattr(user, "mobile", None)
+        or getattr(user, "email", None)
+        or getattr(user, "has_local_password", False) is True
+    )
+
+
 @register_schema_to_swagger
 class UserInfo:
     """Represent user identity details in API responses."""
@@ -66,7 +78,7 @@ class UserInfo:
         self.user_avatar = user_avatar
         self.is_creator = is_creator
         self.is_operator = is_operator
-        self.has_local_password = bool(has_local_password)
+        self.has_local_password = has_local_password is True
         self.analytics_enabled = not is_analytics_user_excluded(user_bid=user_id)
 
     def __json__(self) -> dict:

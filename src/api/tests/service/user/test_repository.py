@@ -8,6 +8,7 @@ import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.dao import db
+from flaskr.service.common.dtos import has_login_identity
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_VERIFIED,
     USER_STATE_PAID,
@@ -95,6 +96,40 @@ def _insert_phone_credential(
     )
     db.session.add(credential)
     return credential
+
+
+@pytest.mark.parametrize("verified", [True, False])
+@pytest.mark.parametrize("deleted", [0, 1])
+def test_contactless_local_login_fact_uses_active_verified_credentials(
+    app: Flask, user_bid: str, verified: bool, deleted: int
+) -> None:
+    _ = app
+    user = create_user_entity(
+        user_bid=user_bid, identify=f"local:{user_bid}", state=USER_STATE_REGISTERED
+    )
+    user.is_operator = 1
+    user.is_creator = 1
+    db.session.add(
+        AuthCredential(
+            credential_bid=uuid.uuid4().hex,
+            user_bid=user_bid,
+            provider_name="local_password",
+            identifier="local_owner",
+            subject_id="local_owner",
+            subject_format="username",
+            state=(
+                CREDENTIAL_STATE_VERIFIED if verified else CREDENTIAL_STATE_UNVERIFIED
+            ),
+            deleted=deleted,
+        )
+    )
+    db.session.flush()
+    aggregate = load_user_aggregate(user_bid)
+    assert aggregate is not None
+    assert aggregate.mobile == aggregate.email == ""
+    assert aggregate.has_local_password is (verified and not deleted)
+    assert has_login_identity(aggregate) is (verified and not deleted)
+    assert has_login_identity(aggregate.to_user_info()) is (verified and not deleted)
 
 
 def _create_user(
