@@ -1,10 +1,12 @@
-import request, { getCurrentRequestLanguage } from '@/lib/request';
-import {
-  bindLessonStream,
-  createSseSource,
-  type LessonStreamLifecycle,
-} from '@/lib/lessonStream';
+import { SSE } from 'sse.js';
+import request, {
+  attachSseBusinessResponseFallback,
+  getCurrentLanguageHeaders,
+  getCurrentRequestLanguage,
+} from '@/lib/request';
+import { buildTraceHeaders } from '@/lib/request-trace';
 import { getResolvedBaseURL } from '@/lib/envUtils';
+import { useUserStore } from '@/store/useUserStore';
 import type { CreditInsufficientAudience } from '@/lib/creditInsufficientToast';
 import {
   getMockRunFixtureMode,
@@ -243,6 +245,21 @@ export interface StreamGeneratedBlockAudioParams {
   onError?: (error: unknown) => void;
 }
 
+const dispatchSseBusinessError = (
+  source: { dispatchEvent: (event: Event) => void },
+  error: { message: string; code?: number },
+) => {
+  const event = new CustomEvent('error', {
+    detail: error,
+  }) as CustomEvent<{ message: string; code?: number }> & {
+    data?: string;
+    responseCode?: number;
+  };
+  event.data = error.message;
+  event.responseCode = error.code;
+  source.dispatchEvent(event);
+};
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -256,8 +273,8 @@ export const getRunMessage = (
   creditInsufficientAudience: CreditInsufficientAudience,
   onMessage: (data: any) => void,
   onError?: (error: unknown) => void,
-  lifecycle: LessonStreamLifecycle = {},
 ) => {
+  const token = useUserStore.getState().getToken();
   const payload = { ...body };
   payload.listen = Boolean(body.listen);
   const requestLanguage =
@@ -288,7 +305,24 @@ export const getRunMessage = (
   if (mockRunFixtureMode) {
     const source = new MockRunStreamFixtureSource(mockRunFixtureMode);
 
-    bindLessonStream(source, { onMessage, onError, ...lifecycle });
+    source.addEventListener('message', event => {
+      try {
+        const response = JSON.parse((event as MessageEvent<string>).data);
+        if (onMessage) {
+          onMessage(response);
+        }
+      } catch {
+        // ignore malformed SSE payloads
+      }
+    });
+
+    source.addEventListener('error', e => {
+      if (onError) {
+        onError(e);
+        return;
+      }
+      console.error('[Mock SSE error]', e);
+    });
 
     source.stream();
 
@@ -296,16 +330,124 @@ export const getRunMessage = (
   }
 
   const url = `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`;
-  return createSseSource({
-    url,
-    payload,
-    method: 'PUT',
-    language: requestLanguage,
-    creditInsufficientAudience,
-    onMessage,
-    onError,
-    ...lifecycle,
+  const traceHeaders = buildTraceHeaders({
+    'Content-Type': 'application/json',
+    ...getCurrentLanguageHeaders(requestLanguage),
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+          Token: token,
+        }
+      : {}),
   });
+  const source = new SSE(url, {
+    headers: traceHeaders.headers,
+    payload: JSON.stringify(payload),
+    method: 'PUT',
+  });
+
+  source.addEventListener('message', event => {
+    try {
+      const response = JSON.parse(event.data);
+      if (onMessage) {
+        onMessage(response);
+      }
+    } catch {
+      // ignore malformed SSE payloads
+    }
+  });
+
+  source.addEventListener('error', e => {
+    if ((e as { detail?: unknown }).detail) {
+      if (onError) {
+        onError(e);
+      }
+      return;
+    }
+
+    if (onError) {
+      onError(e);
+      return;
+    }
+    console.error('[SSE error]', e);
+  });
+
+  attachSseBusinessResponseFallback(source, {
+    requestToken: token || '',
+    meta: {
+      url,
+      method: 'PUT',
+      requestToken: token || '',
+      requestId: traceHeaders.requestId,
+      harnessRunId: traceHeaders.harnessRunId,
+      creditInsufficientAudience,
+    },
+    onHandled: error => {
+      dispatchSseBusinessError(source, error);
+    },
+  });
+
+  source.stream();
+
+  return source;
+};
+
+const createSseSource = (
+  url: string,
+  payload: Record<string, unknown>,
+  onMessage: (data: any) => void,
+  onError?: (error: unknown) => void,
+  creditInsufficientAudience: CreditInsufficientAudience = 'learner',
+) => {
+  const token = useUserStore.getState().getToken();
+  const traceHeaders = buildTraceHeaders({
+    'Content-Type': 'application/json',
+    ...getCurrentLanguageHeaders(),
+    ...(token
+      ? {
+          Authorization: `Bearer ${token}`,
+          Token: token,
+        }
+      : {}),
+  });
+
+  const source = new SSE(url, {
+    headers: traceHeaders.headers,
+    payload: JSON.stringify(payload),
+    method: 'POST',
+  });
+
+  source.addEventListener('message', event => {
+    try {
+      const response = JSON.parse(event.data);
+      onMessage(response);
+    } catch {
+      // ignore malformed SSE payloads
+    }
+  });
+
+  source.addEventListener('error', e => {
+    onError?.(e);
+  });
+
+  attachSseBusinessResponseFallback(source, {
+    requestToken: token || '',
+    meta: {
+      url,
+      method: 'POST',
+      requestToken: token || '',
+      requestId: traceHeaders.requestId,
+      harnessRunId: traceHeaders.harnessRunId,
+      creditInsufficientAudience,
+    },
+    onHandled: error => {
+      dispatchSseBusinessError(source, error);
+    },
+  });
+
+  source.stream();
+
+  return source;
 };
 
 export const streamGeneratedBlockAudio = ({
@@ -319,13 +461,13 @@ export const streamGeneratedBlockAudio = ({
 }: StreamGeneratedBlockAudioParams) => {
   const baseURL = getResolvedBaseURL();
   const url = `${baseURL}/api/learn/shifu/${shifu_bid}/generated-blocks/${generated_block_bid}/tts?preview_mode=${preview_mode}&listen=${listen}`;
-  return createSseSource({
+  return createSseSource(
     url,
-    payload: {},
+    {},
     onMessage,
     onError,
     creditInsufficientAudience,
-  });
+  );
 };
 
 /**

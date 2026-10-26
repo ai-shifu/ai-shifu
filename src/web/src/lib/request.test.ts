@@ -107,9 +107,8 @@ describe('request SSE business fallback', () => {
   test('handles JSON business responses returned before SSE starts streaming', async () => {
     const xhr = new MockXhr();
     const onHandled = jest.fn();
-    const onDetected = jest.fn();
 
-    const fallback = attachSseBusinessResponseFallback(
+    attachSseBusinessResponseFallback(
       { xhr: xhr as unknown as XMLHttpRequest },
       {
         meta: {
@@ -117,7 +116,6 @@ describe('request SSE business fallback', () => {
           harnessRunId: 'fallback-run-id',
         },
         onHandled,
-        onDetected,
       },
     );
 
@@ -125,9 +123,6 @@ describe('request SSE business fallback', () => {
       code: 2301,
       message: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
     });
-    expect(fallback?.handleResponse(xhr.responseText)).toBe(true);
-    expect(onDetected).toHaveBeenCalledTimes(1);
-    xhr.dispatchEvent(new Event('load'));
     xhr.dispatchEvent(new Event('load'));
 
     await waitFor(() => {
@@ -138,7 +133,6 @@ describe('request SSE business fallback', () => {
         }),
       );
       expect(onHandled).toHaveBeenCalledTimes(1);
-      expect(onDetected).toHaveBeenCalledTimes(1);
       expect(onHandled.mock.calls[0][0]).toMatchObject({
         code: 2301,
         message: '积分余额不足，暂时无法继续调用，请先开通订阅或购买积分',
@@ -146,22 +140,6 @@ describe('request SSE business fallback', () => {
         harnessRunId: 'fallback-run-id',
       });
     });
-  });
-
-  test('ignores a JSON business response from a replaced SSE request', async () => {
-    const xhr = new MockXhr();
-    const onHandled = jest.fn();
-    const onDetected = jest.fn();
-    attachSseBusinessResponseFallback(
-      { xhr: xhr as unknown as XMLHttpRequest },
-      { shouldHandle: () => false, onHandled, onDetected },
-    );
-    xhr.responseText = JSON.stringify({ code: 2301, message: 'Stale error' });
-    xhr.dispatchEvent(new Event('load'));
-    await Promise.resolve();
-    expect(onDetected).not.toHaveBeenCalled();
-    expect(onHandled).not.toHaveBeenCalled();
-    expect(toast).not.toHaveBeenCalled();
   });
 
   test('falls back to actionFailed for business errors without a message', async () => {

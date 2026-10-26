@@ -7,8 +7,11 @@ from unittest.mock import Mock
 import pytest
 from flask import Flask
 from flaskr.service.learn import context_v2 as runtime
-from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
-from flaskr.service.learn.request_stream import stream_request
+from flaskr.service.learn import routes
+from flaskr.service.learn.learn_dtos import (
+    PlaygroundPreviewRequest,
+    RunElementSSEMessageDTO,
+)
 
 
 @pytest.fixture
@@ -163,12 +166,22 @@ def test_preview_saves_the_new_turn_before_the_request_boundary_closes(
             session_id="preview",
         )
 
-    with preview_run.app.app_context():
+    with preview_run.app.test_request_context("/"):
         runtime.set_language("en-US")
+        response = routes._stream_sse_response(
+            preview_run.app,
+            message_iter_factory=source,
+            close_log="closed",
+            error_log="failed",
+            terminal_event_factory=lambda: RunElementSSEMessageDTO(
+                type="done", event_type="done", content="", is_terminal=True
+            ),
+        )
         events = []
-        for event in stream_request(source, render=lambda message: message):
+        for chunk in response.response:
+            event = json.loads(chunk.removeprefix("data: "))
             events.append(event)
-            if event.type == "done" and event.is_terminal:
+            if event["type"] == "done" and event["is_terminal"]:
                 # Check at delivery, before asking the helper to close its source.
                 entries = json.loads(next(iter(preview_run.cache.values())))["entries"]
                 assert entries == [
@@ -187,7 +200,7 @@ def test_preview_saves_the_new_turn_before_the_request_boundary_closes(
                 ]
         assert runtime.get_current_language() == "en-US"
 
-    assert [event.is_terminal for event in events if event.type == "done"] == [
+    assert [event["is_terminal"] for event in events if event["type"] == "done"] == [
         False,
         True,
     ]

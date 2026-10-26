@@ -68,10 +68,6 @@ jest.mock('@/store', () => {
   };
 });
 
-jest.mock('@/store/useUserStore', () => ({
-  useUserStore: { getState: () => ({ getToken: () => '' }) },
-}));
-
 jest.mock('@/hooks/useToast', () => ({
   toast: jest.fn(),
   toastOnce: jest.fn(),
@@ -102,34 +98,20 @@ type MockSseSource = {
   addEventListener: jest.Mock;
   stream: jest.Mock;
   close: jest.Mock;
-  dispatchEvent: jest.Mock;
-  listeners: Record<string, (event: any) => void>;
+  listeners: Record<string, (event: { data?: string }) => void>;
 };
 
 const buildMockSseSource = (): MockSseSource => {
-  const listeners: Record<string, (event: any) => void> = {};
-  let stream = jest.fn();
-  let close = jest.fn();
+  const listeners: Record<string, (event: { data?: string }) => void> = {};
   return {
     listeners,
     addEventListener: jest.fn(
-      (type: string, listener: (event: any) => void) => {
+      (type: string, listener: (event: { data?: string }) => void) => {
         listeners[type] = listener;
       },
     ),
-    dispatchEvent: jest.fn((event: Event) => listeners[event.type]?.(event)),
-    get stream() {
-      return stream;
-    },
-    set stream(value) {
-      stream = jest.fn(value);
-    },
-    get close() {
-      return close;
-    },
-    set close(value) {
-      close = jest.fn(value);
-    },
+    stream: jest.fn(),
+    close: jest.fn(),
   };
 };
 
@@ -202,80 +184,6 @@ describe('usePreviewChat helpers and business error rendering', () => {
     ).resolves.toBeNull();
 
     expect(SSE).not.toHaveBeenCalled();
-  });
-
-  test.each([false, true])(
-    'cleans up an empty preview EOF with engine control event=%s',
-    async includeEngine => {
-      const source = buildMockSseSource();
-      (SSE as jest.Mock).mockReturnValueOnce(source);
-      const { result } = renderHook(() =>
-        usePreviewChat({ creditInsufficientAudience: 'teacher' }),
-      );
-      await act(async () => {
-        await result.current.startPreview({
-          shifuBid: 'shifu-1',
-          outlineBid: 'lesson-1',
-          mdflow: 'Draft script',
-        });
-      });
-      expect(result.current.isStreaming).toBe(true);
-      await act(async () => {
-        if (includeEngine) {
-          source.listeners.message?.({
-            data: JSON.stringify({ type: 'preview_engine', content: '2.0' }),
-          });
-        }
-        source.listeners.readystatechange?.({ readyState: 2 });
-        await new Promise(resolve => setTimeout(resolve, 0));
-      });
-      expect(result.current.isLoading).toBe(false);
-      expect(result.current.isStreaming).toBe(false);
-      expect(result.current.items).toEqual([]);
-      expect(result.current.error).toBeNull();
-      expect(SSE).toHaveBeenCalledTimes(1);
-      expect(mockTrackEvent.mock.calls).toEqual(
-        includeEngine
-          ? [
-              [
-                'creator_lesson_preview_engine_started',
-                { engine: 'v2', shifu_bid: 'shifu-1', outline_bid: 'lesson-1' },
-              ],
-            ]
-          : [],
-      );
-    },
-  );
-
-  test('ignores all late callbacks from a replaced preview request', async () => {
-    const oldSource = buildMockSseSource();
-    const currentSource = buildMockSseSource();
-    (SSE as jest.Mock)
-      .mockReturnValueOnce(oldSource)
-      .mockReturnValueOnce(currentSource);
-    const { result } = renderHook(() =>
-      usePreviewChat({ creditInsufficientAudience: 'teacher' }),
-    );
-    const params = {
-      shifuBid: 'shifu-1',
-      outlineBid: 'lesson-1',
-      mdflow: 'Draft script',
-    };
-    await act(async () => result.current.startPreview(params));
-    await act(async () => result.current.startPreview(params));
-    await act(async () => {
-      oldSource.listeners.message?.({
-        data: JSON.stringify({ type: 'done', is_terminal: true }),
-      });
-      oldSource.listeners.error?.(new Error('Stale network failure'));
-      oldSource.listeners.readystatechange?.({ readyState: 2 });
-      await Promise.resolve();
-    });
-    expect(result.current.isLoading).toBe(true);
-    expect(result.current.isStreaming).toBe(true);
-    expect(result.current.error).toBeNull();
-    expect(currentSource.close).not.toHaveBeenCalled();
-    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   test('does not advance 1.0 block indices after a 2.0 debug turn', async () => {
@@ -1373,10 +1281,9 @@ describe('usePreviewChat helpers and business error rendering', () => {
         });
       }
       if (outcome === 'transport-error') failedSource.listeners.error?.({});
-      else if (outcome === 'early-close') {
+      else if (outcome === 'early-close')
         failedSource.listeners.readystatechange?.({ readyState: 2 } as never);
-        await new Promise(resolve => setTimeout(resolve, 0));
-      } else
+      else
         failedSource.listeners.message?.({
           data: JSON.stringify({
             type: outcome === 'done-message' ? 'done' : 'error',

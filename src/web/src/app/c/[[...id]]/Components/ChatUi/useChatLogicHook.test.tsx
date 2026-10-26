@@ -2,7 +2,6 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { toast, toastOnce } from '@/hooks/useToast';
 import useChatLogicHook, { ChatContentItemType } from './useChatLogicHook';
 import { SSE_INPUT_TYPE, SSE_OUTPUT_TYPE } from '@/api/studyV2';
-import type { LessonStreamLifecycle } from '@/lib/lessonStream';
 import {
   buildBaseParams,
   createDeferred,
@@ -251,14 +250,8 @@ describe('useChatLogicHook stream cleanup', () => {
         _creditInsufficientAudience: string,
         onMessage: (response: any) => Promise<void> | void,
         onError: (error: unknown) => void,
-        lifecycle: LessonStreamLifecycle = {},
       ) => {
         const source = new MockRunSource();
-        source.addEventListener('readystatechange', () => {
-          if (source.readyState === 2 && lifecycle.isCurrent?.()) {
-            lifecycle.onSettled?.('eof');
-          }
-        });
         activeRun = {
           source,
           onMessage,

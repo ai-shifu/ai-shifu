@@ -1031,59 +1031,6 @@ def _outline_progression(
         )
 
 
-def _turn_session_writer(
-    app: Flask,
-    *,
-    session_holder: dict[str, Any],
-    user_bid: str,
-    shifu_bid: str,
-    outline_bid: str,
-    preview_mode: bool,
-    progress_record_bid: str,
-    generated_block_bid: str,
-    debug_store: DebugSessionStore | None,
-) -> Callable[..., bool]:
-    """Choose one save destination while reading turn state only when it is saved."""
-    if debug_store is not None:
-
-        def write_debug(session: Session, **_payload: object) -> bool:
-            """Keep editor state in its existing isolated debug store."""
-            debug_store.save(session)
-            return True
-
-        return write_debug
-
-    def write_session(
-        session: Session,
-        *,
-        memory: list[MemoryUpdated],
-        taught: str,
-        question_ids: list[str],
-        content_revision: int | None = None,
-    ) -> bool:
-        """Retain the existing formal and preview transaction and reset guards."""
-        return _persist(
-            app,
-            session,
-            memory=memory,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            outline_bid=outline_bid,
-            preview_mode=preview_mode,
-            progress_record_bid=progress_record_bid,
-            generated_block_bid=generated_block_bid,
-            taught=taught,
-            turn_record=session_holder.get("turn_record", ""),
-            rewind=session_holder.get("rewind"),
-            memory_generations=session_holder.get("memory_generations"),
-            preview_generation=session_holder.get("preview_generation"),
-            content_revision=content_revision,
-            preview_question_ids=question_ids,
-        )
-
-    return write_session
-
-
 def _stream_turn(
     app: Flask,
     *,
@@ -1103,17 +1050,6 @@ def _stream_turn(
     tracing: CourseTrace | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
-    save_session = _turn_session_writer(
-        app,
-        session_holder=session_holder,
-        user_bid=user_bid,
-        shifu_bid=shifu_bid,
-        outline_bid=outline_bid,
-        preview_mode=preview_mode,
-        progress_record_bid=progress_record_bid,
-        generated_block_bid=generated_block_bid,
-        debug_store=debug_store,
-    )
     pending_memory: list[MemoryUpdated] = []
     preview_question_ids: list[str] = []
     taught: list[str] = []
@@ -1139,12 +1075,27 @@ def _stream_turn(
                 # any text is yielded. Commit that whole response on the host thread;
                 # a disconnect cannot restore the original answered question.
                 prepared = _prepared_lesson_text(prepared)
-                kept = save_session(
-                    session,
-                    memory=pending_memory,
-                    taught=prepared,
-                    question_ids=[p.tool_call_id for p in session.pending],
-                )
+                if debug_store is not None:
+                    debug_store.save(session)
+                    kept = True
+                else:
+                    kept = _persist(
+                        app,
+                        session,
+                        memory=pending_memory,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=preview_mode,
+                        progress_record_bid=progress_record_bid,
+                        generated_block_bid=generated_block_bid,
+                        taught=prepared,
+                        turn_record=session_holder.get("turn_record", ""),
+                        rewind=session_holder.get("rewind"),
+                        memory_generations=session_holder.get("memory_generations"),
+                        preview_generation=session_holder.get("preview_generation"),
+                        preview_question_ids=[p.tool_call_id for p in session.pending],
+                    )
                 if not kept:
                     if tracing is not None:
                         tracing.after_save(discarded=True)
@@ -1235,13 +1186,28 @@ def _stream_turn(
             session = session_holder.get("session")
             if session is not None:
                 persisted = True
-                kept = save_session(
-                    session,
-                    memory=pending_memory,
-                    taught="".join(taught),
-                    content_revision=session_holder.get("content_revision"),
-                    question_ids=preview_question_ids,
-                )
+                if debug_store is not None:
+                    debug_store.save(session)
+                    kept = True
+                else:
+                    kept = _persist(
+                        app,
+                        session,
+                        memory=pending_memory,
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=preview_mode,
+                        progress_record_bid=progress_record_bid,
+                        generated_block_bid=generated_block_bid,
+                        taught="".join(taught),
+                        turn_record=session_holder.get("turn_record", ""),
+                        rewind=session_holder.get("rewind"),
+                        memory_generations=session_holder.get("memory_generations"),
+                        preview_generation=session_holder.get("preview_generation"),
+                        content_revision=session_holder.get("content_revision"),
+                        preview_question_ids=preview_question_ids,
+                    )
                 pending_memory = []
                 if tracing is not None:
                     tracing.after_save(
@@ -1353,13 +1319,27 @@ def _stream_turn(
     session = session_holder.get("session")
     discarded = False
     if not persisted and session is not None:
-        discarded = not save_session(
-            session,
-            memory=pending_memory,
-            taught="".join(taught),
-            content_revision=session_holder.get("content_revision"),
-            question_ids=preview_question_ids,
-        )
+        if debug_store is not None:
+            debug_store.save(session)
+        else:
+            discarded = not _persist(
+                app,
+                session,
+                memory=pending_memory,
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                preview_mode=preview_mode,
+                progress_record_bid=progress_record_bid,
+                generated_block_bid=generated_block_bid,
+                taught="".join(taught),
+                turn_record=session_holder.get("turn_record", ""),
+                rewind=session_holder.get("rewind"),
+                memory_generations=session_holder.get("memory_generations"),
+                preview_generation=session_holder.get("preview_generation"),
+                content_revision=session_holder.get("content_revision"),
+                preview_question_ids=preview_question_ids,
+            )
 
     if tracing is not None and session_holder.get("reason") is None:
         tracing.after_save(discarded=discarded)
