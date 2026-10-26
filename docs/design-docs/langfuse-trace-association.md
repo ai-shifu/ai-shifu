@@ -129,6 +129,36 @@ results, usage, and error details. Private Profile summary and answer-extraction
 operations are child spans in the same request, with their own real inputs and
 outputs; they do not replace the public root output.
 
+### Native model output channels
+
+When `chat_llm` emits native tool-call deltas, its generation output keeps the
+original content, reasoning, and tool calls separate. A response containing
+tools is an OpenAI-style assistant message list: `content` contains only the
+provider's text, optional `reasoning_content` contains its reasoning, and
+`tool_calls` contains each call's id, type, function name, and original argument
+string. Streamed calls are assembled by index, in index order, including
+fragmented names and arguments and ids received after the initial fragment.
+An interrupted call retains its incomplete argument string for diagnosis.
+Arguments are never parsed or rewritten for tracing.
+
+Text that resembles `<interact ...>` or another tool remains text in its
+original channel. Observability does not infer a tool call from markup or
+remove invalid content; the engine's independent validation may suppress or
+retry that raw model response before public delivery. Generation output thus
+describes what the gateway received, while root output describes what the host
+presented.
+
+Responses without native tools retain the previous output format: a string for
+plain content, or an object with `content` and `reasoning_content` when reasoning
+is present. Existing traces are not rewritten. Runtime deltas, usage accounting,
+the billing `output_text` summary, and raw OpenAI gateway endpoints retain their
+existing contracts. Consumers of new tool-bearing `chat_llm` generations must
+read `content` and `tool_calls` from the assistant message instead of treating
+the output as a concatenated string.
+
+The assistant-message representation follows the
+[Langfuse input/output formatting guidance](https://langfuse.com/docs/observability/best-practices).
+
 ### Completion and failure isolation
 
 Native tool calls are paired by their tool-call ids where possible. Deferred
