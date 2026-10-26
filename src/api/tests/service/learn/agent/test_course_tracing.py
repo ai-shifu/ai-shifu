@@ -4,9 +4,10 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from flaskr.api import langfuse_markdownflow as tracing_module
 from flaskr.api import markdownflow as application
-from flaskr.api import markdownflow_tracing as tracing_module
 from flaskr.api.llm import markdownflow_model as gateway
+from flaskr.service.learn.agent import langfuse_tracing as course_tracing
 from flaskr.service.learn.agent import lesson_entry, run_agent
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
@@ -37,13 +38,8 @@ def _entry(
     monkeypatch: pytest.MonkeyPatch, engine: object, title_context: dict | None = None
 ) -> None:
     def resolve(*_args: object, **kwargs: object) -> object:
-        kwargs["trace_context"].update(
-            title_context
-            or {
-                "course_title": "Course",
-                "lesson_title": "Lesson",
-                "chapter_path": ["Chapter"],
-            }
+        kwargs["on_resolved"](
+            outline_model=None, outline=None, shifu=None, content_revision=17
         )
         return (
             "latest script",
@@ -54,6 +50,18 @@ def _entry(
         )
 
     monkeypatch.setattr(lesson_entry, "_resolve", resolve)
+    monkeypatch.setattr(
+        course_tracing,
+        "_lesson_context",
+        lambda *_a, **_kw: (
+            title_context
+            or {
+                "course_title": "Course",
+                "lesson_title": "Lesson",
+                "chapter_path": ["Chapter"],
+            }
+        ),
+    )
     monkeypatch.setattr(lesson_entry, "get_global_profile_keys", frozenset)
     monkeypatch.setattr(lesson_entry, "Engine", lambda *_args, **_kwargs: engine)
     monkeypatch.setattr(application, "iter_turn", _drive)
@@ -344,8 +352,8 @@ def test_trace_context_uses_the_selected_version_for_each_title(
         seen.append(model)
         return parent
 
-    monkeypatch.setattr(lesson_entry, "_latest", latest)
-    context = lesson_entry._lesson_trace_context(
+    monkeypatch.setattr(course_tracing, "_latest_ancestor", latest)
+    context = course_tracing._lesson_context(
         draft,
         outline=SimpleNamespace(
             title="Draft lesson",

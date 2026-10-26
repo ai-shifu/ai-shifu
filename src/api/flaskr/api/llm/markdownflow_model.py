@@ -347,10 +347,6 @@ class GatewayModel(Model):
         """
         self._chat_llm_kwargs["usage_context"] = context
 
-    def set_parent_observation(self, observation: LangfuseObservationHandle) -> None:
-        """Bind subsequent model calls to the host's current execution step."""
-        self._span = observation
-
     @property
     def model_name(self) -> str:
         """The model name handed to the gateway."""

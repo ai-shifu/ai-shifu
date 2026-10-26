@@ -62,7 +62,10 @@ canonical: true
 
 ## MarkdownFlow 2.0 Request Contract
 
-The two native engine hosts share `flaskr.api.markdownflow_tracing`. Each
+Course teaching and Profile onboarding share `flaskr.api.langfuse_markdownflow`.
+Their service-local `langfuse_tracing.py` modules own scene names, metadata,
+request actions, output filtering, and outcome mapping. Business code passes
+resolved objects and execution facts through small lifecycle hooks. Each
 accepted execution request owns one root observation; automatic native turns
 and model requests remain children of that root. Related requests use the
 native course session id or the existing Profile session id. Exact Profile
@@ -82,9 +85,11 @@ and operation type belong in metadata rather than observation names.
 The tree uses stable names such as `context`, `turn`, and native tool names.
 A turn is an `agent` observation, an LLM request is a `generation`, and an
 engine tool execution is a `tool`. The existing shared gateway remains the
-sole producer of model usage and cost observations. Explicit parent handles
+sole producer of model usage and cost observations. An observation proxy resolves
+the current turn when a gateway generation starts, so reused models follow new
+turns automatically. Explicit parent handles
 keep producer-thread calls in the correct tree without relying on ambient
-OpenTelemetry context.
+OpenTelemetry context or gateway mutation in business orchestration.
 
 ### Inputs and public outputs
 

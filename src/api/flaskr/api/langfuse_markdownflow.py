@@ -1,4 +1,4 @@
-"""Best-effort request tracing shared by the two MarkdownFlow application hosts."""
+"""Best-effort Langfuse tracing for course teaching and Profile onboarding."""
 
 from __future__ import annotations
 
@@ -14,6 +14,10 @@ from flaskr.api.langfuse import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+    from types import TracebackType
+    from typing import Self
+
     from flaskr.api.markdownflow import Event
 
 logger = logging.getLogger(__name__)
@@ -22,26 +26,37 @@ logger = logging.getLogger(__name__)
 class SafeObservation:
     """Keep optional telemetry failures outside the gateway's business path."""
 
-    def __init__(self, observation: object = None) -> None:
+    def __init__(
+        self,
+        observation: object = None,
+        *,
+        observation_source: Callable[[], object] | None = None,
+    ) -> None:
         """Wrap an optional observation without starting additional telemetry."""
         self._observation = observation if observation is not None else MockClient()
+        self._observation_source = observation_source
         self._ended = False
+
+    def _target(self) -> object:
+        if self._observation_source is not None:
+            return self._observation_source()
+        return self._observation
 
     @property
     def trace_id(self) -> str:
         """Return a usable correlation id even when tracing is disabled."""
-        value = getattr(self._observation, "trace_id", "")
+        value = getattr(self._target(), "trace_id", "")
         return value if isinstance(value, str) else ""
 
     @property
     def id(self) -> str:
         """Return the underlying observation identifier when present."""
-        value = getattr(self._observation, "id", "")
+        value = getattr(self._target(), "id", "")
         return value if isinstance(value, str) else ""
 
     def _call(self, method: str, **kwargs: object) -> object:
         try:
-            return getattr(self._observation, method)(**kwargs)
+            return getattr(self._target(), method)(**kwargs)
         except Exception as error:
             logger.warning(
                 "MarkdownFlow tracing operation failed: %s (%s)",
@@ -125,6 +140,9 @@ class MarkdownFlowTrace:
         self._trace = SafeObservation(trace)
         self.root = SafeObservation(root)
         self.current = self.root
+        # Gateway instances can be reused across turns. This permanent handle
+        # resolves the explicit parent when a generation starts, on any thread.
+        self.model_parent = SafeObservation(observation_source=lambda: self.current)
         self._turn: SafeObservation | None = None
         self._tools: dict[str, tuple[str, SafeObservation, dict[str, object]]] = {}
         self._output: list[str] = []
@@ -132,6 +150,25 @@ class MarkdownFlowTrace:
         self._outcome = "running"
         self._finished = False
         self._context_identity: tuple[str, str, str] | None = None
+
+    def __enter__(self) -> Self:
+        """Keep request lifetime management inside the tracing integration."""
+        return self
+
+    def __exit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        error: BaseException | None,
+        _traceback: TracebackType | None,
+    ) -> None:
+        """Finalize tracing while propagating the original business exception."""
+        if isinstance(error, GeneratorExit):
+            self.finish(transport_closed=True)
+        elif error is not None:
+            self.root.update(status_message=type(error).__name__)
+            self.finish("discarded" if self._outcome == "discarded" else "error")
+        else:
+            self.finish()
 
     def set_input(self, value: object) -> None:
         """Refine a no-text action after the host restores its native session."""

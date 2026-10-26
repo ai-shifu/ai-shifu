@@ -3,7 +3,7 @@
 import uuid
 from collections.abc import Callable
 from decimal import Decimal
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from flaskr.api.llm import markdownflow_model as gateway_module
@@ -11,6 +11,7 @@ from flaskr.api.llm import model_selection
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.learn.agent import langfuse_tracing as course_tracing
 from flaskr.service.learn.agent import lesson_entry as entry
 from flaskr.service.learn.agent.run_agent import TurnOutcome
 from flaskr.service.learn.exceptions import PaidError
@@ -167,22 +168,22 @@ def test_resolver_reads_language_setting_from_the_selected_course_version(
             not multilingual
         )
     with app.app_context():
-        trace_context = {}
+        resolved_context = Mock()
         resolved = entry._resolve(
             app,
             user_bid="teacher",
             shifu_bid=lesson,
             outline_bid=lesson,
             preview_mode=preview,
-            trace_context=trace_context,
+            on_resolved=resolved_context,
         )
         assert resolved[-1] is multilingual
-        assert trace_context["course_title"] == ("draft" if preview else "published")
-        assert (
-            trace_context["course_record_id"]
-            == selected.query.filter_by(shifu_bid=lesson).one().id
+        facts = resolved_context.call_args.kwargs
+        assert facts["shifu"].id == selected.query.filter_by(shifu_bid=lesson).one().id
+        assert facts["outline"].outline_item_bid == lesson
+        assert facts["outline_model"] is (
+            DraftOutlineItem if preview else PublishedOutlineItem
         )
-        assert trace_context["lesson_title"] == lesson
 
 
 @pytest.mark.parametrize("preview", [False, True])
@@ -375,9 +376,12 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41, False)
     )
     span = object()
-    tracing = Mock(current=span)
-    monkeypatch.setattr(entry, "MarkdownFlowTrace", Mock(return_value=tracing))
-    finalize = tracing.finish
+    tracing = MagicMock(model_parent=span)
+    tracing.capture.side_effect = lambda events: course_tracing.CourseTrace.capture(
+        tracing, events
+    )
+    monkeypatch.setattr(entry, "CourseTrace", Mock(return_value=tracing))
+    finalize = tracing.__exit__
     gateway = Mock(return_value=object())
     summary = Mock(return_value=object())
     monkeypatch.setattr(entry, "make_teaching_summarizer", summary)
@@ -421,10 +425,13 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
             next(stream)
     else:
         assert list(stream) == []
-    finalize.assert_called_once_with(
-        outcome="error" if termination == "error" else None,
-        transport_closed=termination == "disconnected",
-    )
+    finalize.assert_called_once()
+    if termination == "completed":
+        assert finalize.call_args.args == (None, None, None)
+    else:
+        assert finalize.call_args.args[0] is (
+            RuntimeError if termination == "error" else GeneratorExit
+        )
     tracing.append_output.assert_called_once_with("Visible answer")
     gateway.assert_any_call(
         app,
@@ -524,7 +531,6 @@ def test_agent_turn_always_closes_its_trace_with_the_actual_outcome(
         "heartbeat_interval": 0.1,
         "rewind": None,
         "tracing": tracing,
-        "trace_request_input": True,
     }
 
 
@@ -534,7 +540,9 @@ def _entry_with_runner(monkeypatch: object) -> Mock:
     monkeypatch.setattr(
         entry, "_resolve", lambda *_a, **_kw: ("script", "", settings, 41, False)
     )
-    monkeypatch.setattr(entry, "MarkdownFlowTrace", Mock())
+    tracing = MagicMock()
+    tracing.capture.side_effect = lambda events: events
+    monkeypatch.setattr(entry, "CourseTrace", Mock(return_value=tracing))
     monkeypatch.setattr(entry, "GatewayModel", Mock(return_value=object()))
     monkeypatch.setattr(entry, "make_request_check", Mock(return_value=object()))
     monkeypatch.setattr(entry, "make_teaching_summarizer", Mock(return_value=object()))

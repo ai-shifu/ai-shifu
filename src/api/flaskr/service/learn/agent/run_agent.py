@@ -118,8 +118,8 @@ if TYPE_CHECKING:
 
     from flask import Flask
     from flaskr.api.markdownflow import Engine, Event, Session, TurnInput
-    from flaskr.api.markdownflow_tracing import MarkdownFlowTrace
     from flaskr.service.learn.agent.debug_session import DebugSessionStore
+    from flaskr.service.learn.agent.langfuse_tracing import CourseTrace
 
 
 def learner_values(user_input: str | dict | None) -> list[str]:
@@ -397,8 +397,7 @@ def run_agent_lesson(
     on_turn_opened: Callable[[str, str], None] | None = None,
     preview_generation: str | None = None,
     use_learner_language: bool | None = None,
-    tracing: MarkdownFlowTrace | None = None,
-    trace_request_input: bool = True,
+    tracing: CourseTrace | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Run one turn of a 2.0 lesson and yield the 1.0 events it produces.
 
@@ -419,38 +418,16 @@ def run_agent_lesson(
     from flaskr.api.markdownflow import iter_turn as bridge_iter_turn
 
     run_turn_on_thread = iter_turn or bridge_iter_turn
-    if tracing is not None:
-        tracing.start_turn(
-            metadata={"outline_item_bid": outline_bid},
-            input=user_input if learner_values(user_input) else {"action": "continue"},
-        )
-
-    def trace_session(session: Session) -> None:
-        if tracing is None:
-            return
-        tracing.set_context(
-            session_id=getattr(session, "id", ""),
-            script=session.script.script,
+    session_observer = (
+        tracing.prepare_turn(
+            user_input=user_input,
+            regenerate=rewind is not None,
             teaching_brief=teaching_brief,
-            metadata={
-                "native_turn": session.turn,
-                "content_revision": content_revision,
-            },
+            content_revision=content_revision,
         )
-        turn_input = (
-            user_input
-            if learner_values(user_input)
-            else {
-                "action": "regenerate"
-                if rewind
-                else "continue"
-                if session.started
-                else "start"
-            }
-        )
-        tracing.current.update(input=turn_input)
-        if trace_request_input:
-            tracing.set_input(turn_input)
+        if tracing is not None
+        else None
+    )
 
     memory_generations: dict[str, int] = {}
     memory_deleted_keys: set[str] = set()
@@ -469,7 +446,7 @@ def run_agent_lesson(
         memory_generations=memory_generations,
         memory_deleted_keys=memory_deleted_keys,
         use_learner_language=use_learner_language,
-        on_session_loaded=trace_session if tracing is not None else None,
+        on_session_loaded=session_observer,
     )
     # One turn is one generated block: TTS audio and element rows hang off this identifier, and a
     # turn is the smallest unit this engine produces that a learner sees as a whole.
@@ -483,7 +460,7 @@ def run_agent_lesson(
         # yielded here is written down as an element of no block, while the stream's own closing
         # event, which it sends whenever a lesson's events end without one, is not.
         if tracing is not None:
-            tracing.complete_turn("completed")
+            tracing.after_save(reason="finished", finished=True)
         return TurnOutcome(reason="finished", taught=False)
     # Regenerating content runs the turn again with the input it had; everything else, including
     # a question answered differently, runs with what the learner just sent.
@@ -567,12 +544,7 @@ def run_agent_lesson(
     pager = LessonPager(clean_markers=True)
     try:
         if tracing is not None:
-            tracing.current.update(
-                metadata={
-                    "progress_record_bid": progress_record_bid,
-                    "generated_block_bid": generated_block_bid,
-                }
-            )
+            tracing.bind_execution(progress_record_bid, generated_block_bid)
         if on_turn_opened is not None:
             on_turn_opened(progress_record_bid, generated_block_bid)
         if start_update is not None:
@@ -1075,7 +1047,7 @@ def _stream_turn(
     generated_block_bid: str,
     heartbeat_interval: float,
     debug_store: DebugSessionStore | None = None,
-    tracing: MarkdownFlowTrace | None = None,
+    tracing: CourseTrace | None = None,
 ) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome]:
     """Stream one turn's events, translating and persisting as they arrive."""
     pending_memory: list[MemoryUpdated] = []
@@ -1091,11 +1063,10 @@ def _stream_turn(
     echoes = EchoedMemoryFilter()
     asked = False
     error_code = None
-    trace_discarded = False
+    kept = True
 
-    for event in run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval):
-        if tracing is not None:
-            tracing.event(event)
+    events = run_turn_on_thread(make_events, heartbeat_interval=heartbeat_interval)
+    for event in tracing.observe(events) if tracing is not None else events:
         if isinstance(event, ContentDelta):
             session = session_holder.get("session")
             prepared = event.prepared_content if session is not None else None
@@ -1127,7 +1098,7 @@ def _stream_turn(
                     )
                 if not kept:
                     if tracing is not None:
-                        tracing.complete_turn("discarded")
+                        tracing.after_save(discarded=True)
                     return TurnOutcome(reason=None, taught=False, discarded=True)
                 persisted = True
                 pending_memory = []
@@ -1236,7 +1207,6 @@ def _stream_turn(
                         preview_question_ids=preview_question_ids,
                     )
                 pending_memory = []
-                trace_discarded = not kept
                 if session.finished and kept:  # not for a turn a reset discarded
                     # Before the terminal event, because the browser stops reading the stream on
                     # it. These are the only thing that ticks the lesson off in the outline, ends
@@ -1276,14 +1246,10 @@ def _stream_turn(
             session_holder["reason"] = "interaction"
 
         if isinstance(event, TurnDone) and tracing is not None:
-            tracing.complete_turn(
-                "discarded"
-                if trace_discarded
-                else "completed"
-                if finished
-                else "waiting"
-                if session_holder.get("reason") == "interaction"
-                else "end"
+            tracing.after_save(
+                reason=session_holder.get("reason"),
+                finished=finished,
+                discarded=not kept,
             )
         try:
             yield from _on_this_page(
@@ -1370,7 +1336,7 @@ def _stream_turn(
             )
 
     if tracing is not None and session_holder.get("reason") is None:
-        tracing.complete_turn("discarded" if discarded else "error")
+        tracing.after_save(discarded=discarded)
     return TurnOutcome(
         reason=session_holder.get("reason"),
         taught=bool("".join(taught).strip()),
