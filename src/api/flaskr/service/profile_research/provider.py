@@ -26,7 +26,7 @@ def create_profile_research_model(
         session.model,
         user_id=session.user_bid,
         span=span,
-        generation_name="profile_research_markdownflow",
+        generation_name="profile.generate",
         usage_context=UsageContext(
             user_bid=session.user_bid,
             usage_scene=BILL_USAGE_SCENE_DEBUG,
@@ -70,7 +70,7 @@ class _ProfileResearchLLMProvider(LLMProvider):
             model=actual_model,
             messages=messages,
             stream=stream,
-            generation_name="profile_research_markdownflow",
+            generation_name="profile.model",
             temperature=actual_temperature,
             usage_context=UsageContext(
                 user_bid=self._session.user_bid,

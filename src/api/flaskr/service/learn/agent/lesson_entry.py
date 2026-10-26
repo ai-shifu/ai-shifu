@@ -14,13 +14,9 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from flaskr.api.langfuse import (
-    create_trace_with_root_span,
-    finalize_langfuse_trace,
-    get_langfuse_client,
-)
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.api.markdownflow import Engine, GatewayModel
+from flaskr.api.markdownflow_tracing import MarkdownFlowTrace
 from flaskr.dao.uow import app_context_scope
 from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.agent.legacy_protocol import unrenderable_reason
@@ -29,6 +25,7 @@ from flaskr.service.learn.agent.rewind import RewindUnavailableError, plan_rewin
 from flaskr.service.learn.agent.run_agent import learner_values, run_agent_lesson
 from flaskr.service.learn.agent.teaching_summary import make_teaching_summarizer
 from flaskr.service.learn.exceptions import PaidError
+from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.metering.api import UsageContext
 from flaskr.service.metering.consts import (
@@ -55,6 +52,7 @@ if TYPE_CHECKING:
 
     from flask import Flask
     from flaskr.service.learn.agent.debug_session import DebugSessionStore
+    from flaskr.service.learn.agent.run_agent import TurnOutcome
     from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
 
 
@@ -96,6 +94,7 @@ def _resolve(
     outline_bid: str,
     preview_mode: bool,
     require_script: bool = True,
+    trace_context: dict[str, object] | None = None,
 ) -> tuple[str, str, LLMSettings, int | None, bool]:
     """Read the script, the author's teaching brief, and the model settings for this lesson.
 
@@ -126,6 +125,13 @@ def _resolve(
     )
     course_model = selection_model(shifu)
     brief = _teaching_brief(outline_model, outline=outline, shifu=shifu)
+    if trace_context is not None:
+        try:
+            trace_context.update(
+                _lesson_trace_context(outline_model, outline=outline, shifu=shifu)
+            )
+        except Exception:
+            app.logger.warning("Could not resolve MarkdownFlow trace titles")
     return (
         outline.content or "",
         brief,
@@ -136,6 +142,96 @@ def _resolve(
         ),
         content_revision,
         bool(getattr(shifu, "use_learner_language", 0)),
+    )
+
+
+def _lesson_trace_context(
+    outline_model: type, *, outline: object, shifu: object
+) -> dict[str, object]:
+    """Name the lesson from the exact draft or published records used for execution."""
+    ancestors: list[str] = []
+    seen = {outline.outline_item_bid}
+    parent_bid = (getattr(outline, "parent_bid", "") or "").strip()
+    for _ in range(_ANCESTOR_LIMIT):
+        if not parent_bid or parent_bid in seen:
+            break
+        seen.add(parent_bid)
+        parent = _latest(
+            outline_model, outline_item_bid=parent_bid, shifu_bid=outline.shifu_bid
+        )
+        if parent is None:
+            break
+        ancestors.append((parent.title or "").strip() or parent.outline_item_bid)
+        parent_bid = (getattr(parent, "parent_bid", "") or "").strip()
+    return {
+        "course_title": (shifu.title or "").strip() or shifu.shifu_bid,
+        "lesson_title": (outline.title or "").strip() or outline.outline_item_bid,
+        "chapter_path": list(reversed(ancestors)),
+        "course_record_id": shifu.id,
+        "outline_record_id": outline.id,
+    }
+
+
+def _capture_trace_output(
+    events: Generator[RunMarkdownFlowDTO, None, TurnOutcome | None],
+    tracing: MarkdownFlowTrace,
+) -> Generator[RunMarkdownFlowDTO, None, TurnOutcome | None]:
+    """Collect only rendered lesson content while preserving the runner's return value."""
+    iterator = iter(events)
+    try:
+        while True:
+            try:
+                event = next(iterator)
+            except StopIteration as stopped:
+                return stopped.value
+            if event.type in {
+                GeneratedType.CONTENT,
+                GeneratedType.INTERACTION,
+            } and isinstance(event.content, str):
+                tracing.append_output(event.content)
+            yield event
+    finally:
+        close = getattr(iterator, "close", None)
+        if close is not None:
+            close()
+
+
+def _lesson_trace_name(
+    scene: str, course: str, chapters: list[str], lesson: str
+) -> str:
+    """Keep readable identities within the SDK's trace-name propagation limit."""
+    scene, course, lesson = (
+        " ".join(value.split()) for value in (scene, course, lesson)
+    )
+    chapter_path = "/".join(" ".join(value.split()) for value in chapters)
+    parts = [scene, course, *([chapter_path] if chapter_path else []), lesson]
+    name = "/".join(parts)
+    if len(name) <= 180:
+        return name
+
+    available = 180 - len(scene) - (3 if chapter_path else 2)
+    course_budget = min(len(course), 64)
+    lesson_budget = min(len(lesson), 80)
+    chapter_budget = min(len(chapter_path), available - course_budget - lesson_budget)
+    remaining = available - course_budget - lesson_budget - chapter_budget
+    extra_course = min(len(course) - course_budget, remaining)
+    course_budget += extra_course
+    lesson_budget += min(len(lesson) - lesson_budget, remaining - extra_course)
+
+    def shorten(value: str, budget: int) -> str:
+        if len(value) <= budget:
+            return value
+        prefix = (budget - 3 + 1) // 2
+        suffix = budget - 3 - prefix
+        return value[:prefix] + "..." + (value[-suffix:] if suffix else "")
+
+    return "/".join(
+        [
+            scene,
+            shorten(course, course_budget),
+            *([shorten(chapter_path, chapter_budget)] if chapter_path else []),
+            shorten(lesson, lesson_budget),
+        ]
     )
 
 
@@ -299,6 +395,7 @@ def agent_lesson_events(
                     )
         except RewindUnavailableError:
             raise_error("server.learn.agentRewindUnavailable")
+    trace_context: dict[str, object] = {}
     script, brief, settings, content_revision, use_learner_language = _resolve(
         app,
         user_bid=user_bid,
@@ -306,6 +403,7 @@ def agent_lesson_events(
         outline_bid=outline_bid,
         preview_mode=preview_mode,
         require_script=debug_store is None,
+        trace_context=trace_context,
     )
     if debug_store is not None:
         if not preview_mode or script_override is None:
@@ -313,18 +411,34 @@ def agent_lesson_events(
             raise ValueError(msg)
         script = script_override
 
-    trace, span = create_trace_with_root_span(
-        client=get_langfuse_client(),
-        trace_payload={
-            "name": "agent_lesson",
-            "user_id": user_bid,
-            "metadata": {
-                "shifu_bid": shifu_bid,
-                "outline_item_bid": outline_bid,
-                "flow_engine": "2.0",
-            },
+    scene = (
+        "debug" if debug_store is not None else "preview" if preview_mode else "learn"
+    )
+    mode = (
+        learning_mode
+        if learning_mode in {"read", "listen", "classroom"}
+        else ("listen" if listen else "read")
+    )
+    tracing = MarkdownFlowTrace(
+        name=_lesson_trace_name(
+            scene,
+            str(trace_context.get("course_title") or shifu_bid),
+            trace_context.get("chapter_path") or [],
+            str(trace_context.get("lesson_title") or outline_bid),
+        ),
+        user_id=user_bid,
+        input=user_input
+        if learner_values(user_input)
+        else {"action": "regenerate" if rewind else "continue"},
+        metadata={
+            "shifu_bid": shifu_bid,
+            "outline_item_bid": outline_bid,
+            "flow_engine": "2.0",
+            "scene": scene,
+            "learning_mode": mode,
+            "content_revision": content_revision,
+            **trace_context,
         },
-        root_span_payload={"name": "agent_lesson_turn"},
     )
     usage_scene = BILL_USAGE_SCENE_PREVIEW if preview_mode else BILL_USAGE_SCENE_PROD
     # Auxiliary requests belong to the same lesson as teaching. Without the course identity,
@@ -349,7 +463,7 @@ def agent_lesson_events(
             app,
             settings.model,
             user_id=user_bid,
-            span=span,
+            span=tracing.current,
             usage_context=usage_context,
             usage_metadata=settings.usage_metadata,
             # An author previewing is not a learner taking the course; counting their turns as
@@ -370,48 +484,50 @@ def agent_lesson_events(
         )
         for model in models:
             model.set_usage_context(context)
+            model.set_parent_observation(tracing.current)
 
-    engine = Engine(
-        gateway(),
-        # No memory store: the engine runs on the bridge's producer thread, which has no app
-        # context. The host consumes its `MemoryUpdated` events and writes them instead.
-        memory_store=None,
-        memory_admission=True,
-        memory_context_limit=32_768,
-        memory_recall=True,
-        recall_history_compaction=True,
-        teaching_history_compaction=True,
-        exercise_statistics=True,
-        feedback_contract=True,
-        teaching_summarizer=make_teaching_summarizer(
-            gateway(
-                generation_name="agent_teaching_summary",
-                input_budget_bytes=40_960,
-                retry_deadline_seconds=8,
-                timeout=8,
-                num_retries=0,
-            )
-        ),
-        memory_reserved_keys=get_global_profile_keys(),
-        memory_readonly_prefixes=(COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX),
-        memory_request_check=make_request_check(
-            gateway(
-                generation_name="agent_memory_admission",
-            )
-        ),
-        model_settings={"temperature": settings.temperature},
-        # A question this host cannot render goes back to the model to be asked again. Let
-        # through, it reached the learner as text with no controls under it, the lesson waited
-        # for an answer that could not be given, and each return to the lesson asked it again.
-        interaction_check=unrenderable_reason,
-        # Every lesson here is written in MarkdownFlow, and a MarkdownFlow lesson pauses only where
-        # its author put a button. Left to decide, the model added pauses the author never wrote:
-        # 17 "继续" buttons over 4 lessons of the general-education course (2026-09-24), 6 of
-        # them in a lesson whose script has no question at all.
-        pauses_from_notation=True,
-    )
     end_reason = "error"
+    request_turn = True
     try:
+        engine = Engine(
+            gateway(),
+            # No memory store: the engine runs on the bridge's producer thread, which has no app
+            # context. The host consumes its `MemoryUpdated` events and writes them instead.
+            memory_store=None,
+            memory_admission=True,
+            memory_context_limit=32_768,
+            memory_recall=True,
+            recall_history_compaction=True,
+            teaching_history_compaction=True,
+            exercise_statistics=True,
+            feedback_contract=True,
+            teaching_summarizer=make_teaching_summarizer(
+                gateway(
+                    generation_name="agent_teaching_summary",
+                    input_budget_bytes=40_960,
+                    retry_deadline_seconds=8,
+                    timeout=8,
+                    num_retries=0,
+                )
+            ),
+            memory_reserved_keys=get_global_profile_keys(),
+            memory_readonly_prefixes=(COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX),
+            memory_request_check=make_request_check(
+                gateway(
+                    generation_name="agent_memory_admission",
+                )
+            ),
+            model_settings={"temperature": settings.temperature},
+            # A question this host cannot render goes back to the model to be asked again. Let
+            # through, it reached the learner as text with no controls under it, the lesson waited
+            # for an answer that could not be given, and each return to the lesson asked it again.
+            interaction_check=unrenderable_reason,
+            # Every lesson here is written in MarkdownFlow, and a MarkdownFlow lesson pauses only where
+            # its author put a button. Left to decide, the model added pauses the author never wrote:
+            # 17 "继续" buttons over 4 lessons of the general-education course (2026-09-24), 6 of
+            # them in a lesson whose script has no question at all.
+            pauses_from_notation=True,
+        )
         while True:
             debug_options = (
                 {"debug_store": debug_store, "preview_variables": preview_variables}
@@ -420,25 +536,31 @@ def agent_lesson_events(
             )
             if preview_generation is not None:
                 debug_options["preview_generation"] = preview_generation
-            outcome = yield from run_agent_lesson(
-                app,
-                engine=engine,
-                script=script,
-                teaching_brief=brief,
-                content_revision=content_revision,
-                use_learner_language=use_learner_language,
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                outline_bid=outline_bid,
-                user_input=user_input,
-                listen=listen,
-                preview_mode=preview_mode,
-                shifu_model=_models(preview_mode)[1],
-                heartbeat_interval=heartbeat_interval,
-                rewind=rewind,
-                on_turn_opened=bind_turn_usage,
-                **debug_options,
+            outcome = yield from _capture_trace_output(
+                run_agent_lesson(
+                    app,
+                    engine=engine,
+                    script=script,
+                    teaching_brief=brief,
+                    content_revision=content_revision,
+                    use_learner_language=use_learner_language,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    user_input=user_input,
+                    listen=listen,
+                    preview_mode=preview_mode,
+                    shifu_model=_models(preview_mode)[1],
+                    heartbeat_interval=heartbeat_interval,
+                    rewind=rewind,
+                    on_turn_opened=bind_turn_usage,
+                    tracing=tracing,
+                    trace_request_input=request_turn,
+                    **debug_options,
+                ),
+                tracing,
             )
+            request_turn = False
             if outcome is not None and outcome.reason is None:
                 # The engine can return a bare ErrorEvent after a provider failure. It has
                 # already saved the usable session, but the legacy stream has no error DTO;
@@ -465,7 +587,10 @@ def agent_lesson_events(
             if outcome is None or outcome.reason != "end" or not outcome.taught:
                 break
             user_input, rewind = None, None
-        end_reason = "completed"
+        end_reason = None
+    except DiscardedTurnError:
+        end_reason = "discarded"
+        raise
     except RewindUnavailableError:
         # The session the rows point back into is gone (unreadable, or never stored).
         raise_error("server.learn.agentRewindUnavailable")
@@ -476,8 +601,7 @@ def agent_lesson_events(
         raise
     finally:
         # However the turn ended, an unfinished trace leaves its cost and latency unattributed.
-        finalize_langfuse_trace(
-            trace=trace,
-            root_span=span,
-            root_span_payload={"metadata": {"end_reason": end_reason}},
+        tracing.finish(
+            outcome=None if end_reason == "disconnected" else end_reason,
+            transport_closed=end_reason == "disconnected",
         )
