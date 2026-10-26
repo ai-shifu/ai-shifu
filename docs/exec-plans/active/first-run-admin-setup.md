@@ -7,6 +7,8 @@ SMTP, SMS or OAuth configuration. A server-console operation authorizes one
 initialization transaction, either directly or through a short-lived Web setup
 code. Local administrator password login remains independent of learner login
 methods. Preserve the ordinary verification-code security boundary.
+New administrators use a phone number or email address plus a local password;
+the identifier stays unverified and independent of ordinary contact accounts.
 
 ## Progress
 
@@ -99,6 +101,41 @@ methods. Preserve the ordinary verification-code security boundary.
   case. A required-Redis supplement stopped on its first Unix-socket bind
   error, with no tests counted as passed. No permissions were widened or tests
   suppressed; the new head's full CI must cover these environment-blocked cases.
+- [x] 2026-10-26 UTC: Published immutable `aa2f67c6` passed all seven Actions:
+  the full backend passed 15,230 tests with 15 skipped, frontend passed 3,493,
+  and four production-image browser cases passed after one controlled same-source
+  Runtime retry. The first Runtime attempt failed before credentials; its API
+  stall remains unexplained. These results precede the contact-identifier change.
+- [x] 2026-10-26 UTC: The user requested removing independent usernames from
+  the administrator design. Agreed new initialization/login payload `identifier`
+  for phone/email plus password, with no messaging prerequisite or claim of
+  verified contact ownership. Existing preview usernames remain read-compatible.
+- [x] 2026-10-26 UTC: Created a separate local task, "Automatically generate and
+  persist SECRET_KEY", based on main for an independent predecessor PR. Its
+  configuration/installation changes are outside this branch's identity change.
+- [x] 2026-10-26 UTC: Implemented forward migration and contact-identifier account,
+  route, CLI, Web, translation and browser-harness contracts; verify collision,
+  privacy, legacy recovery, concurrency and authentication boundaries.
+- [x] 2026-10-26 UTC: Contact-identifier frontend checks passed: 148 focused
+  cases, 282 suites/3,509 cases in the final full run, TypeScript, lint and the
+  production build. Eight-language keys agree. Browser discovery found six
+  cases but did not execute them; no local Docker runtime was available.
+- [x] 2026-10-26 UTC: Backend user/route/migration regression recorded 1,171
+  passes and one TCP socket-bind `EPERM` failure before behavior assertions.
+  The learn/common supplement recorded 4,134 passes, 93 skips and a second TCP
+  bind `EPERM` failure, plus four subtests. Its skips comprise 92 real-Redis
+  cases and one isolated-MySQL case. No permission or test-selection bypass was
+  used. The focused runs overlap these domain results and are not added.
+  Five migration cases cover preserved SQLite mappings/uniqueness and generated
+  MySQL DDL; real MySQL migration execution remains unverified locally.
+- [x] 2026-10-26 UTC: New migration generation, isolated SQLite upgrade and
+  schema-drift check succeeded. Independent read-only frontend/backend review
+  found no concrete new defect. Initial full pre-commit rejected an incomplete
+  staged documentation graph; after staging the complete intended patch, the
+  unchanged whole-repository gate passed on recheck.
+- [ ] 2026-10-26 UTC: Run current-source regressions, lint/type/full repository
+  gates, publish the authorized update and track its own exact-head CI. Do not
+  inherit `aa2f67c6` results for the new identifier design.
 - [ ] 2026-10-25 UTC: The single-check rerun request returned HTTP 404 through
   the current GitHub connection; no rerun is confirmed from that request.
   Do not retry it or widen permissions. Observe the final source revision's
@@ -109,7 +146,7 @@ methods. Preserve the ordinary verification-code security boundary.
 ## Surprises & Discoveries
 
 Existing password login resolves phone/email accounts and cannot be treated as
-an independent local username contract. The existing password reset requires a
+an independent local credential contract. The existing password reset requires a
 verified contact. The default Docker gateway is HTTP, so browser setup must use
 loopback/SSH forwarding or HTTPS. Console-issued codes bind to the selected
 origin and never enter URLs or ordinary login/OTP/reset flows.
@@ -130,8 +167,11 @@ Schema downgrade refuses to drop mappings while local-account bindings remain.
   upgrades seed closed legacy state. User count is not setup authority.
 - Both trusted console provisioning and Web initialization call one domain
   service. Account, roles, demo ownership and completion commit together.
-- Add a distinct local administrator identity namespace and uniqueness. Do not
-  mark an optional email or phone as verified or implicitly link it.
+- Keep a distinct local administrator credential namespace and uniqueness, while
+  using phone/email as the account's login identifier. Do not mark that contact
+  as verified, expose it as the display name or implicitly link it to an ordinary
+  contact account. New accounts reject standalone usernames; a forward migration
+  preserves existing preview username bindings for login/recovery only.
 - Local administrator login is automatically available and independent of
   learner `LOGIN_METHODS_ENABLED`. Existing administrator accounts survive.
 - Local recovery requires server-console access and revokes previous sessions;
@@ -208,9 +248,15 @@ provider. Concurrent and replayed setup has one winner; wrong, expired, rotated,
 wrong-origin and consumed codes fail. Crash/retry and post-commit session errors
 do not reopen setup. Existing, imported and zero-user legacy schemas remain
 closed on upgrade. Restart, Redis loss and deleting users do not reopen setup.
-Local account aliases never prove contact ownership. Recovery revokes sessions,
+Local phone/email identifiers never prove contact ownership. Recovery revokes sessions,
 including a login racing an old password. Ordinary issued-code, password and
 Google paths keep their contracts and cannot consume setup codes.
+New administrator creation rejects standalone usernames. Email casing/whitespace
+and optional `+86` normalize consistently across setup, login and recovery.
+Existing verified contact accounts remain separate; OTP login and contact-based
+password recovery never claim a local administrator with the same identifier.
+Profile fields and analytics do not leak the entered contact. Migration retains
+existing legacy identifiers and refuses unsafe downgrade of new contact accounts.
 
 Run focused backend/Jest tests, user auth and relevant integration/migration
 suites, full applicable backend checks, frontend type/lint, Compose semantic

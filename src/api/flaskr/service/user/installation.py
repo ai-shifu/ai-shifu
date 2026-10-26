@@ -208,13 +208,13 @@ def _schedule_creator_activation(app: Flask, user_bid: str, language: str) -> No
 
 
 def _provision_admin(
-    app: Flask, state: InstallationState, username: str, password: str, language: str
+    app: Flask, state: InstallationState, identifier: str, password: str, language: str
 ) -> str:
     from flaskr.service.user.local_accounts import provision_local_admin_account
     from flaskr.service.user.utils import ensure_demo_course_permissions
 
     user_bid = provision_local_admin_account(
-        app, username=username, password=password, language=language
+        app, identifier=identifier, password=password, language=language
     )
     # Existing installations keep the current course owners. Only a managed
     # installation's initial administrator receives the bundled demo ownership.
@@ -250,7 +250,7 @@ def initialize_admin(
     app: Flask,
     *,
     setup_token: str,
-    username: str,
+    identifier: str,
     password: str,
     language: str = "en-US",
     request_origin: str,
@@ -273,13 +273,13 @@ def initialize_admin(
             raise_error("server.installation.invalidSetupToken")
         if not hmac.compare_digest(state.token_origin, origin):
             raise_error("server.installation.invalidSetupOrigin")
-        return _provision_admin(app, state, username, password, language)
+        return _provision_admin(app, state, identifier, password, language)
 
 
 def create_admin_from_console(
     app: Flask,
     *,
-    username: str,
+    identifier: str,
     password: str,
     language: str = "en-US",
 ) -> str:
@@ -291,4 +291,4 @@ def create_admin_from_console(
             state.mode == "managed" and state.initialized_at is not None
         ):
             raise_error("server.installation.setupComplete")
-        return _provision_admin(app, state, username, password, language)
+        return _provision_admin(app, state, identifier, password, language)

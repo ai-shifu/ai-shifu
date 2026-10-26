@@ -60,7 +60,7 @@ def _post(app: Flask, path: str, payload: object, **kwargs: object) -> object:
 def _setup_payload(app: Flask) -> dict[str, str]:
     return {
         "setup_token": installation.issue_setup_token(app),
-        "username": "site-owner",
+        "identifier": "owner@example.com",
         "password": "OwnerPassword123",
     }
 
@@ -84,12 +84,15 @@ def test_setup_returns_normal_session_and_local_login_ignores_learner_switches(
     body = response.get_json()
     assert body["code"] == 0
     assert body["data"]["token"]
-    assert body["data"]["userInfo"]["username"] == "site-owner"
+    assert body["data"]["userInfo"]["username"] == body["data"]["userInfo"]["user_id"]
+    assert "owner@example.com" not in str(body["data"]["userInfo"])
     assert body["data"]["userInfo"]["email"] == ""
     assert body["data"]["userInfo"]["mobile"] == ""
     assert response.headers["Cache-Control"] == "no-store"
     login = _post(
-        app, "login", {"username": "SITE-OWNER", "password": payload["password"]}
+        app,
+        "login",
+        {"identifier": "OWNER@EXAMPLE.COM", "password": payload["password"]},
     )
     assert login.get_json()["code"] == 0
     assert (
@@ -153,9 +156,9 @@ def test_valid_but_wrong_origin_cannot_spend_the_setup_code(
 @pytest.mark.parametrize(
     ("key", "value"),
     [
-        ("username", None),
-        ("username", ["site-owner"]),
-        ("username", "x" * 65),
+        ("identifier", None),
+        ("identifier", ["owner@example.com"]),
+        ("identifier", "x" * 65),
         ("password", False),
         ("password", "Valid123" + "字" * 22),
         ("setup_token", {"token": "not-a-string"}),
@@ -242,7 +245,7 @@ def test_a_session_failure_leaves_setup_closed_and_password_login_available(
         _post(
             app,
             "login",
-            {"username": payload["username"], "password": payload["password"]},
+            {"identifier": payload["identifier"], "password": payload["password"]},
         ).get_json()["code"]
         == 0
     )
@@ -271,3 +274,76 @@ def test_missing_installation_state_never_opens_setup(
         "setup_required": False,
         "local_admin_login_enabled": False,
     }
+
+
+@pytest.mark.parametrize(
+    "identifier",
+    [
+        "13800138000",
+        "+86 13800138000",
+        "OWNER+tag@EXAMPLE.COM",
+        "a" * 64 + "@" + "b" * 63 + "." + "c" * 63 + "." + "d" * 61,
+    ],
+)
+def test_contact_setup_login_and_recovery_accepts_normalized_long_identifiers(
+    installation_http_app: Flask, identifier: str
+) -> None:
+    from flaskr.service.user.local_accounts import reset_local_admin_password
+
+    app = installation_http_app
+    payload = _setup_payload(app)
+    payload["identifier"] = identifier
+    response = _post(app, "initialize", payload).get_json()
+    assert response["code"] == 0
+    assert response["data"]["userInfo"]["has_local_password"] is True
+    assert (
+        _post(
+            app, "login", {"identifier": identifier, "password": payload["password"]}
+        ).get_json()["code"]
+        == 0
+    )
+    reset_local_admin_password(app, identifier=identifier, new_password="Recovered123")
+    assert (
+        _post(
+            app, "login", {"identifier": identifier, "password": "Recovered123"}
+        ).get_json()["code"]
+        == 0
+    )
+    assert (
+        _post(
+            app, "login", {"identifier": identifier, "password": payload["password"]}
+        ).get_json()["code"]
+        != 0
+    )
+
+
+def test_old_username_payload_only_signs_in_existing_legacy_mapping(
+    installation_http_app: Flask,
+) -> None:
+    app = installation_http_app
+    payload = _setup_payload(app)
+    old_setup = dict(payload)
+    old_setup["username"] = old_setup.pop("identifier")
+    assert _post(app, "initialize", old_setup).get_json()["code"] != 0
+    assert _post(app, "initialize", payload).get_json()["code"] == 0
+    with app.app_context(), unit_of_work():
+        binding = LocalAdminAccount.query.one()
+        binding.identifier = "old_owner"
+        binding.identifier_kind = "legacy_username"
+        credential = AuthCredential.query.filter_by(
+            credential_bid=binding.credential_bid
+        ).one()
+        credential.identifier = credential.subject_id = "old_owner"
+        credential.subject_format = "local_username"
+    assert (
+        _post(
+            app, "login", {"username": "OLD_OWNER", "password": payload["password"]}
+        ).get_json()["code"]
+        == 0
+    )
+    assert (
+        _post(
+            app, "login", {"identifier": "old_owner", "password": payload["password"]}
+        ).get_json()["code"]
+        == 0
+    )

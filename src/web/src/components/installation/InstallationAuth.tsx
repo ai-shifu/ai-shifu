@@ -27,6 +27,7 @@ import {
   CardTitle,
 } from '@/components/ui/Card';
 import { useTracking } from '@/hooks/useTracking';
+import { isValidEmail } from '@/lib/validators';
 import { useUserStore } from '@/store/useUserStore';
 import {
   buildInstallationExposure,
@@ -46,8 +47,8 @@ const installationErrorKeys = {
   12001: 'server.installation.setupUnavailable',
   12002: 'server.installation.invalidSetupToken',
   12003: 'server.installation.setupComplete',
-  12004: 'server.installation.invalidUsername',
-  12005: 'server.installation.usernameUnavailable',
+  12004: 'server.installation.invalidIdentifier',
+  12005: 'server.installation.identifierUnavailable',
   12006: 'server.installation.localLoginUnavailable',
   12007: 'server.installation.invalidSetupOrigin',
   12008: 'server.installation.passwordTooLong',
@@ -73,7 +74,7 @@ export const InstallationAuth = ({
   const [statusFailed, setStatusFailed] = useState(false);
   const [reload, setReload] = useState(0);
   const [setupToken, setSetupToken] = useState('');
-  const [username, setUsername] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -135,13 +136,26 @@ export const InstallationAuth = ({
     event.preventDefault();
     if (submitting.current || !available || !secure) return;
     setErrorMessage('');
-    const normalizedUsername = username.trim().toLowerCase();
-    if (!normalizedUsername || !password || (setup && !setupToken.trim())) {
+    const trimmedIdentifier = identifier.trim();
+    const normalizedIdentifier = trimmedIdentifier.includes('@')
+      ? trimmedIdentifier.toLowerCase()
+      : trimmedIdentifier.startsWith('+86')
+        ? trimmedIdentifier.slice(3).trim()
+        : trimmedIdentifier.toLowerCase();
+    if (!normalizedIdentifier || !password || (setup && !setupToken.trim())) {
       setErrorMessage(t('module.installation.validationRequired'));
       return;
     }
-    if (!/^[a-z][a-z0-9_.-]{2,63}$/.test(normalizedUsername)) {
-      setErrorMessage(t('module.installation.usernameInvalid'));
+    if (
+      normalizedIdentifier.length > 254 ||
+      !/^[\x20-\x7e]+$/.test(normalizedIdentifier) ||
+      (setup &&
+        !(
+          isValidEmail(normalizedIdentifier) ||
+          /^1[0-9]{10}$/.test(normalizedIdentifier)
+        ))
+    ) {
+      setErrorMessage(t('module.installation.identifierInvalid'));
       return;
     }
     if (new Blob([password]).size > 72) {
@@ -166,7 +180,7 @@ export const InstallationAuth = ({
     setBusy(true);
     setOfferLocalLogin(false);
     const payload = {
-      username: normalizedUsername,
+      identifier: normalizedIdentifier,
       password,
       language: i18n.resolvedLanguage || i18n.language || 'en-US',
     };
@@ -300,29 +314,29 @@ export const InstallationAuth = ({
                 </div>
               ) : null}
               <div className='space-y-2'>
-                <Label htmlFor='installation-username'>
-                  {t('module.installation.usernameLabel')}
+                <Label htmlFor='installation-identifier'>
+                  {t('module.installation.identifierLabel')}
                 </Label>
                 <Input
-                  id='installation-username'
-                  name='username'
+                  id='installation-identifier'
+                  name='identifier'
                   autoComplete='username'
                   autoCapitalize='none'
                   spellCheck={false}
-                  value={username}
-                  onChange={event => setUsername(event.target.value)}
+                  value={identifier}
+                  onChange={event => setIdentifier(event.target.value)}
                   disabled={busy}
-                  maxLength={64}
+                  maxLength={254}
                   aria-describedby={
-                    setup ? 'installation-username-help' : undefined
+                    setup ? 'installation-identifier-help' : undefined
                   }
                 />
                 {setup ? (
                   <p
-                    id='installation-username-help'
+                    id='installation-identifier-help'
                     className='text-sm text-muted-foreground'
                   >
-                    {t('module.installation.usernameHelp')}
+                    {t('module.installation.identifierHelp')}
                   </p>
                 ) : null}
               </div>

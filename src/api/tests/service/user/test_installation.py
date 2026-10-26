@@ -62,7 +62,7 @@ def installation_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Flask:
 def _initialize(app: Flask, token: str, **changes: str) -> str:
     values = {
         "setup_token": token,
-        "username": "site-owner",
+        "identifier": "owner@example.com",
         "password": "OwnerPassword123",
         "request_origin": "http://localhost:8080",
     }
@@ -108,7 +108,7 @@ def test_setup_atomically_creates_owner_without_external_provider(
     assert context.created_new_user
     assert context.user_id == user_bid
     with pytest.raises(AppError):
-        _initialize(app, token, username="second-owner")
+        _initialize(app, token, identifier="second@example.com")
     with pytest.raises(AppError):
         installation.issue_setup_token(app)
 
@@ -175,17 +175,17 @@ def test_two_concurrent_setup_requests_have_one_committed_winner(
     token = installation.issue_setup_token(app)
     start = threading.Barrier(2)
 
-    def attempt(username: str) -> str:
+    def attempt(identifier: str) -> str:
         start.wait(timeout=5)
         try:
-            return _initialize(app, token, username=username)
+            return _initialize(app, token, identifier=identifier)
         except AppError:
             return "rejected"
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         futures = [
-            executor.submit(attempt, username)
-            for username in ("owner-one", "owner-two")
+            executor.submit(attempt, identifier)
+            for identifier in ("one@example.com", "two@example.com")
         ]
         outcomes = [future.result(timeout=15) for future in futures]
     assert outcomes.count("rejected") == 1
@@ -381,13 +381,13 @@ def test_trusted_console_can_seed_closed_legacy_without_reopening_setup(
         state.mode = "legacy"
         state.initialized_at = now_utc()
     installation.create_admin_from_console(
-        app, username="legacy-owner", password="Password123"
+        app, identifier="legacy@example.com", password="Password123"
     )
     assign.assert_not_called()
     assert not installation.get_installation_status(app)["setup_required"]
     with pytest.raises(AppError):
         installation.create_admin_from_console(
-            app, username="another-owner", password="Password123"
+            app, identifier="another@example.com", password="Password123"
         )
 
 
@@ -510,7 +510,7 @@ def test_console_create_admin_prompts_without_echoing_password(
     app = installation_app
     result = app.test_cli_runner().invoke(
         args=["console", "create-admin"],
-        input="console-owner\nHiddenPassword123\nHiddenPassword123\n",
+        input="console@example.com\nHiddenPassword123\nHiddenPassword123\n",
     )
     assert result.exit_code == 0, result.output
     assert "HiddenPassword123" not in result.output
@@ -526,13 +526,15 @@ def test_console_reset_uses_hidden_confirmation_and_shared_recovery_helper(
     reset = Mock()
     monkeypatch.setattr(local_accounts, "reset_local_admin_password", reset)
     result = installation_app.test_cli_runner().invoke(
-        args=["console", "reset-admin-password", "--username", "console-owner"],
+        args=["console", "reset-admin-password", "--identifier", "console@example.com"],
         input="NewPassword123\nNewPassword123\n",
     )
     assert result.exit_code == 0, result.output
     assert "NewPassword123" not in result.output
     reset.assert_called_once_with(
-        installation_app, username="console-owner", new_password="NewPassword123"
+        installation_app,
+        identifier="console@example.com",
+        new_password="NewPassword123",
     )
 
 
@@ -613,10 +615,10 @@ def test_downgrade_refuses_local_bindings_before_dropping_any_table(
         module.upgrade()
         connection.execute(
             text(
-                "INSERT INTO user_local_admin_accounts (username,user_bid,credential_bid,deleted,created_at,updated_at) VALUES (:username,:user_bid,:credential_bid,:deleted,:created_at,:updated_at)"
+                "INSERT INTO user_local_admin_accounts (username,user_bid,credential_bid,deleted,created_at,updated_at) VALUES (:identifier,:user_bid,:credential_bid,:deleted,:created_at,:updated_at)"
             ),
             {
-                "username": "owner",
+                "identifier": "owner",
                 "user_bid": "owner-user",
                 "credential_bid": "owner-credential",
                 "deleted": deleted,
@@ -635,3 +637,29 @@ def test_downgrade_refuses_local_bindings_before_dropping_any_table(
             == 1
         )
     engine.dispose()
+
+
+def test_hidden_username_recovery_alias_does_not_create_new_username_accounts(
+    installation_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from flaskr.service.user import local_accounts
+
+    reset = Mock()
+    monkeypatch.setattr(local_accounts, "reset_local_admin_password", reset)
+    result = installation_app.test_cli_runner().invoke(
+        args=["console", "reset-admin-password", "--username", "old_owner"],
+        input="NewPassword123\nNewPassword123\n",
+    )
+    assert result.exit_code == 0, result.output
+    reset.assert_called_once_with(
+        installation_app, identifier="old_owner", new_password="NewPassword123"
+    )
+    help_result = installation_app.test_cli_runner().invoke(
+        args=["console", "reset-admin-password", "--help"]
+    )
+    assert "--identifier" in help_result.output
+    assert "--username" not in help_result.output
+    create_result = installation_app.test_cli_runner().invoke(
+        args=["console", "create-admin", "--username", "old_owner"]
+    )
+    assert create_result.exit_code != 0

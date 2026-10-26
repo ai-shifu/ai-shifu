@@ -10,18 +10,22 @@ canonical: true
 
 A self-hosted deployment owner can initialize a local administrator without SMS,
 SMTP or OAuth. The owner retrieves a short-lived, installation-scoped code from
-the server console and supplies it in the Web setup form with a local username
-and password. A direct interactive console path uses the same domain service.
+the server console and supplies it in the Web setup form with a phone/email
+login identifier and password. A direct interactive console path uses the same
+domain service.
 These are new capabilities; ordinary first public registration is not authority
 to administer a newly managed installation.
 
 ## User journey
 
 The uninitialized administrator entry leads to `/setup`. The owner obtains a
-code for the exact local or HTTPS origin, creates a username/password, and enters
-the administrator area with creator and demo permissions. Email/phone are not
-required and are not marked verified. After completion, `/admin-login` provides
-local password login even when learner password login is disabled. Existing
+code for the exact local or HTTPS origin, enters a phone number or email address
+and a password, and enters the administrator area with creator and demo
+permissions.
+The contact is an unverified local identifier; setup does not send a verification
+message, bind a contact credential or claim an existing contact account.
+After completion, `/admin-login` provides local password login even when learner
+password login is disabled. Existing
 phone/email/OAuth administrators retain their existing login route.
 
 A repository-resolved, verified local password identity also satisfies learner
@@ -46,16 +50,30 @@ parameters and sensitive HTTP bodies are excluded from logs and caches.
 
 - `GET /api/installation/status`: standard envelope with `setup_required` and
   `local_admin_login_enabled` booleans, no account or code metadata.
-- `POST /api/installation/initialize`: `setup_token`, `username`, `password`,
+- `POST /api/installation/initialize`: `setup_token`, `identifier`, `password`,
   optional `language`; returns the existing `UserToken` data on success.
-- `POST /api/installation/login`: `username`, `password`, optional `language`;
+- `POST /api/installation/login`: `identifier`, `password`, optional `language`;
   returns the existing `UserToken` data on success.
 
-The browser confirms the password before submission. Usernames use a dedicated
-case-insensitive local namespace, 3–64 ASCII characters, starting with a letter
-then letters, digits, dots, underscores or hyphens. Passwords follow the existing
-strength policy and the supported bcrypt input limit. Contact binding and
-contact-based recovery never infer ownership from a local username.
+The browser confirms the password before submission. New local identifiers must
+be email addresses (trimmed, lowercased, at most 254 characters) or mainland-China
+phone numbers (11 ASCII digits beginning with `1`, with optional `+86` normalized
+away). Existing shared format validators apply; dots and email plus-tags are not
+collapsed. Both types are accepted independently of learner provider switches.
+Passwords follow the existing strength policy and supported bcrypt input limit.
+
+The local account binding and `local_password` credential own the identifier.
+The user's internal identity remains `local:<business ID>`; the identifier is not
+copied to public contact fields, the display name or ordinary phone/email
+credentials. A verified password credential establishes local authentication,
+not contact ownership. An independently verified learner with the same contact
+is a separate account: ordinary contact login or password reset must not discover,
+merge with or recover the local administrator. Local recovery stays console-only.
+New initialization accepts no standalone username. Existing preview username
+bindings are preserved by a forward migration as legacy identities; login and
+console recovery accept those existing names, without permitting new ones. A
+legacy `username` login payload remains a compatibility read only. Downgrade
+must refuse to strand newly created phone/email local accounts.
 
 If initialization committed but session delivery failed, the UI offers local
 administrator login; it does not instruct the owner to initialize again.
@@ -88,10 +106,16 @@ Session-store failure after an API commit is `session_unavailable`, distinct fro
 credential rejection. The consumer computes an aggregate weekly terminal-success
 to attempt ratio by surface; it does not perform a per-person event join.
 
-Payloads contain no username, password, setup code, contact, raw error, account
-profile, URL, query, referrer or free-form content. Existing pageview handling
+Payloads contain no login identifier, username, password, setup code, contact,
+raw error, account profile, URL, query, referrer or free-form content. Existing pageview handling
 must never receive setup codes because codes are kept out of URLs. No event is
 used to decide whether initialization has completed.
+
+The phone/email identifier form uses the existing installation exposure,
+attempt and result events with the same triggers, deduplication and payload
+allowlists. No identifier or contact-type field is added. Historical username
+and current contact-identifier forms measure the same initialization/login
+funnel; these events cannot measure contact verification or infer contact type.
 
 ## Compatibility and rollout
 

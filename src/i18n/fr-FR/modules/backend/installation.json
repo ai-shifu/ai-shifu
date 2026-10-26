@@ -1,14 +1,14 @@
 {
   "__namespace__": "server.installation",
   "__flat__": {
+    "identifierUnavailable": "Cet identifiant de compte administrateur n’est pas disponible.",
+    "invalidIdentifier": "Saisissez une adresse e-mail ou un numéro mobile de Chine continentale valide.",
     "invalidSetupOrigin": "Utilisez exactement l’adresse HTTPS ou locale choisie lors de la création du code d’initialisation.",
     "invalidSetupToken": "Le code d’initialisation est invalide ou a expiré. Demandez un nouveau code depuis la console du serveur.",
-    "invalidUsername": "Utilisez 3 à 64 caractères : une lettre au début, puis des lettres, chiffres, points, traits de soulignement ou traits d’union.",
     "localLoginUnavailable": "La connexion administrateur locale n’est pas disponible sur cette instance.",
     "passwordTooLong": "Le mot de passe ne doit pas dépasser 72 octets en UTF-8.",
     "setupComplete": "Cette instance est déjà initialisée. Connectez-vous avec votre compte administrateur.",
     "setupRateLimited": "Trop de tentatives d’initialisation. Réessayez plus tard.",
-    "setupUnavailable": "La configuration de l’administrateur est indisponible. Vérifiez l’installation depuis la console du serveur.",
-    "usernameUnavailable": "Ce nom d’utilisateur administrateur n’est pas disponible."
+    "setupUnavailable": "La configuration de l’administrateur est indisponible. Vérifiez l’installation depuis la console du serveur."
   }
 }

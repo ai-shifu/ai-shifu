@@ -55,9 +55,12 @@ const fillSetup = async (
   fireEvent.change(screen.getByLabelText('module.installation.codeLabel'), {
     target: { value: 'single-use-test-claim' },
   });
-  fireEvent.change(screen.getByLabelText('module.installation.usernameLabel'), {
-    target: { value: 'Owner' },
-  });
+  fireEvent.change(
+    screen.getByLabelText('module.installation.identifierLabel'),
+    {
+      target: { value: 'Owner@Example.TEST' },
+    },
+  );
   fireEvent.change(screen.getByLabelText('module.installation.passwordLabel'), {
     target: { value: password },
   });
@@ -81,7 +84,7 @@ beforeEach(() => {
   });
 });
 
-it('creates the administrator, stores the normal session and navigates without contact fields', async () => {
+it('creates the administrator using an email identifier without sending verified contact fields', async () => {
   render(<InstallationAuth surface='setup' />);
   await fillSetup();
   fireEvent.click(
@@ -90,7 +93,7 @@ it('creates the administrator, stores the normal session and navigates without c
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin'));
   expect(mockInitialize).toHaveBeenCalledWith({
     setup_token: 'single-use-test-claim',
-    username: 'owner',
+    identifier: 'owner@example.test',
     password: 'GoodPassword1',
     language: 'en-US',
   });
@@ -125,10 +128,10 @@ it.each(['setup', 'local_login'] as const)(
     if (surface === 'setup') {
       await fillSetup();
     } else {
-      await screen.findByLabelText('module.installation.usernameLabel');
+      await screen.findByLabelText('module.installation.identifierLabel');
       fireEvent.change(
-        screen.getByLabelText('module.installation.usernameLabel'),
-        { target: { value: 'Owner' } },
+        screen.getByLabelText('module.installation.identifierLabel'),
+        { target: { value: 'Owner@Example.TEST' } },
       );
       fireEvent.change(
         screen.getByLabelText('module.installation.passwordLabel'),
@@ -209,19 +212,144 @@ it.each([
   },
 );
 
-it('does not accept a phone or email as a local username', async () => {
-  render(<InstallationAuth surface='setup' />);
-  await fillSetup();
-  fireEvent.change(screen.getByLabelText('module.installation.usernameLabel'), {
-    target: { value: 'owner@example.com' },
+it.each([
+  'site-owner',
+  'owner@',
+  'owner example@test.com',
+  '12345',
+  '23800138000',
+  '１３８００１３８０００',
+  '老师@example.test',
+  '+1 2025550100',
+  `${'a'.repeat(246)}@test.com`,
+])(
+  'rejects invalid setup identifiers before an authentication attempt: %s',
+  async identifier => {
+    render(<InstallationAuth surface='setup' />);
+    await fillSetup();
+    fireEvent.change(
+      screen.getByLabelText('module.installation.identifierLabel'),
+      {
+        target: { value: identifier },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.installation.createAdmin' }),
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'module.installation.identifierInvalid',
+    );
+    expect(mockInitialize).not.toHaveBeenCalled();
+    expect(mockTrackEvent.mock.calls.map(([name]) => name)).toEqual([
+      'installation_auth_exposure',
+    ]);
+  },
+);
+
+it.each([
+  ['  Owner+Course@Example.TEST  ', 'owner+course@example.test'],
+  [' 13800138000 ', '13800138000'],
+  ['+86 13800138000', '13800138000'],
+  [`${'a'.repeat(245)}@test.com`, `${'a'.repeat(245)}@test.com`],
+])(
+  'normalizes a setup contact identifier without adding contact verification: %s',
+  async (entered, expected) => {
+    render(<InstallationAuth surface='setup' />);
+    await fillSetup();
+    fireEvent.change(
+      screen.getByLabelText('module.installation.identifierLabel'),
+      {
+        target: { value: entered },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.installation.createAdmin' }),
+    );
+    await waitFor(() => expect(mockInitialize).toHaveBeenCalledTimes(1));
+    expect(mockInitialize).toHaveBeenCalledWith({
+      setup_token: 'single-use-test-claim',
+      identifier: expected,
+      password: 'GoodPassword1',
+      language: 'en-US',
+    });
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin'));
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(expected);
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+      /identifier|mobile|email|phone|password|single-use/,
+    );
+  },
+);
+
+it.each([12004, 12005])(
+  'maps identifier error %s without showing backend details',
+  async code => {
+    mockInitialize.mockRejectedValue({ code, message: 'private@example.test' });
+    render(<InstallationAuth surface='setup' />);
+    await fillSetup();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'module.installation.createAdmin' }),
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      code === 12004
+        ? 'server.installation.invalidIdentifier'
+        : 'server.installation.identifierUnavailable',
+    );
+    expect(screen.queryByText('private@example.test')).not.toBeInTheDocument();
+    expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toContain(
+      'private@example.test',
+    );
+  },
+);
+
+it('submits an existing legacy account name only through local login', async () => {
+  mockStatus.mockResolvedValue(readyStatus);
+  render(<InstallationAuth surface='local_login' />);
+  fireEvent.change(
+    await screen.findByLabelText('module.installation.identifierLabel'),
+    {
+      target: { value: 'Old-Owner' },
+    },
+  );
+  fireEvent.change(screen.getByLabelText('module.installation.passwordLabel'), {
+    target: { value: 'ExistingPassword1' },
   });
   fireEvent.click(
-    screen.getByRole('button', { name: 'module.installation.createAdmin' }),
+    screen.getByRole('button', { name: 'module.installation.login' }),
   );
-  expect(screen.getByRole('alert')).toHaveTextContent(
-    'module.installation.usernameInvalid',
+  await waitFor(() =>
+    expect(mockLocalLogin).toHaveBeenCalledWith({
+      identifier: 'old-owner',
+      password: 'ExistingPassword1',
+      language: 'en-US',
+    }),
   );
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin'));
   expect(mockInitialize).not.toHaveBeenCalled();
+});
+
+it('normalizes a phone identifier during administrator login without using learner login', async () => {
+  mockStatus.mockResolvedValue(readyStatus);
+  render(<InstallationAuth surface='local_login' />);
+  fireEvent.change(
+    await screen.findByLabelText('module.installation.identifierLabel'),
+    { target: { value: '+86 13800138000' } },
+  );
+  fireEvent.change(screen.getByLabelText('module.installation.passwordLabel'), {
+    target: { value: 'ExistingPassword1' },
+  });
+  fireEvent.click(
+    screen.getByRole('button', { name: 'module.installation.login' }),
+  );
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/admin'));
+  expect(mockLocalLogin).toHaveBeenCalledWith({
+    identifier: '13800138000',
+    password: 'ExistingPassword1',
+    language: 'en-US',
+  });
+  expect(mockInitialize).not.toHaveBeenCalled();
+  expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+    /13800138000|ExistingPassword|identifier|email|phone/,
+  );
 });
 
 it('reports an expired or wrong code through a bounded business error', async () => {
@@ -387,10 +515,13 @@ it('supports local login independently of learner login settings and preserves a
     Object.assign(window.location, { search: '' });
   });
   render(<InstallationAuth surface='local_login' />);
-  await screen.findByLabelText('module.installation.usernameLabel');
-  fireEvent.change(screen.getByLabelText('module.installation.usernameLabel'), {
-    target: { value: 'Owner' },
-  });
+  await screen.findByLabelText('module.installation.identifierLabel');
+  fireEvent.change(
+    screen.getByLabelText('module.installation.identifierLabel'),
+    {
+      target: { value: 'Owner@Example.TEST' },
+    },
+  );
   fireEvent.change(screen.getByLabelText('module.installation.passwordLabel'), {
     target: { value: 'GoodPassword1' },
   });
@@ -402,7 +533,7 @@ it('supports local login independently of learner login settings and preserves a
   );
   expect(window.location.search).toBe('');
   expect(mockLocalLogin).toHaveBeenCalledWith({
-    username: 'owner',
+    identifier: 'owner@example.test',
     password: 'GoodPassword1',
     language: 'en-US',
   });
@@ -439,10 +570,13 @@ it('reports a rejected local password without returning to setup or leaking erro
     message: 'private backend detail',
   });
   render(<InstallationAuth surface='local_login' />);
-  await screen.findByLabelText('module.installation.usernameLabel');
-  fireEvent.change(screen.getByLabelText('module.installation.usernameLabel'), {
-    target: { value: 'Owner' },
-  });
+  await screen.findByLabelText('module.installation.identifierLabel');
+  fireEvent.change(
+    screen.getByLabelText('module.installation.identifierLabel'),
+    {
+      target: { value: 'Owner@Example.TEST' },
+    },
+  );
   fireEvent.change(screen.getByLabelText('module.installation.passwordLabel'), {
     target: { value: 'WrongPassword1' },
   });

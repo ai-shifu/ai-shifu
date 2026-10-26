@@ -39,7 +39,7 @@ it.each([
 it('keeps the setup claim and password in the POST body', async () => {
   const payload = {
     setup_token: 'single-use-test-claim',
-    username: 'owner',
+    identifier: 'owner@example.test',
     password: 'LongPassword1',
     language: 'en-US',
   };
@@ -53,7 +53,7 @@ it('keeps the setup claim and password in the POST body', async () => {
 
 it('uses the independent administrator login endpoint', async () => {
   const payload = {
-    username: 'owner',
+    identifier: 'owner@example.test',
     password: 'LongPassword1',
     language: 'en-US',
   };

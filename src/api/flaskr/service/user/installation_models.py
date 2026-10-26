@@ -2,7 +2,15 @@
 
 from flaskr.dao import db
 from flaskr.util.datetime import now_utc
-from sqlalchemy import CheckConstraint, Column, DateTime, Integer, SmallInteger, String
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    Integer,
+    SmallInteger,
+    String,
+    text,
+)
 
 
 class InstallationState(db.Model):
@@ -29,12 +37,18 @@ class InstallationState(db.Model):
 
 
 class LocalAdminAccount(db.Model):
-    """Bind a unique local username to its user and password credential."""
+    """Bind an unverified contact login identifier to its local password credential."""
 
     __tablename__ = "user_local_admin_accounts"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String(64), nullable=False, unique=True)
+    identifier = Column(String(255), nullable=False, unique=True)
+    identifier_kind = Column(
+        String(16),
+        nullable=False,
+        default="legacy_username",
+        server_default=text("'legacy_username'"),
+    )
     user_bid = Column(String(32), nullable=False, unique=True)
     credential_bid = Column(String(32), nullable=False, unique=True)
     deleted = Column(SmallInteger, nullable=False, default=0)

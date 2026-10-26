@@ -55,7 +55,7 @@ python3 ../scripts/prepare_env.py
 # 编辑 .env：填写模型服务商 API Key，并将 LLM_MODEL_1_ID
 # 设置为该服务商已配置的文本模型 ID（必填，没有默认值）。
 # LLM_MODEL_1_NAME 可选；未填写或留空时直接显示模型 ID。
-# 首位管理员使用本地用户名和密码，无需配置短信或 SMTP。
+# 首位管理员使用手机号或邮箱加本地密码，无需配置短信或 SMTP。
 
 # 启动全部服务
 docker compose -f docker-compose.latest.yml up -d
@@ -144,7 +144,7 @@ Docker 启动后：
 
 1. 打开 `http://localhost:8080/admin`；新安装会进入初始化页面。
 2. 在服务器控制台运行 `docker compose -f docker-compose.latest.yml exec ai-shifu-api flask console setup-code --origin http://localhost:8080`，获取一次性初始化码。
-3. 输入初始化码，设置管理员用户名和密码；无需手机号、邮箱或发送服务。以后通过 `/admin-login` 登录，学员登录方式另行按需配置。
+3. 输入初始化码、手机号或邮箱，并设置密码；手机号或邮箱仅作为尚未验证的本地登录账号，无需配置短信或邮件发送服务。以后通过 `/admin-login` 使用相同账号和密码登录，学员登录方式另行按需配置。
 
 请使用包含此功能的 API/Web 镜像。已有实例升级不会重新开放网页初始化，原有账号继续可用；初始化和恢复命令详见[安装手册](INSTALL_MANUAL.md#first-administrator-setup)。
 

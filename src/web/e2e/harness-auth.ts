@@ -72,7 +72,9 @@ const localAdminCredentials = () => {
     );
   }
   return {
-    username: process.env.AI_SHIFU_TEST_ADMIN_USERNAME || 'runtime_admin',
+    identifier:
+      process.env.AI_SHIFU_TEST_ADMIN_IDENTIFIER ||
+      'runtime-admin@example.test',
     password,
   };
 };
@@ -96,10 +98,10 @@ export const initializeLocalAdmin = async (page: Page) => {
       'Set AI_SHIFU_TEST_SETUP_CODE from the isolated server console.',
     );
   }
-  const { username, password } = localAdminCredentials();
+  const { identifier, password } = localAdminCredentials();
   await page.goto('/setup');
   await page.locator('#installation-code').fill(setupCode);
-  await page.locator('#installation-username').fill(username);
+  await page.locator('#installation-identifier').fill(identifier);
   await page.locator('#installation-password').fill(password);
   await page.locator('#installation-confirmation').fill(password);
   const initialized = page.waitForResponse(
@@ -112,9 +114,9 @@ export const initializeLocalAdmin = async (page: Page) => {
 };
 
 export const loginWithLocalAdmin = async (page: Page) => {
-  const { username, password } = localAdminCredentials();
+  const { identifier, password } = localAdminCredentials();
   await page.goto('/admin-login');
-  await page.locator('#installation-username').fill(username);
+  await page.locator('#installation-identifier').fill(identifier);
   await page.locator('#installation-password').fill(password);
   const authenticated = page.waitForResponse(
     response => new URL(response.url()).pathname === '/api/installation/login',

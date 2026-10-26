@@ -86,7 +86,7 @@ def _browser_origin() -> str:
 def _finish_login(
     app: Flask,
     *,
-    username: str,
+    identifier: str,
     password: str,
     language: str,
     expected_user_bid: str | None = None,
@@ -94,7 +94,7 @@ def _finish_login(
     provider = get_provider("local_password")
     result = provider.verify(
         app,
-        VerificationRequest(identifier=username, code=password),
+        VerificationRequest(identifier=identifier, code=password),
     )
     if expected_user_bid and result.user.user_id != expected_user_bid:
         raise_error("server.user.invalidCredentials")
@@ -103,7 +103,7 @@ def _finish_login(
             confirm_local_admin_login_for_token_issue(
                 user_bid=result.user.user_id,
                 credential_bid=str(result.metadata.get("local_credential_bid") or ""),
-                username=str(result.metadata.get("local_username") or ""),
+                identifier=str(result.metadata.get("local_identifier") or ""),
                 credential_version=str(result.metadata.get("credential_version") or ""),
             )
             persist_token(app, user_id=result.user.user_id, token=result.token.token)
@@ -143,7 +143,7 @@ def register_installation_routes(app: Flask, path_prefix: str) -> None:
         payload = _payload()
         language = _language(payload)
         setup_token = _text(payload, "setup_token", 256)
-        username = _text(payload, "username", 64)
+        identifier = _text(payload, "identifier", 254)
         password = _text(payload, "password", 72)
         client_ip = resolve_client_ip()
         rate_identity = "installation:" + hashlib.sha256(client_ip.encode()).hexdigest()
@@ -154,7 +154,7 @@ def register_installation_routes(app: Flask, path_prefix: str) -> None:
                 user_bid = initialize_admin(
                     app,
                     setup_token=setup_token,
-                    username=username,
+                    identifier=identifier,
                     password=password,
                     language=language,
                     request_origin=origin,
@@ -169,7 +169,7 @@ def register_installation_routes(app: Flask, path_prefix: str) -> None:
         # the owner can use the normal local login entrypoint to retry sign-in.
         return _finish_login(
             app,
-            username=username,
+            identifier=identifier,
             password=password,
             language=language,
             expected_user_bid=user_bid,
@@ -183,8 +183,11 @@ def register_installation_routes(app: Flask, path_prefix: str) -> None:
         _browser_origin()
         payload = _payload()
         language = _language(payload)
-        username = _text(payload, "username", 64)
+        # Old clients may still send their pre-release local username. Only
+        # sign-in accepts that spelling; setup always requires a contact label.
+        key = "identifier" if "identifier" in payload else "username"
+        identifier = _text(payload, key, 254)
         password = _text(payload, "password", 72)
         return _finish_login(
-            app, username=username, password=password, language=language
+            app, identifier=identifier, password=password, language=language
         )

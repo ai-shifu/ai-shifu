@@ -556,11 +556,12 @@ docker compose -f docker-compose.latest.yml exec ai-shifu-api \
 ```
 
 Open `http://localhost:8080/admin` (or `/setup`), paste the console code and
-choose a local administrator username and password. The code expires after
-20 minutes, works once and is bound to the exact selected origin. Reissuing a
-code invalidates the previous one. Keep it out of URLs and shared logs. Email,
-phone, SMTP, SMS and OAuth are not required. The account receives administrator
-and teacher permissions plus the bundled demo course where applicable.
+enter a phone number or email address and choose a password. The code expires
+after 20 minutes, works once and is bound to the exact selected origin. Reissuing a
+code invalidates the previous one. Keep it out of URLs and shared logs. The
+identifier is not verified by setup; SMTP, SMS and OAuth services are not
+required. The account receives administrator and teacher permissions plus the
+bundled demo course where applicable.
 
 For a manual development install with Web on port 3000, run
 `flask console setup-code --origin http://localhost:3000` from `src/api` instead.
@@ -568,10 +569,13 @@ For a remote browser use your exact HTTPS origin, such as the origin configured
 for your deployment, in `--origin`. Plain public HTTP is not supported by the
 setup/local-login forms; use HTTPS or access loopback through an SSH tunnel.
 
-After setup, use `/admin-login` with the local username/password. This entry is
-available independently of learner `LOGIN_METHODS_ENABLED`; configure learner
-SMS/email/Google sign-in later as needed. A local username does not verify or
-bind a phone/email address. Existing administrators keep their original login
+After setup, use `/admin-login` with the same phone/email identifier and password.
+This entry is available independently of learner `LOGIN_METHODS_ENABLED`; configure learner
+SMS/email/Google sign-in later as needed. A local login identifier does not verify
+contact ownership, bind to an existing contact account or enable contact-based
+password recovery. The same phone/email can belong to a separate verified
+learner account; signing in or resetting that learner never accesses the local
+administrator. Existing administrators keep their original login
 methods during upgrade, and ordinary new user registration does not claim the
 administrator role on a managed installation.
 
@@ -582,20 +586,28 @@ docker compose -f docker-compose.latest.yml exec ai-shifu-api \
   flask console create-admin
 ```
 
-The command prompts for the username and a hidden, confirmed password. For
-local administrator recovery, run:
+The command prompts for a phone/email identifier and a hidden, confirmed
+password. For local administrator recovery, run:
 
 ```bash
 docker compose -f docker-compose.latest.yml exec ai-shifu-api \
-  flask console reset-admin-password --username owner
+  flask console reset-admin-password --identifier owner@example.com
 ```
 
-Enter the account's actual local username in place of `owner`. Recovery prompts
-for a hidden new password and revokes the previous sessions. It does not reopen
+Enter the account's actual local login identifier in place of `owner@example.com`.
+Recovery prompts for a hidden new password and revokes the previous sessions. It does not reopen
 Web setup. An existing installation can explicitly create its first local
 administrator through the server-console command without replacing existing
 accounts or demo ownership. For development Compose, replace the file with
 `docker-compose.dev.yml` and the service with `ai-shifu-api-dev`.
+
+Identifiers are trimmed; email addresses are case-insensitive and preserve dots
+and plus-tags. Email identifiers are limited to 254 characters. Phone numbers
+use the application's current mainland-China format: 11 ASCII digits beginning
+with `1`, optionally prefixed by `+86`. This does not add international SMS
+support. Standalone usernames cannot create new administrators. Accounts created
+with the earlier preview's username design retain login and console recovery
+compatibility; use the old name as the identifier for those existing accounts.
 
 ### Local Demo Login
 

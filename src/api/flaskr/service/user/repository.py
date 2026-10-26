@@ -213,7 +213,9 @@ class UserAggregate:
         """Return the account username, if present."""
         local_credential = self._preferred_identifier("local_password")
         if local_credential:
-            return local_credential.identifier
+            # Local login identifiers may be unverified personal contacts.
+            # Keep them out of public display-name/username surfaces.
+            return self.nickname or self.user_bid
         if self.identify:
             return self.identify
         if self.email:

@@ -12,7 +12,7 @@ export interface InstallationSession {
 }
 
 export interface LocalAdministratorCredentials {
-  username: string;
+  identifier: string;
   password: string;
   language: string;
 }

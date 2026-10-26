@@ -1,14 +1,14 @@
 {
   "__namespace__": "server.installation",
   "__flat__": {
+    "identifierUnavailable": "That administrator account identifier is unavailable.",
+    "invalidIdentifier": "Enter a valid email address or mainland China mobile number.",
     "invalidSetupOrigin": "Use the exact secure or local address selected when the setup code was issued.",
     "invalidSetupToken": "The setup code is invalid or has expired. Request a new code from the server console.",
-    "invalidUsername": "Use 3–64 characters: start with a letter, then use letters, digits, dots, underscores or hyphens.",
     "localLoginUnavailable": "Local administrator sign-in is not available on this installation.",
     "passwordTooLong": "The password must not exceed 72 UTF-8 bytes.",
     "setupComplete": "This installation has already been initialized. Sign in with your administrator account.",
     "setupRateLimited": "Too many setup attempts. Try again later.",
-    "setupUnavailable": "Administrator setup is unavailable. Check the installation from the server console.",
-    "usernameUnavailable": "That administrator username is unavailable."
+    "setupUnavailable": "Administrator setup is unavailable. Check the installation from the server console."
   }
 }

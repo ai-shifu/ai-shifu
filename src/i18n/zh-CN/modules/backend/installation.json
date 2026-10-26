@@ -1,14 +1,14 @@
 {
   "__namespace__": "server.installation",
   "__flat__": {
+    "identifierUnavailable": "此管理员账号不可用。",
+    "invalidIdentifier": "请输入有效的邮箱或中国大陆手机号。",
     "invalidSetupOrigin": "请使用获取初始化码时指定的 HTTPS 或本机地址。",
     "invalidSetupToken": "初始化码无效或已过期，请通过服务器控制台获取新码。",
-    "invalidUsername": "用户名需为 3–64 个字符，以字母开头，可包含字母、数字、点、下划线或连字符。",
     "localLoginUnavailable": "此实例尚未启用本地管理员登录。",
     "passwordTooLong": "密码的 UTF-8 编码长度不能超过 72 字节。",
     "setupComplete": "此实例已完成初始化，请使用管理员账号登录。",
     "setupRateLimited": "初始化尝试过于频繁，请稍后再试。",
-    "setupUnavailable": "当前无法初始化管理员，请通过服务器控制台检查安装状态。",
-    "usernameUnavailable": "此管理员用户名不可用。"
+    "setupUnavailable": "当前无法初始化管理员，请通过服务器控制台检查安装状态。"
   }
 }

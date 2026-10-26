@@ -21,7 +21,8 @@ from flaskr.service.user.installation_models import LocalAdminAccount
 from flaskr.service.user.local_accounts import (
     LOCAL_ADMIN_PROVIDER,
     lock_local_admin_credentials,
-    normalize_local_username,
+    normalize_local_identifier,
+    validate_local_binding,
 )
 from flaskr.service.user.password_rate_limit import PasswordLoginAttempt
 from flaskr.service.user.password_utils import verify_password
@@ -53,9 +54,16 @@ def _credential_version(password_hash: str) -> str:
 
 
 def _load_login_evidence(
-    username: str,
+    identifier: str,
 ) -> tuple[UserAggregate | None, AuthCredential | None]:
-    account = LocalAdminAccount.query.filter_by(username=username, deleted=0).first()
+    account = LocalAdminAccount.query.filter_by(
+        identifier=identifier, deleted=0
+    ).first()
+    if account is not None:
+        try:
+            validate_local_binding(account, identifier)
+        except AppError:
+            return None, None
     aggregate = load_user_aggregate(account.user_bid) if account is not None else None
     if (
         aggregate is None
@@ -66,7 +74,7 @@ def _load_login_evidence(
         return None, None
     credential = find_credential(
         provider_name=LOCAL_ADMIN_PROVIDER,
-        identifier=username,
+        identifier=identifier,
         user_bid=aggregate.user_bid,
     )
     if (
@@ -79,11 +87,11 @@ def _load_login_evidence(
     return aggregate, credential
 
 
-def _limit_identity(username: str, aggregate: UserAggregate | None) -> str:
+def _limit_identity(identifier: str, aggregate: UserAggregate | None) -> str:
     return (
         f"user:{aggregate.user_bid}"
         if aggregate is not None
-        else f"local-identifier:{username}"
+        else f"local-identifier:{identifier}"
     )
 
 
@@ -98,7 +106,7 @@ def _raise_account_blocked(app: Flask, response_identity: str) -> None:
 
 
 class LocalPasswordAuthProvider(AuthProvider):
-    """Authenticate a local username without asserting contact ownership."""
+    """Authenticate a local identifier without asserting contact ownership."""
 
     provider_name = LOCAL_ADMIN_PROVIDER
     supports_challenge = False
@@ -106,7 +114,9 @@ class LocalPasswordAuthProvider(AuthProvider):
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
         """Verify the local credential using the shared password attempt budget."""
         try:
-            username = normalize_local_username(request.identifier)
+            identifier = normalize_local_identifier(
+                request.identifier, allow_legacy=True
+            )
         except AppError:
             verify_password(request.code, _DUMMY_PASSWORD_HASH)
             raise_error("server.user.invalidCredentials")
@@ -114,11 +124,11 @@ class LocalPasswordAuthProvider(AuthProvider):
         if not password:
             verify_password(password, _DUMMY_PASSWORD_HASH)
             raise_error("server.user.invalidCredentials")
-        response_identity = f"local-response:{username}"
+        response_identity = f"local-response:{identifier}"
 
         with unit_of_work():
-            aggregate, _ = _load_login_evidence(username)
-            limit_identity = _limit_identity(username, aggregate)
+            aggregate, _ = _load_login_evidence(identifier)
+            limit_identity = _limit_identity(identifier, aggregate)
 
         for resolution_attempt in range(2):
             with PasswordLoginAttempt(app, limit_identity) as attempt:
@@ -126,8 +136,8 @@ class LocalPasswordAuthProvider(AuthProvider):
                     verify_password(password, _DUMMY_PASSWORD_HASH)
                     _raise_account_blocked(app, response_identity)
                 with unit_of_work():
-                    aggregate, credential = _load_login_evidence(username)
-                    current_identity = _limit_identity(username, aggregate)
+                    aggregate, credential = _load_login_evidence(identifier)
+                    current_identity = _limit_identity(identifier, aggregate)
                     password_hash = get_password_hash(credential) if credential else ""
                     user_info = (
                         build_user_info_from_aggregate(aggregate)
@@ -170,7 +180,7 @@ class LocalPasswordAuthProvider(AuthProvider):
             is_new_user=False,
             metadata={
                 "user_bid": aggregate.user_bid,
-                "local_username": username,
+                "local_identifier": identifier,
                 "local_credential_bid": credential_bid,
                 "credential_version": _credential_version(password_hash),
             },
@@ -181,13 +191,13 @@ def confirm_local_admin_login_for_token_issue(
     *,
     user_bid: str,
     credential_bid: str,
-    username: str,
+    identifier: str,
     credential_version: str,
 ) -> None:
     """Lock and recheck local-login authority immediately before storing a token."""
     _user, _account, credential = lock_local_admin_credentials(
         user_bid=user_bid,
-        username=username,
+        identifier=identifier,
         credential_bid=credential_bid,
     )
     if not isinstance(credential_version, str) or not hmac.compare_digest(

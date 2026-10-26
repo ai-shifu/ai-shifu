@@ -54,7 +54,8 @@ python3 ../scripts/prepare_env.py
 # Edit .env: configure an LLM provider API key and set LLM_MODEL_1_ID
 # to a text model ID served by that provider (required; no default).
 # LLM_MODEL_1_NAME is optional; an empty name displays the model ID.
-# The first administrator uses a local username/password; no SMS or SMTP is needed.
+# The first administrator uses a phone number or email plus a local password.
+# No SMS or SMTP service is needed to create or sign in to that account.
 
 # Start all services
 docker compose -f docker-compose.latest.yml up -d
@@ -155,7 +156,7 @@ After Docker starts:
 
 1. Open `http://localhost:8080/admin`; a fresh installation leads to the setup page.
 2. Retrieve a one-time code with `docker compose -f docker-compose.latest.yml exec ai-shifu-api flask console setup-code --origin http://localhost:8080`.
-3. Enter the code and choose an administrator username/password. No phone, email or delivery provider is required. Later sign in at `/admin-login`; learner login methods are configured separately.
+3. Enter the code, a phone number or email address, and a password. The contact is an unverified local login identifier; no SMS or SMTP service is required. Later sign in at `/admin-login` with the same identifier and password; learner login methods are configured separately.
 
 Use an API/Web image containing this feature. Existing installations remain closed to Web setup and retain their accounts; see [initialization and recovery commands](INSTALL_MANUAL.md#first-administrator-setup).
 
