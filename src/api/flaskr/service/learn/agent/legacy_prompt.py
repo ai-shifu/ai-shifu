@@ -11,7 +11,8 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
-from markdownflow.engine.marker_context import analyze_marker_context
+from markdownflow.engine.document_blocks import DocumentBlocks
+from markdownflow.engine.marker_context import _INLINE_HTML, analyze_marker_context
 from markdownflow.engine.questions import read_question_marker
 
 if TYPE_CHECKING:
@@ -45,7 +46,16 @@ def _project_legacy_markers(
         marker_prefix += ":"
     markers = {}
     masked: list[str] = []
-    literal_spans = analyze_marker_context(text, fence_indent=0).literals
+    literal_spans = []
+    blocks = DocumentBlocks(text, _INLINE_HTML)
+    for start, end in analyze_marker_context(text, fence_indent=0).literals:
+        html = blocks.terminated_html(start)
+        if html is not None and start < html.opening_end < end:
+            # The former scanner separated a terminated HTML token from the
+            # remainder of its closing line; an unfinished example cannot own it.
+            literal_spans.extend(((start, html.opening_end), (html.opening_end, end)))
+        else:
+            literal_spans.append((start, end))
     # A code example cannot make its unfinished opener consume a later reference.
     # Walk native fence lines before reading opaque historical names.
     line_ends = {}

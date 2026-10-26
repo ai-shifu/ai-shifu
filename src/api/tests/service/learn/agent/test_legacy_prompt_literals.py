@@ -40,6 +40,23 @@ HISTORICAL_LITERALS = [
 ]
 
 
+for opening, closing in [
+    ("<!--", "-->"),
+    ("<?x", "?>"),
+    ("<![CDATA[", "]]>"),
+    ("<!DOCTYPE", ">"),
+]:
+    HISTORICAL_LITERALS.append(
+        (
+            opening
+            + "\n{{ unfinished\n"
+            + closing
+            + " {{goal}} for {{sys_user_nickname}}.",
+            opening + "\n{{ unfinished\n" + closing + " private goal for Before.",
+        )
+    )
+
+
 @pytest.mark.parametrize(("source", "historical"), HISTORICAL_LITERALS)
 @pytest.mark.parametrize("unavailable", [False, True])
 def test_historical_renderer_matches_fixed_literal_outputs(

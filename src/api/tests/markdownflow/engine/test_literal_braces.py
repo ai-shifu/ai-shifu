@@ -207,3 +207,27 @@ def test_literal_option_brace_groups_keep_the_browser_parser_contract() -> None:
     assert question.question == "Pick [a|b]?"
     assert [choice.strip() for choice in question.choices] == ["A {{x|y}}", "B"]
     assert script_options(source)["A {{x|y}}"] == "A {{x|y}}"
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "Hello {{name}}",
+        "{{missing}}",
+        "{{ unclosed",
+        "===Hi {{name}}===",
+        "!===\n{{name}}\n!===",
+        "```js\n{{name}}\n```",
+        '<span title="{{name}}">{{name}}</span>',
+        "$x {{name}}$",
+    ],
+)
+def test_every_authored_prompt_section_keeps_its_original_source(source: str) -> None:
+    bundle = ScriptBundle(
+        script=source, constraints=source, extras={"reference": source}
+    )
+    prompt = render_first_prompt(bundle, {"name": "Lin"})
+    assert f"<script>\n{source}\n</script>" in prompt
+    assert f"<constraints>\n{source}\n</constraints>" in prompt
+    assert f'<extra name="reference">\n{source}\n</extra>' in prompt
+    assert "unavailable_learner_value" not in prompt

@@ -69,14 +69,14 @@ async def _questionnaire(
         yield _finish()
     else:
         yield "Welcome.\n"
-        yield {0: _interact(call_id="goal", variable="goal", prompt="Your goal?")}
+        yield {0: _interact(call_id="goal", question="goal", prompt="Your goal?")}
 
 
 def test_profile_trace_records_context_controls_and_skips_exact_replay(
     observations: InMemorySpanExporter,
 ) -> None:
     _app, runtime, _factories = _runtime(_questionnaire)
-    document = "Collect %{{goal}}, then finish."
+    document = "Collect ?[%{{goal}} ...Your goal?], then finish."
     view = _start(runtime, document)
     events = _run(runtime, view)
     roots = _roots(observations)
@@ -101,7 +101,7 @@ def test_private_summary_is_a_child_and_success_precedes_terminal_close(
     observations: InMemorySpanExporter,
 ) -> None:
     _app, runtime, _factories = _runtime(_questionnaire)
-    view = _start(runtime, "Collect %{{goal}}, then finish.")
+    view = _start(runtime, "Collect ?[%{{goal}} ...Your goal?], then finish.")
     _run(runtime, view)
     stream = runtime.stream_session(
         user_bid="v2-learner",
@@ -138,7 +138,7 @@ def test_failed_profile_save_has_no_public_output_or_success(
     observations: InMemorySpanExporter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _app, runtime, _factories = _runtime(_questionnaire)
-    view = _start(runtime, "Collect %{{goal}}, then finish.")
+    view = _start(runtime, "Collect ?[%{{goal}} ...Your goal?], then finish.")
 
     def fail_save(_session: object) -> None:
         message = "storage unavailable"
@@ -156,7 +156,7 @@ def test_preview_and_cumulative_output_have_stable_scene_and_no_duplicate_text(
     observations: InMemorySpanExporter,
 ) -> None:
     _app, runtime, _factories = _runtime(_questionnaire)
-    view = _start(runtime, "Collect %{{goal}}.")
+    view = _start(runtime, "Collect ?[%{{goal}} ...Your goal?].")
     session = runtime.store.load(view["session_id"])
     session.purpose = PROFILE_ONBOARDING_PREVIEW_PURPOSE
     session.awaiting_input = True
@@ -218,7 +218,7 @@ def test_standalone_private_summary_keeps_evidence_in_its_child(
     observations: InMemorySpanExporter,
 ) -> None:
     _app, runtime, _factories = _runtime(_questionnaire)
-    view = _start(runtime, "Collect %{{goal}}.")
+    view = _start(runtime, "Collect ?[%{{goal}} ...Your goal?].")
     session = runtime.store.load(view["session_id"])
     messages = [{"role": "user", "content": "Private accepted learner evidence."}]
     with ProfileTrace.summary(session, messages) as summary:

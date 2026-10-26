@@ -2,7 +2,7 @@
 title: MarkdownFlow Question Memory
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 canonical: true
 ---
 
@@ -33,13 +33,11 @@ A control without `%{{...}}` can collect an answer without retaining it under a
 question key. Confirm controls never write an answer. Existing answer validation,
 read-only memory restrictions and host persistence authorization still apply.
 
-Outside an authored interaction, `{{...}}` and `%{{...}}` are ordinary source
-text. The engine never replaces them with memory values, never treats them as
-memory reads or declarations, and never creates a question from them. Script,
-constraints, extras and authored verbatim text retain their original contents.
-To use a learner's remembered answer, instruct the model to use the relevant
-question from its authorized memory context or the read-only `recall` tool.
-Questions being asked again remain unavailable until the current answer arrives.
+Only authored interactions declare question keys. Standalone brace groups never
+create a question or authorize an answer binding. Literal prompt assembly and
+historical expanded-prompt compatibility are defined by the prerequisite
+[literal-prompt contract](markdownflow-literal-prompts.md) in PR #3188.
+Questions asked again remain unavailable until the current answer arrives.
 
 New native interaction/session data uses `question`. Readers accept historical
 pending interactions carrying `variable` and preserve their original memory keys.
@@ -70,7 +68,6 @@ restore actions are unavailable in native previews; old stored visibility flags
 cannot hide an authored question. Fixed system-context display exclusions remain.
 1.0 retains its existing visibility controls and preferences.
 
-Historical native sessions may contain already-expanded inline code, HTML and
-math references. The read-only compatibility matcher recognizes these old host
-sections so deletion and nickname refresh can remove stale values. It never
-introduces substitution into new authored prompts or rewrites learner/tool history.
+Historical host prompt refresh follows the prerequisite literal-prompt contract.
+Question/session readers retain historical answer keys without rewriting learner
+or tool history.

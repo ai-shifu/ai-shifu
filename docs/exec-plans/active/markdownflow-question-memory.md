@@ -2,7 +2,7 @@
 title: Replace MarkdownFlow Variables with Question Memory
 status: in-progress
 owner_surface: learner
-last_reviewed: 2026-10-25
+last_reviewed: 2026-10-26
 ---
 
 # Replace MarkdownFlow Variables with Question Memory
@@ -10,10 +10,16 @@ last_reviewed: 2026-10-25
 ## Purpose / Big Picture
 
 MarkdownFlow 2.0 authors ask questions and retain answers under the exact question
-text. Remove variable authoring, substitution and runtime tool terminology.
+text. Remove variable authoring and runtime tool terminology. Literal prompt
+assembly and historical expanded-host matching belong to prerequisite PR #3188.
 The canonical contract is [Question Memory](../../references/markdownflow-question-memory.md).
 
 ## Progress
+
+- [x] 2026-10-26 CST: Save source snapshots and rebase onto current main without losing Profile tracing.
+- [x] 2026-10-26 CST: Extract literal prompt behavior into PR #3188 and preserve shared compatibility fixes.
+- [x] 2026-10-26 CST: Combined backend pack has 7,945 passing cases after migrating three new main tracing fixtures; 96 skips. All 2,643 engine/tracing checks and 368 frontend checks pass, with types, lint and full pre-commit.
+- [ ] 2026-10-26 CST: Inspect current-head CI and effective reviews after the five-minute window.
 
 - [x] 2026-10-25 09:56 UTC: Inspected engine, course/Profile hosts and authoring UI.
 - [x] 2026-10-25 09:56 UTC: Confirmed standalone brace text remains literal.
@@ -40,6 +46,12 @@ merge; feature branches use dev packages. The user explicitly excluded legacy
 MarkdownFlow 1.0, so attempted changes to that SDK and its host paths are withdrawn.
 
 ## Decision Log
+
+- 2026-10-26: Split prompt substitution removal into independent PR #3188 on main
+  `8a055ce9a`. PR #3181 targets its branch, retaining question keys, naming migration,
+  authoring/preview and all existing review fixes. Main's newer Profile tracing is preserved.
+- 2026-10-26: The release-only main gate is unchanged. A stacked-base check may
+  skip the main-only pin check; that is not evidence that the development pin is releasable.
 
 - 2026-10-25: `?[%{{ question }} ...]` uses the trimmed question as its memory
   key; internal punctuation and spaces remain exact. `}}` closes the marker.
@@ -72,14 +84,14 @@ names, so adapters map those names to the question-memory contract.
 ## Plan of Work
 
 Replace native interaction keys and model arguments with `question`. Keep
-question parsing exact and limit collection to authored controls. Remove prompt
-substitution and variable exports. Read old pending state without data loss.
+question parsing exact and limit collection to authored controls. Consume the
+literal-prompt prerequisite without duplicating its implementation. Read old pending state without data loss.
 Adapt hosts and preview UI, then update documentation and run focused tests.
 
 ## Concrete Steps
 
 1. Change native interaction/session schemas and model instructions.
-2. Replace script substitution with literal script/constraint assembly.
+2. Use PR #3188 as the base; keep its literal assembly and compatibility behavior.
 3. Adapt host persistence, Profile matching and teacher preview contracts.
 4. Run engine, host, frontend and repository harness checks.
 

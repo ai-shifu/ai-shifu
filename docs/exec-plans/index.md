@@ -30,6 +30,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Lesson reset limit backed by SQL](./active/lesson-reset-limit.md)
 - [Local storage response safety](./active/local-storage-response-safety.md)
 - [Keep Authored Input Hints Out of Choice Buttons](./active/markdownflow-authored-inputs.md)
+- [MarkdownFlow Literal Prompt Split](./active/markdownflow-literal-prompts.md)
 - [Replace MarkdownFlow Variables with Question Memory](./active/markdownflow-question-memory.md)
 - [MarkdownFlow total input budget](./active/markdownflow-total-input-budget.md)
 - [MarkdownFlow 2.0: rewind a lesson to an earlier turn](./active/mdf2-agent-lesson-rewind.md)

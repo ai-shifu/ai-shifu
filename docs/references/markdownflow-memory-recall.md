@@ -66,18 +66,19 @@ from oversized overall inputs. Shared writes and independent teaching-quality ac
 remain separate work.
 
 
-## Questions and literal authored text
+## Literal authored text
 
-The [question-memory contract](markdownflow-question-memory.md) defines authored
-questions and exact memory keys. Standalone brace text remains literal even when
+The [literal-prompt contract](markdownflow-literal-prompts.md) defines native
+authored prompt assembly. The [question-memory contract](markdownflow-question-memory.md)
+defines exact authored answer keys. Standalone brace text remains literal even when
 the same key exists in memory; there is no script or brief substitution path.
 An absent key remains unknown. Use the author's missing-evidence wording or omit
 unsupported personal claims, and use `recall` for needed authorized answers.
 
 Nickname and deletion refresh replace recognized host memory envelopes from the
 current snapshot while retaining original authored documents. Later learner
-requests, tool returns and displayed teaching remain unchanged. Old pending
-interactions preserve their historical key through the compatibility reader.
+requests, tool returns and displayed teaching remain unchanged. Existing pending
+interactions and their memory keys remain unchanged.
 Scope, recall/write permissions and input/request/retry limits are unchanged.
 Native SDK tests establish input/policy delivery; actual-model teaching quality
 requires separate acceptance.

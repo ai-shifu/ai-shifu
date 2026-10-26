@@ -21,6 +21,7 @@ Evergreen repository references and operational guides live here.
 - [MarkdownFlow Draft Classroom History](../references/markdownflow-draft-classroom-history.md)
 - [MarkdownFlow recall history compaction](../references/markdownflow-history-compaction.md)
 - [MarkdownFlow Input Budget](../references/markdownflow-input-budget.md)
+- [MarkdownFlow Literal Prompts](../references/markdownflow-literal-prompts.md)
 - [MarkdownFlow Memory Quality Evaluation](../references/markdownflow-memory-quality.md)
 - [MarkdownFlow Memory Recall](../references/markdownflow-memory-recall.md)
 - [MarkdownFlow Question Memory](../references/markdownflow-question-memory.md)
