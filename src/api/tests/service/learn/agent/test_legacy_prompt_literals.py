@@ -183,3 +183,59 @@ def test_historical_main_script_declarations_apply_to_both_host_sections(
     assert f"<script>\n{main}\n</script>" in refreshed
     assert f"<constraints>\n{brief}\n</constraints>" in refreshed
     assert session.messages[1] is evidence
+
+
+@pytest.mark.parametrize("action", ["delete", "nickname"])
+@pytest.mark.parametrize(
+    "notice", ["", "\n\n<memory_context>Some values omitted.</memory_context>"]
+)
+def test_unmatched_script_still_refreshes_the_recognized_memory_envelope(
+    action: str, notice: str
+) -> None:
+    from markdownflow.engine.memory_context import parse_initial_memory_prompt
+
+    original = {**MEMORY, "pace": "slow"}
+    untouched = "<script>\nEarlier unknown host source with {{goal}}.\n</script>\n\n<constraints>\nEarlier brief.\n</constraints>\n\nLearner suffix."
+    prompt = (
+        "<memory>\n"
+        + json.dumps(original)
+        + "\n</memory>"
+        + notice
+        + "\n\n"
+        + untouched
+    )
+    later = ModelRequest(
+        parts=[
+            UserPromptPart("private goal and Before"),
+            ToolReturnPart("interact", "private goal", "old-answer"),
+        ]
+    )
+    session = Session(
+        script=ScriptBundle(script="Current source.", constraints="Current brief."),
+        user_memory=dict(original),
+        initial_memory=dict(original),
+        messages=[ModelRequest(parts=[UserPromptPart(prompt)]), later],
+    )
+    if action == "delete":
+        refresh_deleted_memory(session, frozenset({"goal"}))
+        expected = {"sys_user_nickname": "Before", "pace": "slow"}
+    else:
+        refresh_nickname(session, {"sys_user_nickname": "After"})
+        expected = {**original, "sys_user_nickname": "After"}
+    refreshed = session.messages[0].parts[0].content
+    parsed = parse_initial_memory_prompt(refreshed)
+    assert parsed is not None
+    assert parsed.memory == expected
+    assert parsed.notice == notice
+    assert refreshed[parsed.script_start :] == untouched
+    assert session.messages[1] is later
+    if action == "delete":
+        assert "goal" not in session.initial_memory
+    else:
+        assert "sys_user_nickname" not in session.initial_memory
+    once = session.dumps()
+    if action == "delete":
+        refresh_deleted_memory(session, frozenset({"goal"}))
+    else:
+        refresh_nickname(session, {"sys_user_nickname": "After"})
+    assert session.dumps() == once

@@ -225,6 +225,7 @@ def test_saved_pending_reference_answer_is_kept_as_evidence_without_a_memory_wri
                 InteractionSpec(type="text", prompt="Old question?", question=key),
             )
         ]
+        assert session.pending[0].spec.question == key
         # Match the real deferred tool-call history required by pydantic-ai.
         from pydantic_ai.messages import ModelResponse, ToolCallPart
 

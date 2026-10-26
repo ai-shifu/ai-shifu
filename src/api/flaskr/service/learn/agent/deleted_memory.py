@@ -61,10 +61,10 @@ def refresh_deleted_memory(
                 original,
                 historical_collected,
             )
-            if length is None:
-                return
-            suffix = part.content[parsed.script_start + length :]
-            if session.script.constraints or constraints is not None:
+            suffix = part.content[parsed.script_start + (length or 0) :]
+            if length is not None and (
+                session.script.constraints or constraints is not None
+            ):
                 old_brief_length = (
                     matched_section_length(
                         suffix,
@@ -103,9 +103,12 @@ def refresh_deleted_memory(
                 + json.dumps(memory, ensure_ascii=False, indent=2)
                 + "\n</memory>"
                 + parsed.notice
-                + "\n\n<script>\n"
-                + session.script.script
-                + "\n</script>"
+                + "\n\n"
+                + (
+                    f"<script>\n{session.script.script}\n</script>"
+                    if length is not None
+                    else ""
+                )
                 + suffix
             )
             parts = list(message.parts)
