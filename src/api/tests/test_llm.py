@@ -4001,12 +4001,17 @@ def test_chat_llm_emits_tool_call_deltas_when_asked(
     monkeypatch.setattr(
         llm.litellm, "completion", lambda *_a, **_k: iter(_tool_call_stream(as_dict))
     )
+    captured_usage = {}
+    monkeypatch.setattr(
+        llm, "record_llm_usage", lambda *_args, **kwargs: captured_usage.update(kwargs)
+    )
+    span = DummySpan()
     with app.app_context():
         chunks = list(
             llm.chat_llm(
                 app,
                 "u",
-                DummySpan(),
+                span,
                 "gpt-test",
                 [{"role": "user", "content": "hi"}],
                 emit_tool_calls=True,
@@ -4023,6 +4028,123 @@ def test_chat_llm_emits_tool_call_deltas_when_asked(
     assert len(usage_chunks) == 1
     assert usage_chunks[0].usage.prompt_tokens == 10
     assert usage_chunks[0].usage.completion_tokens == 4
+    assert span.end_args["output"] == [
+        {
+            "role": "assistant",
+            "content": "thinking ",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "interact", "arguments": '{"type":"confirm"}'},
+                }
+            ],
+        }
+    ]
+    assert (
+        captured_usage["extra"]["output_text"] == 'thinking interact{"type":"confirm"}'
+    )
+
+
+def test_chat_llm_reports_parallel_tools_without_mixing_their_fragments(
+    monkeypatch: pytest.MonkeyPatch, app: object
+) -> None:
+    _use_fake_provider(monkeypatch)
+    chunks = [
+        FakeResponse("c1", reasoning_content="Choose two tools."),
+        FakeResponse(
+            "c1",
+            tool_calls=[
+                _tool_call_chunk(1, None, "rem", '{"key":'),
+                _tool_call_chunk(0, None, "inter", '{"type":'),
+            ],
+        ),
+        FakeResponse(
+            "c1",
+            tool_calls=[
+                _tool_call_chunk(0, "question-1", "act", '"confirm"}'),
+                _tool_call_chunk(1, "memory-1", "ember", '"goal"}'),
+            ],
+            finish_reason="tool_calls",
+        ),
+    ]
+    monkeypatch.setattr(llm.litellm, "completion", lambda **_kwargs: iter(chunks))
+    span = DummySpan()
+
+    with app.app_context():
+        responses = list(
+            llm.chat_llm(app, "u", span, "gpt-test", [], emit_tool_calls=True)
+        )
+
+    assert all(response.result == "" for response in responses)
+    assert span.end_args["output"] == [
+        {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "Choose two tools.",
+            "tool_calls": [
+                {
+                    "id": "question-1",
+                    "type": "function",
+                    "function": {"name": "interact", "arguments": '{"type":"confirm"}'},
+                },
+                {
+                    "id": "memory-1",
+                    "type": "function",
+                    "function": {"name": "remember", "arguments": '{"key":"goal"}'},
+                },
+            ],
+        }
+    ]
+
+
+@pytest.mark.parametrize(
+    "markup",
+    [
+        '<interact type="text" variable="project_goal"></interact>',
+        '<interact type="text" prompt="Question</｜｜DSML｜｜ parameter>',
+    ],
+)
+@pytest.mark.parametrize("native_tool", [False, True])
+def test_chat_llm_keeps_markup_in_its_original_output_channel(
+    monkeypatch: pytest.MonkeyPatch, app: object, markup: str, native_tool: bool
+) -> None:
+    _use_fake_provider(monkeypatch)
+    arguments = json.dumps({"type": "text", "prompt": markup}, ensure_ascii=False)
+    chunks = [FakeResponse("c1", content=markup)]
+    if native_tool:
+        chunks.append(
+            FakeResponse(
+                "c1",
+                tool_calls=[_tool_call_chunk(0, "question-1", "interact", arguments)],
+                finish_reason="tool_calls",
+            )
+        )
+    monkeypatch.setattr(llm.litellm, "completion", lambda **_kwargs: iter(chunks))
+    span = DummySpan()
+
+    with app.app_context():
+        responses = list(
+            llm.chat_llm(app, "u", span, "gpt-test", [], emit_tool_calls=True)
+        )
+
+    assert "".join(response.result for response in responses) == markup
+    if native_tool:
+        assert span.end_args["output"] == [
+            {
+                "role": "assistant",
+                "content": markup,
+                "tool_calls": [
+                    {
+                        "id": "question-1",
+                        "type": "function",
+                        "function": {"name": "interact", "arguments": arguments},
+                    }
+                ],
+            }
+        ]
+    else:
+        assert span.end_args["output"] == markup
 
 
 def test_chat_llm_forwards_tools_to_litellm(monkeypatch: object, app: object) -> None:
@@ -4111,12 +4233,13 @@ def test_a_tool_call_already_sent_stops_the_retry(
         return stream()
 
     monkeypatch.setattr(llm.litellm, "completion", flaky)
+    span = DummySpan()
     with app.app_context(), pytest.raises(_FakeStreamDropError):
         list(
             llm.chat_llm(
                 app,
                 "u",
-                DummySpan(),
+                span,
                 "gpt-test",
                 [{"role": "user", "content": "hi"}],
                 emit_tool_calls=True,
@@ -4125,6 +4248,20 @@ def test_a_tool_call_already_sent_stops_the_retry(
     assert attempts["n"] == 1, (
         "the request must not be reissued after fragments were sent"
     )
+    assert span.end_args["output"] == [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call_1",
+                    "type": "function",
+                    "function": {"name": "interact", "arguments": '{"type":'},
+                }
+            ],
+        }
+    ]
+    assert span.end_args["metadata"]["error_type"] == "_FakeStreamDropError"
 
 
 def test_the_retry_still_runs_when_only_tool_calls_were_asked_for_but_none_sent(
@@ -4191,18 +4328,24 @@ def test_a_tool_only_turn_keeps_what_arrived_before_a_repeated_chunk(
     monkeypatch.setattr(
         llm, "_is_litellm_repeated_stream_chunk_error", lambda _exc: True
     )
+    span = DummySpan()
     with app.app_context():
         chunks = list(
             llm.chat_llm(
                 app,
                 "u",
-                DummySpan(),
+                span,
                 "gpt-test",
                 [{"role": "user", "content": "hi"}],
                 emit_tool_calls=True,
             )
         )
     assert [d["name"] for c in chunks for d in c.tool_call_deltas] == ["interact"]
+    assert span.end_args["output"][0]["content"] == ""
+    assert span.end_args["output"][0]["tool_calls"][0]["function"] == {
+        "name": "interact",
+        "arguments": '{"type": "confirm"}',
+    }
 
 
 @pytest.mark.parametrize("method", ["invoke_llm", "chat_llm"])

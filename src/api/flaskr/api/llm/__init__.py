@@ -260,7 +260,18 @@ def _extract_reasoning_delta(delta: object) -> str:
 def _build_langfuse_llm_output(
     response_text: str,
     reasoning_text: str,
-) -> str | dict[str, str]:
+    tool_calls: list[dict[str, Any]] | None = None,
+) -> str | dict[str, str] | list[dict[str, Any]]:
+    """Keep native tool calls distinguishable from text that imitates a tool."""
+    if tool_calls:
+        message: dict[str, Any] = {
+            "role": "assistant",
+            "content": response_text,
+            "tool_calls": tool_calls,
+        }
+        if reasoning_text:
+            message["reasoning_content"] = reasoning_text
+        return [message]
     if not reasoning_text:
         return response_text
     return {
@@ -1510,6 +1521,7 @@ def chat_llm(
     response_text = ""
     reasoning_text = ""
     tool_call_text = ""
+    tool_calls: dict[int, dict[str, Any]] = {}
     usage = None
     input_cache_tokens = 0
     provider_name = ""
@@ -1560,6 +1572,19 @@ def chat_llm(
                             (d.get("name") or "") + (d.get("arguments") or "")
                             for d in tool_deltas
                         )
+                        for delta in tool_deltas:
+                            call = tool_calls.setdefault(
+                                delta["index"],
+                                {
+                                    "type": "function",
+                                    "function": {"name": "", "arguments": ""},
+                                },
+                            )
+                            if delta.get("id"):
+                                call["id"] = delta["id"]
+                            function = call["function"]
+                            function["name"] += delta.get("name") or ""
+                            function["arguments"] += delta.get("arguments") or ""
                     res_usage = getattr(res, "usage", None)
                     if res_usage:
                         input_cache_tokens = _extract_input_cache(res_usage)
@@ -1694,7 +1719,9 @@ def chat_llm(
             generation.end(
                 input=generation_input,
                 output=_build_langfuse_llm_output(
-                    response_text + tool_call_text, reasoning_text
+                    response_text,
+                    reasoning_text,
+                    [tool_calls[index] for index in sorted(tool_calls)],
                 ),
                 usage=usage,
                 metadata={
