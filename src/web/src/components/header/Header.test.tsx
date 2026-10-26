@@ -136,10 +136,10 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
   },
 }));
 
-const renderHeader = () =>
+const renderHeader = (props: React.ComponentProps<typeof Header> = {}) =>
   render(
     <AlertProvider>
-      <Header />
+      <Header {...props} />
     </AlertProvider>,
   );
 
@@ -192,6 +192,23 @@ describe('Header publish success link', () => {
       expect(href).not.toMatch(/^javascript:/i);
     }
   };
+
+  test('keeps one accessible tooltip on the lesson history link', async () => {
+    const historyUrl = '/shifu/course-1/history?lessonid=lesson-1';
+    renderHeader({ lessonHistoryUrl: historyUrl });
+
+    const historyLink = screen.getByRole('link', {
+      name: 'module.shifu.history.title',
+    });
+    expect(historyLink).toHaveAttribute('href', historyUrl);
+    expect(historyLink).not.toHaveAttribute('title');
+
+    fireEvent.focus(historyLink);
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent('module.shifu.history.title');
+    expect(screen.getAllByRole('tooltip')).toHaveLength(1);
+  });
 
   test('shows a parameterless learning link after publishing', async () => {
     (api.publishShifu as jest.Mock).mockResolvedValue(
