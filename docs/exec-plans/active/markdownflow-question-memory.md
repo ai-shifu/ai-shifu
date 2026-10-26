@@ -16,6 +16,8 @@ The canonical contract is [Question Memory](../../references/markdownflow-questi
 
 ## Progress
 
+- [x] 2026-10-26 CST: Share the default renderer normalization with the historical renderer, covering old controls with no placeholder; all 20 focused rendering/restoration tests pass.
+
 - [x] 2026-10-26 CST: Preserve historical Profile 256-codepoint keys only at cache, issued-pending rendering/submission and replay boundaries; 104 restoration/cache checks and 25 padded-binding/persistence checks pass while new authoring and default rendering stay at 255. Related backend suite: 7,979 passed, 96 skipped. Final engine/host pack: 4,644 passed; full pre-commit passes.
 
 - [x] 2026-10-26 CST: Preserve issued historical pending answer admission from unique old tool-call evidence without changing serialized history or new-call eligibility; 21 targeted engine/real-host checks pass, including durable write and later canonical refresh. Final related backend suite: 7,975 passed, 96 skipped; full pre-commit passes.

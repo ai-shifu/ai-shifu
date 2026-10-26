@@ -45,7 +45,7 @@ if TYPE_CHECKING:
 
 
 def _saved_runtime(
-    *, legacy: bool = True, width: int = 256
+    *, legacy: bool = True, width: int = 256, placeholder: str | None = "Answer"
 ) -> tuple[ProfileResearchRuntime, dict[str, Any], str, list[int]]:
     model_calls: list[int] = []
 
@@ -80,7 +80,7 @@ def _saved_runtime(
     arguments = {
         "type": "text",
         "prompt": "Original question?",
-        "placeholder": "Answer",
+        "placeholder": placeholder,
         "variable" if legacy else "question": " " + key + " " if legacy else key,
     }
     native = Session(
@@ -98,7 +98,7 @@ def _saved_runtime(
                     type="text",
                     prompt="Original question?",
                     question=key,
-                    placeholder="Answer",
+                    placeholder=placeholder,
                 ),
             )
         ],
@@ -114,8 +114,11 @@ def _saved_runtime(
     return runtime, session.to_view(), key, model_calls
 
 
-def test_legacy_width_survives_cache_render_submission_and_exact_replay() -> None:
-    runtime, view, key, factories = _saved_runtime()
+@pytest.mark.parametrize("placeholder", ["Answer", None])
+def test_legacy_width_survives_cache_render_submission_and_exact_replay(
+    placeholder: str | None,
+) -> None:
+    runtime, view, key, factories = _saved_runtime(placeholder=placeholder)
     restored = runtime.store.load(view["session_id"])
     assert restored.last_user_input == {key: ["Earlier answer"]}
     original_call = restored.engine_session["messages"][1]

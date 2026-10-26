@@ -130,13 +130,10 @@ def _verify_round_trip(spec: InteractionSpec, rendered: str) -> None:
         raise UnrepresentableInteractionError(message)
 
 
-def render_interaction(spec: InteractionSpec, *, labels: QuestionLabels) -> str:
-    """Rebuild the MarkdownFlow interaction the frontend expects from the engine's typed spec.
-
-    Raises `UnrepresentableInteractionError` when the result would ask something other than the spec
-    does. The question marker is emitted only when the script named one to store the answer under;
-    a confirm carries none by construction, since pressing continue is not an answer.
-    """
+def _prepared_interaction(
+    spec: InteractionSpec, labels: QuestionLabels
+) -> InteractionSpec:
+    """Apply the same blank-key and visible-input defaults to every renderer."""
     if spec.question is not None and not spec.question.strip():
         # Preserve pending interactions saved before blank names were validated.
         spec = spec.model_copy(update={"question": None})
@@ -144,6 +141,17 @@ def render_interaction(spec: InteractionSpec, *, labels: QuestionLabels) -> str:
         # The UI uses a nonempty hint to expose its text box. A bare ... marker
         # parses successfully but displays only Submit, even for type="text".
         spec = spec.model_copy(update={"placeholder": labels.free_text_placeholder})
+    return spec
+
+
+def render_interaction(spec: InteractionSpec, *, labels: QuestionLabels) -> str:
+    """Rebuild the MarkdownFlow interaction the frontend expects from the engine's typed spec.
+
+    Raises `UnrepresentableInteractionError` when the result would ask something other than the spec
+    does. The question marker is emitted only when the script named one to store the answer under;
+    a confirm carries none by construction, since pressing continue is not an answer.
+    """
+    spec = _prepared_interaction(spec, labels)
     rendered = _compose(spec)
     _verify_round_trip(spec, rendered)
     return rendered
@@ -263,6 +271,7 @@ def render_restored_question(
         message = "Invalid historical question text"
         raise UnrepresentableInteractionError(message)
     prompt, normalized = _as_sent(spec, labels)
+    normalized = _prepared_interaction(normalized, labels)
     controls = render_interaction(
         normalized.model_copy(update={"question": None}), labels=labels
     )
