@@ -333,3 +333,71 @@ def test_host_does_not_refresh_a_working_note_as_an_accepted_named_answer(
     assert seen == [{"status": "unavailable"}]
     assert after.memory["goal"] == note
     assert after.user_memory["goal"] == "Committed course goal"
+
+
+def test_historical_standalone_pending_answer_is_durable_and_refreshes_later_edits(
+    app: Flask, learner: tuple[str, str]
+) -> None:
+    from markdownflow.engine import Engine
+
+    from tests.markdownflow.engine.test_historical_pending_memory import (
+        saved_pending_session,
+    )
+
+    user, course = learner
+    lesson = uuid4().hex
+    working = saved_pending_session(legacy=True)
+    working.user_id = user
+    original_calls = working.to_dict()["messages"][1]
+    session_store.save_agent_session(
+        app, working, user_bid=user, shifu_bid=course, outline_item_bid=lesson
+    )
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str]:
+        yield "Use the accepted goal."
+
+    engine = Engine(FunctionModel(stream_function=model), memory_admission=True)
+    list(
+        run_agent.run_agent_lesson(
+            app,
+            engine=engine,
+            script=working.script.script,
+            user_bid=user,
+            shifu_bid=course,
+            outline_bid=lesson,
+            user_input="Historical answer",
+            iter_turn=_drive,
+        )
+    )
+    db.session.remove()
+    assert (
+        VariableValue.query.filter_by(user_bid=user, key="goal0", deleted=0).one().value
+        == "Historical answer"
+    )
+    saved = session_store.load_agent_session(app, user, lesson)
+    assert saved.memory["goal0"] == "Historical answer"
+    assert saved.to_dict()["messages"][1] == original_calls
+    with unit_of_work():
+        stage_memory(
+            app,
+            user,
+            course,
+            MemoryUpdate(
+                variables=[VariableMemoryUpdate(key="goal0", value="Updated elsewhere")]
+            ),
+        )
+    seen = []
+    list(
+        run_agent.run_agent_lesson(
+            app,
+            engine=_reader("goal0", seen, []),
+            script=working.script.script,
+            user_bid=user,
+            shifu_bid=course,
+            outline_bid=lesson,
+            iter_turn=_drive,
+        )
+    )
+    assert seen == [{"status": "found", "value": "Updated elsewhere"}]

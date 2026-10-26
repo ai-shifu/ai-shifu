@@ -382,6 +382,27 @@ def _finished_in(messages: Sequence[object]) -> str | None:
     return None
 
 
+def _historical_pending_binding(session: Session, pending: PendingInteraction) -> bool:
+    """Recognize a unique issued pre-question-schema binding without rewriting history."""
+    calls = [
+        part
+        for message in session.messages
+        for part in message.parts
+        if isinstance(part, ToolCallPart) and part.tool_call_id == pending.tool_call_id
+    ]
+    if len(calls) != 1 or calls[0].tool_name != "interact":
+        return False
+    try:
+        arguments = calls[0].args_as_dict()
+        return (
+            "variable" in arguments
+            and "question" not in arguments
+            and restore_interaction_spec(arguments).question == pending.spec.question
+        )
+    except (AssertionError, TypeError, ValueError):
+        return False
+
+
 class Engine:
     """One engine per model/config; sessions are passed in per turn."""
 
@@ -883,6 +904,7 @@ class Engine:
                 and (
                     deps.memory_keys is None
                     or pending.spec.question in deps.memory_keys
+                    or _historical_pending_binding(session, pending)
                 )
             ):
                 value = stored_value(pending.spec, answer)

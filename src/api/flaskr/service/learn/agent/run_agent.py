@@ -41,7 +41,6 @@ from flaskr.api.markdownflow import (
     ScriptBundle,
     StartTurn,
     TurnDone,
-    collected_questions,
 )
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _, translate_for_language
@@ -335,10 +334,9 @@ def _load_or_start(
                 stored.memory_generations = dict(generations)
                 # Named answers are durable course values. Retain the answered marker,
                 # but do not let its old session copy shadow another lesson's update.
-                for key in (
-                    collected_questions(stored.script.script)
-                    & stored.answered_memory_keys()
-                ):
+                # A genuine historical answer remains durable even when its
+                # pre-migration declaration was outside a native question control.
+                for key in stored.answered_memory_keys():
                     if key in user_memory:
                         stored.record_answer(key, user_memory[key])
             stored.user_memory = (

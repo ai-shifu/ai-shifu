@@ -16,6 +16,8 @@ The canonical contract is [Question Memory](../../references/markdownflow-questi
 
 ## Progress
 
+- [x] 2026-10-26 CST: Preserve issued historical pending answer admission from unique old tool-call evidence without changing serialized history or new-call eligibility; 21 targeted engine/real-host checks pass, including durable write and later canonical refresh. Final related backend suite: 7,975 passed, 96 skipped; full pre-commit passes.
+
 - [x] 2026-10-26 CST: Synchronize both #3188 review fixes through the shared matcher; final engine/learner/Profile pack passes 4,627 tests and full pre-commit passes. New controls remain literal after a historical pending answer.
 
 - [x] 2026-10-26 CST: Save source snapshots and rebase onto current main without losing Profile tracing.

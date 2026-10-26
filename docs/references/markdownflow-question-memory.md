@@ -45,6 +45,12 @@ The pinned rendering libraries and existing application wire/database contracts
 may still carry old field names inside explicit compatibility adapters. Those
 names do not introduce a second authoring concept or enable substitution.
 Historical teaching and learner messages are not rewritten as new answers.
+Already-issued pending questions retain admission when their unique historical
+`interact` call carries the old `variable` binding, including a former standalone
+`%{{...}}` declaration. This exception is checked only while accepting that saved
+pending answer. New calls continue to use the current question-only allowlist,
+and read-only restrictions still apply. The actual answer is persisted normally;
+its ownership fingerprint lets later durable edits refresh the stored session.
 
 ## Authoring and preview boundaries
 
