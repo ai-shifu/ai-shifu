@@ -29,6 +29,8 @@ is independent of administrator setup in PR #3183.
 - [x] 2026-10-26 CST: Verify concurrency, failure recovery, compatibility,
   configuration regressions, Compose rendering, and repository gates.
 - [x] 2026-10-26 CST: Create ready PR #3186, independent of #3183.
+- [x] 2026-10-26 CST: Fix the reviewed release-note installation path and
+  validate both published notes and PR previews with 30 release regressions.
 - [ ] 2026-10-26 CST: Follow the final review-fix head's CI to completion.
 
 ## Surprises & Discoveries
@@ -40,6 +42,9 @@ is independent of administrator setup in PR #3183.
 - Latest and development Compose services already share one `.env` file.
   No new runtime store or per-process random fallback is necessary.
 - Tests deliberately require missing and blank runtime keys to fail.
+- Review identified a second official installation entry point in generated
+  GitHub release notes. Both release publishers now receive the same installer,
+  prerequisites, explicit pinned overlay, and existing-key migration boundary.
 - Crash orphans use a reserved temporary-file prefix independent of output
   filenames. Git and both Docker build contexts exclude that namespace so
   interrupted initialization cannot leak a private key through later staging
@@ -81,7 +86,8 @@ is independent of administrator setup in PR #3183.
 ## Outcomes & Retrospective
 
 Local validation passed: 101 installer/Compose/packaging tests, all nine Compose
-integration cases on both 2.24.4 and 5.6.1, and 595 backend
+integration cases on both 2.24.4 and 5.6.1, 30 release workflow regressions,
+and 595 backend
 configuration/session/encryption regressions, strict mypy for the installer,
 shell syntax, development-tool verification, architecture/harness validation,
 and the all-files pre-commit gate. Independent review found no outstanding
