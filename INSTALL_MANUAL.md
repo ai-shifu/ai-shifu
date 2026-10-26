@@ -125,9 +125,11 @@ invalidates sessions and may make encrypted configuration unreadable.
 
 The installer validates literal assignments; existing deployments that resolve
 their keys through dotenv interpolation or a secret manager should retain
-their established startup path. The development script invokes provisioning
-only when `.env` is absent, so it does not change existing configuration
-semantics. Runtime key validation remains authoritative for those deployments.
+their established startup path. The development script refuses to start when
+`.env` is absent; restore an existing installation's original file instead of
+initializing again. It never invokes provisioning on startup or changes
+existing configuration semantics. Runtime key validation remains authoritative
+for those deployments.
 
 The destination directory must already exist and allow atomic hard links and
 file/directory synchronization. Read-only configurations are usable when

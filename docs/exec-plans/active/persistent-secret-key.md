@@ -44,8 +44,9 @@ is independent of administrator setup in PR #3183.
   `python-dotenv==1.2.2` from an isolated temporary overlay; no shared
   environment was changed.
 - Existing dotenv interpolation remains supported through established startup
-  paths. The development script provisions only absent files, so it never
-  imposes installer literal validation on an existing deployment.
+  paths. Startup never invokes provisioning, and the development script fails
+  before builds if configuration is absent. A lost existing configuration
+  cannot be mistaken for an uninitialized installation during restart.
 
 ## Decision Log
 
@@ -60,7 +61,7 @@ is independent of administrator setup in PR #3183.
 
 ## Outcomes & Retrospective
 
-Local validation passed: 92 installer/Compose/packaging tests, 595 backend
+Local validation passed: 93 installer/Compose/packaging tests, 595 backend
 configuration/session/encryption regressions, strict mypy for the installer,
 shell syntax, development-tool verification, architecture/harness validation,
 and the all-files pre-commit gate. Independent review found no outstanding

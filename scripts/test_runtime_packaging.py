@@ -128,6 +128,12 @@ def dev_metadata_fixture(
     shutil.copy2(ROOT / "docker/dev_in_docker.sh", checkout / "docker")
     shutil.copy2(ROOT / "scripts/prepare_env.py", checkout / "scripts")
     shutil.copy2(ROOT / "docker/.env.example.full", checkout / "docker")
+    subprocess.run(
+        [sys.executable, str(checkout / "scripts/prepare_env.py")],
+        env={"PATH": os.environ["PATH"]},
+        capture_output=True,
+        check=True,
+    )
     commits = []
     if with_git:
         subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
@@ -181,6 +187,29 @@ def dev_metadata_fixture(
     }
     environment.pop("SECRET_KEY", None)
     return checkout, docker_log, environment, commits
+
+
+def test_dev_startup_never_recreates_missing_saved_configuration(
+    tmp_path: Path,
+) -> None:
+    """A lost configuration must not be mistaken for a fresh installation."""
+    checkout, docker_log, environment, _ = dev_metadata_fixture(
+        tmp_path, with_git=False
+    )
+    configuration = checkout / "docker/.env"
+    configuration.unlink()
+    result = subprocess.run(
+        ["bash", str(checkout / "docker/dev_in_docker.sh")],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "restore the original configuration" in result.stderr
+    assert not configuration.exists()
+    assert not docker_log.exists()
 
 
 def test_dev_script_preserves_existing_interpolated_configuration(

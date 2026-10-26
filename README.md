@@ -110,9 +110,10 @@ python3 ../scripts/prepare_env.py
 
 `dev_in_docker.sh` builds the backend and frontend images from your local source tree and then launches `docker-compose.dev.yml` (hot reload + bind mounts). Use it whenever you need to iterate on code without managing Python/Node runtimes locally.
 
-It also runs the configuration installer before building when `.env` is
-absent. Existing configuration continues through the usual runtime validation. Configure
-the provider and model before starting services.
+It stops before building when `.env` is absent. For a new installation, run
+the configuration installer above; for an existing installation, restore the
+original file from backup. Existing configuration continues through the usual
+runtime validation. Configure the provider and model before starting services.
 
 The script records the checkout's current commit before building the Web image,
 so the user menu can show its source revision. Source archives without Git
