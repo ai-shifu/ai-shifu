@@ -250,7 +250,7 @@ def test_unreported_memory_result_does_not_claim_success(
 
 
 @pytest.mark.parametrize("reason", ["interaction", "finished"])
-def test_tools_without_results_are_closed_at_the_native_turn_boundary(
+def test_tools_without_results_are_closed_at_the_host_turn_boundary(
     observations: InMemorySpanExporter, reason: str
 ) -> None:
     trace = _trace()
@@ -274,6 +274,59 @@ def test_tools_without_results_are_closed_at_the_native_turn_boundary(
     expected = "waiting" if reason == "interaction" else "finished"
     assert _value(spans["interact"], "output") == {"status": expected}
     assert _value(spans["memory"], "output") == {"value": "build", "status": "staged"}
+
+
+@pytest.mark.parametrize("outcome", ["discarded", "error"])
+def test_unresolved_tool_waits_for_the_authoritative_host_outcome(
+    observations: InMemorySpanExporter, outcome: str
+) -> None:
+    trace = _trace()
+    trace.start_turn()
+    trace.event(ToolCall(id="recall-1", name="recall", args={"query": "goal"}))
+    trace.event(ToolResult(id="recall-1", name="recall", content={"goal": "build"}))
+    trace.event(
+        ToolCall(id="note-1", name="remember", args={"key": "pace", "value": "slow"})
+    )
+    trace.event(MemoryUpdated(key="pace", value="slow", source="tool"))
+    trace.event(ToolCall(id="question-1", name="interact", args={"prompt": "Next?"}))
+    trace.event(
+        InteractionRequest(
+            id="question-1", spec=InteractionSpec(type="confirm", prompt="Next?")
+        )
+    )
+    trace.event(ToolCall(id="finish-1", name="finish", args={"summary": "Done"}))
+    trace.event(TurnDone(reason="finished"))
+
+    # A native terminal event precedes the host's persistence decision. It cannot
+    # turn a rejected or failed save into a successful tool observation.
+    assert "finish" not in _spans(observations)
+    trace.complete_turn(outcome)
+    trace.finish()
+
+    spans = _spans(observations)
+    assert _value(spans["finish"], "output") == {"status": outcome}
+    assert (
+        spans["finish"].attributes["langfuse.observation.metadata.outcome"] == outcome
+    )
+    assert _value(spans["recall"], "output") == {"goal": "build"}
+    assert (
+        spans["recall"].attributes["langfuse.observation.metadata.outcome"]
+        == "completed"
+    )
+    assert _value(spans["interact"], "output")["prompt"] == "Next?"
+    assert (
+        spans["interact"].attributes["langfuse.observation.metadata.outcome"]
+        == "waiting"
+    )
+    assert _value(spans["remember"], "output") == {
+        "key": "pace",
+        "value": "slow",
+        "status": "staged",
+    }
+    assert (
+        spans["remember"].attributes["langfuse.observation.metadata.outcome"]
+        == "staged"
+    )
 
 
 def test_interaction_tool_captures_the_question_without_polluting_root_output(
