@@ -72,9 +72,7 @@ def generate_env_examples() -> None:
             print(f"      {desc_lines[0]}")
 
     print("\n📝 Instructions:")
-    print(
-        "  1. Copy docker/.env.example.full to docker/.env (or the root .env you prefer)"
-    )
+    print("  1. From the repository root, run python3 scripts/prepare_env.py")
     print("  2. Configure a provider key and LLM_MODEL_1_ID")
     print("     LLM_MODEL_1_NAME is optional; blank displays the configured model ID")
     print(

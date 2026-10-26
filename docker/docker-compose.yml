@@ -1,5 +1,7 @@
 # docker-compose.yml pins services to a tested release for reproducible deployments.
 # Use docker-compose.latest.yml if you prefer to track the :latest container tags.
+# New installations must also use docker-compose.secret-key.yml to consume
+# their generated key. Keep this legacy bundle's effective key on upgrades.
 x-environment: &default-env
   SQLALCHEMY_DATABASE_URI: mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
   SECRET_KEY: ai-shifu

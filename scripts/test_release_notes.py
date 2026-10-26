@@ -149,6 +149,80 @@ class FrozenCommitizenNotes(unittest.TestCase):
             request.full_url == "https://api.github.com/repos/fixture/product/pulls/42"
         )
 
+    def test_release_installation_preserves_existing_keys(self) -> None:
+        """Published notes and PR previews give the same safe installation path."""
+        self.change.write_text("candidate\n", encoding="utf-8")
+        source = self.commit("fix: generate a private installation key")
+        installation_commands = """git clone https://github.com/fixture/product.git
+cd product
+git checkout v3.0.1
+cd docker
+python3 ../scripts/prepare_env.py
+# Configure a provider API key in .env and set LLM_MODEL_1_ID
+# to a text model served by that provider (required; no default).
+# LLM_MODEL_1_NAME is optional; an empty name displays the configured model ID.
+docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d"""
+
+        for preview in (False, True):
+            with self.subTest(pr_preview=preview):
+                output = self.repo / "release-body.md"
+                arguments = [
+                    "release_notes.py",
+                    "--source",
+                    source,
+                    "--version",
+                    "3.0.1",
+                    "--repository",
+                    "fixture/product",
+                    "--output",
+                    str(output),
+                ]
+                if preview:
+                    arguments.append("--pr-body")
+                with (
+                    chdir(self.repo),
+                    mock.patch("sys.argv", arguments),
+                    mock.patch.object(notes, "dependency_notes", return_value=""),
+                ):
+                    notes.main()
+                rendered = output.read_text(encoding="utf-8")
+                installation_section = rendered.split(
+                    "## Installation from Source\n\n", 1
+                )[1]
+                installation = installation_section.split(
+                    "\nExisting installations", 1
+                )[0]
+                assert installation_commands in installation
+                assert (
+                    "Python 3.10+ on a POSIX host (Linux, macOS or WSL)\n"
+                    "and Docker Compose 2.24.4+" in installation
+                )
+                assert "include both Compose files on every" in installation
+                assert (
+                    "Compose command, including restarts and upgrades." in installation
+                )
+                assert "cp .env.example.full .env" not in rendered
+                assert "docker compose up" not in rendered
+                assert "secrets.token_urlsafe" not in rendered
+                assert (
+                    "Keep the original saved configuration and historical effective "
+                    "`SECRET_KEY`." in rendered
+                )
+                assert (
+                    "Existing pinned deployments must retain their original Compose "
+                    "commands" in rendered
+                )
+                assert "not add `docker-compose.secret-key.yml` blindly" in rendered
+                assert "before a deliberate migration." in rendered
+                assert (
+                    "https://github.com/fixture/product/blob/v3.0.1/"
+                    "INSTALL_MANUAL.md#secret-key-preservation-and-recovery" in rendered
+                )
+                assert (
+                    "https://github.com/fixture/product/blob/v3.0.1/"
+                    "INSTALL_MANUAL.md#upgrading-to-numbered-models" in rendered
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

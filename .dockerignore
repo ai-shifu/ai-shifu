@@ -7,6 +7,10 @@
 .DS_Store
 *.pem
 .env*
+**/.env
+# Interrupted environment provisioning can leave private temporary files.
+.ai-shifu-env-init-*.tmp
+**/.ai-shifu-env-init-*.tmp
 .eslintrc.json
 .vscode
 coverage

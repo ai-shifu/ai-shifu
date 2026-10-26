@@ -636,21 +636,35 @@ Source commit: `{source}`
 
 ## Installation from Source
 
+For a fresh installation, use Python 3.10+ on a POSIX host (Linux, macOS or WSL)
+and Docker Compose 2.24.4+:
+
 ```bash
 git clone {url}.git
 cd {name}
 git checkout {tag}
 cd docker
-cp .env.example.full .env
+python3 ../scripts/prepare_env.py
 # Configure a provider API key in .env and set LLM_MODEL_1_ID
 # to a text model served by that provider (required; no default).
 # LLM_MODEL_1_NAME is optional; an empty name displays the configured model ID.
-docker compose up
+docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d
 ```
+
+The installer generates and saves a private `SECRET_KEY` once. Keep and securely
+back up `.env`. For this new deployment, include both Compose files on every
+Compose command, including restarts and upgrades.
 
 Existing installations must configure model 1 and follow
 [Upgrading to numbered models]({url}/blob/{tag}/INSTALL_MANUAL.md#upgrading-to-numbered-models)
 before starting the new API or workers.
+
+Keep the original saved configuration and historical effective `SECRET_KEY`.
+Existing pinned deployments must retain their original Compose commands and must
+not add `docker-compose.secret-key.yml` blindly: a previously ignored `.env` key
+could otherwise become active and invalidate sessions or encrypted configuration.
+Follow [Secret key preservation and recovery]({url}/blob/{tag}/INSTALL_MANUAL.md#secret-key-preservation-and-recovery)
+before a deliberate migration.
 
 ## Documentation
 

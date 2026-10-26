@@ -25,7 +25,13 @@ pre-commit:
     # --- File hygiene (pre-commit-hooks console scripts) ---------------------
     check-yaml:
       glob: "*.{yaml,yml}"
+      exclude: "docker/docker-compose.secret-key.yml"
       run: check-yaml {staged_files}
+    check-compose-key-overlay-yaml:
+      glob: "docker/docker-compose.secret-key.yml"
+      # Compose owns !reset semantics; syntax-only parsing does not load tags.
+      # Actual merge and environment precedence are tested by Docker Packaging CI.
+      run: check-yaml --unsafe {staged_files}
     check-json:
       glob: "*.json"
       run: check-json {staged_files}

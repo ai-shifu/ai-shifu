@@ -3,6 +3,11 @@ set -euo pipefail
 
 script_path=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
+if [ ! -e "$script_path/.env" ]; then
+  printf '%s\n' "Missing docker/.env. For a NEW installation, run python3 ../scripts/prepare_env.py from docker/. For an existing installation, restore the original configuration from backup." >&2
+  exit 1
+fi
+
 docker build -f "$script_path/../src/api/Dockerfile" -t ai-shifu-api-dev "$script_path/.."
 
 if app_build_sha=$(git -C "$script_path/.." rev-parse HEAD 2>/dev/null); then
