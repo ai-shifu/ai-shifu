@@ -52,6 +52,33 @@ def installation_http_app(
         db.drop_all(bind_key=None)
 
 
+@pytest.fixture
+def password_http_app(
+    installation_http_app: Flask, monkeypatch: pytest.MonkeyPatch
+) -> Flask:
+    from flaskr.route import user as user_routes
+    from flaskr.service.user import email_flow
+
+    app = installation_http_app
+    user_routes.register_user_handler(app, "/api/user")
+    monkeypatch.setattr(user_routes, "run_post_auth_extensions", Mock())
+    monkeypatch.setattr(email_flow, "consume_verification_code", Mock())
+    monkeypatch.setattr(email_flow, "ensure_admin_creator_and_demo_permissions", Mock())
+    return app
+
+
+def _password_login(app: Flask, path: str, identifier: str, password: str) -> dict:
+    return (
+        app.test_client()
+        .post(
+            path,
+            json={"identifier": identifier, "password": password},
+            headers={"Origin": "http://localhost:8080"},
+        )
+        .get_json(force=True)
+    )
+
+
 def _post(app: Flask, path: str, payload: object, **kwargs: object) -> object:
     kwargs.setdefault("headers", {"Origin": "http://localhost:8080"})
     return app.test_client().post("/api/installation/" + path, json=payload, **kwargs)
@@ -112,6 +139,266 @@ def test_setup_returns_normal_session_and_local_login_ignores_learner_switches(
             ).count()
             == 0
         )
+
+
+@pytest.mark.parametrize("identifier", ["owner@example.com", "13800138000"])
+def test_setup_password_identifier_survives_binding_a_second_contact_and_recovery(
+    password_http_app: Flask,
+    identifier: str,
+) -> None:
+    from flaskr.service.user import email_flow
+    from flaskr.service.user.local_accounts import reset_local_admin_password
+    from flaskr.service.user.models import UserInfo
+
+    app = password_http_app
+    payload = {**_setup_payload(app), "identifier": identifier}
+    setup = _post(app, "initialize", payload).get_json()
+    assert setup["code"] == 0
+    user_bid = setup["data"]["userInfo"]["user_id"]
+    with app.app_context():
+        token, _created, _context = email_flow.verify_email_code(
+            app,
+            user_id=user_bid,
+            email="second@example.com",
+            code="delivered-test-code",
+        )
+        assert token.userInfo.user_id == user_bid
+        assert UserInfo.query.one().user_identify == "second@example.com"
+        assert [
+            credential.identifier
+            for credential in AuthCredential.query.filter(
+                AuthCredential.provider_name.in_(["phone", "email"])
+            ).all()
+        ] == ["second@example.com"]
+
+    paths = ("/api/user/login_password", "/api/installation/login")
+    for path in paths:
+        result = _password_login(app, path, identifier, payload["password"])
+        assert result["code"] == 0
+        assert result["data"]["userInfo"]["user_id"] == user_bid
+    reset_local_admin_password(app, identifier=identifier, new_password="Recovered123")
+    for path in paths:
+        assert _password_login(app, path, identifier, "Recovered123")["code"] == 0
+        assert _password_login(app, path, identifier, payload["password"])["code"] != 0
+
+
+def test_ordinary_password_labels_and_contact_aliases_share_the_existing_password(
+    password_http_app: Flask,
+) -> None:
+    from flaskr.service.user.consts import USER_STATE_REGISTERED
+    from flaskr.service.user.password_flow import write_password_credential
+    from flaskr.service.user.repository import create_user_entity, upsert_credential
+
+    app = password_http_app
+    with app.app_context(), unit_of_work():
+        user = create_user_entity(
+            user_bid="ordinary-user",
+            identify="current@example.com",
+            state=USER_STATE_REGISTERED,
+        )
+        write_password_credential(
+            app,
+            user_bid=user.user_bid,
+            identifier="original@example.com",
+            new_password="Shared123",
+        )
+        upsert_credential(
+            app,
+            user_bid=user.user_bid,
+            provider_name="phone",
+            subject_id="13800138000",
+            subject_format="phone",
+            identifier="13800138000",
+            metadata={},
+            verified=True,
+        )
+    for identifier in ("original@example.com", "current@example.com", "13800138000"):
+        result = _password_login(
+            app, "/api/user/login_password", identifier, "Shared123"
+        )
+        assert result["code"] == 0
+        assert result["data"]["userInfo"]["user_id"] == "ordinary-user"
+    assert (
+        _password_login(
+            app, "/api/installation/login", "original@example.com", "Shared123"
+        )["code"]
+        != 0
+    )
+    with app.app_context():
+        assert LocalAdminAccount.query.count() == 0
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        "deleted_user",
+        "deleted_credential",
+        "unverified",
+        "empty_hash",
+        "unknown",
+        "internal",
+        "username",
+    ],
+)
+def test_persisted_password_identifiers_require_a_usable_ordinary_credential(
+    password_http_app: Flask, invalid: str
+) -> None:
+    from flaskr.service.user.consts import (
+        CREDENTIAL_STATE_UNVERIFIED,
+        USER_STATE_REGISTERED,
+    )
+    from flaskr.service.user.password_flow import write_password_credential
+    from flaskr.service.user.repository import create_user_entity, set_password_hash
+
+    app = password_http_app
+    identifier = "original@example.com"
+    with app.app_context(), unit_of_work():
+        user = create_user_entity(
+            user_bid="password-user",
+            identify="current@example.com",
+            state=USER_STATE_REGISTERED,
+        )
+        user.is_operator = 1
+        credential = write_password_credential(
+            app, user_bid=user.user_bid, identifier=identifier, new_password="Shared123"
+        )
+        if invalid == "deleted_user":
+            user.deleted = 1
+        elif invalid == "deleted_credential":
+            credential.deleted = 1
+        elif invalid == "unverified":
+            credential.state = CREDENTIAL_STATE_UNVERIFIED
+        elif invalid == "empty_hash":
+            set_password_hash(credential, "")
+        elif invalid == "unknown":
+            identifier = "unknown@example.com"
+        else:
+            identifier = "local:password-user" if invalid == "internal" else "old_owner"
+            credential.identifier = identifier
+            if invalid == "internal":
+                user.user_identify = identifier
+    for path in ("/api/user/login_password", "/api/installation/login"):
+        assert _password_login(app, path, identifier, "Shared123")["code"] != 0
+    with app.app_context():
+        assert UserToken.query.count() == 0
+
+
+@pytest.mark.parametrize("collision", ["canonical", "email", "password"])
+def test_password_identifiers_reject_conflicting_account_ownership(
+    password_http_app: Flask, collision: str
+) -> None:
+    from flaskr.service.user.consts import USER_STATE_REGISTERED
+    from flaskr.service.user.password_flow import write_password_credential
+    from flaskr.service.user.repository import create_user_entity, upsert_credential
+
+    app = password_http_app
+    identifier = "original@example.com"
+    with app.app_context(), unit_of_work():
+        owner = create_user_entity(
+            user_bid="password-owner",
+            identify="current@example.com",
+            state=USER_STATE_REGISTERED,
+        )
+        owner.is_operator = 1
+        write_password_credential(
+            app, user_bid=owner.user_bid, identifier=identifier, new_password="Owner123"
+        )
+        other = create_user_entity(
+            user_bid="other-user",
+            identify=identifier if collision == "canonical" else "other@example.com",
+            state=USER_STATE_REGISTERED,
+        )
+        if collision == "password":
+            write_password_credential(
+                app,
+                user_bid=other.user_bid,
+                identifier=identifier,
+                new_password="Other123",
+            )
+        elif collision == "email":
+            upsert_credential(
+                app,
+                user_bid=other.user_bid,
+                provider_name="email",
+                subject_id=identifier,
+                subject_format="email",
+                identifier=identifier,
+                metadata={},
+                verified=True,
+            )
+    for path in ("/api/user/login_password", "/api/installation/login"):
+        for password in ("Owner123", "Other123"):
+            assert _password_login(app, path, identifier, password)["code"] != 0
+    with app.app_context():
+        assert UserToken.query.count() == 0
+
+
+@pytest.mark.parametrize(
+    "path", ["/api/user/login_password", "/api/installation/login"]
+)
+@pytest.mark.parametrize("mutation", ["conflict", "delete_alias", "unverify_alias"])
+def test_password_identity_is_resolved_again_before_token_persistence(
+    password_http_app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    mutation: str,
+) -> None:
+    from flaskr.route import user as user_routes
+    from flaskr.service.user.consts import (
+        CREDENTIAL_STATE_UNVERIFIED,
+        USER_STATE_REGISTERED,
+    )
+    from flaskr.service.user.models import UserInfo
+    from flaskr.service.user.password_flow import write_password_credential
+    from flaskr.service.user.repository import create_user_entity
+
+    app = password_http_app
+    payload = _setup_payload(app)
+    assert _post(app, "initialize", payload).get_json()["code"] == 0
+    with app.app_context(), unit_of_work():
+        user = UserInfo.query.one()
+        user.user_identify = "current@example.com"
+        # The requested label may be backed by a different password row from
+        # the oldest shared password that the provider actually verifies.
+        AuthCredential.query.one().identifier = "shared-password@example.com"
+        label_credential = write_password_credential(
+            app,
+            user_bid=user.user_bid,
+            identifier=payload["identifier"],
+            new_password=payload["password"],
+        )
+        label_credential_bid = label_credential.credential_bid
+        UserToken.query.delete()
+    route_module = user_routes if path.startswith("/api/user/") else routes
+    original_confirm = route_module.confirm_password_login_for_token_issue
+
+    def change_identity(**kwargs: object) -> None:
+        if mutation == "conflict":
+            create_user_entity(
+                user_bid="new-conflicting-account",
+                identify=payload["identifier"],
+                state=USER_STATE_REGISTERED,
+            )
+        else:
+            credential = AuthCredential.query.filter_by(
+                credential_bid=label_credential_bid
+            ).one()
+            if mutation == "delete_alias":
+                credential.deleted = 1
+            else:
+                credential.state = CREDENTIAL_STATE_UNVERIFIED
+            db.session.flush()
+        original_confirm(**kwargs)
+
+    monkeypatch.setattr(
+        route_module, "confirm_password_login_for_token_issue", change_identity
+    )
+    assert (
+        _password_login(app, path, payload["identifier"], payload["password"])["code"]
+        != 0
+    )
+    with app.app_context():
+        assert UserToken.query.count() == 0
 
 
 @pytest.mark.parametrize(

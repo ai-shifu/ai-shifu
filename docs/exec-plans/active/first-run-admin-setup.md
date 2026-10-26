@@ -205,6 +205,37 @@ refers to the same account, and setup does not claim contact verification.
   documentation edits, unchanged main `dd43bebf` and remote PR head `6de9877a`.
   Finish the same commit and publish with that exact expected-head lease; the
   user renewed the push instruction after the connection was restored.
+- [x] 2026-10-26 09:52 UTC: Published `1adc7be3` with the exact `6de9877a`
+  remote-head lease; GitHub confirmed main `dd43bebf` and mergeability. The
+  worktree was clean and local/remote tracking showed zero divergence. This
+  publication did not merge, deploy or change production configuration.
+- [x] 2026-10-26 10:06 UTC: New-head review found that linking a second email
+  changes the canonical contact and strands a setup password's original
+  identifier. Two real email/phone setup-to-email-link HTTP regressions first
+  failed. The correction resolves persisted standard-password identifiers and
+  shares that rule with locked token issuance, preserving fail-closed ambiguity
+  and the existing ordinary OTP lookup contract. Final regressions are running.
+- [x] 2026-10-26 10:11 UTC: Immutable `1adc7be3` CI reached six successful
+  Actions and one Runtime failure. Backend passed 15,423 tests with 15 skips
+  and 278 warnings in 937.74s, no deselection; frontend passed 3,518 tests.
+  Runtime failed before credentials (two failed/two did not run, each auth case
+  also used its built-in retry). Isolated service logs contain a startup gevent
+  hub assertion followed by installation-status timeouts despite healthy
+  probes; the root cause is not established. Source/worker/timeouts are not
+  changed to mask this. Retain this failure and track the review fix's own CI.
+- [x] 2026-10-26 10:18 UTC: The identifier review correction passed 1,218
+  complete user/route regressions with 269 warnings in 149.85s; the only failure
+  remained the existing local TCP-bind `EPERM`. The focused run passed 125 with
+  that same blocked listener test. Nine outdated private-resolver mocks were
+  updated to the shared candidate-lookup contract, then all 22 contract cases
+  passed and the complete domain run was repeated. Runtime source was not
+  loosened to satisfy mocks. Both password entrypoints, console recovery,
+  ordinary-account aliases, ambiguity, deleted/unverified/empty credentials and
+  token-issuance races are covered. The public OTP/reset lookup was not expanded.
+- [ ] 2026-10-26 10:18 UTC: Run the review correction's full repository gate,
+  commit and normally push it on top of `1adc7be3`, reply to the verified review
+  finding, and obtain its own exact-head CI results. Keep the prior Runtime
+  failure and gevent evidence rather than treating earlier successes as new CI.
 - [ ] 2026-10-25 UTC: The single-check rerun request returned HTTP 404 through
   the current GitHub connection; no rerun is confirmed from that request.
   Do not retry it or widen permissions. Observe the final source revision's

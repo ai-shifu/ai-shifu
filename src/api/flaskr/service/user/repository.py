@@ -10,8 +10,12 @@ from typing import TYPE_CHECKING, Any
 from flaskr.dao import (
     db,
 )
+from flaskr.service.common.contact_identifiers import EMAIL_IDENTIFIER_PATTERN
 from flaskr.service.common.dtos import UserInfo
-from flaskr.service.common.phone_numbers import normalize_phone_identifier
+from flaskr.service.common.phone_numbers import (
+    is_valid_sms_mobile,
+    normalize_phone_identifier,
+)
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
@@ -501,6 +505,54 @@ def load_user_aggregate_by_identifier(
                 return load_user_aggregate(credential.user_bid, for_update=for_update)
 
     return None
+
+
+def find_password_identity_user_bids(
+    identifier: str, *, for_update: bool = False
+) -> set[str]:
+    """Resolve every ordinary password identity, rejecting ambiguity at the caller.
+
+    A persisted password label remains usable when the canonical contact changes.
+    Contact aliases retain the shared account-password semantics. Local username
+    compatibility belongs to its explicit installation binding, never this lookup.
+    """
+    normalized = (identifier or "").strip().lower()
+    normalized = (
+        normalized if "@" in normalized else normalize_phone_identifier(normalized)
+    )
+    if not (
+        EMAIL_IDENTIFIER_PATTERN.fullmatch(normalized)
+        if "@" in normalized
+        else is_valid_sms_mobile(normalized)
+    ):
+        return set()
+
+    lookup_identifiers = {normalized}
+    if "@" not in normalized:
+        lookup_identifiers.update({f"+86{normalized}", f"+86 {normalized}"})
+    users = UserEntity.query.filter(
+        UserEntity.user_identify.in_(lookup_identifiers), UserEntity.deleted == 0
+    )
+    credentials = AuthCredential.query.join(
+        UserEntity, UserEntity.user_bid == AuthCredential.user_bid
+    ).filter(
+        UserEntity.deleted == 0,
+        AuthCredential.deleted == 0,
+        AuthCredential.provider_name.in_(["phone", "email", "password"]),
+        AuthCredential.identifier.in_(lookup_identifiers),
+    )
+    if for_update:
+        users = users.populate_existing().with_for_update()
+        credentials = credentials.populate_existing().with_for_update()
+    user_bids = {user.user_bid for user in users.all()}
+    for credential in credentials.all():
+        if credential.provider_name == "password" and (
+            credential.state != CREDENTIAL_STATE_VERIFIED
+            or not get_password_hash(credential)
+        ):
+            continue
+        user_bids.add(credential.user_bid)
+    return user_bids
 
 
 def ensure_user_aggregate(

@@ -50,6 +50,13 @@ Server-console password recovery remains available without external delivery
 and revokes old sessions. If contact verification is configured later, ordinary
 verification-code login and password recovery refer to the same phone/email
 account, including its administrator role. Owners must use a contact they control.
+Password login also resolves the identifier stored in a usable password
+credential, independently of later changes to the canonical contact. Both
+password entrypoints and the token-issuance recheck use the same resolution;
+conflicting identifiers across accounts are rejected rather than guessed.
+Console recovery retains that password login path. Ordinary OTP and recovery
+continue to follow the current canonical or bound phone/email contact; a
+password-only identifier does not itself create a verified contact binding.
 Google email-based account association likewise requires a verified email claim;
 an unverified profile with an unrelated Google subject cannot claim an existing
 account merely by returning the same email address. Previously bound Google

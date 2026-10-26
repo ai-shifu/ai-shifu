@@ -28,7 +28,6 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
 )
 from flaskr.service.user.installation_models import LocalAdminAccount
-from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.password_flow import lock_password_credential
 from flaskr.service.user.password_rate_limit import PasswordLoginAttempt
 from flaskr.service.user.password_utils import (
@@ -38,10 +37,10 @@ from flaskr.service.user.password_utils import (
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     find_credential,
+    find_password_identity_user_bids,
     get_password_hash,
     list_credentials,
     load_user_aggregate,
-    load_user_aggregate_by_identifier,
 )
 from flaskr.service.user.utils import create_token_value
 
@@ -58,38 +57,45 @@ _ACTIVE_ACCOUNT_STATES = frozenset(
 )
 
 
-def _legacy_password_account(identifier: str) -> LocalAdminAccount | None:
+def _legacy_password_account(
+    identifier: str, *, for_update: bool = False
+) -> LocalAdminAccount | None:
     """Read only an explicit pre-release username binding, never create an alias."""
-    return LocalAdminAccount.query.filter_by(
+    query = LocalAdminAccount.query.filter_by(
         identifier=identifier,
         identifier_kind="legacy_username",
         deleted=0,
-    ).first()
+    )
+    if for_update:
+        query = query.populate_existing().with_for_update()
+    return query.first()
 
 
-def _load_password_user(identifier: str) -> object | None:
-    aggregate = load_user_aggregate_by_identifier(
-        identifier, providers=["phone", "email"]
-    )
-    if aggregate is not None:
-        return aggregate
-    account = _legacy_password_account(identifier)
-    if account is None:
+def _load_password_user(identifier: str, *, for_update: bool = False) -> object | None:
+    user_bids = find_password_identity_user_bids(identifier, for_update=for_update)
+    account = _legacy_password_account(identifier, for_update=for_update)
+    if account is not None:
+        aggregate = load_user_aggregate(account.user_bid, for_update=for_update)
+        credential = find_credential(
+            provider_name="password",
+            identifier=identifier,
+            user_bid=account.user_bid,
+            for_update=for_update,
+        )
+        if (
+            aggregate is not None
+            and aggregate.is_operator
+            and aggregate.state in _ACTIVE_ACCOUNT_STATES
+            and aggregate.identify.startswith("local:")
+            and credential is not None
+            and credential.credential_bid == account.credential_bid
+            and credential.state == CREDENTIAL_STATE_VERIFIED
+            and get_password_hash(credential)
+        ):
+            user_bids.add(account.user_bid)
+    if len(user_bids) != 1:
         return None
-    aggregate = load_user_aggregate(account.user_bid)
-    credential = find_credential(
-        provider_name="password", identifier=identifier, user_bid=account.user_bid
-    )
-    if (
-        aggregate is None
-        or not aggregate.is_operator
-        or aggregate.state not in _ACTIVE_ACCOUNT_STATES
-        or not aggregate.identify.startswith("local:")
-        or credential is None
-        or credential.credential_bid != account.credential_bid
-    ):
-        return None
-    return aggregate
+    return load_user_aggregate(user_bids.pop(), for_update=for_update)
 
 
 class PasswordAuthProvider(AuthProvider):
@@ -137,12 +143,15 @@ class PasswordAuthProvider(AuthProvider):
                         if aggregate is not None
                         else []
                     )
-                    credential = password_creds[0] if password_creds else None
-                    if (
-                        credential is not None
-                        and credential.state != CREDENTIAL_STATE_VERIFIED
-                    ):
-                        credential = None
+                    credential = next(
+                        (
+                            item
+                            for item in password_creds
+                            if item.state == CREDENTIAL_STATE_VERIFIED
+                            and get_password_hash(item)
+                        ),
+                        None,
+                    )
                     password_hash = get_password_hash(credential) if credential else ""
                     user_info = (
                         build_user_info_from_aggregate(aggregate)
@@ -236,30 +245,10 @@ def confirm_password_login_for_token_issue(
         not user.is_operator or user.state not in _ACTIVE_ACCOUNT_STATES
     ):
         raise_error("server.user.invalidCredentials")
-    contact_matches = user.user_identify == identifier
-    if not contact_matches:
-        contact_matches = (
-            AuthCredential.query.filter(
-                AuthCredential.user_bid == user_bid,
-                AuthCredential.provider_name.in_(["phone", "email"]),
-                AuthCredential.identifier == identifier,
-                AuthCredential.deleted == 0,
-            )
-            .with_for_update()
-            .first()
-            is not None
-        )
-    if not contact_matches:
-        account = _legacy_password_account(identifier)
-        contact_matches = bool(
-            account is not None
-            and account.user_bid == user_bid
-            and account.credential_bid == credential_bid
-            and user.user_identify.startswith("local:")
-            and user.is_operator
-        )
+    resolved_user = _load_password_user(identifier, for_update=True)
     if (
-        not contact_matches
+        resolved_user is None
+        or resolved_user.user_bid != user_bid
         or password_credential.identifier != credential_identifier
         or not get_password_hash(password_credential)
         or not isinstance(credential_version, str)
