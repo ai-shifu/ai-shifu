@@ -137,8 +137,9 @@ async def test_a_rejected_preface_does_not_suppress_a_closing_line_after_finish(
             yield _call("interact", type="text", prompt="Forbidden question")
         elif attempts == 2:
             yield _call("finish", summary="Completed")
-        else:
             yield "The actual accepted closing line."
+        else:
+            pytest.fail("Accepted completion must not request closing prose")
 
     engine = Engine(
         FunctionModel(stream_function=script),
@@ -148,7 +149,7 @@ async def test_a_rejected_preface_does_not_suppress_a_closing_line_after_finish(
     session = await engine.new_session("Deliver the closing line and finish.")
     events = [event async for event in engine.run_turn(session)]
 
-    assert attempts == 3
+    assert attempts == 2
     assert _text(events) == "The actual accepted closing line."
     assert "Rejected preface" not in _history_text(session.messages)
     assert isinstance(events[-1], TurnDone)

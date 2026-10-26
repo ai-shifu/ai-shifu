@@ -542,12 +542,11 @@ async def test_canonical_finish_keeps_review_validation(mixed: bool) -> None:
         """Use real SDK terminal validation and retain only accepted prose."""
         nonlocal calls
         calls += 1
+        assert calls <= (3 if mixed else 2), "Finish must prevent a later response"
         if calls == 1:
             yield _call(
                 {"type": "text", "prompt": "", "placeholder": "Answer"}, "original"
             )
-            return
-        if calls == (4 if mixed else 3):
             return
         invalid = mixed and calls == 2
         payload = {"summary": "Completed.", "feedback": review}
@@ -573,4 +572,4 @@ async def test_canonical_finish_keeps_review_validation(mixed: bool) -> None:
     assert _text(events) == "Authored completion."
     assert session.finished
     assert "Rejected mixed finish." not in session.dumps()
-    assert calls == (4 if mixed else 3)
+    assert calls == (3 if mixed else 2)

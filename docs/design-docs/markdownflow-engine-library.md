@@ -2,7 +2,7 @@
 title: MarkdownFlow engine library
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-26
 canonical: true
 ---
 
@@ -50,6 +50,20 @@ their exact UTF-8 contents. The loader accepts a resource stem, such as
 `teaching_summary`, and rejects paths or file extensions. The engine version
 continues to come from `markdownflow/engine/__init__.py`; release tooling reads
 that file without importing the application.
+
+## Completing a turn
+
+An accepted `finish` ends the model run after the current response's entire tool
+batch settles. The engine keeps teaching already streamed in that response,
+sibling tool results, the completion summary and actual usage. It does not ask
+the model for another closing response or retry an empty farewell.
+
+The public SDK graph capability in `engine/finish_run.py` retains the final tool
+returns with their run metadata before ending the run. Deferred interaction
+results take precedence: a final question emitted before `finish` in the same
+response remains answerable, including after a Session round trip. A rejected
+completion or sibling tool validation still receives its required correction.
+No tool, event or Session schema changes are required.
 
 ## Compatibility and delivery
 
