@@ -22,26 +22,38 @@ The uninitialized administrator entry leads to `/setup`. The owner obtains a
 code for the exact local or HTTPS origin, enters a phone number or email address
 and a password, and enters the administrator area with creator and demo
 permissions.
-The contact is an unverified local identifier; setup does not send a verification
-message, bind a contact credential or claim an existing contact account.
-After completion, `/admin-login` provides local password login even when learner
-password login is disabled. Existing
+Setup creates an ordinary account and a standard `password` credential, without
+sending a contact verification message. The entered contact is not marked as
+verified. Existing identifiers cannot be overwritten or promoted by setup.
+While initialization is pending, ordinary phone/email and Google contact-account
+creation coordinate with the same installation transaction. If ordinary account
+creation wins, setup rejects its identifier; if setup wins, contact login reuses
+the newly created account. Completed installations avoid the pending setup lock.
+After completion, `/admin-login` uses the existing password provider and requires
+the authenticated account's administrator role, even when learner password
+login is disabled. Existing
 phone/email/OAuth administrators retain their existing login route.
 
-A repository-resolved, verified local password identity also satisfies learner
-trial-entry and login-interaction gates. These gates use the same persisted
-identity fact as the public local-password marker, rather than inferring login
-from a username or administrator role. This does not verify contact ownership,
-grant a purchase, or bypass payment gates. Temporary identities and unverified
-local credentials do not satisfy the local-identity branch of login checks;
-existing phone/email behavior remains unchanged.
+The administrator can also use the normal learner login and learning paths.
+Earlier preview accounts with standalone usernames retain a narrow, persisted
+alias reader and the compatibility `has_local_password` session marker after
+their credentials migrate to `password`. A role or client-supplied marker never
+authenticates a user. Neither this compatibility behavior nor ordinary password
+login proves contact ownership, grants a purchase or bypasses payment gates.
 
 The code is short lived, single use and bound to the installation's persistent
 state and selected browser origin. It cannot authenticate an arbitrary account
 or reset passwords. Completed setup remains closed after service restart, cache
 loss or user deletion. Existing database upgrades default to closed legacy state.
 
-Local password recovery is a server-console action that revokes old sessions.
+Server-console password recovery remains available without external delivery
+and revokes old sessions. If contact verification is configured later, ordinary
+verification-code login and password recovery refer to the same phone/email
+account, including its administrator role. Owners must use a contact they control.
+Google email-based account association likewise requires a verified email claim;
+an unverified profile with an unrelated Google subject cannot claim an existing
+account merely by returning the same email address. Previously bound Google
+subjects retain their supported login path.
 Remote browser setup requires HTTPS; loopback/SSH-forwarded use and direct
 console initialization provide local alternatives. Setup secrets are never URL
 parameters and sensitive HTTP bodies are excluded from logs and caches.
@@ -62,18 +74,35 @@ away). Existing shared format validators apply; dots and email plus-tags are not
 collapsed. Both types are accepted independently of learner provider switches.
 Passwords follow the existing strength policy and supported bcrypt input limit.
 
-The local account binding and `local_password` credential own the identifier.
-The user's internal identity remains `local:<business ID>`; the identifier is not
-copied to public contact fields, the display name or ordinary phone/email
-credentials. A verified password credential establishes local authentication,
-not contact ownership. An independently verified learner with the same contact
-is a separate account: ordinary contact login or password reset must not discover,
-merge with or recover the local administrator. Local recovery stays console-only.
+The normal account identity is the normalized contact, and the existing
+`password` provider owns password verification, rate limiting and token evidence.
+An installation binding records provisioning provenance and supports console
+recovery; it does not define a second password provider or contact namespace.
+The password credential records `contact_verification: unverified`; no verified
+phone/email credential is fabricated. Normal account contact fields may expose
+the identifier under the existing DTO contract, but setup does not use it as a
+nickname or include it in analytics. Installation authorization, rather than
+contact ownership, permits the initial credential write. Ordinary public
+set-password and reset-password endpoints retain their verification-code checks.
+The server's `has_password` boolean reports a usable standard password
+credential, independently of administrator roles or learner login switches. The
+account menu uses it for the existing old-password/new-password change flow,
+without requiring a messaging service. `has_local_password` remains only as an
+earlier-preview contactless-session compatibility field.
+
 New initialization accepts no standalone username. Existing preview username
 bindings are preserved by a forward migration as legacy identities; login and
 console recovery accept those existing names, without permitting new ones. A
-legacy `username` login payload remains a compatibility read only. Downgrade
-must refuse to strand newly created phone/email local accounts.
+legacy `username` login payload remains a compatibility read only. A forward
+data migration preserves existing credential hashes, account IDs and roles
+while converting preview credentials to `password`. Contact/account collisions
+or inconsistent bindings stop migration before any account conversion; operators
+must resolve them in a controlled maintenance process without automatic merging.
+Run the conversion while API and worker account writes are stopped. The data
+migration does not provide online cross-table uniqueness. Its downgrade refuses
+while any installation account binding exists; retain compatible application
+code or restore a reviewed pre-upgrade backup rather than reversing a live
+account's authentication namespace.
 
 If initialization committed but session delivery failed, the UI offers local
 administrator login; it does not instruct the owner to initialize again.
@@ -97,7 +126,8 @@ Setup/login population includes guests and existing authenticated visitors who
 reach an available form over HTTPS or loopback. Closed/unavailable setup,
 status failures and insecure public HTTP do not expose an eligible form. No
 course-preview setup/login form is provided. Password-change population is an
-authenticated account with a verified local credential; it remains eligible
+authenticated account with a usable password credential, including ordinary
+accounts and installation administrators; it remains eligible
 while viewing a course preview because account security is a real global
 operation. Re-renders do not duplicate an
 exposure, and double clicks do not create overlapping attempts. Tracking throws
@@ -116,14 +146,18 @@ attempt and result events with the same triggers, deduplication and payload
 allowlists. No identifier or contact-type field is added. Historical username
 and current contact-identifier forms measure the same initialization/login
 funnel; these events cannot measure contact verification or infer contact type.
+The existing `local_password_change` surface value is retained for analytics
+consumer compatibility as password change now uses the standard password fact;
+it no longer implies a separate credential provider. Earlier funnel comparisons
+must account for the expanded eligible password-change population.
 
 ## Compatibility and rollout
 
-Existing credentials, roles and demo ownership are preserved during upgrade.
+Existing ordinary credentials, roles and demo ownership are preserved during upgrade.
 New bootstrap state is persisted in SQL with migration provenance; zero users is
 not a signal to open setup. A rollout can disable the Web surface while retaining
-local password login and console recovery. Downgrades must preserve a reader for
-local credentials rather than clearing completion state or restoring a universal
+standard password login and console recovery. Downgrades must preserve a reader for
+installation accounts rather than clearing completion state or restoring a universal
 verification code.
 
 Schema downgrade must refuse to remove the local-account mapping while local

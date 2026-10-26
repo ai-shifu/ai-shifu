@@ -47,6 +47,7 @@ class UserInfo:
     is_creator: bool
     is_operator: bool
     has_local_password: bool
+    has_password: bool
     analytics_enabled: bool
 
     def __init__(
@@ -63,6 +64,7 @@ class UserInfo:
         is_creator: object = False,
         is_operator: object = False,
         has_local_password: object = False,
+        has_password: object = False,
     ) -> None:
         """Build a serialized user-information payload."""
         self.user_id = user_id
@@ -79,6 +81,7 @@ class UserInfo:
         self.is_creator = is_creator
         self.is_operator = is_operator
         self.has_local_password = has_local_password is True
+        self.has_password = has_password is True
         self.analytics_enabled = not is_analytics_user_excluded(user_bid=user_id)
 
     def __json__(self) -> dict:
@@ -99,6 +102,8 @@ class UserInfo:
         }
         if self.has_local_password:
             payload["has_local_password"] = True
+        if self.has_password:
+            payload["has_password"] = True
         return payload
 
     def __html__(self) -> dict:

@@ -41,6 +41,8 @@ const mockUserStoreState = {
     mobile: string;
     email: string;
     is_creator: boolean;
+    is_operator?: boolean;
+    has_password?: boolean;
     has_local_password?: boolean;
   },
   logout: jest.fn(),
@@ -1470,6 +1472,102 @@ describe('MainMenuModal', () => {
       'USER_MENU_SET_PASSWORD',
       {},
     );
+  });
+
+  test.each([true, false])(
+    'lets an account with a standard password change it without learner password login (administrator: %s)',
+    isOperator => {
+      mockEnvState.loginMethodsEnabled = ['phone'];
+      mockUserStoreState.userInfo = {
+        mobile: '',
+        email: 'owner@example.test',
+        is_creator: isOperator,
+        is_operator: isOperator,
+        has_password: true,
+      };
+      render(
+        <MainMenuModal
+          open
+          onClose={jest.fn()}
+          onPersonalInfoClick={jest.fn()}
+          surface='admin'
+        />,
+      );
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.installation.changePassword',
+        }),
+      );
+
+      expect(screen.getByTestId('change-password-modal')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('set-password-modal'),
+      ).not.toBeInTheDocument();
+      expect(mockTrackEvent).not.toHaveBeenCalledWith(
+        'USER_MENU_SET_PASSWORD',
+        expect.anything(),
+      );
+    },
+  );
+
+  test.each([undefined, false, 'true', 1])(
+    'requires the strict server password fact before exposing password change (%s)',
+    passwordMarker => {
+      mockUserStoreState.userInfo = {
+        mobile: '',
+        email: 'owner@example.test',
+        is_creator: true,
+        is_operator: true,
+        has_password: passwordMarker as boolean,
+      };
+      render(
+        <MainMenuModal
+          open
+          onClose={jest.fn()}
+          onPersonalInfoClick={jest.fn()}
+          surface='admin'
+        />,
+      );
+
+      expect(
+        screen.queryByRole('button', {
+          name: 'module.installation.changePassword',
+        }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole('button', { name: 'module.settings.setPassword' }),
+      );
+      expect(screen.getByTestId('set-password-modal')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('change-password-modal'),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  test('does not expose password change to a guest with a cached password marker', () => {
+    mockUserStoreState.isLoggedIn = false;
+    mockUserStoreState.userInfo = {
+      mobile: '',
+      email: 'owner@example.test',
+      is_creator: true,
+      is_operator: true,
+      has_password: true,
+    };
+    render(
+      <MainMenuModal
+        open
+        onClose={jest.fn()}
+        onPersonalInfoClick={jest.fn()}
+        surface='admin'
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'module.installation.changePassword',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   test('hides set password entry when contact methods only contain whitespace', () => {

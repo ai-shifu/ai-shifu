@@ -43,4 +43,5 @@ export const initializeAdministrator = (
 export const loginLocalAdministrator = (
   payload: LocalAdministratorCredentials,
 ): Promise<InstallationSession> =>
+  // The administrator boundary applies role checks to shared password auth.
   request.post('/api/installation/login', payload, requestOptions);

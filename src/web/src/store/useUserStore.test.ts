@@ -174,6 +174,38 @@ describe('useUserStore.initUser', () => {
     });
   });
 
+  test.each([false, true])(
+    'restores a standard-password administrator through its ordinary contact (cached guest: %s)',
+    faked => {
+      mockTokenState = { token: 'administrator-password-token', faked };
+      const administrator = {
+        user_id: 'administrator',
+        mobile: '',
+        email: 'owner@example.test',
+        is_operator: true,
+        has_password: true,
+      };
+      mockGetUserInfo.mockResolvedValueOnce({ data: administrator });
+
+      return useUserStore
+        .getState()
+        .initUser()
+        .then(() => {
+          expect(mockTokenState).toEqual({
+            token: 'administrator-password-token',
+            faked: false,
+          });
+          expect(useUserStore.getState()).toMatchObject({
+            userInfo: administrator,
+            isGuest: false,
+            isLoggedIn: true,
+            isInitialized: true,
+          });
+          expect(mockRegisterTmp).not.toHaveBeenCalled();
+        });
+    },
+  );
+
   test('passes exclusion from restored user info and restores guest eligibility on logout', async () => {
     mockTokenState = { token: 'excluded-token', faked: false };
     const excludedUser = {

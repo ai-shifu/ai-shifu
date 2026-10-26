@@ -70,6 +70,7 @@ class CredentialSummary:
     subject_format: str
     state: int
     metadata: dict[str, str | None] = field(default_factory=dict)
+    password_is_set: bool = False
 
     @property
     def is_verified(self) -> bool:
@@ -211,8 +212,7 @@ class UserAggregate:
     @property
     def username(self) -> str:
         """Return the account username, if present."""
-        local_credential = self._preferred_identifier("local_password")
-        if local_credential:
+        if self.has_local_password:
             # Local login identifiers may be unverified personal contacts.
             # Keep them out of public display-name/username surfaces.
             return self.nickname or self.user_bid
@@ -225,10 +225,25 @@ class UserAggregate:
         return self.user_bid
 
     @property
+    def has_password(self) -> bool:
+        """Report a persisted, usable ordinary password without exposing its hash."""
+        return any(
+            credential.provider == "password"
+            and credential.is_verified
+            and credential.password_is_set
+            for credential in self.credentials
+        )
+
+    @property
     def has_local_password(self) -> bool:
-        """Return the verified local credential fact without implying a contact."""
-        credential = self._preferred_identifier("local_password")
-        return bool(credential and credential.is_verified)
+        """Keep the pre-release contactless-session marker for migrated usernames."""
+        return self.identify.startswith("local:") and any(
+            credential.provider == "password"
+            and credential.is_verified
+            and credential.password_is_set
+            and credential.metadata.get("installation_admin") == "true"
+            for credential in self.credentials
+        )
 
     @property
     def display_name(self) -> str:
@@ -290,6 +305,7 @@ class UserAggregate:
             is_creator=self.is_creator,
             is_operator=self.is_operator,
             has_local_password=self.has_local_password,
+            has_password=self.has_password,
         )
 
 
@@ -316,6 +332,7 @@ def _summarize_credentials(
             subject_format=credential.subject_format,
             state=credential.state,
             metadata=deserialize_raw_profile(credential),
+            password_is_set=bool(get_password_hash(credential)),
         )
         for credential in credentials
     ]
@@ -411,14 +428,21 @@ def load_user_aggregate(
     *,
     include_deleted: bool = False,
     with_credentials: bool = True,
+    for_update: bool = False,
 ) -> UserAggregate | None:
     """Load user aggregate."""
-    entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
+    if for_update:
+        query = UserEntity.query.filter_by(user_bid=user_bid)
+        if not include_deleted:
+            query = query.filter_by(deleted=0)
+        entity = query.populate_existing().with_for_update().first()
+    else:
+        entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
     if not entity:
         return None
     credentials: list[AuthCredential] = []
     if with_credentials:
-        credentials = list_credentials(user_bid=user_bid)
+        credentials = list_credentials(user_bid=user_bid, for_update=for_update)
     return _build_user_aggregate(entity, credentials=credentials)
 
 
@@ -426,6 +450,7 @@ def load_user_aggregate_by_identifier(
     identifier: str,
     *,
     providers: list[str] | None = None,
+    for_update: bool = False,
 ) -> UserAggregate | None:
     """Load user aggregate by identifier."""
     normalized = identifier.strip() if identifier else ""
@@ -447,21 +472,22 @@ def load_user_aggregate_by_identifier(
 
     # Direct match on canonical identifiers first.
     for lookup_identifier in lookup_identifiers:
-        entity = (
-            UserEntity.query.filter(
-                UserEntity.user_identify == lookup_identifier,
-                UserEntity.deleted == 0,
-            )
-            .order_by(UserEntity.id.asc())
-            .first()
-        )
+        query = UserEntity.query.filter(
+            UserEntity.user_identify == lookup_identifier,
+            UserEntity.deleted == 0,
+        ).order_by(UserEntity.id.asc())
+        if for_update:
+            query = query.populate_existing().with_for_update()
+        entity = query.first()
         if entity and (
             not lookup_identifier.startswith("local:")
-            or "local_password" in provider_candidates
+            or "password" in provider_candidates
         ):
             return _build_user_aggregate(
                 entity,
-                credentials=list_credentials(user_bid=entity.user_bid),
+                credentials=list_credentials(
+                    user_bid=entity.user_bid, for_update=for_update
+                ),
             )
 
     for provider in provider_candidates:
@@ -469,9 +495,10 @@ def load_user_aggregate_by_identifier(
             credential = find_credential(
                 provider_name=provider,
                 identifier=lookup_identifier,
+                for_update=for_update,
             )
             if credential:
-                return load_user_aggregate(credential.user_bid)
+                return load_user_aggregate(credential.user_bid, for_update=for_update)
 
     return None
 
@@ -859,7 +886,11 @@ def upsert_credential(
 
 
 def find_credential(
-    *, provider_name: str, identifier: str, user_bid: str | None = None
+    *,
+    provider_name: str,
+    identifier: str,
+    user_bid: str | None = None,
+    for_update: bool = False,
 ) -> AuthCredential | None:
     """Find credential."""
     raw_identifier = (identifier or "").strip()
@@ -874,16 +905,20 @@ def find_credential(
     )
     if user_bid:
         query = query.filter(AuthCredential.user_bid == user_bid)
+    if for_update:
+        query = query.populate_existing().with_for_update()
     return query.order_by(AuthCredential.id.asc()).first()
 
 
 def list_credentials(
-    *, user_bid: str, provider_name: str | None = None
+    *, user_bid: str, provider_name: str | None = None, for_update: bool = False
 ) -> list[AuthCredential]:
     """Return credentials, oldest first."""
     query = AuthCredential.query.filter_by(user_bid=user_bid, deleted=0)
     if provider_name:
         query = query.filter_by(provider_name=provider_name)
+    if for_update:
+        query = query.populate_existing().with_for_update()
     # Callers pick one row out of several (see ``_preferred_credential``), so the
     # order has to be the same on every read rather than whatever the engine
     # happens to return.

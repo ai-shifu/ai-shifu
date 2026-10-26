@@ -6,9 +6,10 @@ import {
   type RuntimeHarnessDiagnostics,
 } from './harness-diagnostics';
 import {
-  initializeLocalAdmin,
-  loginWithLocalAdmin,
+  initializeAdministrator,
+  loginWithAdministrator,
   loginWithPhone,
+  verifyStandardPasswordLogin,
 } from './harness-auth';
 
 const authStatePath = 'playwright/.auth/runtime-harness-user.json';
@@ -24,10 +25,11 @@ test.afterEach(async ({}, testInfo) => {
   await diagnostics?.captureFailure(testInfo);
 });
 
-test('runtime harness initializes and signs in the local administrator', async ({
+test('runtime harness initializes an administrator with standard password authentication', async ({
   page,
 }) => {
-  await initializeLocalAdmin(page);
+  await initializeAdministrator(page);
+  const administratorId = await verifyStandardPasswordLogin(page);
   const status = await (
     await page.request.get('/api/installation/status')
   ).json();
@@ -40,7 +42,7 @@ test('runtime harness initializes and signs in the local administrator', async (
     sessionStorage.clear();
   });
   await page.reload();
-  await loginWithLocalAdmin(page);
+  expect(await loginWithAdministrator(page)).toBe(administratorId);
   await page.goto('/admin/operations');
   await expect(page.getByTestId('admin-operations-page')).toBeVisible();
   await mkdir('playwright/.auth', { recursive: true });

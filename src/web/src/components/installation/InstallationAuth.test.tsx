@@ -17,7 +17,12 @@ const mockLogin = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockRouter = { replace: mockReplace };
 const session = {
-  userInfo: { user_id: 'local-owner', is_operator: true },
+  userInfo: {
+    user_id: 'installation-owner',
+    email: 'owner@example.test',
+    is_operator: true,
+    has_password: true,
+  },
   token: 'session-token',
 };
 

@@ -304,8 +304,8 @@ Verification bypass is disabled by default, including for `ENV=development`.
 The API and frontend commands below bind to loopback. Before making the
 application remotely accessible, configure a secure HTTPS endpoint and keep the
 generated `SECRET_KEY` unchanged. The first administrator uses a phone number
-or email address and a password;
-SMS, SMTP and OAuth are optional for subsequent learner login or notifications.
+or email address and a password. SMS, SMTP and OAuth are optional for subsequent
+learner login or notifications.
 See [First Administrator Setup](#first-administrator-setup) and
 [Local Demo Login](#local-demo-login).
 
@@ -571,11 +571,14 @@ setup/local-login forms; use HTTPS or access loopback through an SSH tunnel.
 
 After setup, use `/admin-login` with the same phone/email identifier and password.
 This entry is available independently of learner `LOGIN_METHODS_ENABLED`; configure learner
-SMS/email/Google sign-in later as needed. A local login identifier does not verify
-contact ownership, bind to an existing contact account or enable contact-based
-password recovery. The same phone/email can belong to a separate verified
-learner account; signing in or resetting that learner never accesses the local
-administrator. Existing administrators keep their original login
+SMS/email/Google sign-in later as needed. Setup creates a normal account and a
+standard password credential; the administrator role controls access to the
+administrator area. Setup does not verify contact ownership or fabricate a
+verified phone/email credential. Use a phone number or email address you control:
+after you configure contact verification, normal verification-code login and
+password recovery refer to this same administrator account. An existing account
+with the requested identifier is not overwritten, merged or promoted by setup.
+Existing administrators keep their original login
 methods during upgrade, and ordinary new user registration does not claim the
 administrator role on a managed installation.
 
@@ -594,7 +597,7 @@ docker compose -f docker-compose.latest.yml exec ai-shifu-api \
   flask console reset-admin-password --identifier owner@example.com
 ```
 
-Enter the account's actual local login identifier in place of `owner@example.com`.
+Enter the account's actual login identifier in place of `owner@example.com`.
 Recovery prompts for a hidden new password and revokes the previous sessions. It does not reopen
 Web setup. An existing installation can explicitly create its first local
 administrator through the server-console command without replacing existing
@@ -608,6 +611,17 @@ with `1`, optionally prefixed by `+86`. This does not add international SMS
 support. Standalone usernames cannot create new administrators. Accounts created
 with the earlier preview's username design retain login and console recovery
 compatibility; use the old name as the identifier for those existing accounts.
+The forward migration converts preview `local_password` credentials to the
+existing `password` type while preserving password hashes, account IDs and roles.
+Contact-based preview accounts adopt their contact as the normal account
+identity. The migration checks all bindings and contact collisions before
+conversion; a collision stops the upgrade rather than selecting, merging or
+overwriting an account. Resolve such a conflict with a reviewed maintenance plan
+on a backup or disposable copy before retrying the production upgrade. Stop API
+and worker account writes while applying this data migration. Downgrade refuses
+while installation account bindings exist: retain compatible code or restore a
+reviewed pre-upgrade backup rather than reversing live account identities. No
+online configuration or account is changed by this patch itself.
 
 ### Local Demo Login
 

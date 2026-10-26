@@ -7,8 +7,10 @@ SMTP, SMS or OAuth configuration. A server-console operation authorizes one
 initialization transaction, either directly or through a short-lived Web setup
 code. Local administrator password login remains independent of learner login
 methods. Preserve the ordinary verification-code security boundary.
-New administrators use a phone number or email address plus a local password;
-the identifier stays unverified and independent of ordinary contact accounts.
+New administrators use a phone number or email address plus the existing
+standard password mechanism. Trusted installation authority permits the first
+password write without a delivery service; later normal contact login/recovery
+refers to the same account, and setup does not claim contact verification.
 
 ## Progress
 
@@ -133,9 +135,76 @@ the identifier stays unverified and independent of ordinary contact accounts.
   found no concrete new defect. Initial full pre-commit rejected an incomplete
   staged documentation graph; after staging the complete intended patch, the
   unchanged whole-repository gate passed on recheck.
-- [ ] 2026-10-26 UTC: Run current-source regressions, lint/type/full repository
-  gates, publish the authorized update and track its own exact-head CI. Do not
-  inherit `aa2f67c6` results for the new identifier design.
+- [x] 2026-10-26 UTC: Published contact-identifier head `6de9877a` passed all
+  seven Actions on their first attempts: 15,270 backend tests with 15 skipped,
+  3,509 frontend tests and four real production-image browser cases. These
+  results do not validate subsequent source changes.
+- [x] 2026-10-26 06:20 UTC: The user requested rebasing onto main and replacing
+  the separate local-password provider with the existing password mechanism.
+  Refreshed main `c828b8a8`, verified the PR branch still matched `6de9877a`,
+  preserved a local recovery branch and rebased 11 feature commits without
+  conflicts. No remote history was overwritten during this preparation.
+- [x] 2026-10-26 06:20 UTC: Provision ordinary password accounts through the
+  trusted one-time installation transaction; consolidate authentication,
+  recovery and race protection; migrate preview accounts without overwriting
+  colliding identities; align Web, documentation and regressions.
+- [ ] 2026-10-26 06:20 UTC: Run the refactor's focused and applicable full
+  checks, update the authorized PR with an exact expected-head lease after
+  verifying nobody else changed the branch, and track the new head's CI.
+- [x] 2026-10-26 06:40 UTC: A synthetic regression reproduced an association
+  boundary exposed by the ordinary-account design: an unrelated Google subject
+  with an unverified email could resolve an existing password administrator.
+  The corrective scope requires verified email for email-based association,
+  while retaining properly bound Google subjects and ordinary new-account
+  behavior. No production provider or account was probed.
+- [x] 2026-10-26 06:47 UTC: The Google association correction passed 26 focused
+  cases, including strict verified-email claims, administrator/ordinary-account
+  rejection, bound-subject compatibility and pending-setup registration races.
+  The before-fix synthetic administrator test failed as expected. The final
+  broader auth suite is running; initial test-fixture contract mismatches and
+  the known local TCP-bind restriction remain separately recorded.
+- [x] 2026-10-26 06:47 UTC: Final frontend source passed 196 focused cases,
+  all 282 suites/3,518 tests, TypeScript, complete lint, production build and
+  eight-language validation. A read-only frontend review found no concrete
+  defect. Six browser cases were discovered only; local container/browser
+  execution is unavailable and must be covered by the new head's Runtime CI.
+- [x] 2026-10-26 06:47 UTC: New data-migration tests passed 33 cases; the whole
+  migration directory passed 55 with one existing isolated-MySQL skip. Real
+  scoped SQLite CLI upgrade, repeated upgrade and refused unsafe downgrade
+  preserved account data and the expected revision. Real MySQL conversion is
+  not verified. Repository packaging tests passed 39 cases.
+- [x] 2026-10-26 06:47 UTC: The learn/common supplement passed 4,181 tests and
+  four subtests, with 93 skips and one failure at local TCP listener creation
+  (`EPERM`) before behavior assertions. No test or permission rules were changed.
+- [x] 2026-10-26 06:47 UTC: The final user/auth, administrator routes, shared
+  identity and migration run passed 1,190 tests with one isolated-MySQL skip,
+  271 warnings and one local TCP-bind `EPERM` failure in 68.50s. Four initial
+  failures from outdated provider mocks/HTTP JSON parsing were corrected in the
+  tests and passed in this complete recheck; credential checks were not relaxed.
+  Focused results overlap this run and are not added together. Ruff lint and
+  format checks passed for all 25 changed Python files.
+- [x] 2026-10-26 06:50 UTC: Whole-repository pre-commit and the unchanged
+  documentation harness passed for the fully staged consolidation patch.
+  Before publishing, a fresh main read found `dd43bebf` (the independent
+  automatic-SECRET_KEY PR #3186). Integrate that new predecessor as well and
+  verify its installation/configuration checks; do not overwrite its behavior
+  or inherit the earlier tree's CI.
+- [x] 2026-10-26 07:02 UTC: Rebased the complete consolidation onto main
+  `dd43bebf`, retaining the merged #3186 installer, persisted-key validation,
+  pinned Compose overlay and both languages' installation guidance. The auth,
+  migration, Web and related regression source trees are identical to the
+  already checked consolidation. A scoped rebase-integration run passed all
+  73 secret-key/setup/administrator-route cases. An intermediate documentation
+  replay was aborted before publishing; a later approval rejection of obsolete
+  username wording was resolved by adopting the authorized contact design.
+- [x] 2026-10-26 09:49 UTC: Recovered the final installer/packaging/release
+  summary after the execution connection returned: 104 tests and 12 subtests
+  passed with Commitizen 4.16.2 and Compose 5.6.1 in 14.00s. The full repository
+  gate had also passed after the rebase. These were configuration renders, not
+  container/browser execution. Verified local `2f529561`, its two staged
+  documentation edits, unchanged main `dd43bebf` and remote PR head `6de9877a`.
+  Finish the same commit and publish with that exact expected-head lease; the
+  user renewed the push instruction after the connection was restored.
 - [ ] 2026-10-25 UTC: The single-check rerun request returned HTTP 404 through
   the current GitHub connection; no rerun is confirmed from that request.
   Do not retry it or widen permissions. Observe the final source revision's
@@ -145,9 +214,12 @@ the identifier stays unverified and independent of ordinary contact accounts.
 
 ## Surprises & Discoveries
 
-Existing password login resolves phone/email accounts and cannot be treated as
-an independent local credential contract. The existing password reset requires a
-verified contact. The default Docker gateway is HTTP, so browser setup must use
+Existing password login already verifies a password without requiring OTP.
+Public set/reset operations separately require a delivered verification code;
+a trusted installation command can authorize the first standard credential
+write without weakening those public operations. The earlier separate local
+namespace was a design choice, superseded by the user's ordinary-account
+decision. The default Docker gateway is HTTP, so browser setup must use
 loopback/SSH forwarding or HTTPS. Console-issued codes bind to the selected
 origin and never enter URLs or ordinary login/OTP/reset flows.
 
@@ -167,21 +239,34 @@ Schema downgrade refuses to drop mappings while local-account bindings remain.
   upgrades seed closed legacy state. User count is not setup authority.
 - Both trusted console provisioning and Web initialization call one domain
   service. Account, roles, demo ownership and completion commit together.
-- Keep a distinct local administrator credential namespace and uniqueness, while
-  using phone/email as the account's login identifier. Do not mark that contact
-  as verified, expose it as the display name or implicitly link it to an ordinary
-  contact account. New accounts reject standalone usernames; a forward migration
-  preserves existing preview username bindings for login/recovery only.
+- Superseding the earlier separate local-credential namespace: use ordinary
+  phone/email account identities and standard `password` credentials. The
+  trusted setup transaction authorizes initial creation, and the administrator
+  route checks roles only after normal password verification. Do not fabricate
+  verified contact credentials. Ordinary delivered-code login/recovery may
+  access the same account once delivery is configured; this is intentional.
+  Reject collisions rather than overwriting passwords or promoting an existing
+  account. Preserve preview credentials and legacy aliases through a forward
+  migration, without enabling new standalone usernames.
 - Local administrator login is automatically available and independent of
   learner `LOGIN_METHODS_ENABLED`. Existing administrator accounts survive.
-- Local recovery requires server-console access and revokes previous sessions;
-  it does not reopen setup or create a public recovery bypass.
+- Provider-independent recovery remains available through the server console
+  and revokes previous sessions; it does not reopen setup or create a public
+  recovery bypass. Ordinary contact recovery retains its issued-code check.
 - The user's later requests authorize pushing this feature branch, publishing
   its ready PR and consolidating #3175 into #3183. Merge into main, auto-merge,
   deployment and production configuration changes remain outside the current
   authorization.
 
 ## Outcomes & Retrospective
+
+The current password-provider consolidation has local frontend, authentication,
+association, migration, packaging and learning regression evidence in Progress.
+Its full repository gate and new published-head CI must complete before
+delivery; earlier head results below remain historical. The whole-tree harness
+was initially invoked before staging the provider deletion and therefore still
+tried to scan that tracked path; the complete staged patch must pass the
+unchanged gate.
 
 Implementation, native browser acceptance, the production Web build and
 repository checks are present in this isolated branch. Historical local backend
@@ -213,8 +298,9 @@ measurements.
 ## Context and Orientation
 
 - Domain state and CLI: `src/api/flaskr/service/user/installation*.py`.
-- Local identity/provider: `local_accounts.py`, `auth/providers/local_password.py`,
-  repository and token-store helpers in the same user service.
+- Installation account provisioning/recovery: `local_accounts.py`; shared
+  authentication: `auth/providers/password.py`, repository and token-store
+  helpers in the same user service.
 - HTTP boundary: `src/api/flaskr/route/installation.py`.
 - Web routes: `/setup`, `/admin-login`, and the existing `/admin` gate.
 - Durable product and analytics contract:
@@ -232,7 +318,7 @@ upgrade, concurrency and recovery paths before preparing a reviewable patch.
 
 1. Add installation and local-account models; generate and inspect migration.
 2. Implement console preparation, code issuance, direct creation and recovery.
-3. Implement local credential creation, rate-limited login and locked token
+3. Implement standard password credential creation, shared rate-limited login and locked token
    evidence confirmation; revoke durable/cache sessions after recovery commit.
 4. Add bounded sensitive HTTP endpoints and preserve standard response/token
    infrastructure, request-origin and language handling.
@@ -253,10 +339,13 @@ including a login racing an old password. Ordinary issued-code, password and
 Google paths keep their contracts and cannot consume setup codes.
 New administrator creation rejects standalone usernames. Email casing/whitespace
 and optional `+86` normalize consistently across setup, login and recovery.
-Existing verified contact accounts remain separate; OTP login and contact-based
-password recovery never claim a local administrator with the same identifier.
-Profile fields and analytics do not leak the entered contact. Migration retains
-existing legacy identifiers and refuses unsafe downgrade of new contact accounts.
+Existing verified contact accounts cannot be overwritten or implicitly promoted
+by installation. The new administrator's ordinary contact login and password
+recovery refer to that same account after a real code is delivered. Contacts are
+not marked verified by setup or included in analytics; standard contact DTO fields
+retain their existing meaning. Migration retains legacy identifiers, password
+hashes and role mappings, rejects collisions before conversion, and refuses
+unsafe downgrade of new standard-password installation accounts.
 
 Run focused backend/Jest tests, user auth and relevant integration/migration
 suites, full applicable backend checks, frontend type/lint, Compose semantic
@@ -269,8 +358,8 @@ latency or memory results.
 The feature has a separate worktree and branch. SQL completion is authoritative;
 cache loss is never eligibility. Console access can rotate an unconsumed setup
 code or reset a local password, but cannot silently reopen completed Web setup.
-Keep compatible local-auth/recovery code when disabling the wizard; an old image
-that cannot read local credentials is not a safe rollback target.
+Keep compatible alias/recovery code when disabling the wizard; an old image
+that cannot read the migrated credentials is not a safe rollback target.
 
 ## Interfaces and Dependencies
 

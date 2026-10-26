@@ -31,8 +31,13 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
         USER_STATE_REGISTERED,
     )
     from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
+    from flaskr.service.user.password_utils import (
+        hash_password,
+        password_credential_version,
+    )
     from flaskr.service.user.token_store import token_store
 
+    password_hash = hash_password("Password123")
     token = f"password-failed-{uuid.uuid4().hex}"
     user_id = uuid.uuid4().hex
     identifier = "user@example.com"
@@ -67,7 +72,7 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
                     subject_id=identifier,
                     subject_format="email",
                     identifier=identifier,
-                    raw_profile="{}",
+                    raw_profile=json.dumps({"password_hash": password_hash}),
                     state=CREDENTIAL_STATE_VERIFIED,
                     deleted=0,
                 ),
@@ -91,6 +96,7 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
                     "verified_identifier": identifier,
                     "password_credential_bid": password_credential_bid,
                     "password_credential_identifier": identifier,
+                    "credential_version": password_credential_version(password_hash),
                 },
             )
 

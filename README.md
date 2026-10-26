@@ -156,7 +156,7 @@ After Docker starts:
 
 1. Open `http://localhost:8080/admin`; a fresh installation leads to the setup page.
 2. Retrieve a one-time code with `docker compose -f docker-compose.latest.yml exec ai-shifu-api flask console setup-code --origin http://localhost:8080`.
-3. Enter the code, a phone number or email address, and a password. The contact is an unverified local login identifier; no SMS or SMTP service is required. Later sign in at `/admin-login` with the same identifier and password; learner login methods are configured separately.
+3. Enter the code, a phone number or email address you control, and a password. Setup creates a normal password account with administrator permissions; no SMS or SMTP service is required, and contact ownership is not verified at this step. Later sign in at `/admin-login` with the same identifier and password. If you enable contact verification later, verification-code login and password recovery use this same account.
 
 Use an API/Web image containing this feature. Existing installations remain closed to Web setup and retain their accounts; see [initialization and recovery commands](INSTALL_MANUAL.md#first-administrator-setup).
 

@@ -253,9 +253,14 @@ def verify_phone_code(
     creator_granted_now = False
     normalized_course_id = str(course_id or "").strip() or None
 
+    from flaskr.service.user.installation import (
+        guard_pending_installation_identity_creation,
+    )
+
     with unit_of_work():
+        installation_pending = guard_pending_installation_identity_creation()
         target_aggregate = load_user_aggregate_by_identifier(
-            normalized_phone, providers=["phone"]
+            normalized_phone, providers=["phone"], for_update=installation_pending
         )
         origin_aggregate = load_user_aggregate(user_id) if user_id else None
 

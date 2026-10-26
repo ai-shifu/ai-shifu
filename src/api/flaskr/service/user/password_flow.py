@@ -10,21 +10,29 @@ import hmac
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
-from flaskr.dao.uow import require_transaction_owner, unit_of_work
+from flaskr.dao.uow import in_unit_of_work, require_transaction_owner, unit_of_work
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.service.common.phone_numbers import normalize_phone_identifier
 from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
 from flaskr.service.user.models import AuthCredential
-from flaskr.service.user.password_utils import hash_password, verify_password
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.password_utils import (
+    hash_password,
+    validate_password,
+    verify_password,
+)
 from flaskr.service.user.repository import (
     find_credential,
     get_password_hash,
     list_credentials,
     load_user_aggregate_by_identifier,
+    serialize_raw_profile,
     set_password_hash,
 )
+from flaskr.service.user.token_store import token_store
 from flaskr.service.user.verification_codes import consume_verification_code
 from flaskr.util.uuid import generate_id
+from sqlalchemy import update
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -35,31 +43,85 @@ def _normalize_identifier(identifier: str) -> str:
     return stripped.lower() if "@" in stripped else normalize_phone_identifier(stripped)
 
 
-def _write_password_credential(
-    app: Flask, *, user_bid: str, identifier: str, new_password: str
-) -> None:
-    """Create or update the password credential for ``identifier`` in one unit of work."""
-    subject_format = "email" if "@" in identifier else "phone"
-    with unit_of_work():
-        pwd_cred = find_credential(
-            provider_name="password", identifier=identifier, user_bid=user_bid
-        )
-        if pwd_cred:
-            set_password_hash(pwd_cred, hash_password(new_password))
-            return
-        pwd_cred = AuthCredential(
-            credential_bid=generate_id(app),
+def lock_password_user(user_bid: str) -> UserEntity:
+    """Serialize credential writes and token issuance, including on SQLite."""
+    if not in_unit_of_work():
+        message = "Password credential locking requires an active unit_of_work"
+        raise RuntimeError(message)
+    # SQLite ignores SELECT FOR UPDATE: a write must own the row before reading
+    # credentials. Keep the profile timestamp unchanged while acquiring the lock.
+    conditions = (UserEntity.user_bid == user_bid, UserEntity.deleted == 0)
+    result = db.session.execute(
+        update(UserEntity)
+        .where(*conditions)
+        .values(updated_at=UserEntity.updated_at)
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount != 1:
+        raise_error("server.user.invalidCredentials")
+    return (
+        UserEntity.query.filter(*conditions).populate_existing().with_for_update().one()
+    )
+
+
+def lock_password_credential(
+    *, user_bid: str, credential_bid: str
+) -> tuple[UserEntity, AuthCredential]:
+    """Lock a standard password credential in the caller's transaction."""
+    user = lock_password_user(user_bid)
+    credential = (
+        AuthCredential.query.filter_by(
+            credential_bid=credential_bid,
             user_bid=user_bid,
             provider_name="password",
-            subject_id=identifier,
-            subject_format=subject_format,
-            identifier=identifier,
-            raw_profile="",
             state=CREDENTIAL_STATE_VERIFIED,
             deleted=0,
         )
-        db.session.add(pwd_cred)
-        set_password_hash(pwd_cred, hash_password(new_password))
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
+    if credential is None:
+        raise_error("server.user.invalidCredentials")
+    return user, credential
+
+
+def write_password_credential(
+    app: Flask,
+    *,
+    user_bid: str,
+    identifier: str,
+    new_password: str,
+    metadata: dict[str, str | None] | None = None,
+    revoke_sessions: bool = False,
+) -> AuthCredential:
+    """Write a password after the calling flow establishes its own authority."""
+    validate_password(new_password)
+    password_hash = hash_password(new_password)
+    subject_format = "email" if "@" in identifier else "phone"
+    with unit_of_work():
+        lock_password_user(user_bid)
+        pwd_cred = find_credential(
+            provider_name="password", identifier=identifier, user_bid=user_bid
+        )
+        if pwd_cred is None:
+            pwd_cred = AuthCredential(
+                credential_bid=generate_id(app),
+                user_bid=user_bid,
+                provider_name="password",
+                subject_id=identifier,
+                subject_format=subject_format,
+                identifier=identifier,
+                raw_profile=serialize_raw_profile("password", metadata or {}),
+                state=CREDENTIAL_STATE_VERIFIED,
+                deleted=0,
+            )
+            db.session.add(pwd_cred)
+        set_password_hash(pwd_cred, password_hash)
+        if revoke_sessions:
+            token_store.revoke_all(app, user_id=user_bid)
+        db.session.flush()
+        return pwd_cred
 
 
 def set_password(
@@ -102,7 +164,7 @@ def set_password(
 
     # Validate ownership by consuming a verification code for the chosen identifier.
     consume_verification_code(app, identifier=selected_identifier, code=code)
-    _write_password_credential(
+    write_password_credential(
         app,
         user_bid=user_bid,
         identifier=selected_identifier,
@@ -113,46 +175,25 @@ def set_password(
 def change_password(
     app: Flask, *, user_bid: str, old_password: str, new_password: str
 ) -> None:
-    """Change the password of a logged-in user after verifying the old one."""
-    creds = [
-        credential
-        for credential in list_credentials(user_bid=user_bid)
-        if credential.provider_name in ("password", "local_password")
-    ]
-    if not creds:
-        raise_error("server.user.invalidCredentials")
-
-    pwd_cred = creds[0]
-    if pwd_cred.provider_name == "local_password":
-        from flaskr.service.user.local_accounts import (
-            lock_local_admin_credentials,
-            validate_local_password,
-        )
-
-        require_transaction_owner("change_local_admin_password", app)
-        validate_local_password(new_password)
-        with unit_of_work():
-            current_hash = get_password_hash(pwd_cred)
-            credential_bid = pwd_cred.credential_bid
-        if not current_hash or not verify_password(old_password, current_hash):
+    """Verify the current password, then reject any intervening credential change."""
+    require_transaction_owner("change_password", app)
+    validate_password(new_password)
+    with unit_of_work():
+        creds = list_credentials(user_bid=user_bid, provider_name="password")
+        if not creds:
             raise_error("server.user.invalidCredentials")
-        new_hash = hash_password(new_password)
-        with unit_of_work():
-            _user, _account, locked_credential = lock_local_admin_credentials(
-                user_bid=user_bid, credential_bid=credential_bid
-            )
-            if not hmac.compare_digest(
-                current_hash, get_password_hash(locked_credential)
-            ):
-                raise_error("server.user.invalidCredentials")
-            set_password_hash(locked_credential, new_hash)
-        return
-    current_hash = get_password_hash(pwd_cred)
+        credential_bid = creds[0].credential_bid
+        current_hash = get_password_hash(creds[0])
     if not current_hash or not verify_password(old_password, current_hash):
         raise_error("server.user.invalidCredentials")
-
+    new_hash = hash_password(new_password)
     with unit_of_work():
-        set_password_hash(pwd_cred, hash_password(new_password))
+        _user, credential = lock_password_credential(
+            user_bid=user_bid, credential_bid=credential_bid
+        )
+        if not hmac.compare_digest(current_hash, get_password_hash(credential)):
+            raise_error("server.user.invalidCredentials")
+        set_password_hash(credential, new_hash)
 
 
 def reset_password(
@@ -171,9 +212,10 @@ def reset_password(
 
     # Verify identity via verification code without creating/merging users.
     consume_verification_code(app, identifier=normalized_identifier, code=code)
-    _write_password_credential(
+    write_password_credential(
         app,
         user_bid=aggregate.user_bid,
         identifier=normalized_identifier,
         new_password=new_password,
+        revoke_sessions=True,
     )

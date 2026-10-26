@@ -84,9 +84,9 @@ def test_setup_returns_normal_session_and_local_login_ignores_learner_switches(
     body = response.get_json()
     assert body["code"] == 0
     assert body["data"]["token"]
-    assert body["data"]["userInfo"]["username"] == body["data"]["userInfo"]["user_id"]
-    assert "owner@example.com" not in str(body["data"]["userInfo"])
-    assert body["data"]["userInfo"]["email"] == ""
+    assert body["data"]["userInfo"]["username"] == "owner@example.com"
+    assert body["data"]["userInfo"]["email"] == "owner@example.com"
+    assert body["data"]["userInfo"]["has_password"] is True
     assert body["data"]["userInfo"]["mobile"] == ""
     assert response.headers["Cache-Control"] == "no-store"
     login = _post(
@@ -295,7 +295,7 @@ def test_contact_setup_login_and_recovery_accepts_normalized_long_identifiers(
     payload["identifier"] = identifier
     response = _post(app, "initialize", payload).get_json()
     assert response["code"] == 0
-    assert response["data"]["userInfo"]["has_local_password"] is True
+    assert response["data"]["userInfo"]["has_password"] is True
     assert (
         _post(
             app, "login", {"identifier": identifier, "password": payload["password"]}
@@ -335,6 +335,11 @@ def test_old_username_payload_only_signs_in_existing_legacy_mapping(
         ).one()
         credential.identifier = credential.subject_id = "old_owner"
         credential.subject_format = "local_username"
+        from flaskr.service.user.models import UserInfo
+
+        UserInfo.query.filter_by(
+            user_bid=binding.user_bid
+        ).one().user_identify = f"local:{binding.user_bid}"
     assert (
         _post(
             app, "login", {"username": "OLD_OWNER", "password": payload["password"]}
@@ -347,3 +352,66 @@ def test_old_username_payload_only_signs_in_existing_legacy_mapping(
         ).get_json()["code"]
         == 0
     )
+
+
+@pytest.mark.parametrize("operator", [False, True])
+def test_existing_standard_password_accounts_use_admin_login_only_with_operator_role(
+    installation_http_app: Flask, operator: bool
+) -> None:
+    from flaskr.service.user.consts import USER_STATE_REGISTERED
+    from flaskr.service.user.password_flow import write_password_credential
+    from flaskr.service.user.repository import create_user_entity
+
+    app = installation_http_app
+    with app.app_context(), unit_of_work():
+        user = create_user_entity(
+            user_bid="ordinary-password-user",
+            identify="existing@example.com",
+            state=USER_STATE_REGISTERED,
+        )
+        user.is_operator = int(operator)
+        write_password_credential(
+            app,
+            user_bid=user.user_bid,
+            identifier="existing@example.com",
+            new_password="Existing123",
+        )
+    assert (
+        installation.get_installation_status(app)["local_admin_login_enabled"]
+        is operator
+    )
+    result = _post(
+        app, "login", {"identifier": "existing@example.com", "password": "Existing123"}
+    ).get_json()
+    assert (result["code"] == 0) is operator
+    with app.app_context():
+        assert LocalAdminAccount.query.count() == 0
+        assert UserToken.query.count() == int(operator)
+        assert AuthCredential.query.one().provider_name == "password"
+
+
+def test_inactive_operator_cannot_use_password_admin_login(
+    installation_http_app: Flask,
+) -> None:
+    from flaskr.service.user.consts import USER_STATE_UNREGISTERED
+    from flaskr.service.user.models import UserInfo
+
+    app = installation_http_app
+    payload = _setup_payload(app)
+    assert _post(app, "initialize", payload).get_json()["code"] == 0
+    with app.app_context(), unit_of_work():
+        UserInfo.query.one().state = USER_STATE_UNREGISTERED
+        UserToken.query.delete()
+    assert (
+        installation.get_installation_status(app)["local_admin_login_enabled"] is False
+    )
+    assert (
+        _post(
+            app,
+            "login",
+            {"identifier": payload["identifier"], "password": payload["password"]},
+        ).get_json()["code"]
+        != 0
+    )
+    with app.app_context():
+        assert UserToken.query.count() == 0

@@ -144,7 +144,7 @@ Docker 启动后：
 
 1. 打开 `http://localhost:8080/admin`；新安装会进入初始化页面。
 2. 在服务器控制台运行 `docker compose -f docker-compose.latest.yml exec ai-shifu-api flask console setup-code --origin http://localhost:8080`，获取一次性初始化码。
-3. 输入初始化码、手机号或邮箱，并设置密码；手机号或邮箱仅作为尚未验证的本地登录账号，无需配置短信或邮件发送服务。以后通过 `/admin-login` 使用相同账号和密码登录，学员登录方式另行按需配置。
+3. 输入初始化码、本人控制的手机号或邮箱，并设置密码；系统创建普通密码账号并授予管理员权限，无需配置短信或邮件发送服务，此时尚未验证联系方式归属。以后通过 `/admin-login` 使用相同账号和密码登录。如果后续启用联系方式验证，验证码登录和密码找回使用同一个账号。
 
 请使用包含此功能的 API/Web 镜像。已有实例升级不会重新开放网页初始化，原有账号继续可用；初始化和恢复命令详见[安装手册](INSTALL_MANUAL.md#first-administrator-setup)。
 

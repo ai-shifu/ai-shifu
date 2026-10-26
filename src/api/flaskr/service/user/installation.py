@@ -21,7 +21,7 @@ from flaskr.dao.uow import (
 from flaskr.service.common.models import raise_error
 from flaskr.service.user.installation_models import InstallationState, LocalAdminAccount
 from flaskr.util.datetime import now_utc
-from sqlalchemy import inspect
+from sqlalchemy import inspect, select, update
 from sqlalchemy.exc import SQLAlchemyError
 
 if TYPE_CHECKING:
@@ -60,6 +60,38 @@ def prepare_installation_database(app: Flask) -> None:
             directory=directory,
             x_arg=[FRESH_INSTALLATION_MIGRATION_ARGUMENT] if empty else None,
         )
+
+
+def guard_pending_installation_identity_creation() -> bool:
+    """Coordinate public contact creation with the single fresh-setup transaction.
+
+    Probe on a short independent connection so MySQL does not establish the
+    caller's repeatable-read snapshot before waiting for setup. Completed state
+    never reopens, so established installations avoid the singleton write lock.
+    Callers use current reads when this returns true, including when setup won
+    the race between this probe and the conditional write.
+    """
+    with db.engine.connect() as connection:
+        pending = connection.execute(
+            select(InstallationState.id).where(
+                InstallationState.id == 1,
+                InstallationState.mode == "managed",
+                InstallationState.initialized_at.is_(None),
+            )
+        ).first()
+    if pending is None:
+        return False
+    db.session.execute(
+        update(InstallationState)
+        .where(
+            InstallationState.id == 1,
+            InstallationState.mode == "managed",
+            InstallationState.initialized_at.is_(None),
+        )
+        .values(claim_version=InstallationState.claim_version)
+        .execution_options(synchronize_session=False)
+    )
+    return True
 
 
 def normalize_setup_origin(origin: str) -> str:
@@ -109,26 +141,35 @@ def get_installation_status(app: Flask) -> dict[str, bool]:
             and state.mode == "managed"
             and state.initialized_at is None
         )
-        local_account = (
-            LocalAdminAccount.query.join(
-                UserInfo, UserInfo.user_bid == LocalAdminAccount.user_bid
-            )
-            .join(
-                AuthCredential,
-                AuthCredential.credential_bid == LocalAdminAccount.credential_bid,
+        from flaskr.service.user.consts import (
+            CREDENTIAL_STATE_VERIFIED,
+            USER_STATE_PAID,
+            USER_STATE_REGISTERED,
+            USER_STATE_TRAIL,
+        )
+        from flaskr.service.user.repository import get_password_hash
+
+        credentials = (
+            AuthCredential.query.join(
+                UserInfo, UserInfo.user_bid == AuthCredential.user_bid
             )
             .filter(
-                LocalAdminAccount.deleted == 0,
                 UserInfo.deleted == 0,
                 UserInfo.is_operator == 1,
+                UserInfo.state.in_(
+                    [USER_STATE_REGISTERED, USER_STATE_TRAIL, USER_STATE_PAID]
+                ),
                 AuthCredential.deleted == 0,
-                AuthCredential.provider_name == "local_password",
+                AuthCredential.state == CREDENTIAL_STATE_VERIFIED,
+                AuthCredential.provider_name == "password",
             )
-            .first()
+            .all()
         )
         return {
             "setup_required": pending,
-            "local_admin_login_enabled": local_account is not None,
+            "local_admin_login_enabled": any(
+                get_password_hash(item) for item in credentials
+            ),
         }
 
 

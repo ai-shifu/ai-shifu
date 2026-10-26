@@ -16,7 +16,7 @@ from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.user import local_accounts, password_flow
 from flaskr.service.user.auth import get_provider
 from flaskr.service.user.auth.base import VerificationRequest
-from flaskr.service.user.auth.providers import local_password
+from flaskr.service.user.auth.providers import password as password_provider
 from flaskr.service.user.consts import CREDENTIAL_STATE_UNVERIFIED
 from flaskr.service.user.installation_models import LocalAdminAccount
 from flaskr.service.user.models import AuthCredential, UserToken
@@ -63,7 +63,7 @@ def local_admin(
 
 
 def _verify(app: Flask, identifier: str, password: str | None = None) -> object:
-    return local_password.LocalPasswordAuthProvider().verify(
+    return password_provider.PasswordAuthProvider().verify(
         app,
         VerificationRequest(
             identifier=identifier,
@@ -73,11 +73,13 @@ def _verify(app: Flask, identifier: str, password: str | None = None) -> object:
 
 
 def _confirm(result: object) -> None:
-    local_password.confirm_local_admin_login_for_token_issue(
+    password_provider.confirm_password_login_for_token_issue(
         user_bid=result.metadata["user_bid"],
-        credential_bid=result.metadata["local_credential_bid"],
-        identifier=result.metadata["local_identifier"],
+        credential_bid=result.metadata["password_credential_bid"],
+        identifier=result.metadata["verified_identifier"],
+        credential_identifier=result.metadata["password_credential_identifier"],
         credential_version=result.metadata["credential_version"],
+        require_operator=True,
     )
 
 
@@ -133,27 +135,30 @@ def test_provisioning_does_not_fabricate_verified_contact_credentials(
     with app.app_context():
         aggregate = load_user_aggregate(user_bid)
         assert aggregate is not None
-        assert aggregate.identify == f"local:{user_bid}"
-        assert aggregate.username == user_bid
+        assert aggregate.identify == identifier
+        assert aggregate.username == identifier
         assert aggregate.nickname == ""
-        assert aggregate.mobile == aggregate.email == ""
+        assert (aggregate.email or aggregate.mobile) == identifier
+        assert aggregate.has_password is True
+        assert aggregate.has_local_password is False
         assert aggregate.is_creator is True
         assert aggregate.is_operator is True
-        assert [item.provider for item in aggregate.credentials] == ["local_password"]
-        credential = find_credential(
-            provider_name="local_password", identifier=identifier
-        )
+        assert [item.provider for item in aggregate.credentials] == ["password"]
+        credential = find_credential(provider_name="password", identifier=identifier)
         assert credential is not None
         kind = "email" if "@" in identifier else "phone"
-        assert credential.subject_format == f"local_{kind}"
+        assert credential.subject_format == kind
         assert aggregate.credentials[0].metadata["contact_verification"] == "unverified"
-        assert identifier not in str(aggregate.to_user_info().__json__())
+        assert (
+            aggregate.to_user_info().__json__()[kind if kind == "email" else "mobile"]
+            == identifier
+        )
         assert verify_password("Initial123", get_password_hash(credential))
         assert (
             load_user_aggregate_by_identifier(
                 aggregate.identify, providers=["phone", "email"]
-            )
-            is None
+            ).user_bid
+            == user_bid
         )
 
 
@@ -202,13 +207,14 @@ def test_local_provider_uses_existing_token_shape_without_persisting_early(
     user_bid, identifier = local_admin
     with app.app_context():
         assert isinstance(
-            get_provider("local_password"), local_password.LocalPasswordAuthProvider
+            get_provider("password"), password_provider.PasswordAuthProvider
         )
         result = _verify(app, identifier.upper())
         assert result.user.user_id == user_bid
-        assert result.user.username == user_bid
-        assert result.user.email == result.user.mobile == ""
-        assert result.user.__json__()["has_local_password"] is True
+        assert result.user.username == identifier
+        assert (result.user.email or result.user.mobile) == identifier
+        assert result.user.__json__()["has_password"] is True
+        assert "has_local_password" not in result.user.__json__()
         assert result.token.userInfo.user_id == user_bid
         assert result.token.token
         assert result.is_new_user is False
@@ -243,16 +249,16 @@ def test_missing_local_binding_never_falls_back_to_an_existing_contact_account(
         hashes.append(password_hash)
         return False
 
-    monkeypatch.setattr(local_password, "verify_password", record_hash)
+    monkeypatch.setattr(password_provider, "verify_password", record_hash)
     with app.app_context(), pytest.raises(AppError) as error:
         _verify(app, identifier)
     assert error.value.code == ERROR_CODE["server.user.invalidCredentials"]
-    assert hashes == [local_password._DUMMY_PASSWORD_HASH]
+    assert hashes == [password_provider._DUMMY_PASSWORD_HASH]
 
 
 @pytest.mark.parametrize(
     "mutation",
-    ["operator", "user_deleted", "binding_deleted", "credential_deleted", "unverified"],
+    ["user_deleted", "credential_deleted", "unverified"],
 )
 def test_local_login_rejects_disabled_or_changed_authority(
     app: Flask, local_admin: tuple[str, str], mutation: str
@@ -306,7 +312,7 @@ def test_waiting_for_local_password_guards_holds_no_database_transaction(
     app: Flask, local_admin: tuple[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _user_bid, identifier = local_admin
-    real_attempt = local_password.PasswordLoginAttempt
+    real_attempt = password_provider.PasswordLoginAttempt
     transaction_states: list[bool] = []
 
     class CheckedAttempt:
@@ -320,14 +326,14 @@ def test_waiting_for_local_password_guards_holds_no_database_transaction(
         def __exit__(self, *args: object) -> None:
             self.delegate.__exit__(*args)
 
-    monkeypatch.setattr(local_password, "PasswordLoginAttempt", CheckedAttempt)
+    monkeypatch.setattr(password_provider, "PasswordLoginAttempt", CheckedAttempt)
     with app.app_context():
         _verify(app, identifier)
     assert transaction_states
     assert not any(transaction_states)
 
 
-@pytest.mark.parametrize("mutation", ["operator", "binding", "credential"])
+@pytest.mark.parametrize("mutation", ["operator", "credential"])
 def test_token_confirmation_rechecks_authority_after_password_verification(
     app: Flask, local_admin: tuple[str, str], mutation: str
 ) -> None:
@@ -615,6 +621,9 @@ def test_legacy_binding_keeps_login_and_console_recovery_without_new_name_creati
         credential = AuthCredential.query.filter_by(user_bid=user_bid).one()
         credential.identifier = credential.subject_id = legacy
         credential.subject_format = "local_username"
+        UserEntity.query.filter_by(
+            user_bid=user_bid
+        ).one().user_identify = f"local:{user_bid}"
     with app.app_context():
         assert _verify(app, legacy.upper()).user.user_id == user_bid
     local_accounts.reset_local_admin_password(
@@ -630,69 +639,120 @@ def test_legacy_binding_keeps_login_and_console_recovery_without_new_name_creati
             )
 
 
-def test_unverified_login_contact_never_joins_or_replaces_ordinary_contact_identity(
-    app: Flask, local_admin: tuple[str, str], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    user_bid, identifier = local_admin
-    ordinary_bid = uuid.uuid4().hex
-    with app.app_context(), unit_of_work():
-        create_user_entity(user_bid=ordinary_bid, identify=identifier)
-        kind = "email" if "@" in identifier else "phone"
-        ordinary_credential = AuthCredential(
-            credential_bid=uuid.uuid4().hex,
-            user_bid=ordinary_bid,
-            provider_name=kind,
-            subject_id=identifier,
-            subject_format=kind,
-            identifier=identifier,
-            state=CREDENTIAL_STATE_UNVERIFIED,
-            deleted=0,
-        )
-        db.session.add(ordinary_credential)
-    try:
-        consumed = Mock()
-        monkeypatch.setattr(password_flow, "consume_verification_code", consumed)
-        with app.app_context():
-            assert _verify(app, identifier).user.user_id == user_bid
-            assert (
-                load_user_aggregate_by_identifier(identifier, providers=[kind]).user_bid
-                == ordinary_bid
-            )
-            password_flow.reset_password(
-                app,
-                identifier=identifier,
-                code="synthetic-code",
-                new_password="Ordinary123",
-            )
-            consumed.assert_called_once()
-            assert _verify(app, identifier).user.user_id == user_bid
-            with pytest.raises(AppError):
-                _verify(app, identifier, "Ordinary123")
-            assert load_user_aggregate(ordinary_bid).is_operator is False
-            assert (
-                load_user_aggregate(user_bid).mobile
-                == load_user_aggregate(user_bid).email
-                == ""
-            )
-    finally:
-        with app.app_context(), unit_of_work():
-            AuthCredential.query.filter_by(user_bid=ordinary_bid).delete()
-            UserEntity.query.filter_by(user_bid=ordinary_bid).delete()
-
-
-def test_contact_without_a_verified_ordinary_account_cannot_reset_local_password(
+def test_setup_account_uses_the_ordinary_contact_recovery_policy(
     app: Flask, local_admin: tuple[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     user_bid, identifier = local_admin
     consumed = Mock()
     monkeypatch.setattr(password_flow, "consume_verification_code", consumed)
     with app.app_context():
-        with pytest.raises(AppError):
-            password_flow.reset_password(
-                app,
-                identifier=identifier,
-                code="synthetic-code",
-                new_password="Other123",
+        kind = "email" if "@" in identifier else "phone"
+        assert (
+            load_user_aggregate_by_identifier(identifier, providers=[kind]).user_bid
+            == user_bid
+        )
+        result = _verify(app, identifier)
+        with unit_of_work():
+            token_store.save(
+                app, user_id=user_bid, token="before-contact-recovery", ttl_seconds=300
             )
-        consumed.assert_not_called()
-        assert _verify(app, identifier).user.user_id == user_bid
+        password_flow.reset_password(
+            app,
+            identifier=identifier,
+            code="synthetic-code",
+            new_password="Recovered123",
+        )
+        consumed.assert_called_once_with(
+            app, identifier=identifier, code="synthetic-code"
+        )
+        assert UserToken.query.filter_by(user_id=user_bid).count() == 0
+        with pytest.raises(AppError), unit_of_work():
+            _confirm(result)
+        with pytest.raises(AppError):
+            _verify(app, identifier)
+        assert _verify(app, identifier, "Recovered123").user.user_id == user_bid
+        assert load_user_aggregate(user_bid).is_operator
+
+
+@pytest.mark.parametrize("kind", ["canonical", "phone", "email", "password"])
+@pytest.mark.parametrize("deleted", [0, 1])
+def test_installation_never_overwrites_an_existing_account_identity(
+    app: Flask, kind: str, deleted: int
+) -> None:
+    identifier = f"reserved_{uuid.uuid4().hex[:12]}@example.com"
+    ordinary_bid = uuid.uuid4().hex
+    with app.app_context(), unit_of_work():
+        entity = create_user_entity(
+            user_bid=ordinary_bid,
+            identify=identifier if kind == "canonical" else ordinary_bid,
+        )
+        entity.deleted = deleted
+        if kind != "canonical":
+            db.session.add(
+                AuthCredential(
+                    credential_bid=uuid.uuid4().hex,
+                    user_bid=ordinary_bid,
+                    provider_name=kind,
+                    subject_id=identifier,
+                    subject_format=kind,
+                    identifier=identifier,
+                    state=CREDENTIAL_STATE_UNVERIFIED,
+                    deleted=deleted,
+                )
+            )
+    with app.app_context():
+        before = UserEntity.query.count()
+        with pytest.raises(AppError) as error, unit_of_work():
+            local_accounts.provision_local_admin_account(
+                app, identifier=identifier.upper(), password="Initial123"
+            )
+        assert (
+            error.value.code == ERROR_CODE["server.installation.identifierUnavailable"]
+        )
+        assert UserEntity.query.count() == before
+        assert not UserEntity.query.filter_by(user_bid=ordinary_bid).one().is_operator
+        assert LocalAdminAccount.query.filter_by(identifier=identifier).first() is None
+
+
+def test_standard_provider_authenticates_non_administrators_without_granting_role(
+    app: Flask, local_admin: tuple[str, str]
+) -> None:
+    user_bid, identifier = local_admin
+    with app.app_context(), unit_of_work():
+        UserEntity.query.filter_by(user_bid=user_bid).one().is_operator = 0
+    with app.app_context():
+        result = _verify(app, identifier)
+        assert result.user.is_operator is False
+        with pytest.raises(AppError), unit_of_work():
+            _confirm(result)
+
+
+def test_first_administrator_signs_in_through_the_existing_password_http_route(
+    app: Flask, local_admin: tuple[str, str]
+) -> None:
+    user_bid, identifier = local_admin
+    result = (
+        app.test_client()
+        .post(
+            "/api/user/login_password",
+            json={"identifier": identifier, "password": "Initial123"},
+        )
+        .get_json(force=True)
+    )
+    assert result["code"] == 0
+    assert result["data"]["userInfo"]["user_id"] == user_bid
+    assert result["data"]["userInfo"]["is_operator"] is True
+    assert result["data"]["userInfo"]["has_password"] is True
+    assert "has_local_password" not in result["data"]["userInfo"]
+
+
+def test_empty_password_hash_never_authenticates_even_if_dummy_work_matches(
+    app: Flask, local_admin: tuple[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_bid, identifier = local_admin
+    with app.app_context(), unit_of_work():
+        credential = AuthCredential.query.filter_by(user_bid=user_bid).one()
+        credential.raw_profile = "{}"
+    monkeypatch.setattr(password_provider, "verify_password", lambda *_args: True)
+    with app.app_context(), pytest.raises(AppError):
+        _verify(app, identifier)

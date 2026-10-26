@@ -69,3 +69,23 @@ def test_legacy_contact_login_semantics_remain_compatible(
 
 def test_missing_user_has_no_login_identity() -> None:
     assert not has_login_identity(None)
+
+
+@pytest.mark.parametrize("marker", [None, False, 0, 1, "true", "false", {}, []])
+def test_password_capability_marker_requires_a_strict_server_boolean(
+    marker: object,
+) -> None:
+    public = UserInfo(
+        user_id="guest",
+        username="guest",
+        name="Guest",
+        mobile="",
+        email="",
+        user_state=0,
+        wx_openid="",
+        language="en-US",
+        has_password=marker,
+    )
+    assert public.has_password is False
+    assert "has_password" not in public.__json__()
+    assert not has_login_identity(public)

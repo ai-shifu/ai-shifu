@@ -87,8 +87,10 @@ def test_setup_atomically_creates_owner_without_external_provider(
         assert account.user_bid == user_bid
         assert user.is_operator == user.is_creator == 1
         aggregate = load_user_aggregate(user_bid)
-        assert not aggregate.email
+        assert aggregate.email == "owner@example.com"
         assert not aggregate.mobile
+        assert aggregate.has_password is True
+        assert aggregate.has_local_password is False
         assert state.initialized_user_bid == user_bid
         assert state.initialized_at is not None
         assert state.token_digest == ""

@@ -64,7 +64,7 @@ export const loginWithPhone = async (
   await otpInput.press('Enter');
 };
 
-const localAdminCredentials = () => {
+const administratorCredentials = () => {
   const password = process.env.AI_SHIFU_TEST_ADMIN_PASSWORD;
   if (!password) {
     throw new Error(
@@ -79,7 +79,7 @@ const localAdminCredentials = () => {
   };
 };
 
-export const initializeLocalAdmin = async (page: Page) => {
+export const initializeAdministrator = async (page: Page) => {
   const statusResponse = await page.request.get('/api/installation/status');
   expect(statusResponse.ok()).toBeTruthy();
   const status = await statusResponse.json();
@@ -88,7 +88,7 @@ export const initializeLocalAdmin = async (page: Page) => {
     // A Playwright retry may follow a committed initialization whose browser
     // session failed. Reuse the same runner-only password, never reopen setup.
     expect(status.data.local_admin_login_enabled).toBe(true);
-    await loginWithLocalAdmin(page);
+    await loginWithAdministrator(page);
     return;
   }
 
@@ -98,7 +98,7 @@ export const initializeLocalAdmin = async (page: Page) => {
       'Set AI_SHIFU_TEST_SETUP_CODE from the isolated server console.',
     );
   }
-  const { identifier, password } = localAdminCredentials();
+  const { identifier, password } = administratorCredentials();
   await page.goto('/setup');
   await page.locator('#installation-code').fill(setupCode);
   await page.locator('#installation-identifier').fill(identifier);
@@ -113,8 +113,8 @@ export const initializeLocalAdmin = async (page: Page) => {
   await page.waitForURL(url => url.pathname === '/admin');
 };
 
-export const loginWithLocalAdmin = async (page: Page) => {
-  const { identifier, password } = localAdminCredentials();
+export const loginWithAdministrator = async (page: Page) => {
+  const { identifier, password } = administratorCredentials();
   await page.goto('/admin-login');
   await page.locator('#installation-identifier').fill(identifier);
   await page.locator('#installation-password').fill(password);
@@ -126,4 +126,22 @@ export const loginWithLocalAdmin = async (page: Page) => {
   expect(payload.code).toBe(0);
   expect(payload.data.userInfo.is_operator).toBeTruthy();
   await page.waitForURL(url => url.pathname === '/admin');
+  return payload.data.userInfo.user_id as string;
+};
+
+export const verifyStandardPasswordLogin = async (page: Page) => {
+  const { identifier, password } = administratorCredentials();
+  const response = await page.request.post('/api/user/login_password', {
+    data: { identifier, password },
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = await response.json();
+  expect(payload.code).toBe(0);
+  expect(payload.data.userInfo.is_operator).toBe(true);
+  expect(payload.data.userInfo.has_password).toBe(true);
+  expect(payload.data.userInfo.has_local_password).not.toBe(true);
+  expect(
+    payload.data.userInfo.email || payload.data.userInfo.mobile,
+  ).toBeTruthy();
+  return payload.data.userInfo.user_id as string;
 };

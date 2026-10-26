@@ -152,10 +152,12 @@ const MainMenuModal = ({
     typeof userInfo?.mobile === 'string' && userInfo.mobile.trim() !== '';
   const hasEmail =
     typeof userInfo?.email === 'string' && userInfo.email.trim() !== '';
-  const hasLocalPassword = isLoggedIn && userInfo?.has_local_password === true;
+  const hasPassword =
+    isLoggedIn &&
+    (userInfo?.has_password === true || userInfo?.has_local_password === true);
   const canSetPassword =
-    hasLocalPassword || (isPasswordEnabled && (hasMobile || hasEmail));
-  const passwordActionLabel = hasLocalPassword
+    hasPassword || (isPasswordEnabled && (hasMobile || hasEmail));
+  const passwordActionLabel = hasPassword
     ? t('module.installation.changePassword')
     : t('module.settings.setPassword');
 
@@ -238,7 +240,7 @@ const MainMenuModal = ({
   const onSetPasswordClick = (evt: React.MouseEvent) => {
     evt.preventDefault();
     evt.stopPropagation();
-    if (!hasLocalPassword) trackEvent(EVENT_NAMES.USER_MENU_SET_PASSWORD, {});
+    if (!hasPassword) trackEvent(EVENT_NAMES.USER_MENU_SET_PASSWORD, {});
     if (!isLoggedIn) {
       trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu_set_password' });
       shifu.loginTools.openLogin();
@@ -599,7 +601,7 @@ const MainMenuModal = ({
           }}
         />
       ) : null}
-      {hasLocalPassword ? (
+      {hasPassword ? (
         <ChangePasswordModal
           open={setPasswordModalOpen}
           onClose={() => setSetPasswordModalOpen(false)}

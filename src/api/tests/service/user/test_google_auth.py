@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import flaskr.common.config as common_config
 import pytest
 from flaskr.dao import db
+from flaskr.service.common.models import AppError
 from flaskr.service.user.auth.base import OAuthCallbackRequest
 from flaskr.service.user.auth.providers.google import GoogleAuthProvider, _encode_state
 from flaskr.service.user.consts import (
@@ -23,6 +24,8 @@ from flaskr.service.user.models import (
 from flaskr.service.user.models import (
     UserToken as UserTokenModel,
 )
+from flaskr.service.user.password_flow import write_password_credential
+from flaskr.service.user.repository import create_user_entity, get_password_hash
 from flaskr.service.user.token_store import token_store
 from sqlalchemy import Text
 
@@ -300,7 +303,7 @@ def test_google_existing_account_keeps_pre_profile_display_name_behavior(
                 {
                     "sub": uuid.uuid4().hex,
                     "email": email,
-                    "email_verified": False,
+                    "email_verified": True,
                     "name": "Current Google Name",
                 },
             )
@@ -374,5 +377,115 @@ def test_google_oauth_token_fetch_failure_propagates(
                     },
                     fetch_token_error=RuntimeError("token fetch failed"),
                 )
+        finally:
+            _reset_user_auth_tables()
+
+
+@pytest.mark.parametrize("email_verified", [False, None, "false", "true", 1])
+@pytest.mark.parametrize("operator", [False, True])
+def test_unverified_google_email_cannot_claim_an_existing_password_account(
+    app: object, monkeypatch: object, email_verified: object, operator: bool
+) -> None:
+    identifier = "owner-password@example.com"
+    with app.app_context():
+        _reset_user_auth_tables()
+        try:
+            administrator = create_user_entity(
+                user_bid="password-installation-owner",
+                identify=identifier,
+                nickname="Unchanged owner",
+                state=USER_STATE_REGISTERED,
+            )
+            administrator.is_operator = int(operator)
+            credential = write_password_credential(
+                app,
+                user_bid=administrator.user_bid,
+                identifier=identifier,
+                new_password="OwnerPassword123",
+            )
+            original_hash = get_password_hash(credential)
+            with pytest.raises(AppError):
+                _run_google_callback(
+                    app,
+                    monkeypatch,
+                    {
+                        "sub": "unrelated-unverified-subject",
+                        "email": identifier,
+                        "email_verified": email_verified,
+                        "name": "Untrusted replacement",
+                    },
+                )
+            db.session.expire_all()
+            assert administrator.nickname == "Unchanged owner"
+            assert administrator.is_operator == int(operator)
+            assert get_password_hash(credential) == original_hash
+            assert AuthCredential.query.filter_by(provider_name="google").count() == 0
+            assert UserTokenModel.query.count() == 0
+        finally:
+            _reset_user_auth_tables()
+
+
+def test_verified_google_email_can_use_the_existing_password_account(
+    app: object, monkeypatch: object
+) -> None:
+    identifier = "verified-owner@example.com"
+    with app.app_context():
+        _reset_user_auth_tables()
+        try:
+            administrator = create_user_entity(
+                user_bid="verified-password-owner",
+                identify=identifier,
+                state=USER_STATE_REGISTERED,
+            )
+            administrator.is_operator = 1
+            write_password_credential(
+                app,
+                user_bid=administrator.user_bid,
+                identifier=identifier,
+                new_password="OwnerPassword123",
+            )
+            result = _run_google_callback(
+                app,
+                monkeypatch,
+                {
+                    "sub": "verified-google-owner",
+                    "email": identifier,
+                    "email_verified": True,
+                },
+            )
+            assert result.user.user_id == administrator.user_bid
+            assert result.user.is_operator is True
+        finally:
+            _reset_user_auth_tables()
+
+
+@pytest.mark.parametrize("same_subject", [False, True])
+def test_unverified_google_callback_requires_the_previously_bound_subject(
+    app: object, monkeypatch: object, same_subject: bool
+) -> None:
+    with app.app_context():
+        _reset_user_auth_tables()
+        try:
+            profile = {
+                "sub": "original-google-subject",
+                "email": "unverified-new-google@example.com",
+                "email_verified": False,
+            }
+            original = _run_google_callback(app, monkeypatch, profile)
+            callback_profile = {
+                **profile,
+                "sub": profile["sub"] if same_subject else "unrelated-google-subject",
+            }
+            if same_subject:
+                result = _run_google_callback(app, monkeypatch, callback_profile)
+                assert result.user.user_id == original.user.user_id
+            else:
+                with pytest.raises(AppError):
+                    _run_google_callback(app, monkeypatch, callback_profile)
+            assert UserEntity.query.count() == 1
+            assert (
+                AuthCredential.query.filter_by(provider_name="google").one().subject_id
+                == profile["sub"]
+            )
         finally:
             _reset_user_auth_tables()

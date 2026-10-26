@@ -256,8 +256,8 @@ export const useUserStore = create<
             return;
           }
 
-          // Local identities have no verified contact. Their explicit server
-          // credential marker distinguishes them from contactless guests.
+          // Preview installations may retain a contactless administrator alias.
+          // Only its explicit server marker distinguishes it from a guest.
           const isAuthenticated = !!(
             normalizedUserInfo?.mobile ||
             normalizedUserInfo?.email ||

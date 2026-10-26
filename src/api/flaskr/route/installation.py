@@ -15,8 +15,8 @@ from flaskr.i18n import _translations, set_language
 from flaskr.service.common.models import AppError, raise_error, raise_param_error
 from flaskr.service.user.auth import get_provider
 from flaskr.service.user.auth.base import VerificationRequest
-from flaskr.service.user.auth.providers.local_password import (
-    confirm_local_admin_login_for_token_issue,
+from flaskr.service.user.auth.providers.password import (
+    confirm_password_login_for_token_issue,
 )
 from flaskr.service.user.installation import (
     get_installation_status,
@@ -91,20 +91,28 @@ def _finish_login(
     language: str,
     expected_user_bid: str | None = None,
 ) -> Response:
-    provider = get_provider("local_password")
+    provider = get_provider("password")
     result = provider.verify(
         app,
         VerificationRequest(identifier=identifier, code=password),
     )
-    if expected_user_bid and result.user.user_id != expected_user_bid:
+    if not result.user.is_operator or (
+        expected_user_bid and result.user.user_id != expected_user_bid
+    ):
         raise_error("server.user.invalidCredentials")
     try:
         with unit_of_work():
-            confirm_local_admin_login_for_token_issue(
+            confirm_password_login_for_token_issue(
                 user_bid=result.user.user_id,
-                credential_bid=str(result.metadata.get("local_credential_bid") or ""),
-                identifier=str(result.metadata.get("local_identifier") or ""),
+                credential_bid=str(
+                    result.metadata.get("password_credential_bid") or ""
+                ),
+                identifier=str(result.metadata.get("verified_identifier") or ""),
+                credential_identifier=str(
+                    result.metadata.get("password_credential_identifier") or ""
+                ),
                 credential_version=str(result.metadata.get("credential_version") or ""),
+                require_operator=True,
             )
             persist_token(app, user_id=result.user.user_id, token=result.token.token)
     except Exception:
@@ -114,7 +122,7 @@ def _finish_login(
         app,
         PostAuthContext(
             user_id=result.user.user_id,
-            source="local_password",
+            source="password",
             login_context="admin",
             created_new_user=False,
             creator_granted_now=False,
@@ -163,7 +171,7 @@ def register_installation_routes(app: Flask, path_prefix: str) -> None:
                 attempt.record_failure()
                 raise
             # Setup is already committed; cache cleanup is not authority to
-            # undo it. The local-password provider applies its own login guard.
+            # undo it. The password provider applies its own login guard.
             attempt.clear()
         # Installation has committed. A session/cache failure must not reopen it;
         # the owner can use the normal local login entrypoint to retry sign-in.

@@ -2,10 +2,23 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 
 import bcrypt
 from flaskr.service.common.models import raise_error
+
+
+def password_credential_version(password_hash: str) -> str:
+    """Bind successful password verification to the exact credential version."""
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()
+
+
+def validate_password(password: str) -> None:
+    """Apply the shared password rules without silent bcrypt truncation."""
+    validate_password_strength(password)
+    if len(password.encode("utf-8")) > 72:
+        raise_error("server.installation.passwordTooLong")
 
 
 def hash_password(plain_text: str) -> str:

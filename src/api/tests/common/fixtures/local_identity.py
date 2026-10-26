@@ -33,7 +33,9 @@ def local_user_aggregate(
         credentials=[
             CredentialSummary(
                 credential_bid="local-credential",
-                provider="local_password",
+                provider="password",
+                metadata={"installation_admin": "true"},
+                password_is_set=True,
                 identifier="local_owner",
                 subject_id="local_owner",
                 subject_format="username",

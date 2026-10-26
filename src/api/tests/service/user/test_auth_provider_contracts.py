@@ -13,7 +13,9 @@ from flaskr.service.user.auth.base import (
     VerificationRequest,
 )
 from flaskr.service.user.auth.providers import email, password, phone
+from flaskr.service.user.consts import CREDENTIAL_STATE_VERIFIED
 from flaskr.service.user.models import AuthCredential
+from flaskr.service.user.password_utils import password_credential_version
 
 
 @pytest.fixture
@@ -242,7 +244,9 @@ def test_password_failures_share_one_public_error_and_never_mint_tokens(
     aggregate = (
         None if failure == "missing_account" else SimpleNamespace(user_bid="account-1")
     )
-    credential = AuthCredential(user_bid="account-1", provider_name="password")
+    credential = AuthCredential(
+        user_bid="account-1", provider_name="password", state=CREDENTIAL_STATE_VERIFIED
+    )
     monkeypatch.setattr(
         password, "load_user_aggregate_by_identifier", Mock(return_value=aggregate)
     )
@@ -291,6 +295,7 @@ def test_password_login_finds_password_by_account_across_identifier_types(
         credential_bid="password-credential-1",
         user_bid="account-1",
         provider_name="password",
+        state=CREDENTIAL_STATE_VERIFIED,
         identifier="another-login@example.com",
     )
     lookup = Mock(return_value=aggregate)
@@ -328,4 +333,5 @@ def test_password_login_finds_password_by_account_across_identifier_types(
         "verified_identifier": normalized,
         "password_credential_bid": "password-credential-1",
         "password_credential_identifier": "another-login@example.com",
+        "credential_version": password_credential_version("stored-hash"),
     }
