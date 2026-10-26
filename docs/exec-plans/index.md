@@ -196,6 +196,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Safe Outbound URL Validation](./completed/safe-outbound-url-validation.md)
 - [Write explicit named answers back to same-owner course variables](./completed/shared-answer-writeback.md)
 - [Spanish (Spain) Product Localization](./completed/spanish-es-es-localization.md)
+- [Stop model requests after lesson completion](./completed/stop-markdownflow-after-finish.md)
 - [Secure learner Stripe payment synchronization](./completed/stripe-payment-sync-security.md)
 - [Compact older long teaching with exact source reads](./completed/teaching-history-compaction.md)
 - [Review product translations against the Chinese source](./completed/translation-source-review.md)

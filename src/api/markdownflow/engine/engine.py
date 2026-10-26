@@ -75,6 +75,7 @@ from .exercise_statistics import (
     exercise_report_notice,
     read_exercise_history,
 )
+from .finish_run import FinishAfterTools
 from .history_context import compact_recall_history, current_recall_notice
 from .interaction import (
     InteractionAnswer,
@@ -533,6 +534,7 @@ class Engine:
             output_type=[str, DeferredToolRequests],
             instructions=self._instructions,
             capabilities=[
+                FinishAfterTools(),
                 ProcessHistory(self._feedback_retry_history),
                 ProcessHistory(self._language_request_history),
             ],
@@ -1237,10 +1239,9 @@ class Engine:
                             for e in _release_direction_chunks():
                                 yield e
                         buffer_direction = True
-                    # Once the model has said the lesson is over, nothing more of its writing is
-                    # the lesson. The tool result goes back to it like any other, so it takes
-                    # another turn and writes again -- the closing line a second time, or a
-                    # farewell the script never asked for -- and that is not sent.
+                    # FinishAfterTools stops the run after an accepted completion batch. Keep
+                    # text already streamed in that response, including a closing line placed
+                    # after the tool call, without requesting another closing response.
                     #
                     # Unless the turn has delivered nothing yet. A model that calls `finish`
                     # first and writes the closing line after it has still written the closing

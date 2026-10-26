@@ -30,29 +30,19 @@ async def test_model_notes_after_finish_cannot_change_memory(
 ) -> None:
     """Reject both overwrites and new notes after finish, including batched tool calls."""
     calls = 0
-    acknowledgements = {}
 
     async def model(
-        messages: list[ModelMessage], _info: AgentInfo
+        _messages: list[ModelMessage], _info: AgentInfo
     ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
-        """Simulate a model ignoring finish and attempting one extra memory write."""
+        """Refuse a sibling note without another model response."""
         nonlocal calls
         calls += 1
-        for message in messages:
-            if isinstance(message, ModelRequest):
-                for part in message.parts:
-                    if isinstance(part, ToolReturnPart):
-                        acknowledgements[part.tool_name] = part.content
+        assert calls == 1, "Finish must prevent a later response from writing a note"
         note = _call("remember", key=key, value="late overwrite", scope=scope)
-        if calls == 1:
-            yield {
-                0: _call("finish", summary="done"),
-                **({1: note} if ordering == "same-response" else {}),
-            }
-        elif calls == 2 and ordering == "later-response":
-            yield {0: note}
-        else:
-            yield ""
+        yield {
+            0: _call("finish", summary="done"),
+            **({1: note} if ordering == "same-response" else {}),
+        }
 
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session("Teach the last step.")
@@ -64,7 +54,20 @@ async def test_model_notes_after_finish_cannot_change_memory(
     assert session.memory == session.user_memory == {"pace": "original"}
     assert events[-1].reason == "finished"
     assert session.finished is True
-    assert acknowledgements["remember"].startswith("The lesson is over:")
+    assert calls == 1
+    assert session.usage["requests"] == 1
+    note_returns = [
+        part
+        for message in session.messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, ToolReturnPart) and part.tool_name == "remember"
+    ]
+    if ordering == "same-response":
+        assert len(note_returns) == 1
+        assert note_returns[0].content.startswith("The lesson is over:")
+    else:
+        assert note_returns == []
 
 
 @pytest.mark.parametrize("scope", ["session", "user"])

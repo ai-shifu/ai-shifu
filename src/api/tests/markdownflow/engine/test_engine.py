@@ -270,8 +270,8 @@ async def test_finish_tool_marks_the_session_done() -> None:
     assert done.reason == "finished"
     assert done.summary == "learner completed the lesson"
     assert s.finished is True
-    # The tool result goes back to the model like any other, so it takes another turn and writes
-    # again. That writing is not the lesson: the lesson ended when it said so.
+    assert calls["n"] == 1
+    assert s.usage["requests"] == 1
     said = "".join(e.text for e in events if isinstance(e, ContentDelta))
     assert "That's all for today." in said
     assert "Goodbye." not in said
@@ -1570,16 +1570,12 @@ async def test_what_the_model_writes_after_finishing_a_continue_is_not_shown() -
 
 
 async def test_a_closing_line_written_after_finish_still_reaches_the_learner() -> None:
-    """Calling `finish` first and writing the closing line after it is still writing it.
+    """Keep closing text streamed after the finish call in the same response."""
+    calls = 0
 
-    Dropping everything after `finish` assumed the closing line always comes before the call.
-    Across 25 finished lessons on the simulation environment it did, but a model that orders
-    them the other way would leave the learner a turn with nothing in it at all.
-    """
-
-    async def finish_first(
-        _messages: list[ModelMessage], _info: AgentInfo
-    ) -> StreamChunks:
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        nonlocal calls
+        calls += 1
         yield {
             0: DeltaToolCall(
                 name="finish",
@@ -1587,28 +1583,13 @@ async def test_a_closing_line_written_after_finish_still_reaches_the_learner() -
                 tool_call_id="f1",
             )
         }
-
-    async def then_write(
-        _messages: list[ModelMessage], _info: AgentInfo
-    ) -> StreamChunks:
         yield "That is the end of the lesson.\n"
-
-    calls = {"n": 0}
-
-    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
-        calls["n"] += 1
-        gen = (
-            finish_first(messages, _info)
-            if calls["n"] == 1
-            else then_write(messages, _info)
-        )
-        async for x in gen:
-            yield x
 
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session("script")
     events = await collect(engine.run_turn(session))
     said = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    assert calls == 1
     assert "That is the end of the lesson." in said
     assert isinstance(events[-1], TurnDone)
     assert events[-1].reason == "finished"
@@ -1620,10 +1601,11 @@ async def test_a_newline_before_finish_does_not_withhold_the_closing_line() -> N
     Counting raw characters made a stray newline look like delivered content, so the closing
     line written after `finish` was suppressed and the turn ended with a blank line for it.
     """
+    calls = 0
 
-    async def blank_then_finish(
-        _messages: list[ModelMessage], _info: AgentInfo
-    ) -> StreamChunks:
+    async def model(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
+        nonlocal calls
+        calls += 1
         yield "\n"
         yield {
             0: DeltaToolCall(
@@ -1632,26 +1614,13 @@ async def test_a_newline_before_finish_does_not_withhold_the_closing_line() -> N
                 tool_call_id="f1",
             )
         }
-
-    async def closing(_messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
         yield "That is the end of the lesson.\n"
-
-    calls = {"n": 0}
-
-    async def model(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
-        calls["n"] += 1
-        gen = (
-            blank_then_finish(messages, _info)
-            if calls["n"] == 1
-            else closing(messages, _info)
-        )
-        async for x in gen:
-            yield x
 
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session("script")
     events = await collect(engine.run_turn(session))
     said = "".join(e.text for e in events if isinstance(e, ContentDelta))
+    assert calls == 1
     assert "That is the end of the lesson." in said
 
 

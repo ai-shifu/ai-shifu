@@ -170,7 +170,7 @@ async def test_legacy_package_session_resumes_its_remaining_pending_answer() -> 
             InteractionResponseTurn(id="legacy-goal", text="Learn statistics"),
         )
     ]
-    assert calls == 2
+    assert calls == 1
     assert session.finished
     assert not session.pending
     assert session.memory == {"role": "Data analyst", "goal": "Learn statistics"}
