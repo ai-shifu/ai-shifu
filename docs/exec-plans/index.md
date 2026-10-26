@@ -65,7 +65,6 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Account-linked Skill request pageviews](./active/skill-request-analytics.md)
 - [Stop Stripe Refund Credit Regrant](./active/stripe-refund-credit-reversal.md)
 - [Urdu product locale](./active/urdu-product-locale.md)
-- [Verify MarkdownFlow completion in SIM](./active/verify-markdownflow-finish-in-sim.md)
 
 ## Completed
 
@@ -212,6 +211,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Unit-of-Work Commit-Site Migration](./completed/uow-commit-site-migration.md)
 - [Validate Agent Instructions](./completed/validate-manual-agent-instructions.md)
 - [Reuse Email and SMS Verification Login](./completed/verification-code-login-reuse.md)
+- [Verify MarkdownFlow completion in SIM](./completed/verify-markdownflow-finish-in-sim.md)
 
 ## Supporting Tracker
 

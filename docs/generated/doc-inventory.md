@@ -100,7 +100,6 @@
 | `docs/exec-plans/active/skill-request-analytics.md` | Account-linked Skill request pageviews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/stripe-refund-credit-reversal.md` | Stop Stripe Refund Credit Regrant | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/urdu-product-locale.md` | Urdu product locale | `exec-plan-active` | `active` | `cross-surface` | `2026-09-27` | `true` |
-| `docs/exec-plans/active/verify-markdownflow-finish-in-sim.md` | Verify MarkdownFlow completion in SIM | `exec-plan-active` | `active` | `backend` | `2026-10-26` | `true` |
 | `docs/exec-plans/completed/admin-home-onboarding.md` | Admin Home Onboarding | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-orders-page-slimming.md` | Admin Orders Page Slimming | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/admin-rate-management-create.md` | Add arbitrary rate entries to Rate Management | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -244,6 +243,7 @@
 | `docs/exec-plans/completed/uow-commit-site-migration.md` | Unit-of-Work Commit-Site Migration | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/validate-manual-agent-instructions.md` | Validate Agent Instructions | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/verification-code-login-reuse.md` | Reuse Email and SMS Verification Login | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/verify-markdownflow-finish-in-sim.md` | Verify MarkdownFlow completion in SIM | `exec-plan-completed` | `completed` | `backend` | `2026-10-26` | `false` |
 | `docs/exec-plans/index.md` | Execution Plans | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/exec-plans/tech-debt-tracker.md` | Tech Debt Tracker | `exec-plan-support` | `active` | `repo` | `-` | `true` |
 | `docs/generated/doc-inventory.md` | Repository Knowledge Inventory | `generated-doc` | `generated` | `repo` | `-` | `false` |

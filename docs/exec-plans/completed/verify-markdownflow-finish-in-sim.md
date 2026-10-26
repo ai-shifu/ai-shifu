@@ -1,6 +1,6 @@
 ---
 title: Verify MarkdownFlow completion in SIM
-status: active
+status: completed
 owner_surface: backend
 last_reviewed: 2026-10-26
 ---
@@ -17,11 +17,11 @@ lesson output, completion state, session restoration and recorded usage.
 
 - [x] 2026-10-26 CST: Inspect the current SIM branch, actual images and shared-data
   topology; recover the affected lesson and historical model identifiers.
-- [ ] 2026-10-26 CST: Integrate the repair into SIM and build immutable images.
-- [ ] 2026-10-26 CST: Deploy and independently verify ready replicas and code.
-- [ ] 2026-10-26 CST: Run the original lesson through an isolated real-model
+- [x] 2026-10-26 CST: Integrate the repair into SIM and build immutable images.
+- [x] 2026-10-26 CST: Deploy and independently verify ready replicas and code.
+- [x] 2026-10-26 CST: Run the original lesson through an isolated real-model
   preview session, inspect completion history and usage, then verify reopening.
-- [ ] 2026-10-26 CST: Record the result and remaining limits.
+- [x] 2026-10-26 CST: Record the result and remaining limits.
 
 ## Surprises & Discoveries
 
@@ -43,8 +43,58 @@ Deployment has no migration init container: the API starts gunicorn directly.
 
 ## Outcomes & Retrospective
 
-Verification is in progress. No production deployment or main-branch merge is
-authorized by this plan.
+The target completion contract passed a real-model SIM run of the original
+lesson. No production service was deployed and no main-branch merge occurred.
+
+Build [5501](https://ci.pillowai.cn/ai-shifu/ai-shifu/5501) produced
+`sim-277e7ad` from integration commit `277e7ad9b9f19beaa17ee9287b4ed9186659f42c`.
+API deployment record 3360 and Web record 3361 completed successfully. Independent
+readback showed API 2/2 and Web 1/1 available, zero restarts, and the expected
+images. The API runs pydantic-ai 2.53.0; `finish_run.py` SHA-256 is
+`21dd413ac4f15dddc067d6ad3644f5151a756a2077ab363c2692203c112c3bcc`, identical
+to the reviewed PR. The shared database already has revision `a7c1e3f5b9d2` and
+the reset-record table; no migration was executed.
+
+The original published lesson row 210649 has the expected 1,108-character script
+and hash. Current draft course row 28229 selects slot 1; the real gateway used
+`ark/deepseek-v4-1-flash-261017`, which differs from the historical `260910` model.
+The current course prompt contains 928 characters, SHA-256
+`d96bc7824bf5d0d3483d3dbe4d2f4c6a0e767903a891531a8a7945a6fff00447`.
+This is a real current-runtime check, not a historical cost-controlled comparison.
+
+The isolated debug run was `finish-ce460031c89f48d482b9952272760bf5`.
+It returned five HTML presentations, seven text elements and the authored learner
+interaction. The answer was accepted, the session finished, pending questions
+cleared, and one finish call has its matching tool return. There are zero model
+responses and zero retry prompts after that accepted completion. Its four real
+model requests align exactly with four successful preview usage rows:
+
+| Usage ID | Input tokens | Cached input | Output tokens | Credits consumed |
+| --- | ---: | ---: | ---: | ---: |
+| 812117 | 18,995 | 16,384 | 1,613 | 4.12 |
+| 812118 | 20,681 | 18,816 | 112 | 4.15 |
+| 812120 | 21,973 | 18,432 | 2,643 | 4.93 |
+| 812121 | 23,564 | 20,608 | 84 | 4.73 |
+
+The run consumed 17.93 credits in four distinct consumption ledger entries, one
+per usage. Session totals match the usage table: 85,213 input, 74,240 cached input
+and 4,452 output tokens. The final usage is the accepted finish; no usage follows
+it in this run. HTTP correlation IDs appear in `bill_usage.trace_id`; internal
+gateway request IDs differ and must not be confused with these HTTP IDs:
+
+- Initial interaction: `632e0c0253ea442f9efb07bcd2aebde8`, two model calls.
+- Answer and completion: `3ecf9bc94f994f5fae93715f21adc788`, two model calls.
+- Reopen completed session: `97d0b3a4af3c43c8bb2405124ad4666c`, zero usage rows
+  and zero added credits. The session history and usage remain unchanged.
+
+One existing preview-protocol issue was also observed: reopening a completed
+debug session emits only `preview_engine`, with no terminal `done` event, so the
+strict SSE probe exits 1. Parent-commit and current debug-preview source are
+identical; an offline reproduction with the real preview adapter produces the
+same result in both versions. This is an existing host behavior, separate from
+the verified zero-request/zero-usage completion contract, and remains a follow-up
+for the preview host. No browser-layout acceptance or historical-model cost
+comparison is claimed.
 
 ## Context and Orientation
 
