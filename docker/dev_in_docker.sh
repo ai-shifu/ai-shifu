@@ -3,6 +3,10 @@ set -euo pipefail
 
 script_path=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
+if [ ! -e "$script_path/.env" ]; then
+  python3 "$script_path/../scripts/prepare_env.py" --output "$script_path/.env"
+fi
+
 docker build -f "$script_path/../src/api/Dockerfile" -t ai-shifu-api-dev "$script_path/.."
 
 if app_build_sha=$(git -C "$script_path/.." rev-parse HEAD 2>/dev/null); then

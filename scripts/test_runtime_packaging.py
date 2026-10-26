@@ -124,7 +124,10 @@ def dev_metadata_fixture(
     checkout = tmp_path / "checkout with spaces"
     (checkout / "docker").mkdir(parents=True)
     (checkout / "src/web").mkdir(parents=True)
+    (checkout / "scripts").mkdir()
     shutil.copy2(ROOT / "docker/dev_in_docker.sh", checkout / "docker")
+    shutil.copy2(ROOT / "scripts/prepare_env.py", checkout / "scripts")
+    shutil.copy2(ROOT / "docker/.env.example.full", checkout / "docker")
     commits = []
     if with_git:
         subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
@@ -161,6 +164,9 @@ def dev_metadata_fixture(
         f"#!{sys.executable}\n"
         "import json, os, pathlib, sys\n"
         "marker = pathlib.Path(os.environ['TEST_DEV_MARKER'])\n"
+        "configuration = marker.parents[2] / 'docker/.env'\n"
+        "if configuration.is_file():\n"
+        "    assert 'SECRET_KEY=\\\"\\\"' not in configuration.read_text().splitlines()\n"
         "call = {'args': sys.argv[1:], "
         "'marker': marker.read_text().strip() if marker.is_file() else None}\n"
         "with open(os.environ['TEST_DEV_DOCKER_LOG'], 'a') as output:\n"
@@ -173,7 +179,26 @@ def dev_metadata_fixture(
         "TEST_DEV_MARKER": str(checkout / "src/web/.app-build-sha"),
         "TEST_DEV_DOCKER_LOG": str(docker_log),
     }
+    environment.pop("SECRET_KEY", None)
     return checkout, docker_log, environment, commits
+
+
+def test_dev_script_preserves_existing_interpolated_configuration(
+    tmp_path: Path,
+) -> None:
+    """Provisioning must not reject working dotenv contracts on dev upgrades."""
+    checkout, _, environment, _ = dev_metadata_fixture(tmp_path, with_git=False)
+    configuration = checkout / "docker/.env"
+    original = "DEPLOY_KEY=existing-fixture-value\nSECRET_KEY=${DEPLOY_KEY}\n"
+    configuration.write_text(original)
+    subprocess.run(
+        ["bash", str(checkout / "docker/dev_in_docker.sh")],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        check=True,
+    )
+    assert configuration.read_text() == original
 
 
 @pytest.mark.parametrize("with_git", [True, False])
