@@ -389,7 +389,9 @@ def agent_lesson_events(
                 memory_admission=True,
                 memory_context_limit=32_768,
                 memory_recall=True,
-                recall_history_compaction=True,
+                # Off: recall results are small, and rewriting them every turn marks their keys
+                # stale, which changes the instructions and defeats the provider prefix cache.
+                recall_history_compaction=False,
                 teaching_history_compaction=True,
                 exercise_statistics=True,
                 feedback_contract=True,
