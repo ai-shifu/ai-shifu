@@ -18,7 +18,8 @@
         "backend.engine_imports_application",
         "backend.engine_imports_application",
         "backend.engine_imports_application",
-        "backend.engine_imports_application"
+        "backend.engine_imports_application",
+        "backend.learn_elements_imports_host"
       ]
     },
     {
