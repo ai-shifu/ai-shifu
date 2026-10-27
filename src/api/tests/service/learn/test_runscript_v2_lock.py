@@ -2,6 +2,7 @@
 
 import contextlib
 import json
+import threading
 from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -418,7 +419,7 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch: object) -> None:
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_follow_up(**_kwargs: object) -> object:
             with app.app_context():
                 element_adapter = _kwargs["element_adapter"]
                 yield from element_adapter.process(
@@ -445,7 +446,7 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch: object) -> None:
                     ]
                 )
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_follow_up_events", fake_follow_up)
 
         chunks = list(
             runscript_v2.run_script(
@@ -473,7 +474,7 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
         observed: dict[str, object] = {}
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_follow_up(**_kwargs: object) -> object:
             observed["listen"] = _kwargs["listen"]
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
@@ -488,7 +489,7 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
                 content="",
             )
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_follow_up_events", fake_follow_up)
 
         chunks = list(
             runscript_v2.run_script(
@@ -508,90 +509,50 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
         assert events[-1]["is_terminal"] is True
 
 
-def test_run_script_inner_ask_mode_routes_events_through_element_adapter(
+def test_follow_up_events_route_through_element_adapter_and_commit(
     monkeypatch: object,
 ) -> None:
+    from flaskr.service.learn import ask
+
     app = Flask(__name__)
-
+    commits = []
+    removed = []
     monkeypatch.setattr(
-        runscript_v2,
-        "db",
-        SimpleNamespace(
-            session=SimpleNamespace(
-                commit=lambda: None,
-                rollback=lambda: None,
-                remove=lambda: None,
-            )
-        ),
+        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
+    )
+    monkeypatch.setattr(
+        runscript_v2, "_commit_pending_step", lambda: commits.append(True)
     )
     monkeypatch.setattr(
         runscript_v2,
-        "load_user_aggregate",
-        lambda _user_bid: SimpleNamespace(user_id="user-1"),
+        "_remove_db_session_safely",
+        lambda _app, *, source: removed.append(source),
     )
+    seen = {}
 
-    outline_item_info = SimpleNamespace(
-        bid="outline-1",
-        shifu_bid="shifu-1",
-        title="Lesson",
-        __json__=lambda: {"bid": "outline-1"},
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_outline_item_dto",
-        lambda *_args, **_kwargs: outline_item_info,
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_dto",
-        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_struct",
-        lambda *_args, **_kwargs: object(),
-    )
+    def fake_follow_up_events(_app: object, **kwargs: object) -> object:
+        seen.update(kwargs)
+        yield RunMarkdownFlowDTO(
+            outline_bid="outline-1",
+            generated_block_bid="generated-ask",
+            type=GeneratedType.ASK,
+            content="follow-up question",
+            anchor_element_bid="element-1",
+        )
+        yield RunMarkdownFlowDTO(
+            outline_bid="outline-1",
+            generated_block_bid="generated-ask",
+            type=GeneratedType.CONTENT,
+            content="answer chunk",
+        )
+        yield RunMarkdownFlowDTO(
+            outline_bid="outline-1",
+            generated_block_bid="generated-ask",
+            type=GeneratedType.BREAK,
+            content="",
+        )
 
-    class FakeRunScriptContext:
-        def __init__(self, **_kwargs: object) -> None:
-            self._has_next = True
-
-        def set_input(self, *_args: object, **_kwargs: object) -> None:
-            return None
-
-        def reload(self, *_args: object, **_kwargs: object) -> object:
-            return []
-
-        def has_next(self) -> object:
-            if self._has_next:
-                self._has_next = False
-                return True
-            return False
-
-        def run(self, _app: object) -> object:
-            return [
-                RunMarkdownFlowDTO(
-                    outline_bid="outline-1",
-                    generated_block_bid="generated-ask",
-                    type=GeneratedType.ASK,
-                    content="follow-up question",
-                    anchor_element_bid="element-1",
-                ),
-                RunMarkdownFlowDTO(
-                    outline_bid="outline-1",
-                    generated_block_bid="generated-ask",
-                    type=GeneratedType.CONTENT,
-                    content="answer chunk",
-                ),
-                RunMarkdownFlowDTO(
-                    outline_bid="outline-1",
-                    generated_block_bid="generated-ask",
-                    type=GeneratedType.BREAK,
-                    content="",
-                ),
-            ]
-
-    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
+    monkeypatch.setattr(ask, "follow_up_events", fake_follow_up_events)
 
     class FakeElementAdapter:
         def __init__(self) -> None:
@@ -603,27 +564,132 @@ def test_run_script_inner_ask_mode_routes_events_through_element_adapter(
             return iter([f"converted:{event.type.value}" for event in captured])
 
     element_adapter = FakeElementAdapter()
+    stop_event = threading.Event()
 
     emitted = list(
-        runscript_v2.run_script_inner(
+        runscript_v2._follow_up_events(
             app=app,
             user_bid="user-1",
-            shifu_bid="shifu-1",
             outline_bid="outline-1",
             user_input="follow-up question",
-            input_type="ask",
+            reload_generated_block_bid=None,
+            reload_element_bid="element-1",
             listen=False,
+            learning_mode="read",
+            preview_mode=False,
+            stop_event=stop_event,
             element_adapter=element_adapter,
         )
     )
 
     assert emitted == ["converted:ask", "converted:content", "converted:break"]
-    assert len(element_adapter.calls) == 1
     assert [event.type for event in element_adapter.calls[0]] == [
         GeneratedType.ASK,
         GeneratedType.CONTENT,
         GeneratedType.BREAK,
     ]
+    assert seen["reload_element_bid"] == "element-1"
+    assert seen["stop_event"] is stop_event
+    assert commits == [True]
+    assert removed == ["follow-up"]
+
+
+def test_cancelled_follow_up_discards_the_connection_without_committing(
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.learn import ask
+
+    app = Flask(__name__)
+    commits = []
+    discarded = []
+    monkeypatch.setattr(
+        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
+    )
+    monkeypatch.setattr(
+        runscript_v2, "_commit_pending_step", lambda: commits.append(True)
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "_discard_session_connection",
+        lambda *, source: discarded.append(source),
+    )
+    monkeypatch.setattr(
+        runscript_v2, "_remove_db_session_safely", lambda _app, **_kwargs: None
+    )
+
+    def cancelled(_app: object, **_kwargs: object) -> object:
+        raise ask.FollowUpCancelledError
+        yield  # pragma: no cover - makes this a generator
+
+    monkeypatch.setattr(ask, "follow_up_events", cancelled)
+    adapter = SimpleNamespace(process=lambda events: events)
+
+    emitted = list(
+        runscript_v2._follow_up_events(
+            app=app,
+            user_bid="user-1",
+            outline_bid="outline-1",
+            user_input="question",
+            reload_generated_block_bid=None,
+            reload_element_bid=None,
+            listen=False,
+            learning_mode="read",
+            preview_mode=False,
+            stop_event=threading.Event(),
+            element_adapter=adapter,
+        )
+    )
+
+    assert emitted == []
+    assert commits == []
+    assert discarded == ["follow-up cancelled"]
+
+
+def test_failed_follow_up_cleans_the_session_through_the_dao(
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.learn import ask
+
+    app = Flask(__name__)
+    cleaned = []
+    monkeypatch.setattr(
+        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "cleanup_session_after",
+        lambda exc, *, source: cleaned.append((exc, source)),
+    )
+    monkeypatch.setattr(
+        runscript_v2, "_remove_db_session_safely", lambda _app, **_kwargs: None
+    )
+    failure = RuntimeError("provider failed")
+
+    def failing(_app: object, **_kwargs: object) -> object:
+        raise failure
+        yield  # pragma: no cover - makes this a generator
+
+    monkeypatch.setattr(ask, "follow_up_events", failing)
+
+    with pytest.raises(RuntimeError) as raised:
+        list(
+            runscript_v2._follow_up_events(
+                app=app,
+                user_bid="user-1",
+                outline_bid="outline-1",
+                user_input="question",
+                reload_generated_block_bid=None,
+                reload_element_bid=None,
+                listen=False,
+                learning_mode="read",
+                preview_mode=False,
+                stop_event=threading.Event(),
+                element_adapter=SimpleNamespace(process=lambda events: events),
+            )
+        )
+
+    assert raised.value is failure
+    assert cleaned == [(failure, "follow-up stream error")]
 
 
 def test_log_run_script_stream_error_does_not_error_for_app_exception() -> None:

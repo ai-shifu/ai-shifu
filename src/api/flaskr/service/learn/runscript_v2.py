@@ -20,6 +20,7 @@ from flaskr.common.shifu_context import (
     get_shifu_context_snapshot,
 )
 from flaskr.dao import (
+    cleanup_session_after,
     db,
     invalidate_session,
     is_abnormal_stream_termination,
@@ -699,6 +700,55 @@ def _make_audio_backfill_ready_event(
     )
 
 
+def _follow_up_events(
+    *,
+    app: Flask,
+    user_bid: str,
+    outline_bid: str,
+    user_input: str | dict | None,
+    reload_generated_block_bid: str | None,
+    reload_element_bid: str | None,
+    listen: bool,
+    learning_mode: str,
+    preview_mode: bool,
+    stop_event: threading.Event,
+    element_adapter: ListenElementRunAdapter,
+) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
+    """Answer a follow-up question, owning its database session like a lesson step."""
+    from flaskr.service.learn.ask import FollowUpCancelledError, follow_up_events
+
+    try:
+        _ensure_healthy_db_connection(app)
+        yield from element_adapter.process(
+            follow_up_events(
+                app,
+                user_bid=user_bid,
+                outline_bid=outline_bid,
+                user_input=user_input,
+                reload_generated_block_bid=reload_generated_block_bid,
+                reload_element_bid=reload_element_bid,
+                listen=listen,
+                learning_mode=learning_mode,
+                preview_mode=preview_mode,
+                stop_event=stop_event,
+            )
+        )
+        _commit_pending_step()
+    except BreakError:
+        _commit_pending_step()
+        app.logger.info("BreakError")
+    except (FollowUpCancelledError, GeneratorExit):
+        # The close lands at an arbitrary point (client disconnect), so the
+        # connection's protocol state is unknowable: discard it, never roll back.
+        _discard_session_connection(source="follow-up cancelled")
+        app.logger.info("follow-up stream closed")
+    except Exception as exc:
+        cleanup_session_after(exc, source="follow-up stream error")
+        raise
+    finally:
+        _remove_db_session_safely(app, source="follow-up")
+
+
 def _lesson_events(
     *,
     app: Flask,
@@ -723,7 +773,24 @@ def _lesson_events(
 
     Everything downstream is shared -- the lock this runs inside, the element adapter, TTS, the SSE
     framing -- so serialisation and persistence hold for both engines without being reimplemented.
+
+    A follow-up question is answered by `learn.ask` whichever engine teaches the lesson.
     """
+    if input_type == INPUT_TYPE_ASK:
+        yield from _follow_up_events(
+            app=app,
+            user_bid=user_bid,
+            outline_bid=outline_bid,
+            user_input=user_input,
+            reload_generated_block_bid=reload_generated_block_bid,
+            reload_element_bid=reload_element_bid,
+            listen=listen,
+            learning_mode=learning_mode,
+            preview_mode=preview_mode,
+            stop_event=stop_event,
+            element_adapter=element_adapter,
+        )
+        return
     if _teaches_with_agent(
         shifu_bid=shifu_bid,
         input_type=input_type,
