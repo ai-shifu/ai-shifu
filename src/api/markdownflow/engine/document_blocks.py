@@ -401,6 +401,8 @@ class DocumentBlocks:
         self.lines = physical_lines(text)
         self.closed_fence_lines: set[int] = set()
         self.closed_html_lines: set[int] = set()
+        self.closed_reference_lines: set[int] = set()
+        self.closed_indented_lines: set[int] = set()
         self.content_starts = [line.start for line in self.lines]
         self.container_steps: list[tuple[int, ...]] = [() for _ in self.lines]
         self.virtual_padding = [0 for _ in self.lines]
@@ -699,6 +701,8 @@ class DocumentBlocks:
         return bool(
             previous.start in self.closed_fence_lines
             or previous.start in self.closed_html_lines
+            or previous.start in self.closed_reference_lines
+            or previous.start in self.closed_indented_lines
             or COMPILED_ATX_START_REGEX.match(value) is not None
             or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value) is not None
             or (
@@ -720,11 +724,7 @@ class DocumentBlocks:
         if index is None:
             return None
         line = self.lines[index]
-        if (
-            self.container_steps[index]
-            and not self.indented_may_start(index)
-            and not self.paragraph_interrupts(index)
-        ):
+        if not self.indented_may_start(index) and not self.paragraph_interrupts(index):
             return None
         content_start = self.block_content_start(index)
         if content_start is None:

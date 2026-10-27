@@ -388,6 +388,60 @@ def test_continuation_indentation_does_not_spend_the_reference_label_limit() -> 
     assert script_options(source) == {}
 
 
+@pytest.mark.parametrize("multiline", [False, True])
+@pytest.mark.parametrize(
+    ("prefix", "container"),
+    [
+        pytest.param("paragraph\n", "", id="paragraph"),
+        pytest.param("paragraph\n\n", "", id="blank"),
+        pytest.param("[one]: /one\n", "", id="adjacent-definition"),
+        pytest.param("[one]: /one\n[two]: /two\n", "", id="consecutive-definitions"),
+        pytest.param('[one]: /one\n "title"\n', "", id="definition-title"),
+        pytest.param("[one]: /one invalid\n", "", id="failed-definition"),
+        pytest.param("[one]: /one\nparagraph\n", "", id="paragraph-after-definition"),
+        pytest.param("# heading\n", "", id="heading"),
+        pytest.param("Heading\n===\n", "", id="setext"),
+        pytest.param("---\n", "", id="thematic"),
+        pytest.param("```\ncode\n```\n", "", id="fence"),
+        pytest.param("    code\n", "", id="indented-code"),
+        pytest.param("    code\n    more\n", "", id="multiline-indented-code"),
+        pytest.param("<script>raw</script>\n", "", id="raw-html"),
+        pytest.param("<!-- comment -->\n", "", id="comment"),
+        pytest.param("<![CDATA[raw]]>\n", "", id="cdata"),
+        pytest.param("<?instruction?>\n", "", id="processing-instruction"),
+        pytest.param("<!DOCTYPE x>\n", "", id="declaration"),
+        pytest.param("<div>\nraw\n</div>\n", "", id="ordinary-html"),
+        pytest.param("<span>\n", "", id="span-html"),
+        pytest.param("text <span>inline</span>\n", "", id="inline-html"),
+        pytest.param("> paragraph\n", "> ", id="quote-paragraph"),
+        pytest.param("- paragraph\n", "  ", id="list-paragraph"),
+        pytest.param("> # heading\n", "> ", id="quote-heading"),
+        pytest.param("- # heading\n", "  ", id="list-heading"),
+        pytest.param(">     code\n", "> ", id="quote-code"),
+        pytest.param("-     code\n", "  ", id="list-code"),
+        pytest.param("> [one]: /one\n", "> ", id="quote-definition"),
+        pytest.param("- [one]: /one\n", "  ", id="list-definition"),
+        pytest.param("> ```\n> code\n> ```\n", "> ", id="quote-fence"),
+        pytest.param("- ```\n  code\n  ```\n", "  ", id="list-fence"),
+        pytest.param("> <!-- hi -->\n", "> ", id="quote-comment"),
+        pytest.param("- <!-- hi -->\n", "  ", id="list-comment"),
+        pytest.param("> paragraph\n", "", id="quote-lazy-paragraph"),
+        pytest.param("- paragraph\n", "", id="list-lazy-paragraph"),
+    ],
+)
+def test_reference_definitions_start_only_at_native_block_boundaries(
+    prefix: str, container: str, multiline: bool
+) -> None:
+    """Only renderer-admitted definitions can turn an alt control into a real image."""
+    definition = container + (
+        "[course\n" + container + "image]: /x" if multiline else "[course image]: /x"
+    )
+    source = "![?[{{goal}} A | B]][course image]\n\n" + prefix + definition
+    image = "<img " in MarkdownIt().render(source)
+    assert collected_names(source) == (frozenset() if image else frozenset({"goal"}))
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
+
+
 @pytest.mark.parametrize(
     "source",
     [

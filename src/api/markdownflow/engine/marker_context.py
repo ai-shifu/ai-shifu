@@ -520,6 +520,7 @@ def analyze_marker_context(
                 ]
             if reference_end is not None:
                 reference_labels.add(normalizeReference(reference_label))
+                blocks.closed_reference_lines.add(blocks.line_at(reference_end).start)
                 context.literals.append((at, reference_end))
                 context.markers.extend(_literal_markers(text, at, reference_start))
                 context.markers.extend(
@@ -561,6 +562,7 @@ def analyze_marker_context(
             continue
         indented_end = _indented_code_end(text, at, blocks)
         if indented_end is not None:
+            blocks.closed_indented_lines.add(blocks.line_at(indented_end).start)
             context.literals.append((at, indented_end))
             context.markers.extend(_literal_markers(text, at, indented_end))
             steps = blocks.container_steps[blocks.by_start[at]]
@@ -605,6 +607,9 @@ def analyze_marker_context(
             continue
         special_html = blocks.terminated_html(at, final=final)
         if special_html is not None:
+            blocks.closed_html_lines.add(
+                blocks.line_at(max(at, special_html.end - 1)).start
+            )
             context.literals.append((at, special_html.end))
             context.markers.extend(_literal_markers(text, at, special_html.opening_end))
             context.markers.extend(
