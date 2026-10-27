@@ -9,7 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import type { AdminOperationCreditNotificationPolicy } from '../operation-credit-notification-types';
+import type {
+  AdminOperationCreditNotificationPolicy,
+  CreditNotificationRule,
+} from '../operation-credit-notification-types';
 import { cn } from '@/lib/utils';
 import { CreditNotificationConfigSection as ConfigSection } from './CreditNotificationFormPrimitives';
 import {
@@ -21,7 +24,7 @@ import {
 import type { UpdatePolicy } from './useCreditNotificationConfigTabState';
 
 export type CreditNotificationDeliveryRulesSectionProps = {
-  contactMode: 'email' | 'phone';
+  notificationChannel: CreditNotificationRule['channel'];
   policy: AdminOperationCreditNotificationPolicy;
   updatePolicy: UpdatePolicy;
   getIntegerInputValue: (path: string, value: number) => string;
@@ -82,7 +85,7 @@ function RuleSummaryCard({
 }
 
 export function CreditNotificationDeliveryRulesSection({
-  contactMode,
+  notificationChannel,
   policy,
   updatePolicy,
   getIntegerInputValue,
@@ -106,7 +109,7 @@ export function CreditNotificationDeliveryRulesSection({
           policy.frequency.per_mobile_per_day > 0 ||
           policy.frequency.per_creator_per_type_per_day > 0,
         summary:
-          contactMode === 'email'
+          notificationChannel === 'email'
             ? t(
                 'module.operationsCreditNotifications.config.deliveryRules.summaries.frequencyEmail',
                 {
@@ -148,7 +151,7 @@ export function CreditNotificationDeliveryRulesSection({
         ),
         active: policy.softlimit.enabled,
         summary:
-          contactMode === 'email'
+          notificationChannel === 'email'
             ? t(
                 'module.operationsCreditNotifications.config.deliveryRules.summaries.softlimitEmail',
                 {
@@ -169,7 +172,7 @@ export function CreditNotificationDeliveryRulesSection({
       },
     ];
 
-    if (contactMode === 'phone') {
+    if (notificationChannel === 'sms') {
       items.splice(2, 0, {
         key: 'budget',
         title: t('module.operationsCreditNotifications.config.sections.budget'),
@@ -187,7 +190,7 @@ export function CreditNotificationDeliveryRulesSection({
     }
 
     return items;
-  }, [contactMode, no, policy, t, yes]);
+  }, [notificationChannel, no, policy, t, yes]);
 
   return (
     <>
@@ -196,7 +199,7 @@ export function CreditNotificationDeliveryRulesSection({
           'module.operationsCreditNotifications.config.sections.deliveryPolicy',
         )}
         description={t(
-          contactMode === 'email'
+          notificationChannel === 'email'
             ? 'module.operationsCreditNotifications.config.deliveryRules.descriptionEmail'
             : 'module.operationsCreditNotifications.config.deliveryRules.description',
         )}
@@ -237,7 +240,7 @@ export function CreditNotificationDeliveryRulesSection({
             </DialogTitle>
             <DialogDescription>
               {t(
-                contactMode === 'email'
+                notificationChannel === 'email'
                   ? 'module.operationsCreditNotifications.config.deliveryRules.dialogDescriptionEmail'
                   : 'module.operationsCreditNotifications.config.deliveryRules.dialogDescription',
               )}
@@ -245,7 +248,7 @@ export function CreditNotificationDeliveryRulesSection({
           </DialogHeader>
           <div className='grid gap-4 xl:grid-cols-2'>
             <FrequencyCard
-              contactMode={contactMode}
+              notificationChannel={notificationChannel}
               policy={policy}
               updatePolicy={updatePolicy}
               getIntegerInputValue={getIntegerInputValue}
@@ -256,9 +259,9 @@ export function CreditNotificationDeliveryRulesSection({
               policy={policy}
               updatePolicy={updatePolicy}
             />
-            {contactMode === 'phone' ? (
+            {notificationChannel === 'sms' ? (
               <BudgetCard
-                contactMode={contactMode}
+                notificationChannel={notificationChannel}
                 policy={policy}
                 updatePolicy={updatePolicy}
                 getIntegerInputValue={getIntegerInputValue}
@@ -267,7 +270,7 @@ export function CreditNotificationDeliveryRulesSection({
               />
             ) : null}
             <SoftlimitCard
-              contactMode={contactMode}
+              notificationChannel={notificationChannel}
               policy={policy}
               updatePolicy={updatePolicy}
             />

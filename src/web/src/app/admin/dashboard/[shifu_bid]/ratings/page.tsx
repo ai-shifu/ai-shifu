@@ -30,7 +30,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { useUserStore } from '@/store';
@@ -54,7 +58,6 @@ import {
 } from '../../dashboardFilterUiShared';
 
 type ErrorState = { message: string; code?: number };
-type ContactMode = 'phone' | 'email';
 type RatingCommentFilter = 'all' | 'commented';
 
 type RatingFilters = {
@@ -145,25 +148,26 @@ const resolvePrimaryUserDisplay = ({
   mobile,
   email,
   userBid,
-  contactMode,
+  displayIdentifierType,
   guestUserLabel,
 }: {
   nickname?: string;
   mobile?: string;
   email?: string;
   userBid?: string;
-  contactMode: ContactMode;
+  displayIdentifierType: LoginIdentifierType;
   guestUserLabel: string;
 }) => {
   const normalizedNickname = nickname?.trim() || '';
   if (normalizedNickname) {
     return normalizedNickname;
   }
-  const preferredContact = contactMode === 'email' ? email : mobile;
-  const alternateContact = contactMode === 'email' ? mobile : email;
+  const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
+  const alternateIdentifier =
+    displayIdentifierType === 'email' ? mobile : email;
   return (
-    preferredContact?.trim() ||
-    alternateContact?.trim() ||
+    primaryIdentifier?.trim() ||
+    alternateIdentifier?.trim() ||
     userBid?.trim() ||
     guestUserLabel
   );
@@ -174,21 +178,23 @@ const resolveSecondaryUserDisplay = ({
   mobile,
   email,
   userBid,
-  contactMode,
+  displayIdentifierType,
 }: {
   nickname?: string;
   mobile?: string;
   email?: string;
   userBid?: string;
-  contactMode: ContactMode;
+  displayIdentifierType: LoginIdentifierType;
 }) => {
-  const preferredContact = contactMode === 'email' ? email : mobile;
-  const alternateContact = contactMode === 'email' ? mobile : email;
-  const contact = preferredContact?.trim() || alternateContact?.trim() || '';
+  const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
+  const alternateIdentifier =
+    displayIdentifierType === 'email' ? mobile : email;
+  const identifier =
+    primaryIdentifier?.trim() || alternateIdentifier?.trim() || '';
   if (nickname?.trim()) {
-    return contact || userBid?.trim() || '';
+    return identifier || userBid?.trim() || '';
   }
-  if (contact && userBid?.trim() && contact !== userBid.trim()) {
+  if (identifier && userBid?.trim() && identifier !== userBid.trim()) {
     return userBid.trim();
   }
   return '';
@@ -228,20 +234,24 @@ export default function AdminDashboardCourseRatingsPage() {
     'module.dashboard.messages.loadRatingsFailed',
   );
   const guestUserLabel = t('module.dashboard.detail.ratings.table.guestUser');
-  const contactMode = useMemo<ContactMode>(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const displayIdentifierType = useMemo<LoginIdentifierType>(
+    () =>
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const userKeywordPlaceholder = useMemo(
     () =>
-      contactMode === 'email'
+      displayIdentifierType === 'email'
         ? t(
             'module.dashboard.detail.ratings.filters.userKeywordPlaceholderEmail',
           )
         : t(
             'module.dashboard.detail.ratings.filters.userKeywordPlaceholderPhone',
           ),
-    [contactMode, t],
+    [displayIdentifierType, t],
   );
 
   const [ratings, setRatings] = useState<DashboardCourseRatingListResponse>(
@@ -669,7 +679,7 @@ export default function AdminDashboardCourseRatingsPage() {
                                 mobile: item.mobile,
                                 email: item.email,
                                 userBid: item.user_bid,
-                                contactMode,
+                                displayIdentifierType,
                                 guestUserLabel,
                               });
                               const secondaryUser = resolveSecondaryUserDisplay(
@@ -678,7 +688,7 @@ export default function AdminDashboardCourseRatingsPage() {
                                   mobile: item.mobile,
                                   email: item.email,
                                   userBid: item.user_bid,
-                                  contactMode,
+                                  displayIdentifierType,
                                 },
                               );
                               const primaryLessonDisplay =

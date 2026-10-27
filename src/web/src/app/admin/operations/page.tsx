@@ -34,7 +34,11 @@ import type { EnvStoreState } from '@/types/store';
 import { useToast } from '@/hooks/useToast';
 import { copyText } from '@/lib/textutils';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { normalizeModelOptions } from '@/lib/modelOptions';
 import {
   normalizeTtsModelOptions,
@@ -81,7 +85,6 @@ import {
   normalizeTransferIdentifier,
   PAGE_SIZE,
   SINGLE_SELECT_ITEM_CLASS,
-  type TransferContactType,
 } from './operationCoursePageShared';
 
 const buildModelLabelFallback = (value?: string) => {
@@ -201,49 +204,43 @@ const OperationsPage = () => {
     (state: EnvStoreState) => state.currencySymbol,
   );
 
-  const contactType = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
-    [defaultLoginMethod, loginMethodsEnabled],
+  const loginIdentifierTypes = useMemo(
+    () => resolveLoginIdentifierTypes(loginMethodsEnabled),
+    [loginMethodsEnabled],
   );
-  const transferContactOptions = useMemo<TransferContactType[]>(() => {
-    const methods = loginMethodsEnabled || [];
-    const normalizedMethods = methods
-      .map(method => method.trim().toLowerCase())
-      .filter(Boolean);
-    const options: TransferContactType[] = [];
-    if (normalizedMethods.includes('phone')) {
-      options.push('phone');
-    }
-    if (
-      normalizedMethods.includes('email') ||
-      normalizedMethods.includes('google')
-    ) {
-      options.push('email');
-    }
-    if (options.length === 0) {
-      options.push(contactType);
-    }
-    return Array.from(new Set(options));
-  }, [contactType, loginMethodsEnabled]);
-  const defaultTransferContactType = useMemo<TransferContactType>(() => {
-    if (transferContactOptions.includes('phone')) {
+  const displayIdentifierType = useMemo(
+    () =>
+      selectSingleLoginIdentifierType(loginIdentifierTypes, defaultLoginMethod),
+    [defaultLoginMethod, loginIdentifierTypes],
+  );
+  const transferIdentifierTypes = useMemo<LoginIdentifierType[]>(
+    () =>
+      loginIdentifierTypes.length > 0
+        ? [...loginIdentifierTypes]
+        : [displayIdentifierType],
+    [displayIdentifierType, loginIdentifierTypes],
+  );
+  // Transfer and copy dialogs start with phone when both types are available,
+  // independently of the deployment default used by single-field displays.
+  const defaultTransferIdentifierType = useMemo<LoginIdentifierType>(() => {
+    if (transferIdentifierTypes.includes('phone')) {
       return 'phone';
     }
-    if (transferContactOptions.includes('email')) {
+    if (transferIdentifierTypes.includes('email')) {
       return 'email';
     }
-    if (transferContactOptions.includes(contactType)) {
-      return contactType;
+    if (transferIdentifierTypes.includes(displayIdentifierType)) {
+      return displayIdentifierType;
     }
-    return transferContactOptions[0] || 'phone';
-  }, [contactType, transferContactOptions]);
-  const isEmailMode = contactType === 'email';
+    return transferIdentifierTypes[0] || 'phone';
+  }, [displayIdentifierType, transferIdentifierTypes]);
+  const isEmailIdentifier = displayIdentifierType === 'email';
   const creatorPlaceholder = useMemo(
     () =>
-      isEmailMode
+      isEmailIdentifier
         ? tOperations('filters.creatorEmailOrUserBid')
         : tOperations('filters.creatorMobileOrUserBid'),
-    [isEmailMode, tOperations],
+    [isEmailIdentifier, tOperations],
   );
   const clearLabel = useMemo(
     () => t('module.chat.lessonFeedbackClearInput'),
@@ -290,9 +287,8 @@ const OperationsPage = () => {
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyTargetCourse, setCopyTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
-  const [copyContactType, setCopyContactType] = useState<TransferContactType>(
-    defaultTransferContactType,
-  );
+  const [copyIdentifierType, setCopyIdentifierType] =
+    useState<LoginIdentifierType>(defaultTransferIdentifierType);
   const [copyIdentifier, setCopyIdentifier] = useState('');
   const [copyLoading, setCopyLoading] = useState(false);
   const [copyError, setCopyError] = useState('');
@@ -300,8 +296,8 @@ const OperationsPage = () => {
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferTargetCourse, setTransferTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
-  const [transferContactType, setTransferContactType] =
-    useState<TransferContactType>(defaultTransferContactType);
+  const [transferIdentifierType, setTransferIdentifierType] =
+    useState<LoginIdentifierType>(defaultTransferIdentifierType);
   const [transferIdentifier, setTransferIdentifier] = useState('');
   const [transferLoading, setTransferLoading] = useState(false);
   const [transferError, setTransferError] = useState('');
@@ -711,25 +707,25 @@ const OperationsPage = () => {
       }
       transferRequestIdRef.current += 1;
       setTransferTargetCourse(null);
-      setTransferContactType(defaultTransferContactType);
+      setTransferIdentifierType(defaultTransferIdentifierType);
       setTransferIdentifier('');
       setTransferError('');
       setTransferConfirmOpen(false);
       setTransferLoading(false);
     },
-    [defaultTransferContactType],
+    [defaultTransferIdentifierType],
   );
 
   const closeCopyDialog = useCallback(() => {
     copyRequestIdRef.current += 1;
     setCopyDialogOpen(false);
     setCopyTargetCourse(null);
-    setCopyContactType(defaultTransferContactType);
+    setCopyIdentifierType(defaultTransferIdentifierType);
     setCopyIdentifier('');
     setCopyError('');
     setCopyConfirmOpen(false);
     setCopyLoading(false);
-  }, [defaultTransferContactType]);
+  }, [defaultTransferIdentifierType]);
 
   const handleCopyDialogOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -748,27 +744,27 @@ const OperationsPage = () => {
   const handleCopyCourseClick = useCallback(
     (course: AdminOperationCourseItem) => {
       setCopyTargetCourse(course);
-      setCopyContactType(defaultTransferContactType);
+      setCopyIdentifierType(defaultTransferIdentifierType);
       setCopyIdentifier('');
       setCopyError('');
       setCopyConfirmOpen(false);
       setCopyLoading(false);
       setCopyDialogOpen(true);
     },
-    [defaultTransferContactType],
+    [defaultTransferIdentifierType],
   );
 
   const handleTransferCreatorClick = useCallback(
     (course: AdminOperationCourseItem) => {
       setTransferTargetCourse(course);
-      setTransferContactType(defaultTransferContactType);
+      setTransferIdentifierType(defaultTransferIdentifierType);
       setTransferIdentifier('');
       setTransferError('');
       setTransferConfirmOpen(false);
       setTransferLoading(false);
       setTransferDialogOpen(true);
     },
-    [defaultTransferContactType],
+    [defaultTransferIdentifierType],
   );
 
   const resolveCourseStatusLabel = useCallback(
@@ -781,34 +777,34 @@ const OperationsPage = () => {
     [tOperations],
   );
 
-  const resolvePrimaryContact = useCallback(
+  const resolveActorIdentifier = useCallback(
     (
       user: Pick<
         AdminOperationCourseItem,
         'creator_mobile' | 'creator_email' | 'updater_mobile' | 'updater_email'
       >,
       kind: 'creator' | 'updater',
-      preferredContactType?: TransferContactType,
+      identifierType?: LoginIdentifierType,
     ) => {
-      const resolvedContactType =
-        preferredContactType || (isEmailMode ? 'email' : 'phone');
+      const resolvedIdentifierType =
+        identifierType || (isEmailIdentifier ? 'email' : 'phone');
       if (kind === 'creator') {
-        return resolvedContactType === 'email'
+        return resolvedIdentifierType === 'email'
           ? user.creator_email
           : user.creator_mobile;
       }
-      return resolvedContactType === 'email'
+      return resolvedIdentifierType === 'email'
         ? user.updater_email
         : user.updater_mobile;
     },
-    [isEmailMode],
+    [isEmailIdentifier],
   );
 
   const resolveActorDisplay = useCallback(
     (
       course: AdminOperationCourseItem,
       kind: 'creator' | 'updater',
-      preferredContactType?: TransferContactType,
+      identifierType?: LoginIdentifierType,
     ) => {
       const userBid =
         kind === 'creator' ? course.creator_user_bid : course.updater_user_bid;
@@ -825,13 +821,13 @@ const OperationsPage = () => {
       return {
         primary:
           normalizeTransferIdentifier(
-            preferredContactType || (isEmailMode ? 'email' : 'phone'),
-            resolvePrimaryContact(course, kind, preferredContactType) || '',
+            identifierType || (isEmailIdentifier ? 'email' : 'phone'),
+            resolveActorIdentifier(course, kind, identifierType) || '',
           ) || '',
         secondary: nickname || defaultUserName,
       };
     },
-    [defaultUserName, isEmailMode, resolvePrimaryContact],
+    [defaultUserName, isEmailIdentifier, resolveActorIdentifier],
   );
 
   const transferCreatorDisplay = useMemo(() => {
@@ -841,16 +837,16 @@ const OperationsPage = () => {
     return resolveActorDisplay(
       transferTargetCourse,
       'creator',
-      transferContactType,
+      transferIdentifierType,
     );
-  }, [resolveActorDisplay, transferContactType, transferTargetCourse]);
+  }, [resolveActorDisplay, transferIdentifierType, transferTargetCourse]);
   const transferCourseName = transferTargetCourse?.course_name?.trim() || '--';
   const copyCreatorDisplay = useMemo(() => {
     if (!copyTargetCourse) {
       return { primary: '--', secondary: '' };
     }
-    return resolveActorDisplay(copyTargetCourse, 'creator', copyContactType);
-  }, [copyContactType, copyTargetCourse, resolveActorDisplay]);
+    return resolveActorDisplay(copyTargetCourse, 'creator', copyIdentifierType);
+  }, [copyIdentifierType, copyTargetCourse, resolveActorDisplay]);
   const copyCourseName = copyTargetCourse?.course_name?.trim() || '--';
   const copyCourseNameFallback = useMemo(
     () => tOperations('copyCourseDialog.courseNameFallback'),
@@ -875,36 +871,40 @@ const OperationsPage = () => {
   );
 
   const normalizedTransferIdentifier = useMemo(
-    () => normalizeTransferIdentifier(transferContactType, transferIdentifier),
-    [transferContactType, transferIdentifier],
+    () =>
+      normalizeTransferIdentifier(transferIdentifierType, transferIdentifier),
+    [transferIdentifierType, transferIdentifier],
   );
   const normalizedCopyIdentifier = useMemo(
-    () => normalizeTransferIdentifier(copyContactType, copyIdentifier),
-    [copyContactType, copyIdentifier],
+    () => normalizeTransferIdentifier(copyIdentifierType, copyIdentifier),
+    [copyIdentifierType, copyIdentifier],
   );
   const transferCurrentCreatorIdentifier = useMemo(() => {
     if (!transferTargetCourse) {
       return '';
     }
     const currentIdentifier =
-      transferContactType === 'email'
+      transferIdentifierType === 'email'
         ? transferTargetCourse.creator_email
         : transferTargetCourse.creator_mobile;
-    return normalizeTransferIdentifier(transferContactType, currentIdentifier);
-  }, [transferContactType, transferTargetCourse]);
+    return normalizeTransferIdentifier(
+      transferIdentifierType,
+      currentIdentifier,
+    );
+  }, [transferIdentifierType, transferTargetCourse]);
   const transferIdentifierPlaceholder = useMemo(
     () =>
-      transferContactType === 'email'
+      transferIdentifierType === 'email'
         ? tOperations('transferCreatorDialog.contactPlaceholderEmail')
         : tOperations('transferCreatorDialog.contactPlaceholderPhone'),
-    [tOperations, transferContactType],
+    [tOperations, transferIdentifierType],
   );
   const copyIdentifierPlaceholder = useMemo(
     () =>
-      copyContactType === 'email'
+      copyIdentifierType === 'email'
         ? tOperations('copyCourseDialog.contactPlaceholderEmail')
         : tOperations('copyCourseDialog.contactPlaceholderPhone'),
-    [copyContactType, tOperations],
+    [copyIdentifierType, tOperations],
   );
   const transferHintText = useMemo(
     () => tOperations('transferCreatorDialog.description'),
@@ -922,13 +922,13 @@ const OperationsPage = () => {
     if (!transferDialogOpen) {
       return;
     }
-    if (!transferContactOptions.includes(transferContactType)) {
-      setTransferContactType(defaultTransferContactType);
+    if (!transferIdentifierTypes.includes(transferIdentifierType)) {
+      setTransferIdentifierType(defaultTransferIdentifierType);
     }
   }, [
-    defaultTransferContactType,
-    transferContactOptions,
-    transferContactType,
+    defaultTransferIdentifierType,
+    transferIdentifierTypes,
+    transferIdentifierType,
     transferDialogOpen,
   ]);
 
@@ -936,14 +936,14 @@ const OperationsPage = () => {
     if (!copyDialogOpen) {
       return;
     }
-    if (!transferContactOptions.includes(copyContactType)) {
-      setCopyContactType(defaultTransferContactType);
+    if (!transferIdentifierTypes.includes(copyIdentifierType)) {
+      setCopyIdentifierType(defaultTransferIdentifierType);
     }
   }, [
-    copyContactType,
+    copyIdentifierType,
     copyDialogOpen,
-    defaultTransferContactType,
-    transferContactOptions,
+    defaultTransferIdentifierType,
+    transferIdentifierTypes,
   ]);
 
   const handleTransferSubmit = useCallback(() => {
@@ -953,7 +953,7 @@ const OperationsPage = () => {
 
     if (
       !isValidTransferIdentifier(
-        transferContactType,
+        transferIdentifierType,
         normalizedTransferIdentifier,
       )
     ) {
@@ -974,7 +974,7 @@ const OperationsPage = () => {
   }, [
     normalizedTransferIdentifier,
     tOperations,
-    transferContactType,
+    transferIdentifierType,
     transferCurrentCreatorIdentifier,
     transferTargetCourse,
   ]);
@@ -984,7 +984,9 @@ const OperationsPage = () => {
       return;
     }
 
-    if (!isValidTransferIdentifier(copyContactType, normalizedCopyIdentifier)) {
+    if (
+      !isValidTransferIdentifier(copyIdentifierType, normalizedCopyIdentifier)
+    ) {
       setCopyError(tOperations('copyCourseDialog.identifierRequired'));
       return;
     }
@@ -992,7 +994,7 @@ const OperationsPage = () => {
     setCopyError('');
     setCopyConfirmOpen(true);
   }, [
-    copyContactType,
+    copyIdentifierType,
     copyTargetCourse,
     normalizedCopyIdentifier,
     tOperations,
@@ -1011,7 +1013,7 @@ const OperationsPage = () => {
     try {
       await api.transferAdminOperationCourseCreator({
         shifu_bid: transferTargetCourse.shifu_bid,
-        contact_type: transferContactType,
+        contact_type: transferIdentifierType,
         identifier: normalizedTransferIdentifier,
       });
       if (requestId !== transferRequestIdRef.current) {
@@ -1046,7 +1048,7 @@ const OperationsPage = () => {
     t,
     tOperations,
     toast,
-    transferContactType,
+    transferIdentifierType,
     transferTargetCourse,
   ]);
 
@@ -1063,7 +1065,7 @@ const OperationsPage = () => {
     try {
       await api.copyAdminOperationCourse({
         shifu_bid: copyTargetCourse.shifu_bid,
-        contact_type: copyContactType,
+        contact_type: copyIdentifierType,
         identifier: normalizedCopyIdentifier,
         new_course_name: copyNewCourseName,
       });
@@ -1095,7 +1097,7 @@ const OperationsPage = () => {
     }
   }, [
     closeCopyDialog,
-    copyContactType,
+    copyIdentifierType,
     copyNewCourseName,
     copyTargetCourse,
     fetchCourses,
@@ -1509,8 +1511,8 @@ const OperationsPage = () => {
           courseName={copyCourseName}
           newCourseName={copyNewCourseName}
           creatorDisplay={copyCreatorDisplay}
-          contactOptions={transferContactOptions}
-          contactType={copyContactType}
+          contactOptions={transferIdentifierTypes}
+          contactType={copyIdentifierType}
           identifier={copyIdentifier}
           identifierPlaceholder={copyIdentifierPlaceholder}
           error={copyError}
@@ -1518,7 +1520,7 @@ const OperationsPage = () => {
           hintText={copyHintText}
           onOpenChange={handleCopyDialogOpenChange}
           onConfirmOpenChange={setCopyConfirmOpen}
-          onContactTypeChange={setCopyContactType}
+          onContactTypeChange={setCopyIdentifierType}
           onIdentifierChange={value => {
             setCopyIdentifier(value);
             if (copyError) {
@@ -1536,8 +1538,8 @@ const OperationsPage = () => {
           targetCourse={transferTargetCourse}
           courseName={transferCourseName}
           creatorDisplay={transferCreatorDisplay}
-          contactOptions={transferContactOptions}
-          contactType={transferContactType}
+          contactOptions={transferIdentifierTypes}
+          contactType={transferIdentifierType}
           identifier={transferIdentifier}
           identifierPlaceholder={transferIdentifierPlaceholder}
           error={transferError}
@@ -1546,7 +1548,7 @@ const OperationsPage = () => {
           hintText={transferHintText}
           onOpenChange={handleTransferDialogOpenChange}
           onConfirmOpenChange={setTransferConfirmOpen}
-          onContactTypeChange={setTransferContactType}
+          onContactTypeChange={setTransferIdentifierType}
           onIdentifierChange={value => {
             setTransferIdentifier(value);
             if (transferError) {

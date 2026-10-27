@@ -38,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { ContactMode } from '@/lib/resolve-contact-mode';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { cn } from '@/lib/utils';
 import type {
   AdminOperationCourseCreditUsageDetailItem,
@@ -161,7 +161,7 @@ export default function CourseCreditUsageTab({
   data,
   loading,
   error,
-  contactMode,
+  accountColumnType,
   defaultUserName,
   emptyValue,
   onKeywordChange,
@@ -177,7 +177,7 @@ export default function CourseCreditUsageTab({
   data: AdminOperationCourseCreditUsageListResponse;
   loading: boolean;
   error: ErrorState | null;
-  contactMode: ContactMode;
+  accountColumnType: LoginIdentifierType;
   defaultUserName: string;
   emptyValue: string;
   onKeywordChange: (value: string) => void;
@@ -228,25 +228,26 @@ export default function CourseCreditUsageTab({
   const pageCount = Math.max(data.page_count || 0, 1);
   const keywordPlaceholder = useMemo(
     () =>
-      contactMode === 'email'
+      accountColumnType === 'email'
         ? tOperations('detail.creditUsage.filters.userKeywordPlaceholderEmail')
         : tOperations('detail.creditUsage.filters.userKeywordPlaceholderPhone'),
-    [contactMode, tOperations],
+    [accountColumnType, tOperations],
   );
   const accountLabel = useMemo(
     () =>
-      contactMode === 'email'
+      accountColumnType === 'email'
         ? tOperations('detail.usersTable.accountEmail')
         : tOperations('detail.usersTable.accountPhone'),
-    [contactMode, tOperations],
+    [accountColumnType, tOperations],
   );
 
   const resolveAccount = useCallback(
     (row: AdminOperationCourseCreditUsageItem) => {
-      const preferred = contactMode === 'email' ? row.email : row.mobile;
-      return preferred || emptyValue;
+      const primaryIdentifier =
+        accountColumnType === 'email' ? row.email : row.mobile;
+      return primaryIdentifier || emptyValue;
     },
-    [contactMode, emptyValue],
+    [accountColumnType, emptyValue],
   );
 
   const resolveSceneLabel = useCallback(

@@ -1,3 +1,4 @@
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -18,7 +19,7 @@ export function CreditNotificationManagedListDialog({
   open,
   title,
   canDelete,
-  contactMode,
+  identifierType,
   items,
   search,
   onSearchChange,
@@ -28,7 +29,7 @@ export function CreditNotificationManagedListDialog({
   open: boolean;
   title: string;
   canDelete: boolean;
-  contactMode: 'email' | 'phone';
+  identifierType: LoginIdentifierType;
   items: AdminOperationCreditNotificationPolicyListItem[];
   search: string;
   onSearchChange: (value: string) => void;
@@ -64,7 +65,7 @@ export function CreditNotificationManagedListDialog({
               className='h-9 pl-9'
               value={search}
               placeholder={t(
-                contactMode === 'email'
+                identifierType === 'email'
                   ? 'module.operationsCreditNotifications.config.listDialog.searchPlaceholderEmail'
                   : 'module.operationsCreditNotifications.config.listDialog.searchPlaceholderPhone',
               )}
@@ -78,8 +79,8 @@ export function CreditNotificationManagedListDialog({
           >
             {items.length > 0 ? (
               items.map(item => {
-                const contactValue =
-                  contactMode === 'email'
+                const identifierValue =
+                  identifierType === 'email'
                     ? item.email || item.identifier
                     : item.mobile || item.identifier;
                 return (
@@ -89,7 +90,7 @@ export function CreditNotificationManagedListDialog({
                   >
                     <div className='min-w-0'>
                       <p className='truncate text-sm font-medium text-foreground'>
-                        {contactValue}
+                        {identifierValue}
                       </p>
                       <p className='mt-0.5 truncate text-xs text-muted-foreground'>
                         {item.nickname?.trim() ||

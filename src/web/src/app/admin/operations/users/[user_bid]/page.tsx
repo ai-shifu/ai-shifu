@@ -9,7 +9,10 @@ import { Button } from '@/components/ui/Button';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
@@ -160,8 +163,8 @@ export default function AdminOperationUserDetailPage() {
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const contactType = resolveContactMode(
-    loginMethodsEnabled,
+  const editableIdentifierType = selectSingleLoginIdentifierType(
+    resolveLoginIdentifierTypes(loginMethodsEnabled),
     defaultLoginMethod,
   );
   const {
@@ -328,7 +331,9 @@ export default function AdminOperationUserDetailPage() {
                     variant='outline'
                     onClick={() => setContactChangeOpen(true)}
                   >
-                    {tOperationsUsers(`contactChange.${contactType}.action`)}
+                    {tOperationsUsers(
+                      `contactChange.${editableIdentifierType}.action`,
+                    )}
                   </Button>
                 ) : null
               }
@@ -418,9 +423,9 @@ export default function AdminOperationUserDetailPage() {
           <UserContactChangeDialog
             open={contactChangeOpen}
             userBid={userBid}
-            contactType={contactType}
+            contactType={editableIdentifierType}
             currentIdentifier={
-              contactType === 'email' ? detail.email : detail.mobile
+              editableIdentifierType === 'email' ? detail.email : detail.mobile
             }
             onOpenChange={setContactChangeOpen}
             onChanged={() => retryDetail()}

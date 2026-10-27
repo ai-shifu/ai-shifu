@@ -118,7 +118,7 @@ const ruleConditionsSummary = (
 };
 
 export function CreditNotificationRuleManagementSection({
-  contactMode,
+  notificationChannel,
   policy,
   templateOptions,
   resolveTypeLabel,
@@ -126,7 +126,7 @@ export function CreditNotificationRuleManagementSection({
   onRuleAction,
   onLegacyRulesMigrated,
 }: {
-  contactMode: CreditNotificationRule['channel'];
+  notificationChannel: CreditNotificationRule['channel'];
   policy: AdminOperationCreditNotificationPolicy;
   templateOptions: AdminOperationCreditNotificationTemplateOption[];
   resolveTypeLabel: (value: string) => string;
@@ -148,7 +148,7 @@ export function CreditNotificationRuleManagementSection({
     useState(false);
   const rows = policy.rules;
   const canMigrateLegacySmsRules =
-    contactMode === 'email' &&
+    notificationChannel === 'email' &&
     rows.length > 0 &&
     rows.every(rule => rule.legacy);
   const columns = useMemo(
@@ -170,7 +170,7 @@ export function CreditNotificationRuleManagementSection({
       {
         key: 'template',
         header:
-          contactMode === 'email'
+          notificationChannel === 'email'
             ? t(
                 'module.operationsCreditNotifications.ruleManagement.columns.emailTemplate',
               )
@@ -201,10 +201,10 @@ export function CreditNotificationRuleManagementSection({
         className: 'w-[128px] text-right',
       },
     ],
-    [contactMode, t],
+    [notificationChannel, t],
   );
   const openNewRule = () => {
-    setEditingRule(createDraftRule(contactMode));
+    setEditingRule(createDraftRule(notificationChannel));
     setIsNewRule(true);
   };
   const openEditRule = (rule: CreditNotificationRule) => {
@@ -246,7 +246,7 @@ export function CreditNotificationRuleManagementSection({
       <CreditNotificationConfigSection
         title={t('module.operationsCreditNotifications.ruleManagement.title')}
         description={
-          contactMode === 'email'
+          notificationChannel === 'email'
             ? t(
                 'module.operationsCreditNotifications.ruleManagement.descriptionEmail',
               )
