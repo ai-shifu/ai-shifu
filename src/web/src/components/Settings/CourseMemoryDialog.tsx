@@ -138,7 +138,9 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
         <DialogHeader>
           <DialogTitle>{t('module.settings.memoryTitle')}</DialogTitle>
           <DialogDescription>
-            {t('module.settings.memoryDescription')}
+            {t('module.settings.memoryDescription', {
+              entry: t('component.menus.navigationMenus.personalInfo'),
+            })}
           </DialogDescription>
         </DialogHeader>
         {error ? (
