@@ -1308,8 +1308,8 @@ async def test_long_multiline_closing_survives_an_unscripted_pause(
     assert session.finished is False
 
 
-async def test_final_repeat_does_not_resolve_braces_from_memory() -> None:
-    """Standalone brace text cannot supply an inferred closing-line match."""
+async def test_final_repeat_uses_known_script_variables() -> None:
+    """Recognize a closing line rendered with an already known learner variable."""
     model, _ = _repeating_model("The explanation.\n\nGoodbye, Rae.", "Goodbye, Rae.")
     engine = Engine(FunctionModel(stream_function=model))
     session = await engine.new_session(
@@ -1317,7 +1317,7 @@ async def test_final_repeat_does_not_resolve_braces_from_memory() -> None:
     )
     await collect(engine.run_turn(session))
     second = await collect(engine.run_turn(session))
-    assert _said(second) == "Goodbye, Rae."
+    assert _said(second) == ""
     assert session.finished is False
 
 

@@ -2,8 +2,7 @@
 
 import pytest
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
-from flaskr.service.learn.agent.legacy_prompt import _render_legacy_text
-from markdownflow.engine import collected_names
+from markdownflow.engine import collected_names, substitute_variables
 from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.tools import _script_questions
 
@@ -37,7 +36,7 @@ def test_disqualified_question_replays_its_native_link_label(
     assert collected_names(source) == frozenset({"real"})
     assert [question.variable for question in _script_questions(source)] == ["real"]
     assert (
-        _render_legacy_text(prefix + "{{ real }}", {"real": "VALUE"})
+        substitute_variables(prefix + "{{ real }}", {"real": "VALUE"})
         == prefix + "VALUE"
     )
     _assert_streams(source, prefix, [QUESTION])
@@ -53,7 +52,7 @@ def test_incomplete_or_inactive_resources_keep_raw_marker_ownership(
     source = link + newline * 2 + QUESTION
     assert collected_names(source) == frozenset()
     assert all(question.variable != "real" for question in _script_questions(source))
-    assert _render_legacy_text(source, {"real": "VALUE"}) == source
+    assert substitute_variables(source, {"real": "VALUE"}) == source
     _assert_streams(source, source, [])
 
 
@@ -68,7 +67,7 @@ def test_replayed_labels_and_resources_keep_complete_names_exact(newline: str) -
     }
     assert [question.variable for question in _script_questions(source)] == ["real"]
     assert (
-        _render_legacy_text(source, {"a]b": "LABEL", "value ?": "DEST"})
+        substitute_variables(source, {"a]b": "LABEL", "value ?": "DEST"})
         == "?[LABEL](dest/DEST)" + newline * 2 + QUESTION
     )
     _assert_streams(source, prefix, [QUESTION])

@@ -1,4 +1,4 @@
-"""Authored brace text stays literal through SDK calls and stored-session resumption."""
+"""Send authored references unchanged while keeping learner memory separate."""
 
 from collections.abc import AsyncIterator
 
@@ -7,21 +7,22 @@ from markdownflow.engine import ScriptBundle, render_first_prompt
 
 
 @pytest.mark.parametrize("memory", [{}, {"goal": None}, {"goal": ""}])
-def test_brace_text_does_not_read_memory(memory: dict) -> None:
+def test_missing_read_stays_in_authored_source(memory: dict) -> None:
     """A skipped earlier lesson cannot turn a template into a learner fact."""
     bundle = ScriptBundle(
         script="Show `{{goal}}` in a timeline; mark missing evidence unconfirmed.",
         constraints="Connect the explanation to {{goal}}.",
     )
     prompt = render_first_prompt(bundle, memory)
-    assert prompt.count("{{goal}}") == 2
+    assert "<script>\n" + bundle.script + "\n</script>" in prompt
+    assert "<constraints>\n" + bundle.constraints + "\n</constraints>" in prompt
     assert "unavailable_learner_value" not in prompt
     assert bundle.script.startswith("Show `{{goal}}`")
     assert memory.get("goal") in (None, "")
 
 
-def test_known_false_zero_and_complete_values_remain_exact() -> None:
-    """Unavailability does not erase false, zero, or budget-omitted stored text."""
+def test_known_values_are_not_inserted_when_memory_budget_omits_them() -> None:
+    """Prompt assembly does not bypass the memory budget through interpolation."""
     prompt = render_first_prompt(
         ScriptBundle(script="{{goal}} / {{count}} / {{enabled}}"),
         {"goal": "Keep the whole learner answer.", "count": 0, "enabled": False},
@@ -46,7 +47,7 @@ def test_collected_answers_and_literal_generated_code_are_not_replaced() -> None
 @pytest.mark.anyio
 @pytest.mark.parametrize("reload", [False, True])
 @pytest.mark.parametrize("known", [False, True])
-async def test_literal_braces_reach_initial_and_resumed_sdk_requests(
+async def test_unexpanded_source_reaches_initial_and_resumed_sdk_requests(
     reload: bool, known: bool
 ) -> None:
     """Inspect SDK inputs, retaining the distinction from actual model acceptance."""
@@ -83,9 +84,14 @@ async def test_literal_braces_reach_initial_and_resumed_sdk_requests(
             for part in message.parts
             if isinstance(part, UserPromptPart) and isinstance(part.content, str)
         )
-        assert "Show {{goal}}, then ask ?[Next]." in payload
-        assert "ordinary authored text" in info.instructions
+        assert "<script>\n" + bundle.script + "\n</script>" in payload
+        assert "<constraints>\n" + bundle.constraints + "\n</constraints>" in payload
+        assert '<extra name="reference">\n{{goal}}\n</extra>' in payload
+        assert "Never display this metadata" in info.instructions
+        assert "generated visuals" in info.instructions
         assert "unavailable_learner_value" not in payload
+        assert ('"goal": "A recorded goal."' in payload) is known
+        assert "without server-side expansion" in info.instructions
         yield output + "\n<div><style>.card {color: blue}</style>" + output + "</div>"
         yield {
             0: DeltaToolCall(
@@ -108,8 +114,13 @@ async def test_literal_braces_reach_initial_and_resumed_sdk_requests(
         }
 
     engine = Engine(FunctionModel(stream_function=stream), request_limit=1)
+    bundle = ScriptBundle(
+        script="Show {{goal}}, then ask ?[Next]. After selection, show {{goal}} again and ask ?[...Reflection].",
+        constraints="Use {{goal}} and preserve {{missing}}.",
+        extras={"reference": "{{goal}}"},
+    )
     session = await engine.new_session(
-        "Show {{goal}}, then ask ?[Next]. After selection, show {{goal}} again and ask ?[...Reflection].",
+        bundle,
         memory={"goal": output} if known else {},
     )
     first = [event async for event in engine.run_turn(session)]
@@ -152,35 +163,12 @@ def test_unavailable_metadata_does_not_replace_verbatim_syntax_examples(
     assert "unavailable_learner_value" not in prompt
 
 
-def test_verbatim_content_never_interpolates_memory() -> None:
-    """Known memory never changes authored verbatim source."""
+def test_verbatim_content_is_sent_without_known_value_expansion() -> None:
+    """Prompt assembly preserves the exact authored source of verbatim spans."""
     prompt = render_first_prompt(
         ScriptBundle(script="===Hello {{name}}.===\n!===\n{{name}}\n!==="),
         {"name": "Ada"},
     )
     assert "===Hello {{name}}.===" in prompt
     assert "!===\n{{name}}\n!===" in prompt
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        "Hello {{name}}",
-        "{{missing}}",
-        "{{ unclosed",
-        "===Hi {{name}}===",
-        "!===\n{{name}}\n!===",
-        "```js\n{{name}}\n```",
-        '<span title="{{name}}">{{name}}</span>',
-        "$x {{name}}$",
-    ],
-)
-def test_every_authored_prompt_section_keeps_its_original_source(source: str) -> None:
-    bundle = ScriptBundle(
-        script=source, constraints=source, extras={"reference": source}
-    )
-    prompt = render_first_prompt(bundle, {"name": "Lin"})
-    assert f"<script>\n{source}\n</script>" in prompt
-    assert f"<constraints>\n{source}\n</constraints>" in prompt
-    assert f'<extra name="reference">\n{source}\n</extra>' in prompt
-    assert "unavailable_learner_value" not in prompt
+    assert '"name": "Ada"' in prompt

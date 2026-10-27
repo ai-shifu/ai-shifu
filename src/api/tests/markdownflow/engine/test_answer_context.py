@@ -228,6 +228,7 @@ def test_code_and_comments_do_not_create_duplicate_anchors(wrapper: str) -> None
         SCRIPT.replace("?[...Earlier answer]", "Inline ?[...Earlier answer]"),
         SCRIPT.replace("?[...Earlier answer]", "?[A |\nB]"),
         SCRIPT.replace("### Acceptance\n", "### Acceptance\n" + "\u00e9" * 5000),
+        SCRIPT.replace("Require RISC", "Require {{current_requirement}} and RISC"),
         "<!--\n" + SCRIPT,
     ],
 )
@@ -359,6 +360,7 @@ async def test_later_answer_sdk_keeps_enclosing_rules_with_local_hint(
     "parent",
     [
         pytest.param("x" * 8192, id="oversized"),
+        pytest.param("Keep {{learner_fact}} in view.", id="variable"),
     ],
 )
 def test_unprojectable_parent_does_not_present_a_local_only_rule(parent: str) -> None:
@@ -572,19 +574,3 @@ async def test_interrupted_teaching_keeps_answer_without_current_reference(
         and "# Current authored feedback scope" in (m.instructions or "")
         for m in session.messages
     )
-
-
-def test_brace_text_is_literal_authored_evidence_in_sections_and_ancestors() -> None:
-    """A former substitution spelling no longer makes an exact author scope unsafe."""
-    parent = "Keep {{learner_fact}} as literal authored text."
-    script = (
-        parent
-        + "\n\n"
-        + SCRIPT.replace("Require RISC", "Require {{current_requirement}} and RISC")
-    )
-    messages = [
-        ModelResponse(parts=[ToolCallPart("interact", _spec().model_dump(), "current")])
-    ]
-    reference = json.loads(authored_answer_reference(messages, script, {"current"}))
-    assert "Require {{current_requirement}} and RISC" in reference["text"]
-    assert any(parent in preamble for preamble in reference["ancestor_preambles"])

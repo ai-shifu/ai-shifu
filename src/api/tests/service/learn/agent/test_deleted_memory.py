@@ -16,7 +16,7 @@ from flaskr.service.profile.api import delete_course_memory, list_course_memory
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
 from markdownflow.engine import Engine, Session
-from markdownflow.engine.script import ScriptBundle, render_first_prompt
+from markdownflow.engine.script import ScriptBundle
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -25,6 +25,7 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
+from tests.service.learn.agent.prompt_fixtures import expanded_initial_prompt
 from tests.service.learn.agent.test_memory_integration import _drive
 
 if TYPE_CHECKING:
@@ -42,7 +43,7 @@ def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
     bundle = ScriptBundle(
         script="Use {{goal}} at {{pace}} pace.", constraints="Consider {{goal}}."
     )
-    prompt = render_first_prompt(
+    prompt = expanded_initial_prompt(
         bundle, {"goal": value, "pace": "slow"}, memory_limit=32768
     )
     later = ModelRequest(
@@ -62,8 +63,8 @@ def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
     refresh_deleted_memory(session, frozenset({"goal"}))
     first = session.messages[0].parts[0].content
     assert "goal" not in json.JSONDecoder().raw_decode(first, len("<memory>\n"))[0]
-    assert "Use {{goal}} at {{pace}} pace." in first
-    assert "Consider {{goal}}." in first
+    assert 'Use <unavailable_learner_value name="goal" /> at slow pace.' in first
+    assert 'Consider <unavailable_learner_value name="goal" />.' in first
     assert value not in first
     assert "goal" not in session.all_memory()
     assert session.messages[1] is later
@@ -212,9 +213,21 @@ def test_omitted_initial_substitution_survives_value_changes_and_roundtrip(
             },
         )
         _ = [e async for e in engine.run_turn(session)]
+        session.messages[0] = ModelRequest(
+            parts=[
+                UserPromptPart(
+                    expanded_initial_prompt(
+                        session.script, session.all_memory(), memory_limit=32768
+                    )
+                )
+            ]
+        )
         first = session.messages[0].parts[0].content
         assert "goal" not in json.JSONDecoder().raw_decode(first, len("<memory>\n"))[0]
-        assert session.initial_variables == {}
+        assert session.initial_variables == {
+            "goal": original,
+            "sys_user_nickname": "Before",
+        }
         session.memory["goal"] = "later changed value"
         session = Session.loads(session.dumps())
         if renamed:
@@ -225,9 +238,14 @@ def test_omitted_initial_substitution_survives_value_changes_and_roundtrip(
         refresh_deleted_memory(session, frozenset({"goal"}))
         first = session.messages[0].parts[0].content
         assert original not in first
-        assert "Use {{goal}} for {{sys_user_nickname}}." in first
-        assert "Consider {{goal}}." in first
-        assert session.initial_variables == {}
+        assert (
+            f'Use <unavailable_learner_value name="goal" /> for {"After" if renamed else "Before"}.'
+            in first
+        )
+        assert 'Consider <unavailable_learner_value name="goal" />.' in first
+        assert session.initial_variables == {
+            "sys_user_nickname": "After" if renamed else "Before"
+        }
         once = session.dumps()
         refresh_deleted_memory(session, frozenset({"goal"}))
         assert session.dumps() == once

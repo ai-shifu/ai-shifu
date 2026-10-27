@@ -6,16 +6,23 @@ import json
 from dataclasses import replace
 from typing import TYPE_CHECKING
 
-from flaskr.service.learn.agent.legacy_prompt import (
-    historical_collected_names,
-    matched_section_length,
-)
 from markdownflow.engine.memory_context import parse_initial_memory_prompt
-from markdownflow.engine.script import collected_names
+from markdownflow.engine.script import (
+    collected_names,
+    substitute_variables,
+    substitution_names,
+)
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
     from flaskr.api.markdownflow import Session
+
+
+def _section(
+    tag: str, text: str, values: dict, collected: set[str], *, unavailable: bool = True
+) -> str:
+    """Render a known host section in the requested compatibility format."""
+    return f"<{tag}>\n{substitute_variables(text, values, collected=collected, unavailable=unavailable)}\n</{tag}>"
 
 
 def refresh_deleted_memory(
@@ -25,11 +32,7 @@ def refresh_deleted_memory(
     current: dict | None = None,
     constraints: str | None = None,
 ) -> None:
-    """Refresh removed keys in the host's initial prompt and preserve later history.
-
-    Recognized legacy prompts are rebuilt from their authored source, so old
-    expanded placeholders cannot retain removed values. Authored text stays literal.
-    """
+    """Refresh removed/recreated keys and an optional current initial teaching brief."""
     if not deleted:
         return
     saved = session.all_memory()
@@ -51,50 +54,104 @@ def refresh_deleted_memory(
             if parsed is None:
                 return
             original = {**saved, **(session.initial_variables or {}), **parsed.memory}
+            updated = {k: v for k, v in original.items() if k not in deleted}
+            updated.update(fresh)
             collected = collected_names(session.script.script)
-            historical_collected = historical_collected_names(session.script.script)
-            length = matched_section_length(
-                part.content,
-                parsed.script_start,
-                "script",
-                session.script.script,
-                original,
-                historical_collected,
+
+            suffix = part.content[parsed.script_start :]
+            raw_script = f"<script>\n{session.script.script}\n</script>"
+            raw_brief = (
+                f"\n\n<constraints>\n{session.script.constraints}\n</constraints>"
             )
-            suffix = part.content[parsed.script_start + (length or 0) :]
-            if length is not None and (
-                session.script.constraints or constraints is not None
-            ):
-                old_brief_length = (
-                    matched_section_length(
-                        suffix,
-                        2,
+            expanded_brief = bool(session.script.constraints) and any(
+                brief != raw_brief and suffix.startswith(brief, len(raw_script))
+                for brief in (
+                    "\n\n"
+                    + _section(
                         "constraints",
                         session.script.constraints,
                         original,
-                        historical_collected,
+                        collected,
+                        unavailable=unavailable,
                     )
-                    if session.script.constraints and suffix.startswith("\n\n")
-                    else 0
-                    if not session.script.constraints
-                    else None
+                    for unavailable in (True, False)
                 )
-                if old_brief_length is not None:
-                    brief = (
-                        session.script.constraints
-                        if constraints is None
-                        else constraints
+            )
+            if suffix.startswith(raw_script) and not expanded_brief:
+                if constraints is not None:
+                    old_brief = (
+                        f"\n\n<constraints>\n{session.script.constraints}\n</constraints>"
+                        if session.script.constraints
+                        else ""
                     )
-                    new_brief = (
-                        f"\n\n<constraints>\n{brief}\n</constraints>" if brief else ""
+                    start = len(raw_script)
+                    if suffix.startswith(old_brief, start):
+                        new_brief = (
+                            f"\n\n<constraints>\n{constraints}\n</constraints>"
+                            if constraints
+                            else ""
+                        )
+                        suffix = (
+                            suffix[:start]
+                            + new_brief
+                            + suffix[start + len(old_brief) :]
+                        )
+                old = None
+            else:
+                old = _section("script", session.script.script, original, collected)
+            if old is not None and not suffix.startswith(old):
+                old = _section(
+                    "script",
+                    session.script.script,
+                    original,
+                    collected,
+                    unavailable=False,
+                )
+            if old is not None and suffix.startswith(old):
+                suffix = (
+                    _section("script", session.script.script, updated, collected)
+                    + suffix[len(old) :]
+                )
+                if session.script.constraints or constraints is not None:
+                    old_brief = (
+                        "\n\n"
+                        + _section(
+                            "constraints",
+                            session.script.constraints,
+                            original,
+                            collected,
+                        )
+                        if session.script.constraints
+                        else ""
                     )
-                    suffix = (
-                        new_brief
-                        + suffix[(2 + old_brief_length) if old_brief_length else 0 :]
+                    start = len(
+                        _section("script", session.script.script, updated, collected)
                     )
-            memory = {
-                key: value for key, value in parsed.memory.items() if key not in deleted
-            }
+                    if old_brief and not suffix.startswith(old_brief, start):
+                        old_brief = "\n\n" + _section(
+                            "constraints",
+                            session.script.constraints,
+                            original,
+                            collected,
+                            unavailable=False,
+                        )
+                    if suffix.startswith(old_brief, start):
+                        brief = (
+                            session.script.constraints
+                            if constraints is None
+                            else constraints
+                        )
+                        new_brief = (
+                            "\n\n" + _section("constraints", brief, updated, collected)
+                            if brief
+                            else ""
+                        )
+                        suffix = (
+                            suffix[:start]
+                            + new_brief
+                            + suffix[start + len(old_brief) :]
+                        )
+            memory = {k: v for k, v in parsed.memory.items() if k not in deleted}
             memory.update(
                 {key: value for key, value in fresh.items() if key not in collected}
             )
@@ -104,11 +161,6 @@ def refresh_deleted_memory(
                 + "\n</memory>"
                 + parsed.notice
                 + "\n\n"
-                + (
-                    f"<script>\n{session.script.script}\n</script>"
-                    if length is not None
-                    else ""
-                )
                 + suffix
             )
             parts = list(message.parts)
@@ -120,4 +172,16 @@ def refresh_deleted_memory(
                     for key, value in session.initial_variables.items()
                     if key not in deleted
                 }
+                session.initial_variables.update(
+                    {
+                        key: value
+                        for key, value in fresh.items()
+                        if key
+                        in substitution_names(
+                            replace(session.script, constraints=constraints)
+                            if constraints is not None
+                            else session.script
+                        )
+                    }
+                )
             return

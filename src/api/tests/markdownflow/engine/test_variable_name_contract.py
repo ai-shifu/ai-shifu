@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 import pytest
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
-from flaskr.service.learn.agent.legacy_prompt import _render_legacy_text
 from flaskr.service.learn.agent.legacy_protocol import render_interaction
 from markdown_flow import InteractionParser, MarkdownFlow
 from markdown_flow.parser.variable import replace_variables_in_text
@@ -19,6 +18,7 @@ from markdownflow.engine import (
     Session,
     collected_names,
     marker_context,
+    substitute_variables,
 )
 from markdownflow.engine.events import InteractionRequest
 from markdownflow.engine.interaction import InteractionSpec, Option
@@ -87,8 +87,8 @@ def test_existing_question_keys_agree_across_parser_boundaries(
 
     reference = format_variable_reference(key)
     assert replace_variables_in_text(reference, {key: "女"}, add_quotes=False) == "女"
-    assert _render_legacy_text(reference, {key: "女"}) == "女"
-    assert _render_legacy_text(authored, {key: "女"}) == authored
+    assert substitute_variables(reference, {key: "女"}) == "女"
+    assert substitute_variables(authored, {key: "女"}) == authored
 
     questions = _script_questions(authored)
     assert len(questions) == 1
@@ -175,7 +175,7 @@ async def test_named_question_answer_survives_session_and_wire_round_trips(
     assert second[-1].reason == "finished"
     restored = Session.loads(session.dumps())
     assert restored.memory == {key: "女"}
-    assert _render_legacy_text(format_variable_reference(key), restored.memory) == "女"
+    assert substitute_variables(format_variable_reference(key), restored.memory) == "女"
 
 
 @pytest.mark.parametrize(
@@ -196,7 +196,7 @@ def test_engine_does_not_declare_keys_with_internal_controls(
     """Controls inside a normalized key cannot become a stored learner fact."""
     assert collected_names(_question(key)) == frozenset()
     reference = f"{{{{{key}}}}}"
-    assert _render_legacy_text(reference, {key: "女"}) == reference
+    assert substitute_variables(reference, {key: "女"}) == reference
 
 
 CONTRACT = json.loads(
@@ -213,7 +213,7 @@ def test_shared_normalization_corpus(case: dict) -> None:
         marker = read_variable_marker(formatted)
         assert marker is not None
         assert marker.name == case["name"]
-        assert _render_legacy_text(formatted, {case["name"]: "answer"}) == "answer"
+        assert substitute_variables(formatted, {case["name"]: "answer"}) == "answer"
 
 
 @pytest.mark.parametrize("case", CONTRACT["extraction"])
@@ -257,13 +257,15 @@ def test_marker_names_are_opaque_to_markdown_and_invalid_outer_markers_are_not_r
 ):
     source = "%{{\n```\n}}"
     assert collected_names(source) == frozenset({"```"})
-    assert _render_legacy_text("{{\n```\n}}", {"```": "value"}) == "value"
+    assert substitute_variables("{{\n```\n}}", {"```": "value"}) == "value"
     assert (
-        _render_legacy_text("{{ a===b===c }}", {"a===b===c": "value"}, unavailable=True)
+        substitute_variables(
+            "{{ a===b===c }}", {"a===b===c": "value"}, unavailable=True
+        )
         == "value"
     )
     assert (
-        _render_legacy_text(
+        substitute_variables(
             "{{bad\n{{inner}} {{valid}}", {"inner": "wrong", "valid": "right"}
         )
         == "{{bad\n{{inner}} right"
@@ -292,8 +294,8 @@ def test_multiline_marker_padding_keeps_one_trimmed_key_across_host_boundaries()
     assignment = "%" + reference
     source = "?[" + assignment + " 男 | 女 | 秘密]"
     assert collected_names(assignment) == frozenset({"name"})
-    assert _render_legacy_text(reference, {"name": "女"}) == "女"
-    assert _render_legacy_text(assignment, {"name": "女"}) == assignment
+    assert substitute_variables(reference, {"name": "女"}) == "女"
+    assert substitute_variables(assignment, {"name": "女"}) == assignment
     assert MarkdownFlow(source).extract_variables() == ["name"]
     assert len(MarkdownFlow(source).get_all_blocks()) == 1
     assert InteractionParser().parse(source)["variable"] == "name"
@@ -432,7 +434,7 @@ def test_unmatched_inline_code_cannot_pair_across_a_paragraph_or_fence(
     """A later tick cannot turn an active outer marker into a code example."""
     source = f"Show {ticks}{{{{{boundary}{ticks} then ?[%{{{{ q }}}} A|B]"
     assert collected_names(source) == frozenset()
-    assert _render_legacy_text(source, {"q": "wrong"}) == source
+    assert substitute_variables(source, {"q": "wrong"}) == source
     assert _script_questions(source) == []
     chunks = [[source], list(source)] + [
         [source[:cut], source[cut:]] for cut in range(len(source) + 1)
@@ -477,7 +479,7 @@ def test_document_literal_boundaries_preserve_collection_and_external_interactio
 
     references = " ".join(format_variable_reference(name) for name in case["names"])
     values = {name: f"value-{index}" for index, name in enumerate(case["names"])}
-    assert _render_legacy_text(source + "\n" + references, values).endswith(
+    assert substitute_variables(source + "\n" + references, values).endswith(
         "\n" + " ".join(values.values())
     )
 
@@ -493,7 +495,7 @@ def test_document_literal_boundaries_preserve_collection_and_external_interactio
 def test_literal_references_keep_old_substitution_and_escaped_openers_stay_literal(
     source: str, expected: str
 ) -> None:
-    assert _render_legacy_text(source, {"q": "value"}) == expected
+    assert substitute_variables(source, {"q": "value"}) == expected
 
 
 @pytest.mark.parametrize(

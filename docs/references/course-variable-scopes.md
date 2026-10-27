@@ -75,7 +75,7 @@ not resolve them, even from a supplied dictionary. The shared-answer host grant
 and source-version writer are removed rather than left behind a runtime switch.
 
 Resuming a saved 2.0 session clears retired aliases from current memory and
-recognized initial host sections, including the original structured memory prompt. Pending
+initial substitutions, including the original structured memory prompt. Pending
 old shared questions still accept an answer as classroom evidence but do not
 write either course. Original answers and later classroom history remain intact;
 previously delivered content is historical evidence, not current shared memory.

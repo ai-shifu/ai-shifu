@@ -35,6 +35,7 @@ from markdownflow import (
     collected_names,
     iter_turn,
     normalize_answer,
+    substitute_variables,
 )
 
 from flaskr.api.llm.markdownflow_model import GatewayModel
@@ -73,6 +74,7 @@ __all__ = [
     "render_interaction",
     "render_narrated_interaction",
     "render_question",
+    "substitute_variables",
     "unrenderable_reason",
 ]
 

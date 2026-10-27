@@ -50,6 +50,7 @@ from .script import (
     collected_names,
     detect_v1_syntax,
     render_first_prompt,
+    substitute_variables,
 )
 from .segmenter import Narration, Segmenter, SegmentPiece, plain_narration
 from .session import (
@@ -104,5 +105,6 @@ __all__ = [
     "parse_event",
     "plain_narration",
     "render_first_prompt",
+    "substitute_variables",
     "to_sse",
 ]

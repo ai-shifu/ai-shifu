@@ -15,7 +15,7 @@ from flaskr.service.learn.agent.nickname import refresh_nickname
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.user.repository import create_user_entity, get_user_entity_by_bid
 from markdownflow.engine import Engine, Session
-from markdownflow.engine.script import ScriptBundle, render_first_prompt
+from markdownflow.engine.script import ScriptBundle
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -25,6 +25,8 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+from tests.service.learn.agent.prompt_fixtures import expanded_initial_prompt
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
@@ -106,7 +108,7 @@ def _seed(app: Flask, nickname: str, *, collected: bool) -> tuple[tuple, Session
     user, course, lesson = ids
     with unit_of_work():
         create_user_entity(user_bid=user, identify=user, nickname=nickname)
-    script = ("?[%{{sys_user_nickname}}...Your name?]\n" if collected else "") + SCRIPT
+    script = ("Ask %{{sys_user_nickname}}.\n" if collected else "") + SCRIPT
     bundle = ScriptBundle(script=script, constraints=BRIEF, extras={"example": NAME})
     initial = {NAME: "Alex" if collected else "", "goal": GOAL}
     session = Session(
@@ -115,7 +117,9 @@ def _seed(app: Flask, nickname: str, *, collected: bool) -> tuple[tuple, Session
         user_memory=initial,
         memory={"scratch": "keep", **({NAME: "Alex"} if collected else {})},
         messages=[
-            ModelRequest(parts=[UserPromptPart(render_first_prompt(bundle, initial))]),
+            ModelRequest(
+                parts=[UserPromptPart(expanded_initial_prompt(bundle, initial))]
+            ),
             ModelResponse(parts=[TextPart("Hello Alex. This was already displayed.")]),
         ],
         turn=1,
@@ -141,13 +145,14 @@ def test_resumed_model_uses_current_name_and_preserves_history(
         prompt = _prompt(seen[0])
         assert _memory(prompt)[NAME] == address
         assert _memory(prompt)["goal"] == GOAL
-        assert "Hello {{sys_user_nickname}}." in prompt
-        assert "Address {{sys_user_nickname}} directly." in prompt
-        assert "Goodbye {{sys_user_nickname}}." in prompt
-        if collected:
-            assert "?[%{{sys_user_nickname}}...Your name?]" in prompt
+        if not collected:
+            assert f"Hello {address}." in prompt
+            assert f"Address {address} directly." in prompt
+            assert f"Goodbye {address}." in prompt
+        else:
+            assert "Ask %{{sys_user_nickname}}." in prompt
         assert "````text\n```\n{{sys_user_nickname}}\n````" in prompt
-        assert "Keep {{unknown}}." in prompt
+        assert '<unavailable_learner_value name="unknown" />' in prompt
         assert seen[0][1] == before.messages[1]
         db.session.remove()
         saved = session_store.load_agent_session(app, ids[0], ids[2])
@@ -239,7 +244,7 @@ def test_changed_brief_extras_and_initial_learner_message_survive() -> None:
     initial = {NAME: "Alex", "goal": GOAL}
     old = ScriptBundle(script=SCRIPT, constraints=BRIEF, extras={"example": BRIEF})
     prompt = (
-        render_first_prompt(old, initial) + "\n\nAlex is an example in my question."
+        expanded_initial_prompt(old, initial) + "\n\nAlex is an example in my question."
     )
     session = Session(
         script=ScriptBundle(script=SCRIPT, constraints="A different brief"),
@@ -247,11 +252,8 @@ def test_changed_brief_extras_and_initial_learner_message_survive() -> None:
     )
     refresh_nickname(session, {NAME: "Sam"})
     repaired = _prompt(session.messages)
-    assert "Hello {{sys_user_nickname}}." in repaired
-    assert (
-        "<constraints>\nAddress {{sys_user_nickname}} directly.\n</constraints>"
-        in repaired
-    )
+    assert "Hello Sam." in repaired
+    assert "<constraints>\nAddress Alex directly.\n</constraints>" in repaired
     assert f'<extra name="example">\n{BRIEF}\n</extra>' in repaired
     assert repaired.endswith("\n\nAlex is an example in my question.")
 
@@ -278,9 +280,7 @@ def test_closing_repeat_uses_current_nickname(app: Flask) -> None:
             outline_item_bid=ids[2],
         )
         events = _run(app, Engine(FunctionModel(stream_function=model)), ids)
-        assert [
-            event.content for event in events if event.type == GeneratedType.CONTENT
-        ] == ["Goodbye Sam."]
+        assert not [event for event in events if event.type == GeneratedType.CONTENT]
 
 
 def test_failed_resume_does_not_persist_prompt_repair(
@@ -322,12 +322,12 @@ def test_bounded_prompt_refreshes_nickname_and_preserves_omitted_exact_answer(
         ids, session = _seed(app, nickname, collected=False)
         goal = GOAL + "z" * 40000
         session.user_memory = {NAME: "Alex", "goal": goal}
-        prompt = render_first_prompt(
+        prompt = expanded_initial_prompt(
             session.script, session.user_memory, memory_limit=32768
         )
         assert "Some stored values were omitted" in prompt
         assert "goal" not in _memory(prompt)
-        assert goal not in prompt
+        assert goal in prompt
         session.messages[0] = ModelRequest(parts=[UserPromptPart(prompt)])
         with unit_of_work():
             db.session.add(
@@ -359,9 +359,9 @@ def test_bounded_prompt_refreshes_nickname_and_preserves_omitted_exact_answer(
             address = nickname or "Learner"
             current_prompt = _prompt(seen[-1])
             assert _memory(current_prompt)[NAME] == address
-            assert "Hello {{sys_user_nickname}}." in current_prompt
-            assert "Address {{sys_user_nickname}} directly." in current_prompt
-            assert goal not in current_prompt
+            assert f"Hello {address}." in current_prompt
+            assert f"Address {address} directly." in current_prompt
+            assert goal in current_prompt
             assert "goal" not in _memory(current_prompt)
             assert "Some stored values were omitted" in current_prompt
             assert seen[-1][1] == session.messages[1]

@@ -6,10 +6,12 @@ from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
-from flaskr.service.learn.agent.legacy_prompt import historical_reference_names
 from flaskr.service.profile.api import is_course_reference
 from markdownflow.engine.memory_context import parse_initial_memory_prompt
-from markdownflow.engine.script import render_first_prompt
+from markdownflow.engine.script import (
+    render_first_prompt,
+    substitution_names,
+)
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
@@ -23,7 +25,7 @@ def discard_course_references(
     names = (
         set(session.all_memory())
         | set(session.initial_variables or {})
-        | historical_reference_names(session.script)
+        | substitution_names(session.script)
     )
     unparsed_prompt = None
     for index, message in enumerate(session.messages):

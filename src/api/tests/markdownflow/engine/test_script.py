@@ -1,13 +1,14 @@
-"""Historical native matching, notation detection and literal prompt assembly."""
+"""Script bundling: variable substitution, 1.0 syntax detection, prompt assembly."""
 
 import pytest
-from flaskr.service.learn.agent.legacy_prompt import _render_legacy_text
 from markdownflow.engine import (
     ScriptBundle,
     collected_names,
     detect_v1_syntax,
     render_first_prompt,
+    substitute_variables,
 )
+from markdownflow.engine.script import substitution_names
 
 
 def test_detects_each_v1_marker() -> None:
@@ -32,14 +33,14 @@ def test_markers_inside_code_fences_are_ignored() -> None:
 
 
 def test_substitute_replaces_known_and_keeps_unknown_and_preserved() -> None:
-    out = _render_legacy_text(
+    out = substitute_variables(
         "Hi {{name}}, {{missing}} and %{{name}} and {{ name }}", {"name": "Lin"}
     )
     assert out == "Hi Lin, {{missing}} and %{{name}} and Lin"
 
 
 def test_substitute_list_and_fence() -> None:
-    out = _render_legacy_text("picks: {{p}}\n```\n{{p}}\n```\n", {"p": ["a", "b"]})
+    out = substitute_variables("picks: {{p}}\n```\n{{p}}\n```\n", {"p": ["a", "b"]})
     assert out == "picks: a, b\n```\n{{p}}\n```\n"
 
 
@@ -66,7 +67,7 @@ def test_bundle_roundtrip() -> None:
 def test_a_longer_fence_is_not_closed_by_a_shorter_one_inside_it() -> None:
     """A ``` line inside a ```` block is content, so the block must stay open across it."""
     text = "````markdown\n```\n{{name}}\n```\n````\n{{name}}\n"
-    out = _render_legacy_text(text, {"name": "Ada"})
+    out = substitute_variables(text, {"name": "Ada"})
     assert out.count("{{name}}") == 1  # the one inside the fence survives
     assert out.endswith("Ada\n")
 
@@ -74,7 +75,7 @@ def test_a_longer_fence_is_not_closed_by_a_shorter_one_inside_it() -> None:
 def test_a_closing_fence_carries_nothing_else() -> None:
     """`\u0060\u0060\u0060python` opens a block; only a bare marker line closes it."""
     text = "```\n{{name}}\n``` trailing words\n{{name}}\n```\n{{name}}\n"
-    out = _render_legacy_text(text, {"name": "Ada"})
+    out = substitute_variables(text, {"name": "Ada"})
     assert out.count("{{name}}") == 2  # both lines inside the block are untouched
 
 
@@ -84,7 +85,7 @@ def test_an_indented_marker_does_not_close_a_fence() -> None:
     A lesson that teaches fenced code blocks contains exactly this.
     """
     text = "```markdown\n    ```\n{{name}}\n```\n{{name}}\n"
-    out = _render_legacy_text(text, {"name": "Ada"})
+    out = substitute_variables(text, {"name": "Ada"})
     assert out.count("{{name}}") == 1  # the one inside the block survives
     assert out.endswith("Ada\n")
 
@@ -102,8 +103,9 @@ def test_unclosed_code_example_cannot_capture_markers_after_its_fence(
     before = f"{fence}{newline}{example}{newline}{fence}{newline}Outside "
     text = before + "{{name}} %{{answer}}"
 
+    assert substitution_names(ScriptBundle(script=text)) == frozenset({"name"})
     assert collected_names(text) == frozenset({"answer"})
-    assert _render_legacy_text(text, {"name": "Ada", "answer": "old"}) == (
+    assert substitute_variables(text, {"name": "Ada", "answer": "old"}) == (
         before + "Ada %{{answer}}"
     )
 
@@ -112,9 +114,12 @@ def test_marker_outside_code_keeps_fence_and_comment_text_inside_its_name() -> N
     """Only a real outer fence wins; an opaque key's punctuation remains ordinary text."""
     text = "{{\n```\n}} {{ <!-- key --> }} %{{\n~~~\n}}"
 
+    assert substitution_names(ScriptBundle(script=text)) == frozenset(
+        {"```", "<!-- key -->"}
+    )
     assert collected_names(text) == frozenset({"~~~"})
     assert (
-        _render_legacy_text(
+        substitute_variables(
             text, {"```": "fence", "<!-- key -->": "comment", "~~~": "old"}
         )
         == "fence comment %{{\n~~~\n}}"
@@ -140,7 +145,7 @@ def test_a_variable_the_script_collects_is_not_filled_from_an_earlier_session() 
     them: the model was given the old answer as a statement in the script and believed it over
     the tool result it had just received.
     """
-    out = _render_legacy_text(
+    out = substitute_variables(
         _ECHOES_ITS_OWN_ANSWER,
         {"purpose": "find me a girlfriend"},
         collected=collected_names(_ECHOES_ITS_OWN_ANSWER),
@@ -154,7 +159,7 @@ def test_a_variable_the_script_only_reads_is_still_filled() -> None:
     """Nothing in the script asks for it, so memory is the only place it can come from."""
     text = "greet {{nickname}} warmly\n"
 
-    out = _render_legacy_text(
+    out = substitute_variables(
         text, {"nickname": "Lin"}, collected=collected_names(text)
     )
 
@@ -190,7 +195,7 @@ def test_a_marker_inside_a_fenced_block_is_an_example_not_a_question() -> None:
 
     assert collected_names(text) == frozenset()
     assert (
-        _render_legacy_text(
+        substitute_variables(
             text, {"nickname": "Lin"}, collected=collected_names(text)
         ).splitlines()[0]
         == "greet Lin"

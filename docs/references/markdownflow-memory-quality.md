@@ -141,11 +141,12 @@ Markdown ancestors are copied alongside the local section, before their first
 child heading or interaction. This keeps a later question's local hint near the
 applicable parent instructions without copying sibling exercises. It does not
 interpret precedence or infer an aspect count. The combined source remains at
-most 8 KiB; no grade is selected and the script does not advance. If the combined source exceeds this bound,
+most 8 KiB; no grade is selected and the script does not advance. If ancestor
+context contains substitution syntax or the combined source exceeds this bound,
 the reference retains only its answer binding and a full-script notice, with
 null local text and no preambles. A local-only copy must not imply complete scope.
-Ambiguous hints, non-standalone/multiline controls
-and oversized sections retain the full script
+Ambiguous hints, non-standalone/multiline controls,
+variable-containing sections and oversized sections retain the full script
 without a focused copy. Code/comment examples do not locate an interaction.
 Matching first applies the host's existing interaction normalization to a copy
 of the original tool arguments: unadmitted variable names are ignored only under

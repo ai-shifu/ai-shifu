@@ -466,14 +466,30 @@ def test_natural_questionnaire_uses_native_controls_without_a_static_question_se
     assert session.variables == {"goal": "writing"}
 
 
-def test_static_option_braces_remain_literal_independently_of_memory() -> None:
-    session = _session("?[%{{role}}Primary//{{primary}}|Other//other]")
+@pytest.mark.parametrize("historical_prompt", [False, True])
+def test_raw_prompt_keeps_native_option_values_and_saved_pending_protocol(
+    historical_prompt: bool,
+) -> None:
+    document = "?[%{{role}}Primary//{{primary}}|Other//other]"
+    session = _session(document)
     session.variables["primary"] = "teacher"
+    initial_script = f"<script>\n{document}\n</script>"
+    saved_script = initial_script
 
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
+        initial = next(
+            str(part.content)
+            for message in messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+            if isinstance(part, UserPromptPart)
+        )
+        assert saved_script in initial
+        assert '\n  "primary": "teacher"\n' in initial
         if _returns(messages, "finish"):
             yield "Thanks."
         elif _returns(messages):
+            assert _returns(messages)[0].content == "Learner chose: teacher"
             yield "Done."
             yield _finish()
         else:
@@ -483,19 +499,39 @@ def test_static_option_braces_remain_literal_independently_of_memory() -> None:
                     "role",
                     kind="single",
                     options=[
-                        {"display": "Primary", "value": "{{primary}}"},
+                        {"display": "Primary", "value": "teacher"},
                         {"display": "Other", "value": "other"},
                     ],
                 )
             }
 
     model = FunctionModel(stream_function=script)
-    run_profile_turn(session, {}, model)
+    first = run_profile_turn(session, {}, model)
+    assert "Primary//teacher" in first.chunks[-1].interaction
+    assert session.engine_session["pending"][0]["spec"]["variable"] == "role"
+    if historical_prompt:
+        # Model a pre-change session whose initial prompt was already expanded.
+        saved_script = initial_script.replace("{{primary}}", "teacher")
+        for message in session.engine_session["messages"]:
+            for part in message["parts"]:
+                if part["part_kind"] == "user-prompt":
+                    part["content"] = part["content"].replace(
+                        initial_script, saved_script
+                    )
+    session = _ProfileResearchSession.from_cache_payload(session.to_cache_payload())
+    saved_messages = copy.deepcopy(session.engine_session["messages"])
+    saved_pending = copy.deepcopy(session.engine_session["pending"])
+    rerendered = run_profile_turn(session, {}, model)
+    assert "Primary//teacher" in rerendered.chunks[-1].interaction
+    assert session.engine_session["messages"] == saved_messages
+    assert session.engine_session["pending"] == saved_pending
     session.variables["primary"] = "untrusted-host-value"
-    result = run_profile_turn(session, {"role": ["{{primary}}"]}, model)
+    result = run_profile_turn(session, {"role": ["teacher"]}, model)
     assert result.input_accepted
-    assert session.variables["role"] == "{{primary}}"
+    assert result.finished
+    assert session.variables["role"] == "teacher"
     assert session.variables["primary"] == "teacher"
+    assert session.engine_session["messages"][: len(saved_messages)] == saved_messages
 
 
 def test_rich_output_keeps_structured_elements_and_no_private_summary_is_requested() -> (
@@ -657,154 +693,3 @@ def test_private_summary_receives_selected_machine_value_and_question_option_mea
             },
         }
     ]
-
-
-@pytest.mark.parametrize("snapshot", [None, {"primary": "teacher"}])
-@pytest.mark.parametrize("count", [1, 2])
-@pytest.mark.parametrize("followup", [False, True])
-def test_saved_expanded_profile_controls_resume_without_rewriting_answers(
-    snapshot: dict | None, count: int, followup: bool
-) -> None:
-    from flaskr.api.markdownflow import (
-        InteractionSpec,
-        Option,
-        PendingInteraction,
-        ScriptBundle,
-        Session,
-    )
-    from pydantic_ai.messages import ModelResponse, RetryPromptPart, ToolCallPart
-
-    document = "\n---\n".join(
-        "?[%{{role" + str(index) + "}}Primary//{{primary}}|Other//other]"
-        for index in range(count)
-    )
-    session = _session(document)
-    session.variables["primary"] = "changed-host-value"
-    specs = [
-        InteractionSpec(
-            type="single",
-            prompt="Role?",
-            variable=f"role{index}",
-            options=[
-                Option(display="Primary", value="teacher"),
-                Option(display="Other", value="other"),
-            ],
-        )
-        for index in range(count)
-    ]
-    calls = ModelResponse(
-        parts=[
-            ToolCallPart("interact", spec.model_dump(), f"old-{index}")
-            for index, spec in enumerate(specs)
-        ]
-    )
-    old_prompt = (
-        '<memory>\n{"primary": "teacher"}\n</memory>\n\n<script>\n'
-        + document.replace("{{primary}}", "teacher")
-        + "\n</script>"
-    )
-    working = Session(
-        id=session.session_id,
-        user_id=session.user_bid,
-        script=ScriptBundle(script=document),
-        memory={"primary": "teacher"},
-        initial_variables=snapshot,
-        messages=[ModelRequest(parts=[UserPromptPart(old_prompt)]), calls],
-        pending=[
-            PendingInteraction(tool_call_id=f"old-{index}", spec=spec)
-            for index, spec in enumerate(specs)
-        ],
-    )
-    session.engine_session = working.to_dict()
-    historical_call = session.engine_session["messages"][1]
-    model_calls = 0
-    retried = []
-
-    async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
-        nonlocal model_calls
-        model_calls += 1
-        if _returns(messages, "finish"):
-            yield "Thanks."
-        else:
-            assert len(_returns(messages)) == count
-            assert all(
-                part.content == "Learner chose: teacher" for part in _returns(messages)
-            )
-            assert document in messages[0].parts[0].content
-            if followup:
-                retries = [
-                    p for p in messages[-1].parts if isinstance(p, RetryPromptPart)
-                ]
-                retried.extend(retries)
-                yield {
-                    0: _question(
-                        "new-role",
-                        "role0",
-                        kind="single",
-                        options=[
-                            {
-                                "display": "Primary",
-                                "value": "{{primary}}" if retries else "teacher",
-                            },
-                            {"display": "Other", "value": "other"},
-                        ],
-                    )
-                }
-            else:
-                yield _finish()
-
-    model = FunctionModel(stream_function=script)
-    preview = run_profile_turn(session, {}, model)
-    assert preview.chunks[-1].interaction_id == "old-0"
-    assert "teacher" in preview.chunks[-1].interaction
-    assert model_calls == 0
-    for index in range(count):
-        result = run_profile_turn(session, {f"role{index}": ["teacher"]}, model)
-        assert result.input_accepted
-        # Rehydrate the real persisted native snapshot before answering a sibling.
-        session.engine_session = json.loads(json.dumps(session.engine_session))
-    assert result.finished is not followup
-    assert bool(retried) is followup
-    if followup:
-        assert (
-            session.engine_session["pending"][0]["spec"]["options"][0]["value"]
-            == "{{primary}}"
-        )
-    assert session.engine_session["messages"][1] == historical_call
-    assert all(session.variables[f"role{index}"] == "teacher" for index in range(count))
-    assert document in session.engine_session["messages"][0]["parts"][0]["content"]
-
-
-def test_new_profile_controls_cannot_use_historical_expanded_values() -> None:
-    from pydantic_ai.messages import RetryPromptPart
-
-    session = _session("?[%{{role}}Primary//{{primary}}|Other//other]")
-    session.variables["primary"] = "teacher"
-    rejected = []
-
-    async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
-        retries = [p for p in messages[-1].parts if isinstance(p, RetryPromptPart)]
-        if retries:
-            rejected.extend(retries)
-        yield {
-            0: _question(
-                "new-role",
-                "role",
-                kind="single",
-                options=[
-                    {
-                        "display": "Primary",
-                        "value": "{{primary}}" if retries else "teacher",
-                    },
-                    {"display": "Other", "value": "other"},
-                ],
-            )
-        }
-
-    result = run_profile_turn(session, {}, FunctionModel(stream_function=script))
-    assert rejected
-    assert not result.input_accepted
-    assert (
-        session.engine_session["pending"][0]["spec"]["options"][0]["value"]
-        == "{{primary}}"
-    )

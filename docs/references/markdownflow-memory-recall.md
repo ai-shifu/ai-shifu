@@ -2,7 +2,7 @@
 title: MarkdownFlow Memory Recall
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-27
 canonical: true
 ---
 
@@ -57,8 +57,8 @@ a new learner submission can answer it anew under the existing write policy.
 
 Instructions ask for relevant missing facts only and treat returned values as data, never
 as author instructions or write authorization. Tool returns stay in model/session history,
-not classroom text. Recall does not change initial 32768-character memory projection,
-literal script assembly, persistence, usage limits or the
+not classroom text. Recall does not change the initial 32768-character memory projection,
+persistence, usage limits or the
 [256 KiB complete model input budget](markdownflow-input-budget.md).
 Repeated tool results still consume that total budget. This increment provides exact-key
 retrieval, not semantic search, historical conversation compression or automatic recovery
@@ -66,18 +66,23 @@ from oversized overall inputs. Shared writes and independent teaching-quality ac
 remain separate work.
 
 
-## Literal authored text
+## Authored references and existing sessions
 
-The [literal-prompt contract](markdownflow-literal-prompts.md) defines native
-authored prompt assembly. Standalone brace text remains literal even when
-the same key exists in memory; there is no script or brief substitution path.
-An absent key remains unknown. Use the author's missing-evidence wording or omit
-unsupported personal claims, and use `recall` for needed authorized answers.
+New native sessions send the authored script and teaching brief without server-side
+variable substitution. The separate memory block retains its existing budget,
+referenced-key priority, collection exclusions and values. The model may interpret
+`{{name}}` using that memory or `recall`; an absent value remains unknown. A value
+omitted from the memory block is no longer copied into the script through a separate
+substitution path. Recall's existing size limit still applies.
 
-Nickname and deletion refresh replace recognized host memory envelopes from the
-current snapshot while retaining original authored documents. Later learner
-requests, tool returns and displayed teaching remain unchanged. Existing pending
-interactions and their memory keys remain unchanged.
-Scope, recall/write permissions and input/request/retry limits are unchanged.
-Native SDK tests establish input/policy delivery; actual-model teaching quality
-requires separate acceptance.
+An existing session keeps its saved prompt and interaction history. Already-expanded
+text is not restored to authored source, and old unavailable-value metadata still
+means missing evidence rather than learner data or a display instruction. Existing
+Profile option values and pending interactions retain their current protocol.
+
+Nickname and deletion refresh keep new raw script/brief sections unchanged while
+updating the memory block. Previously expanded prompts retain the existing refresh
+path. No session schema, field name, write policy or historical-data migration is
+introduced. See [literal prompts](markdownflow-literal-prompts.md) for the narrow
+sending contract. SDK tests establish request/policy delivery; they do not guarantee
+that a real model interprets every authored reference correctly.

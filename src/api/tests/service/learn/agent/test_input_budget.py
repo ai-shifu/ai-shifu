@@ -219,14 +219,16 @@ async def test_every_input_source_counts_before_gateway_io(
     assert not calls
 
 
-async def test_repeated_literal_braces_do_not_expand_omitted_memory(
+async def test_repeated_references_do_not_expand_and_original_memory_survives(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = []
 
     def chat(**kwargs: object) -> Iterator[FakeChunk]:
         calls.append(kwargs)
-        yield FakeChunk(result="A useful example.", finish_reason="stop")
+        yield FakeChunk(
+            result="Continue with the available context.", finish_reason="stop"
+        )
 
     monkeypatch.setattr(gw, "chat_llm", chat)
     engine = Engine(_model(), memory_context_limit=32768)
@@ -235,9 +237,10 @@ async def test_repeated_literal_braces_do_not_expand_omitted_memory(
     session = await engine.new_session(source, memory={"answer": answer})
     events = [event async for event in engine.run_turn(session)]
     assert len(calls) == 1
+    request = json.dumps(calls[0]["messages"], ensure_ascii=False)
+    assert answer not in request
+    assert f"<script>\n{source}\n</script>" in calls[0]["messages"][-1]["content"]
     assert isinstance(events[-1], TurnDone)
-    assert source in calls[0]["messages"][-1]["content"]
-    assert answer not in calls[0]["messages"][-1]["content"]
     assert session.memory["answer"] == answer
     assert not session.finished
 

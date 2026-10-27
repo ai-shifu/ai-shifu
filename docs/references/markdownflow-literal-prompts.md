@@ -2,51 +2,38 @@
 title: MarkdownFlow Literal Prompts
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-27
 canonical: true
 ---
 
 # MarkdownFlow Literal Prompts
 
-This contract applies only to native MarkdownFlow 2.0 course and Profile prompts.
-The MarkdownFlow 1.0 SDK, runtime and teacher preview contracts are unchanged.
+Native MarkdownFlow 2.0 sends a new session's authored script and teaching brief
+without server-side variable substitution. Script, brief and extra-document bodies
+retain their source text inside the existing request envelope. System instructions,
+separate memory, tools and learner input are still included through their existing
+paths. The model may interpret authored references using memory or recall; this
+contract does not require the model to display brace notation literally.
 
-Scripts, constraints, extras and authored verbatim text retain their original
-contents. Ordinary `{{...}}` is never replaced with a value from memory, including
-known values, zero, false, unavailable values, inline code, HTML and math. No
-`unavailable_learner_value` metadata is introduced in new prompts. To use a
-remembered fact, instruct the model to read authorized memory or use `recall`.
-Absent memory remains unknown; brace text is not learner evidence.
+The memory budget, referenced-key priority, collection rules, read/write permissions
+and recall limits stay unchanged. The existing variable and initial_variables fields,
+substitution utility and Profile interaction protocol also stay unchanged. In
+particular, a dynamic Profile option still uses its existing resolved machine value;
+this change does not introduce a literal-option protocol.
 
-The memory projection contains whole values within its existing budget. Only
-host-priority keys receive priority; brace text does not prioritize a value or
-insert a budget-omitted answer into the script. Complete input-budget checks
-still include the authored source, memory, history, tool arguments and returns.
-A verbatim completion anchor and a focused authored answer reference use the
-same literal source. Profile control validation likewise compares literal
-option values rather than substituting from the current learner snapshot.
+The initial prompt is assembled only for new sessions. Existing sessions keep saved
+prompts, pending controls, accepted answers and learner/tool history. Previously
+expanded text is not migrated back to source. Existing nickname/deletion handling
+for expanded sessions remains in place. For a prompt whose script already matches
+its authored source, those refreshes update the memory envelope without expanding
+the script or brief; a recognized explicit brief update also uses source text.
 
-New sessions no longer snapshot values for prompt substitution. Historical
-`initial_variables` snapshots remain readable for recognizing old native host
-prompts. Deletion and nickname refresh match literal sections or the historical
-expanded sections independently, then rebuild only recognized engine-owned
-initial memory/script/constraints. A recognized memory JSON envelope is refreshed
-independently even when the authored script cannot be matched; the complete
-unmatched script and suffix remain unchanged. The compatibility matcher reproduces old
-inline-code, HTML, math, escape-parity, malformed-example and main-script
-collection behavior. Unrecognized sections, learner messages, tool returns,
-extras and already displayed teaching are preserved. No 1.0 session is migrated.
+Stopping substitution removes the path that previously embedded a complete memory
+value in the script even if it did not fit the bounded memory block. A model may
+need recall or may be unable to read an oversized value. Deterministic interpolation
+is no longer guaranteed. Existing option-value validation, completion guards and
+conservative answer-reference fallbacks remain unchanged.
 
-A saved Profile control may carry a historically expanded option value. Only
-restored pending objects can match that historical contract, reconstructed from
-the recognized initial host prompt and its original values. Batched siblings
-retain this compatibility across store round trips. The initial host script is
-restored to literal source before another model request; new controls must match
-literal values even in a resumed historical session. Existing tool calls and
-accepted answers are never rewritten.
-
-This change retains native `variable` and `initial_variables` field names and
-the existing declaration/admission rules. Question-key naming, interaction
-collection semantics and authoring/preview migration are separate work in PR
-#3181, which is based on the literal-prompts branch. Neither PR changes the
-1.0 execution path or relaxes the release-only dependency gate.
+This work adds no field renaming, history matcher, cache/schema migration, frontend
+change, package release or deployment. It does not change the 1.0 SDK/runtime.
+Question-key migration remains separate work in PR #3181.

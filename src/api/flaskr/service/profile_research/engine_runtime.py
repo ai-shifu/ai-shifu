@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 from collections import Counter
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from flaskr.api.markdownflow import (
@@ -22,11 +22,6 @@ from flaskr.api.markdownflow import (
     render_question,
     unrenderable_reason,
 )
-from flaskr.common.markdownflow_prompt import (
-    _render_legacy_text,
-    historical_collected_names,
-    matched_section_length,
-)
 from flaskr.service.profile.api import SYS_USER_NICKNAME
 from flaskr.service.profile_research.authored_interaction import (
     check_authored_interaction,
@@ -38,18 +33,16 @@ from flaskr.service.profile_research.session import (
     _ProfileResearchSession,
 )
 from markdown_flow import BlockType, MarkdownFlow
-from markdownflow.engine.memory_context import parse_initial_memory_prompt
 from markdownflow.engine.variable_names import normalize_variable_name
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,
     ToolCallPart,
     ToolReturnPart,
-    UserPromptPart,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Callable
+    from collections.abc import AsyncIterator, Callable, Mapping
 
     from flaskr.api.markdownflow import (
         Event,
@@ -128,59 +121,16 @@ def _authored_questions(source: str) -> tuple[str, ...]:
     )
 
 
-def _restore_historical_questions(working: Session) -> tuple[str, ...]:
-    """Recognize issued controls from an old host prompt, preserving answer evidence."""
-    if not working.pending:
-        return ()
-    for index, message in enumerate(working.messages):
-        if not isinstance(message, ModelRequest):
-            continue
-        for part_index, part in enumerate(message.parts):
-            if not isinstance(part, UserPromptPart):
-                continue
-            if not isinstance(part.content, str):
-                return ()
-            parsed = parse_initial_memory_prompt(part.content)
-            if parsed is None:
-                return ()
-            source = working.script.script
-            literal = f"<script>\n{source}\n</script>"
-            # New sessions have an empty substitution snapshot. A nonempty
-            # historical snapshot also supports siblings after the first resume.
-            if (
-                part.content.startswith(literal, parsed.script_start)
-                and not working.initial_variables
-            ):
-                return ()
-            values = {**(working.initial_variables or {}), **parsed.memory}
-            collected = historical_collected_names(source)
-            length = matched_section_length(
-                part.content, parsed.script_start, "script", source, values, collected
-            )
-            if length is None:
-                return ()
-            historical = _render_legacy_text(source, values, collected=collected)
-            parts = list(message.parts)
-            parts[part_index] = replace(
-                part,
-                content=part.content[: parsed.script_start]
-                + literal
-                + part.content[parsed.script_start + length :],
-            )
-            working.messages[index] = replace(message, parts=parts)
-            working.initial_variables = values
-            return _authored_questions(historical)
-    return ()
-
-
 def _interaction_problem(
     spec: InteractionSpec,
     questions: tuple[str, ...],
+    variables: Mapping[str, object],
 ) -> str | None:
     if reason := unrenderable_reason(spec):
         return reason
     if questions and all(
-        check_authored_interaction(spec, source) is not None for source in questions
+        check_authored_interaction(spec, source, variables) is not None
+        for source in questions
     ):
         return (
             "Use one of the authored questionnaire interactions. Preserve its input type, "
@@ -262,20 +212,9 @@ def run_profile_turn(
     """Advance the full script, retaining native deferred calls, answers and memory."""
     working = _restore_engine_session(session)
     questions = _authored_questions(working.script.script)
-    restored_pending = tuple(working.pending)
-    historical_questions = _restore_historical_questions(working)
 
     def interaction_check(spec: InteractionSpec) -> str | None:
-        problem = _interaction_problem(spec, questions)
-        # Keep references to the restored PendingInteraction objects: Engine can
-        # normalize their specs in place. New tool calls never inherit this fallback.
-        if (
-            problem
-            and historical_questions
-            and any(pending.spec is spec for pending in restored_pending)
-        ):
-            return _interaction_problem(spec, historical_questions)
-        return problem
+        return _interaction_problem(spec, questions, working.all_memory())
 
     if any(interaction_check(pending.spec) for pending in working.pending):
         # Engine may set aside an unshowable question without accepting its answer.

@@ -23,7 +23,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from tests.service.learn.agent.test_memory_integration import _drive, _memory
 
 
-def test_oversized_defined_answer_stays_stored_and_authored_text_is_literal(
+def test_oversized_defined_answer_stays_stored_without_expanding_script(
     app: Flask,
 ) -> None:
     """A projection omission must never turn into a profile deletion or truncated answer."""
