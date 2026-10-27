@@ -710,7 +710,12 @@ class DocumentBlocks:
         )
 
     def reference_prefix(self, start: int) -> int | None:
-        """Read the bounded single-line label prefix of a reference definition."""
+        """Read a bounded reference definition prefix at original source offsets."""
+        prefix = self.reference_label_prefix(start)
+        return prefix[0] if prefix is not None else None
+
+    def reference_label_prefix(self, start: int) -> tuple[int, str] | None:
+        """Read the label and resource offset across native continuation lines."""
         index = self.by_start.get(start)
         if index is None:
             return None
@@ -727,13 +732,65 @@ class DocumentBlocks:
         match = COMPILED_REFERENCE_PREFIX_REGEX.match(
             self.text[content_start : line.content_end]
         )
-        if (
-            match is None
-            or len(match.group(1)) > 999
-            or not match.group(1).strip(" \t")
-        ):
+        if match is not None:
+            label = match.group(1)
+            if len(label) <= 999 and label.strip(" \t"):
+                return content_start + match.end(), label
             return None
-        return content_start + match.end()
+        if self.text[content_start : content_start + 1] != "[":
+            return None
+        at = content_start + 1
+        label_parts: list[str] = []
+        size = 0
+        steps = self.container_steps[index]
+        while at < len(self.text) and size <= 999:
+            character = self.text[at]
+            if character == "]":
+                label = "".join(label_parts)
+                if self.text[at + 1 : at + 2] != ":" or not label.strip():
+                    return None
+                at += 2
+                while at < len(self.text) and self.text[at] in " \t":
+                    at += 1
+                return at, label
+            if character == "[":
+                return None
+            if character == "\\" and at + 1 < len(self.text):
+                label_parts.append(character)
+                size += 1
+                at += 1
+                character = self.text[at]
+                if character not in "\r\n":
+                    label_parts.append(character)
+                    size += 1
+                    at += 1
+                    continue
+            if character in "\r\n":
+                index += 1
+                if index >= len(self.lines) or self.blank(index):
+                    return None
+                line = self.lines[index]
+                value = self.projected_line(index)
+                if (
+                    self.paragraph_interrupts(index)
+                    or self.inline_block_interrupts(index)
+                    or fence_opening(value) is not None
+                    or COMPILED_ATX_START_REGEX.match(value) is not None
+                ):
+                    return None
+                content = container_content_start(
+                    self.text[line.start : line.content_end], steps
+                )
+                at = line.start + (content if content is not None else 0)
+                while at < line.content_end and self.text[at] in " \t":
+                    at += 1
+                label_parts.append("\n")
+                size += 1
+                continue
+            label_parts.append(character)
+            size += 1
+            at += 1
+        return None
 
     def reference_space(self, start: int, origin: int) -> int | None:
         """Skip reference padding through matching container continuation prefixes."""

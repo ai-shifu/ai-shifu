@@ -1,6 +1,7 @@
 """Script bundling: variable substitution, script syntax detection, prompt assembly."""
 
 import pytest
+from markdown_it import MarkdownIt
 from markdownflow.engine import (
     ScriptBundle,
     collected_names,
@@ -297,6 +298,94 @@ def test_real_image_alt_controls_do_not_declare_bare_bindings(image: str) -> Non
     assert collected_names(image.replace("{{goal}}", "%{{goal}}")) == frozenset(
         {"goal"}
     )
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "[course\nimage]: /diagram.png",
+        "[course\r\nimage]: /diagram.png",
+        "[course\rimage]: /diagram.png",
+        "[course\n    image]: /diagram.png",
+        "> [course\n> image]: /diagram.png",
+        "- [course\n  image]: /diagram.png",
+        "[course\nimage]:\n  /diagram.png",
+    ],
+)
+@pytest.mark.parametrize("key", ["goal", "Which [path] | level//hint...?"])
+def test_multiline_image_reference_labels_do_not_authorize_interactions(
+    definition: str, key: str
+) -> None:
+    """Renderer-confirmed reference images keep their alt controls as reference text."""
+    marker = "{{ " + key + " }}"
+    source = "![?[" + marker + " A | B]][course image]\n\n" + definition
+    assert '<img src="/diagram.png"' in MarkdownIt().render(source)
+    assert collected_names(source) == frozenset()
+    assert '"current"' in render_first_prompt(
+        ScriptBundle(script=source), {key: "current"}
+    )
+    assert script_options(source + "\n\n?[{{visible}} C | D]") == {
+        "C": "C",
+        "D": "D",
+    }
+    assert marker not in substitute_variables(source, {key: "current"})
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "[course\n\nimage]: /diagram.png",
+        "[course\nimage] /diagram.png",
+        "[course\nimage]:",
+        "[course\nimage]: /diagram.png trailing",
+        "[course\n# image]: /diagram.png",
+        "```\n[course\nimage]: /diagram.png\n```",
+        "    [course\n    image]: /diagram.png",
+        "<div>\n[course\nimage]: /diagram.png\n</div>",
+        "{{\n[course\nimage]: /diagram.png\n}}",
+    ],
+)
+def test_unusable_multiline_image_definitions_keep_visible_controls(
+    definition: str,
+) -> None:
+    """Malformed, incomplete, literal, and opaque definitions cannot hide a real control."""
+    source = "![?[{{goal}} A | B]][course image]\n\n" + definition
+    assert "<img " not in MarkdownIt().render(source)
+    assert collected_names(source) == frozenset({"goal"})
+    assert script_options(source) == {"A": "A", "B": "B"}
+
+
+@pytest.mark.parametrize(
+    ("label", "definition", "image"),
+    [
+        ("course # image", "[course\n# image]: /x", False),
+        ("course ~~~", "[course\n~~~]: /x", False),
+        ("course # image", "[course\n    # image]: /x", True),
+        ("course ~~~", "[course\n    ~~~]: /x", True),
+        ("course\\ image", "[course\\\nimage]: /x", True),
+        ("course image", "> [course\nimage]: /x", True),
+        ("course image", "- [course\nimage]: /x", True),
+    ],
+)
+def test_multiline_reference_continuations_match_native_rendering(
+    label: str, definition: str, image: bool
+) -> None:
+    """Indentation, lazy container lines, and escapes retain native reference admission."""
+    source = "![?[{{goal}} A | B]][" + label + "]\n\n" + definition
+    assert ("<img " in MarkdownIt().render(source)) is image
+    assert collected_names(source) == (frozenset() if image else frozenset({"goal"}))
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
+
+
+def test_continuation_indentation_does_not_spend_the_reference_label_limit() -> None:
+    """Native continuation indentation is outside the bounded reference label."""
+    first = "a" * 993
+    label = first + " image"
+    source = "![?[{{goal}} A | B]][" + label + "]\n\n[" + first + "\n    image]: /x"
+    assert len(label) == 999
+    assert "<img " in MarkdownIt().render(source)
+    assert collected_names(source) == frozenset()
+    assert script_options(source) == {}
 
 
 @pytest.mark.parametrize(

@@ -10,7 +10,6 @@ from markdown_it.common.html_re import HTML_TAG_RE
 from markdown_it.common.utils import normalizeReference
 
 from .document_blocks import (
-    COMPILED_REFERENCE_PREFIX_REGEX,
     DocumentBlocks,
     container_content_info,
     container_content_start,
@@ -509,8 +508,9 @@ def analyze_marker_context(
             active_links.clear()
             context.unmatched_backticks.clear()
             context.unmatched_math.clear()
-        reference_start = blocks.reference_prefix(at)
-        if reference_start is not None:
+        reference_prefix = blocks.reference_label_prefix(at)
+        if reference_prefix is not None:
+            reference_start, reference_label = reference_prefix
             reference_end = _reference_end(text, reference_start, blocks)
             if not final and not blocks.reference_has_blank(reference_start, len(text)):
                 context.pending_reference_start = at
@@ -519,13 +519,7 @@ def analyze_marker_context(
                     blocks.by_start[blocks.line_at(at).start]
                 ]
             if reference_end is not None:
-                content_start = blocks.block_content_start(blocks.by_start[at])
-                if content_start is not None and (
-                    reference := COMPILED_REFERENCE_PREFIX_REGEX.match(
-                        text[content_start:reference_start]
-                    )
-                ):
-                    reference_labels.add(normalizeReference(reference.group(1)))
+                reference_labels.add(normalizeReference(reference_label))
                 context.literals.append((at, reference_end))
                 context.markers.extend(_literal_markers(text, at, reference_start))
                 context.markers.extend(
