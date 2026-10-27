@@ -725,7 +725,6 @@ def import_activation_order(
     )
     defaults = {
         "identify": normalized_identifier,
-        "nickname": nickname_value,
         "state": USER_STATE_REGISTERED,
     }
     existing_aggregate = load_user_aggregate_by_identifier(
@@ -770,9 +769,14 @@ def import_activation_order(
 
         entity = get_user_entity_by_bid(user_id, include_deleted=True)
         if entity:
+            # A locked refresh preserves a nickname set after the identity lookup.
+            db.session.refresh(entity, with_for_update=True)
             updates = {"identify": normalized_identifier}
-            if normalized_nickname:
-                updates["nickname"] = normalized_nickname
+            import_nickname = (
+                nickname_value if created_new_user else normalized_nickname
+            )
+            if import_nickname and not str(entity.nickname or "").strip():
+                updates["nickname"] = import_nickname
             if aggregate.state == USER_STATE_UNREGISTERED:
                 updates["state"] = USER_STATE_REGISTERED
             update_user_entity_fields(entity, **updates)
