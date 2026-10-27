@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminFilter from '@/app/admin/components/AdminFilter';
-import { useEnvStore } from '@/store';
 import {
   Select,
   SelectContent,
@@ -20,11 +19,12 @@ import {
   NOTIFICATION_SKIP_REASONS,
   NOTIFICATION_TYPES,
 } from './creditNotificationUtils';
-import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 
 const SELECT_ITEM_CLASS = 'pl-3 pr-8';
 
 export function CreditNotificationRecordsFilter({
+  identifierType,
   draftFilters,
   updateDraftFilter,
   searchRecords,
@@ -37,6 +37,7 @@ export function CreditNotificationRecordsFilter({
   resolveTypeLabel,
   resolveSourceTypeLabel,
 }: {
+  identifierType: LoginIdentifierType;
   draftFilters: NotificationFilters;
   updateDraftFilter: (field: keyof NotificationFilters, value: string) => void;
   searchRecords: () => void;
@@ -50,15 +51,10 @@ export function CreditNotificationRecordsFilter({
   resolveSourceTypeLabel: (value: string) => string;
 }) {
   const { t } = useTranslation();
-  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
-  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const clearLabel = t('common.core.close');
   const creatorPlaceholderKey =
-    resolvePreferredLoginIdentifierType(
-      loginMethodsEnabled,
-      defaultLoginMethod,
-    ) === 'email'
+    identifierType === 'email'
       ? 'module.operationsCreditNotifications.filters.creatorPlaceholderEmail'
       : 'module.operationsCreditNotifications.filters.creatorPlaceholderPhone';
 

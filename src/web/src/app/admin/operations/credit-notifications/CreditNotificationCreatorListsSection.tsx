@@ -1,4 +1,4 @@
-import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -32,7 +32,7 @@ const resolveSummaryCountKey = (type: CreditNotificationManagedListType) =>
     : 'module.operationsCreditNotifications.config.listDialog.optedOutSummary';
 
 export function CreditNotificationCreatorListsSection({
-  preferredLoginIdentifierType,
+  identifierType,
   blockedCreatorInput,
   blockedCreatorIdentifiers,
   optedOutCreatorIdentifiers,
@@ -40,7 +40,7 @@ export function CreditNotificationCreatorListsSection({
   onAddBlockedCreators,
   onOpenManagedListDialog,
 }: {
-  preferredLoginIdentifierType: LoginIdentifierType;
+  identifierType: LoginIdentifierType;
   blockedCreatorInput: string;
   blockedCreatorIdentifiers: string[];
   optedOutCreatorIdentifiers: string[];
@@ -150,7 +150,7 @@ export function CreditNotificationCreatorListsSection({
                   'module.operationsCreditNotifications.config.fields.blockedCreators',
                 )}
                 tooltip={t(
-                  preferredLoginIdentifierType === 'email'
+                  identifierType === 'email'
                     ? 'module.operationsCreditNotifications.config.fieldTips.creatorIdentifierListEmail'
                     : 'module.operationsCreditNotifications.config.fieldTips.creatorIdentifierListPhone',
                 )}
@@ -162,7 +162,7 @@ export function CreditNotificationCreatorListsSection({
                     autoComplete='off'
                     spellCheck={false}
                     placeholder={t(
-                      preferredLoginIdentifierType === 'email'
+                      identifierType === 'email'
                         ? 'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsEmail'
                         : 'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
                     )}

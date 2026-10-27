@@ -41,9 +41,10 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
-  resolvePreferredLoginIdentifierType,
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
   type LoginIdentifierType,
-} from '@/lib/resolve-preferred-login-identifier-type';
+} from '@/lib/login-identifiers';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
@@ -249,18 +250,22 @@ const resolvePrimaryAccount = ({
   mobile,
   email,
   userBid,
-  preferredLoginIdentifierType,
+  displayIdentifierType,
   emptyValue,
 }: {
   mobile?: string;
   email?: string;
   userBid?: string;
-  preferredLoginIdentifierType: LoginIdentifierType;
+  displayIdentifierType: LoginIdentifierType;
   emptyValue: string;
 }) => {
-  const preferred = preferredLoginIdentifierType === 'email' ? email : mobile;
-  const alternate = preferredLoginIdentifierType === 'email' ? mobile : email;
-  return formatValue(preferred || alternate || userBid, emptyValue);
+  const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
+  const alternateIdentifier =
+    displayIdentifierType === 'email' ? mobile : email;
+  return formatValue(
+    primaryIdentifier || alternateIdentifier || userBid,
+    emptyValue,
+  );
 };
 
 /**
@@ -318,10 +323,10 @@ export default function AdminOperationCourseFollowUpsPage() {
     'module.operationsCourse.messages.loadFollowUpDetailFailed',
   );
   const defaultUserName = t('module.user.defaultUserName');
-  const preferredLoginIdentifierType = useMemo<LoginIdentifierType>(
+  const displayIdentifierType = useMemo<LoginIdentifierType>(
     () =>
-      resolvePreferredLoginIdentifierType(
-        loginMethodsEnabled,
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
         defaultLoginMethod,
       ),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -336,10 +341,10 @@ export default function AdminOperationCourseFollowUpsPage() {
   );
   const userKeywordPlaceholder = useMemo(
     () =>
-      preferredLoginIdentifierType === 'email'
+      displayIdentifierType === 'email'
         ? tOperations('detail.followUps.filters.userKeywordPlaceholderEmail')
         : tOperations('detail.followUps.filters.userKeywordPlaceholderPhone'),
-    [preferredLoginIdentifierType, tOperations],
+    [displayIdentifierType, tOperations],
   );
 
   const [followUps, setFollowUps] =
@@ -990,7 +995,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                                   mobile: item.mobile,
                                   email: item.email,
                                   userBid: item.user_bid,
-                                  preferredLoginIdentifierType,
+                                  displayIdentifierType,
                                   emptyValue,
                                 });
                                 const secondaryAccount =
@@ -1168,7 +1173,7 @@ export default function AdminOperationCourseFollowUpsPage() {
         loading={detailLoading}
         error={detailError}
         emptyValue={emptyValue}
-        preferredLoginIdentifierType={preferredLoginIdentifierType}
+        displayIdentifierType={displayIdentifierType}
         defaultUserName={defaultUserName}
         resolveLessonDisplay={resolveDetailLessonDisplay}
         resolveOutlineFieldLabel={resolveDetailOutlineFieldLabel}

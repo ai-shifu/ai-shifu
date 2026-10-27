@@ -931,18 +931,46 @@ describe('AdminOperationUsersPage', () => {
     });
   });
 
-  test('shows both contact types in the combined user placeholder', async () => {
-    mockEnvState.loginMethodsEnabled = ['phone', 'email'];
-    mockEnvState.defaultLoginMethod = 'phone';
+  test.each([
+    {
+      methods: ['phone', 'email'],
+      defaultMethod: 'phone',
+      accountColumn: 'mobile',
+      identifier: '13812345678',
+    },
+    {
+      methods: ['phone', 'google'],
+      defaultMethod: 'google',
+      accountColumn: 'mobile',
+      identifier: '13812345678',
+    },
+    {
+      methods: [' EMAIL ', 'PHONE', 'google', 'phone'],
+      defaultMethod: 'email',
+      accountColumn: 'email',
+      identifier: 'user-1@example.com',
+    },
+  ])(
+    'shows both configured identifiers while retaining the $accountColumn account column',
+    async ({ methods, defaultMethod, accountColumn, identifier }) => {
+      mockEnvState.loginMethodsEnabled = methods;
+      mockEnvState.defaultLoginMethod = defaultMethod;
 
-    await renderResolvedPage();
+      await renderResolvedPage();
 
-    expect(
-      screen.getByPlaceholderText(
-        'module.operationsUser.filters.userPlaceholderPhoneEmail',
-      ),
-    ).toBeInTheDocument();
-  });
+      expect(
+        screen.getByPlaceholderText(
+          'module.operationsUser.filters.userPlaceholderPhoneEmail',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('columnheader', {
+          name: `module.operationsUser.table.${accountColumn}`,
+        }),
+      ).toBeInTheDocument();
+      expect(screen.getByText(identifier)).toBeInTheDocument();
+    },
+  );
 
   test('clicking the paid users overview card syncs status and quick filter', async () => {
     await renderResolvedPage();

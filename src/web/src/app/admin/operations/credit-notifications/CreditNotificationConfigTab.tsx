@@ -1,14 +1,13 @@
 import { useTranslation } from 'react-i18next';
-import { useEnvStore } from '@/store';
-import type { EnvStoreState } from '@/types/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Switch } from '@/components/ui/Switch';
-import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import type {
   AdminOperationCreditNotificationDryRunResponse,
+  CreditNotificationRule,
   AdminOperationCreditNotificationPolicy,
   AdminOperationCreditNotificationPolicyResolvedLists,
   AdminOperationCreditNotificationTemplateOption,
@@ -28,6 +27,8 @@ import {
 } from './useCreditNotificationConfigTabState';
 
 export function CreditNotificationConfigTab({
+  identifierType,
+  notificationChannel,
   policy,
   configLoaded,
   configLoading,
@@ -43,6 +44,8 @@ export function CreditNotificationConfigTab({
   onRuleAction,
   onLegacyRulesMigrated,
 }: {
+  identifierType: LoginIdentifierType;
+  notificationChannel: CreditNotificationRule['channel'];
   policy: AdminOperationCreditNotificationPolicy;
   configLoaded: boolean;
   configLoading: boolean;
@@ -62,16 +65,6 @@ export function CreditNotificationConfigTab({
   onLegacyRulesMigrated: () => void;
 }) {
   const { t } = useTranslation();
-  const loginMethodsEnabled = useEnvStore(
-    (state: EnvStoreState) => state.loginMethodsEnabled,
-  );
-  const defaultLoginMethod = useEnvStore(
-    (state: EnvStoreState) => state.defaultLoginMethod,
-  );
-  const preferredLoginIdentifierType = resolvePreferredLoginIdentifierType(
-    loginMethodsEnabled,
-    defaultLoginMethod,
-  );
   const {
     addBlockedCreators,
     blockedCreatorIdentifiers,
@@ -91,7 +84,7 @@ export function CreditNotificationConfigTab({
     setManagedListSearch,
     updateIntegerInput,
   } = useCreditNotificationConfigTabState({
-    preferredLoginIdentifierType,
+    identifierType,
     policy,
     resolvedLists,
     updatePolicy,
@@ -123,14 +116,14 @@ export function CreditNotificationConfigTab({
                   className='text-sm font-medium text-foreground'
                 >
                   {t(
-                    preferredLoginIdentifierType === 'email'
+                    notificationChannel === 'email'
                       ? 'module.operationsCreditNotifications.config.fields.enabledEmail'
                       : 'module.operationsCreditNotifications.config.fields.enabled',
                   )}
                 </Label>
                 <HelpTooltip>
                   {t(
-                    preferredLoginIdentifierType === 'email'
+                    notificationChannel === 'email'
                       ? 'module.operationsCreditNotifications.config.fieldTips.enabledEmail'
                       : 'module.operationsCreditNotifications.config.fieldTips.enabled',
                   )}
@@ -138,7 +131,7 @@ export function CreditNotificationConfigTab({
               </div>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>
                 {t(
-                  preferredLoginIdentifierType === 'email'
+                  notificationChannel === 'email'
                     ? 'module.operationsCreditNotifications.config.masterSwitchDescriptionEmail'
                     : 'module.operationsCreditNotifications.config.masterSwitchDescription',
                 )}
@@ -157,9 +150,7 @@ export function CreditNotificationConfigTab({
         </ConfigSection>
 
         <CreditNotificationRuleManagementSection
-          notificationChannel={
-            preferredLoginIdentifierType === 'email' ? 'email' : 'sms'
-          }
+          notificationChannel={notificationChannel}
           policy={policy}
           templateOptions={templateOptions}
           resolveTypeLabel={resolveTypeLabel}
@@ -169,7 +160,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationDeliveryRulesSection
-          preferredLoginIdentifierType={preferredLoginIdentifierType}
+          notificationChannel={notificationChannel}
           policy={policy}
           updatePolicy={updatePolicy}
           getIntegerInputValue={getIntegerInputValue}
@@ -178,7 +169,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationCreatorListsSection
-          preferredLoginIdentifierType={preferredLoginIdentifierType}
+          identifierType={identifierType}
           blockedCreatorInput={blockedCreatorInput}
           blockedCreatorIdentifiers={blockedCreatorIdentifiers}
           optedOutCreatorIdentifiers={optedOutCreatorIdentifiers}
@@ -188,7 +179,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationDryRunPanel
-          preferredLoginIdentifierType={preferredLoginIdentifierType}
+          notificationChannel={notificationChannel}
           dryRunResult={dryRunResult}
           dryRunError={dryRunError}
           dryRun={dryRun}
@@ -205,7 +196,7 @@ export function CreditNotificationConfigTab({
           open={managedListDialog !== null}
           title={managedListTitle}
           canDelete={managedListCanDelete}
-          preferredLoginIdentifierType={preferredLoginIdentifierType}
+          identifierType={identifierType}
           items={filteredManagedListDetails}
           search={managedListSearch}
           onSearchChange={setManagedListSearch}

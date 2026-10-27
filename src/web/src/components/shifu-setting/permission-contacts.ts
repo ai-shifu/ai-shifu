@@ -1,4 +1,4 @@
-import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { isValidEmail } from '@/lib/validators';
 
 export const MAX_SHARED_PERMISSION_COUNT = 10;
