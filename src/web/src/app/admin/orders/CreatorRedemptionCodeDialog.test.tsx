@@ -12,17 +12,30 @@ jest.mock('@/api', () => ({
   },
 }));
 
-const translationCache = new Map<string, (key: string) => string>();
+type MockTranslation = (
+  key: string,
+  options?: Record<string, unknown>,
+) => string;
+const translationCache = new Map<string, MockTranslation>();
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string) => {
     const cacheKey = namespace || 'translation';
     if (!translationCache.has(cacheKey)) {
-      translationCache.set(cacheKey, (key: string) =>
-        namespace ? `${namespace}.${key}` : key,
-      );
+      translationCache.set(cacheKey, (key, options) => {
+        if (key === 'module.order.redemptionCodes.valueAmountLabel') {
+          return `${key} (${options?.currency})`;
+        }
+        return namespace ? `${namespace}.${key}` : key;
+      });
     }
     return { t: translationCache.get(cacheKey)! };
   },
+}));
+
+let mockCurrencySymbol = '€';
+jest.mock('@/store/envStore', () => ({
+  useEnvStore: (selector: (state: { currencySymbol: string }) => unknown) =>
+    selector({ currencySymbol: mockCurrencySymbol }),
 }));
 
 jest.mock('@/hooks/useToast', () => ({
@@ -128,6 +141,7 @@ const mockUpdateCreatorCourseRedemptionCode =
 
 describe('CreatorRedemptionCodeDialog', () => {
   beforeEach(() => {
+    mockCurrencySymbol = '€';
     mockGetAdminOrderShifus.mockReset();
     mockCreateCreatorCourseRedemptionCode.mockReset();
     mockUpdateCreatorCourseRedemptionCode.mockReset();
@@ -141,6 +155,33 @@ describe('CreatorRedemptionCodeDialog', () => {
       coupon_bid: 'coupon-1',
     });
   });
+
+  test.each(['€', '$'])(
+    'shows the configured currency %s only for fixed amount discounts',
+    async currency => {
+      mockCurrencySymbol = currency;
+      render(
+        <CreatorRedemptionCodeDialog
+          open
+          onOpenChange={jest.fn()}
+        />,
+      );
+
+      await screen.findByRole('button', { name: 'Course 1' });
+      const amountLabel = `module.order.redemptionCodes.valueAmountLabel (${currency})`;
+      expect(screen.getByText(amountLabel)).toBeVisible();
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.order.redemptionCodes.discountTypePercent',
+        }),
+      );
+      expect(
+        screen.getByText('module.order.redemptionCodes.valuePercentLabel'),
+      ).toBeVisible();
+      expect(screen.queryByText(amountLabel)).not.toBeInTheDocument();
+    },
+  );
 
   test('loads published courses and submits a course scoped redemption code', async () => {
     render(
