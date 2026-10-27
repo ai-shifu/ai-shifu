@@ -10,7 +10,7 @@
   "memoryConfirmTitle": "Supprimer cette mémoire du cours ?",
   "memoryDelete": "Supprimer",
   "memoryDeleteFailed": "Impossible de supprimer cette mémoire. Réessayez.",
-  "memoryDescription": "Informations persistantes enregistrées pour ce cours. Gérez les données du compte dans les paramètres personnels.",
+  "memoryDescription": "Ces mémoires s’appliquent uniquement à ce cours. Gérez celles qui s’appliquent à l’ensemble du site dans les Paramètres de personnalisation.",
   "memoryEmpty": "Aucune mémoire de cours enregistrée.",
   "memoryLoadFailed": "Impossible de charger la mémoire. Réessayez.",
   "memoryLoading": "Chargement de la mémoire du cours",

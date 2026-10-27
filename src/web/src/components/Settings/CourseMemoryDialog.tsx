@@ -171,7 +171,7 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
                   key={item.value_id}
                   className='flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40'
                 >
-                  <div className='min-w-0 flex-1 space-y-1.5'>
+                  <div className='min-w-0 flex-1 space-y-1.5 text-left'>
                     <span className='inline-block max-w-full break-all rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground'>
                       {item.key}
                     </span>
