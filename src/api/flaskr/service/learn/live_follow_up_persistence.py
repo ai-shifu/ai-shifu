@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import json
 import math
 import uuid
 from dataclasses import dataclass
@@ -577,8 +576,3 @@ def persist_live_follow_up_turn(
         usage_bid=usage_bid,
         history_saved=history_saved,
     )
-
-
-def serialize_live_turn_result(result: LiveTurnPersistenceResult) -> str:
-    """Return a compact JSON representation for low-level integration tests."""
-    return json.dumps(result.__dict__, sort_keys=True, separators=(",", ":"))

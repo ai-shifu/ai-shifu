@@ -64,17 +64,6 @@ class LegacyLearnRecord:
         }
 
 
-def _set_stat(stats: object | None, field_name: str, value: int) -> None:
-    if stats is not None and hasattr(stats, field_name):
-        setattr(stats, field_name, int(value))
-
-
-def _inc_stat(stats: object | None, field_name: str, delta: int = 1) -> None:
-    if stats is not None and hasattr(stats, field_name):
-        current = int(getattr(stats, field_name, 0) or 0)
-        setattr(stats, field_name, current + int(delta))
-
-
 def build_legacy_record_for_progress(
     progress_record: LearnProgressRecord,
     *,
@@ -85,7 +74,6 @@ def build_legacy_record_for_progress(
     dedupe_blocks_by_bid: bool = False,
     dedupe_audio_by_block_position: bool = False,
     skip_empty_content: bool = False,
-    stats: object | None = None,
 ) -> LegacyLearnRecord:
     """Build legacy record for progress."""
     filters = [
@@ -105,14 +93,11 @@ def build_legacy_record_for_progress(
         .order_by(LearnGeneratedBlock.position.asc(), LearnGeneratedBlock.id.asc())
         .all()
     )
-    _set_stat(stats, "generated_blocks_total", len(generated_blocks))
 
     blocks_for_build = generated_blocks
     if dedupe_blocks_by_bid:
         latest_blocks_by_bid: dict[str, LearnGeneratedBlock] = {}
         for generated_block in generated_blocks:
-            if generated_block.generated_block_bid in latest_blocks_by_bid:
-                _inc_stat(stats, "duplicate_blocks_skipped")
             latest_blocks_by_bid[generated_block.generated_block_bid] = generated_block
         blocks_for_build = sorted(
             latest_blocks_by_bid.values(),
@@ -141,7 +126,6 @@ def build_legacy_record_for_progress(
             )
             .all()
         )
-        _set_stat(stats, "audio_records_total", len(audio_records))
 
         active_block_bids = set(generated_block_bids)
         latest_audio_by_block_position: dict[tuple[str, int], LearnGeneratedAudio] = {}
@@ -149,11 +133,8 @@ def build_legacy_record_for_progress(
             block_bid = audio_record.generated_block_bid or ""
             position = int(getattr(audio_record, "position", 0) or 0)
             if block_bid not in active_block_bids:
-                _inc_stat(stats, "orphan_audios_skipped")
                 continue
             dedupe_key = (block_bid, position)
-            if dedupe_key in latest_audio_by_block_position:
-                _inc_stat(stats, "duplicate_audios_skipped")
             latest_audio_by_block_position[dedupe_key] = audio_record
 
         for (block_bid, _position), audio_record in sorted(
@@ -215,7 +196,6 @@ def build_legacy_record_for_progress(
             else generated_block.block_content_conf
         )
         if skip_empty_content and not (content or "").strip():
-            _inc_stat(stats, "skipped_empty_blocks")
             continue
 
         block_audios = block_audios_map.get(generated_block.generated_block_bid) or []

@@ -1502,99 +1502,6 @@ def test_live_interaction_events_use_ui_role_and_generated_input(
         assert persisted.role == "ui"
 
 
-def test_backfill_populates_sequence_number_and_audio_url(app: object) -> None:
-    """Backfill should assign sequence_number and extract audio_url from payload."""
-    _require_app(app)
-
-    from flaskr.dao import db
-    from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.listen_element_legacy import (
-        backfill_learn_generated_elements_for_progress,
-    )
-    from flaskr.service.learn.models import (
-        LearnGeneratedBlock,
-        LearnGeneratedElement,
-        LearnProgressRecord,
-    )
-    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
-    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
-    from flaskr.service.tts.models import (
-        AUDIO_STATUS_COMPLETED,
-        LearnGeneratedAudio,
-    )
-
-    user_bid = "user-backfill-seqnum"
-    shifu_bid = "shifu-backfill-seqnum"
-    outline_bid = "outline-backfill-seqnum"
-    progress_bid = "progress-backfill-seqnum"
-    generated_block_bid = "generated-backfill-seqnum"
-    raw_content = "Hello world."
-
-    with app.app_context():
-        LearnGeneratedElement.query.delete()
-        LearnGeneratedAudio.query.delete()
-        LearnGeneratedBlock.query.delete()
-        LearnProgressRecord.query.delete()
-        db.session.commit()
-
-        progress = LearnProgressRecord(
-            progress_record_bid=progress_bid,
-            shifu_bid=shifu_bid,
-            outline_item_bid=outline_bid,
-            user_bid=user_bid,
-            status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
-        )
-        block = LearnGeneratedBlock(
-            generated_block_bid=generated_block_bid,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            block_bid="block-backfill-seqnum",
-            outline_item_bid=outline_bid,
-            shifu_bid=shifu_bid,
-            type=BLOCK_TYPE_MDCONTENT_VALUE,
-            role=ROLE_TEACHER,
-            generated_content=raw_content,
-            position=0,
-            block_content_conf="",
-            status=1,
-        )
-        audio = LearnGeneratedAudio(
-            audio_bid="audio-backfill-seqnum",
-            generated_block_bid=generated_block_bid,
-            position=0,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            oss_url="https://example.com/backfill-seqnum.mp3",
-            duration_ms=400,
-            status=AUDIO_STATUS_COMPLETED,
-        )
-        db.session.add_all([progress, block, audio])
-        db.session.commit()
-
-        backfill_learn_generated_elements_for_progress(app, progress_bid)
-
-        rows = (
-            LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.progress_record_bid == progress_bid,
-                LearnGeneratedElement.deleted == 0,
-                LearnGeneratedElement.status == 1,
-            )
-            .order_by(LearnGeneratedElement.run_event_seq.asc())
-            .all()
-        )
-
-    assert len(rows) == 1
-    row = rows[0]
-    assert row.sequence_number == 1
-    assert row.audio_url == "https://example.com/backfill-seqnum.mp3"
-    assert row.is_speakable == 1
-    assert row.is_new == 1
-    assert row.is_renderable == 0
-    assert row.is_marker == 0
-
-
 # ---------------------------------------------------------------------------
 # ElementPayloadDTO.asks tests
 # ---------------------------------------------------------------------------
@@ -1686,10 +1593,12 @@ class TestGeneratedTypeAsk:
 
 
 class TestAskContextLoading:
-    """Tests for _is_valid_asks and _load_ask_context."""
+    """Tests for the shared follow-up ask validation and history helpers."""
 
     def test_is_valid_asks_true(self) -> None:
-        from flaskr.service.learn.handle_input_ask import _is_valid_asks
+        from flaskr.service.learn.follow_up_context import (
+            is_complete_follow_up_asks as _is_valid_asks,
+        )
 
         asks = [
             {"role": "student", "content": "q"},
@@ -1698,13 +1607,17 @@ class TestAskContextLoading:
         assert _is_valid_asks(asks) is True
 
     def test_is_valid_asks_empty(self) -> None:
-        from flaskr.service.learn.handle_input_ask import _is_valid_asks
+        from flaskr.service.learn.follow_up_context import (
+            is_complete_follow_up_asks as _is_valid_asks,
+        )
 
         assert _is_valid_asks([]) is False
         assert _is_valid_asks(None) is False
 
     def test_is_valid_asks_student_only(self) -> None:
-        from flaskr.service.learn.handle_input_ask import _is_valid_asks
+        from flaskr.service.learn.follow_up_context import (
+            is_complete_follow_up_asks as _is_valid_asks,
+        )
 
         asks = [{"role": "student", "content": "q"}]
         assert _is_valid_asks(asks) is False
@@ -1712,7 +1625,9 @@ class TestAskContextLoading:
     def test_load_context_from_follow_up_elements(self) -> None:
         import types
 
-        from flaskr.service.learn.handle_input_ask import _load_ask_context
+        from flaskr.service.learn.follow_up_context import (
+            build_follow_up_element_history as _load_ask_context,
+        )
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
@@ -1749,7 +1664,9 @@ class TestAskContextLoading:
     def test_load_context_fallback_to_legacy_payload_asks(self) -> None:
         import types
 
-        from flaskr.service.learn.handle_input_ask import _load_ask_context
+        from flaskr.service.learn.follow_up_context import (
+            build_follow_up_element_history as _load_ask_context,
+        )
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
@@ -1778,7 +1695,9 @@ class TestAskContextLoading:
     def test_load_context_fallback_to_none(self) -> None:
         import types
 
-        from flaskr.service.learn.handle_input_ask import _load_ask_context
+        from flaskr.service.learn.follow_up_context import (
+            build_follow_up_element_history as _load_ask_context,
+        )
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
@@ -1791,14 +1710,18 @@ class TestAskContextLoading:
         assert result is None
 
     def test_load_context_none_element(self) -> None:
-        from flaskr.service.learn.handle_input_ask import _load_ask_context
+        from flaskr.service.learn.follow_up_context import (
+            build_follow_up_element_history as _load_ask_context,
+        )
 
         assert _load_ask_context(None, [], 10) is None
 
     def test_load_context_truncation(self) -> None:
         import types
 
-        from flaskr.service.learn.handle_input_ask import _load_ask_context
+        from flaskr.service.learn.follow_up_context import (
+            build_follow_up_element_history as _load_ask_context,
+        )
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
         from flaskr.service.learn.listen_element_payloads import _serialize_payload
 

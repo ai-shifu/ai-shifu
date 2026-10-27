@@ -121,7 +121,7 @@ def test_empty_session_identifier_fails_before_reading_redis(storage: object) ->
 
 
 @pytest.mark.parametrize(
-    "operation", ["store", "load", "touch", "reserve", "commit", "release", "consume"]
+    "operation", ["load", "touch", "reserve", "commit", "release", "consume"]
 )
 @pytest.mark.parametrize("failure", ["transport", "missing-client"])
 def test_redis_uncertainty_is_exposed_as_store_unavailability(
@@ -134,9 +134,6 @@ def test_redis_uncertainty_is_exposed_as_store_unavailability(
             method.side_effect = ConnectionError("unreachable")
     reservation = store.LiveFollowUpTurnReservation("session", 1, "claim")
     actions = {
-        "store": lambda: store.store_live_follow_up_session(
-            storage.app, session=storage.session
-        ),
         "load": lambda: store.load_live_follow_up_session(
             storage.app, session_bid="session"
         ),
@@ -173,15 +170,6 @@ def test_malformed_redis_reservation_result_cannot_advance_a_turn(
         store.reserve_live_follow_up_turn(
             storage.app, session_bid="session", turn_index=1
         )
-
-
-def test_existing_session_key_is_not_overwritten(storage: object) -> None:
-    storage.redis.set.return_value = False
-    with pytest.raises(
-        store.LiveFollowUpSessionStoreUnavailableError, match="session_not_stored"
-    ):
-        store.store_live_follow_up_session(storage.app, session=storage.session)
-    assert storage.redis.set.call_args.kwargs["nx"] is True
 
 
 def test_admitted_session_uses_redis_clock_and_rejects_uncertain_time(

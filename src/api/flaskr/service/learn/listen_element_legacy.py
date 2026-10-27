@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import uuid
-from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
-from flaskr.dao import db
-from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.learn_dtos import (
     BlockType,
     ElementAudioDTO,
@@ -16,10 +12,6 @@ from flaskr.service.learn.learn_dtos import (
     ElementPayloadDTO,
     ElementType,
     LearnElementRecordDTO,
-)
-from flaskr.service.learn.legacy_record_builder import (
-    LegacyLearnRecord,
-    build_legacy_record_for_progress,
 )
 from flaskr.service.learn.listen_element_factory import (
     _build_final_elements_for_av_contract,
@@ -32,7 +24,6 @@ from flaskr.service.learn.listen_element_matching import (
     get_speakable_text_elements,
 )
 from flaskr.service.learn.listen_element_payloads import _make_audio_payload
-from flaskr.service.learn.listen_element_rows import _serialize_element_row
 from flaskr.service.learn.listen_element_types import (
     _default_is_speakable,
     _element_type_code,
@@ -42,61 +33,16 @@ from flaskr.service.learn.listen_slide_builder import (
     VisualSegment,
     build_visual_segments_for_block,
 )
-from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
 if TYPE_CHECKING:
     from flask import Flask
-
-
-@dataclass
-class LearnElementsBackfillStats:
-    """Summarize statistics for learn elements backfill."""
-
-    progress_record_bid: str
-    progress_record_id: int = 0
-    shifu_bid: str = ""
-    outline_item_bid: str = ""
-    user_bid: str = ""
-    run_session_bid: str = ""
-    generated_blocks_total: int = 0
-    audio_records_total: int = 0
-    duplicate_blocks_skipped: int = 0
-    duplicate_audios_skipped: int = 0
-    orphan_audios_skipped: int = 0
-    skipped_empty_blocks: int = 0
-    existing_active_rows: int = 0
-    overwritten_rows: int = 0
-    inserted_rows: int = 0
-    elements_built: int = 0
-    skipped_existing: bool = False
-    dry_run: bool = False
-    error: str = ""
-
-    def as_dict(self) -> dict[str, object]:
-        """Serialize these backfill statistics as a dictionary."""
-        return asdict(self)
-
-
-def _build_legacy_record_for_progress(
-    progress_record: LearnProgressRecord,
-    stats: LearnElementsBackfillStats,
-) -> LegacyLearnRecord:
-    return build_legacy_record_for_progress(
-        progress_record,
-        include_like_status=False,
-        dedupe_blocks_by_bid=True,
-        dedupe_audio_by_block_position=True,
-        skip_empty_content=True,
-        stats=stats,
-    )
+    from flaskr.service.learn.legacy_record_builder import LegacyLearnRecord
 
 
 def build_listen_elements_from_legacy_record(
     app: Flask,
     legacy_record: LegacyLearnRecord,
-    *,
-    prefer_persisted_final_elements: bool = True,
 ) -> LearnElementRecordDTO:
     """Build listen elements from legacy record."""
     elements: list[ElementDTO] = []
@@ -172,7 +118,7 @@ def build_listen_elements_from_legacy_record(
             audio_by_position[int(getattr(audio, "position", 0) or 0)] = audio_payload
 
         persisted_final_elements: list[ElementDTO] = []
-        if prefer_persisted_final_elements and record.generated_block_bid:
+        if record.generated_block_bid:
             with app.app_context():
                 persisted_final_elements = get_final_elements_for_generated_block(
                     generated_block_bid=record.generated_block_bid,
@@ -281,107 +227,3 @@ def build_listen_elements_from_legacy_record(
 
     elements.sort(key=lambda item: (item.element_index, item.run_event_seq or 0))
     return LearnElementRecordDTO(elements=elements)
-
-
-def backfill_learn_generated_elements_for_progress(
-    app: Flask,
-    progress_record_bid: str,
-    *,
-    overwrite: bool = False,
-    dry_run: bool = False,
-) -> LearnElementsBackfillStats:
-    """Backfill learn generated elements for progress."""
-    # dry_run discards every staged write (including the overwrite reset)
-    # when the block exits; a real run commits all rows together.
-    with unit_of_work(discard=dry_run):
-        progress_record = (
-            LearnProgressRecord.query.filter(
-                LearnProgressRecord.progress_record_bid == progress_record_bid,
-                LearnProgressRecord.deleted == 0,
-            )
-            .order_by(LearnProgressRecord.id.desc())
-            .first()
-        )
-        if progress_record is None:
-            message = f"progress record not found: {progress_record_bid}"
-            raise ValueError(message)
-
-        stats = LearnElementsBackfillStats(
-            progress_record_bid=progress_record.progress_record_bid
-            or progress_record_bid,
-            progress_record_id=int(progress_record.id or 0),
-            shifu_bid=progress_record.shifu_bid or "",
-            outline_item_bid=progress_record.outline_item_bid or "",
-            user_bid=progress_record.user_bid or "",
-            dry_run=dry_run,
-        )
-
-        existing_rows_query = LearnGeneratedElement.query.filter(
-            LearnGeneratedElement.progress_record_bid
-            == progress_record.progress_record_bid,
-            LearnGeneratedElement.deleted == 0,
-            LearnGeneratedElement.status == 1,
-        )
-        stats.existing_active_rows = existing_rows_query.count()
-        if stats.existing_active_rows and not overwrite:
-            stats.skipped_existing = True
-            app.logger.info(
-                "Skip learn element backfill for progress %s: %s active rows already exist",
-                progress_record.progress_record_bid,
-                stats.existing_active_rows,
-            )
-            return stats
-
-        if stats.existing_active_rows and not dry_run:
-            stats.overwritten_rows = existing_rows_query.update(
-                {
-                    "status": 0,
-                },
-                synchronize_session=False,
-            )
-            db.session.flush()
-            db.session.expire_all()
-
-        legacy_record = _build_legacy_record_for_progress(progress_record, stats)
-        built_record = build_listen_elements_from_legacy_record(
-            app,
-            legacy_record,
-            prefer_persisted_final_elements=not (
-                overwrite and dry_run and stats.existing_active_rows
-            ),
-        )
-        stats.elements_built = len(built_record.elements)
-        stats.inserted_rows = stats.elements_built
-        stats.run_session_bid = (
-            f"backfill_{progress_record.progress_record_bid}_{uuid.uuid4().hex[:12]}"
-        )
-
-        if dry_run:
-            app.logger.info(
-                "Dry-run learn element backfill prepared: %s",
-                stats.as_dict(),
-            )
-            return stats
-
-        for run_event_seq, element in enumerate(built_record.elements, start=1):
-            element.sequence_number = run_event_seq
-            if (
-                element.payload
-                and element.payload.audio
-                and element.payload.audio.audio_url
-            ):
-                element.audio_url = element.payload.audio.audio_url
-                element.is_speakable = True
-            row = _serialize_element_row(
-                progress_record=progress_record,
-                element=element,
-                run_session_bid=stats.run_session_bid,
-                run_event_seq=run_event_seq,
-            )
-            db.session.add(row)
-
-        app.logger.info(
-            "Learn element backfill completed: %s",
-            stats.as_dict(),
-        )
-        return stats
