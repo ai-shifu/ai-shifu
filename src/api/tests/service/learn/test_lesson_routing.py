@@ -100,14 +100,18 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
     seen = []
     response = [object(), object()]
 
-    def script_engine(**kwargs: object) -> Iterator[object]:
+    def follow_up(**kwargs: object) -> Iterator[object]:
         seen.append(kwargs)
         yield from response
 
     def refuse_agent(*_args: object, **_kwargs: object) -> NoReturn:
         pytest.fail("A follow-up must not enter the teaching agent turn loop")
 
-    monkeypatch.setattr(runscript_v2, "run_script_inner", script_engine)
+    def refuse_script_engine(**_kwargs: object) -> NoReturn:
+        pytest.fail("A follow-up must not build the 1.0 script run context")
+
+    monkeypatch.setattr(runscript_v2, "_follow_up_events", follow_up)
+    monkeypatch.setattr(runscript_v2, "run_script_inner", refuse_script_engine)
     monkeypatch.setattr(lesson_entry, "agent_lesson_events", refuse_agent)
     commits = []
     monkeypatch.setattr(
@@ -138,10 +142,8 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
         {
             "app": app,
             "user_bid": "learner-bid",
-            "shifu_bid": SHIFU,
             "outline_bid": "lesson-bid",
             "user_input": question,
-            "input_type": INPUT_TYPE_ASK,
             "reload_generated_block_bid": block_bid,
             "reload_element_bid": element_bid,
             "listen": listen,
@@ -149,7 +151,6 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
             "preview_mode": preview,
             "stop_event": stop_event,
             "element_adapter": adapter,
-            "manage_app_context": False,
         }
     ]
     assert seen[0]["app"] is app
@@ -197,13 +198,13 @@ def test_follow_up_producer_normalizes_listen_before_sidecar_dispatch(
     monkeypatch.setattr(runscript_v2, "ListenElementRunAdapter", make_adapter)
     seen = []
 
-    def script_engine(**kwargs: object) -> Iterator[RunElementSSEMessageDTO]:
+    def follow_up(**kwargs: object) -> Iterator[RunElementSSEMessageDTO]:
         seen.append((kwargs, has_app_context()))
         yield RunElementSSEMessageDTO(
             type="element", event_type="element", content="Sidecar answer"
         )
 
-    monkeypatch.setattr(runscript_v2, "run_script_inner", script_engine)
+    monkeypatch.setattr(runscript_v2, "_follow_up_events", follow_up)
     events = stream_helpers._parse_sse_events(
         list(
             runscript_v2.run_script(
@@ -228,11 +229,9 @@ def test_follow_up_producer_normalizes_listen_before_sidecar_dispatch(
     assert kwargs["listen"] is False
     assert kwargs["learning_mode"] == ("listen" if listen else "read")
     assert kwargs["preview_mode"] is preview
-    assert kwargs["input_type"] == INPUT_TYPE_ASK
     assert kwargs["user_input"] == "Explain my answer."
     assert kwargs["reload_generated_block_bid"] == "selected-block"
     assert kwargs["reload_element_bid"] == "selected-element"
-    assert kwargs["manage_app_context"] is False
     assert len(adapters) == 1
     assert kwargs["element_adapter"] is adapters[0]
     assert adapters[0].persist_only_final is False
