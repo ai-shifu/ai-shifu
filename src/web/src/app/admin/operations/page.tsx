@@ -220,7 +220,9 @@ const OperationsPage = () => {
         : [displayIdentifierType],
     [displayIdentifierType, loginIdentifierTypes],
   );
-  const defaultLoginIdentifierType = useMemo<LoginIdentifierType>(() => {
+  // Transfer and copy dialogs start with phone when both types are available,
+  // independently of the deployment default used by single-field displays.
+  const defaultTransferIdentifierType = useMemo<LoginIdentifierType>(() => {
     if (transferIdentifierTypes.includes('phone')) {
       return 'phone';
     }
@@ -286,7 +288,7 @@ const OperationsPage = () => {
   const [copyTargetCourse, setCopyTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
   const [copyIdentifierType, setCopyIdentifierType] =
-    useState<LoginIdentifierType>(defaultLoginIdentifierType);
+    useState<LoginIdentifierType>(defaultTransferIdentifierType);
   const [copyIdentifier, setCopyIdentifier] = useState('');
   const [copyLoading, setCopyLoading] = useState(false);
   const [copyError, setCopyError] = useState('');
@@ -294,8 +296,8 @@ const OperationsPage = () => {
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
   const [transferTargetCourse, setTransferTargetCourse] =
     useState<AdminOperationCourseItem | null>(null);
-  const [transferIdentifierType, setLoginIdentifierType] =
-    useState<LoginIdentifierType>(defaultLoginIdentifierType);
+  const [transferIdentifierType, setTransferIdentifierType] =
+    useState<LoginIdentifierType>(defaultTransferIdentifierType);
   const [transferIdentifier, setTransferIdentifier] = useState('');
   const [transferLoading, setTransferLoading] = useState(false);
   const [transferError, setTransferError] = useState('');
@@ -705,25 +707,25 @@ const OperationsPage = () => {
       }
       transferRequestIdRef.current += 1;
       setTransferTargetCourse(null);
-      setLoginIdentifierType(defaultLoginIdentifierType);
+      setTransferIdentifierType(defaultTransferIdentifierType);
       setTransferIdentifier('');
       setTransferError('');
       setTransferConfirmOpen(false);
       setTransferLoading(false);
     },
-    [defaultLoginIdentifierType],
+    [defaultTransferIdentifierType],
   );
 
   const closeCopyDialog = useCallback(() => {
     copyRequestIdRef.current += 1;
     setCopyDialogOpen(false);
     setCopyTargetCourse(null);
-    setCopyIdentifierType(defaultLoginIdentifierType);
+    setCopyIdentifierType(defaultTransferIdentifierType);
     setCopyIdentifier('');
     setCopyError('');
     setCopyConfirmOpen(false);
     setCopyLoading(false);
-  }, [defaultLoginIdentifierType]);
+  }, [defaultTransferIdentifierType]);
 
   const handleCopyDialogOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -742,27 +744,27 @@ const OperationsPage = () => {
   const handleCopyCourseClick = useCallback(
     (course: AdminOperationCourseItem) => {
       setCopyTargetCourse(course);
-      setCopyIdentifierType(defaultLoginIdentifierType);
+      setCopyIdentifierType(defaultTransferIdentifierType);
       setCopyIdentifier('');
       setCopyError('');
       setCopyConfirmOpen(false);
       setCopyLoading(false);
       setCopyDialogOpen(true);
     },
-    [defaultLoginIdentifierType],
+    [defaultTransferIdentifierType],
   );
 
   const handleTransferCreatorClick = useCallback(
     (course: AdminOperationCourseItem) => {
       setTransferTargetCourse(course);
-      setLoginIdentifierType(defaultLoginIdentifierType);
+      setTransferIdentifierType(defaultTransferIdentifierType);
       setTransferIdentifier('');
       setTransferError('');
       setTransferConfirmOpen(false);
       setTransferLoading(false);
       setTransferDialogOpen(true);
     },
-    [defaultLoginIdentifierType],
+    [defaultTransferIdentifierType],
   );
 
   const resolveCourseStatusLabel = useCallback(
@@ -921,10 +923,10 @@ const OperationsPage = () => {
       return;
     }
     if (!transferIdentifierTypes.includes(transferIdentifierType)) {
-      setLoginIdentifierType(defaultLoginIdentifierType);
+      setTransferIdentifierType(defaultTransferIdentifierType);
     }
   }, [
-    defaultLoginIdentifierType,
+    defaultTransferIdentifierType,
     transferIdentifierTypes,
     transferIdentifierType,
     transferDialogOpen,
@@ -935,12 +937,12 @@ const OperationsPage = () => {
       return;
     }
     if (!transferIdentifierTypes.includes(copyIdentifierType)) {
-      setCopyIdentifierType(defaultLoginIdentifierType);
+      setCopyIdentifierType(defaultTransferIdentifierType);
     }
   }, [
     copyIdentifierType,
     copyDialogOpen,
-    defaultLoginIdentifierType,
+    defaultTransferIdentifierType,
     transferIdentifierTypes,
   ]);
 
@@ -1546,7 +1548,7 @@ const OperationsPage = () => {
           hintText={transferHintText}
           onOpenChange={handleTransferDialogOpenChange}
           onConfirmOpenChange={setTransferConfirmOpen}
-          onContactTypeChange={setLoginIdentifierType}
+          onContactTypeChange={setTransferIdentifierType}
           onIdentifierChange={value => {
             setTransferIdentifier(value);
             if (transferError) {
