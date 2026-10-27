@@ -5,7 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 from flask import has_app_context
-from flaskr.service.learn import runscript_v2 as runtime
+from flaskr.service.learn.host import run as host_run
 from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 
 from . import test_runscript_v2_lock as existing
@@ -17,16 +17,16 @@ def stream_runtime(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     app.config["SSE_HEARTBEAT_INTERVAL"] = 0.001
     lock = existing.FakeLock([True])
     cache = existing.FakeCacheProvider(lock)
-    monkeypatch.setattr(runtime, "cache_provider", cache)
+    monkeypatch.setattr(host_run, "cache_provider", cache)
     monkeypatch.setattr(
-        runtime, "ListenElementRunAdapter", existing.FakeListenElementAdapter
+        host_run, "ListenElementRunAdapter", existing.FakeListenElementAdapter
     )
-    monkeypatch.setattr(runtime, "_teaches_with_agent", lambda **_kwargs: False)
+    monkeypatch.setattr(host_run, "_teaches_with_agent", lambda **_kwargs: False)
     remove, discard, release = Mock(), Mock(), Mock()
-    monkeypatch.setattr(runtime, "_remove_db_session_safely", remove)
-    monkeypatch.setattr(runtime, "_discard_session_connection", discard)
-    monkeypatch.setattr(runtime, "_ask_sem_acquire", Mock(return_value=True))
-    monkeypatch.setattr(runtime, "_ask_sem_release", release)
+    monkeypatch.setattr(host_run, "_remove_db_session_safely", remove)
+    monkeypatch.setattr(host_run, "_discard_session_connection", discard)
+    monkeypatch.setattr(host_run, "_ask_sem_acquire", Mock(return_value=True))
+    monkeypatch.setattr(host_run, "_ask_sem_release", release)
     return SimpleNamespace(
         app=app, cache=cache, lock=lock, remove=remove, discard=discard, release=release
     )
@@ -61,8 +61,8 @@ def test_transport_disconnect_stops_producer_and_releases_course_lock(
         finally:
             closed.append(True)
 
-    monkeypatch.setattr(runtime, "_lesson_events", produce)
-    stream = runtime.run_script(stream_runtime.app, "course", "lesson", "learner")
+    monkeypatch.setattr(host_run, "_lesson_events", produce)
+    stream = host_run.run_script(stream_runtime.app, "course", "lesson", "learner")
     first = existing._parse_sse_events([next(stream)])[0]
     while phase == "data" and first["type"] == "heartbeat":
         first = existing._parse_sse_events([next(stream)])[0]
@@ -95,7 +95,7 @@ def test_canceled_ask_releases_only_its_semaphore_and_keeps_lesson_status(
     stream_runtime: SimpleNamespace,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    lesson_key = runtime._get_run_script_status_key(
+    lesson_key = host_run._get_run_script_status_key(
         stream_runtime.app, "learner", "lesson"
     )
     stream_runtime.cache.setex(lesson_key, 60, "active-lesson")
@@ -118,8 +118,8 @@ def test_canceled_ask_releases_only_its_semaphore_and_keeps_lesson_status(
             content="Discarded answer",
         )
 
-    monkeypatch.setattr(runtime, "_lesson_events", produce)
-    stream = runtime.run_script(
+    monkeypatch.setattr(host_run, "_lesson_events", produce)
+    stream = host_run.run_script(
         stream_runtime.app, "course", "lesson", "learner", input_type="ask"
     )
     first = existing._parse_sse_events([next(stream)])[0]

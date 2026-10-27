@@ -203,7 +203,7 @@ def mock_redis_client(monkeypatch: object, request: object) -> object:
         "flaskr.service.user.auth.providers.google",
         "flaskr.service.config.funcs",
         "flaskr.service.shifu.funcs",
-        "flaskr.service.learn.runscript_v2",
+        "flaskr.service.learn.host.run",
         "flaskr.service.order.funs",
     ]
     for module_path in module_paths:

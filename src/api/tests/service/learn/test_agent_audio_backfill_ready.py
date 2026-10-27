@@ -4,8 +4,8 @@ from collections.abc import Iterator
 
 import pytest
 from flask import Flask
-from flaskr.service.learn import runscript_v2 as runtime
 from flaskr.service.learn.agent import lesson_entry
+from flaskr.service.learn.host import lesson as host_lesson
 from flaskr.service.learn.learn_dtos import (
     ElementDTO,
     ElementType,
@@ -32,9 +32,9 @@ def execution(monkeypatch: pytest.MonkeyPatch) -> dict:
     monkeypatch.setattr(preview_history, "preview_status_event", lambda *_a, **_k: None)
     sequence = []
     staged = []
-    monkeypatch.setattr(runtime, "_ensure_healthy_db_connection", lambda _app: None)
+    monkeypatch.setattr(host_lesson, "_ensure_healthy_db_connection", lambda _app: None)
     monkeypatch.setattr(
-        runtime, "_commit_pending_step", lambda: sequence.append("commit")
+        host_lesson, "_commit_pending_step", lambda: sequence.append("commit")
     )
     raw = RunMarkdownFlowDTO(
         outline_bid="lesson",
@@ -87,7 +87,7 @@ def execution(monkeypatch: pytest.MonkeyPatch) -> dict:
 
 def _events(execution: dict, **overrides: object) -> Iterator:
     """Exercise the routed agent path with the same adapter the producer owns."""
-    return runtime._lesson_events(
+    return host_lesson._lesson_events(
         **{
             "app": Flask(__name__),
             "user_bid": "learner",
@@ -141,7 +141,7 @@ def test_failed_agent_snapshot_commit_emits_neither_ready_nor_terminal_success(
         message = "commit failed"
         raise RuntimeError(message)
 
-    monkeypatch.setattr(runtime, "_commit_pending_step", fail_commit)
+    monkeypatch.setattr(host_lesson, "_commit_pending_step", fail_commit)
     events = _events(execution)
     assert next(events).type == "element"
     with pytest.raises(RuntimeError, match="commit failed"):
@@ -291,7 +291,7 @@ def test_failed_turn_commits_partial_elements_without_success_or_completion(
         persist_only_final=True,
     )
     monkeypatch.setattr(adapter, "_load_block_meta", lambda _bid: BlockMeta())
-    monkeypatch.setattr(runtime, "_ensure_healthy_db_connection", lambda _app: None)
+    monkeypatch.setattr(host_lesson, "_ensure_healthy_db_connection", lambda _app: None)
     failure = AppError("Turn failed", ERROR_CODE[error_key])
 
     def agent(*_args: object, **_kwargs: object) -> Iterator:
@@ -347,7 +347,7 @@ def test_turn_discarded_by_a_reset_writes_no_partial_elements(
         persist_only_final=True,
     )
     monkeypatch.setattr(adapter, "_load_block_meta", lambda _bid: BlockMeta())
-    monkeypatch.setattr(runtime, "_ensure_healthy_db_connection", lambda _app: None)
+    monkeypatch.setattr(host_lesson, "_ensure_healthy_db_connection", lambda _app: None)
     from flaskr.service.learn.agent.lesson_entry import DiscardedTurnError
 
     failure = DiscardedTurnError(

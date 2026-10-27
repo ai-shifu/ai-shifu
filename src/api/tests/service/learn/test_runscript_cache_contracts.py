@@ -7,7 +7,7 @@ import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.service.learn import learn_funcs as learn
-from flaskr.service.learn import runscript_v2 as run
+from flaskr.service.learn.host import run
 
 from tests.service.learn import test_live_follow_up_admission as admission_tests
 

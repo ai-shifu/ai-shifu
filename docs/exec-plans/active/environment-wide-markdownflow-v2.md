@@ -64,7 +64,7 @@ outside this agent's authority.
 ## Context and Orientation
 
 `src/api/flaskr/service/learn/agent/routing.py` selects the lesson runtime;
-`flaskr/common/config.py` owns environment declarations. `runscript_v2.py`
+`flaskr/common/config.py` owns environment declarations. `learn/host/run.py`
 excludes Ask from 2.0. The deployment-config repository owns
 `k8s/cn/sim/sim-api-deployment.yaml` and must carry the sim-only override.
 

@@ -1305,7 +1305,7 @@ def _yield_with_tts_error_mapping(
 # A client that enters listen mode may fan out block-audio synthesis for a whole
 # lesson at once, which can saturate the shared provider RPM gate. This counting
 # semaphore caps how many block-audio syntheses a single learner runs in parallel
-# for one outline. It mirrors the ask semaphore in runscript_v2 (Redis Lua
+# for one outline. It mirrors the ask semaphore in learn/host/run.py (Redis Lua
 # counter, TTL leak-protection, fail-open when Redis is unavailable).
 
 DEFAULT_MAX_PARALLEL_TTS_SYNTH_COUNT = 6
