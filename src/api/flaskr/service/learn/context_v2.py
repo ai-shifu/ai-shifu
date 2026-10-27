@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Union
 
 from flask import Flask
 from flaskr.api.langfuse import (
+    LangfuseObservationHandle,
     LangfuseTraceHandle,
     MockClient,
     coerce_langfuse_trace_id,
@@ -2245,22 +2246,28 @@ class RunScriptContextV2:
         self._trace_id = get_session_trace_id(
             session_id, user_id=self._trace_args.get("user_id", "")
         )
-        # A failed replacement must never leave the previous session's ended
-        # handles available to the error finalizer.
-        self._trace, self._trace_root_span = MockClient(), None
+        # Keep downstream model, ask, and interaction calls usable if the SDK
+        # fails, without reusing an earlier session's ended handles.
+        self._trace = LangfuseTraceHandle(MockClient(), self._trace_id)
+        self._trace_root_span = LangfuseObservationHandle(MockClient(), self._trace_id)
         self._trace_finalized = False
-        self._trace, self._trace_root_span = create_trace_with_root_span(
-            client=get_langfuse_client(),
-            trace_payload={"id": self._trace_id, **self._trace_args},
-            root_span_payload={
-                "name": build_langfuse_span_name(
-                    metadata.get("chapter_title")
-                    or getattr(self._outline_item_info, "title", ""),
-                    metadata.get("scene", "lesson_runtime"),
-                    "root",
-                ),
-            },
-        )
+        try:
+            self._trace, self._trace_root_span = create_trace_with_root_span(
+                client=get_langfuse_client(),
+                trace_payload={"id": self._trace_id, **self._trace_args},
+                root_span_payload={
+                    "name": build_langfuse_span_name(
+                        metadata.get("chapter_title")
+                        or getattr(self._outline_item_info, "title", ""),
+                        metadata.get("scene", "lesson_runtime"),
+                        "root",
+                    ),
+                },
+            )
+        except Exception as telemetry_error:
+            self.app.logger.warning(
+                "Langfuse trace creation failed (%s)", type(telemetry_error).__name__
+            )
         self.app.logger.info(
             "langfuse runtime trace session bound | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
             metadata.get("request_id", ""),

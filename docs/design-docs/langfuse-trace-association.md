@@ -96,9 +96,11 @@ existing questionnaire session id from the outset. A learning request that
 fails before any session is resolved retains a request-based error trace.
 Legacy finalization uses the captured request id for that fallback, records the
 exception type and error outcome, and runs at most once per root. SDK failures
-during this optional finalization cannot replace the original business error or
-prevent database cleanup. Errors after session binding retain that session's
-trace instead of creating a fallback.
+during session binding use no-op trace and observation handles with the same
+session trace id, so teaching, moderation, follow-up questions, and usage
+correlation continue normally. Optional finalization cannot replace the original
+business error or prevent database cleanup. Errors after session binding retain
+that session's trace instead of creating a request-based fallback.
 
 Only new observations use this identity. Historical request traces remain
 unchanged, including those belonging to sessions resumed after rollout; the
