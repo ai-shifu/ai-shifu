@@ -1,6 +1,6 @@
 import { isValidEmail } from '@/lib/validators';
 
-import type { ContactMode } from '@/lib/resolve-contact-mode';
+import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 
 export const CONTACT_PHONE_PATTERN = /^\d{11}$/;
 
@@ -9,11 +9,11 @@ export const CONTACT_PHONE_PATTERN = /^\d{11}$/;
  * emails are lowercased, phone numbers only lose surrounding whitespace.
  */
 export const normalizeContactIdentifier = (
-  contactMode: ContactMode,
+  loginMethodDisplayMode: LoginMethodDisplayMode,
   value: string,
 ): string => {
   const trimmed = value.trim();
-  return contactMode === 'email' ? trimmed.toLowerCase() : trimmed;
+  return loginMethodDisplayMode === 'email' ? trimmed.toLowerCase() : trimmed;
 };
 
 /**
@@ -21,14 +21,14 @@ export const normalizeContactIdentifier = (
  * never have to remember to normalize before asking.
  */
 export const isValidContactIdentifier = (
-  contactMode: ContactMode,
+  loginMethodDisplayMode: LoginMethodDisplayMode,
   value: string,
 ): boolean => {
-  const normalized = normalizeContactIdentifier(contactMode, value);
+  const normalized = normalizeContactIdentifier(loginMethodDisplayMode, value);
   if (!normalized) {
     return false;
   }
-  if (contactMode === 'email') {
+  if (loginMethodDisplayMode === 'email') {
     return isValidEmail(normalized);
   }
   return CONTACT_PHONE_PATTERN.test(normalized);

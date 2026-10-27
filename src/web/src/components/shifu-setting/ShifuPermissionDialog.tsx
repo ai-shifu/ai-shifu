@@ -6,7 +6,7 @@ import api from '@/api';
 import { useEnvStore } from '@/store';
 import { useUserStore } from '@/store';
 import { useToast } from '@/hooks/useToast';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import {
@@ -74,8 +74,9 @@ export default function ShifuPermissionDialog({
   const currentUserId = currentUser?.user_id || '';
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const contactType = React.useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = React.useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const canManagePermissions =
@@ -134,8 +135,8 @@ export default function ShifuPermissionDialog({
     if (!open || !shifu?.bid || !canManagePermissions) {
       return null;
     }
-    return ['shifu-permissions', shifu.bid, contactType] as const;
-  }, [canManagePermissions, contactType, open, shifu?.bid]);
+    return ['shifu-permissions', shifu.bid, loginMethodDisplayMode] as const;
+  }, [canManagePermissions, loginMethodDisplayMode, open, shifu?.bid]);
 
   const {
     data: permissionData,
@@ -144,10 +145,10 @@ export default function ShifuPermissionDialog({
     mutate: refreshPermissionList,
   } = useSWR(
     permissionKey,
-    async ([, shifuBid, contactTypeValue]) =>
+    async ([, shifuBid, loginMethodDisplayModeValue]) =>
       (await api.listShifuPermissions({
         shifu_bid: shifuBid,
-        contact_type: contactTypeValue,
+        contact_type: loginMethodDisplayModeValue,
       })) as { items?: SharedPermission[] },
     { revalidateOnFocus: false },
   );
@@ -169,15 +170,15 @@ export default function ShifuPermissionDialog({
   }, [open, permissionLoadError, t, toast]);
 
   const contactLabel =
-    contactType === 'email'
+    loginMethodDisplayMode === 'email'
       ? t('module.shifuSetting.permissionEmailLabel')
       : t('module.shifuSetting.permissionPhoneLabel');
   const contactPlaceholder =
-    contactType === 'email'
+    loginMethodDisplayMode === 'email'
       ? t('module.shifuSetting.permissionEmailPlaceholder')
       : t('module.shifuSetting.permissionPhonePlaceholder');
   const contactHint =
-    contactType === 'email'
+    loginMethodDisplayMode === 'email'
       ? t('module.shifuSetting.permissionEmailHint', {
           max: MAX_SHARED_PERMISSION_COUNT,
         })
@@ -214,14 +215,14 @@ export default function ShifuPermissionDialog({
     }
     const result = validatePermissionContacts({
       value: permissionInput,
-      contactType,
+      contactType: loginMethodDisplayMode,
       existingPermissions: permissionList,
       owner: currentUser,
     });
     switch (result.type) {
       case 'invalid':
         setPermissionError(
-          contactType === 'email'
+          loginMethodDisplayMode === 'email'
             ? t('module.shifuSetting.permissionEmailInvalid', {
                 values: formatPermissionContactSample(result.contacts),
               })
@@ -258,7 +259,7 @@ export default function ShifuPermissionDialog({
     setGrantConfirmOpen(true);
   }, [
     canManagePermissions,
-    contactType,
+    loginMethodDisplayMode,
     currentUser,
     permissionInput,
     permissionLevel,
@@ -281,7 +282,7 @@ export default function ShifuPermissionDialog({
     try {
       await api.grantShifuPermissions({
         shifu_bid: shifu.bid,
-        contact_type: contactType,
+        contact_type: loginMethodDisplayMode,
         contacts: pendingGrantContacts,
         permission: pendingGrantPermission,
       });
@@ -297,7 +298,7 @@ export default function ShifuPermissionDialog({
     }
   }, [
     canManagePermissions,
-    contactType,
+    loginMethodDisplayMode,
     onOpenChange,
     pendingGrantContacts,
     pendingGrantPermission,
@@ -404,7 +405,7 @@ export default function ShifuPermissionDialog({
         grants.map(operation =>
           api.grantShifuPermissions({
             shifu_bid: shifu.bid,
-            contact_type: contactType,
+            contact_type: loginMethodDisplayMode,
             contacts: [operation.identifier || ''],
             permission: operation.permission || 'view',
           }),
@@ -448,7 +449,7 @@ export default function ShifuPermissionDialog({
     }
   }, [
     canManagePermissions,
-    contactType,
+    loginMethodDisplayMode,
     onOpenChange,
     permissionEdits,
     permissionList,

@@ -48,7 +48,7 @@ import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import { resolveBillingOrderStatusLabel } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { cn } from '@/lib/utils';
 import {
   resolveOperationCreditOrderKindLabel,
@@ -204,8 +204,9 @@ export default function CreditOrdersTab() {
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const contactType = React.useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = React.useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultCreatorName = React.useMemo(
@@ -255,7 +256,7 @@ export default function CreditOrdersTab() {
     usesLatinLabels && 'xl:max-w-[220px]',
   );
   const creatorKeywordPlaceholder = React.useMemo(() => {
-    if (contactType === 'email') {
+    if (loginMethodDisplayMode === 'email') {
       return tOperationsOrder(
         'creditOrders.filters.creatorKeywordPlaceholderEmail',
       );
@@ -263,7 +264,7 @@ export default function CreditOrdersTab() {
     return tOperationsOrder(
       'creditOrders.filters.creatorKeywordPlaceholderPhone',
     );
-  }, [contactType, tOperationsOrder]);
+  }, [loginMethodDisplayMode, tOperationsOrder]);
 
   const fetchOverview = React.useCallback(async () => {
     try {
@@ -891,7 +892,7 @@ export default function CreditOrdersTab() {
                       order.creator_bid,
                     );
                     const creatorContact =
-                      contactType === 'email'
+                      loginMethodDisplayMode === 'email'
                         ? order.creator_email ||
                           order.creator_mobile ||
                           order.creator_identify ||

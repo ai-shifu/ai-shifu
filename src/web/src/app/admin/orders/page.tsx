@@ -36,7 +36,7 @@ import {
   type OrderListResponse,
   type OrdersPageTab,
 } from './ordersPageShared';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/store';
@@ -167,11 +167,12 @@ const OrdersPage = () => {
 
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
 
-  const contactType = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
-  const isEmailMode = contactType === 'email';
+  const isEmailMode = loginMethodDisplayMode === 'email';
 
   const userBidPlaceholder = useMemo(() => {
     if (isEmailMode) {

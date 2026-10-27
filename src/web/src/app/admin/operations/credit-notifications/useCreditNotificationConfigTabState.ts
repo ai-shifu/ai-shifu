@@ -1,3 +1,4 @@
+import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { TFunction } from 'i18next';
 import { toast } from '@/hooks/useToast';
@@ -61,7 +62,7 @@ const trimInvalidDisplay = (value: string): string =>
 
 const parseBlockedCreatorInput = (
   value: string,
-  contactMode: 'email' | 'phone',
+  loginMethodDisplayMode: LoginMethodDisplayMode,
 ) => {
   const normalized = normalizeListInputCharacters(value).replace(/\t/g, ' ');
   const creatorBids: string[] = [];
@@ -93,11 +94,11 @@ const parseBlockedCreatorInput = (
       return;
     }
     const contactMatches =
-      contactMode === 'email'
+      loginMethodDisplayMode === 'email'
         ? findEmailIdentifiers(line)
         : findPhoneIdentifiers(line);
     if (contactMatches.length > 0) {
-      if (contactMode === 'email') {
+      if (loginMethodDisplayMode === 'email') {
         creatorBids.push(...contactMatches);
         return;
       }
@@ -141,7 +142,7 @@ const buildListDetails = (
 const filterListDetails = (
   items: AdminOperationCreditNotificationPolicyListItem[],
   keyword: string,
-  contactMode: 'email' | 'phone',
+  loginMethodDisplayMode: LoginMethodDisplayMode,
 ) => {
   const normalized = keyword.trim().toLowerCase();
   if (!normalized) {
@@ -149,11 +150,11 @@ const filterListDetails = (
   }
   return items.filter(item => {
     const contactValue =
-      contactMode === 'email'
+      loginMethodDisplayMode === 'email'
         ? item.email || item.identifier
         : item.mobile || item.identifier;
     const isContactSearch =
-      contactMode === 'email'
+      loginMethodDisplayMode === 'email'
         ? normalized.includes('@')
         : /^\d+$/.test(normalized);
     if (isContactSearch) {
@@ -164,13 +165,13 @@ const filterListDetails = (
 };
 
 export function useCreditNotificationConfigTabState({
-  contactMode,
+  loginMethodDisplayMode,
   policy,
   resolvedLists,
   updatePolicy,
   t,
 }: {
-  contactMode: 'email' | 'phone';
+  loginMethodDisplayMode: LoginMethodDisplayMode;
   policy: AdminOperationCreditNotificationPolicy;
   resolvedLists: AdminOperationCreditNotificationPolicyResolvedLists;
   updatePolicy: UpdatePolicy;
@@ -300,7 +301,7 @@ export function useCreditNotificationConfigTabState({
     const normalized = normalizeListInputCharacters(blockedCreatorInput);
     const { creatorBids, invalidItems, mobiles } = parseBlockedCreatorInput(
       normalized,
-      contactMode,
+      loginMethodDisplayMode,
     );
     if (invalidItems.length > 0) {
       const sample = invalidItems.slice(0, INVALID_SAMPLE_LIMIT).join(', ');
@@ -375,8 +376,13 @@ export function useCreditNotificationConfigTabState({
     [blockedCreatorDetails, managedListDialog, optedOutCreatorDetails],
   );
   const filteredManagedListDetails = useMemo(
-    () => filterListDetails(managedListDetails, managedListSearch, contactMode),
-    [contactMode, managedListDetails, managedListSearch],
+    () =>
+      filterListDetails(
+        managedListDetails,
+        managedListSearch,
+        loginMethodDisplayMode,
+      ),
+    [loginMethodDisplayMode, managedListDetails, managedListSearch],
   );
   const managedListTitle =
     managedListDialog === 'blocked'

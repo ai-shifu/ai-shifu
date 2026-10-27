@@ -6,7 +6,7 @@ import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Switch } from '@/components/ui/Switch';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import type {
   AdminOperationCreditNotificationDryRunResponse,
   AdminOperationCreditNotificationPolicy,
@@ -68,7 +68,7 @@ export function CreditNotificationConfigTab({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const contactMode = resolveContactMode(
+  const loginMethodDisplayMode = resolveLoginMethodDisplayMode(
     loginMethodsEnabled,
     defaultLoginMethod,
   );
@@ -91,7 +91,7 @@ export function CreditNotificationConfigTab({
     setManagedListSearch,
     updateIntegerInput,
   } = useCreditNotificationConfigTabState({
-    contactMode,
+    loginMethodDisplayMode,
     policy,
     resolvedLists,
     updatePolicy,
@@ -123,14 +123,14 @@ export function CreditNotificationConfigTab({
                   className='text-sm font-medium text-foreground'
                 >
                   {t(
-                    contactMode === 'email'
+                    loginMethodDisplayMode === 'email'
                       ? 'module.operationsCreditNotifications.config.fields.enabledEmail'
                       : 'module.operationsCreditNotifications.config.fields.enabled',
                   )}
                 </Label>
                 <HelpTooltip>
                   {t(
-                    contactMode === 'email'
+                    loginMethodDisplayMode === 'email'
                       ? 'module.operationsCreditNotifications.config.fieldTips.enabledEmail'
                       : 'module.operationsCreditNotifications.config.fieldTips.enabled',
                   )}
@@ -138,7 +138,7 @@ export function CreditNotificationConfigTab({
               </div>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>
                 {t(
-                  contactMode === 'email'
+                  loginMethodDisplayMode === 'email'
                     ? 'module.operationsCreditNotifications.config.masterSwitchDescriptionEmail'
                     : 'module.operationsCreditNotifications.config.masterSwitchDescription',
                 )}
@@ -157,7 +157,9 @@ export function CreditNotificationConfigTab({
         </ConfigSection>
 
         <CreditNotificationRuleManagementSection
-          contactMode={contactMode === 'email' ? 'email' : 'sms'}
+          notificationChannel={
+            loginMethodDisplayMode === 'email' ? 'email' : 'sms'
+          }
           policy={policy}
           templateOptions={templateOptions}
           resolveTypeLabel={resolveTypeLabel}
@@ -167,7 +169,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationDeliveryRulesSection
-          contactMode={contactMode}
+          loginMethodDisplayMode={loginMethodDisplayMode}
           policy={policy}
           updatePolicy={updatePolicy}
           getIntegerInputValue={getIntegerInputValue}
@@ -176,7 +178,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationCreatorListsSection
-          contactMode={contactMode}
+          loginMethodDisplayMode={loginMethodDisplayMode}
           blockedCreatorInput={blockedCreatorInput}
           blockedCreatorIdentifiers={blockedCreatorIdentifiers}
           optedOutCreatorIdentifiers={optedOutCreatorIdentifiers}
@@ -186,7 +188,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationDryRunPanel
-          contactMode={contactMode}
+          loginMethodDisplayMode={loginMethodDisplayMode}
           dryRunResult={dryRunResult}
           dryRunError={dryRunError}
           dryRun={dryRun}
@@ -203,7 +205,7 @@ export function CreditNotificationConfigTab({
           open={managedListDialog !== null}
           title={managedListTitle}
           canDelete={managedListCanDelete}
-          contactMode={contactMode}
+          loginMethodDisplayMode={loginMethodDisplayMode}
           items={filteredManagedListDetails}
           search={managedListSearch}
           onSearchChange={setManagedListSearch}

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
@@ -160,7 +160,7 @@ export default function AdminOperationUserDetailPage() {
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const contactType = resolveContactMode(
+  const loginMethodDisplayMode = resolveLoginMethodDisplayMode(
     loginMethodsEnabled,
     defaultLoginMethod,
   );
@@ -328,7 +328,9 @@ export default function AdminOperationUserDetailPage() {
                     variant='outline'
                     onClick={() => setContactChangeOpen(true)}
                   >
-                    {tOperationsUsers(`contactChange.${contactType}.action`)}
+                    {tOperationsUsers(
+                      `contactChange.${loginMethodDisplayMode}.action`,
+                    )}
                   </Button>
                 ) : null
               }
@@ -418,9 +420,9 @@ export default function AdminOperationUserDetailPage() {
           <UserContactChangeDialog
             open={contactChangeOpen}
             userBid={userBid}
-            contactType={contactType}
+            contactType={loginMethodDisplayMode}
             currentIdentifier={
-              contactType === 'email' ? detail.email : detail.mobile
+              loginMethodDisplayMode === 'email' ? detail.email : detail.mobile
             }
             onOpenChange={setContactChangeOpen}
             onChanged={() => retryDetail()}

@@ -11,7 +11,7 @@ import {
   isValidContactIdentifier,
   normalizeContactIdentifier,
 } from '@/lib/contact-identifier';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import type {
   AdminBillingCustomizationDraft,
   AdminBillingEntitlementGrantPayload,
@@ -294,11 +294,12 @@ export function AdminBillingEntitlementDialog({
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
   // The owner of a course is addressed by phone in China and by email on
   // the overseas site; LOGIN_METHODS_ENABLED is what tells the two apart.
-  const contactMode = React.useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = React.useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
-  const isEmailContact = contactMode === 'email';
+  const isEmailContact = loginMethodDisplayMode === 'email';
   const [values, setValues] =
     React.useState<Record<EntitlementField, boolean>>(EMPTY_VALUES);
   const [collapsedFields, setCollapsedFields] = React.useState<
@@ -388,12 +389,15 @@ export function AdminBillingEntitlementDialog({
     }
     const creatorBid = String(resolvedItem?.creator_bid || '').trim();
     const normalizedCreatorContact = normalizeContactIdentifier(
-      contactMode,
+      loginMethodDisplayMode,
       creatorContact,
     );
     const canPersistByContact =
       !creatorBid &&
-      isValidContactIdentifier(contactMode, normalizedCreatorContact);
+      isValidContactIdentifier(
+        loginMethodDisplayMode,
+        normalizedCreatorContact,
+      );
     if (!creatorBid && !canPersistByContact) {
       return;
     }
@@ -424,7 +428,7 @@ export function AdminBillingEntitlementDialog({
     return () => window.clearTimeout(timer);
   }, [
     configStatus,
-    contactMode,
+    loginMethodDisplayMode,
     creatorContact,
     draftDomain,
     draftDomainStatus,
@@ -450,12 +454,15 @@ export function AdminBillingEntitlementDialog({
     }
     const creatorBid = String(resolvedItem?.creator_bid || '').trim();
     const normalizedCreatorContact = normalizeContactIdentifier(
-      contactMode,
+      loginMethodDisplayMode,
       creatorContact,
     );
     const targetKey = creatorBid
       ? `creator:${creatorBid}`
-      : isValidContactIdentifier(contactMode, normalizedCreatorContact)
+      : isValidContactIdentifier(
+            loginMethodDisplayMode,
+            normalizedCreatorContact,
+          )
         ? `contact:${normalizedCreatorContact}`
         : '';
     if (!targetKey || lastDraftTargetRef.current === targetKey) {
@@ -590,7 +597,7 @@ export function AdminBillingEntitlementDialog({
       }
     })();
   }, [
-    contactMode,
+    loginMethodDisplayMode,
     creatorContact,
     open,
     resolvedItem?.creator_bid,
@@ -630,7 +637,7 @@ export function AdminBillingEntitlementDialog({
 
   const handleSubmit = async () => {
     const normalizedCreatorContact = normalizeContactIdentifier(
-      contactMode,
+      loginMethodDisplayMode,
       creatorContact,
     );
     if (!resolvedItem && !normalizedCreatorContact) {
@@ -649,7 +656,10 @@ export function AdminBillingEntitlementDialog({
     // backend param error.
     if (
       !resolvedItem &&
-      !isValidContactIdentifier(contactMode, normalizedCreatorContact)
+      !isValidContactIdentifier(
+        loginMethodDisplayMode,
+        normalizedCreatorContact,
+      )
     ) {
       toast({
         title: t(

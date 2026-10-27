@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { useUserStore } from '@/store';
 import type {
   DashboardCourseDetailLearnerItem,
@@ -124,16 +124,17 @@ export default function AdminDashboardCourseDetailPage() {
   const followUpListUrl = buildAdminDashboardCourseFollowUpsUrl(shifuBid);
   const ratingsPageUrl = buildAdminDashboardCourseRatingsUrl(shifuBid);
   const learnerSearchPlaceholder = useMemo(() => {
-    const contactMode = resolveContactMode(
+    const loginMethodDisplayMode = resolveLoginMethodDisplayMode(
       loginMethodsEnabled,
       defaultLoginMethod,
     );
-    return contactMode === 'email'
+    return loginMethodDisplayMode === 'email'
       ? t('module.dashboard.detail.learners.searchPlaceholderEmail')
       : t('module.dashboard.detail.learners.searchPlaceholderPhone');
   }, [defaultLoginMethod, loginMethodsEnabled, t]);
-  const learnerContactMode = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const courseStatusLabel = useMemo(() => {
@@ -342,7 +343,7 @@ export default function AdminDashboardCourseDetailPage() {
   const handleLearnerFollowUpClick = useCallback(
     (learner: DashboardCourseDetailLearnerItem) => {
       const preferredKeyword =
-        learnerContactMode === 'email'
+        loginMethodDisplayMode === 'email'
           ? learner.email ||
             learner.mobile ||
             learner.nickname ||
@@ -360,7 +361,7 @@ export default function AdminDashboardCourseDetailPage() {
       }
       router.push(targetUrl);
     },
-    [learnerContactMode, router, shifuBid],
+    [loginMethodDisplayMode, router, shifuBid],
   );
 
   const coreDataItems = useMemo(

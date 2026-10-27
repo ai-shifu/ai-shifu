@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { formatOperatorUtcDateTime } from '../dateTime';
 import type {
   AdminOperationUserCourseItem,
@@ -82,23 +82,24 @@ export default function useUserDetailViewModel({
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
 
-  const contactType = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const contactLabel = useMemo(
     () =>
-      contactType === 'email'
+      loginMethodDisplayMode === 'email'
         ? tOperationsUsers('table.email')
         : tOperationsUsers('table.mobile'),
-    [contactType, tOperationsUsers],
+    [loginMethodDisplayMode, tOperationsUsers],
   );
   const contactValue = useMemo(
     () =>
-      contactType === 'email'
+      loginMethodDisplayMode === 'email'
         ? detail.email || detail.mobile
         : detail.mobile || detail.email,
-    [contactType, detail.email, detail.mobile],
+    [loginMethodDisplayMode, detail.email, detail.mobile],
   );
   const creditOwnerLabel = useMemo(() => {
     const mobile = detail.mobile || '';

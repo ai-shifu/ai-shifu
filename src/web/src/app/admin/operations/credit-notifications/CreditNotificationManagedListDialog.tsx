@@ -1,3 +1,4 @@
+import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -18,7 +19,7 @@ export function CreditNotificationManagedListDialog({
   open,
   title,
   canDelete,
-  contactMode,
+  loginMethodDisplayMode,
   items,
   search,
   onSearchChange,
@@ -28,7 +29,7 @@ export function CreditNotificationManagedListDialog({
   open: boolean;
   title: string;
   canDelete: boolean;
-  contactMode: 'email' | 'phone';
+  loginMethodDisplayMode: LoginMethodDisplayMode;
   items: AdminOperationCreditNotificationPolicyListItem[];
   search: string;
   onSearchChange: (value: string) => void;
@@ -64,7 +65,7 @@ export function CreditNotificationManagedListDialog({
               className='h-9 pl-9'
               value={search}
               placeholder={t(
-                contactMode === 'email'
+                loginMethodDisplayMode === 'email'
                   ? 'module.operationsCreditNotifications.config.listDialog.searchPlaceholderEmail'
                   : 'module.operationsCreditNotifications.config.listDialog.searchPlaceholderPhone',
               )}
@@ -79,7 +80,7 @@ export function CreditNotificationManagedListDialog({
             {items.length > 0 ? (
               items.map(item => {
                 const contactValue =
-                  contactMode === 'email'
+                  loginMethodDisplayMode === 'email'
                     ? item.email || item.identifier
                     : item.mobile || item.identifier;
                 return (

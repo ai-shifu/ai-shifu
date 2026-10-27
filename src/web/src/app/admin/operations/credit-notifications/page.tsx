@@ -28,7 +28,7 @@ import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import { toast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import useOperatorGuard from '../useOperatorGuard';
 import type {
   AdminOperationCreditNotificationItem,
@@ -110,7 +110,7 @@ export default function AdminOperationCreditNotificationsPage() {
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const contactMode = resolveContactMode(
+  const loginMethodDisplayMode = resolveLoginMethodDisplayMode(
     loginMethodsEnabled,
     defaultLoginMethod,
   );
@@ -165,7 +165,7 @@ export default function AdminOperationCreditNotificationsPage() {
   >(null);
   const requestIdRef = React.useRef(0);
   const templateListRequestIdRef = React.useRef(0);
-  const templateContactModeRef = React.useRef<string | null>(null);
+  const templateLoginMethodDisplayModeRef = React.useRef<string | null>(null);
   const configLoadStartedRef = React.useRef(false);
   const isConfigDirty = React.useMemo(
     () => JSON.stringify(policy) !== JSON.stringify(savedPolicy),
@@ -266,10 +266,10 @@ export default function AdminOperationCreditNotificationsPage() {
     async (mode: 'initial' | 'manual' = 'initial') => {
       const requestId = templateListRequestIdRef.current + 1;
       templateListRequestIdRef.current = requestId;
-      templateContactModeRef.current = contactMode;
+      templateLoginMethodDisplayModeRef.current = loginMethodDisplayMode;
       setTemplateListLoading(true);
       const templateTrackingContext =
-        contactMode === 'email'
+        loginMethodDisplayMode === 'email'
           ? NOTIFICATION_EMAIL_TEMPLATE_TRACKING_CONTEXT
           : NOTIFICATION_TEMPLATE_TRACKING_CONTEXT;
       if (mode === 'manual') {
@@ -278,7 +278,7 @@ export default function AdminOperationCreditNotificationsPage() {
         });
       }
       try {
-        const response = (await (contactMode === 'email'
+        const response = (await (loginMethodDisplayMode === 'email'
           ? api.getAdminOperationCreditNotificationEmailTemplates({})
           : api.getAdminOperationCreditNotificationTemplates(
               {},
@@ -317,7 +317,7 @@ export default function AdminOperationCreditNotificationsPage() {
         }
       }
     },
-    [contactMode, trackTemplateEventSafely],
+    [loginMethodDisplayMode, trackTemplateEventSafely],
   );
 
   const saveEmailTemplate = React.useCallback(
@@ -508,12 +508,12 @@ export default function AdminOperationCreditNotificationsPage() {
     if (
       !isReady ||
       (activeTab !== 'config' && activeTab !== 'templates') ||
-      templateContactModeRef.current === contactMode
+      templateLoginMethodDisplayModeRef.current === loginMethodDisplayMode
     ) {
       return;
     }
     void fetchTemplateOptions();
-  }, [activeTab, contactMode, fetchTemplateOptions, isReady]);
+  }, [activeTab, loginMethodDisplayMode, fetchTemplateOptions, isReady]);
 
   const updateDraftFilter = React.useCallback(
     (field: keyof NotificationFilters, value: string) => {
@@ -879,7 +879,7 @@ export default function AdminOperationCreditNotificationsPage() {
             onViewed={() =>
               trackTemplateEventSafely(
                 NOTIFICATION_TEMPLATE_LIBRARY_VIEWED_EVENT,
-                contactMode === 'email'
+                loginMethodDisplayMode === 'email'
                   ? { channel: 'email', provider: 'smtp' }
                   : NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
               )
@@ -887,7 +887,7 @@ export default function AdminOperationCreditNotificationsPage() {
             onFilterApplied={filter =>
               trackTemplateEventSafely(
                 NOTIFICATION_TEMPLATE_FILTER_APPLIED_EVENT,
-                contactMode === 'email'
+                loginMethodDisplayMode === 'email'
                   ? { channel: 'email', provider: 'smtp', filter }
                   : { ...NOTIFICATION_TEMPLATE_TRACKING_CONTEXT, filter },
               )
@@ -895,7 +895,7 @@ export default function AdminOperationCreditNotificationsPage() {
             onDetailOpened={() =>
               trackTemplateEventSafely(
                 NOTIFICATION_TEMPLATE_DETAIL_OPENED_EVENT,
-                contactMode === 'email'
+                loginMethodDisplayMode === 'email'
                   ? { channel: 'email', provider: 'smtp' }
                   : NOTIFICATION_TEMPLATE_TRACKING_CONTEXT,
               )
