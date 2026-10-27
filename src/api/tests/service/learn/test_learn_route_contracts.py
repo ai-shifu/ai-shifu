@@ -588,7 +588,8 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     args = preview.call_args.kwargs
     assert args["run_bid"] == "editor-run-1"
     assert args["preview_request"].user_input == {"user_input": ["answer"]}
-    assert args["preview_request"].visual_mode is (visual is not None)
+    # Older editor bundles still send the retired visual_mode flag; it is ignored.
+    assert not hasattr(args["preview_request"], "visual_mode")
     preview.reset_mock()
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",

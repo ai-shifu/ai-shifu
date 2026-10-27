@@ -85,23 +85,6 @@ def get_follow_up_interaction_mode(model: object) -> FollowUpInteractionMode:
     return "live_voice" if is_live_follow_up_model(model) else "text"
 
 
-def resolve_course_follow_up_model(
-    primary_model: object,
-    follow_up_model: object,
-) -> str:
-    """Resolve the course fallback without treating a Live primary as valid.
-
-    Text courses historically use their primary model when no dedicated
-    follow-up model is configured. Live models are follow-up-only, so a
-    malformed legacy primary value must not silently activate Live voice.
-    """
-    normalized_follow_up = str(follow_up_model or "").strip()
-    if normalized_follow_up:
-        return normalized_follow_up
-    normalized_primary = str(primary_model or "").strip()
-    return "" if is_live_follow_up_model(normalized_primary) else normalized_primary
-
-
 def is_valid_live_voice(voice_id: object) -> bool:
     """Validate an exact provider voiceName identifier."""
     return str(voice_id or "").strip() in GEMINI_LIVE_VOICE_IDS

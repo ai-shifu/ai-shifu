@@ -153,7 +153,7 @@ def golden_llm(monkeypatch: object) -> None:
         "flaskr.api.llm.markdownflow_model": (("chat_llm", golden_chat_llm),),
         # check_text binds invoke_llm at import time.
         "flaskr.service.learn.check_text": (("invoke_llm", golden_invoke_llm),),
-        # handle_input_ask resolves a module-level `chat_llm` global first.
+        # handle_input_ask binds chat_llm at import time.
         "flaskr.service.learn.handle_input_ask": (("chat_llm", golden_chat_llm),),
     }
     for module_path, attrs in targets.items():

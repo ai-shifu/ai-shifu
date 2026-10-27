@@ -117,7 +117,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 LIVE_FOLLOW_UP_SESSION_SECONDS = 15 * 60
-LIVE_FOLLOW_UP_WARNING_SECONDS = 14 * 60 + 30
 _ALLOWED_LEARNING_MODES = frozenset({"read", "listen"})
 _ALLOWED_SURFACES = frozenset({"read_content", "listen_player", "teacher_preview"})
 _MAX_DIRECT_TRANSCRIPT_CHARS = 32_000

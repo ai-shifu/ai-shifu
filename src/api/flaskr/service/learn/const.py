@@ -5,8 +5,6 @@ ROLE_STUDENT = 2
 ROLE_UI = 3
 
 
-ROLE_VALUES = {ROLE_TEACHER: "老师", ROLE_STUDENT: "学生", ROLE_UI: "UI"}
-
 # Re-export learn status constants for backward compatibility with tests and callers.
 from flaskr.service.order.consts import (  # noqa: F401, E402
     LEARN_STATUS_BRANCH,
@@ -20,28 +18,7 @@ from flaskr.service.order.consts import (  # noqa: F401, E402
     LEARN_STATUS_UNAVAILABLE,
 )
 
-INPUT_TYPE_TEXT = "text"
-INPUT_TYPE_CONTINUE = "continue"
-INPUT_TYPE_START = "start"
-INPUT_TYPE_SELECT = "select"
-INPUT_TYPE_PHONE = "phone"
-INPUT_TYPE_CHECKCODE = "checkcode"
-INPUT_TYPE_REQUIRE_LOGIN = "require_login"
-INPUT_TYPE_LOGIN = "login"
-INPUT_TYPE_BRANCH = "branch"
 INPUT_TYPE_ASK = "ask"
-INPUT_TYPE_PAY = "pay"
-
-
-INTERACTION_TYPE_DEFAULT = 0
-INTERACTION_TYPE_LIKE = 1
-INTERACTION_TYPE_DISLIKE = 2
-VALID_INTERACTION_TYPES = {
-    INTERACTION_TYPE_DEFAULT,
-    INTERACTION_TYPE_LIKE,
-    INTERACTION_TYPE_DISLIKE,
-}
-
 
 CONTEXT_INTERACTION_NEXT = "_sys_next_chapter"
 CONTEXT_INTERACTION_LESSON_FEEDBACK_SCORE = "sys_lesson_feedback_score"

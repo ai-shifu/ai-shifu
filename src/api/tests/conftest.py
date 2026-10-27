@@ -234,6 +234,10 @@ def mock_llm_calls(monkeypatch: object, request: object) -> None:
     monkeypatch.setattr(
         llm, "get_current_models", fake_get_current_models, raising=False
     )
+    # handle_input_ask binds chat_llm at import time.
+    ask = sys.modules.get("flaskr.service.learn.handle_input_ask")
+    if ask is not None:
+        monkeypatch.setattr(ask, "chat_llm", fake_chat_llm, raising=False)
 
 
 @pytest.fixture(autouse=True)

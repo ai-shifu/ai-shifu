@@ -6,7 +6,6 @@ from flaskr.service.learn import live_follow_up_config
 from flaskr.service.learn.live_follow_up_config import (
     GEMINI_LIVE_MODEL_ID,
     normalize_live_follow_up_course_config,
-    resolve_course_follow_up_model,
 )
 
 
@@ -106,12 +105,3 @@ def test_course_live_follow_up_defaults_official_voice() -> None:
         "mode": "provider_only",
         "config": {"live_voice": "Kore"},
     }
-
-
-def test_live_primary_never_becomes_implicit_follow_up_model() -> None:
-    assert resolve_course_follow_up_model(GEMINI_LIVE_MODEL_ID, "") == ""
-    assert (
-        resolve_course_follow_up_model(GEMINI_LIVE_MODEL_ID, "gpt-follow-up")
-        == "gpt-follow-up"
-    )
-    assert resolve_course_follow_up_model("gpt-main", "") == "gpt-main"

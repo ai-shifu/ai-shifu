@@ -23,7 +23,6 @@ from flaskr.dao import (
     db,
     invalidate_session,
     is_abnormal_stream_termination,
-    is_protocol_interrupt_error,
 )
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
@@ -65,11 +64,6 @@ def _remove_db_session_safely(app: Flask, *, source: str) -> None:
         db.session.remove()
     except Exception:
         app.logger.warning("%s db session cleanup failed", source, exc_info=True)
-
-
-# Shared termination classification lives in flaskr.dao; keep the historical
-# module-level name because tests and callers import it from here.
-_is_protocol_desync_error = is_protocol_interrupt_error
 
 
 def _discard_session_connection(*, source: str) -> None:
