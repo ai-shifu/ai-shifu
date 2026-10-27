@@ -3,7 +3,7 @@
   "__flat__": {
     "checkout": "ไปชำระเงิน",
     "courseNotPaid": "ยังไม่ได้ซื้อหลักสูตร โปรดซื้อหลักสูตรก่อน",
-    "emailAlreadyActivated": "อีเมล {email} เปิดใช้งานหลักสูตรนี้แล้ว",
+    "emailAlreadyActivated": "เปิดใช้งานหลักสูตรนี้สำหรับผู้เรียนรายนี้แล้ว ไม่จำเป็นต้องเปิดใช้งานซ้ำ: {email}",
     "importActivationFailed": "นำเข้าและเปิดใช้งานไม่สำเร็จ โปรดตรวจสอบข้อมูลแถวนั้นแล้วลองอีกครั้ง",
     "learnStatusBranch": "สาขา",
     "learnStatusCompleted": "เสร็จสิ้น",
@@ -13,7 +13,7 @@
     "learnStatusRefund": "คืนเงิน",
     "learnStatusReset": "รีเซ็ต",
     "learnStatusUnavailable": "ใช้ไม่ได้",
-    "mobileAlreadyActivated": "หมายเลขโทรศัพท์ {mobile} เปิดใช้งานหลักสูตรนี้แล้ว",
+    "mobileAlreadyActivated": "เปิดใช้งานหลักสูตรนี้สำหรับผู้เรียนรายนี้แล้ว ไม่จำเป็นต้องเปิดใช้งานซ้ำ: {mobile}",
     "orderHasPaid": "ชำระเงินคำสั่งซื้อแล้ว",
     "orderNotFound": "ไม่พบคำสั่งซื้อ",
     "orderPayExpired": "คำสั่งซื้อหมดอายุแล้ว โปรดสร้างคำสั่งซื้อใหม่",

@@ -3,7 +3,7 @@
   "__flat__": {
     "checkout": "الانتقال إلى الدفع",
     "courseNotPaid": "لم يتم شراء الدورة، يرجى شراء الدورة أولًا",
-    "emailAlreadyActivated": "تم تفعيل هذه الدورة للبريد الإلكتروني {email} بالفعل",
+    "emailAlreadyActivated": "تم تفعيل هذه الدورة لهذا المتعلم بالفعل، ولا حاجة إلى تفعيلها مرة أخرى: {email}",
     "importActivationFailed": "فشل الاستيراد والتفعيل، يرجى التحقق من بيانات الصف ثم المحاولة مرة أخرى.",
     "learnStatusBranch": "فرع",
     "learnStatusCompleted": "مكتمل",
@@ -13,7 +13,7 @@
     "learnStatusRefund": "استرداد المبلغ",
     "learnStatusReset": "إعادة ضبط",
     "learnStatusUnavailable": "غير متاح",
-    "mobileAlreadyActivated": "تم تفعيل هذه الدورة لرقم الهاتف {mobile} بالفعل",
+    "mobileAlreadyActivated": "تم تفعيل هذه الدورة لهذا المتعلم بالفعل، ولا حاجة إلى تفعيلها مرة أخرى: {mobile}",
     "orderHasPaid": "تم دفع الطلب بالفعل",
     "orderNotFound": "لم يتم العثور على الطلب",
     "orderPayExpired": "انتهت صلاحية الطلب، يرجى إنشاء طلب جديد",

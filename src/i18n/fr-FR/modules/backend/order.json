@@ -3,7 +3,7 @@
   "__flat__": {
     "checkout": "Paiement",
     "courseNotPaid": "Cours non acheté, veuillez d’abord acheter le cours",
-    "emailAlreadyActivated": "L’e-mail {email} est déjà activé pour ce cours",
+    "emailAlreadyActivated": "Ce cours est déjà activé pour cet apprenant ; inutile de l’activer à nouveau : {email}",
     "importActivationFailed": "Échec de l’importation de cette ligne d’activation. Vérifiez les données de la ligne, puis réessayez.",
     "learnStatusBranch": "Branche",
     "learnStatusCompleted": "Terminé",
@@ -13,7 +13,7 @@
     "learnStatusRefund": "Remboursement",
     "learnStatusReset": "Réinitialisé",
     "learnStatusUnavailable": "Indisponible",
-    "mobileAlreadyActivated": "Le mobile {mobile} est déjà activé pour ce cours",
+    "mobileAlreadyActivated": "Ce cours est déjà activé pour cet apprenant ; inutile de l’activer à nouveau : {mobile}",
     "orderHasPaid": "La commande a déjà été payée",
     "orderNotFound": "Commande introuvable",
     "orderPayExpired": "Cette commande a expiré. Veuillez en créer une nouvelle.",
