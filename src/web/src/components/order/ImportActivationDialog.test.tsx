@@ -11,7 +11,65 @@ import {
 } from '@testing-library/react';
 
 import ImportActivationDialog from './ImportActivationDialog';
+import arOrder from '../../../../i18n/ar-SA/modules/order.json';
+import deOrder from '../../../../i18n/de-DE/modules/order.json';
+import enOrder from '../../../../i18n/en-US/modules/order.json';
+import esOrder from '../../../../i18n/es-ES/modules/order.json';
+import frOrder from '../../../../i18n/fr-FR/modules/order.json';
+import thOrder from '../../../../i18n/th-TH/modules/order.json';
+import urOrder from '../../../../i18n/ur-PK/modules/order.json';
 import zhOrder from '../../../../i18n/zh-CN/modules/order.json';
+
+const validationLocales = [
+  {
+    language: 'ar-SA',
+    order: arOrder,
+    accountTerm: /حسابات/,
+    identifierTerms: /هاتف|هواتف|بريد/,
+  },
+  {
+    language: 'de-DE',
+    order: deOrder,
+    accountTerm: /Konto|Konten/,
+    identifierTerms: /Telefon|E-Mail/i,
+  },
+  {
+    language: 'en-US',
+    order: enOrder,
+    accountTerm: /accounts/,
+    identifierTerms: /phone|email/i,
+  },
+  {
+    language: 'es-ES',
+    order: esOrder,
+    accountTerm: /cuentas/i,
+    identifierTerms: /móvil|correo/i,
+  },
+  {
+    language: 'fr-FR',
+    order: frOrder,
+    accountTerm: /comptes/i,
+    identifierTerms: /téléphone|e-mail/i,
+  },
+  {
+    language: 'th-TH',
+    order: thOrder,
+    accountTerm: /บัญชี/,
+    identifierTerms: /โทรศัพท์|อีเมล/,
+  },
+  {
+    language: 'ur-PK',
+    order: urOrder,
+    accountTerm: /اکاؤنٹس/,
+    identifierTerms: /فون|ای میل/,
+  },
+  {
+    language: 'zh-CN',
+    order: zhOrder,
+    accountTerm: /账号/,
+    identifierTerms: /手机号|Email/i,
+  },
+];
 
 const mockGetAdminOrderShifus = jest.fn();
 const mockImportActivationOrder = jest.fn();
@@ -201,10 +259,75 @@ describe('ImportActivationDialog validation', () => {
       fireEvent.change(contact, { target: { value: 'invalid contact' } });
       fireEvent.submit(contact.closest('form')!);
       expect(
-        await screen.findByText(
-          `以下内容未识别到有效${label}：invalid contact`,
-        ),
+        await screen.findByText('以下内容未识别到有效账号：invalid contact'),
       ).toBeInTheDocument();
+      expect(mockImportActivationOrder).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(
+    validationLocales.flatMap(locale =>
+      ['phone', 'email'].map(mode => ({ ...locale, mode })),
+    ),
+  )(
+    'uses account-neutral errors for off-mode rows in $language with $mode login',
+    async ({ language, order, accountTerm, identifierTerms, mode }) => {
+      const i18n = i18next.createInstance().use(new ICU());
+      await i18n.init({
+        lng: language,
+        fallbackLng: false,
+        resources: {
+          [language]: { translation: { module: { order } } },
+        },
+      });
+      mockTranslate.mockImplementation((key, options) =>
+        String(i18n.t(key, options)),
+      );
+      mockEnvState.loginMethodsEnabled = [mode];
+      mockEnvState.defaultLoginMethod = mode;
+      renderBoundDialog();
+      const contact = screen.getByLabelText(
+        String(
+          i18n.t('module.order.importActivation.mobileLabel', {
+            hasPhoneIdentifier: mode === 'phone',
+            hasEmailIdentifier: mode === 'email',
+          }),
+        ),
+      );
+      const invalid = mode === 'phone' ? 'invalid@example' : '12345';
+      fireEvent.change(contact, { target: { value: invalid } });
+      fireEvent.submit(contact.closest('form')!);
+      const invalidMessage = await screen.findByText(
+        String(
+          i18n.t('module.order.importActivation.mobileInvalidLines', {
+            values: invalid,
+          }),
+        ),
+      );
+      expect(invalidMessage).toHaveTextContent(accountTerm);
+      expect(invalidMessage.textContent).not.toMatch(identifierTerms);
+
+      const duplicate =
+        mode === 'phone' ? 'learner@example.test' : '13800138000';
+      fireEvent.change(contact, {
+        target: { value: `${duplicate} Ada\n${duplicate} Sam` },
+      });
+      fireEvent.submit(contact.closest('form')!);
+      const duplicateMessage = await screen.findByText(
+        String(
+          i18n.t('module.order.importActivation.mobileDuplicate', {
+            numbers: duplicate,
+          }),
+        ),
+      );
+      expect(duplicateMessage).toHaveTextContent(accountTerm);
+      expect(duplicateMessage.textContent).not.toMatch(identifierTerms);
+      expect(mockTranslate).toHaveBeenCalledWith(
+        'module.order.importActivation.mobileDuplicate',
+        { numbers: duplicate },
+      );
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
       expect(mockImportActivationOrder).not.toHaveBeenCalled();
       expect(mockTrackEvent).not.toHaveBeenCalled();
     },
@@ -545,8 +668,6 @@ describe('ImportActivationDialog validation', () => {
       'module.order.importActivation.mobileDuplicate',
       {
         numbers: 'learner@example.test',
-        hasPhoneIdentifier: true,
-        hasEmailIdentifier: false,
       },
     );
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();

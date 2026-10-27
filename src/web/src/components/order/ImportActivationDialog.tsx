@@ -305,19 +305,15 @@ const ImportActivationDialog = ({
     (values: string) =>
       t('module.order.importActivation.mobileInvalidLines', {
         values,
-        hasPhoneIdentifier,
-        hasEmailIdentifier,
       }),
-    [hasPhoneIdentifier, hasEmailIdentifier, t],
+    [t],
   );
   const buildDuplicateMessage = React.useCallback(
     (numbers: string) =>
       t('module.order.importActivation.mobileDuplicate', {
         numbers,
-        hasPhoneIdentifier,
-        hasEmailIdentifier,
       }),
-    [hasPhoneIdentifier, hasEmailIdentifier, t],
+    [t],
   );
   const buildLimitMessage = React.useCallback(
     (count: number) =>
