@@ -52,8 +52,8 @@ DEFAULT_MAX_PARALLEL_ASK_COUNT = 3
 
 def _remove_db_session_safely(app: Flask, *, source: str) -> None:
     # In finally blocks sys.exc_info still sees a propagating
-    # GreenletExit/GeneratorExit that never reached an except handler
-    # (injected into IO inside the generator frame); discard the connection
+    # SystemExit/GeneratorExit that never reached an except handler
+    # (raised during IO inside the generator frame); discard the connection
     # before removal in that case instead of letting remove() emit a
     # ROLLBACK on a possibly desynced stream. Uses this module's ``db`` so
     # tests that monkeypatch runscript_v2.db keep working.
@@ -844,7 +844,7 @@ def run_script(
 
     if acquired:
         stop_event = threading.Event()
-        # Use SimpleQueue to avoid gevent-patched Queue lock contention in background threads.
+        # SimpleQueue is a lock-free thread-safe queue shared with the producer thread.
         output_queue: queue.SimpleQueue = queue.SimpleQueue()
         # Capture logging context from the request thread so logs in the producer thread keep the same identifiers
         parent_request_id = getattr(log_thread_local, "request_id", None)
@@ -984,7 +984,7 @@ def run_script(
                         break
                     _refresh_run_script_status()
                     if heartbeat_interval > 0:
-                        # Keep waiting cooperative under gevent while polling a thread-safe queue.
+                        # Poll the thread-safe queue at the heartbeat interval.
                         time.sleep(heartbeat_interval)
                     else:
                         time.sleep(0.01)

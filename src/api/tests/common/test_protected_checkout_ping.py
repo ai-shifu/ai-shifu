@@ -1,6 +1,6 @@
 """Protected checkout liveness ping (pool_pre_ping replacement).
 
-The stock pre-ping path has no BaseException protection: a GreenletExit in
+The stock pre-ping path has no BaseException protection: a BaseException in
 COM_PING's recv leaks the checkout and the leaked fairy's GC finalizer later
 emits a ROLLBACK that consumes the stale PING OK, leaving the connection
 permanently off by one response. The checkout-event ping must invalidate the
@@ -23,7 +23,7 @@ class _FakeRecord:
         self.invalidated_with.append(e)
 
 
-class _FakeGreenletExit(BaseException):
+class _FakeInterrupt(BaseException):
     pass
 
 
@@ -65,9 +65,9 @@ def test_dead_connection_ping_invalidates_and_retries(clean_sock: object) -> Non
 
 def test_interrupted_ping_invalidates_before_propagating(clean_sock: object) -> None:
     record = _FakeRecord()
-    with pytest.raises(_FakeGreenletExit):
+    with pytest.raises(_FakeInterrupt):
         dao._reject_desynced_connection_on_checkout(
-            _make_conn(clean_sock, _FakeGreenletExit()), record, None
+            _make_conn(clean_sock, _FakeInterrupt()), record, None
         )
     # Record invalidated (with e=None for non-Exception) BEFORE the
     # interruption propagates: the GC finalizer then sees an invalidated

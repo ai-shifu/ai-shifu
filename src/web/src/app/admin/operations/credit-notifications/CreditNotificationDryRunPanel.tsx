@@ -1,15 +1,18 @@
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
-import type { AdminOperationCreditNotificationDryRunResponse } from '../operation-credit-notification-types';
+import type {
+  AdminOperationCreditNotificationDryRunResponse,
+  CreditNotificationRule,
+} from '../operation-credit-notification-types';
 import { CreditNotificationConfigSection as ConfigSection } from './CreditNotificationFormPrimitives';
 
 export function CreditNotificationDryRunPanel({
-  contactMode,
+  notificationChannel,
   dryRunResult,
   dryRunError,
   dryRun,
 }: {
-  contactMode: 'email' | 'phone';
+  notificationChannel: CreditNotificationRule['channel'];
   dryRunResult: AdminOperationCreditNotificationDryRunResponse | null;
   dryRunError: string;
   dryRun: () => void;
@@ -31,7 +34,7 @@ export function CreditNotificationDryRunPanel({
           ),
           value: dryRunResult.created_count || 0,
         },
-        ...(contactMode === 'phone'
+        ...(notificationChannel === 'sms'
           ? [
               {
                 key: 'cost',
@@ -49,7 +52,7 @@ export function CreditNotificationDryRunPanel({
     <ConfigSection
       title={t('module.operationsCreditNotifications.dryRun.title')}
       description={t(
-        contactMode === 'email'
+        notificationChannel === 'email'
           ? 'module.operationsCreditNotifications.dryRun.descriptionEmail'
           : 'module.operationsCreditNotifications.dryRun.description',
       )}

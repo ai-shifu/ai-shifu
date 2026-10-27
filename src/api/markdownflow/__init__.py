@@ -42,7 +42,7 @@ from .engine.memory import InMemoryMemoryStore, MemoryStore
 from .engine.script import (
     ScriptBundle,
     collected_names,
-    detect_v1_syntax,
+    detect_syntax,
     render_first_prompt,
     substitute_variables,
 )
@@ -108,7 +108,7 @@ __all__ = [
     "__version__",
     "answer_is_usable",
     "collected_names",
-    "detect_v1_syntax",
+    "detect_syntax",
     "iter_turn",
     "load_prompt",
     "normalize_answer",

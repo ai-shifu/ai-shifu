@@ -36,7 +36,10 @@ import {
   type OrderListResponse,
   type OrdersPageTab,
 } from './ordersPageShared';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import type { OrderSummary } from '@/components/order/order-types';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/store';
@@ -167,14 +170,18 @@ const OrdersPage = () => {
 
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
 
-  const contactType = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const accountColumnType = useMemo(
+    () =>
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
-  const isEmailMode = contactType === 'email';
+  const isEmailAccountColumn = accountColumnType === 'email';
 
   const userBidPlaceholder = useMemo(() => {
-    if (isEmailMode) {
+    if (isEmailAccountColumn) {
       return t('module.order.filters.userBidEmail');
     }
     const methods = loginMethodsEnabled || [];
@@ -187,7 +194,7 @@ const OrdersPage = () => {
       return t('module.order.filters.userBidEmail');
     }
     return t('module.order.filters.userBid');
-  }, [isEmailMode, loginMethodsEnabled, t]);
+  }, [isEmailAccountColumn, loginMethodsEnabled, t]);
 
   useEffect(() => {
     setActiveTab(activeTabFromUrl);
@@ -297,7 +304,7 @@ const OrdersPage = () => {
       > = {
         shifu: order => [order.shifu_name || order.shifu_bid],
         user: order => [
-          (isEmailMode ? order.user_email : order.user_mobile) ||
+          (isEmailAccountColumn ? order.user_email : order.user_mobile) ||
             order.user_bid,
           order.user_nickname || defaultUserName,
         ],
@@ -363,7 +370,7 @@ const OrdersPage = () => {
       clampWidth,
       defaultUserName,
       formatMoney,
-      isEmailMode,
+      isEmailAccountColumn,
       isManualColumn,
       resolveStatusLabel,
       setColumnWidths,
@@ -613,7 +620,7 @@ const OrdersPage = () => {
                   total={total}
                   pageIndex={pageIndex}
                   pageCount={pageCount}
-                  isEmailMode={isEmailMode}
+                  isEmailMode={isEmailAccountColumn}
                   defaultUserName={defaultUserName}
                   getColumnStyle={getColumnStyle}
                   getResizeHandleProps={getResizeHandleProps}

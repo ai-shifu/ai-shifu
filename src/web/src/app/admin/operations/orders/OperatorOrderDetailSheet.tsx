@@ -20,7 +20,10 @@ import {
 } from '@/components/ui/Sheet';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { ErrorWithCode } from '@/lib/request';
 import { useTranslation } from 'react-i18next';
 import { getOperationOrderSourceLabel } from '../operation-order-source';
@@ -76,11 +79,15 @@ const OperatorOrderDetailSheet = ({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const contactType = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const displayIdentifierType = useMemo(
+    () =>
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
-  const isEmailMode = contactType === 'email';
+  const isEmailIdentifier = displayIdentifierType === 'email';
   const [detail, setDetail] =
     useState<AdminOperationOrderDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -148,7 +155,7 @@ const OperatorOrderDetailSheet = ({
   const summary = detail?.order;
   const payment = detail?.payment;
   const displayUser =
-    (isEmailMode ? summary?.user_email : summary?.user_mobile) ||
+    (isEmailIdentifier ? summary?.user_email : summary?.user_mobile) ||
     summary?.user_bid ||
     '';
   const sourceLabel = useMemo(() => {

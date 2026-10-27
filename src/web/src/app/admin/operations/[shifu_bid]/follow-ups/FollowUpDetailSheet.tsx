@@ -1,5 +1,7 @@
 'use client';
 
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
+
 import {
   useEffect,
   useMemo,
@@ -23,15 +25,13 @@ import type { AdminOperationCourseFollowUpDetailResponse } from '../../operation
 
 type ErrorState = { message: string; code?: number };
 
-type ContactMode = 'phone' | 'email';
-
 type FollowUpDetailSheetProps = {
   open: boolean;
   detail: AdminOperationCourseFollowUpDetailResponse | null;
   loading: boolean;
   error: ErrorState | null;
   emptyValue: string;
-  contactMode: ContactMode;
+  displayIdentifierType: LoginIdentifierType;
   defaultUserName: string;
   resolveLessonDisplay: (values: {
     lessonTitle?: string;
@@ -91,18 +91,22 @@ const resolvePrimaryAccount = ({
   mobile,
   email,
   userBid,
-  contactMode,
+  displayIdentifierType,
   emptyValue,
 }: {
   mobile?: string;
   email?: string;
   userBid?: string;
-  contactMode: ContactMode;
+  displayIdentifierType: LoginIdentifierType;
   emptyValue: string;
 }) => {
-  const preferred = contactMode === 'email' ? email : mobile;
-  const alternate = contactMode === 'email' ? mobile : email;
-  return formatValue(preferred || alternate || userBid, emptyValue);
+  const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
+  const alternateIdentifier =
+    displayIdentifierType === 'email' ? mobile : email;
+  return formatValue(
+    primaryIdentifier || alternateIdentifier || userBid,
+    emptyValue,
+  );
 };
 
 const ExpandableTextBlock = ({
@@ -199,7 +203,7 @@ export default function FollowUpDetailSheet({
   loading,
   error,
   emptyValue,
-  contactMode,
+  displayIdentifierType,
   defaultUserName,
   resolveLessonDisplay,
   resolveOutlineFieldLabel,
@@ -218,14 +222,14 @@ export default function FollowUpDetailSheet({
         mobile: basicInfo?.mobile,
         email: basicInfo?.email,
         userBid: basicInfo?.user_bid,
-        contactMode,
+        displayIdentifierType,
         emptyValue,
       }),
     [
       basicInfo?.email,
       basicInfo?.mobile,
       basicInfo?.user_bid,
-      contactMode,
+      displayIdentifierType,
       emptyValue,
     ],
   );

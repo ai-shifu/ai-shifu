@@ -46,7 +46,7 @@ def test_native_configuration_is_independent_of_host_extensions() -> None:
     )
     before = engine.compose_instructions()
     engine.output_language = "English"
-    configured = engine.compose_instructions(uses_v1_syntax=True)
+    configured = engine.compose_instructions(uses_syntax=True)
     assert "Host capability." in configured
     assert "current output language is English" in configured
     assert "For Display//value translate only Display" in configured

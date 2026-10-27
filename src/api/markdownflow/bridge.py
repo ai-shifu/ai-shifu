@@ -1,26 +1,13 @@
 """Run the agent engine's async turns from a synchronous request handler.
 
-The engine is asyncio throughout and this project serves requests synchronously, so a turn runs on
-a producer thread that owns its own event loop while the request thread reads the events it puts on
-a queue.
+The engine is asyncio throughout and this project serves requests synchronously on gunicorn
+`gthread` workers, so a turn runs on a producer thread that owns its own event loop while the
+request thread reads the events it puts on a thread-safe queue. Keeping the loop off the request
+thread means the request never has to run, share or tear down an event loop itself, and closing the
+stream early can ask the producer to unwind on its own loop.
 
-Three things about this are not obvious, and each one was measured rather than reasoned about:
-
-* **Under gevent, the request thread must never run an event loop.** `monkey.patch_all()` makes
-  every request in a worker a greenlet on one OS thread, and asyncio tracks the running loop per OS
-  thread, so the second greenlet to start one fails with "Cannot run the event loop while another
-  loop is running". Twenty-four concurrent requests produced four successes and twenty 500s. Under
-  gthread each request already has its own OS thread and the problem does not arise.
-* **`monkey.get_original("threading", "Thread")` is not the way out.** The thread it returns still
-  bootstraps through the patched `threading` module: the thread body finishes but `is_alive()`
-  never goes false, so anything waiting on it waits forever. Joining a real thread from a greenlet
-  also blocks the whole hub and freezes every request in that worker. `gevent.threadpool.ThreadPool`
-  runs on real OS threads and yields the hub while waiting, which is what this uses instead.
-* **The cross-thread queue must be native and can only be polled.** gevent replaces
-  `queue.SimpleQueue` with a semaphore-based implementation. Even its `get_nowait()` can wait
-  on a greenlet lock contended by a native producer and never wake. Keep the original thread-safe
-  queue and use only nonblocking reads; its blocking reads would park the request hub. Polling
-  with patched `time.sleep` yields the hub safely.
+The consumer only polls the queue with nonblocking reads, so between events it can emit heartbeats
+and notice that the producer has finished.
 
 The polling interval is deliberately not the heartbeat interval. Sleeping a whole heartbeat when the
 queue is empty adds up to that much latency to every event: measured against a model emitting an
@@ -40,67 +27,28 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from _thread import LockType
     from collections.abc import AsyncIterator, Callable, Iterator
 
 # How often the consumer looks at the queue. Small enough that it does not add meaningfully to the
 # latency of an event, large enough not to spin.
 POLL_INTERVAL = 0.01
-# One pool per worker process, sized to the number of engine turns that worker may run at once.
-GEVENT_POOL_SIZE = 64
 # How many events may sit unread before the producer waits. A streaming client that reads slowly
 # pauses the consumer between events, and without a ceiling a fast turn would keep queueing into
 # memory for as long as it runs.
 BUFFER_LIMIT = 64
 # How many turns one worker process may have in flight. Beyond this a turn is refused rather than
-# queued: `ThreadPool.spawn` waits for a slot -- its own docstring says so, and a pool of two
-# running two-second tasks makes every third spawn wait the full two seconds -- and a request
-# parked inside `spawn` has not started its stream, so the learner sees a connection that simply
-# hangs, with no content and no error.
-MAX_TURNS_IN_FLIGHT = GEVENT_POOL_SIZE
+# queued: a request parked waiting for a slot has not started its stream, so the learner would see
+# a connection that simply hangs, with no content and no error.
+MAX_TURNS_IN_FLIGHT = 64
 # How long to wait for the producer to notice a stop request before giving up on it.
 PRODUCER_EXIT_TIMEOUT = 2.0
-
-
-class _GeventPool:
-    """Holds the one pool this worker process uses, so `_spawn` needs no global statement."""
-
-    lock = threading.Lock()
-    instance: Any = None
-
-
-def _gevent_patched() -> bool:
-    """Whether this process is running under gevent's monkey patching."""
-    try:
-        from gevent import monkey
-    except ImportError:
-        return False
-    return bool(monkey.is_module_patched("threading"))
-
-
-def _event_queue() -> queue.SimpleQueue:
-    """Keep native producers independent of gevent's queue/semaphore replacement."""
-    if _gevent_patched():
-        from gevent import monkey
-
-        return monkey.get_original("queue", "SimpleQueue")()
-    return queue.SimpleQueue()
-
-
-def _admission_lock() -> LockType:
-    """Use a native lock for the counter shared with producer OS threads."""
-    if _gevent_patched():
-        from gevent import monkey
-
-        return monkey.get_original("threading", "Lock")()
-    return threading.Lock()
 
 
 class _InFlight:
     """Counts the turns this worker process is running, so admission can be refused."""
 
     # Only short counter updates run while held; never wait for a turn or do I/O.
-    lock = _admission_lock()
+    lock = threading.Lock()
     count = 0
 
     @classmethod
@@ -120,20 +68,7 @@ class _InFlight:
 
 
 def _spawn(fn: Callable[[], None]) -> Callable[[], bool]:
-    """Start `fn` on a real OS thread and return a callable reporting whether it is still running.
-
-    Under gevent this has to go through `gevent.threadpool`; see the module docstring for why a
-    plain thread, patched or unpatched, is not an option there.
-    """
-    if _gevent_patched():
-        with _GeventPool.lock:
-            if _GeventPool.instance is None:
-                from gevent.threadpool import ThreadPool
-
-                _GeventPool.instance = ThreadPool(GEVENT_POOL_SIZE)
-        handle = _GeventPool.instance.spawn(fn)
-        return lambda: not handle.ready()
-
+    """Start `fn` on a daemon thread and return a callable reporting whether it still runs."""
     thread = threading.Thread(target=fn, daemon=True, name="mdf2-engine-turn")
     thread.start()
     return thread.is_alive
@@ -149,10 +84,9 @@ class TurnCapacityError(RuntimeError):
 
 @dataclass
 class _Stop:
-    """A plain mutable flag rather than `threading.Event`.
+    """A plain mutable flag the consumer sets and the producer reads between events.
 
-    Under gevent `threading.Event` is the greenlet version, whose behaviour across a real pool
-    thread would need verifying; a bare boolean needs no such argument.
+    Assigning a boolean is atomic, so nothing heavier than this is needed.
     """
 
     requested: bool = False
@@ -177,7 +111,7 @@ class TurnStream:
     the heartbeat entirely.
     """
 
-    events: queue.SimpleQueue = field(default_factory=_event_queue)
+    events: queue.SimpleQueue = field(default_factory=queue.SimpleQueue)
     stop: _Stop = field(default_factory=_Stop)
     is_running: Callable[[], bool] | None = None
     error: BaseException | None = None
@@ -236,11 +170,9 @@ def _iter_turn(
                 try:
                     async for event in agen:
                         # Back off while the consumer is behind. `asyncio.sleep` runs on this
-                        # producer's own loop, so the wait needs none of gevent's primitives, and
-                        # it gives the turn somewhere to notice a stop request.
-
-                        # waited for here changes on the consumer's OS thread, and an
-                        # `asyncio.Event` is not safe to set from one.
+                        # producer's own loop and gives the turn somewhere to notice a stop
+                        # request. The queue size waited for here changes on the consumer's OS
+                        # thread, and an `asyncio.Event` is not safe to set from one.
                         while (  # noqa: ASYNC110
                             stream.events.qsize() >= BUFFER_LIMIT
                             and not stream.stop.requested
@@ -328,7 +260,7 @@ def _request_cancel(stream: TurnStream) -> None:
 
 
 def _drain_until_stopped(stream: TurnStream) -> None:
-    """Let the producer notice the stop request and unwind, without blocking the hub.
+    """Let the producer notice the stop request and unwind, without waiting on it indefinitely.
 
     The queue is drained while waiting, so a producer backing off on a full buffer sees room and can
     reach its own cleanup. Waiting is bounded: a turn blocked inside a synchronous provider read

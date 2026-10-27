@@ -1,4 +1,4 @@
-import type { ContactMode } from '@/lib/resolve-contact-mode';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { isValidEmail } from '@/lib/validators';
 
 export const MAX_SHARED_PERMISSION_COUNT = 10;
@@ -19,7 +19,7 @@ type PermissionContactOwner = {
 
 type PermissionContactsInput = {
   value: string;
-  contactType: ContactMode;
+  contactType: LoginIdentifierType;
   existingPermissions: ReadonlyArray<{ identifier: string }>;
   owner?: PermissionContactOwner | null;
 };
@@ -34,7 +34,7 @@ const unique = (items: string[]): string[] => Array.from(new Set(items));
 const normalizeEmailCandidate = (value: string): string =>
   value.replace(/^[,\uFF0C;\uFF1B.\u3002]+|[,\uFF0C;\uFF1B.\u3002]+$/g, '');
 
-const parseContacts = (value: string, contactType: ContactMode) => {
+const parseContacts = (value: string, contactType: LoginIdentifierType) => {
   if (!value.trim()) {
     return { contacts: [], invalidContacts: [] };
   }
