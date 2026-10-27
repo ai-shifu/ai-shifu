@@ -218,28 +218,6 @@ def test_feedback_list_rejects_invalid_pagination_before_querying(
     listing.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        (None, None),
-        ({}, None),
-        ({"empty": [], "missing": None}, None),
-        (
-            {1: [None, 0, False, "answer"], "name": "Ada"},
-            {"1": ["0", "False", "answer"], "name": ["Ada"]},
-        ),
-        ([None, "answer", 0], {"user_input": ["answer", "0"]}),
-        ([None], None),
-        (False, {"user_input": ["False"]}),
-        ("answer", {"user_input": ["answer"]}),
-    ],
-)
-def test_legacy_input_normalization_preserves_answer_values(
-    value: object, expected: object
-) -> None:
-    assert routes._normalize_user_input(value) == expected
-
-
 @pytest.mark.parametrize("business_error", [False, True])
 def test_sse_failure_preserves_partial_output_then_error_and_terminal_order(
     monkeypatch: object, business_error: bool
@@ -563,9 +541,8 @@ def test_runtime_route_rejects_a_lesson_missing_from_the_requested_version(
     run.assert_not_called()
 
 
-@pytest.mark.parametrize("visual", [None, " true "])
-def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
-    monkeypatch: object, test_client: object, feedback_course: object, visual: object
+def test_preview_route_reads_only_current_fields_and_validates_before_model_call(
+    monkeypatch: object, test_client: object, feedback_course: object
 ) -> None:
     from flaskr.service.learn.agent import debug_session
 
@@ -576,10 +553,13 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
         json={
-            "prompt": "Lesson text",
-            "blockIndex": 0,
-            "input": ["answer", None],
-            "visual_mode": visual,
+            "content": "Lesson text",
+            "block_index": 0,
+            "user_input": {"choice": ["answer"]},
+            # Retired fields no editor bundle sends any more; they are ignored.
+            "context": [{"role": "user", "content": "old"}],
+            "document_prompt": "old",
+            "visual_mode": True,
             "debug_session_id": "editor-run-1",
         },
         headers={"Token": "test-token"},
@@ -587,10 +567,26 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     assert '"type": "done"' in response.get_data(as_text=True)
     args = preview.call_args.kwargs
     assert args["run_bid"] == "editor-run-1"
-    assert args["preview_request"].user_input == {"user_input": ["answer"]}
-    # Older editor bundles still send the retired visual_mode flag; it is ignored.
-    assert not hasattr(args["preview_request"], "visual_mode")
+    assert args["preview_request"].get_document() == "Lesson text"
+    assert args["preview_request"].user_input == {"choice": ["answer"]}
+    for retired in ("context", "document_prompt", "visual_mode"):
+        assert not hasattr(args["preview_request"], retired)
     preview.reset_mock()
+
+    # The pre-2.0 aliases are no longer read, so such a payload lacks block_index.
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
+        json={
+            "prompt": "Lesson text",
+            "blockIndex": 0,
+            "input": ["answer"],
+            "debug_session_id": "editor-run-1",
+        },
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+    assert response["code"] == ERROR_CODE["server.common.paramsError"]
+    preview.assert_not_called()
+
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
         json={

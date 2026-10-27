@@ -59,27 +59,6 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 
-def _normalize_user_input(value: object) -> dict[str, list[str]] | None:
-    if value is None:
-        return None
-    if isinstance(value, dict):
-        normalized = {}
-        for key, raw in value.items():
-            if raw is None:
-                continue
-            if isinstance(raw, list):
-                cleaned = [str(item) for item in raw if item is not None]
-            else:
-                cleaned = [str(raw)]
-            if cleaned:
-                normalized[str(key)] = cleaned
-        return normalized or None
-    if isinstance(value, list):
-        cleaned = [str(item) for item in value if item is not None]
-        return {"user_input": cleaned} if cleaned else None
-    return {"user_input": [str(value)]}
-
-
 def _to_sse_data_line(message: object) -> str:
     payload = message.__json__() if hasattr(message, "__json__") else message
     return "data: " + json.dumps(payload, ensure_ascii=False) + "\n\n"
@@ -527,21 +506,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     content:
                         type: string
                         required: true
-                        description: Markdown-Flow document content (legacy alias: prompt)
+                        description: Markdown-Flow document content
                     block_index:
                         type: integer
                         required: true
                         description: block index to preview
-                    context:
-                        type: array
-                        required: false
-                        description: chat context forwarded to LLM
-                        items:
-                            type: object
-                    document_prompt:
-                        type: string
-                        required: false
-                        description: document prompt
                     variables:
                         type: object
                         required: false
@@ -549,15 +518,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     user_input:
                         type: object
                         required: false
-                        description: user input map (legacy alias: input)
-                    interaction_prompt:
+                        description: user input map
+                    debug_session_id:
                         type: string
-                        required: false
-                        description: override interaction render prompt
-                    interaction_error_prompt:
-                        type: string
-                        required: false
-                        description: override interaction error prompt
+                        required: true
+                        description: editor debug session identifier
         responses:
             200:
                 description: stream preview block success
@@ -568,21 +533,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                             example: 'data: {"type":"element","event_type":"element","content":{"element_type":"text","content":"..."}}'
         """
         payload = request.get_json(silent=True) or {}
-        normalized_user_input = payload.get("user_input")
-        if normalized_user_input is None and "input" in payload:
-            normalized_user_input = _normalize_user_input(payload.get("input"))
-        block_index = payload.get("block_index")
-        if block_index is None:
-            block_index = payload.get("blockIndex")
         preview_payload = {
-            "content": payload.get("content") or payload.get("prompt"),
-            "block_index": block_index,
-            "context": payload.get("context"),
+            "content": payload.get("content"),
+            "block_index": payload.get("block_index"),
             "variables": payload.get("variables"),
-            "user_input": normalized_user_input,
-            "document_prompt": payload.get("document_prompt"),
-            "interaction_prompt": payload.get("interaction_prompt"),
-            "interaction_error_prompt": payload.get("interaction_error_prompt"),
+            "user_input": payload.get("user_input"),
         }
         try:
             preview_request = PlaygroundPreviewRequest(**preview_payload)

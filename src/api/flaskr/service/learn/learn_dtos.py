@@ -1016,24 +1016,12 @@ class PlaygroundPreviewRequest(BaseModel):
         default=None, description="Markdown-Flow document content"
     )
     block_index: int = Field(..., description="Block index to preview")
-    context: list[dict[str, str]] | None = Field(
-        default=None, description="Conversation context messages"
-    )
     variables: dict[str, Any] | None = Field(
         default=None,
         description="Variables to replace inside Markdown-Flow document",
     )
     user_input: dict[str, list[str]] | None = Field(
         default=None, description="User input when previewing interaction blocks"
-    )
-    document_prompt: str | None = Field(
-        default=None, description="Document level system prompt"
-    )
-    interaction_prompt: str | None = Field(
-        default=None, description="Interaction render prompt override"
-    )
-    interaction_error_prompt: str | None = Field(
-        default=None, description="Interaction error prompt override"
     )
 
     def get_document(self) -> str:
