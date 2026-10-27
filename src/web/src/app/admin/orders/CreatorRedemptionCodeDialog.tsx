@@ -100,6 +100,21 @@ const CreatorRedemptionCodeDialog = ({
     ? t('module.order.redemptionCodes.valuePercentPlaceholder')
     : t('module.order.redemptionCodes.valueAmountPlaceholder');
 
+  const quantityLabelKey = isEditing
+    ? isGenericCoupon
+      ? 'module.order.redemptionCodes.quantityEditLabelGeneric'
+      : 'module.order.redemptionCodes.quantityEditLabelSingleUse'
+    : isGenericCoupon
+      ? 'module.order.redemptionCodes.quantityLabelGeneric'
+      : 'module.order.redemptionCodes.quantityLabelSingleUse';
+  const quantityHintKey = isEditing
+    ? isGenericCoupon
+      ? 'module.order.redemptionCodes.quantityEditHintGeneric'
+      : 'module.order.redemptionCodes.quantityEditHintSingleUse'
+    : isGenericCoupon
+      ? 'module.order.redemptionCodes.quantityHintGeneric'
+      : 'module.order.redemptionCodes.quantityHintSingleUse';
+
   const handleSubmit = async () => {
     const { errorKey, payload, submitSuccessKey } = validateCreatorCouponForm({
       form,
@@ -265,13 +280,7 @@ const CreatorRedemptionCodeDialog = ({
               />
             </FormField>
           ) : null}
-          <FormField
-            label={t(
-              isGenericCoupon
-                ? 'module.order.redemptionCodes.quantityLabelGeneric'
-                : 'module.order.redemptionCodes.quantityLabelSingleUse',
-            )}
-          >
+          <FormField label={t(quantityLabelKey)}>
             <Input
               className='h-9'
               value={form.total_count}
@@ -287,11 +296,7 @@ const CreatorRedemptionCodeDialog = ({
             />
             {form.usage_type ? (
               <p className='text-xs leading-5 text-muted-foreground'>
-                {t(
-                  isGenericCoupon
-                    ? 'module.order.redemptionCodes.quantityHintGeneric'
-                    : 'module.order.redemptionCodes.quantityHintSingleUse',
-                )}
+                {t(quantityHintKey, { usedCount: coupon?.used_count ?? 0 })}
               </p>
             ) : null}
           </FormField>
