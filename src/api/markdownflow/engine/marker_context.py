@@ -7,8 +7,10 @@ from dataclasses import dataclass, field
 from string import punctuation
 
 from markdown_it.common.html_re import HTML_TAG_RE
+from markdown_it.common.utils import normalizeReference
 
 from .document_blocks import (
+    COMPILED_REFERENCE_PREFIX_REGEX,
     DocumentBlocks,
     container_content_info,
     container_content_start,
@@ -19,6 +21,7 @@ from .document_blocks import (
 from .variable_names import normalize_variable_name, read_variable_marker
 
 _BACKTICK_RUN = re.compile(r"`+")
+_REFERENCE_LABEL = re.compile(r"\[((?:\\[^\r\n]|[^\[\]\\]){0,999})\]")
 _DOLLAR_RUN = re.compile(r"\$+")
 _BLANK_LINE = re.compile(
     r"(?:\r\n|\r(?!\n)|(?<!\r)\n)[ \t]*(?:\r\n|\r(?!\n)|(?<!\r)\n)"
@@ -63,6 +66,7 @@ class MarkerContext:
 
     markers: list[ContextMarker] = field(default_factory=list)
     literals: list[tuple[int, int]] = field(default_factory=list)
+    image_labels: list[tuple[int, int]] = field(default_factory=list)
     escaped_openers: list[int] = field(default_factory=list)
     inactive_document_controls: list[int] = field(default_factory=list)
     fences: list[tuple[int, int]] = field(default_factory=list)
@@ -194,9 +198,10 @@ def _raw_html_opening(
         return None
     tag_start = text.find("<", start, opening.end())
     token_end = blocks.html_token_end(blocks.by_start[start], tag_start, final=final)
-    return opening.group(
-        1
-    ).lower(), token_end if token_end is not None else opening.end()
+    return (
+        opening.group(1).lower(),
+        token_end if token_end is not None else opening.end(),
+    )
 
 
 def _raw_html_bounds(
@@ -474,6 +479,9 @@ def analyze_marker_context(
     )
     at = 0
     labels: list[tuple[bool, bool, int, int]] = []
+    image_candidates: list[tuple[int, int]] = []
+    reference_labels: set[str] = set()
+    interaction_openings: list[int] = []
     active_links: set[int] = set()
     resource_start = -1
     resource_image = False
@@ -511,6 +519,13 @@ def analyze_marker_context(
                     blocks.by_start[blocks.line_at(at).start]
                 ]
             if reference_end is not None:
+                content_start = blocks.block_content_start(blocks.by_start[at])
+                if content_start is not None and (
+                    reference := COMPILED_REFERENCE_PREFIX_REGEX.match(
+                        text[content_start:reference_start]
+                    )
+                ):
+                    reference_labels.add(normalizeReference(reference.group(1)))
                 context.literals.append((at, reference_end))
                 context.markers.extend(_literal_markers(text, at, reference_start))
                 context.markers.extend(
@@ -670,10 +685,13 @@ def analyze_marker_context(
             if count == 1:
                 active_links.discard(len(labels) - 1)
                 labels.pop()
+                if resource_image:
+                    image_candidates.append((resource_label_start, at))
             else:
                 labels[-1] = (resource_image, active, resource_label_start, count - 1)
             resource_start = at + 1 if active else -1
         if text.startswith("?[", at) and not _escaped(text, at):
+            interaction_openings.append(at)
             limit, closed = blocks.interaction_limit(
                 at + 2,
                 lambda position: (
@@ -747,6 +765,28 @@ def analyze_marker_context(
                 at += 1
         else:
             at += 1
+    for opening, closing in image_candidates:
+        after = closing + 1
+        if text[after : after + 1] == "(":
+            if _link_resource_end(text, after) is not None:
+                context.image_labels.append((opening, closing + 1))
+            continue
+        reference = _REFERENCE_LABEL.match(text, after)
+        label = reference.group(1) if reference is not None else ""
+        label = label or text[opening + 1 : closing]
+        if (
+            _BLANK_LINE.search(label) is None
+            and normalizeReference(label) in reference_labels
+        ):
+            context.image_labels.append((opening, closing + 1))
+    context.inactive_document_controls = sorted(
+        set(context.inactive_document_controls)
+        | {
+            at
+            for at in interaction_openings
+            if any(start <= at < end for start, end in context.image_labels)
+        }
+    )
     context.indent_restart_after = [
         line.content_end
         for index, line in enumerate(blocks.lines)

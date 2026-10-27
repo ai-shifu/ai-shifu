@@ -9,6 +9,7 @@ from markdownflow.engine import (
     substitute_variables,
 )
 from markdownflow.engine.script import substitution_names
+from markdownflow.engine.tools import script_options
 
 
 def test_detects_each_syntax_marker() -> None:
@@ -206,3 +207,86 @@ def test_a_marker_outside_a_fence_is_still_collected_when_one_is_present() -> No
     text = "?[%{{purpose}} A | B]\n```\n?[%{{nickname}} X]\n```\n"
 
     assert collected_names(text) == frozenset({"purpose"})
+
+
+@pytest.mark.parametrize("prefix", ["%", ""])
+@pytest.mark.parametrize(
+    "key", ["goal", "Which [path] | level//hint...?", "outer{{inner", "a}"]
+)
+def test_interaction_binding_is_collected_and_never_substituted(
+    prefix: str, key: str
+) -> None:
+    marker = prefix + "{{ " + key + " }}"
+    source = "?[ " + marker + " A | ...Your goal?]\nThen discuss {{ " + key + " }}."
+    bundle = ScriptBundle(script=source)
+
+    assert collected_names(source) == frozenset({key})
+    assert substitution_names(bundle) == frozenset()
+    assert marker in substitute_variables(source, {key: "stale"})
+    assert "stale" not in render_first_prompt(bundle, {key: "stale"})
+    assert marker in substitute_variables(source, {}, unavailable=True)
+    assert (
+        substitute_variables(
+            source, {}, collected=collected_names(source), unavailable=True
+        )
+        == source
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "Read {{goal}}.",
+        "?[Continue {{goal}}]",
+        "\\?[{{goal}} A | B]",
+        "`?[{{goal}} A | B]`",
+        "```md\n?[{{goal}} A | B]\n```",
+        "<!-- ?[{{goal}} A | B] -->",
+        "?[{{goal}} A | B](https://example.com)",
+        "?[{{ }} A | B]",
+        "?[{{bad\x00key}} A | B]",
+    ],
+)
+def test_only_valid_leading_interaction_bindings_grant_collection(source: str) -> None:
+    assert collected_names(source) == frozenset()
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        "![?[{{goal}} A | B]](url)",
+        "[![?[{{goal}} A | B]](url)](outer)",
+        "![?[{{goal}} A | B]][image]\n\n[image]: url",
+        "> ![?[{{goal}} A | B]][IMAGE]\n>\n> [image]: url",
+        "![?[{{goal}} A | B]][two words]\n\n[two  words]: url",
+    ],
+)
+def test_real_image_alt_controls_do_not_declare_bare_bindings(image: str) -> None:
+    source = image + "\n\nRead {{goal}}."
+    assert collected_names(source) == frozenset()
+    assert substitution_names(ScriptBundle(script=source)) == frozenset({"goal"})
+    assert "{{goal}}" not in substitute_variables(source, {"goal": "current"})
+    assert script_options(source + "\n\n?[{{visible}} C | D]") == {
+        "C": "C",
+        "D": "D",
+    }
+    assert collected_names(image.replace("{{goal}}", "%{{goal}}")) == frozenset(
+        {"goal"}
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "![ ?[{{goal}} A | B]",
+        "![?[{{goal}} A | B]][missing]",
+        "![?[{{goal}} A | B]](unfinished",
+        "[?[{{goal}} A | B]](url)",
+        "?[{{goal}} A | B] after ![image](url)",
+    ],
+)
+def test_visible_controls_in_unfinished_images_and_link_labels_still_bind(
+    source: str,
+) -> None:
+    assert collected_names(source) == frozenset({"goal"})
+    assert "{{goal}}" in substitute_variables(source, {"goal": "stale"})

@@ -41,6 +41,15 @@ def read_variable_marker(text: str, start: int = 0) -> VariableMarker | None:
     return VariableMarker(start, close + 2, raw, normalize_variable_name(raw))
 
 
+def read_interaction_variable(text: str, start: int = 0) -> VariableMarker | None:
+    """Read a leading interaction binding with an optional percent prefix."""
+    while start < len(text) and text[start].isspace():
+        start += 1
+    if text.startswith("%", start):
+        start += 1
+    return read_variable_marker(text, start)
+
+
 def find_variable_markers(text: str) -> Iterator[VariableMarker]:
     """Yield non-overlapping markers without recursively reading their names."""
     at = 0

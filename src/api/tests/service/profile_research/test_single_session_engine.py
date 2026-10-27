@@ -231,8 +231,11 @@ def test_multiple_pending_keep_native_answers_and_exclude_confirm_and_nickname()
     assert session.engine_session["answers"] == {}
 
 
-def test_named_binding_rejects_wrong_key_and_ignores_extraneous_values() -> None:
-    session = _session("?[%{{role}}Teacher//teacher|Engineer//engineer]")
+@pytest.mark.parametrize("prefix", ["%", ""])
+def test_named_binding_rejects_wrong_key_and_ignores_extraneous_values(
+    prefix: str,
+) -> None:
+    session = _session("?[" + prefix + "{{role}}Teacher//teacher|Engineer//engineer]")
     calls = 0
 
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
