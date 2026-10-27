@@ -3,7 +3,7 @@
   "__flat__": {
     "checkout": "ادائیگی کریں",
     "courseNotPaid": "کورس نہیں خریدا گیا ہے، براہ کرم پہلے کورس خریدیں۔",
-    "emailAlreadyActivated": "ای میل {email} کے لیے یہ کورس پہلے ہی فعال ہے۔",
+    "emailAlreadyActivated": "اس سیکھنے والے کے لیے یہ کورس پہلے ہی فعال ہے؛ اسے دوبارہ فعال کرنے کی ضرورت نہیں: {email}",
     "importActivationFailed": "امپورٹ ایکٹیویشن ناکام ہو گیا، براہ کرم اس قطار میں ڈیٹا چیک کریں اور دوبارہ کوشش کریں۔",
     "learnStatusBranch": "شاخ",
     "learnStatusCompleted": "مکمل",
@@ -13,7 +13,7 @@
     "learnStatusRefund": "رقم کی واپسی",
     "learnStatusReset": "ری سیٹ کریں",
     "learnStatusUnavailable": "دستیاب نہیں۔",
-    "mobileAlreadyActivated": "موبائل نمبر {mobile} کے لیے یہ کورس پہلے ہی فعال ہے۔",
+    "mobileAlreadyActivated": "اس سیکھنے والے کے لیے یہ کورس پہلے ہی فعال ہے؛ اسے دوبارہ فعال کرنے کی ضرورت نہیں: {mobile}",
     "orderHasPaid": "آرڈر ادا کر دیا گیا ہے۔",
     "orderNotFound": "آرڈر نہیں ملا",
     "orderPayExpired": "آرڈر کی میعاد ختم ہو گئی ہے، براہ کرم دوسرا آرڈر کریں۔",
