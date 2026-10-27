@@ -26,7 +26,7 @@ The original PR changed shared translation files across all surfaces. Partition 
 
 ## Decision Log
 
-The stack is main → #3198 (menu) → #3199 (learners) → #3200 (discount codes) → #3201 (collaborators) → #3202 (archive/restore). Each PR targets the previous branch and preserves its own focused diff. Restack descendants after changing an ancestor, and regenerate shared types and documentation indexes when conflicts are generated-only. Menu help and its analytics contract belong together. The learner dialog keeps its mixed-account workflow, analytics contract and tests together. Discount-code creation/editing belong together because they use one component. Archive and restore share one confirmation dialog. Shared integration-test mock changes accompany the menu Tooltip.
+The stack is main → #3198 (menu) → #3199 (learners) → #3200 (discount codes) → #3201 (collaborators) → #3202 (archive/restore). Each PR targets the previous branch and preserves its own focused diff. Restack descendants after changing an ancestor, and regenerate shared types and documentation indexes when conflicts are generated-only. The course-list tab labels and references to them belong with the menu in #3198; dialog-specific wording remains in #3202. Menu help and its analytics contract belong together. The learner dialog keeps its mixed-account workflow, analytics contract and tests together. Discount-code creation/editing belong together because they use one component. Archive and restore share one confirmation dialog. Shared integration-test mock changes accompany the menu Tooltip.
 
 ## Outcomes & Retrospective
 

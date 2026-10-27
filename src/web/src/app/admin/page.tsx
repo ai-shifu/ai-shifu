@@ -669,13 +669,13 @@ const ScriptManagementPage = () => {
                   value='all'
                   className={COURSE_TABS_TRIGGER_CLASS}
                 >
-                  {t('common.core.all')}
+                  {t('module.shifuSetting.activeCourses')}
                 </TabsTrigger>
                 <TabsTrigger
                   value='archived'
                   className={COURSE_TABS_TRIGGER_CLASS}
                 >
-                  {t('common.core.archived')}
+                  {t('module.shifuSetting.archivedCourses')}
                 </TabsTrigger>
               </TabsList>
             </Tabs>
