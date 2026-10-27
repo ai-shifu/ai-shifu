@@ -79,6 +79,53 @@ const ShifuCard = ({
   const { trackEvent } = useTracking();
   const menuOpenRef = React.useRef(false);
   const viewedHelpActionsRef = React.useRef(new Set<CourseHelpAction>());
+  const [openHelpAction, setOpenHelpAction] =
+    React.useState<CourseHelpAction | null>(null);
+  const helpInputRef = React.useRef<'pointer' | 'keyboard'>('keyboard');
+  const hoveredHelpActionRef = React.useRef<CourseHelpAction | null>(null);
+  const pendingHelpRef = React.useRef<{
+    action: CourseHelpAction;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const clearPendingHelp = React.useCallback(() => {
+    if (pendingHelpRef.current) {
+      clearTimeout(pendingHelpRef.current.timer);
+      pendingHelpRef.current = null;
+    }
+  }, []);
+  React.useEffect(() => clearPendingHelp, [clearPendingHelp]);
+
+  const showHelp = (action: CourseHelpAction) => {
+    if (!menuOpenRef.current) return;
+    setOpenHelpAction(action);
+    if (viewedHelpActionsRef.current.has(action)) return;
+    viewedHelpActionsRef.current.add(action);
+    try {
+      void Promise.resolve(
+        trackEvent('creator_course_action_help_view', {
+          surface: 'admin_course_list',
+          action,
+        }),
+      ).catch(() => {});
+    } catch {}
+  };
+
+  const schedulePointerHelp = (action: CourseHelpAction) => {
+    if (
+      pendingHelpRef.current?.action === action ||
+      openHelpAction === action
+    ) {
+      return;
+    }
+    clearPendingHelp();
+    pendingHelpRef.current = {
+      action,
+      timer: setTimeout(() => {
+        pendingHelpRef.current = null;
+        if (hoveredHelpActionRef.current === action) showHelp(action);
+      }, 300),
+    };
+  };
   const showMenu = Boolean(
     onRedemptionCodeRequest ||
     onImportActivationRequest ||
@@ -93,28 +140,39 @@ const ShifuCard = ({
     onSelect?: () => void,
   ) => (
     <Tooltip
+      open={openHelpAction === action}
       onOpenChange={open => {
-        if (
-          !open ||
-          !menuOpenRef.current ||
-          viewedHelpActionsRef.current.has(action)
-        ) {
+        if (!open) {
+          if (pendingHelpRef.current?.action === action) clearPendingHelp();
+          setOpenHelpAction(current => (current === action ? null : current));
           return;
         }
-        viewedHelpActionsRef.current.add(action);
-        try {
-          void Promise.resolve(
-            trackEvent('creator_course_action_help_view', {
-              surface: 'admin_course_list',
-              action,
-            }),
-          ).catch(() => {});
-        } catch {}
+        if (helpInputRef.current === 'pointer') {
+          schedulePointerHelp(action);
+        } else {
+          clearPendingHelp();
+          showHelp(action);
+        }
       }}
     >
       <TooltipTrigger asChild>
         <DropdownMenuItem
           aria-label={label}
+          onPointerMoveCapture={event => {
+            if (event.pointerType === 'touch') return;
+            // Radix menu pointer navigation focuses the item immediately.
+            // Keep that focus from bypassing the pointer dwell requirement.
+            helpInputRef.current = 'pointer';
+            hoveredHelpActionRef.current = action;
+            schedulePointerHelp(action);
+          }}
+          onPointerLeave={() => {
+            if (hoveredHelpActionRef.current === action) {
+              hoveredHelpActionRef.current = null;
+            }
+            if (pendingHelpRef.current?.action === action) clearPendingHelp();
+            setOpenHelpAction(current => (current === action ? null : current));
+          }}
           onSelect={event => {
             event.stopPropagation();
             onSelect?.();
@@ -197,6 +255,10 @@ const ShifuCard = ({
           <DropdownMenu
             onOpenChange={open => {
               menuOpenRef.current = open;
+              clearPendingHelp();
+              setOpenHelpAction(null);
+              hoveredHelpActionRef.current = null;
+              helpInputRef.current = 'keyboard';
               if (open) {
                 viewedHelpActionsRef.current.clear();
               }
@@ -223,6 +285,11 @@ const ShifuCard = ({
             <DropdownMenuContent
               align='end'
               sideOffset={4}
+              onKeyDownCapture={() => {
+                helpInputRef.current = 'keyboard';
+                hoveredHelpActionRef.current = null;
+                clearPendingHelp();
+              }}
               className='min-w-[10rem] max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto'
             >
               {onImportActivationRequest &&

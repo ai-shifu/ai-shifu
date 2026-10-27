@@ -11,7 +11,9 @@ canonical: true
 The teacher course list keeps each course action as a single-line menu item.
 Hovering an available action or focusing it with the keyboard opens a tooltip
 explaining the operation. Selecting the item performs the same action as before.
-The shared Tooltip primitive owns opening, closing, focus and pointer behavior.
+The shared Tooltip primitive owns positioning and accessible descriptions. The
+menu requires 300 ms of continuous pointer dwell before showing help; keyboard
+focus shows it immediately. Pointer-induced menu focus cannot bypass the delay.
 Help does not grant permissions or change whether an action is available.
 
 ## Product analytics contract
@@ -30,9 +32,10 @@ invocation path, so tooltip use has an additive event contract.
 - Event: `creator_course_action_help_view`.
 - Actor and surface: signed-in teachers and authorized course collaborators or
   operators using the course action menu, with surface `admin_course_list`.
-- Trigger: the Tooltip primitive changes from closed to open for an action in
-  an open course menu. Merely rendering a card, opening a menu, pointing briefly
-  at an item before the tooltip opens, or selecting an item does not emit it.
+- Trigger: help becomes visible for an action in an open course menu after
+  300 ms of continuous pointer dwell or immediately on keyboard focus. Merely
+  rendering a card, opening a menu, pointing briefly at an item, or selecting an
+  item does not emit it.
 - Population: include draft and published courses and the archive-restore
   variant. Include pointer and keyboard tooltip opens. Exclude hidden actions,
   closed menus, guest learner surfaces, learner/editor previews and accounts

@@ -148,6 +148,52 @@ describe('course action help', () => {
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
+  test('requires 300 ms pointer dwell even when menu navigation focuses the item', () => {
+    jest.useFakeTimers();
+    const view = renderActionCard();
+    try {
+      openMenu();
+      const item = screen.getByRole('menuitem', { name: ACTIONS[0].label });
+      pointer(item, 'pointermove');
+      expect(item).toHaveFocus();
+      expect(item).toHaveAttribute('data-highlighted');
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      act(() => jest.advanceTimersByTime(299));
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      pointer(item, 'pointerout');
+      act(() => jest.advanceTimersByTime(300));
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+
+      pointer(item, 'pointermove');
+      act(() => jest.advanceTimersByTime(299));
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+      act(() => jest.advanceTimersByTime(1));
+      expect(screen.getByRole('tooltip')).toHaveTextContent(ACTIONS[0].help);
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
+  });
+
+  test('opens keyboard-focus help immediately without waiting for pointer timers', () => {
+    jest.useFakeTimers();
+    const view = renderActionCard();
+    try {
+      openMenu();
+      const item = screen.getByRole('menuitem', { name: ACTIONS[0].label });
+      act(() => item.focus());
+      expect(screen.getByRole('tooltip')).toHaveTextContent(ACTIONS[0].help);
+      expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
+  });
+
   test.each(ACTIONS)(
     'tracks only the displayed $action tooltip with a safe payload',
     async action => {
