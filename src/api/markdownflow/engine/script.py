@@ -277,7 +277,7 @@ def render_memory_section(
     """Project whole values into one bounded JSON payload without editing stored memory.
 
     Referenced and host-priority keys come first; other keys retain input order. A value that
-    does not fit is omitted, never shortened. Authored script text is not expanded here.
+    does not fit is omitted, never shortened.
     """
     collected = collected_names(bundle.script)
     remembered = {k: v for k, v in memory.items() if k not in collected}
@@ -318,7 +318,7 @@ def render_first_prompt(
 ) -> str:
     """Compose the first user message.
 
-    Learner memory first, then the author's unexpanded script, constraints and extras.
+    Learner memory first, followed by the original script, constraints and extras.
     """
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a
