@@ -625,7 +625,7 @@ describe('ImportActivationDialog validation', () => {
     );
   });
 
-  it('waits for both groups, records one terminal result and blocks re-entry while importing', async () => {
+  it('settles contact groups in order, records one terminal result and blocks re-entry', async () => {
     const phone = deferred<{
       success: { mobile: string }[];
       failed: never[];
@@ -643,7 +643,7 @@ describe('ImportActivationDialog validation', () => {
     const form = contact.closest('form')!;
     confirmImport();
     await waitFor(() =>
-      expect(mockImportActivationOrder).toHaveBeenCalledTimes(2),
+      expect(mockImportActivationOrder).toHaveBeenCalledTimes(1),
     );
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
     expect(contact).toBeDisabled();
@@ -654,6 +654,9 @@ describe('ImportActivationDialog validation', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     await act(async () =>
       phone.resolve({ success: [{ mobile: '13800138000' }], failed: [] }),
+    );
+    await waitFor(() =>
+      expect(mockImportActivationOrder).toHaveBeenCalledTimes(2),
     );
     expect(mockTrackEvent).toHaveBeenCalledTimes(1);
     expect(onOpenChange).not.toHaveBeenCalled();
@@ -666,6 +669,69 @@ describe('ImportActivationDialog validation', () => {
     await waitFor(() => expect(mockTrackEvent).toHaveBeenCalledTimes(2));
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(mockImportActivationOrder).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not start the linked email activation before the phone activation completes', async () => {
+    const phone = deferred<{
+      success: { mobile: string; order_bid: string }[];
+      failed: never[];
+    }>();
+    let activated = false;
+    let emailStartedBeforeActivation = false;
+    mockImportActivationOrder.mockImplementation(
+      ({ contact_type }: { contact_type: string }) => {
+        if (contact_type === 'phone') {
+          return phone.promise.then(result => {
+            activated = true;
+            return result;
+          });
+        }
+        emailStartedBeforeActivation = !activated;
+        return Promise.resolve({
+          success: [],
+          failed: [
+            { mobile: 'learner@example.test', message: 'Already activated' },
+          ],
+        });
+      },
+    );
+    const { onSuccess, onOpenChange } = renderBoundDialog();
+    await reviewList('13800138000\nlearner@example.test');
+    confirmImport();
+    await waitFor(() =>
+      expect(mockImportActivationOrder).toHaveBeenCalledTimes(1),
+    );
+    expect(mockImportActivationOrder.mock.calls[0][0].contact_type).toBe(
+      'phone',
+    );
+    await act(async () =>
+      phone.resolve({
+        success: [{ mobile: '13800138000', order_bid: 'same-learner-order' }],
+        failed: [],
+      }),
+    );
+    await waitFor(() =>
+      expect(mockImportActivationOrder).toHaveBeenCalledTimes(2),
+    );
+    expect(emailStartedBeforeActivation).toBe(false);
+    expect(mockImportActivationOrder.mock.calls[1][0].contact_type).toBe(
+      'email',
+    );
+    expect(screen.getByRole('listitem')).toHaveTextContent('Already activated');
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(mockTrackEvent).toHaveBeenLastCalledWith(
+      'creator_course_activation_result',
+      {
+        surface: 'admin_course_list',
+        contact_mode: 'mixed',
+        requested_count: 2,
+        outcome: 'partial',
+        success_count: 1,
+        failed_count: 1,
+        failure_category: 'item_failed',
+      },
+    );
   });
 
   it('reports a fully failed request once without claiming successful activation', async () => {

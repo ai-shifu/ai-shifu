@@ -56,7 +56,9 @@
   "importActivation": {
     "action": "Add learners",
     "actionDescription": "Enter phone numbers or emails to activate the course at no charge",
+    "backToEdit": "Back to edit",
     "confirmDescription": "Activate “{courseName}” for these {count} learners at no charge to them. Check the accounts: {mobiles}",
+    "confirmSubmit": "Activate course",
     "confirmTitle": "Add these learners?",
     "courseLabel": "Course to activate",
     "coursePlaceholder": "Select a published course to activate for these learners",
@@ -64,11 +66,13 @@
     "description": "Enter learners’ sign-in phone numbers or email addresses to activate this course at no charge to them. Accounts will be created for unregistered learners.",
     "failed": "Course activation did not succeed. Check the reason and try again.",
     "mobileDuplicate": "Duplicate phone numbers or emails: {numbers}. Remove duplicates and try again.",
+    "mobileHint": "One learner per line, up to 50. You can mix phone numbers and emails. Separate the account and optional nickname with a space.",
     "mobileInvalidLines": "Invalid phone numbers or email addresses: {values}",
     "mobileLabel": "Learner phone numbers or emails",
     "mobileLimit": "Add up to {count} learners at a time",
     "mobilePlaceholder": "13800138000 Alex\nlearner@example.com Sam",
     "mobileRequired": "Enter learner phone numbers or email addresses",
+    "nicknameHint": "Nicknames entered on each line take priority. The default is used for rows without a nickname.",
     "nicknameLabel": "Default nickname (optional)",
     "nicknamePlaceholder": "Nickname for learners without one in the list",
     "partialSummary": "Activated for {successCount}; review {failedCount}",
@@ -76,11 +80,7 @@
     "submitting": "Activating…",
     "success": "Course activated",
     "successSummary": "Course activated for {count} learners",
-    "title": "Add learners",
-    "backToEdit": "Back to edit",
-    "nicknameHint": "Nicknames entered on each line take priority. The default is used for rows without a nickname.",
-    "mobileHint": "One learner per line, up to 50. You can mix phone numbers and emails. Separate the account and optional nickname with a space.",
-    "confirmSubmit": "Activate course"
+    "title": "Add learners"
   },
   "messages": {
     "loadOrderDetailFailed": "Failed to load order detail. Please try again later.",

@@ -21,7 +21,11 @@ step identifies the course before the teacher confirms activation.
 
 The existing API accepts one contact type per request. The frontend groups the
 confirmed list into phone and email requests without changing the API schema.
-Each request settles independently. Results are merged by the submitted account,
+The phone request settles before the email request starts, including when the
+first request fails. This avoids deliberately overlapping activation for linked
+credentials in one confirmed list; the existing backend check reports an account
+that is already activated. A failed group does not block the next group.
+Results are merged by the submitted account,
 and every unsuccessful or unconfirmed account retains its associated reason.
 A failed request must not discard the other request's confirmed successes.
 Missing account results are unconfirmed failures, rather than successful imports.

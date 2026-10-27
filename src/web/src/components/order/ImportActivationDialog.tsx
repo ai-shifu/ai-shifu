@@ -467,21 +467,26 @@ const ImportActivationDialog = ({
     );
 
     try {
-      const outcomes = await Promise.allSettled(
-        groups.map(
-          async group =>
-            (await api.importActivationOrder({
-              lines: group.entries.map(entry =>
-                entry.nickname
-                  ? `${entry.mobile} ${entry.nickname}`
-                  : entry.mobile,
-              ),
-              course_id: courseId,
-              contact_type: group.contactType,
-              ...(defaultNickname ? { user_nick_name: defaultNickname } : {}),
-            })) as ActivationResponse,
-        ),
-      );
+      const outcomes: PromiseSettledResult<ActivationResponse>[] = [];
+      // Linked phone and email credentials can identify the same learner.
+      // Let each request settle before the next checks existing activation.
+      for (const group of groups) {
+        try {
+          const value = (await api.importActivationOrder({
+            lines: group.entries.map(entry =>
+              entry.nickname
+                ? `${entry.mobile} ${entry.nickname}`
+                : entry.mobile,
+            ),
+            course_id: courseId,
+            contact_type: group.contactType,
+            ...(defaultNickname ? { user_nick_name: defaultNickname } : {}),
+          })) as ActivationResponse;
+          outcomes.push({ status: 'fulfilled', value });
+        } catch (reason) {
+          outcomes.push({ status: 'rejected', reason });
+        }
+      }
       const successes = new Set<string>();
       const failures = new Map<string, ActivationFailure>();
       let failureCategory:
