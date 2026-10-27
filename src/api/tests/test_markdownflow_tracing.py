@@ -51,7 +51,7 @@ def observations(
     )
     monkeypatch.setattr(tracing, "get_langfuse_client", lambda: client)
     monkeypatch.setattr(tracing, "get_request_id", lambda: "request-1")
-    monkeypatch.setattr(tracing, "get_request_trace_id", lambda: "a" * 32)
+    monkeypatch.setattr(tracing, "create_advancement_trace_id", lambda: "a" * 32)
     try:
         yield exporter
     finally:
@@ -758,3 +758,74 @@ def test_safe_observation_ends_only_once_when_the_sdk_raises() -> None:
     handle.end(output="Result")
     handle.end(output="Result")
     sdk.end.assert_called_once_with(output="Result")
+
+
+def test_sdk_create_failure_preserves_the_advance_identity_for_all_noop_children(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Gateway usage keeps the admitted advance id even if binding fails later."""
+    from flaskr.api.langfuse import resolve_langfuse_trace_id
+
+    monkeypatch.setattr(tracing, "create_advancement_trace_id", lambda: "b" * 32)
+    create = Mock(side_effect=RuntimeError("Telemetry unavailable"))
+    monkeypatch.setattr(tracing, "create_trace_with_root_span", create)
+    trace = _trace(defer_until_session=True)
+    monkeypatch.setattr(tracing, "get_request_id", lambda: "different-http-request")
+    trace.set_context(session_id="document-execution", script="Teach.")
+    trace.start_turn()
+    for child in (
+        trace.model_parent.generation(name="teaching"),
+        trace.current.event(name="interaction"),
+        trace.root.span(name="summary"),
+    ):
+        assert resolve_langfuse_trace_id(child) == "b" * 32
+        assert isinstance(child.id, str)
+        child.end(output="Result")
+    trace.append_output("Visible response")
+    trace.finish()
+    trace.finish()
+    create.assert_called_once()
+
+
+@pytest.mark.parametrize("operation", ["observation", "span", "generation", "event"])
+def test_failed_child_creation_keeps_the_owning_advance_for_model_usage(
+    observations: InMemorySpanExporter,
+    monkeypatch: pytest.MonkeyPatch,
+    operation: str,
+) -> None:
+    """A missing agent/private child cannot move usage back to the HTTP trace."""
+    from flaskr.api.langfuse import resolve_langfuse_trace_id
+
+    trace = _trace(session_id="document-execution")
+    monkeypatch.setattr(
+        trace.root._observation,
+        operation,
+        Mock(side_effect=RuntimeError("Child creation unavailable")),
+    )
+    child = (
+        trace.start_turn()
+        if operation == "observation"
+        else getattr(trace.root, operation)(name="private-step")
+    )
+    assert resolve_langfuse_trace_id(child) == "a" * 32
+    generation = child.generation(name="teaching")
+    assert resolve_langfuse_trace_id(generation) == "a" * 32
+    generation.end(output="Model result")
+    trace.append_output("Public result")
+    trace.finish()
+    root = _spans(observations)["learn/Course/Chapter/Lesson"]
+    assert _value(root, "output") == "Public result"
+
+
+def test_deferred_session_failure_keeps_advance_error_without_hiding_business_error(
+    observations: InMemorySpanExporter,
+) -> None:
+    trace = _trace(defer_until_session=True)
+    assert trace.model_parent.trace_id == ""
+    message = "Session storage failed"
+    with pytest.raises(RuntimeError, match=message), trace:
+        raise RuntimeError(message)
+    root = _spans(observations)["learn/Course/Chapter/Lesson"]
+    assert root.context.trace_id == int("a" * 32, 16)
+    assert root.attributes["langfuse.observation.metadata.runtime_outcome"] == "error"
+    assert root.attributes["langfuse.observation.level"] == "ERROR"

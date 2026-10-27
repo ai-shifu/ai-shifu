@@ -132,6 +132,12 @@ def test_private_summary_is_a_child_and_success_precedes_terminal_close(
     )
     assert root.attributes["langfuse.observation.metadata.transport_closed"] is True
     assert runtime.store.load(view["session_id"]).done
+    roots = _roots(observations)
+    assert len(roots) == 2
+    assert roots[0].context.trace_id != roots[1].context.trace_id
+    assert roots[0].context.span_id != roots[1].context.span_id
+    assert all(root.attributes["session.id"] == view["session_id"] for root in roots)
+    assert summary.context.trace_id == root.context.trace_id
 
 
 def test_failed_profile_save_has_no_public_output_or_success(
@@ -233,3 +239,35 @@ def test_standalone_private_summary_keeps_evidence_in_its_child(
     )
     assert _value(child, "input") == messages
     assert _value(child, "output") == "Private generated profile."
+
+
+def test_profile_operations_have_distinct_traces_even_with_the_same_http_id(
+    observations: InMemorySpanExporter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _app, runtime, _factories = _runtime(_questionnaire)
+    view = _start(runtime, "Collect %{{goal}}.")
+    session = runtime.store.load(view["session_id"])
+    monkeypatch.setattr(tracing_module, "get_request_id", lambda: "shared-request")
+    with ProfileTrace(session) as trace:
+        trace.append_output("Public question.")
+    with ProfileTrace.summary(session, ["Accepted evidence."]) as summary:
+        summary.update(output="Private summary.")
+    with ProfileTrace.import_answers(session, "Delegated evidence.") as extraction:
+        extraction.update(output={"goal": "Practice"})
+    session.session_id = "replacement-session"
+    with ProfileTrace(session) as trace:
+        trace.append_output("New question.")
+    roots = _roots(observations)
+    assert len(roots) == 4
+    assert len({root.context.trace_id for root in roots}) == 4
+    assert all(
+        root.attributes["session.id"] == view["session_id"] for root in roots[:3]
+    )
+    assert roots[3].attributes["session.id"] == "replacement-session"
+    assert len({root.context.span_id for root in roots}) == 4
+    assert [
+        root.attributes["langfuse.trace.metadata.request_id"] for root in roots[:3]
+    ] == ["shared-request"] * 3
+    assert _value(roots[0], "output") == "Public question."
+    assert not _value(roots[1], "output")
+    assert _value(roots[2], "input") == "Delegated evidence."

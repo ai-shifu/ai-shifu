@@ -14,15 +14,16 @@ from typing import TYPE_CHECKING, Any, Union
 
 from flask import Flask
 from flaskr.api.langfuse import (
+    LangfuseObservationHandle,
     LangfuseTraceHandle,
     MockClient,
+    create_advancement_trace_id,
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
-    get_request_trace_id,
+    get_request_id,
     normalize_langfuse_input_value,
     normalize_langfuse_output_value,
-    update_langfuse_trace,
 )
 from flaskr.api.llm import chat_llm
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
@@ -882,7 +883,8 @@ class RunScriptPreviewContextV2:
 
         chapter_title = getattr(outline, "title", "") or outline_bid
         trace_scene = "lesson_preview"
-        request_trace_id = get_request_trace_id()
+        request_id = get_request_id()
+        trace_id = create_advancement_trace_id()
         trace_args = {
             "user_id": user_bid,
             "session_id": session_id,
@@ -893,11 +895,12 @@ class RunScriptPreviewContextV2:
                 "session_id": session_id,
                 "scene": trace_scene,
                 "chapter_title": chapter_title,
+                "request_id": request_id,
             },
         }
         trace, root_span = create_trace_with_root_span(
             client=get_langfuse_client(),
-            trace_payload={"id": request_trace_id, **trace_args},
+            trace_payload={"id": trace_id, **trace_args},
             root_span_payload={
                 "name": build_langfuse_span_name(
                     chapter_title,
@@ -908,8 +911,8 @@ class RunScriptPreviewContextV2:
         )
         self.app.logger.info(
             "langfuse preview trace created | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
-            request_trace_id,
-            request_trace_id,
+            request_id,
+            trace_id,
             trace_scene,
             user_bid,
             shifu_bid,
@@ -1584,7 +1587,7 @@ class RunScriptContextV2:
         learning_mode: str = "read",
         stop_event: threading.Event | None = None,
     ) -> None:
-        """Select runtime models, locate the outline, and create its root trace."""
+        """Select runtime models and prepare tracing until the session is known."""
         self._last_position = -1
         self.app = app
         self._struct = struct
@@ -1633,7 +1636,7 @@ class RunScriptContextV2:
         self._trace_args = {}
         chapter_title = self._outline_item_info.title
         trace_scene = "lesson_preview_runtime" if preview_mode else "lesson_runtime"
-        self._trace_id = get_request_trace_id()
+        self._trace_id = create_advancement_trace_id()
         self._trace_args["user_id"] = user_info.user_id
         self._trace_args["name"] = build_langfuse_trace_name(chapter_title, trace_scene)
         self._trace_args["metadata"] = {
@@ -1642,28 +1645,11 @@ class RunScriptContextV2:
             "outline_item_bid": self._outline_item_info.bid,
             "shifu_bid": self._outline_item_info.shifu_bid,
             "preview_mode": int(bool(preview_mode)),
+            "request_id": get_request_id(),
         }
-        self._trace, self._trace_root_span = create_trace_with_root_span(
-            client=get_langfuse_client(),
-            trace_payload={"id": self._trace_id, **self._trace_args},
-            root_span_payload={
-                "name": build_langfuse_span_name(
-                    chapter_title,
-                    trace_scene,
-                    "root",
-                ),
-            },
-        )
-        self.app.logger.info(
-            "langfuse runtime trace created | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
-            self._trace_id,
-            self._trace_id,
-            trace_scene,
-            user_info.user_id,
-            self._outline_item_info.shifu_bid,
-            self._outline_item_info.bid,
-            "",
-        )
+        self._trace = MockClient()
+        self._trace_root_span = None
+        self._trace_finalized = False
         context_local.current_context = self
 
     def _stop_requested(self) -> bool:
@@ -1695,20 +1681,48 @@ class RunScriptContextV2:
             return
         self._langfuse_output_chunks.append(text)
 
-    def _finalize_langfuse_trace(self) -> None:
-        output_chunks = getattr(self, "_langfuse_output_chunks", [])
-        finalize_langfuse_trace(
-            trace=self._trace,
-            root_span=getattr(self, "_trace_root_span", None),
-            trace_payload={
-                **self._trace_args,
-                "output": "".join(output_chunks) or None,
-            },
-            root_span_payload={
-                "input": self._trace_args.get("input"),
-                "output": "".join(output_chunks) or None,
-            },
-        )
+    def _finalize_langfuse_trace(self, error: Exception | None = None) -> None:
+        """End once, retaining the admitted advancement even before session loading."""
+        if getattr(self, "_trace_finalized", False):
+            return
+        self._trace_finalized = True
+        try:
+            if getattr(self, "_trace_root_span", None) is None:
+                metadata = self._trace_args.get("metadata", {})
+                self._trace_id = (
+                    getattr(self, "_trace_id", "") or create_advancement_trace_id()
+                )
+                self._trace, self._trace_root_span = create_trace_with_root_span(
+                    client=get_langfuse_client(),
+                    trace_payload={"id": self._trace_id, **self._trace_args},
+                    root_span_payload={
+                        "name": build_langfuse_span_name(
+                            metadata.get("chapter_title")
+                            or getattr(self._outline_item_info, "title", ""),
+                            metadata.get("scene", "lesson_runtime"),
+                            "root",
+                        ),
+                    },
+                )
+            output = "".join(getattr(self, "_langfuse_output_chunks", [])) or None
+            root_payload = {"input": self._trace_args.get("input"), "output": output}
+            if error is not None:
+                root_payload.update(
+                    level="ERROR",
+                    status_message=type(error).__name__,
+                    metadata={"runtime_outcome": "error"},
+                )
+            finalize_langfuse_trace(
+                trace=self._trace,
+                root_span=self._trace_root_span,
+                trace_payload={**self._trace_args, "output": output},
+                root_span_payload=root_payload,
+            )
+        except Exception as telemetry_error:
+            self.app.logger.warning(
+                "Langfuse trace finalization failed (%s)",
+                type(telemetry_error).__name__,
+            )
 
     def _should_stream_tts(self) -> bool:
         return (
@@ -2164,8 +2178,8 @@ class RunScriptContextV2:
             self._current_attend.block_position,
             self._current_attend.status,
         )
-        self._bind_trace_session()
         proceed = yield from self._phase_sync_outline_progress(app)
+        self._bind_trace_session()
         if not proceed:
             return
 
@@ -2211,26 +2225,46 @@ class RunScriptContextV2:
         yield from self._phase_completion_tail()
 
     def _bind_trace_session(self) -> None:
-        """Bind the langfuse runtime trace to the resolved progress record."""
-        if not getattr(self, "_trace_id", ""):
-            self._trace_id = get_request_trace_id()
+        """Bind this advancement to its effective document execution session."""
         if not isinstance(getattr(self, "_trace_args", None), dict):
             self._trace_args = {}
         if not hasattr(self, "_trace_root_span"):
             self._trace_root_span = None
-        self._trace_args.setdefault("metadata", {})
-        self._trace_args["session_id"] = self._current_attend.progress_record_bid
-        # The SDK replicates trace attributes onto every observation instead of
-        # keeping a mutable trace record, and only observations started after an
-        # attribute is bound carry it. Push the session id now so the spans and
-        # generations of this step are attributed to the session; leaving it to
-        # the finalize update would reach the root observation only.
-        trace = getattr(self, "_trace", None)
-        if trace is not None:
-            update_langfuse_trace(trace, session_id=self._trace_args["session_id"])
+        session_id = self._current_attend.progress_record_bid
+        if self._trace_root_span is not None:
+            if self._trace_args.get("session_id") == session_id:
+                return
+            self._finalize_langfuse_trace()
+            self._langfuse_output_chunks = []
+            self._trace_id = create_advancement_trace_id()
+        metadata = self._trace_args.setdefault("metadata", {})
+        self._trace_args["session_id"] = session_id
+        self._trace_id = getattr(self, "_trace_id", "") or create_advancement_trace_id()
+        # Keep downstream model, ask, and interaction calls usable if the SDK
+        # fails, without reusing an earlier session's ended handles.
+        self._trace = LangfuseTraceHandle(MockClient(), self._trace_id)
+        self._trace_root_span = LangfuseObservationHandle(MockClient(), self._trace_id)
+        self._trace_finalized = False
+        try:
+            self._trace, self._trace_root_span = create_trace_with_root_span(
+                client=get_langfuse_client(),
+                trace_payload={"id": self._trace_id, **self._trace_args},
+                root_span_payload={
+                    "name": build_langfuse_span_name(
+                        metadata.get("chapter_title")
+                        or getattr(self._outline_item_info, "title", ""),
+                        metadata.get("scene", "lesson_runtime"),
+                        "root",
+                    ),
+                },
+            )
+        except Exception as telemetry_error:
+            self.app.logger.warning(
+                "Langfuse trace creation failed (%s)", type(telemetry_error).__name__
+            )
         self.app.logger.info(
             "langfuse runtime trace session bound | request_id=%s trace_id=%s scene=%s user_id=%s shifu_bid=%s outline_item_bid=%s session_id=%s",
-            self._trace_id,
+            metadata.get("request_id", ""),
             self._trace_id,
             self._trace_args["metadata"].get("scene", ""),
             self._trace_args.get("user_id", ""),

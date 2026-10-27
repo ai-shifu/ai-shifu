@@ -10,9 +10,60 @@ from flaskr.service.learn import context_v2 as runtime
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.metering import UsageContext
 
+from . import test_context_v2 as context_tests
 from . import test_input_dispatch_storage as input_storage
 
 dispatch = input_storage.dispatch
+
+
+@pytest.mark.parametrize("proceed", [True, False])
+def test_trace_binds_the_effective_progress_after_synchronization(
+    dispatch: object, monkeypatch: pytest.MonkeyPatch, proceed: bool
+) -> None:
+    """Both teaching and terminal steps use the authoritative refreshed progress."""
+    context = dispatch.context
+    context._input_type = ""
+    context._trace = runtime.MockClient()
+    context._trace_root_span = None
+    context._trace_args = {"user_id": "learner", "metadata": {}}
+    context._trace_id = "a" * 32
+    context._get_current_attend = Mock(return_value=context._current_attend)
+    refreshed = SimpleNamespace(
+        progress_record_bid="refreshed-progress", block_position=0, status=1
+    )
+    created = Mock(
+        return_value=(
+            context_tests._FakeLangfuseTrace(),
+            context_tests._FakeLangfuseSpan(),
+        )
+    )
+    monkeypatch.setattr(runtime, "create_trace_with_root_span", created)
+
+    def synchronize(_app: object) -> object:
+        assert context._trace_root_span is None
+        yield "progress"
+        context._current_attend = refreshed
+        return proceed
+
+    def resolve_script(progress: object, **_kwargs: object) -> None:
+        assert progress is refreshed
+        assert context._trace_args["session_id"] == refreshed.progress_record_bid
+        assert context._trace_id == "a" * 32
+
+    context._phase_sync_outline_progress = synchronize
+    context._get_run_script_info = Mock(side_effect=resolve_script)
+    context._phase_completion_when_script_missing = Mock(
+        return_value=iter(["complete"])
+    )
+    assert list(context.run_inner(dispatch.app)) == [
+        "progress",
+        *(["complete"] if proceed else []),
+    ]
+    created.assert_called_once()
+    assert (
+        created.call_args.kwargs["trace_payload"]["session_id"] == "refreshed-progress"
+    )
+    assert context._get_run_script_info.call_count == int(proceed)
 
 
 @pytest.mark.parametrize("stream", [True, False])

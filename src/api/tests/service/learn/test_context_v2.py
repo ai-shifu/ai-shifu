@@ -1945,15 +1945,15 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                 return_value=sentinel_client,
             ),
             patch(
-                "flaskr.service.learn.context_v2.get_request_trace_id",
-                return_value="req-trace-1",
+                "flaskr.service.learn.context_v2.get_request_id",
+                return_value="request-1",
             ),
             patch(
                 "flaskr.service.learn.context_v2.create_trace_with_root_span",
                 side_effect=_fake_create_trace_with_root_span,
             ),
         ):
-            RunScriptContextV2(
+            ctx = RunScriptContextV2(
                 app=app,
                 shifu_info=types.SimpleNamespace(),
                 struct=struct,
@@ -1966,9 +1966,18 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                 is_paid=True,
                 preview_mode=False,
             )
+            assert not captured
+            advancement_id = ctx._trace_id
+            ctx._current_attend = types.SimpleNamespace(
+                progress_record_bid="progress-1"
+            )
+            ctx._bind_trace_session()
 
         assert captured["client"] is sentinel_client
-        assert captured["trace_payload"]["id"] == "req-trace-1"
+        assert captured["trace_payload"]["id"] == advancement_id
+        assert len(advancement_id) == 32
+        assert captured["trace_payload"]["session_id"] == "progress-1"
+        assert captured["trace_payload"]["metadata"]["request_id"] == "request-1"
 
     def test_set_input_normalizes_structured_value_for_trace(self) -> None:
         ctx = _make_context()
@@ -2043,7 +2052,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
         app = Flask("preview-langfuse-trace")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(block_index=0)
-        captured = {}
+        captured = {"payloads": []}
 
         class _FakePreviewContextStore:
             def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -2098,6 +2107,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
         ) -> object:
             _ = client, root_span_payload
             captured["trace_payload"] = trace_payload
+            captured["payloads"].append(trace_payload)
             trace = _FakeLangfuseTrace()
             root_span = _FakeLangfuseSpan()
             captured["trace"] = trace
@@ -2144,8 +2154,8 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                 side_effect=_fake_create_trace_with_root_span,
             ),
             patch(
-                "flaskr.service.learn.context_v2.get_request_trace_id",
-                return_value="preview-req-trace-1",
+                "flaskr.service.learn.context_v2.get_request_id",
+                return_value="preview-request-1",
             ),
         ):
             messages = list(
@@ -2157,10 +2167,31 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                     session_id="preview-session-1",
                 )
             )
+            repeated = list(
+                preview_ctx.stream_preview(
+                    preview_request=preview_request,
+                    shifu_bid="shifu-1",
+                    outline_bid="outline-1",
+                    user_bid="user-1",
+                    session_id="preview-session-1",
+                )
+            )
 
         assert messages
-        assert captured["trace_payload"]["id"] == "preview-req-trace-1"
+        assert repeated
+        first, second = captured["payloads"]
+        assert first["id"] != second["id"]
+        assert all(
+            payload["session_id"] == "preview-session-1" for payload in (first, second)
+        )
+        assert all(
+            payload["metadata"]["request_id"] == "preview-request-1"
+            for payload in (first, second)
+        )
         assert captured["trace_payload"]["session_id"] == "preview-session-1"
+        assert (
+            captured["trace_payload"]["metadata"]["request_id"] == "preview-request-1"
+        )
         assert captured["trace"].updated["input"] == "Prompt block"
         assert captured["trace"].updated["output"] == "Hello preview"
         assert captured["root_span"].end_kwargs == {
@@ -2982,37 +3013,81 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
 
 
 class TraceSessionBindingTests(unittest.TestCase):
-    """Cover the langfuse session id binding of a runtime step."""
+    """Keep automatic steps together and admitted advancements distinct."""
 
-    def _context(self, trace: object) -> object:
+    def _context(self, request_id: str = "request-1") -> RunScriptContextV2:
         ctx = _make_context()
         ctx.app = MagicMock()
-        ctx._trace = trace
-        ctx._trace_id = "f" * 32
-        ctx._trace_args = {"user_id": "user-1", "metadata": {"scene": "lesson_runtime"}}
+        ctx._trace = None
+        ctx._trace_id = ""
+        ctx._trace_args = {
+            "user_id": "user-1",
+            "name": "Lesson",
+            "metadata": {
+                "scene": "lesson_runtime",
+                "chapter_title": "Lesson",
+                "request_id": request_id,
+            },
+        }
         ctx._trace_root_span = None
-        ctx._current_attend = MagicMock(progress_record_bid="progress-1")
-        ctx._outline_item_info = MagicMock(bid="outline-1", shifu_bid="shifu-1")
+        ctx._langfuse_output_chunks = []
+        ctx._current_attend = types.SimpleNamespace(progress_record_bid="progress-1")
+        ctx._outline_item_info = types.SimpleNamespace(
+            bid="outline-1", shifu_bid="shifu-1", title="Lesson"
+        )
         return ctx
 
-    def test_binding_pushes_the_session_id_to_langfuse_immediately(self) -> None:
-        # The SDK carries trace attributes on every observation, so a session id
-        # that only reaches langfuse at finalize time would be missing from all
-        # observations of the step.
-        trace = _FakeLangfuseTrace()
-        ctx = self._context(trace)
+    def test_advancements_have_distinct_traces_even_with_one_request_id(self) -> None:
+        contexts = [self._context("request-1"), self._context("request-1")]
+        roots = [_FakeLangfuseSpan(), _FakeLangfuseSpan()]
+        with patch.object(
+            context_v2_module,
+            "create_trace_with_root_span",
+            side_effect=[(_FakeLangfuseTrace(), root) for root in roots],
+        ) as create:
+            for ctx in contexts:
+                ctx._bind_trace_session()
+                ctx._bind_trace_session()
 
-        ctx._bind_trace_session()
+        assert create.call_count == 2
+        payloads = [call.kwargs["trace_payload"] for call in create.call_args_list]
+        assert payloads[0]["id"] != payloads[1]["id"]
+        assert payloads[0]["id"] == contexts[0]._trace_id
+        assert payloads[1]["id"] == contexts[1]._trace_id
+        assert all(payload["session_id"] == "progress-1" for payload in payloads)
+        assert [payload["metadata"]["request_id"] for payload in payloads] == [
+            "request-1",
+            "request-1",
+        ]
+        assert contexts[0]._trace_root_span is roots[0]
+        assert contexts[1]._trace_root_span is roots[1]
 
-        assert ctx._trace_args["session_id"] == "progress-1"
-        assert trace.updated == {"session_id": "progress-1"}
+    def test_changed_session_closes_previous_root_before_creating_another(self) -> None:
+        ctx = self._context()
+        first_trace = _FakeLangfuseTrace()
+        first_root, second_root = _FakeLangfuseSpan(), _FakeLangfuseSpan()
+        payloads = []
 
-    def test_binding_without_a_trace_does_not_raise(self) -> None:
-        ctx = self._context(None)
+        def create(**kwargs: object) -> tuple[object, object]:
+            payloads.append(dict(kwargs["trace_payload"]))
+            if len(payloads) == 1:
+                return first_trace, first_root
+            assert first_root.end_kwargs["output"] == "First session output"
+            return _FakeLangfuseTrace(), second_root
 
-        ctx._bind_trace_session()
+        with patch.object(
+            context_v2_module, "create_trace_with_root_span", side_effect=create
+        ):
+            ctx._bind_trace_session()
+            ctx.append_langfuse_output("First session output")
+            ctx._current_attend.progress_record_bid = "reset-progress"
+            ctx._bind_trace_session()
 
-        assert ctx._trace_args["session_id"] == "progress-1"
+        assert payloads[0]["id"] != payloads[1]["id"]
+        assert first_trace.updated["session_id"] == "progress-1"
+        assert ctx._trace_args["session_id"] == "reset-progress"
+        assert ctx._trace_root_span is second_root
+        assert ctx._langfuse_output_chunks == []
 
 
 if __name__ == "__main__":
