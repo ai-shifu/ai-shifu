@@ -15,7 +15,7 @@ Measure complete SSE lifetimes and aggregate all Gunicorn workers before testing
 
 ## Surprises & Discoveries
 
-The production Dockerfile copies `flaskr/` and `gunicorn.conf.py`, but does not copy arbitrary top-level Python modules. The bootstrap therefore lives in `flaskr/metrics_runtime.py`; importing `flaskr` has no application initialization side effects. Preload and the existing gthread/gevent guard must remain intact. Metrics Server provides instantaneous resources, while historical cloud monitoring access is still unconfirmed.
+The production Dockerfile copies `flaskr/` and `gunicorn.conf.py`, but does not copy arbitrary top-level Python modules. The bootstrap therefore lives in `flaskr/metrics_runtime.py`; importing `flaskr` has no application initialization side effects. Preload and the gthread worker hooks must remain intact; gevent support was removed on 2026-10-27. Metrics Server provides instantaneous resources, while historical cloud monitoring access is still unconfirmed.
 
 ## Decision Log
 

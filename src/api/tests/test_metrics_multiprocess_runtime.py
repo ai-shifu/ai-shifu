@@ -175,21 +175,3 @@ example = EnhancedConfig(ENV_VARS).export_env_example_filtered()
 assert '# PROMETHEUS_MULTIPROC_DIR=""' in example
 assert "PROMETHEUS_MULTIPROC_DIR" not in dotenv_values(stream=StringIO(example))
 """)
-
-
-def test_gevent_bootstrap_selects_multiprocess_writers_after_worker_patching() -> None:
-    run_fresh("""
-import runpy, sys
-from types import SimpleNamespace
-from unittest.mock import Mock
-sys.argv = ["gunicorn", "-k", "gevent", "app:app"]
-config = runpy.run_path("gunicorn.conf.py")
-from gevent import monkey
-from prometheus_client import Counter, values
-assert monkey.is_module_patched("threading")
-assert values.ValueClass._multiprocess
-Counter("gevent_requests", "test").inc()
-server = SimpleNamespace(log=Mock())
-config["on_exit"](server)
-server.log.exception.assert_not_called()
-""")

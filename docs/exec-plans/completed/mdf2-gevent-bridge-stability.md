@@ -1,11 +1,17 @@
 ---
 title: Keep concurrent gevent lesson streams responsive
-status: active
+status: completed
 owner_surface: learner
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-27
 ---
 
 # Keep concurrent gevent lesson streams responsive
+
+> Retired 2026-10-27: every API environment runs gunicorn `-k gthread`
+> workers (#3215) and gevent support was removed from the API. The bridge now
+> uses only plain threads, a native queue and a native admission lock, and the
+> gevent subprocess tests described below no longer exist. This document
+> preserves the historical investigation.
 
 ## Purpose / Big Picture
 
@@ -35,8 +41,13 @@ with many simultaneous requests under the production gevent worker.
   lock also fails the streaming regression (batch 0, turn 3); the patched-queue
   mutation fails batch 2, turn 8. Developer-tool checks, Ruff and every repository
   pre-commit gate pass.
-- [ ] 2026-10-08: Run bridge and learning regressions, Linux concurrency checks,
+- [x] 2026-10-08: Run bridge and learning regressions, Linux concurrency checks,
   repository gates, publish one PR and validate sim before manual main merge.
+  Closed 2026-10-27 as superseded: the gevent branch shipped to main, but no
+  sim validation of it was recorded here, and the branch has now been removed.
+- [x] 2026-10-27: Retire the gevent branch. All environments run gthread
+  workers, so the bridge, gunicorn config, hub observer, gevent tests and the
+  gevent dependency were removed.
 
 ## Surprises & Discoveries
 
@@ -59,8 +70,15 @@ lock remains cooperative because only request greenlets use it.
 - 2026-10-08: Use monkey.get_original for the two cross-native synchronization
   primitives. Do not unpatch the process, move asyncio onto request greenlets,
   upgrade gevent, or change the worker mode to hide the bug.
+- 2026-10-27: The worker mode later changed to gthread everywhere for
+  independent reasons, so the gevent branch and its dependency were removed
+  rather than maintained without a production user.
 
 ## Outcomes & Retrospective
+
+2026-10-27: Superseded by the move to gthread workers. Plain-thread bridge
+coverage in `test_bridge.py` keeps the ordering, backpressure, cancellation and
+capacity guarantees; the gevent-only primitives and tests were deleted.
 
 The original Linux failure and patched-queue negative regression are reproduced.
 The correction passes native Linux stress and local bridge/learning regressions.

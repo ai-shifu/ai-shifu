@@ -34,7 +34,6 @@ Flask-Cors==6.0.0
 Flask-Migrate==4.0.7
 Flask-SQLAlchemy==3.1.1
 genai-prices==0.1.9
-gevent==24.10.3
 gmssl==3.2.2
 greenlet==3.1.1
 griffelib==2.3.0
@@ -112,8 +111,6 @@ watchdog==6.0.0
 Werkzeug==3.1.9
 websocket-client==1.8.0
 wrapt==1.16.0
-zope.event==5.0
-zope.interface==7.1.1
 bcrypt==4.2.1
 --extra-index-url https://pypi.org/simple/
 markdown-flow==0.4.2

@@ -71,7 +71,7 @@ from .live_catalog import (
 logger = logging.getLogger(__name__)
 
 # Global asyncio.run patch to avoid RuntimeError when called from a running
-# event loop (seen in LiteLLM logging threads under gunicorn/gevent). For the
+# event loop (seen in LiteLLM logging threads under gunicorn). For the
 # specific case where a loop is already running, we fall back to scheduling
 # the coroutine on the existing loop instead of raising.
 _original_asyncio_run = asyncio.run

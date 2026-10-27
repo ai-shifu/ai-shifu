@@ -80,7 +80,7 @@ def _persist_usage_record(app: Flask, record: BillUsageRecord) -> bool:
     session, and those must neither commit early nor drag the usage row
     down with them. The unit of work performs the classified cleanup inside
     the pushed context - ordinary errors roll back that session, protocol
-    interrupts (including a GreenletExit inside the commit's network IO)
+    interrupts (including a BaseException inside the commit's network IO)
     discard the connection - so only the outcome is reported here.
     """
     try:

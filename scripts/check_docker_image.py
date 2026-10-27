@@ -158,7 +158,7 @@ def check_dependencies(service: str, image: str) -> None:
         "python",
         image,
         "-c",
-        "import flask, gunicorn, celery, gevent, greenlet, cryptography, orjson, pydantic_core",
+        "import flask, gunicorn, celery, greenlet, cryptography, orjson, pydantic_core",
     )
     docker("run", "--rm", "--entrypoint", "ffmpeg", image, "-version")
     docker("run", "--rm", "--entrypoint", "celery", image, "--version")
