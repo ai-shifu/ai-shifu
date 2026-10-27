@@ -86,6 +86,7 @@ from flaskr.service.user.utils import (
 )
 
 from .common import by_pass_login_func, bypass_token_validation, make_common_response
+from .course_memory import register_course_memory_routes
 from .profile import register_profile_routes
 
 P = ParamSpec("P")
@@ -345,6 +346,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             token=token,
         )
 
+    register_course_memory_routes(app, path_prefix)
     register_profile_routes(
         app,
         path_prefix,

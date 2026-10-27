@@ -371,6 +371,18 @@ ENV_VARS: dict[str, EnvVar] = {
         description="Umami analytics site identifier",
         group="frontend",
     ),
+    "ANALYTICS_EXCLUDED_USER_IDS": EnvVar(
+        name="ANALYTICS_EXCLUDED_USER_IDS",
+        default=[],
+        type=list,
+        description=(
+            "Comma-separated user business identifiers (user_bid, exposed as "
+            "user_id in APIs) excluded by the shared analytics tracking policy "
+            "once identified. "
+            "Empty means no users are excluded."
+        ),
+        group="analytics",
+    ),
     "ANALYTICS_DATABASE_URI": EnvVar(
         name="ANALYTICS_DATABASE_URI",
         default="",
@@ -1126,14 +1138,12 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     "SECRET_KEY": EnvVar(
         name="SECRET_KEY",
         required=True,
-        example="ai-shifu",
-        description="""Secret key for JWT token signing and verification
-CRITICAL: Used to encrypt/decrypt user authentication tokens
-- Must be a strong random string (at least 32 characters recommended)
-- DO NOT change in production (will invalidate all user sessions)
-- Keep different values for dev/test/prod environments
-- Never commit to version control
-Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))" """,
+        description="""Secret key for authentication and encrypted configuration
+- New installs: run python3 scripts/prepare_env.py from the repository root
+- The installer generates and privately saves an independent random key
+- Keep the existing key across restarts, upgrades, and all replicas
+- Changing it invalidates sessions and can make encrypted data unreadable
+- Back up the environment file securely; never commit it to version control""",
         secret=True,
         group="auth",
         validator=lambda value: bool(value and str(value).strip()),
@@ -1748,6 +1758,12 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Sampling rate for runtime HTTP traces (0.0 to 1.0).",
         group="monitoring",
     ),
+    "PROMETHEUS_MULTIPROC_DIR": EnvVar(
+        name="PROMETHEUS_MULTIPROC_DIR",
+        default="",
+        description="Optional fresh dedicated Gunicorn metrics directory. Leave unset for private per-master storage; do not export an empty value in single-process development.",
+        group="monitoring",
+    ),
     "INTERNAL_METRICS_PATH": EnvVar(
         name="INTERNAL_METRICS_PATH",
         default="/internal/metrics",
@@ -1918,19 +1934,18 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Default price assigned to a new shifu",
         group="shifu",
     ),
-    "FLOW_ENGINE_V2_SHIFU_BIDS": EnvVar(
-        name="FLOW_ENGINE_V2_SHIFU_BIDS",
-        default=[],
-        type=list,
+    "LESSON_RESET_LIMIT": EnvVar(
+        name="LESSON_RESET_LIMIT",
+        default=0,
+        type=int,
+        validator=lambda value: int(value) >= 0,
         description=(
-            "Comma separated course business identifiers taught by the 2.0 "
-            "MarkdownFlow engine in this deployment. Empty means every course "
-            "stays on 1.0. It belongs to the deployment rather than to a course "
-            "row because the simulation environment shares production's "
-            "database, so one row cannot mean 2.0 there and 1.0 here."
+            "Maximum effective resets a learner may perform on one lesson of a "
+            "course. 0 disables the limit. Course owners and active collaborators "
+            "are exempt; preview resets are never counted. Usage is persisted in "
+            "learn_lesson_reset_records."
         ),
         group="shifu",
-        required=False,
     ),
     # TTS Configuration
     "MINIMAX_API_KEY": EnvVar(
@@ -2464,14 +2479,16 @@ class EnhancedConfig:
             header_lines = [
                 "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
                 "# These are the bare minimum values that must be set.",
-                "# Start from docker/.env.example.full and configure a provider API key.",
+                "# Create configuration with python3 scripts/prepare_env.py from the repository root.",
                 "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
                 "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
-                "# Copy this file to docker/.env (or .env) and configure a provider API key.",
+                "# Run python3 scripts/prepare_env.py from the repository root to create docker/.env.",
+                "# The installer generates SECRET_KEY once; existing configurations are never overwritten.",
+                "# Configure a provider API key in the resulting file.",
                 "# Set LLM_MODEL_1_ID before startup; no default. Names are optional and use IDs when blank.",
                 "# Existing installs: see INSTALL_MANUAL.md#upgrading-to-numbered-models.\n",
             ]
@@ -2565,7 +2582,12 @@ class EnhancedConfig:
                         value = ""
 
                 value_str = format_value(env_var, value)
-                lines.append(f'{env_var.name}="{value_str}"')
+                assignment = f'{env_var.name}="{value_str}"'
+                # prometheus_client tests key presence at import time: an empty
+                # assignment still enables mmap writers in single-process dev.
+                if env_var.name == "PROMETHEUS_MULTIPROC_DIR" and not value_str:
+                    assignment = "# " + assignment
+                lines.append(assignment)
                 lines.append("")
 
         # Add footer

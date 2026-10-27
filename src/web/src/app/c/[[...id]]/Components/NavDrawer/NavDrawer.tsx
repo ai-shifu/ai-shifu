@@ -68,6 +68,7 @@ const calcNavWidth = (frameLayout: number) => {
 const COLLAPSE_WIDTH = NAV_DRAWER_COLLAPSE_WIDTH;
 
 type NavDrawerProps = {
+  courseId?: string;
   courseName?: string;
   courseAvatar?: string;
   onLoginClick?: () => void;
@@ -80,6 +81,7 @@ type NavDrawerProps = {
 };
 
 const NavDrawer = ({
+  courseId,
   // showType = NAV_SHOW_TYPE_NORMAL,
   courseName = '',
   courseAvatar = '',
@@ -205,7 +207,6 @@ const NavDrawer = ({
           ref={footerRef}
           isCollapse={isCollapse}
           onClick={onFooterClick}
-          isMenuOpen={mainModalOpen}
         />
         <MainMenuModal
           open={mainModalOpen}
@@ -213,7 +214,9 @@ const NavDrawer = ({
           className={popupWindowClassname()}
           mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE}
           onPersonalInfoClick={onPersonalInfoClick}
+          onAboutCloseAutoFocus={() => footerRef.current?.focus()}
           surface='learner'
+          courseId={courseId}
         />
         <FeedbackModal
           open={feedbackModalOpen}

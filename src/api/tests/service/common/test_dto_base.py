@@ -9,6 +9,7 @@ from typing import get_args
 import pytest
 from flaskr.common.swagger import swagger_config
 from flaskr.route.common import fmt
+from flaskr.service.common import analytics_policy
 from flaskr.service.common.dto_base import AutoJsonMixin
 from flaskr.service.common.dtos import UserInfo, UserToken
 from pydantic import BaseModel, Field
@@ -152,6 +153,42 @@ def test_user_token_keeps_camel_case_wire_and_swagger_field() -> None:
     assert list(schema["properties"]) == ["userInfo", "token"]
     assert schema["required"] == ["userInfo", "token"]
     assert "description" not in schema["properties"]["userInfo"]
+
+
+@pytest.mark.parametrize(
+    ("excluded_user_bids", "enabled"),
+    [([], True), (["user-1", "user-2"], False), (["user-10"], True)],
+)
+def test_user_info_returns_only_current_users_analytics_eligibility(
+    monkeypatch: pytest.MonkeyPatch,
+    excluded_user_bids: list[str],
+    *,
+    enabled: bool,
+) -> None:
+    monkeypatch.setattr(
+        analytics_policy, "get_config", lambda *_args: excluded_user_bids
+    )
+    user = UserInfo(
+        user_id="user-1",
+        username="learner",
+        name="Learner",
+        email="learner@example.com",
+        mobile="",
+        user_state=1,
+        wx_openid="",
+        language="zh-CN",
+    )
+    payload = user.__json__()
+    token_payload = json.loads(json.dumps(UserToken(user, "token-1"), default=fmt))
+
+    assert payload["analytics_enabled"] is enabled
+    assert token_payload["userInfo"]["analytics_enabled"] is enabled
+    assert payload["user_id"] == "user-1"
+    assert token_payload["userInfo"]["user_id"] == "user-1"
+    assert "user_bid" not in payload
+    assert "user_bid" not in token_payload["userInfo"]
+    assert "ANALYTICS_EXCLUDED_USER_IDS" not in payload
+    assert "user-2" not in json.dumps(payload)
 
 
 @pytest.mark.parametrize(

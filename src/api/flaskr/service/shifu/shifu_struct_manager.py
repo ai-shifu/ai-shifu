@@ -266,14 +266,16 @@ def get_outline_item_dto_with_mdflow(
     is_preview: bool = False,
     outline_item_id: int | None = None,
 ) -> OutlineItemDtoWithMdflow:
-    """Get outline item dto with mdflow."""
+    """Read a bound published body without falling forward to a new revision."""
     outline_item_model = DraftOutlineItem if is_preview else PublishedOutlineItem
     outline_item: DraftOutlineItem | PublishedOutlineItem | None = None
-    if outline_item_id:
+    if outline_item_id is not None:
+        filters = [outline_item_model.id == int(outline_item_id)]
+        if is_preview:
+            filters.append(outline_item_model.deleted == 0)
         outline_item = (
             outline_item_model.query.filter(
-                outline_item_model.id == int(outline_item_id),
-                outline_item_model.deleted == 0,
+                *filters,
             )
             .order_by(
                 outline_item_model.id.desc(),
@@ -291,6 +293,16 @@ def get_outline_item_dto_with_mdflow(
                 outline_item.outline_item_bid,
             )
             outline_item = None
+        if not is_preview:
+            # Published row IDs belong to the run's retained structure. Old
+            # rows are retired on republish, not interchangeable with new rows.
+            if outline_item is None:
+                raise_error("server.shifu.outlineItemNotFound")
+            if not PublishedShifu.query.filter(
+                PublishedShifu.shifu_bid == outline_item.shifu_bid,
+                PublishedShifu.deleted == 0,
+            ).first():
+                raise_error("server.shifu.shifuNotFound")
     if outline_item is None:
         outline_item = (
             outline_item_model.query.filter(

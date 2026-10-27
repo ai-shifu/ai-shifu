@@ -471,7 +471,6 @@ const Header = ({
                         onClick={onLessonHistoryClick}
                         className='inline-flex items-center text-sm font-normal leading-5 text-[rgba(0,0,0,0.45)] transition-colors hover:text-foreground'
                         aria-label={historyTooltip}
-                        title={historyTooltip}
                       >
                         <History className='mr-2 h-4 w-4 shrink-0' />
                         <span className='underline decoration-dashed decoration-1 underline-offset-[3px]'>

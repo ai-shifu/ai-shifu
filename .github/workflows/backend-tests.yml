@@ -45,7 +45,7 @@ jobs:
           fi
 
           git diff --name-only "$BASE_SHA...$HEAD_SHA" > /tmp/backend-changed-files.txt
-          if grep -Eq '^(\.github/workflows/backend-tests\.yml$|src/api/)' /tmp/backend-changed-files.txt; then
+          if grep -Eq '^(ruff\.toml$|\.github/workflows/backend-tests\.yml$|src/api/)' /tmp/backend-changed-files.txt; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -103,19 +103,22 @@ jobs:
       - name: Install dependencies
         if: steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
-        run: python -m pip install -r requirements-ci.txt
+        run: |
+          python -m pip install -r requirements-ci.txt
+          python -m ruff --version
 
-      - name: Install isolated Redis test dependency
+      - name: Install system test dependencies
         if: steps.backend-changes.outputs.run == 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends redis-server
+          sudo apt-get install -y --no-install-recommends redis-server ffmpeg
           redis-server --version
+          ffmpeg -version
 
       - name: Run contract tests
         if: steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
-        run: python -m pytest tests/contract -v --tb=short
+        run: python -m pytest -n 2 --dist loadfile tests/contract -v --tb=short
 
       - name: Select test targets (PR only)
         if: github.event_name == 'pull_request' && steps.backend-changes.outputs.run == 'true'
@@ -222,6 +225,7 @@ jobs:
 
           for path in changed:
               if path in {
+                  "ruff.toml",
                   ".github/workflows/backend-tests.yml",
                   "src/api/requirements.txt",
                   "src/api/requirements-ci.txt",
@@ -299,15 +303,15 @@ jobs:
           if [[ "$FULL_BACKEND_TESTS" == "1" ]]; then
             # Migration discovery and other filesystem dependencies may be
             # invisible to testmon. A full target set must also disable selection.
-            python -m pytest --testmon-noselect "${test_targets[@]}"
+            python -m pytest -n 2 --dist loadfile --testmon-noselect "${test_targets[@]}"
           else
-            python -m pytest --testmon "${test_targets[@]}"
+            python -m pytest -n 2 --dist loadfile --testmon "${test_targets[@]}"
           fi
 
       - name: Run tests (main)
         if: github.event_name == 'push' && steps.backend-changes.outputs.run == 'true'
         working-directory: src/api
-        run: python -m pytest --testmon-noselect tests
+        run: python -m pytest -n 2 --dist loadfile --testmon-noselect tests
 
       - name: Run full backend coverage
         id: coverage
@@ -317,7 +321,8 @@ jobs:
           python -m coverage erase
           test_status=0
           # Coverage must execute every test, independently of testmon's cache.
-          python -m coverage run -m pytest -p no:testmon tests || test_status=$?
+          # pytest-cov combines both workers; enforce the shared threshold below.
+          python -m pytest -n 2 --dist loadfile -p no:testmon --cov --cov-config=.coveragerc --cov-report= --cov-fail-under=0 tests || test_status=$?
           python -m coverage json --fail-under=0
           python -m coverage xml --fail-under=0
           coverage_status=0

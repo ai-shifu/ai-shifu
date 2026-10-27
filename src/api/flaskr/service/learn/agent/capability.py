@@ -10,7 +10,7 @@ Whether a model can is not something to look up. `litellm.supports_function_call
 it would refuse the models that are actually in use. So this asks the model to call one and sees
 what comes back, through the same gateway and the same arguments a lesson goes through.
 
-Run before putting a course on the 2.0 allowlist:
+Run for each candidate course before enabling 2.0 in a deployment:
 
     flask console agent check-model ark/deepseek-v4-1-flash-260910
 """

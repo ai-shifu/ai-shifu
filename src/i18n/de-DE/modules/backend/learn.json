@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentInputBudgetExceeded": "Diese Lektion hat die Eingabekapazität erreicht. Ihre Antworten und Ihr Fortschritt wurden gespeichert. Wenden Sie sich an die Kursleitung, um fortzufahren.",
     "agentRewindUnavailable": "Dieser Schritt kann derzeit nicht neu erstellt werden. Um eine frühere Antwort zu ändern, klicken Sie auf „Wiederholen“ und lernen Sie diese Lektion erneut.",
     "agentTurnCapacity": "Zurzeit lernen viele Personen gleichzeitig. Bitte versuchen Sie es später erneut.",
     "askProviderAuthFailed": "Die Authentifizierung auf Wissensbasis ist fehlgeschlagen. Bitte überprüfen Sie die API-Schlüssel- und Client-ID.",
@@ -11,6 +12,8 @@
     "askProviderUnavailable": "Der externe Wissensdienst ist vorübergehend nicht verfügbar.",
     "continueButton": "Weiter",
     "debugSessionExpired": "Diese Debug-Sitzung ist abgelaufen oder das Skript wurde geändert. Starten Sie das Debugging erneut.",
+    "defaultLearnerName": "Lernende Person",
+    "freeTextPlaceholder": "Deine Antwort",
     "generatedBlockNotFound": "Generierter Block nicht gefunden",
     "invalidAction": "Ungültige Maßnahme",
     "lessonFeedbackCommentPlaceholder": "Optional: Lassen Sie Ihr Feedback",
@@ -18,6 +21,7 @@
     "llmStreamInterrupted": "Die Generationsverbindung wurde unterbrochen. Bitte aktualisieren und versuchen Sie es erneut.",
     "nextChapterButton": "Nächste Lektion",
     "outputInProgress": "Es werden noch Inhalte ausgegeben. Bitte warten Sie, bis die Ausgabe abgeschlossen ist, und versuchen Sie es dann erneut.",
+    "resetLimitReached": "Du hast alle Wiederholungen für diese Lektion genutzt. Du kannst weiterhin lernen, vorhandene Inhalte ansehen oder Fragen stellen.",
     "ttsRateLimited": "Der Sprachdienst ist gerade beschäftigt. Bitte versuchen Sie es gleich noch einmal."
   }
 }

@@ -31,6 +31,16 @@ shared segmentation, SSE, caching, storage, and metering paths as MP3.
   From the China test host Google is unreachable, so `GEMINI_TTS_API_URL`
   points at the internal Google AI proxy (`.../googleai/v1beta`), which
   returned the same PCM payload in about 9 seconds.
+- [x] 2026-09-03: Rolled out to US production after #2751 and #2752 merged.
+  The production `credit_usage_rates` rows are
+  `tts-prod-out-gemini-25-flash` = 0.0046296 (15x) for
+  `gemini-2.5-flash-preview-tts` and `tts-prod-out-gemini-31-flash` =
+  0.0092592 (30x) for `gemini-3.1-flash-tts-preview`, the two models named in
+  the smoke test above. The runtime ConfigMap from deploy-config #15 enables
+  exactly these two models, followed by an API rollout restart. The config
+  payload lists both Gemini tiers with their credit multipliers and a live
+  synthesis from a production pod returned decodable MP3. China production
+  keeps Gemini TTS disabled.
 
 ## Surprises & Discoveries
 

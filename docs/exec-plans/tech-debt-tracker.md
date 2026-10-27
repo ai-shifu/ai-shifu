@@ -14,15 +14,15 @@ Each item below identifies its dependency and next evidence needed.
 - Backend/API owners: verify candidate routes with no known consumer against
   production access evidence before proposing removals. The July inventory's
   count is historical and is not deletion authorization.
-- Learning backend: assess retirement of the retained `RunScriptContextV2`
-  facade. `src/api/flaskr/service/learn/runscript_v2.py` still imports and
-  constructs it. The completed [decomposition](completed/learn-run-decomposition.md)
-  delivered incremental extractions rather than the master plan's proposed
-  replacement path; it did not delete this facade. Agree the replacement
-  boundary before scheduling a dedicated retirement PR, and require golden SSE,
-  resume and disconnect coverage plus removal of runtime callers for completion.
+- Learning backend: finish the 1.0 retirement. The `RunScriptContextV2`
+  runtime, its `learn/run/` collaborators, the 1.0 preview and the
+  `uses_agent_engine` routing switch with its 1.0 branches are deleted.
+  `FLOW_ENGINE_V2_ENABLED` is unset in every deployment and unregistered.
+  Remaining: drop the `preview_engine` 1.0 handling in the editor and migrate
+  away the course `flow_engine` column.
 - Learning backend: extend deterministic golden fixtures for mid-stream errors
-  and resume behavior; choose cases from current `/run` contracts.
+  and resume behavior, and add a 2.0 lesson `/run` transcript driven by a
+  scripted model; choose cases from current `/run` contracts.
 - Frontend/product: shared-course editor permission affordances and French
   onboarding copy polish were deferred from the retired home-entry work. First
   confirm current editor behavior and intended scope; no implementation is queued.

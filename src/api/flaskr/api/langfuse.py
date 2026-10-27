@@ -122,6 +122,11 @@ def get_request_trace_id() -> str:
     return coerce_langfuse_trace_id(get_request_id() or uuid.uuid4().hex)
 
 
+def create_advancement_trace_id() -> str:
+    """Allocate an identity for one admitted business operation, independent of HTTP."""
+    return uuid.uuid4().hex
+
+
 def resolve_langfuse_trace_id(observation: object, trace_id: str | None = None) -> str:
     # Only accept real string trace ids. When Langfuse is disabled the client is
     # a MockClient whose __getattr__ returns a method object for any attribute
@@ -433,6 +438,16 @@ class LangfuseObservationHandle:
             child = self._delegate.start_observation(as_type="span", **payload)
         return self._child(child)
 
+    def observation(
+        self, *, as_type: str = "span", **kwargs: object
+    ) -> "LangfuseObservationHandle":
+        """Create a typed application step beneath this observation."""
+        payload = _map_observation_kwargs(kwargs, _OBSERVATION_KEYS)
+        payload.setdefault("name", as_type)
+        with self._propagation.scope(self._delegate):
+            child = self._delegate.start_observation(as_type=as_type, **payload)
+        return self._child(child)
+
     def generation(self, **kwargs: object) -> "LangfuseObservationHandle":
         """Start and wrap a child generation observation."""
         payload = _map_observation_kwargs(kwargs, _GENERATION_KEYS)
@@ -474,8 +489,10 @@ class LangfuseObservationHandle:
         payload = _map_trace_kwargs(kwargs)
         if not payload:
             return self
-        propagated = self._propagation.merge(payload)
-        if propagated:
+        self._propagation.merge(payload)
+        if self._propagation.snapshot():
+            # Sibling handles share the values, but a late-bound attribute still
+            # needs to be applied to each already-open observation explicitly.
             self._propagation.apply_to(self._delegate)
         # v4 reads input/output from the observation, not from the trace.
         io_payload = {key: payload[key] for key in _TRACE_IO_KEYS if key in payload}

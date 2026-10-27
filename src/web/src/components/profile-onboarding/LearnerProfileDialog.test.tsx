@@ -222,8 +222,9 @@ function MockProfileOnboardingConversation(
         onClick={() =>
           props.runSession({
             sessionId,
-            expectedBlockIndex: 1,
+            expectedTurnIndex: 1,
             requestId: 'request-1',
+            expectedInteractionId: 'learner-question-1',
             userInput: { answer: ['value'] },
             onMessage: jest.fn(),
             onError: jest.fn(),
@@ -331,9 +332,7 @@ const onboardingStatus = (
 
 const sessionResponse = (sessionId = SESSION_ID) => ({
   session_id: sessionId,
-  block_index: 0,
-  block_count: 2,
-  profile_draft_block_index: 1,
+  turn_index: 0,
   done: false,
   expires_in: 900,
 });
@@ -804,8 +803,9 @@ describe('LearnerProfileDialog', () => {
     expect(mockRunProfileOnboardingSession).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: SESSION_ID,
-        expectedBlockIndex: 1,
+        expectedTurnIndex: 1,
         requestId: 'request-1',
+        expectedInteractionId: 'learner-question-1',
         userInput: { answer: ['value'] },
         language: 'en-US',
       }),
@@ -1442,6 +1442,47 @@ describe('LearnerProfileDialog', () => {
         ),
       ).toBeNull(),
     );
+  });
+
+  test('reviews and saves a manual nickname-only result through the existing guided completion path', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    mockCompleteGuidedProfileOnboarding.mockResolvedValue({
+      ...emptyProfile,
+      nickname: 'Robin',
+    });
+    const { props } = renderDialog({ exitPolicy: 'blocking' });
+    await waitForCollectionSession();
+    act(() => mockConversationControls.at(-1)?.deliverDraft('', 'Robin'));
+    await continueCollectionToSave();
+    expect(nicknameInput()).toHaveValue('Robin');
+    expect(profileInput()).toHaveValue('');
+    expect(mockOptimizeLearnerProfile).not.toHaveBeenCalled();
+    expect(mockCompleteGuidedProfileOnboarding).not.toHaveBeenCalled();
+    const completeButton = screen.getByRole('button', {
+      name: 'module.profileOnboarding.complete',
+    });
+    expect(completeButton).toBeEnabled();
+    fireEvent.click(completeButton);
+    await waitFor(() =>
+      expect(mockCompleteGuidedProfileOnboarding).toHaveBeenCalledWith({
+        learner_profile: '',
+        nickname: 'Robin',
+        trigger_source: 'guided',
+        session_id: SESSION_ID,
+      }),
+    );
+    await waitFor(() => expect(props.onClose).toHaveBeenCalledWith('saved'));
+    expect(mockUpdateLearnerProfile).not.toHaveBeenCalled();
+    const completionEvents = mockTrackEvent.mock.calls.filter(
+      ([event]) => event === PROFILE_ONBOARDING_EVENTS.COMPLETED,
+    );
+    expect(completionEvents).toHaveLength(1);
+    expect(completionEvents[0][1]).toEqual(
+      expect.objectContaining({ source: 'guided', presentation: 'hidden' }),
+    );
+    expect(completionEvents[0][1]).not.toHaveProperty('nickname');
+    expect(completionEvents[0][1]).not.toHaveProperty('learner_profile');
   });
 
   test('restores the same account paste without submitting and clears the previous account even when the dialog is closed', async () => {

@@ -1,0 +1,689 @@
+"""Keep authored free-text hints out of generated choices and saved pending questions."""
+
+from __future__ import annotations
+
+import json
+from typing import TYPE_CHECKING
+
+import pytest
+from flaskr.service.learn.agent.legacy_protocol import render_interaction
+from markdown_flow import InteractionParser
+from markdownflow.engine import (
+    Engine,
+    InteractionRequest,
+    InteractionResponseTurn,
+    MemoryUpdated,
+    Session,
+)
+from markdownflow.engine.script import ScriptBundle
+from markdownflow.engine.tools import script_text_inputs
+from pydantic_ai.messages import ModelMessage, ToolReturnPart
+from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+pytestmark = pytest.mark.anyio
+
+_CHOICES = [
+    "Start a new project",
+    "Improve an existing assistant",
+    "Use course materials",
+]
+_HINT = "Describe my project directly"
+_SCRIPT = "?[%{{project_path}} " + " | ".join([*_CHOICES, "..." + _HINT]) + "]"
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    ("raw_name", "expected"),
+    [
+        (" Why <!--this-->? ", "Why <!--this-->?"),
+        (" Why <!--unfinished? ", "Why <!--unfinished?"),
+        ("\n```\n", "```"),
+        ("\n~~~\n", "~~~"),
+        ("\n    café\n", "café"),
+        (" Why {{this? ", "Why {{this?"),
+    ],
+)
+def test_authored_text_hint_keeps_the_exact_opaque_variable(
+    newline: str, raw_name: str, expected: str
+) -> None:
+    """Hint preprocessing cannot interpret comment, fence or indentation text in a key."""
+    script = "?[%{{" + raw_name.replace("\n", newline) + "}} A | ...Explain]"
+    questions = script_text_inputs(script)
+    assert len(questions) == 1
+    assert questions[0].variable == expected
+    assert questions[0].placeholder == "Explain"
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "<!-- outer --> ",
+        "<!-- {{ unfinished -->\n\n",
+        "<!-- ?[%{{ fake }} A | ...Fake] -->\n\n",
+        "```\n{{ unfinished\n?[%{{ fake }} A | ...Fake]\n```\n\n",
+        "    ?[%{{ fake }} A | ...Fake]\n\n",
+        "\t?[%{{ fake }} A | ...Fake]\n\n",
+    ],
+)
+def test_literal_examples_stay_excluded_before_a_real_opaque_question(
+    newline: str, prefix: str
+) -> None:
+    """Bounded literal markers cannot hide their outer closing delimiter or a real input."""
+    question = "?[%{{ Why <!--this-->? }} A | ...Explain]"
+    questions = script_text_inputs(prefix.replace("\n", newline) + question)
+    assert [(q.variable, q.placeholder) for q in questions] == [
+        ("Why <!--this-->?", "Explain")
+    ]
+
+
+def test_html_block_question_retains_its_existing_hint_admission() -> None:
+    """Native literal metadata must not exclude a question the legacy hint reader accepts."""
+    script = "<div>\n?[%{{ Why <!--this-->? }} A | ...Explain]\n</div>"
+    assert [(q.variable, q.placeholder) for q in script_text_inputs(script)] == [
+        ("Why <!--this-->?", "Explain")
+    ]
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+def test_hint_uses_only_its_first_physical_line(newline: str) -> None:
+    """Preserving marker source cannot merge later instructions into an authored input hint."""
+    script = "?[%{{ Why <!--this-->? }} A | ...Explain" + newline + "More instructions]"
+    assert [(q.variable, q.placeholder) for q in script_text_inputs(script)] == [
+        ("Why <!--this-->?", "Explain")
+    ]
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        "?[%{{ Why }<!--x-->} A | ...Explain]",
+        "{{ Why }<!--x-->} ?[A | ...Explain]",
+    ],
+)
+def test_preprocessing_cannot_complete_an_unfinished_marker(script: str) -> None:
+    """Removing a comment cannot synthesize a closing pair inside an opaque tail."""
+    assert script_text_inputs(script) == ()
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("raw_name", [" Why <!--this-->? ", "\n```\n", "\n    café\n"])
+@pytest.mark.parametrize("translated", [False, True])
+async def test_opaque_question_key_restores_the_input_and_saves_a_typed_answer(
+    newline: str, raw_name: str, translated: bool
+) -> None:
+    """An authored hint remains free text when its stored key contains Markdown syntax."""
+    key = raw_name.strip()
+    display = "Choix" if translated else "A"
+    hint = "Expliquez" if translated else "Explain"
+    script = "?[%{{" + raw_name.replace("\n", newline) + "}} A | ...Explain]"
+    engine = _engine(
+        _arguments(
+            type="single",
+            variable=key,
+            placeholder=None,
+            options=[
+                {"display": display, "value": "A"},
+                {"display": hint, "value": "Explain"},
+            ],
+        )
+    )
+    session = await engine.new_session(script)
+    events = [event async for event in engine.run_turn(session)]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.type == "single_or_text"
+    assert spec.variable == key
+    assert [(option.display, option.stored) for option in spec.options] == [
+        (display, "A")
+    ]
+    assert spec.placeholder == hint
+    restored = Session.loads(session.dumps())
+    _ = [
+        event
+        async for event in engine.run_turn(
+            restored, InteractionResponseTurn(text="My typed answer")
+        )
+    ]
+    assert restored.memory[key] == "My typed answer"
+
+
+@pytest.mark.parametrize("placeholder", [None, ""])
+@pytest.mark.parametrize("variable", [None, "answer"])
+async def test_text_only_hint_is_restored_among_multiple_authored_questions(
+    placeholder: str | None,
+    variable: str | None,
+) -> None:
+    """A copied authored prompt restores the input and accepts the reloaded answer."""
+    prefix = "%{{" + variable + "}} " if variable else ""
+    hints = ["Prepare and execute", "List advantages", "Nine lines of code"]
+    script = "\n".join("?[" + prefix + "..." + hint + "]" for hint in hints)
+    arguments = _arguments(
+        type="text",
+        prompt=hints[0],
+        options=[],
+        variable=variable,
+        placeholder=placeholder,
+    )
+    engine = _engine(arguments)
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert spec.placeholder == hints[0]
+    rendered_prefix = "%{{ " + variable + " }} " if variable else ""
+    assert render_interaction(spec) == "?[" + rendered_prefix + "..." + hints[0] + "]"
+    assert InteractionParser().parse(render_interaction(spec))["question"] == hints[0]
+    session = Session.loads(session.dumps())
+    events = [
+        e
+        async for e in engine.run_turn(
+            session, InteractionResponseTurn(text="My answer")
+        )
+    ]
+    assert not session.pending
+    assert session.memory == ({variable: "My answer"} if variable else {})
+
+
+async def test_saved_text_only_question_recovers_input_on_empty_answer() -> None:
+    """Old cached questions re-emit their authored input without changing history."""
+    engine = _engine(
+        _arguments(
+            type="text", prompt=_HINT, options=[], variable=None, placeholder=None
+        )
+    )
+    session = await engine.new_session("Ask a dynamic question.")
+    _ = [e async for e in engine.run_turn(session)]
+    session.script = ScriptBundle(script="?[..." + _HINT + "]")
+    session = Session.loads(session.dumps())
+    history = session.messages.copy()
+    events = [e async for e in engine.run_turn(session, InteractionResponseTurn())]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert spec.placeholder == _HINT
+    assert session.messages == history
+    assert render_interaction(spec) == "?[..." + _HINT + "]"
+
+
+@pytest.mark.parametrize(
+    ("script", "prompt", "variable", "placeholder", "expected"),
+    [
+        (
+            "?[...Write your answer]",
+            "What part is unclear?",
+            None,
+            None,
+            None,
+        ),
+        ("?[...One]\n?[...Two]", "A generated question", None, None, None),
+        ("?[...One]\n?[...]", "A generated question", None, None, None),
+        ("?[...One]\n?[...One]", "One", None, None, "One"),
+        (
+            "?[...Write your answer]",
+            "Write your answer",
+            None,
+            None,
+            "Write your answer",
+        ),
+        ("?[...One]", "One", "different", None, None),
+        ("?[...One]", "One", None, "Custom hint", "Custom hint"),
+        ("```\n?[...One]\n```", "One", None, None, None),
+        ("?[Yes | ...One]", "One", None, None, None),
+        (
+            r"?[...Describe a\|b\.\.\.]",
+            r"Describe a\|b\.\.\.",
+            None,
+            None,
+            "Describe a|b...",
+        ),
+    ],
+)
+async def test_missing_text_hint_uses_only_unambiguous_authored_text_questions(
+    script: str,
+    prompt: str,
+    variable: str | None,
+    placeholder: str | None,
+    expected: str | None,
+) -> None:
+    """Only an exact authored hint match can repair a missing text placeholder."""
+    engine = _engine(
+        _arguments(
+            type="text",
+            prompt=prompt,
+            options=[],
+            variable=variable,
+            placeholder=placeholder,
+        )
+    )
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert spec.placeholder == expected
+
+
+def _engine(arguments: dict) -> Engine:
+    """Build an offline engine that asks once, then consumes the accepted answer."""
+
+    async def model(
+        messages: list[ModelMessage],
+        _info: AgentInfo,
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        """Emit the configured interaction or continue after its tool result."""
+        if any(isinstance(p, ToolReturnPart) for p in messages[-1].parts):
+            yield "Continue with the learner's actual project."
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    tool_call_id="question",
+                    json_args=json.dumps(arguments),
+                )
+            }
+
+    return Engine(FunctionModel(stream_function=model))
+
+
+def _arguments(**changes: object) -> dict:
+    return {
+        "type": "single_or_text",
+        "prompt": "How would you like to start?",
+        "options": [{"display": option} for option in [*_CHOICES, _HINT]],
+        "variable": "project_path",
+        "placeholder": _HINT,
+        **changes,
+    }
+
+
+@pytest.mark.parametrize("marker", ["", "..."])
+@pytest.mark.parametrize("placeholder", [None, _HINT])
+@pytest.mark.parametrize("kind", ["single", "single_or_text"])
+async def test_generated_hint_button_becomes_only_the_authored_input(
+    marker: str,
+    placeholder: str | None,
+    kind: str,
+) -> None:
+    arguments = _arguments(
+        type=kind,
+        placeholder=placeholder,
+        options=[{"display": option} for option in [*_CHOICES, marker + _HINT]],
+    )
+    engine = _engine(arguments)
+    session = await engine.new_session(_SCRIPT)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == _CHOICES
+    assert spec.type == "single_or_text"
+    assert spec.placeholder == _HINT
+    parsed = InteractionParser().parse(render_interaction(spec))
+    assert [o["display"] for o in parsed["buttons"]] == _CHOICES
+    assert parsed["question"] == _HINT
+    session = Session.loads(session.dumps())
+    answer = "I want to build a reading assistant."
+    events = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=answer))
+    ]
+    assert any(isinstance(e, MemoryUpdated) and e.value == answer for e in events)
+    assert session.memory["project_path"] == answer
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "different_variable",
+        "different_options",
+        "reordered",
+        "different_placeholder",
+        "fence",
+        "already_correct",
+        "real_button",
+        "different_value",
+        "ambiguous",
+    ],
+)
+async def test_only_an_unambiguous_authored_hint_duplication_is_repaired(
+    reason: str,
+) -> None:
+    script = _SCRIPT
+    arguments = _arguments()
+    if reason == "different_variable":
+        arguments["variable"] = "another_question"
+    elif reason == "different_options":
+        arguments["options"][0]["display"] = "A model-authored follow-up"
+    elif reason == "reordered":
+        arguments["options"][:2] = list(reversed(arguments["options"][:2]))
+    elif reason == "different_placeholder":
+        arguments["placeholder"] = "A different question"
+    elif reason == "fence":
+        script = "````\n```\n" + script + "\n````\nTeach normally."
+    elif reason == "already_correct":
+        arguments["options"].pop()
+    elif reason == "real_button":
+        script = script.replace(" | ...", " | " + _HINT + " | ...")
+    elif reason == "different_value":
+        arguments["options"][-1]["value"] = "real_answer"
+    elif reason == "ambiguous":
+        arguments["placeholder"] = None
+        script += "\n" + _SCRIPT.replace("..." + _HINT, "...Another hint").replace(
+            " | ...Another hint", " | " + _HINT + " | ...Another hint"
+        )
+    engine = _engine(arguments)
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == [
+        o["display"] for o in arguments["options"]
+    ]
+    assert spec.placeholder == arguments["placeholder"]
+
+
+async def test_saved_pending_hint_is_repaired_on_reload_without_changing_history() -> (
+    None
+):
+    engine = _engine(_arguments())
+    session = await engine.new_session("Teach a dynamic question.")
+    _ = [e async for e in engine.run_turn(session)]
+    session.script = ScriptBundle(script=_SCRIPT)
+    session = Session.loads(session.dumps())
+    history = session.messages.copy()
+    events = [e async for e in engine.run_turn(session, InteractionResponseTurn())]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == _CHOICES
+    assert session.messages == history
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        "?[%{{project_path}} Start a new project | Improve an existing assistant | Use course materials | ...Describe my project directly](https://example.org)",
+        "<!-- " + _SCRIPT + " -->",
+        "```example\n" + _SCRIPT,
+        "   ~~~~example\n" + _SCRIPT + "\n   ~~~~~",
+        "````example\n```\n" + _SCRIPT + "\n`````",
+        "    " + _SCRIPT,
+        "\t" + _SCRIPT,
+        " \t" + _SCRIPT,
+    ],
+)
+async def test_examples_and_links_cannot_authorize_a_repair(script: str) -> None:
+    engine = _engine(_arguments())
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == [*_CHOICES, _HINT]
+
+
+@pytest.mark.parametrize("variable", [None, "project_path"])
+async def test_multiple_choice_stored_values_and_escaped_input_hint_survive(
+    variable: str | None,
+) -> None:
+    prefix = "%{{" + variable + "}} " if variable else ""
+    script = "?[" + prefix + r"First//one || Second//two || ...Describe a\|b\.\.\.]"
+    hint = "Describe a|b..."
+    arguments = _arguments(
+        type="multi_or_text",
+        variable=variable,
+        placeholder=hint,
+        options=[
+            {"display": "First", "value": "one"},
+            {"display": "Second", "value": "two"},
+            {"display": hint},
+        ],
+    )
+    engine = _engine(arguments)
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [(o.display, o.stored) for o in spec.options] == [
+        ("First", "one"),
+        ("Second", "two"),
+    ]
+    assert spec.type == "multi_or_text"
+    assert spec.variable == variable
+    assert spec.placeholder == hint
+    parsed = InteractionParser().parse(render_interaction(spec))
+    assert parsed["is_multi_select"] is True
+    assert parsed["question"] == hint
+
+
+@pytest.mark.parametrize(
+    ("display_form", "value_form", "placeholder_form", "marker"),
+    [
+        ("raw", "raw", "raw", ""),
+        ("raw", "raw", "decoded", ""),
+        ("decoded", "decoded", "raw", ""),
+        ("raw", "decoded", "raw", ""),
+        ("decoded", "raw", "raw", ""),
+        ("raw", "raw", "raw", "..."),
+    ],
+)
+async def test_verbatim_authored_hint_escapes_are_repaired(
+    display_form: str,
+    value_form: str,
+    placeholder_form: str,
+    marker: str,
+) -> None:
+    """Match only the authored raw or decoded hint, retaining actual free text."""
+    forms = {"raw": r"Describe a\|b\/c\.\.\.\]", "decoded": "Describe a|b/c...]"}
+    script = _SCRIPT.replace(_HINT, forms["raw"])
+    arguments = _arguments(
+        placeholder=forms[placeholder_form],
+        options=[
+            *[{"display": option} for option in _CHOICES],
+            {
+                "display": marker + forms[display_form],
+                "value": marker + forms[value_form],
+            },
+        ],
+    )
+    engine = _engine(arguments)
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == _CHOICES
+    assert spec.placeholder == forms["decoded"]
+    parsed = InteractionParser().parse(render_interaction(spec))
+    assert [o["display"] for o in parsed["buttons"]] == _CHOICES
+    assert parsed["question"] == forms["decoded"]
+    session = Session.loads(session.dumps())
+    answer = r"My project uses a\|b literally."
+    _ = [
+        e async for e in engine.run_turn(session, InteractionResponseTurn(text=answer))
+    ]
+    assert session.memory["project_path"] == answer
+
+
+@pytest.mark.parametrize("real_choice", [True, False])
+async def test_raw_hint_does_not_remove_a_real_choice_or_different_stored_value(
+    real_choice: bool,
+) -> None:
+    """Escape compatibility must preserve deliberate answers and their stored values."""
+    raw = r"Describe a\|b"
+    script = _SCRIPT.replace(_HINT, raw)
+    if real_choice:
+        script = script.replace(" | ...", " | " + raw + " | ...")
+    arguments = _arguments(
+        placeholder=raw,
+        options=[
+            *[{"display": option} for option in _CHOICES],
+            {"display": raw, "value": raw if real_choice else "real_answer"},
+        ],
+    )
+    engine = _engine(arguments)
+    session = await engine.new_session(script)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert len(spec.options) == 4
+    assert spec.options[-1].stored == ("Describe a|b" if real_choice else "real_answer")
+
+
+async def test_raw_pending_hint_is_repaired_without_changing_history() -> None:
+    """Repair persisted raw hints through the same helper before resumption."""
+    raw = r"Describe a\|b"
+    engine = _engine(
+        _arguments(
+            placeholder=raw,
+            options=[{"display": option} for option in [*_CHOICES, raw]],
+        )
+    )
+    session = await engine.new_session("Teach a dynamic question.")
+    _ = [e async for e in engine.run_turn(session)]
+    session.script = ScriptBundle(script=_SCRIPT.replace(_HINT, raw))
+    session = Session.loads(session.dumps())
+    history = session.messages.copy()
+    events = [e async for e in engine.run_turn(session, InteractionResponseTurn())]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == _CHOICES
+    assert spec.placeholder == "Describe a|b"
+    assert session.messages == history
+
+
+async def test_real_question_after_indented_example_still_repairs() -> None:
+    """Skipping code must not suppress the following ordinary lesson control."""
+    engine = _engine(_arguments())
+    session = await engine.new_session("    " + _SCRIPT + "\n\n" + _SCRIPT)
+    events = [e async for e in engine.run_turn(session)]
+    spec = next(e.spec for e in events if isinstance(e, InteractionRequest))
+    assert [o.display for o in spec.options] == _CHOICES
+    assert spec.placeholder == _HINT
+
+
+@pytest.mark.parametrize("multi", [False, True])
+@pytest.mark.parametrize("explicit_values", [False, True])
+@pytest.mark.parametrize("placeholder", [None, "Decrire mon projet"])
+async def test_translated_hint_preserves_typed_answers_and_stable_choices(
+    multi: bool, explicit_values: bool, placeholder: str | None
+) -> None:
+    """Translated displays cannot hide the authored free-text input or change answers."""
+    displays = ["Nouveau projet", "Assistant existant", "Documents du cours"]
+    hint = "Decrire mon projet"
+    values = ["new", "existing", "materials"] if explicit_values else _CHOICES
+    separator = " || " if multi else " | "
+    choices = [
+        f"{display}//{value}" for display, value in zip(_CHOICES, values, strict=True)
+    ]
+    script = "?[%{{project_path}} " + separator.join([*choices, "..." + _HINT]) + "]"
+    engine = _engine(
+        _arguments(
+            type="multi" if multi else "single",
+            placeholder=placeholder,
+            options=[
+                *[
+                    {"display": display, "value": value}
+                    for display, value in zip(displays, values, strict=True)
+                ],
+                {"display": hint, "value": _HINT},
+            ],
+        )
+    )
+    session = await engine.new_session(script)
+    events = [event async for event in engine.run_turn(session)]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.type == ("multi_or_text" if multi else "single_or_text")
+    assert [(option.display, option.stored) for option in spec.options] == list(
+        zip(displays, values, strict=True)
+    )
+    assert spec.placeholder == hint
+    parsed = InteractionParser().parse(render_interaction(spec))
+    assert parsed["question"] == hint
+    assert [option["display"] for option in parsed["buttons"]] == displays
+    restored = Session.loads(session.dumps())
+    answer = "My actual project description"
+    _ = [
+        event
+        async for event in engine.run_turn(
+            restored, InteractionResponseTurn(text=answer)
+        )
+    ]
+    assert restored.memory["project_path"] == answer
+
+
+async def test_translated_pending_hint_repairs_without_rewriting_history() -> None:
+    """An old translated pending question gets its input back on reload."""
+    engine = _engine(
+        _arguments(
+            type="single",
+            placeholder=None,
+            options=[
+                *[
+                    {"display": f"Translated {index}", "value": value}
+                    for index, value in enumerate(_CHOICES)
+                ],
+                {"display": "Translated hint", "value": _HINT},
+            ],
+        )
+    )
+    session = await engine.new_session("Teach a dynamic question.")
+    _ = [event async for event in engine.run_turn(session)]
+    session.script = ScriptBundle(script=_SCRIPT)
+    session = Session.loads(session.dumps())
+    history = session.messages.copy()
+    events = [
+        event async for event in engine.run_turn(session, InteractionResponseTurn())
+    ]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.type == "single_or_text"
+    assert spec.placeholder == "Translated hint"
+    assert [option.stored for option in spec.options] == _CHOICES
+    assert session.messages == history
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "reordered",
+        "different_value",
+        "real_choice",
+        "ambiguous_translation",
+        "different_placeholder",
+    ],
+)
+async def test_translated_hint_repair_preserves_unmatched_choices(reason: str) -> None:
+    """Stored-value matching still requires an unambiguous authored input boundary."""
+    script = _SCRIPT
+    options = [
+        *[
+            {"display": f"Translated {index}", "value": value}
+            for index, value in enumerate(_CHOICES)
+        ],
+        {"display": "Translated hint", "value": _HINT},
+    ]
+    placeholder = None
+    if reason == "reordered":
+        options[:2] = reversed(options[:2])
+    elif reason == "different_value":
+        options[-1]["value"] = "real_answer"
+    elif reason == "real_choice":
+        script = script.replace(" | ...", " | Authored choice//" + _HINT + " | ...")
+    elif reason == "ambiguous_translation":
+        options.append({"display": "Another translation", "value": _HINT})
+    else:
+        placeholder = "A different question"
+    engine = _engine(
+        _arguments(type="single", options=options, placeholder=placeholder)
+    )
+    session = await engine.new_session(script)
+    events = [event async for event in engine.run_turn(session)]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.type == "single"
+    assert [(option.display, option.stored) for option in spec.options] == [
+        (option["display"], option["value"]) for option in options
+    ]
+    assert spec.placeholder == placeholder
+
+
+async def test_literal_leading_ellipsis_in_authored_hint_is_preserved() -> None:
+    """A literal leading ellipsis is authored text, not the input marker."""
+    hint = "...Describe my project"
+    engine = _engine(
+        _arguments(
+            placeholder=None,
+            options=[{"display": value} for value in [*_CHOICES, hint]],
+        )
+    )
+    session = await engine.new_session(
+        _SCRIPT.replace(_HINT, r"\.\.\.Describe my project")
+    )
+    events = [event async for event in engine.run_turn(session)]
+    spec = next(event.spec for event in events if isinstance(event, InteractionRequest))
+    assert spec.placeholder == hint
+    assert [option.stored for option in spec.options] == _CHOICES

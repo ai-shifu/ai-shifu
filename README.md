@@ -2,7 +2,7 @@
   <img src="assets/logo_en.png" width=256></img>
 <p><strong>Write Once, Teach Personally</strong></p>
 
-English | [简体中文](README_ZH-CN.md)
+English | [Simplified Chinese](README_ZH-CN.md)
 
 </div>
 AI-Shifu is designed for creators, instructors, and training/education teams, offering a scalable one-on-one teaching agent. Provide your expertise and teaching intent once, AI-Shifu will expand it into complete, personalized learning experiences. It adapts in real time to each learner’s profile with tailored explanations, interactive probing, assessments, and a full feedback loop—amplifying both your efficiency and the learner’s experience.
@@ -40,6 +40,7 @@ Developed by the AI-Shifu Team and the Research Center of Intelligent Software E
 > For source code installation, please refer to the [Installation Manual](INSTALL_MANUAL.md)
 
 Make sure your machine has installed [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
+The configuration installer also requires Python 3.10+ on Linux, macOS, or WSL.
 
 ### Quick Start (Docker)
 
@@ -48,7 +49,7 @@ git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
 # Use Docker-ready defaults (matches bundled MySQL service; Redis is optional)
-cp .env.example.full .env
+python3 ../scripts/prepare_env.py
 
 # Edit .env: configure an LLM provider API key and set LLM_MODEL_1_ID
 # to a text model ID served by that provider (required; no default).
@@ -64,7 +65,8 @@ Notes
 - For an existing installation, follow [Upgrading to numbered models](INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new images. This applies to latest, pinned-release and development Compose modes.
 - First verified user is automatically promoted to Admin and Creator; the bundled demo course is assigned to this user.
 - Default universal verification code for demos is 1024 (change via `UNIVERSAL_VERIFICATION_CODE`).
-- `docker-compose.latest.yml` pulls the freshest `:latest` images (or your own locally built `latest` tags). Use `docker-compose.yml` when you need pinned release tags for reproducible environments.
+- `docker-compose.latest.yml` pulls the freshest `:latest` images (or your own locally built `latest` tags). For a fresh pinned-release installation, use both `docker-compose.yml` and `docker-compose.secret-key.yml` as described below.
+- The installer creates `.env` with a private random `SECRET_KEY` once. Keep and securely back up this file across restarts and upgrades; all backend containers and workers reuse it. Existing files are validated and never overwritten. See [key preservation and recovery](INSTALL_MANUAL.md#secret-key-preservation-and-recovery) before changing existing configuration.
 
 ### Using Docker Hub image (customize)
 
@@ -72,8 +74,8 @@ Notes
 git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
-# Copy the full template (contains defaults for Docker usage)
-cp .env.example.full .env
+# Create private configuration and generate SECRET_KEY automatically (Python 3 required)
+python3 ../scripts/prepare_env.py
 
 # Edit .env: a provider key and the model 1 binding are required:
 # - OPENAI_API_KEY / ERNIE_API_KEY / BIGMODEL_API_KEY / ...
@@ -81,11 +83,14 @@ cp .env.example.full .env
 # - LLM_MODEL_1_ID: a configured text model ID (no default)
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
 # - REDIS_HOST: Optional; set to enable Redis caching/locks (leave empty to disable)
-# - SECRET_KEY: Defaults to a demo value; change for production (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
+# - SECRET_KEY: Already generated and saved by the installer; preserve this value
 # - UNIVERSAL_VERIFICATION_CODE: Test verification code (remove/empty in production)
 # - Any other optional integrations
 
-docker compose -f docker-compose.latest.yml up -d  # Use -f docker-compose.yml for pinned versions
+docker compose -f docker-compose.latest.yml up -d
+
+# Alternative for a FRESH installation using pinned images (Compose 2.24.4+):
+docker compose -f docker-compose.yml -f docker-compose.secret-key.yml up -d
 ```
 
 ### Development mode (dev_in_docker.sh)
@@ -95,7 +100,7 @@ docker compose -f docker-compose.latest.yml up -d  # Use -f docker-compose.yml f
 git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
-cp .env.example.full .env
+python3 ../scripts/prepare_env.py
 # Edit .env: set your LLM API key(s) and map LLM_MODEL_1_ID
 # to a text model ID available through the configured provider.
 # Optionally set LLM_MODEL_1_NAME; blank uses the configured model ID.
@@ -105,10 +110,34 @@ cp .env.example.full .env
 
 `dev_in_docker.sh` builds the backend and frontend images from your local source tree and then launches `docker-compose.dev.yml` (hot reload + bind mounts). Use it whenever you need to iterate on code without managing Python/Node runtimes locally.
 
+It stops before building when `.env` is absent. For a new installation, run
+the configuration installer above; for an existing installation, restore the
+original file from backup. Existing configuration continues through the usual
+runtime validation. Configure the provider and model before starting services.
+
+The script records the checkout's current commit before building the Web image,
+so the user menu can show its source revision. Source archives without Git
+metadata show only the package version.
+
+To start the dev stack directly with Compose, run these commands from `docker/`:
+
+```bash
+git rev-parse HEAD > ../src/web/.app-build-sha 2>/dev/null || rm -f ../src/web/.app-build-sha
+docker compose -f docker-compose.dev.yml up --build -d
+```
+
+Prepare the marker and rebuild each time you start from a different commit so
+an existing dev image does not keep an older revision.
+
 ### Compose files
 
-- `docker-compose.latest.yml`: tracks the `:latest` tags for `aishifu/ai-shifu-api` and `aishifu/ai-shifu-cook-web`. Use this when you want the freshest container build (either from Docker Hub or after running your own `docker build ... -t aishifu/...:latest`).
-- `docker-compose.yml`: pins each image to a specific release tag for reproducible deployments (recommended for staging/prod mirrors or CI).
+- `docker-compose.latest.yml`: tracks the `:latest` tags for `aishifu/ai-shifu-api` and `aishifu/ai-shifu-web`. Use this when you want the freshest container build (either from Docker Hub or after running your own `docker build ... -t aishifu/...:latest`).
+- `docker-compose.yml`: pins each image to a specific release tag. Fresh installations must add `-f docker-compose.secret-key.yml` on every Compose command to use their generated key. Existing deployments keep their original command and effective key until a deliberate migration; see the installation manual.
+
+GitHub Actions also publishes the API and Web images to
+`ghcr.io/ai-shifu/ai-shifu-api` and `ghcr.io/ai-shifu/ai-shifu-web`.
+See [image publication and GHCR usage](docs/references/docker-image-publication.md)
+for automatic triggers, manual backfills and use with the existing Compose bundles.
 
 ### Access
 

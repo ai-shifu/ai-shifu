@@ -55,7 +55,6 @@ export interface UseChatSessionParams {
   lessonId: string;
   chapterId?: string;
   previewMode?: boolean;
-  lessonHasContentUpdate?: boolean;
   isListenMode?: boolean;
   learningMode?: 'read' | 'listen' | 'classroom' | string;
   listenRequestEnabled?: boolean;

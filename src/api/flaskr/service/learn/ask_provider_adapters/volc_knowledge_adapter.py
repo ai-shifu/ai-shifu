@@ -157,6 +157,43 @@ def _normalize_pre_processing(
     return pre_processing
 
 
+def _with_follow_up_context(
+    pre_processing: dict[str, object] | None,
+    *,
+    config_value: object,
+    path: str,
+    user_query: str,
+    messages: list[dict[str, object]],
+) -> dict[str, object] | None:
+    """Fill native rewriting context without overriding explicit teacher contracts."""
+    if path.rstrip("/") != "/api/knowledge/collection/search_knowledge":
+        return pre_processing
+    if config_value is not None and not isinstance(config_value, dict):
+        return pre_processing
+    result = pre_processing if pre_processing is not None else {}
+    if "messages" in result or ("rewrite" in result and result["rewrite"] is not True):
+        return pre_processing
+
+    contextual_messages: list[dict[str, str]] = []
+    for item in messages:
+        if not isinstance(item, dict):
+            continue
+        role, content = item.get("role"), item.get("content")
+        if (
+            isinstance(role, str)
+            and role in {"system", "user", "assistant"}
+            and isinstance(content, str)
+            and content.strip()
+        ):
+            contextual_messages.append({"role": role, "content": content})
+    current = {"role": "user", "content": user_query}
+    if contextual_messages and contextual_messages[-1] == current:
+        contextual_messages.pop()
+    if not contextual_messages:
+        return pre_processing
+    return {**result, "rewrite": True, "messages": [*contextual_messages, current]}
+
+
 def _collect_text_chunks(payload: object) -> list[str]:
     chunks: list[str] = []
     seen: set[str] = set()
@@ -215,7 +252,7 @@ class VolcKnowledgeAskProviderAdapter:
         runtime: AskProviderRuntime | None = None,
     ) -> Generator[AskProviderChunk, None, None]:
         """Stream answer chunks from the configured provider."""
-        _ = (user_id, messages, runtime)
+        _ = (user_id, runtime)
         config = provider_config.get("config") or {}
         if not isinstance(config, dict):
             config = {}
@@ -258,6 +295,13 @@ class VolcKnowledgeAskProviderAdapter:
 
         pre_processing = _normalize_pre_processing(
             config.get("pre_processing"), user_query
+        )
+        pre_processing = _with_follow_up_context(
+            pre_processing,
+            config_value=config.get("pre_processing"),
+            path=path,
+            user_query=user_query,
+            messages=messages,
         )
         if pre_processing is not None:
             payload["pre_processing"] = pre_processing
@@ -348,17 +392,15 @@ class VolcKnowledgeAskProviderAdapter:
 
         if isinstance(payload_data, dict):
             code = payload_data.get("code")
-            data = payload_data.get("data")
-            if code is not None and str(code) not in {"0", "200"} and data is None:
-                message = extract_text(payload_data.get("message")) or str(payload_data)
-                error_message = f"volc_knowledge error: {message}"
+            if code is not None and str(code) not in {"0", "200"}:
+                error_message = "volc_knowledge returned an error response"
                 raise AskProviderError(error_message)
 
         chunks = _collect_text_chunks(payload_data)
         if not chunks:
             app.logger.warning(
-                "volc_knowledge response contains no text chunks, payload=%s",
-                payload_data,
+                "volc_knowledge response contains no text chunks, payload_type=%s",
+                type(payload_data).__name__,
             )
             exception_message = "volc_knowledge response has no retrievable text"
             raise AskProviderError(exception_message)

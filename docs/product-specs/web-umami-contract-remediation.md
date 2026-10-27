@@ -2,7 +2,7 @@
 title: Cook Web Umami Contract Remediation
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-08-31
+last_reviewed: 2026-10-23
 canonical: true
 ---
 
@@ -125,6 +125,29 @@ are not backfilled under another name.
   non-personal), and booleans for toggles/fallbacks. Fallback booleans support
   adoption analysis only, never billing or audit decisions. Regression coverage
   verifies timing, privacy, exclusions, failure isolation and edits during saves.
+- The 2026-10-23 lesson-preview revision adds the boolean
+  `has_text_variable_keys` to `creator_lesson_preview_click` for teacher-editor
+  adoption analysis. It classifies the accepted click's source snapshot as true
+  when `extractVariableNames` finds a name outside the historical Unicode
+  letter/number/underscore identifier shape (`^[\p{L}\p{N}_]+$`); that shape is
+  an analytics classification only, never a name-validation rule. The decision
+  is whether teachers preview text-key prompts and need continued editor support.
+  Per UTC day, the numerator is recorded accepted preview clicks with true and
+  the denominator is recorded accepted preview clicks with either boolean value.
+  This measures preview intent, not successful preview execution, an answer, or
+  a memory write. Historical rows missing the field remain `legacy_unknown` and
+  are excluded from this denominator, never inferred as false; no backfill is
+  performed and existing preview-count consumers may continue counting all rows.
+- Lesson-preview eligibility remains the existing `canPreview`, course-ID and
+  lesson-ID handler guards, including eligible read-only course previews.
+  Chapters, unresolved preview eligibility and missing IDs emit nothing. The
+  event fires once per accepted handler invocation, before saving or parsing;
+  render, re-render and disabled/rejected clicks emit nothing. Repeated accepted
+  clicks count separately, with no persisted deduplication. The complete payload
+  is the existing stable course/lesson IDs plus this low-cardinality boolean;
+  no variable key, question, source, prompt, answer or other authored text is sent.
+  Product analytics owns the daily adoption consumer. Tracking is best-effort,
+  is not awaited, and unavailable analytics never blocks save, parse or preview.
 
 | Event                          | Exact trigger                                                                | Complete payload                                                                                                                                                                                                               |
 | ------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -133,7 +156,7 @@ are not backfilled under another name.
 | `creator_outline_prompt_save`  | After chapter prompt/settings save succeeds                                  | `shifu_bid`, `outline_bid`, `save_type`, `prompt_change`                                                                                                                                                                       |
 | `creator_outline_create`       | After an outline unit is created                                             | `shifu_bid`, `outline_bid`, `parent_bid`                                                                                                                                                                                       |
 | `creator_shifu_preview_click`  | Immediately after the enabled preview handler accepts the click, before save | `shifu_bid`                                                                                                                                                                                                                    |
-| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`                                                                                                                                                                                                     |
+| `creator_lesson_preview_click` | Immediately after the enabled lesson preview handler accepts the click       | `shifu_bid`, `outline_bid`, `has_text_variable_keys`                                                                                                                                                                           |
 
 Allowed enums are `save_type=auto|manual`, `follow_up_mode=text|live_voice`,
 `price_tier=free|micro_paid|standard_paid`,
@@ -247,8 +270,16 @@ The only contact enum is `surface=admin|invite|other`.
   the earlier start only at aggregate level.
 - Population: guests using email, password, SMS, or Google login. Validation-only and
   terms-dialog opens are excluded.
+- Verification-code submission: the SMS/email login button is visible from the
+  initial render and remains disabled until the form has entered the code stage,
+  the phone number or normalized email is valid, and the four-digit code is
+  complete. Clicking the button and pressing Enter share the same submission
+  guard; incomplete forms and requests already in progress emit no login events.
 - Deduplication: UI submission guards own concurrent suppression; otherwise none.
 - Consumer: login conversion and reliability analysis.
+- Compatibility: the always-visible verification login button reuses the existing
+  attempt/result producers and payloads. Consumers keep the same event names and
+  aggregate metric; disabled-button exposure does not count as an attempt.
 - Replacement: delete the `learner_login_success` producer and consumers. Login
   queries use `learner_login_attempt` and `learner_login_result`.
 
@@ -377,6 +408,12 @@ raw rejection.
   storage suppresses the cancellation event without changing synchronization,
   UI, or retry behavior. Cancellation and confirmation-failure events omit an
   unverified query parameter.
+- QR replacement compatibility: when a refresh or channel switch returns a new
+  `bill_order_bid`, both subsequent synchronization and attempt/result/status
+  correlation use that confirmed replacement key. The closed order retains its
+  financial history; the replacement is a distinct order for outcome grouping.
+  Event names, triggers, population, payload allowlist and terminal deduplication
+  stay unchanged; no QR URL or provider credential is tracked.
 - Consumer: billing checkout adoption and provider reliability analysis; the
   billing ledger remains the financial source of truth.
 - Replacement: delete the `creator_billing_checkout_click` producer and

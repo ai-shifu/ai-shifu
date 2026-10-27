@@ -1,9 +1,12 @@
 {
   "__namespace__": "component.menus",
   "navigationMenus": {
+    "about": "حول",
     "adminConsole": "الدخول إلى لوحة الإدارة",
     "createCourse": "إنشاء دورة",
     "language": "اللغة",
-    "personalInfo": "التخصيص"
+    "openSource": "المشروع مفتوح المصدر",
+    "personalInfo": "التخصيص",
+    "version": "الإصدار"
   }
 }

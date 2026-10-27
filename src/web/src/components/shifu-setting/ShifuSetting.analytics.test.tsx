@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import ShifuSettingDialog from './ShifuSetting';
 import { SSE } from 'sse.js';
+import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
 
 const mockTtsConfig = jest.fn();
 const mockListMinimaxTtsVoices = jest.fn();
@@ -23,7 +24,6 @@ const mockGetFollowUpModelCatalog = jest.fn();
 const mockGetCourseModelOptions = jest.fn();
 const mockAskSettingsSection = jest.fn();
 const mockMainModelSelector = jest.fn();
-const mockFormMethods = jest.fn();
 const mockBillingOverview = { debug_allowed: undefined as boolean | undefined };
 const mockCurrentShifu = {
   bid: 'course-1',
@@ -128,17 +128,6 @@ jest.mock('next/link', () => ({
 }));
 
 jest.mock('@/components/model-list', () => () => null);
-jest.mock('@/components/ui/Form', () => {
-  const actual = jest.requireActual('@/components/ui/Form');
-  return {
-    ...actual,
-    Form: (props: Record<string, unknown>) => {
-      mockFormMethods(props);
-      const ActualForm = actual.Form;
-      return <ActualForm {...props} />;
-    },
-  };
-});
 jest.mock('@/components/model-list/CourseModelSelect', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
@@ -149,8 +138,7 @@ jest.mock('@/components/model-list/CourseModelSelect', () => ({
 jest.mock('@/components/shifu-setting/AskSettingsSection', () => ({
   __esModule: true,
   default: (props: Record<string, unknown>) => {
-    mockAskSettingsSection(props);
-    return null;
+    return mockAskSettingsSection(props) ?? null;
   },
 }));
 jest.mock('@/components/ui/Sheet', () => ({
@@ -212,6 +200,7 @@ const renderOpenSettings = (onSave = jest.fn()) => {
 describe('ShifuSettingDialog analytics producer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAskSettingsSection.mockReset();
     mockTtsConfig.mockResolvedValue({ providers: [], model_options: [] });
     mockListMinimaxTtsVoices.mockResolvedValue({ voices: [] });
     mockCurrentShifu.readonly = false;
@@ -231,10 +220,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: 'Private system prompt',
       ask_model: '',
-      ask_temperature: 0,
       ask_provider_config: {
         provider: 'llm',
         mode: 'provider_only',
@@ -245,6 +232,88 @@ describe('ShifuSettingDialog analytics producer', () => {
       use_learner_language: true,
     });
   });
+
+  it.each([
+    ['name', '', 'shifuNameEmpty', 'Valid course name'],
+    [
+      'name',
+      'a'.repeat(TITLE_MAX_LENGTH + 1),
+      'shifuNameMaxLength',
+      'Valid course name',
+    ],
+    ['description', 'a'.repeat(501), 'shifuDescriptionMaxLength', ''],
+    ['systemPrompt', 'a'.repeat(20001), 'shifuPromptMaxLength', ''],
+    ['price', '', 'shifuPriceEmpty', '1.23'],
+    ['price', 'not-a-price', 'shifuPriceFormat', '1.23'],
+    ['price', '1.234', 'shifuPriceFormat', '1.23'],
+  ])(
+    'shows the %s validation error and saves after correction',
+    async (fieldName, invalidValue, message, correctedValue) => {
+      const { onSave } = renderOpenSettings();
+      const name = await screen.findByDisplayValue('Private course name');
+      const form = name.closest('form')!;
+      const field = form.querySelector(`[name="${fieldName}"]`)!;
+
+      // Bypass native input limits to exercise the resolver's own boundaries.
+      fireEvent.change(field, { target: { value: invalidValue } });
+      fireEvent.submit(form);
+      expect(
+        await screen.findByText(`module.shifuSetting.${message}`),
+      ).toBeInTheDocument();
+      expect(field).toHaveAttribute('aria-invalid', 'true');
+      expect(mockSaveShifuDetail).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
+
+      fireEvent.change(field, { target: { value: correctedValue } });
+      fireEvent.submit(form);
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    },
+  );
+
+  it.each(['close', 'submit'])(
+    'hides temperature controls and omits them when saving through %s',
+    async submission => {
+      const ActualAskSettingsSection = jest.requireActual(
+        './AskSettingsSection',
+      ).default;
+      mockAskSettingsSection.mockImplementation(props => (
+        <ActualAskSettingsSection {...props} />
+      ));
+      try {
+        const { onSave } = renderOpenSettings();
+        const name = await screen.findByDisplayValue('Private course name');
+        expect(
+          screen.getByText('module.shifuSetting.askTitle'),
+        ).toBeInTheDocument();
+        expect(screen.queryByText(/temperature/i)).not.toBeInTheDocument();
+        expect(
+          name.closest('form')!.querySelector('input[name="temperature"]'),
+        ).not.toBeInTheDocument();
+
+        fireEvent.change(name, { target: { value: 'Updated course name' } });
+        if (submission === 'close') {
+          fireEvent.click(screen.getByLabelText('close-settings'));
+        } else {
+          fireEvent.submit(name.closest('form')!);
+        }
+
+        await waitFor(() =>
+          expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1),
+        );
+        const payload = mockSaveShifuDetail.mock.calls[0][0];
+        expect(payload.name).toBe('Updated course name');
+        expect(payload).not.toHaveProperty('temperature');
+        expect(payload).not.toHaveProperty('ask_temperature');
+        await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+        expect(
+          screen.queryByLabelText('close-settings'),
+        ).not.toBeInTheDocument();
+      } finally {
+        mockAskSettingsSection.mockImplementation(() => null);
+      }
+    },
+  );
 
   it.each([false, true])(
     'emits the exact allowlist only after the settings API succeeds (catalog pending=%s)',
@@ -371,6 +440,10 @@ describe('ShifuSettingDialog analytics producer', () => {
         },
       );
       expect(mockAskPreview.mock.calls[0][0]).not.toHaveProperty('creator_bid');
+      expect(mockAskPreview.mock.calls[0][0]).not.toHaveProperty('temperature');
+      expect(mockAskPreview.mock.calls[0][0]).not.toHaveProperty(
+        'ask_temperature',
+      );
     },
   );
 
@@ -523,10 +596,8 @@ describe('ShifuSettingDialog analytics producer', () => {
         model: '',
         price: 1,
         avatar: '',
-        temperature: 0,
         system_prompt: '',
         ask_model: savedModel,
-        ask_temperature: 0,
         ask_provider_config: {
           provider: 'llm',
           mode: 'provider_only',
@@ -669,10 +740,8 @@ describe('ShifuSettingDialog analytics producer', () => {
         model: '',
         price: 1,
         avatar: '',
-        temperature: 0,
         system_prompt: '',
         ask_model: 'opaque-existing-model-id',
-        ask_temperature: 0,
         ask_provider_config: {
           provider: 'llm',
           mode: 'provider_only',
@@ -726,10 +795,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: '',
       ask_model: 'opaque-existing-model-id',
-      ask_temperature: 0,
       follow_up_mode: 'text',
       ask_provider_config: {
         provider: 'llm',
@@ -785,10 +852,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: '',
       ask_model: '1',
-      ask_temperature: 0,
       ask_provider_config: {
         provider: 'dify',
         mode: 'provider_only',
@@ -868,9 +933,7 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: modelIndex,
       price: 1,
       avatar: '',
-      temperature: 0,
       ask_model: modelIndex,
-      ask_temperature: 0,
       follow_up_mode: 'text',
       ask_provider_config: {
         provider,
@@ -893,6 +956,73 @@ describe('ShifuSettingDialog analytics producer', () => {
         >;
       };
   };
+
+  it.each([false, true])(
+    'retains API-configured workflow context on an unrelated title save when tracking throws=%s',
+    async trackingThrows => {
+      const latestProps = configureModelProvider('1', 'coze_workflow');
+      const persisted = {
+        api_key: 'saved-secret',
+        workflow_id: 'workflow-1',
+        context_key: 'classroom_context',
+        query_key: 'input',
+        parameters: { tenant: 'private-tenant' },
+        extra_body: { bot_id: 'private-bot' },
+      };
+      mockAskConfig.mockResolvedValue({
+        providers: [
+          {
+            provider: 'coze_workflow',
+            default_config: { api_key: '', workflow_id: '' },
+            json_schema: {
+              additionalProperties: true,
+              properties: {
+                api_key: { type: 'string' },
+                workflow_id: { type: 'string' },
+              },
+              required: ['api_key', 'workflow_id'],
+            },
+          },
+        ],
+      });
+      const detail = await mockGetShifuDetail();
+      mockGetShifuDetail.mockResolvedValue({
+        ...detail,
+        ask_provider_config: {
+          provider: 'coze_workflow',
+          mode: 'provider_only',
+          config: persisted,
+        },
+      });
+      if (trackingThrows)
+        mockTrackEvent.mockImplementation(() => {
+          throw new Error('analytics unavailable');
+        });
+      const { onSave } = renderOpenSettings();
+      const name = await screen.findByDisplayValue(
+        'Private numbered model course',
+      );
+      await waitFor(() =>
+        expect(latestProps().resolvedAskProvider).toBe('coze_workflow'),
+      );
+      fireEvent.change(name, { target: { value: 'Updated title' } });
+      fireEvent.submit(name.closest('form')!);
+      await waitFor(() => expect(mockSaveShifuDetail).toHaveBeenCalledTimes(1));
+      expect(mockSaveShifuDetail.mock.calls[0][0].ask_provider_config).toEqual({
+        provider: 'coze_workflow',
+        mode: 'provider_only',
+        config: persisted,
+      });
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(mockTrackEvent).toHaveBeenCalledWith(
+        'creator_shifu_setting_save',
+        expect.objectContaining({ shifu_bid: 'course-1', save_type: 'manual' }),
+      );
+      expect(JSON.stringify(mockTrackEvent.mock.calls)).not.toMatch(
+        /context_key|classroom_context|query_key|private-tenant|private-bot|saved-secret|parameters|extra_body/,
+      );
+    },
+  );
 
   it.each(
     ['1', '3', '7'].flatMap(modelIndex =>
@@ -1059,10 +1189,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: '',
       ask_model: '1',
-      ask_temperature: 0,
       ask_provider_config: {
         provider: 'dify',
         mode: 'provider_only',
@@ -1147,10 +1275,8 @@ describe('ShifuSettingDialog analytics producer', () => {
       model: '',
       price: 1,
       avatar: '',
-      temperature: 0,
       system_prompt: '',
       ask_model: 'gemini-3.8-live',
-      ask_temperature: 0,
       ask_provider_config: {
         provider: 'llm',
         mode: 'provider_only',
@@ -1448,14 +1574,6 @@ describe('ShifuSetting compatibility fallback and explicit selection', () => {
       fireEvent.click(screen.getByLabelText('close-settings'));
       return;
     }
-    // Supply the existing schema's required bounds so native submission
-    // reaches its success callback instead of passing cancellation tests
-    // merely because unrelated full-form validation failed.
-    act(() => {
-      const form = mockFormMethods.mock.calls.at(-1)?.[0];
-      form.setValue('temperature_min', 0);
-      form.setValue('temperature_max', 2);
-    });
     fireEvent.submit(
       screen.getByDisplayValue('Compatibility course').closest('form')!,
     );
@@ -1473,7 +1591,6 @@ describe('ShifuSetting compatibility fallback and explicit selection', () => {
     ask_model_display_name: 'Default label',
     follow_up_mode: 'text',
     price: 0,
-    temperature: 0,
     ask_provider_config: { provider: 'llm', mode: 'provider_only', config: {} },
   };
   const open = async () => {

@@ -8,7 +8,6 @@ import time
 import uuid
 from collections.abc import Iterator
 from dataclasses import replace
-from datetime import UTC, datetime
 
 from flask import Flask, has_request_context, request
 from flaskr.api.llm import is_live_follow_up_model_available
@@ -22,6 +21,7 @@ from flaskr.api.tts import (
     is_tts_configured,
     synthesize_text,
 )
+from flaskr.dao import retry_on_deadlock
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
 from flaskr.service.common import raise_error, raise_error_with_args
@@ -49,9 +49,19 @@ from flaskr.service.learn.legacy_record_builder import (
     LegacyLearnRecord,
     build_legacy_record_for_progress,
 )
+from flaskr.service.learn.lesson_content_updates import load_lesson_content_states
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
     is_lesson_feedback_interaction,
+)
+from flaskr.service.learn.lesson_reset_limit import (
+    count_lesson_resets,
+    find_reset_receipt,
+    get_lesson_reset_limit,
+    is_lesson_reset_exempt,
+    normalize_reset_request_id,
+    record_lesson_reset,
+    require_reset_lesson,
 )
 from flaskr.service.learn.listen_element_matching import (
     get_speakable_text_elements,
@@ -136,31 +146,6 @@ from flaskr.util import generate_id
 from markdown_flow import (
     InteractionParser,
 )
-
-
-def _normalize_dt_to_utc(
-    value: datetime | None,
-) -> datetime | None:
-    if value is None:
-        return None
-    if value.tzinfo is not None:
-        return value.astimezone(UTC)
-    return value.replace(tzinfo=UTC)
-
-
-def _resolve_published_effective_updated_at(
-    outline_item: PublishedOutlineItem,
-) -> datetime | None:
-    return _normalize_dt_to_utc(getattr(outline_item, "updated_at", None))
-
-
-def _resolve_progress_effective_updated_at(
-    progress_record: LearnProgressRecord | None,
-) -> datetime | None:
-    return _normalize_dt_to_utc(
-        getattr(progress_record, "updated_at", None) if progress_record else None,
-    )
-
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -300,6 +285,45 @@ def get_shifu_info(
         )
 
 
+def _is_lesson_outline(item: HistoryItem) -> bool:
+    """Legacy block children belong to a lesson; outline children make a chapter."""
+    return item.type == "outline" and not any(
+        child.type == "outline" for child in item.children
+    )
+
+
+def get_current_lesson_outline(
+    *, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> HistoryItem | None:
+    """Resolve a leaf's physical row from the same structure used by the directory."""
+    struct_model = LogDraftStruct if preview_mode else LogPublishedStruct
+    row = (
+        struct_model.query.with_entities(struct_model.struct)
+        .filter_by(shifu_bid=shifu_bid, deleted=0)
+        .order_by(struct_model.id.desc())
+        .first()
+    )
+    if row is None:
+        return None
+    pending = [HistoryItem.from_json(row.struct)]
+    while pending:
+        item = pending.pop()
+        if item.bid == outline_bid and _is_lesson_outline(item):
+            return item
+        pending.extend(item.children)
+    return None
+
+
+def get_current_lesson_outline_id(
+    *, shifu_bid: str, outline_bid: str, preview_mode: bool
+) -> int | None:
+    """Return the current physical row for history/reset scope selection."""
+    item = get_current_lesson_outline(
+        shifu_bid=shifu_bid, outline_bid=outline_bid, preview_mode=preview_mode
+    )
+    return item.id if item else None
+
+
 def get_outline_item_tree(
     app: Flask, shifu_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnOutlineItemsWithBannerInfoDTO:
@@ -392,15 +416,57 @@ def get_outline_item_tree(
                 return "disabled"
             return interaction_mode
 
-        progress_records = LearnProgressRecord.query.filter(
-            LearnProgressRecord.user_bid == user_bid,
-            LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.outline_item_bid.in_(outline_items_bids),
-            LearnProgressRecord.status != LEARN_STATUS_RESET,
-            LearnProgressRecord.deleted == 0,
-        ).all()
+        from flaskr.service.learn.agent.preview_history import (
+            outlines_with_agent_history,
+        )
+
+        candidate_outline_ids = {
+            item.bid: item.id
+            for item in outline_items
+            if _is_lesson_outline(item)
+            and item.id in outline_items_db_map
+            and outline_items_db_map[item.id].shifu_bid == shifu_bid
+            and outline_items_db_map[item.id].outline_item_bid == item.bid
+            and not outline_items_db_map[item.id].hidden
+        }
+        # A cleared 2.0 draft must stay isolated even after its session is reset.
+        # Scriptless lessons without draft history keep their recorded progress.
+        scoped_empty_previews = (
+            outlines_with_agent_history(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bids=[
+                    bid
+                    for bid, row_id in candidate_outline_ids.items()
+                    if not (outline_items_db_map[row_id].content or "").strip()
+                ],
+            )
+            if preview_mode
+            else set()
+        )
+        progress_outline_bids = (
+            [
+                item.bid
+                for item in outline_items
+                if item.id in outline_items_db_map
+                and not (outline_items_db_map[item.id].content or "").strip()
+                and item.bid not in scoped_empty_previews
+            ]
+            if preview_mode
+            else outline_items_bids
+        )
+        progress_records = (
+            LearnProgressRecord.query.filter(
+                LearnProgressRecord.user_bid == user_bid,
+                LearnProgressRecord.shifu_bid == shifu_bid,
+                LearnProgressRecord.outline_item_bid.in_(progress_outline_bids),
+                LearnProgressRecord.status != LEARN_STATUS_RESET,
+                LearnProgressRecord.deleted == 0,
+            ).all()
+            if progress_outline_bids
+            else []
+        )
         progress_records_map: dict[str, LearnProgressRecord] = {}
-        latest_progress_record_map: dict[str, LearnProgressRecord] = {}
         for progress_record in progress_records:
             current_status_record = progress_records_map.get(
                 progress_record.outline_item_bid
@@ -410,37 +476,33 @@ def get_outline_item_tree(
                 or progress_record.id > current_status_record.id
             ):
                 progress_records_map[progress_record.outline_item_bid] = progress_record
-            latest_progress_record = latest_progress_record_map.get(
-                progress_record.outline_item_bid
+
+        eligible_outline_ids = {
+            bid: row_id
+            for bid, row_id in candidate_outline_ids.items()
+            if preview_mode
+            or (
+                bid in progress_records_map
+                and progress_records_map[bid].status
+                in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
             )
-            progress_updated_at = _resolve_progress_effective_updated_at(
-                progress_record
-            )
-            latest_progress_updated_at = _resolve_progress_effective_updated_at(
-                latest_progress_record
-            )
-            if latest_progress_record is None or (
-                (
-                    progress_updated_at is not None
-                    and latest_progress_updated_at is not None
-                    and progress_updated_at > latest_progress_updated_at
-                )
-                or (
-                    latest_progress_updated_at is None
-                    and progress_updated_at is not None
-                )
-                or (
-                    progress_updated_at == latest_progress_updated_at
-                    and progress_record.id > latest_progress_record.id
-                )
-            ):
-                latest_progress_record_map[progress_record.outline_item_bid] = (
-                    progress_record
-                )
+        }
+        content_states = load_lesson_content_states(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            preview_mode=preview_mode,
+            outline_revisions={
+                item.bid: item.content_revision
+                for item in outline_items
+                if item.bid in eligible_outline_ids
+            },
+        )
 
         def build_outline_item_tree(
             item: HistoryItem,
         ) -> LearnOutlineItemInfoDTO | None:
+            if item.type != "outline":
+                return None
             outline_item: DraftOutlineItem | PublishedOutlineItem = (
                 outline_items_db_map.get(item.id)
             )
@@ -453,26 +515,22 @@ def get_outline_item_tree(
                 status = progress_record.status
                 if status == LEARN_STATUS_LOCKED:
                     status = LEARN_STATUS_NOT_STARTED
-            is_lesson_node = not bool(item.children)
-            has_content_update_for_current_user = False
-            if not preview_mode and is_lesson_node:
-                latest_progress_record = latest_progress_record_map.get(
-                    outline_item.outline_item_bid
-                )
-                published_updated_at = _resolve_published_effective_updated_at(
-                    outline_item
-                )
-                latest_progress_updated_at = _resolve_progress_effective_updated_at(
-                    latest_progress_record
-                )
-                has_content_update_for_current_user = bool(
-                    latest_progress_record is not None
-                    and latest_progress_record.status
-                    in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
-                    and published_updated_at
-                    and latest_progress_updated_at
-                    and published_updated_at > latest_progress_updated_at
-                )
+            content_state = content_states.get(outline_item.outline_item_bid)
+            if preview_mode and (
+                (outline_item.content or "").strip()
+                or outline_item.outline_item_bid in scoped_empty_previews
+            ):
+                status = LEARN_STATUS_NOT_STARTED
+                if content_state is not None and content_state.started:
+                    status = (
+                        LEARN_STATUS_COMPLETED
+                        if content_state.finished
+                        else LEARN_STATUS_IN_PROGRESS
+                    )
+            is_lesson_node = _is_lesson_outline(item)
+            has_content_update_for_current_user = bool(
+                is_lesson_node and content_state and content_state.has_content_update
+            )
             outline_item_info = LearnOutlineItemInfoDTO(
                 bid=outline_item.outline_item_bid,
                 position=outline_item.position,
@@ -712,11 +770,94 @@ def get_learn_record(
         )
 
 
+@retry_on_deadlock()
 def reset_learn_record(
-    app: Flask, shifu_bid: str, outline_bid: str, user_bid: str
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+    *,
+    preview_mode: bool = False,
+    reset_request_id: str | None = None,
 ) -> bool:
-    """Reset learn record."""
+    """Reset learner progress, or only the explicitly selected draft preview.
+
+    An effective reset is recorded in ``learn_lesson_reset_records`` inside the same
+    transaction; ordinary learners are refused once their recorded resets for this lesson
+    reach ``LESSON_RESET_LIMIT``. Nothing is written or counted for an empty reset.
+
+    The whole transaction is retried on a MySQL deadlock: the locking quota count takes
+    a gap lock on the ledger index, and two first-ever resets whose empty ranges share a
+    gap can each block the other's insert. MySQL rolls one back; rerunning it from the
+    top re-reads every receipt and lock, so a retry cannot double-apply anything.
+    """
     with app_context_scope(app), unit_of_work():
+        from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+
+        limit = get_lesson_reset_limit()
+        limited = (
+            limit > 0
+            and not preview_mode
+            and not is_lesson_reset_exempt(app, user_bid, shifu_bid)
+        )
+        if limited:
+            require_reset_lesson(shifu_bid, outline_bid)
+        # A retry of a reset that already landed must not clear the learning the
+        # learner has started since, nor spend a second use. This holds for exempt
+        # and unlimited resets too, so every effective reset keeps its receipt.
+        request_id = normalize_reset_request_id(reset_request_id)
+        receipt = find_reset_receipt(user_bid, request_id)
+        if receipt is not None:
+            if (
+                receipt.shifu_bid == shifu_bid
+                and receipt.outline_item_bid == outline_bid
+                and bool(receipt.preview_mode) == preview_mode
+            ):
+                return True
+            # Same trace id reused for another lesson: not a retry, and the receipt
+            # column is unique per user, so this reset is recorded without one.
+            request_id = None
+
+        if preview_mode:
+            from flaskr.service.learn.agent.preview_history import (
+                uses_preview_session_history,
+            )
+
+            if not DraftOutlineItem.query.filter_by(
+                shifu_bid=shifu_bid, outline_item_bid=outline_bid, deleted=0
+            ).first():
+                return True
+            if uses_preview_session_history(
+                app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+            ):
+                preview_session = (
+                    LearnAgentSession.query.filter(
+                        LearnAgentSession.user_bid == user_bid,
+                        LearnAgentSession.shifu_bid == shifu_bid,
+                        LearnAgentSession.outline_item_bid == outline_bid,
+                        LearnAgentSession.deleted == 0,
+                        LearnAgentSession.active_key
+                        == active_key_for(user_bid, outline_bid, preview_mode=True),
+                    )
+                    .with_for_update()
+                    .first()
+                )
+                stage_agent_session_discard(
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_bid,
+                    preview_mode=True,
+                )
+                if preview_session is not None:
+                    record_lesson_reset(
+                        user_bid=user_bid,
+                        shifu_bid=shifu_bid,
+                        outline_bid=outline_bid,
+                        preview_mode=True,
+                        counted=False,
+                        request_id=request_id,
+                    )
+                return True
         progress_records = (
             LearnProgressRecord.query.filter(
                 LearnProgressRecord.user_bid == user_bid,
@@ -729,16 +870,67 @@ def reset_learn_record(
             # Without this the two interleave: the turn sees a live lesson, this finds no session
             # to discard, and the turn inserts one afterwards -- returning the conversation the
             # learner just cleared. Taking the lock makes one of them go first, either way.
+            .order_by(LearnProgressRecord.id.desc())
             .with_for_update()
             .all()
         )
+        # Only the published-scope session says whether a learner has something to reset;
+        # a leftover draft preview session must not spend a learner's allowance.
+        live_session = (
+            LearnAgentSession.query.filter(
+                LearnAgentSession.user_bid == user_bid,
+                LearnAgentSession.shifu_bid == shifu_bid,
+                LearnAgentSession.outline_item_bid == outline_bid,
+                LearnAgentSession.deleted == 0,
+                LearnAgentSession.active_key
+                == active_key_for(user_bid, outline_bid, preview_mode=preview_mode),
+            )
+            .with_for_update()
+            .first()
+        )
+        effective = bool(progress_records) or live_session is not None
+        # Opening a 1.0 lesson inserts NOT_STARTED placeholders before anything is generated.
+        # Retiring only placeholders costs nothing, so it is recorded but never charged.
+        has_learning = live_session is not None or any(
+            record.status != LEARN_STATUS_NOT_STARTED for record in progress_records
+        )
+        charged = limited and has_learning
+        # Two concurrent resets serialize on the row locks above and the second usually finds
+        # nothing live. It can still see learning that started after the first one committed,
+        # so the admission count must be a locking read: a plain count would reuse this
+        # transaction's REPEATABLE READ snapshot and miss the row the first reset just wrote.
+        if (
+            charged
+            and count_lesson_resets(user_bid, shifu_bid, outline_bid, for_update=True)
+            >= limit
+        ):
+            raise_error("server.learn.resetLimitReached")
         for progress_record in progress_records:
             progress_record.status = LEARN_STATUS_RESET
         # A 2.0 lesson keeps its conversation in its own table, which resetting the progress
         # records does not touch. Left behind, the next run resumes a session that may hold
         # `finished=True` -- it would report the lesson complete immediately and never start it
         # again, which also breaks taking a course back off the allowlist as a way out.
-        stage_agent_session_discard(user_bid=user_bid, outline_item_bid=outline_bid)
+        # A learner's reset retires only the published scope so an author's draft preview of
+        # the same lesson survives; an explicit preview reset retires only the draft.
+        stage_agent_session_discard(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            outline_item_bid=outline_bid,
+            preview_mode=preview_mode,
+        )
+        if effective:
+            record_lesson_reset(
+                user_bid=user_bid,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                progress_record_bid=(
+                    progress_records[0].progress_record_bid if progress_records else ""
+                ),
+                preview_mode=preview_mode,
+                counted=charged,
+                request_id=request_id,
+            )
         return True
 
 

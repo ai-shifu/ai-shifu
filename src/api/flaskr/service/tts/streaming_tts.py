@@ -1144,7 +1144,7 @@ class StreamingTTSProcessor:
                 subtitle_cues=effective_subtitle_cues,
             )
             # ``commit`` says whether this finalize owns the boundary or the
-            # surrounding run step (context_v2 passes commit=False) does.
+            # surrounding run step (callers pass commit=False) does.
             with unit_of_work() if commit else nullcontext():
                 save_audio_record(audio_record)
 

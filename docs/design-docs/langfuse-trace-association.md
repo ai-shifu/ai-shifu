@@ -2,37 +2,43 @@
 title: Langfuse Trace Association
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-08-17
+last_reviewed: 2026-10-27
 canonical: true
 ---
 
 # Langfuse Trace Association
 
 ## Background
+
 - The backend used two different Langfuse patterns.
 - `learn` runtime and preview created `generation` objects directly on the trace.
 - `learn` ask, guardrail, and some `shifu` flows created a span first and then nested `generation` and `event` objects under that span.
 - `learn` runtime also initialized trace `output` with an empty string and later called `trace.update(**trace_args)`, which could overwrite real output written earlier in the request.
 
 ## Goal
+
 - Make Langfuse trees structurally consistent so related observations appear under the same trace in the UI.
 - Stop empty `input` and `output` values from overwriting real trace data.
 - Keep HTTP contracts unchanged.
 
 ## Decisions
+
 - Introduce a shared helper in `src/api/flaskr/api/langfuse.py` that creates `trace + root span`.
 - Treat the root span as the parent observation for runtime `generation` and `event` records.
 - Keep ask-specific child spans, but always nest them under the runtime root span.
 - Only send `input` and `output` to Langfuse when a real value exists.
 
 ## Scope
-- `src/api/flaskr/service/learn/context_v2.py`
+
+- `src/api/flaskr/service/learn/context_v2.py` (removed with the 1.0 runtime;
+  follow-up traces now open in `src/api/flaskr/service/learn/ask/follow_up_run.py`)
 - `src/api/flaskr/service/learn/handle_input_ask.py`
 - `src/api/flaskr/service/shifu/route.py`
 - `src/api/flaskr/service/shifu/shifu_publish_funcs.py`
 - Focused backend tests for the affected paths
 
 ## Implementation Notes
+
 - `RUNLLMProvider` now receives both the trace and a `parent_observation`.
 - `chat_llm` and `invoke_llm` continue to work with span-like observations, but callers no longer pass a trace directly for runtime work.
 - `learn` runtime accumulates emitted teacher content and uses it when finalizing the root span and trace.
@@ -40,10 +46,11 @@ canonical: true
 - `shifu` ask preview and publish summary use the shared helper and finalize trace output explicitly.
 
 ## SDK v4 Semantics
+
 - Langfuse SDK v4 has no mutable trace record: a trace is the tree of its
   observations, so `src/api/flaskr/api/langfuse.py` keeps the legacy
   `trace.update()` / `trace.span()` call surface but maps it onto observations.
-- The overall `input` and `output` of a request live on the root observation.
+- The overall `input` and `output` of an advancement live on the root observation.
   Trace-level input/output APIs are deprecated and are not used.
 - Correlating attributes (`user_id`, `session_id`, `tags`, `version`,
   `metadata`, environment) are replicated onto every observation through
@@ -54,8 +61,202 @@ canonical: true
   and `start_generation()` no longer exist.
 
 ## Verification
+
 - Add focused tests for:
   - runtime trace finalization without empty-output overwrite
   - preview trace top-level `session_id` and root span finalization
   - ask nesting under a parent observation
   - publish summary trace output propagation
+
+## Session and Advancement Identity
+
+A complete interactive document execution is a Langfuse Session. Each admitted
+business advancement is a separate Trace: start, answer, continue, or regenerate
+runs automatically until the next wait, completion, or failure. A single advance
+can contain several engine turns and model calls. The document definition is
+identified by existing course/outline and content-revision metadata, or Profile
+purpose/configuration-revision metadata; it is not itself an execution trace.
+
+The native course session id, Profile questionnaire session id, or legacy
+progress-session id remains `session_id` across advancements and HTTP requests.
+A reset creates a new execution Session. The shared
+`create_advancement_trace_id()` helper allocates a fresh W3C trace id once when
+an advancement coordinator is admitted, before producer-thread work. Different
+advances cannot share a trace merely because they share a document, user, or
+HTTP request id. Request ids remain transport correlation metadata.
+
+Each advancement owns one public root observation with its input, output,
+timing, and outcome. Automatic turns, generations, tools, and private helpers
+remain descendants of that root until it closes. A standalone Profile summary
+or answer-import operation owns its own Trace in the same execution Session;
+the same helper invoked inside an existing advancement remains a child. Exact
+Profile replay and already-completed responses are rejected before tracing and
+do not create execution observations or charge another model call.
+
+The legacy (1.0) learning and preview runtimes that bound their roots after
+outline synchronization have been removed. MarkdownFlow courses bind after
+native session loading,
+retaining any early progress/block metadata. Profile knows its Session from
+admission. No observation remains open during learner waiting time.
+
+Early failures before a session is known retain an error Trace with the captured
+advancement id and request metadata. Finalization records the exception type
+and error outcome at most once per root. SDK failures use no-op trace and
+observation handles carrying that same advancement id, so teaching, moderation
+and usage correlation continue normally. A follow-up question
+(`learn/ask/follow_up_run.py`) follows the same rules: its own advancement trace
+id at admission, its root created once the learner's progress is resolved, the
+lesson's native 2.0 session id as its Session (none before that session exists),
+the progress record as metadata, no-op handles on SDK failure, and one error
+trace when it fails before its progress is resolved. SDK errors cannot
+replace original business errors or prevent database cleanup. Failed session
+rollover cannot reuse the previous execution's ended observation handles.
+
+Trace-based metrics and evaluators now describe individual advancements;
+Session-based analysis describes complete document executions. Generation-level
+usage and cost accounting remain unchanged. Historical traces are not rewritten:
+later advances use new Trace ids while retaining their execution's Session id.
+No database or native-session migration is required.
+
+This boundary follows Langfuse's
+[trace and session model](https://langfuse.com/docs/observability/best-practices).
+
+## MarkdownFlow 2.0 Advancement Observations
+
+Course teaching and Profile onboarding share `flaskr.api.langfuse_markdownflow`.
+Their service-local `langfuse_tracing.py` modules own scene names, metadata,
+advancement actions, output filtering, and outcome mapping. Business code passes
+resolved objects and execution facts through small lifecycle hooks. Each
+accepted advancement owns one Trace and root observation; automatic native turns
+and model requests remain children of that root. Related advances retain the
+same execution Session. Exact Profile replay does not create another Trace.
+
+### Names and correlation
+
+Course names have the form `scene/course/chapter/lesson`. Scene names are
+`learn`, `preview`, and `debug`. Titles come from the same draft or published
+records used to resolve the lesson, with business ids as missing-title
+fallbacks. Profile uses `profile` and `profile-preview`, since its questionnaire
+does not belong to a course or lesson. Request ids, native turn indexes,
+progress/block identifiers, content/configuration revisions, learning mode,
+and operation type belong in metadata rather than observation names.
+
+Ancestor title lookup is bounded to twelve parent records per request. A deeper
+path keeps the nearest ancestors and exact lesson title, prefixes its displayed
+chapter path with `...`, and sets `chapter_path_truncated` in metadata. This
+makes the diagnostic limit visible without adding unbounded telemetry queries.
+
+The tree uses stable operation names:
+
+| Operation                          | Observation name    |
+| ---------------------------------- | ------------------- |
+| Effective prompt snapshot          | `prompts`           |
+| Course execution round             | `teaching_round`    |
+| Primary course model               | `teaching`          |
+| Delivered teaching history summary | `history_summary`   |
+| Learner memory request check       | `memory_check`      |
+| Profile questionnaire model        | `questionnaire`     |
+| Delegated answer extraction        | `answer_extraction` |
+
+A round is an `agent` observation, an LLM request is a `generation`, and an
+engine tool execution is a `tool`. Profile retains its generic `turn` round and
+the existing private `profile.summary` and `profile.model` hierarchy. Tool nodes
+keep the exact native tool names so they can be matched to actual model calls.
+The shared gateway remains the sole producer of model usage and cost
+observations. An observation proxy resolves
+the current turn when a gateway generation starts, so reused models follow new
+turns automatically. Explicit parent handles
+keep producer-thread calls in the correct tree without relying on ambient
+OpenTelemetry context or gateway mutation in business orchestration.
+
+### Inputs and public outputs
+
+Root input is the current submitted learner text or structured answers. A
+request without text uses an explicit start, continue, or regenerate action.
+It is not the last model-message array entry, which may be a tool response.
+The course `prompts` child records the actual native session script as
+`teaching_prompt` (Teaching Prompt) and the effective author teaching brief as
+`course_prompt` (Course Prompt). Restored sessions retain their script snapshot; debug
+sessions use the submitted editor document. Prompt bodies are observation
+input, not propagated trace metadata.
+
+Root output contains the public prose and interaction controls in presentation
+order. Hosts exclude heartbeats, audio, progress events, and private profile
+transformations. Cumulative Profile content snapshots contribute only their
+new suffix. Model generations retain their complete actual request messages,
+results, usage, and error details. Private Profile summary and answer-extraction
+operations are child spans in the same request, with their own real inputs and
+outputs; they do not replace the public root output.
+
+### Native model output channels
+
+When `chat_llm` emits native tool-call deltas, its generation output keeps the
+original content, reasoning, and tool calls separate. A response containing
+tools is an OpenAI-style assistant message list: `content` contains only the
+provider's text, optional `reasoning_content` contains its reasoning, and
+`tool_calls` contains each call's id, type, function name, and original argument
+string. Streamed calls are assembled by index, in index order, including
+fragmented names and arguments and ids received after the initial fragment.
+An interrupted call retains its incomplete argument string for diagnosis.
+Arguments are never parsed or rewritten for tracing.
+
+Text that resembles `<interact ...>` or another tool remains text in its
+original channel. Observability does not infer a tool call from markup or
+remove invalid content; the engine's independent validation may suppress or
+retry that raw model response before public delivery. Generation output thus
+describes what the gateway received, while root output describes what the host
+presented.
+
+Responses without native tools retain the previous output format: a string for
+plain content, or an object with `content` and `reasoning_content` when reasoning
+is present. Existing traces are not rewritten. Runtime deltas, usage accounting,
+the billing `output_text` summary, and raw OpenAI gateway endpoints retain their
+existing contracts. Consumers of new tool-bearing `chat_llm` generations must
+read `content` and `tool_calls` from the assistant message instead of treating
+the output as a concatenated string.
+
+The assistant-message representation follows the
+[Langfuse input/output formatting guidance](https://langfuse.com/docs/observability/best-practices).
+
+### Completion and failure isolation
+
+Native tool calls are paired by their tool-call ids where possible. Deferred
+interaction requests close the corresponding tool with the pending question.
+Memory updates identify staged notes; unmatched `remember` calls are closed
+with an unavailable-result status rather than an invented successful result.
+Tools such as `finish` that omit a result stay open at the native turn boundary
+and close only when the host reports its authoritative saved outcome. A failed
+or discarded save must not leave an unresolved tool labeled as successful.
+Any outstanding tool/turn is also closed when the request fails or disconnects.
+
+The host marks a business outcome only after its authoritative save succeeds,
+before publishing progress updates or terminal DTOs from that save. Course turn
+observations stay open until all delivered output has been collected; closing
+the transport during post-save progression still retains the committed outcome.
+Root metadata separates `runtime_outcome`
+from `transport_closed`, retaining `end_reason` for existing diagnostics. A
+connection closed after a committed waiting/completed result remains successful;
+a real mid-turn disconnect retains partial public output. A discarded save is
+distinct from completion. Profile retains its buffered atomic publication and
+retry semantics, including failures during private summary generation.
+
+SDK create, update, child creation, and end operations are best-effort through
+safe observation handles. Their failure cannot interrupt teaching, settlement,
+session writes, or SSE publication. This contract uses Langfuse 4.14.4, changes
+no database or persisted native-session schema, and applies only to new observations.
+Independent ask, live voice, and capability probes retain their existing
+semantics.
+
+### Acceptance checks
+
+Focused host regressions cover distinct advancement traces within one execution
+Session, identical HTTP ids, session resets, automatic-turn trace continuity,
+advancement-specific IO and request metadata, early progress identifiers,
+all five scenes, structured answers, no-text
+actions, restored context, automatic continuation, tool completion, visible
+interactions, failed/discarded saves, terminal-close classification, replay, and
+SDK failure isolation. Real-SDK in-memory tests assert observation types,
+parent-child ids, propagated session/user attributes, root IO, and idempotent
+finalization. Remote acceptance additionally requires executing the deployed
+test paths and reading back their observations in Langfuse; an in-memory export
+or a successful submission alone is not remote acceptance.

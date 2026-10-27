@@ -18,13 +18,14 @@ to rely on.
 
 from __future__ import annotations
 
+import json
 import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from flaskr.api.markdownflow import Session
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, require_transaction_owner, unit_of_work
-from flaskr.service.learn.agent.engine import Session
 from flaskr.service.learn.agent.models import (
     AGENT_SESSION_SCHEMA_VERSION,
     LearnAgentSession,
@@ -36,6 +37,37 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from flask import Flask
+
+
+PREVIEW_PRESENTATION_KEY = "ai_shifu_preview_presentation"
+
+
+class PreviewGenerationDiscardedError(Exception):
+    """A draft restart retired the generation this turn was teaching."""
+
+
+def preview_presentation(row: LearnAgentSession | None) -> dict:
+    """Read recognized host metadata without interpreting raw engine history."""
+    try:
+        data = json.loads(row.session_data) if row is not None else {}
+    except (TypeError, ValueError):
+        return {}
+    return preview_presentation_from_document(data)
+
+
+def preview_presentation_from_document(data: object) -> dict:
+    """Read presentation from an already decoded session without parsing it again."""
+    value = data.get(PREVIEW_PRESENTATION_KEY) if isinstance(data, dict) else None
+    if (
+        isinstance(value, dict)
+        and value.get("version") == 1
+        and isinstance(value.get("runs"), list)
+        and all(isinstance(bid, str) for bid in value["runs"])
+        and isinstance(value.get("questions"), dict)
+        and isinstance(value.get("answers"), dict)
+    ):
+        return value
+    return {}
 
 
 def _pydantic_ai_version() -> str:
@@ -67,6 +99,27 @@ def load_agent_session(
     """
     with app_context_scope(app):
         return _load(user_bid, outline_item_bid, preview_mode=preview_mode)
+
+
+def active_session_id(
+    user_bid: str, outline_item_bid: str, *, preview_mode: bool = False
+) -> str | None:
+    """Return the native id of the learner's live session for this lesson, if any.
+
+    This is the Langfuse Session the lesson's turns are traced in. Only the id is read, so a
+    session this build could not resume still names its Session.
+    """
+    row = LearnAgentSession.query.filter(
+        LearnAgentSession.active_key
+        == active_key_for(user_bid, outline_item_bid, preview_mode=preview_mode)
+    ).first()
+    if row is None:
+        return None
+    try:
+        session_id = json.loads(row.session_data).get("id")
+    except (TypeError, ValueError, AttributeError):
+        return None
+    return session_id if isinstance(session_id, str) and session_id else None
 
 
 def _load(
@@ -107,6 +160,8 @@ def save_agent_session(
     outline_item_bid: str,
     preview_mode: bool = False,
     stage: Callable[[], object] | None = None,
+    preview_generation: str | None = None,
+    content_revision: int | None = None,
 ) -> None:
     """Write the session back, replacing the learner's previous one for this lesson.
 
@@ -120,11 +175,28 @@ def save_agent_session(
     require_transaction_owner("save_agent_session", app)
     key = active_key_for(user_bid, outline_item_bid, preview_mode=preview_mode)
     with app_context_scope(app), unit_of_work():
+        row = None
+        if preview_generation is not None:
+            row = (
+                LearnAgentSession.query.filter_by(
+                    active_key=key,
+                    agent_session_bid=preview_generation,
+                    user_bid=user_bid,
+                    shifu_bid=shifu_bid,
+                    outline_item_bid=outline_item_bid,
+                    deleted=0,
+                )
+                .with_for_update()
+                .first()
+            )
+            if not preview_mode or row is None:
+                raise PreviewGenerationDiscardedError
         if stage is not None:
             stage()
-        row = LearnAgentSession.query.filter(
-            LearnAgentSession.active_key == key
-        ).first()
+        if row is None:
+            row = LearnAgentSession.query.filter(
+                LearnAgentSession.active_key == key
+            ).first()
         if row is None:
             row = LearnAgentSession(
                 agent_session_bid=str(uuid.uuid4()).replace("-", ""),
@@ -145,15 +217,42 @@ def save_agent_session(
                 row = LearnAgentSession.query.filter(
                     LearnAgentSession.active_key == key
                 ).one()
-        _apply(row, session)
+        _apply(row, session, content_revision=content_revision)
 
 
-def _apply(row: LearnAgentSession, session: Session) -> None:
+def _apply(
+    row: LearnAgentSession, session: Session, *, content_revision: int | None = None
+) -> None:
     """Copy the session onto the row, recording what wrote it."""
     # The engine's own stores stamp this before serializing; without it the timestamp inside the
     # document stays at whatever the session was created with, however many turns it has run.
     session.updated_at = datetime.now(UTC).isoformat()
-    row.session_data = session.dumps()
+    try:
+        previous = json.loads(row.session_data) if row.session_data else {}
+    except (TypeError, ValueError):
+        previous = {"messages": ["unknown"]}
+    if not isinstance(previous, dict):
+        previous = {"messages": ["unknown"]}
+    presentation = preview_presentation_from_document(previous)
+    data = json.loads(session.dumps())
+    # A loader-incompatible session starts a new engine attempt on the same DB
+    # row. Its baseline follows its new document ID, just like an explicit retake.
+    new_attempt = previous.get("id") != data["id"]
+    if new_attempt:
+        row.content_revision = None
+    # Continuing the same attempt, including a legacy NULL baseline, must never
+    # relabel the original lesson content. Empty reservations have no learning messages.
+    if (
+        (new_attempt or not previous.get("messages"))
+        and data.get("messages")
+        and row.content_revision is None
+    ):
+        row.content_revision = (
+            content_revision if content_revision and content_revision > 0 else 0
+        )
+    if presentation:
+        data[PREVIEW_PRESENTATION_KEY] = presentation
+    row.session_data = json.dumps(data, ensure_ascii=False)
     row.schema_version = AGENT_SESSION_SCHEMA_VERSION
     row.pydantic_ai_version = _pydantic_ai_version()
     row.turn = session.turn
@@ -173,20 +272,34 @@ def discard_agent_session(app: Flask, user_bid: str, outline_item_bid: str) -> N
         )
 
 
-def stage_agent_session_discard(*, user_bid: str, outline_item_bid: str) -> None:
+def stage_agent_session_discard(
+    *,
+    user_bid: str,
+    outline_item_bid: str,
+    preview_mode: bool | None = None,
+    shifu_bid: str | None = None,
+) -> None:
     """Retire this learner's sessions for the lesson without committing.
 
     For callers that already own a transaction and need the discard to land with the rest of it --
     resetting a lesson retires its progress records and its session together, or neither, so a
     reset cannot half-apply and leave the learner resumed into the conversation they just cleared.
 
-    Both scopes go: an author resetting a lesson means the preview too.
+    Legacy callers retire both scopes. Explicit preview resets retire only the draft.
     """
-    rows = LearnAgentSession.query.filter(
+    query = LearnAgentSession.query.filter(
         LearnAgentSession.user_bid == user_bid,
         LearnAgentSession.outline_item_bid == outline_item_bid,
         LearnAgentSession.deleted == 0,
-    ).all()
+    )
+    if shifu_bid is not None:
+        query = query.filter(LearnAgentSession.shifu_bid == shifu_bid)
+    if preview_mode is not None:
+        query = query.filter(
+            LearnAgentSession.active_key
+            == active_key_for(user_bid, outline_item_bid, preview_mode=preview_mode)
+        )
+    rows = query.with_for_update().all()
     for row in rows:
         row.deleted = 1
         # Releasing the key is what lets the next start claim it; NULLs do not collide, so

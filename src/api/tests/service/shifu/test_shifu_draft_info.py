@@ -94,6 +94,40 @@ def _mock_route_permission(
     )
 
 
+def test_course_temperatures_are_absent_from_public_response_and_request_schemas(
+    app: object,
+) -> None:
+    from flasgger.utils import parse_docstring
+    from flaskr.common.swagger import swagger_config
+    from flaskr.service.shifu.dtos import ShifuDetailDto
+
+    temperature_fields = {"temperature", "ask_temperature"}
+    assert temperature_fields.isdisjoint(ShifuDetailDto.model_fields)
+    assert temperature_fields.isdisjoint(
+        ShifuDetailDto.model_json_schema()["properties"]
+    )
+    schema = swagger_config["components"]["schemas"]["ShifuDetailDto"]
+    assert temperature_fields.isdisjoint(schema["properties"])
+    assert temperature_fields.isdisjoint(schema.get("required", []))
+
+    for endpoint in ("save_shifu_detail_api", "ask_preview_api"):
+        _, _, specification = parse_docstring(
+            app.view_functions[endpoint], process_doc=lambda text: text
+        )
+        if "requestBody" in specification:
+            request_schema = specification["requestBody"]["content"][
+                "application/json"
+            ]["schema"]
+        else:
+            request_schema = next(
+                parameter["schema"]
+                for parameter in specification["parameters"]
+                if parameter.get("in") == "body"
+            )
+        assert temperature_fields.isdisjoint(request_schema["properties"])
+        assert temperature_fields.isdisjoint(request_schema.get("required", []))
+
+
 @pytest.mark.parametrize(
     ("minimum", "default", "price", "expected"),
     [
@@ -238,7 +272,7 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(
 
     assert result.ask_enabled_status == 5103
     assert result.ask_model == "1"
-    assert result.ask_temperature == pytest.approx(0.8)
+    assert {"temperature", "ask_temperature"}.isdisjoint(result.__json__())
     assert result.ask_system_prompt == "ask prompt"
     assert result.ask_provider_config == ask_provider_config
 
@@ -264,7 +298,7 @@ def test_save_and_get_shifu_draft_info_roundtrip_ask_provider_config(
 
     assert detail.ask_enabled_status == 5103
     assert detail.ask_model == "1"
-    assert detail.ask_temperature == pytest.approx(0.8)
+    assert {"temperature", "ask_temperature"}.isdisjoint(detail.__json__())
     assert detail.ask_system_prompt == "ask prompt"
     assert detail.ask_provider_config == ask_provider_config
 

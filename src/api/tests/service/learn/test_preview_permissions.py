@@ -239,7 +239,7 @@ def test_editor_preview_denied_before_admission_and_stream(
         ),
     )
     monkeypatch.setattr(
-        "flaskr.service.learn.context_v2.RunScriptPreviewContextV2.stream_preview",
+        "flaskr.service.learn.agent.debug_session.stream_debug_preview",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("preview stream should not run without permission")
         ),
@@ -247,7 +247,7 @@ def test_editor_preview_denied_before_admission_and_stream(
 
     resp = test_client.post(
         f"/api/learn/shifu/{shifu_bid}/preview/outline-1",
-        json={"content": "hello", "block_index": 0},
+        json={"content": "hello", "block_index": 0, "debug_session_id": "run-1"},
         headers={"Token": "test-token"},
     )
 

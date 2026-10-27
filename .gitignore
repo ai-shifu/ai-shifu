@@ -162,6 +162,7 @@ celerybeat.pid
 # Project specific ignores
 ###############################################################################
 # Environment files
+.ai-shifu-env-init-*.tmp
 .env.local
 .env.development.local
 .env.test.local
@@ -180,6 +181,9 @@ src/api/.deps_installed
 
 src/web/.next/
 src/web/next-env.d.ts
+
+# Frontend source revision copied into Docker build contexts by CI.
+/src/web/.app-build-sha
 
 # Docker data directories
 docker/cook_data/

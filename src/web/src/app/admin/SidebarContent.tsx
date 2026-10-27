@@ -266,13 +266,13 @@ export const SidebarContent = ({
         <NavFooter
           ref={footerRef}
           onClick={onFooterClick}
-          isMenuOpen={userMenuOpen}
         />
         <MainMenuModal
           open={userMenuOpen}
           onClose={onUserMenuClose}
           className={userMenuClassName || adminSidebarStyles.navMenuPopup}
           onPersonalInfoClick={onPersonalInfoClick}
+          onAboutCloseAutoFocus={() => footerRef.current?.focus()}
           surface='admin'
         />
       </div>

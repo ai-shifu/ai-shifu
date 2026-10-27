@@ -6,7 +6,7 @@ lockfile in this directory.
 
 ## Local Development
 
-Use Node.js 22.16.0, as pinned in [package.json](package.json). Start the
+Use Node.js 22.23.4, as pinned in [package.json](package.json). Start the
 backend on port 5800 using the
 [local installation steps](../../INSTALL_MANUAL.md#step-5-manual-installation-development).
 
@@ -89,6 +89,33 @@ To run only the smoke project and its authentication setup, use
 `npm run test:e2e -- --project=runtime-harness-smoke`.
 Follow the [repository reliability guide](../../docs/RELIABILITY.md)
 when diagnosing smoke failures.
+
+## Production Docker Dependencies
+
+The production Dockerfile installs the lockfile once on the image's target
+architecture and verifies the source lockfile after installation. A separate
+stage removes development dependencies offline without rerunning lifecycle
+scripts, checks the same source lockfile, then the runner copies node_modules.
+Native module failures stop the build instead of installing a new Sharp version.
+Builder and runner share Node 22.23.4 on Alpine 3.23 with an updated system CA
+bundle. The `npm start` entrypoint remains unchanged. Final-image smoke checks
+the built-in, effective default, and system trust stores independently.
+
+Build from the repository root on a native runner for each supported platform:
+
+```bash
+git rev-parse HEAD > src/web/.app-build-sha
+docker build --platform linux/amd64 -f src/web/Dockerfile -t ai-shifu-web:deps .
+docker run --rm --network none --entrypoint node ai-shifu-web:deps scripts/check-production-dependencies.mjs
+```
+
+Repeat with `linux/arm64` on an ARM64 runner. The probe executes a Sharp image
+conversion and native SWC transform, checks the pruned dependency roots, and
+reads every declared locale's common JSON. Start the image with its default
+command and verify `/api/config`, `/api/i18n?lng=en-US&ns=common.core`, and a
+built `/_next/static` asset before accepting a packaging change. See the
+[dependency reuse plan](../../docs/exec-plans/active/docker-web-dependency-reuse.md)
+for validation requirements and progress.
 
 ## Contributor References
 

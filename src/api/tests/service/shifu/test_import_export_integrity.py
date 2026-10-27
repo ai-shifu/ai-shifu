@@ -13,7 +13,10 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.shifu import shifu_import_export_funcs as transfers
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu, LogDraftStruct
-from flaskr.service.shifu.shifu_history_manager import get_shifu_history
+from flaskr.service.shifu.shifu_history_manager import (
+    get_shifu_history,
+    outline_content_revisions,
+)
 from werkzeug.datastructures import FileStorage
 
 
@@ -128,6 +131,9 @@ def test_import_remaps_relationships_and_exports_only_the_persisted_history_tree
         assert second.prerequisite_item_bids == first.outline_item_bid
         assert chapter.llm_system_prompt == "Chapter instruction"
         history = get_shifu_history(app, bid)
+        assert outline_content_revisions(history) == {
+            row.outline_item_bid: row.id for row in outlines.values()
+        }
         assert history.bid == bid
         assert history.id == course.id
         assert [item.bid for item in history.children[0].children] == [

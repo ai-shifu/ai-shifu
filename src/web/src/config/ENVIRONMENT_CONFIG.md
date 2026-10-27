@@ -45,6 +45,35 @@ configured backend base even when their ports differ. See
 [route-utils.ts](../app/api/config/route-utils.ts) and its tests for the host
 comparison contract. The development proxy is described in the frontend README.
 
+## Frontend Build Identity
+
+The shared teacher and learner user menu's About dialog displays the frontend
+package version with the first seven characters of its source SHA in
+parentheses, for example `v3.0.0 (a1b2c3d)`. It describes the loaded
+browser bundle, including when a previous deployment is still open in a tab.
+About reuses the runtime branding logo (`LOGO_WIDE_URL`), with the existing
+`logoHorizontal` store value and bundled default as fallbacks, and links to
+the public AI-Shifu source repository.
+
+Next configuration compiles `NEXT_PUBLIC_APP_VERSION` from `package.json` and
+`NEXT_PUBLIC_APP_BUILD_SHA` from local Git HEAD or the `.app-build-sha` file in
+the Web project directory. Local Git takes precedence over a stale file.
+The environment module exposes `appVersion` and `appBuildSha`. These are fixed
+build metadata, not backend runtime settings or startup environment overrides.
+When no valid source SHA is available, only the release version is displayed.
+
+Before a manual Docker build, run this from the repository root:
+
+```bash
+git rev-parse HEAD > src/web/.app-build-sha
+```
+
+The marker is ignored by Git and deliberately included in both Docker build
+contexts. GitHub native-image and runtime-harness workflows regenerate it
+after checkout. Production Drone preparation must do the same before building
+its `src/web` context. No Git executable or repository is required inside the
+builder. See the [image publication guide](../../../../docs/references/docker-image-publication.md).
+
 ## Backend Runtime Settings
 
 Configure these in `src/api/.env` for manual development, or the backend

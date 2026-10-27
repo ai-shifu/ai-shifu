@@ -404,11 +404,12 @@ def test_numbered_environment_config_never_probes_persisted_overrides(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Absent optional slots must not make SQL or Redis configuration requests."""
+    from flaskr.service import config as persisted_config
 
     def unexpected_lookup(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Persisted config must not be consulted for numbered slots")
 
-    monkeypatch.setattr(model_selection, "get_override_config", unexpected_lookup)
+    monkeypatch.setattr(persisted_config, "get_config", unexpected_lookup)
     assert [slot["index"] for slot in model_selection.get_configured_model_slots()] == [
         "1",
         "3",
@@ -416,19 +417,8 @@ def test_numbered_environment_config_never_probes_persisted_overrides(
     ]
 
 
-def test_process_local_slot_overrides_support_isolated_arena_runs() -> None:
-    """Arena's explicit thread-local overrides do not require persisted config."""
-    from flaskr.service.config import config_overrides
-
-    with config_overrides(
-        {"LLM_MODEL_1_NAME": "Arena", "LLM_MODEL_1_ID": "test/arena"}
-    ):
-        assert model_selection.resolve_course_selection("legacy")[0] == "test/arena"
-    assert model_selection.resolve_course_selection("legacy")[0] == "test/default"
-
-
-def test_default_llm_model_uses_app_snapshot_and_arena_override() -> None:
-    """Explicit apps keep their binding, while Arena overrides take precedence."""
+def test_numbered_models_keep_environment_and_app_bindings() -> None:
+    """Request-local overrides cannot change numbered deployment bindings."""
     from flaskr.service.config import config_overrides
 
     app = Flask("isolated-model-config")
@@ -437,7 +427,15 @@ def test_default_llm_model_uses_app_snapshot_and_arena_override() -> None:
     assert model_selection.get_default_llm_model() == "test/default"
     assert model_selection.get_configured_model_slots()[0]["model"] == "test/default"
     assert model_selection.get_default_llm_model(app) == "test/isolated"
-    with config_overrides({"LLM_MODEL_1_ID": "  test/arena  "}):
-        assert model_selection.get_default_llm_model() == "test/arena"
-        assert model_selection.get_default_llm_model(app) == "test/arena"
+    with config_overrides(
+        {"LLM_MODEL_1_NAME": "Request override", "LLM_MODEL_1_ID": "test/override"}
+    ):
+        assert model_selection.get_default_llm_model() == "test/default"
+        assert model_selection.get_configured_model_slots()[0] == {
+            "index": "1",
+            "display_name": "Daily",
+            "model": "test/default",
+        }
+        assert model_selection.resolve_course_selection("legacy")[0] == "test/default"
+        assert model_selection.get_default_llm_model(app) == "test/isolated"
     assert model_selection.get_default_llm_model(app) == "test/isolated"

@@ -39,7 +39,6 @@ export interface Shifu {
   canPublish?: boolean;
   ask_enabled_status?: number;
   ask_model?: string;
-  ask_temperature?: number;
   ask_system_prompt?: string;
   follow_up_mode?: 'text' | 'live_voice';
   ask_provider_config?: {
@@ -69,7 +68,7 @@ export interface Outline {
 
 export interface LessonCreationSettings {
   name: string;
-  learningPermission: LearningPermission;
+  learningPermission?: LearningPermission;
   isHidden: boolean;
   systemPrompt: string;
 }

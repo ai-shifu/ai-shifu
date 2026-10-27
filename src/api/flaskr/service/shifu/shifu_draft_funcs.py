@@ -234,7 +234,6 @@ def return_shifu_draft_dto(
         shifu_model=main_selection["index"],
         model_fallback=main_selection["fallback"],
         model_display_name=display_names.get(main_selection["index"], ""),
-        shifu_temperature=shifu_draft.llm_temperature,
         shifu_price=shifu_draft.price,
         shifu_url=shifu_url,
         shifu_preview_url=shifu_preview_url,
@@ -265,7 +264,6 @@ def return_shifu_draft_dto(
         ask_model_display_name=""
         if live_follow_up
         else display_names.get(ask_selection["index"], ""),
-        ask_temperature=float(getattr(shifu_draft, "ask_llm_temperature", 0.0) or 0.0),
         ask_system_prompt=getattr(shifu_draft, "ask_llm_system_prompt", "") or "",
         ask_provider_config=ask_provider_config,
         follow_up_mode=(

@@ -81,7 +81,7 @@
     "fallback": "订单详情",
     "sections": {
       "activities": "活动信息",
-      "coupons": "兑换码",
+      "coupons": "优惠码",
       "course": "课程信息",
       "payment": "金额与支付",
       "summary": "订单信息",
@@ -131,14 +131,14 @@
     }
   },
   "source": {
-    "couponRedeem": "兑换码兑换",
+    "couponRedeem": "优惠码兑换",
     "importActivation": "开通导入",
     "openApi": "Open API 开通",
     "userPurchase": "用户下单"
   },
   "table": {
     "action": "操作",
-    "coupons": "兑换码",
+    "coupons": "优惠码",
     "course": "课程",
     "createdAt": "下单时间",
     "discountAmount": "优惠",

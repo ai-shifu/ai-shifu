@@ -276,9 +276,36 @@ def backend_module_suffix(module: str) -> str:
     return parts[-1] if parts else module
 
 
+def collect_engine_library_violations(backend_root: Path) -> list[Violation]:
+    """Keep the portable engine below application, framework and ORM layers."""
+    violations: list[Violation] = []
+    library_root = backend_root / "markdownflow"
+    application_roots = {"flaskr", "flask", "flask_sqlalchemy", "sqlalchemy"}
+    for path in sorted(library_root.rglob("*.py")):
+        source = normalize_posix(path.relative_to(backend_root))
+        for module in iter_python_imports(path, backend_root):
+            if module.partition(".")[0] not in application_roots:
+                continue
+            rule_id = "backend.engine_imports_application"
+            violations.append(
+                Violation(
+                    key=make_key(rule_id, source, module),
+                    rule_id=rule_id,
+                    source=source,
+                    target=module,
+                    message=f"{source} imports application or framework module {module}.",
+                    remediation=(
+                        "Supply models, labels and persistence protocols through the "
+                        "library contract; keep Flask and product adapters in flaskr."
+                    ),
+                )
+            )
+    return violations
+
+
 def collect_backend_violations(backend_root: Path) -> list[Violation]:
     """Collect backend violations."""
-    violations: list[Violation] = []
+    violations = collect_engine_library_violations(backend_root)
     service_root = backend_root / "flaskr" / "service"
 
     for path in sorted(service_root.rglob("*.py")):

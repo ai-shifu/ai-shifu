@@ -14,6 +14,7 @@ export type ProfileOnboardingStreamEvent = {
   content?: unknown;
   is_terminal?: boolean;
   generated_block_bid?: string | null;
+  interaction_id?: string;
 };
 
 const dispatchBusinessError = (

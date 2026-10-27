@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+import json
+from types import SimpleNamespace
+from typing import TYPE_CHECKING
+
 import pytest
 from flaskr.service.common.models import AppError
+from flaskr.service.learn import routes
 from flaskr.service.learn.agent import debug_session
-from flaskr.service.learn.agent.engine.script import ScriptBundle
-from flaskr.service.learn.agent.engine.session import Session
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     PlaygroundPreviewRequest,
+    RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
 )
+from markdownflow.engine.script import ScriptBundle
+from markdownflow.engine.session import Session
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 
 class _Cache:
@@ -25,6 +34,29 @@ class _Cache:
     def setex(self, key: str, ttl: int, value: str) -> None:
         self.values[key] = value
         self.ttls[key] = ttl
+
+
+def _request_messages(
+    app: object, factory: Callable[[], Iterator[RunElementSSEMessageDTO]]
+) -> list[SimpleNamespace]:
+    # HTTP completion belongs to the request boundary, not the lesson generator.
+    with app.test_request_context("/"):
+        response = routes._stream_sse_response(
+            app,
+            message_iter_factory=factory,
+            close_log="closed",
+            error_log="failed",
+            terminal_event_factory=lambda: RunElementSSEMessageDTO(
+                type="done", event_type="done", content="", is_terminal=True
+            ),
+        )
+        try:
+            return [
+                SimpleNamespace(**json.loads(chunk.removeprefix("data: ")))
+                for chunk in response.response
+            ]
+        finally:
+            response.close()
 
 
 def test_debug_session_resumes_only_the_same_run_and_script(
@@ -74,8 +106,9 @@ def test_editor_debug_uses_the_existing_lesson_and_element_pipeline(
         )
 
     monkeypatch.setattr(lesson_entry, "agent_lesson_events", lesson_events)
-    messages = list(
-        debug_session.stream_debug_preview(
+    messages = _request_messages(
+        app,
+        lambda: debug_session.stream_debug_preview(
             app,
             preview_request=PlaygroundPreviewRequest(
                 content="Current editor draft",
@@ -86,7 +119,7 @@ def test_editor_debug_uses_the_existing_lesson_and_element_pipeline(
             outline_bid="lesson",
             user_bid="teacher",
             run_bid="run-one",
-        )
+        ),
     )
 
     assert messages[0].type == "preview_engine"
@@ -140,8 +173,9 @@ def test_question_closes_editor_response_without_ending_the_lesson(
         )
 
     monkeypatch.setattr(lesson_entry, "agent_lesson_events", lesson_events)
-    messages = list(
-        debug_session.stream_debug_preview(
+    messages = _request_messages(
+        app,
+        lambda: debug_session.stream_debug_preview(
             app,
             preview_request=PlaygroundPreviewRequest(
                 content="Current draft", block_index=0
@@ -150,8 +184,34 @@ def test_question_closes_editor_response_without_ending_the_lesson(
             outline_bid="lesson",
             user_bid="teacher",
             run_bid="question-run",
-        )
+        ),
     )
 
     done_messages = [message for message in messages if message.type == "done"]
     assert [message.is_terminal for message in done_messages] == [False, True]
+
+
+def test_finished_debug_reopening_closes_the_empty_response(
+    app: object, monkeypatch: object
+) -> None:
+    from flaskr.service.learn.agent import lesson_entry
+
+    # Finished lessons deliberately produce no new block or model request.
+    monkeypatch.setattr(lesson_entry, "agent_lesson_events", lambda *_a, **_k: iter(()))
+    messages = _request_messages(
+        app,
+        lambda: debug_session.stream_debug_preview(
+            app,
+            preview_request=PlaygroundPreviewRequest(
+                content="Current draft", block_index=0
+            ),
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_bid="teacher",
+            run_bid="finished-run",
+        ),
+    )
+
+    assert [message.type for message in messages] == ["preview_engine", "done"]
+    assert messages[-1].is_terminal is True
+    assert not getattr(messages[-1], "generated_block_bid", None)

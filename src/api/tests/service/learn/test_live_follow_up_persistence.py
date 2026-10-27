@@ -473,15 +473,20 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
     )
     captured: dict[str, object] = {}
 
-    monkeypatch.setattr(
-        follow_up_context_module,
-        "load_memory",
-        lambda *_args: MemorySnapshot(
+    def fake_load_memory(*args: object, **kwargs: object) -> MemorySnapshot:
+        captured["memory_args"] = args
+        captured["memory_kwargs"] = kwargs
+        return MemorySnapshot(
             variables={
                 "sys_user_nickname": "Alex",
                 "sys_user_language": "en-US",
             }
-        ),
+        )
+
+    monkeypatch.setattr(
+        follow_up_context_module,
+        "load_memory",
+        fake_load_memory,
     )
 
     def fake_build_course_prompt(
@@ -549,6 +554,11 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
         fallback_system_prompt=fallback_system_prompt,
     )
 
+    assert captured["memory_args"] == (app, "user-id", "shifu")
+    assert captured["memory_kwargs"] == {
+        "reference_text": "COURSE TEMPLATE",
+        "include_course_variables": True,
+    }
     assert captured["prompt"] == "COURSE TEMPLATE"
     assert captured["variables"] == {
         "sys_user_nickname": "Alex",
@@ -561,17 +571,20 @@ def test_shared_context_composes_profiles_language_prompt_and_history(
         "learner@example.com",
     )
     assert result.output_language == "简体中文"
-    assert result.system_instruction == (
-        f"{expected_prefix}FORMATTED COURSE\n\nIMPORTANT: You MUST respond in 简体中文."
+    # Every course is a 2.0 course, so current course memory follows the prompt.
+    assert result.system_instruction.startswith(
+        f"{expected_prefix}FORMATTED COURSE\n\nIMPORTANT: You MUST respond in 简体中文.\n\n"
     )
+    assert result.system_instruction.endswith("</course_memory>")
     assert result.llm_messages == [
         {"role": "system", "content": result.system_instruction},
         *history,
     ]
-    assert result.provider_messages == [
-        {"role": "system", "content": "FORMATTED COURSE"},
-        *history,
-    ]
+    assert result.provider_messages[1:] == history
+    provider_system = result.provider_messages[0]
+    assert provider_system["role"] == "system"
+    assert provider_system["content"].startswith("FORMATTED COURSE\n\n")
+    assert provider_system["content"].endswith("</course_memory>")
 
 
 def test_live_payload_round_trip_rejects_invalid_metadata_types() -> None:

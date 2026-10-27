@@ -62,7 +62,7 @@ services:
     restart: unless-stopped
   ai-shifu-cook-web:
     container_name: ai-shifu-cook-web
-    image: aishifu/ai-shifu-cook-web:latest
+    image: aishifu/ai-shifu-web:latest
     env_file:
       - ./.env
     environment:

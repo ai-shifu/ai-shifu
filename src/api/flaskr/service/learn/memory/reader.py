@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from flaskr.dao import db
+from flaskr.service.profile.api import (
+    COURSE_REFERENCE_PREFIX,
+    SHARED_ANSWER_PREFIX,
+    get_global_profile_keys,
+)
 from flaskr.service.profile.models import VariableValue
-from sqlalchemy import func, select
+from sqlalchemy import LargeBinary, cast, func, select
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -99,6 +105,54 @@ def _to_entry(row: VariableValue) -> MemoryEntry:
     )
 
 
+def load_course_variables(
+    user_bid: str, shifu_bid: str, *, exclude_keys: frozenset[str] = frozenset()
+) -> dict[str, str]:
+    """Read current course variable values, including learner-requested undeclared keys.
+
+    No global fallback or other course is admitted here. System keys remain owned by the
+    canonical runtime reader. Consider only the newest 100 additional live keys and include
+    whole values that fit 32768 JSON characters. Canonical/defined values are resolved separately
+    without these supplementary limits. Stored history is never truncated or purged.
+    """
+    # Binary comparison preserves opaque text identity under case/accent-folding collations.
+    exact_key = cast(VariableValue.key, LargeBinary)
+    reserved_prefixes = tuple(
+        prefix.encode("utf-8")
+        for prefix in ("sys_", COURSE_REFERENCE_PREFIX, SHARED_ANSWER_PREFIX)
+    )
+    live_ids = (
+        db.session.query(func.max(VariableValue.id))
+        .filter(
+            VariableValue.user_bid == user_bid,
+            VariableValue.shifu_bid == shifu_bid,
+            VariableValue.deleted == 0,
+            *(
+                func.substr(exact_key, 1, len(prefix)) != prefix
+                for prefix in reserved_prefixes
+            ),
+            exact_key.not_in(key.encode("utf-8") for key in get_global_profile_keys()),
+            exact_key.not_in(key.encode("utf-8") for key in exclude_keys),
+        )
+        .group_by(exact_key)
+        .subquery()
+    )
+    rows = (
+        VariableValue.query.filter(VariableValue.id.in_(select(live_ids)))
+        .order_by(VariableValue.id.desc())
+        .limit(100)
+        .all()
+    )
+    variables: dict[str, str] = {}
+    for row in rows:
+        if not row.key:
+            continue
+        candidate = {**variables, row.key: row.value}
+        if len(json.dumps(candidate, ensure_ascii=False, indent=2)) <= 32_768:
+            variables[row.key] = row.value
+    return variables
+
+
 def load_learner_memory(
     app: Flask,
     user_bid: str,
@@ -126,7 +180,7 @@ def load_learner_memory(
             VariableValue.user_bid == user_bid,
             VariableValue.deleted == 0,
         )
-        .group_by(VariableValue.shifu_bid, VariableValue.key)
+        .group_by(VariableValue.shifu_bid, cast(VariableValue.key, LargeBinary))
         .subquery()
     )
     rows: list[VariableValue] = (

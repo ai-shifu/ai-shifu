@@ -78,6 +78,7 @@ from flaskr.service.common.server_analytics import track_external_client_event
 from flaskr.service.common.session_attribution import (
     get_session_skill_attribution_by_reference,
 )
+from flaskr.service.common.skill_request_analytics import has_skill_request_analytics
 from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
@@ -162,16 +163,22 @@ from .funcs import (
 @contextlib.contextmanager
 def _external_client_course_event(app: Flask, operation: str) -> Generator[None]:
     """Report one attributed course operation without changing its outcome."""
+    if has_skill_request_analytics():
+        # The request lifecycle owns exactly one terminal event for this client.
+        yield
+        return
     attribution = get_session_skill_attribution_by_reference(
         app,
         reference=str(
             getattr(g, "authenticated_session_attribution", "") or ""
         ).strip(),
     )
+    user_bid = getattr(getattr(request, "user", None), "user_id", None)
     track_external_client_event(
         app,
         event_name=f"external_course_{operation}_started",
         attribution=attribution,
+        user_bid=user_bid,
     )
     try:
         yield
@@ -180,12 +187,14 @@ def _external_client_course_event(app: Flask, operation: str) -> Generator[None]
             app,
             event_name=f"external_course_{operation}_failed",
             attribution=attribution,
+            user_bid=user_bid,
         )
         raise
     track_external_client_event(
         app,
         event_name=f"external_course_{operation}_completed",
         attribution=attribution,
+        user_bid=user_bid,
     )
 
 
@@ -798,18 +807,12 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                     price:
                         type: number
                         description: shifu price
-                    temperature:
-                        type: number
-                        description: shifu temperature
                     ask_enabled_status:
                         type: integer
                         description: Ask status (5101=default, 5102=disabled, 5103=enabled)
                     ask_model:
                         type: string
                         description: Ask model name
-                    ask_temperature:
-                        type: number
-                        description: Ask model temperature (0.0 - 2.0)
                     ask_system_prompt:
                         type: string
                         description: Ask model system prompt
@@ -865,7 +868,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         shifu_keywords = json_data.get("keywords")
         shifu_model = (json_data.get("model") or "") if "model" in json_data else None
         shifu_price = json_data.get("price")
-        shifu_temperature = json_data.get("temperature")
         shifu_system_prompt = json_data.get("system_prompt", None)
         # Ask configuration
         ask_enabled_status = json_data.get("ask_enabled_status")
@@ -879,14 +881,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         ask_model = (
             (json_data.get("ask_model") or "") if "ask_model" in json_data else None
         )
-        ask_temperature = json_data.get("ask_temperature")
-        if ask_temperature is not None:
-            try:
-                ask_temperature = float(ask_temperature)
-            except (TypeError, ValueError):
-                raise_param_error("ask_temperature")
-            if ask_temperature < 0 or ask_temperature > 2:
-                raise_param_error("ask_temperature")
         ask_system_prompt = json_data.get("ask_system_prompt")
         if ask_system_prompt is not None:
             ask_system_prompt = str(ask_system_prompt)
@@ -918,6 +912,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
         if isinstance(use_learner_language, str):
             use_learner_language = use_learner_language.lower() == "true"
         base_url = _resolve_publish_base_url(app)
+        # Keep stored temperatures and defaults internal to course generation.
         return make_common_response(
             save_shifu_draft_info(
                 app,
@@ -928,7 +923,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 shifu_avatar,
                 shifu_keywords,
                 shifu_model,
-                shifu_temperature,
+                None,
                 shifu_price,
                 shifu_system_prompt,
                 base_url,
@@ -943,7 +938,7 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 use_learner_language=use_learner_language,
                 ask_enabled_status=ask_enabled_status,
                 ask_model=ask_model,
-                ask_temperature=ask_temperature,
+                ask_temperature=None,
                 ask_system_prompt=ask_system_prompt,
                 ask_provider_config=ask_provider_config,
             )
@@ -2155,9 +2150,6 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                             ask_model:
                                 type: string
                                 description: Ask model used for llm/fallback
-                            ask_temperature:
-                                type: number
-                                description: Ask model temperature (0.0 - 2.0)
                             ask_system_prompt:
                                 type: string
                                 description: Optional ask system prompt
@@ -2256,13 +2248,11 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                 ask_model, ask_usage_metadata
             )
 
-        ask_temperature = json_data.get("ask_temperature", 0.3)
-        try:
-            ask_temperature = float(ask_temperature)
-        except (TypeError, ValueError):
-            raise_param_error("ask_temperature")
-        if ask_temperature < 0 or ask_temperature > 2:
-            raise_param_error("ask_temperature")
+        # Preview shares the saved follow-up generation settings.
+        stored_ask_temperature = preview_course.ask_llm_temperature
+        ask_temperature = (
+            float(stored_ask_temperature) if stored_ask_temperature is not None else 0.0
+        )
 
         ask_system_prompt = str(json_data.get("ask_system_prompt") or "").strip()
 

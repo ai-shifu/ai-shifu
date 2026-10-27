@@ -1,6 +1,6 @@
 ---
 name: chat-actionbar-ask-placement
-description: 当调整聊天操作栏、追问入口和 AskBlock 锚点时使用本技能。确保内容与操作入口同步出现，避免双输入框、空菜单和错位展示。
+description: Use when changing chat action bars, follow-up entry points, or AskBlock anchors. Keep content and actions synchronized and prevent duplicate inputs, empty menus, or misplaced controls.
 ---
 
 # 操作栏与追问锚点

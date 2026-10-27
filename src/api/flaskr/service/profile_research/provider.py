@@ -5,8 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flaskr.api.llm import chat_llm
+from flaskr.api.markdownflow import GatewayModel
 from flaskr.service.metering.api import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG
+from flaskr.service.profile_research.langfuse_tracing import (
+    PROFILE_GENERATION_NAME,
+    PROFILE_PRIVATE_GENERATION_NAME,
+)
 from markdown_flow import LLMProvider
 
 if TYPE_CHECKING:
@@ -14,6 +19,26 @@ if TYPE_CHECKING:
 
     from flask import Flask
     from flaskr.service.profile_research.session import _ProfileResearchSession
+
+
+def create_profile_research_model(
+    app: Flask, session: _ProfileResearchSession, span: object
+) -> GatewayModel:
+    """Keep agent tools on the shared gateway and the existing free usage policy."""
+    return GatewayModel(
+        app,
+        session.model,
+        user_id=session.user_bid,
+        span=span,
+        generation_name=PROFILE_GENERATION_NAME,
+        usage_context=UsageContext(
+            user_bid=session.user_bid,
+            usage_scene=BILL_USAGE_SCENE_DEBUG,
+            billable=0,
+        ),
+        usage_scene=BILL_USAGE_SCENE_DEBUG,
+        billable=0,
+    )
 
 
 class _ProfileResearchLLMProvider(LLMProvider):
@@ -49,7 +74,7 @@ class _ProfileResearchLLMProvider(LLMProvider):
             model=actual_model,
             messages=messages,
             stream=stream,
-            generation_name="profile_research_markdownflow",
+            generation_name=PROFILE_PRIVATE_GENERATION_NAME,
             temperature=actual_temperature,
             usage_context=UsageContext(
                 user_bid=self._session.user_bid,

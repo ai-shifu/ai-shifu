@@ -8,6 +8,8 @@ import {
 } from '@testing-library/react';
 import { ResetChapterButton } from './ResetChapterButton';
 
+let mockResetPhase = 'ready';
+const mockSetFailure = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockResetChapter = jest.fn();
 const mockUpdateLessonId = jest.fn();
@@ -21,6 +23,15 @@ const mockCourseState = {
 };
 const mockEnvState = { courseId: 'course-1' };
 const mockSystemState = { previewMode: false };
+
+jest.mock('@/hooks/useLessonResetStatus', () => ({
+  LESSON_RESET_LIMIT_REACHED_CODE: 4021,
+  useLessonResetStatus: () => ({
+    phase: mockResetPhase,
+    setFailure: mockSetFailure,
+  }),
+}));
+jest.mock('@/hooks/useToast', () => ({ fail: jest.fn() }));
 
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -128,6 +139,7 @@ const renderResetButton = (onConfirm = jest.fn()) => {
 describe('ResetChapterButton analytics producer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockResetPhase = 'ready';
     mockCourseState.resettingLessonId = '';
     mockEnvState.courseId = 'course-1';
     mockSystemState.previewMode = false;
@@ -212,4 +224,97 @@ describe('ResetChapterButton analytics producer', () => {
     expect(mockResetChapter).toHaveBeenCalledWith('lesson-1');
     expect(mockTrackEvent).not.toHaveBeenCalled();
   });
+});
+
+describe('reset availability and content preservation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockResetPhase = 'ready';
+    mockCourseState.resettingLessonId = '';
+    mockSystemState.previewMode = false;
+    mockEnvState.courseId = 'course-1';
+  });
+
+  it('explains exhaustion without asking to clear content or attempting a reset', async () => {
+    mockResetPhase = 'exhausted';
+    renderResetButton();
+    fireEvent.click(screen.getByText('module.lesson.reset.title'));
+    expect(
+      screen.queryByText('module.lesson.reset.confirmContent'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('module.lesson.reset.confirmTitle'),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('server.learn.resetLimitReached'),
+    ).toBeInTheDocument();
+    expect(mockTrackEvent).toHaveBeenCalledWith('lesson_reset_blocked', {
+      shifu_bid: 'course-1',
+      chapter_id: 'chapter-1',
+      lesson_id: 'lesson-1',
+      source: 'catalog',
+      reason: 'limit_reached',
+    });
+    fireEvent.click(screen.getByText('common.core.ok'));
+    expect(mockResetChapter).not.toHaveBeenCalled();
+    expect(mockStopActiveLessonStream).not.toHaveBeenCalled();
+    expect(mockUpdateLessonId).not.toHaveBeenCalled();
+    expect(mockLegacyResetChapter).not.toHaveBeenCalled();
+    expect(
+      mockTrackEvent.mock.calls.filter(
+        ([name]) => name === 'lesson_reset_blocked',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('cannot confirm before availability arrives', () => {
+    mockResetPhase = 'checking';
+    renderResetButton();
+    fireEvent.click(screen.getByText('module.lesson.reset.title'));
+    expect(screen.getByText('common.core.ok')).toBeDisabled();
+    fireEvent.click(screen.getByText('common.core.ok'));
+    expect(mockResetChapter).not.toHaveBeenCalled();
+  });
+
+  it('does not clear client content when another tab used the last reset', async () => {
+    mockResetPhase = 'ready';
+    mockResetChapter.mockRejectedValue({ code: 4021, message: 'limit' });
+    renderResetButton();
+    fireEvent.click(screen.getByText('module.lesson.reset.title'));
+    fireEvent.click(screen.getByText('common.core.ok'));
+    await waitFor(() =>
+      expect(mockSetFailure).toHaveBeenCalledWith({
+        code: 4021,
+        message: 'limit',
+      }),
+    );
+    expect(mockUpdateLessonId).not.toHaveBeenCalled();
+    expect(mockLegacyResetChapter).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalledWith(
+      'reset_chapter_confirm',
+      expect.anything(),
+    );
+  });
+
+  it.each(['throw', 'reject'])(
+    'tracking %s does not prevent dismissing an exhausted dialog',
+    async mode => {
+      mockResetPhase = 'exhausted';
+      mockTrackEvent.mockImplementation(name => {
+        if (name !== 'lesson_reset_blocked') return;
+        if (mode === 'throw') throw new Error('analytics');
+        return Promise.reject(new Error('analytics'));
+      });
+      renderResetButton();
+      fireEvent.click(screen.getByText('module.lesson.reset.title'));
+      fireEvent.click(screen.getByText('common.core.ok'));
+      await waitFor(() =>
+        expect(
+          screen.queryByText('server.learn.resetLimitReached'),
+        ).not.toBeInTheDocument(),
+      );
+      expect(mockResetChapter).not.toHaveBeenCalled();
+      mockTrackEvent.mockReset();
+    },
+  );
 });

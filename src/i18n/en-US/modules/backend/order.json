@@ -3,7 +3,7 @@
   "__flat__": {
     "checkout": "Checkout",
     "courseNotPaid": "Course not purchased, please purchase the course first",
-    "emailAlreadyActivated": "Email {email} is already activated for this course",
+    "emailAlreadyActivated": "This course is already activated for this learner; no need to activate it again: {email}",
     "importActivationFailed": "Failed to import this activation row. Check the row data and try again.",
     "learnStatusBranch": "Branch",
     "learnStatusCompleted": "Done",
@@ -13,7 +13,7 @@
     "learnStatusRefund": "Refund",
     "learnStatusReset": "Reset",
     "learnStatusUnavailable": "Unavailable",
-    "mobileAlreadyActivated": "Mobile {mobile} already activated for this course",
+    "mobileAlreadyActivated": "This course is already activated for this learner; no need to activate it again: {mobile}",
     "orderHasPaid": "Order Has Paid",
     "orderNotFound": "Order Not Found",
     "orderPayExpired": "This order has expired. Please place a new order.",

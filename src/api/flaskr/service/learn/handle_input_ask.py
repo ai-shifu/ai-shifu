@@ -28,6 +28,11 @@ from flaskr.service.learn.follow_up_context import (
     build_legacy_follow_up_history,
     is_complete_follow_up_asks,
 )
+from flaskr.service.learn.follow_up_memory_writer import (
+    FollowUpMemoryPatch,
+    FollowUpMemoryRun,
+    load_follow_up_memory_policy,
+)
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
     build_langfuse_span_name,
@@ -57,7 +62,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
 )
-from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.shifu_struct_manager import HistoryItem, ShifuOutlineItemDto
 from flaskr.service.user.repository import UserAggregate
 
 check_text_with_llm_response = None
@@ -252,14 +257,24 @@ def handle_input_ask(
     anchor_element_bid: str = "",
     parent_observation: object | None = None,
     runtime_profiles: dict | None = None,
+    memory_patch: FollowUpMemoryPatch | None = None,
 ) -> Generator[str, None, None]:
     """Handle user Q&A input.
 
     Process user questions in the shifu and return AI tutor responses.
     """
     # Get follow-up information (including Q&A prompts and model configuration)
+    retained_struct = getattr(context, "_struct", None)
+    struct_options = (
+        {"struct": retained_struct} if isinstance(retained_struct, HistoryItem) else {}
+    )
     follow_up_info = get_follow_up_info_v2(
-        app, outline_item_info.shifu_bid, outline_item_info.bid, attend_id, is_preview
+        app,
+        outline_item_info.shifu_bid,
+        outline_item_info.bid,
+        attend_id,
+        is_preview,
+        **struct_options,
     )
     if is_live_follow_up_model(follow_up_info.ask_model):
         # Live voice has a dedicated authenticated WebSocket transport. The
@@ -268,14 +283,9 @@ def handle_input_ask(
         raise_param_error("follow_up_model")
 
     usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD
-    usage_context = UsageContext(
-        user_bid=user_info.user_id,
-        shifu_bid=outline_item_info.shifu_bid,
-        outline_item_bid=outline_item_info.bid,
-        progress_record_bid=attend_id,
-        usage_scene=usage_scene,
-    )
-
+    learning_mode = getattr(context, "_learning_mode", None)
+    if learning_mode not in {"read", "listen", "classroom"}:
+        learning_mode = "listen" if getattr(context, "_listen", False) else "read"
     app.logger.info("follow_up_info:%s", follow_up_info.__json__())
     chapter_title = outline_item_info.title
     ask_scene = "lesson_preview_ask" if is_preview else "lesson_ask"
@@ -345,8 +355,11 @@ def handle_input_ask(
     }
     llm_messages.append(user_message)
     provider_messages.append(user_message)
-    app.logger.info("llm_messages: %s", llm_messages)
-    app.logger.info("provider_messages: %s", provider_messages)
+    app.logger.info(
+        "Follow-up context built: llm_message_count=%s provider_message_count=%s",
+        len(llm_messages),
+        len(provider_messages),
+    )
 
     # Get model for follow-up Q&A
     follow_up_model = follow_up_info.ask_model
@@ -354,13 +367,26 @@ def handle_input_ask(
 
     follow_up_usage_metadata = dict(getattr(follow_up_info, "usage_metadata", {}))
 
+    memory_policy = None
+    if memory_patch is not None:
+        row_loader = getattr(context, "_get_outline_row_id", None)
+        memory_policy = load_follow_up_memory_policy(
+            user_bid=user_info.user_id,
+            shifu_bid=outline_item_info.shifu_bid,
+            outline_bid=outline_item_info.bid,
+            outline_row_id=row_loader(outline_item_info.bid)
+            if callable(row_loader)
+            else None,
+            preview=is_preview,
+        )
+
     # Create ask block
     ask_block = _create_ask_block(
         app,
         outline_item_info,
         attend_id,
         user_info.user_id,
-        escaped_input,
+        raw_input,
         last_position,
     )
 
@@ -371,12 +397,24 @@ def handle_input_ask(
     )
     db.session.flush()
 
+    # Bind the new reply before guardrail or provider calls. The question's
+    # historical anchor belongs to an earlier block, not this answer's usage.
+    usage_context = UsageContext(
+        user_bid=user_info.user_id,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        generated_block_bid=answer_block.generated_block_bid,
+        usage_scene=usage_scene,
+        learning_mode=learning_mode,
+    )
+
     # Emit internal ASK event for listen adapter
     yield RunMarkdownFlowDTO(
         outline_bid=outline_item_info.bid,
         generated_block_bid=answer_block.generated_block_bid,
         type=GeneratedType.ASK,
-        content=escaped_input,
+        content=raw_input,
         anchor_element_bid=anchor_element_bid,
     )
 
@@ -423,7 +461,7 @@ def handle_input_ask(
             outline_bid=outline_item_info.bid,
             generated_block_bid=answer_block.generated_block_bid,
             type=GeneratedType.INTERACTION,
-            content=escaped_input,
+            content=raw_input,
         )
         answer_block.generated_content = guardrail_text
         _finalize_ask_trace(
@@ -498,25 +536,81 @@ def handle_input_ask(
     def _chat_llm_stream(
         stream_messages: list[dict[str, Any]],
     ) -> Generator[Any, None, None]:
+        """Resolve the contextual model only when a provider invokes its factory."""
         # External provider-only answers do not depend on LLM configuration.
         # Guardrail rejections resolve through invoke_llm in check_text instead.
         model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
-        return chat_llm_func(
-            app,
-            user_info.user_id,
-            span,
-            model=model,
-            usage_metadata=metadata,
-            json=True,
-            stream=True,  # Enable streaming output
-            temperature=follow_up_info.model_args[
-                "temperature"
-            ],  # Use configured temperature parameter
-            generation_name=generation_name,
-            messages=stream_messages,
-            usage_context=usage_context,
-            usage_scene=usage_scene,
-        )
+
+        def plain_stream(
+            plain_messages: list[dict[str, Any]] | None = None,
+        ) -> Generator[Any, None, None]:
+            """Answer without memory tools."""
+            return chat_llm_func(
+                app,
+                user_info.user_id,
+                span,
+                model=model,
+                usage_metadata=metadata,
+                json=True,
+                stream=True,  # Enable streaming output
+                temperature=follow_up_info.model_args[
+                    "temperature"
+                ],  # Use configured temperature parameter
+                generation_name=generation_name,
+                messages=stream_messages if plain_messages is None else plain_messages,
+                usage_context=usage_context,
+                usage_scene=usage_scene,
+            )
+
+        if memory_policy is not None and memory_patch is not None:
+            from flaskr.api.markdownflow import GatewayModel
+            from flaskr.service.learn.agent.memory_admission import make_request_check
+
+            shared = {
+                "user_id": user_info.user_id,
+                "span": span,
+                "usage_context": usage_context,
+                "usage_scene": usage_scene,
+                "usage_metadata": metadata,
+            }
+            answer_model = GatewayModel(
+                app,
+                model,
+                generation_name=generation_name,
+                **shared,
+            )
+            admission_model = GatewayModel(
+                app,
+                model,
+                generation_name="follow_up_memory_admission",
+                retry_deadline_seconds=8,
+                timeout=8,
+                num_retries=0,
+                **shared,
+            )
+            run = FollowUpMemoryRun(
+                answer_model,
+                patch=memory_patch,
+                current_input=raw_input,
+                quotation_messages=conversation_context.quotation_messages,
+                declared_keys=memory_policy.declared_keys,
+                snapshot=dict(runtime_profiles or {}),
+                deleted_keys=memory_policy.deleted_keys,
+                generations=memory_policy.generations,
+                value_versions=memory_policy.value_versions,
+                reserved_keys=memory_policy.reserved_keys,
+                request_check=make_request_check(admission_model),
+                preview=is_preview,
+                temperature=float(follow_up_info.model_args["temperature"]),
+                cancelled=(
+                    context._stop_event.is_set
+                    if getattr(context, "_stop_event", None) is not None
+                    else None
+                ),
+                fallback=plain_stream,
+            )
+            return run.stream(stream_messages)
+        return plain_stream()
 
     llm_runtime = ask_provider_runtime_cls(
         # Pass complete conversation history; an empty knowledge context
@@ -533,6 +627,7 @@ def handle_input_ask(
     def _emit_provider_stream(
         provider_name: str,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Normalize visible provider text into the existing answer SSE stream."""
         nonlocal response_text
         provider_input_messages = (
             llm_messages if provider_name == ASK_PROVIDER_LLM else provider_messages
@@ -622,6 +717,9 @@ def handle_input_ask(
 
     if use_llm_fallback:
         yield from _emit_provider_stream(ASK_PROVIDER_LLM)
+
+    if provider_error is not None and not use_llm_fallback and memory_patch is not None:
+        memory_patch.variables.clear()
 
     # Backfill answer block content
     answer_block.generated_content = response_text

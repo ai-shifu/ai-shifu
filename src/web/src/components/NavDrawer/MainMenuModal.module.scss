@@ -1,23 +1,50 @@
 .mainMenuModalWrapper {
   &.mobile {
+    --account-menu-top-inset: calc(
+      var(--mobile-chat-header-height, 44px) + 12px
+    );
     left: 12px;
     transform: none;
-    bottom: 60px;
+    bottom: var(--account-menu-bottom-offset, 60px);
   }
 }
 
 .mainMenuModal {
+  // Reserve the surrounding PopupModal card's 10px top and bottom padding.
+  max-height: calc(
+    var(--app-viewport-block-unit, 1dvh) *
+      100 - var(--account-menu-bottom-offset, 60px) - var(
+        --account-menu-top-inset,
+        12px
+      ) -
+      20px
+  );
+  overflow-y: auto;
   color: var(--font-color-main, #06295d);
   font-family: var(--font-app-sans, system-ui, sans-serif);
   font-size: var(--font-size-4, 14px);
   font-style: normal;
   font-weight: 400;
-  line-height: 2em;
+  line-height: 1.5;
+
+  .mainMenuModalRow {
+    display: flex;
+    width: 100%;
+    min-height: 44px;
+    flex-flow: row nowrap;
+    align-items: center;
+    padding-block: 0;
+    margin-block: 0;
+  }
+
+  .contextGroup,
+  .languageRow {
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--border, #e5e5e5);
+  }
 
   .languageRow {
-    border-top: 1px solid var(--color-8, #9ba9be);
-    border-bottom: 1px solid var(--color-8, #9ba9be);
-
     .langDownIcon {
       font-size: var(--font-size-5, 12px);
     }
@@ -30,20 +57,13 @@
   }
 
   .mainMenuModalRow {
-    display: flex;
-    width: 100%;
-    flex-flow: row nowrap;
-    align-items: center;
     border: 0;
     background: transparent;
     color: inherit;
     font: inherit;
     text-align: left;
-    padding-top: 10px;
-    padding-bottom: 10px;
     cursor: pointer;
     border-radius: 8px;
-    margin-block: 4px;
 
     &:hover {
       background-color: var(--hover-color, rgba(0, 0, 0, 0.06));
@@ -55,7 +75,114 @@
 
     .rowIcon {
       width: 1.2em;
+      flex-shrink: 0;
       margin-right: 0.8em;
     }
+
+    .rowTitle {
+      padding-block: 8px;
+    }
+  }
+}
+
+.aboutDialog {
+  width: min(360px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  gap: 0;
+  padding: 0;
+  overflow-y: auto;
+  border-radius: 16px;
+
+  // Enlarge this dialog's existing close control without changing other dialogs.
+  > button {
+    top: 6px;
+    inset-inline-end: 8px;
+    display: flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+
+    &:hover {
+      background: var(--muted);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: -2px;
+    }
+  }
+}
+
+.aboutHeader {
+  min-height: 40px;
+  padding: 18px 20px 0;
+  padding-inline-end: 60px;
+  text-align: start;
+}
+
+.aboutTitle {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.aboutBody {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 24px 28px;
+}
+
+.aboutLogo {
+  display: block;
+  width: auto;
+  max-width: min(100%, 180px);
+  height: 44px;
+  object-fit: contain;
+}
+
+.aboutVersion {
+  max-width: 100%;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  text-align: center;
+  user-select: text;
+}
+
+.aboutSourceLink {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  text-align: center;
+  text-decoration: none;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: var(--muted);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -4px;
   }
 }

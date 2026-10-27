@@ -1,6 +1,6 @@
 ---
 name: app-error-boundary-display
-description: 当 Cook Web 需要调整 Next.js App Router 全局或路由级错误兜底页时使用本技能。错误页应直接展示错误名称、message、digest、cause、URL 和可用 stack，避免只提示用户查看控制台。
+description: Use when changing Next.js App Router global or route error fallbacks in Cook Web. Show the error name, message, digest, cause, URL, and available stack directly instead of only referring users to the console.
 ---
 
 # 应用错误兜底展示

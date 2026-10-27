@@ -1,0 +1,262 @@
+[
+  {
+    "id": "uri",
+    "source": "<https://{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "mailto",
+    "source": "<mailto:{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "minimum-scheme",
+    "source": "<aa:{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "maximum-scheme",
+    "source": "<aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "email",
+    "source": "<{{unfinished@example.com>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "single-label-email",
+    "source": "<{{unfinished@localhost>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "maximum-domain-label",
+    "source": "<{{unfinished@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "complete-uri-name",
+    "source": "<https://{{inside}}>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "inside",
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "complete-email-name",
+    "source": "<{{inside}}@example.com>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "inside",
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "opaque-uri-name",
+    "source": "<https://{{q|a]b//...}}>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "q|a]b//...",
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "uri-inline-delimiters",
+    "source": "<https://`$**{{unfinished`$**>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "uri-interaction-example",
+    "source": "<https://?[A|B]/{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "uri-nul",
+    "source": "<https://{{unfinished\u0000>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "invalid-key-nul",
+    "source": "<https://{{a\u0000}}>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "valid-key-replacement",
+    "source": "<https://{{a�}}>\n\n?[%{{ real }} A|B]",
+    "names": [
+      "a�",
+      "real"
+    ],
+    "variables": [
+      "real"
+    ],
+    "autolink": true
+  },
+  {
+    "id": "short-scheme",
+    "source": "<a:{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "long-scheme",
+    "source": "<aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "digit-scheme",
+    "source": "<1a:{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "uri-space",
+    "source": "<https://{{ unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "uri-delete",
+    "source": "<https://{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "uri-open-angle",
+    "source": "<https://{{unfinished<oops>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "missing-angle",
+    "source": "<https://{{unfinished\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "escaped-angle",
+    "source": "\\<https://{{unfinished>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "domain-leading-dash",
+    "source": "<{{unfinished@-example.com>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "domain-trailing-dash",
+    "source": "<{{unfinished@example-.com>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "domain-empty-label",
+    "source": "<{{unfinished@example..com>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "domain-underscore",
+    "source": "<{{unfinished@ex_ample.com>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  },
+  {
+    "id": "domain-long-label",
+    "source": "<{{unfinished@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa>\n\n?[%{{ real }} A|B]",
+    "names": [],
+    "variables": [],
+    "autolink": false
+  }
+]

@@ -71,6 +71,7 @@ def _select_targets(changed_paths: list[str], tmp_path: Path) -> dict[str, str]:
         ),
         (["src/api/requirements.txt"], "tests", "--testmon-noselect"),
         (["src/api/requirements-ci.txt"], "tests", "--testmon-noselect"),
+        (["ruff.toml"], "tests", "--testmon-noselect"),
         (["src/api/flaskr/route/user.py"], "tests", "--testmon-noselect"),
         ([".github/workflows/backend-tests.yml"], "tests", "--testmon-noselect"),
         (
@@ -130,9 +131,50 @@ def test_pr_changes_select_the_required_pytest_mode(
     assert result.stdout.splitlines() == [
         "-m",
         "pytest",
+        "-n",
+        "2",
+        "--dist",
+        "loadfile",
         expected_flag,
         *expected_targets.split(),
     ]
+
+
+@pytest.mark.parametrize(
+    ("changed_path", "expected_run"),
+    [
+        ("ruff.toml", "true"),
+        (".github/workflows/backend-tests.yml", "true"),
+        ("src/api/flaskr/route/user.py", "true"),
+        ("src/web/package.json", "false"),
+        ("README.md", "false"),
+    ],
+)
+def test_backend_change_detection_covers_policy_inputs(
+    tmp_path: Path, changed_path: str, expected_run: str
+) -> None:
+    script = _workflow_script("Detect backend changes").replace(
+        "/tmp/backend-changed-files.txt",  # noqa: S108 - rewrite workflow source only
+        str(tmp_path / "changed-files.txt"),
+    )
+    output_file = tmp_path / "github_output"
+    result = subprocess.run(
+        ["bash", "-e", "-c", 'git() { printf "%s\\n" "$CHANGED_PATH"; }\n' + script],
+        cwd=REPO_ROOT,
+        env={
+            **os.environ,
+            "EVENT_NAME": "pull_request",
+            "BASE_SHA": "base",
+            "HEAD_SHA": "head",
+            "CHANGED_PATH": changed_path,
+            "GITHUB_OUTPUT": str(output_file),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert output_file.read_text(encoding="utf-8") == f"run={expected_run}\n"
 
 
 def test_pr_control_plane_only_changes_still_skip_backend_tests(tmp_path: Path) -> None:
@@ -140,6 +182,73 @@ def test_pr_control_plane_only_changes_still_skip_backend_tests(tmp_path: Path) 
 
     assert selection["SKIP_BACKEND_TESTS"] == "1"
     assert selection["TEST_TARGETS"] == ""
+
+
+def test_parallel_testmon_collects_dependencies_and_selects_only_changed_code(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("testmon", reason="Install requirements-ci.txt for testmon.")
+    pytest.importorskip(
+        "xdist", reason="Install requirements-ci.txt for parallel tests."
+    )
+    for name in ("alpha", "beta"):
+        (tmp_path / f"{name}.py").write_text(
+            "def value():\n    return 1\n", encoding="utf-8"
+        )
+        (tmp_path / f"test_{name}.py").write_text(
+            "from pathlib import Path\n"
+            f"from {name} import value\n"
+            "def test_value(worker_id):\n"
+            "    assert value() > 0\n"
+            f"    Path('executed-{name}.txt').write_text(worker_id)\n",
+            encoding="utf-8",
+        )
+
+    def run_tests() -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pytest",
+                "-n",
+                "2",
+                "--dist",
+                "loadfile",
+                "--testmon",
+            ],
+            cwd=tmp_path,
+            env={
+                **{
+                    key: value
+                    for key, value in os.environ.items()
+                    if not key.startswith("COVERAGE_")
+                },
+                "TESTMON_DATAFILE": str(tmp_path / ".testmondata"),
+                "PYTHONDONTWRITEBYTECODE": "1",
+            },
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    run_tests()
+    assert {
+        (tmp_path / f"executed-{name}.txt").read_text(encoding="utf-8")
+        for name in ("alpha", "beta")
+    } == {"gw0", "gw1"}
+    for marker in tmp_path.glob("executed-*.txt"):
+        marker.unlink()
+
+    run_tests()
+    assert list(tmp_path.glob("executed-*.txt")) == []
+
+    (tmp_path / "alpha.py").write_text(
+        "def value():\n    return 200\n", encoding="utf-8"
+    )
+    run_tests()
+    assert (tmp_path / "executed-alpha.txt").is_file()
+    assert not (tmp_path / "executed-beta.txt").exists()
 
 
 def test_full_coverage_is_manual_only_and_respects_cancellation() -> None:
@@ -168,7 +277,15 @@ def test_main_still_runs_all_tests_without_coverage() -> None:
         "github.event_name == 'push' && steps.backend-changes.outputs.run == 'true'"
     )
     assert main_tests["working-directory"] == "src/api"
-    assert main_tests["run"] == "python -m pytest --testmon-noselect tests"
+    assert main_tests["run"] == (
+        "python -m pytest -n 2 --dist loadfile --testmon-noselect tests"
+    )
+
+
+def test_contract_tests_use_the_same_two_workers() -> None:
+    assert _workflow_script("Run contract tests") == (
+        "python -m pytest -n 2 --dist loadfile tests/contract -v --tb=short"
+    )
 
 
 def test_coverage_artifact_keeps_raw_data_and_reports_even_after_gate_failure() -> None:
@@ -203,7 +320,9 @@ def test_full_coverage_runs_all_tests_and_preserves_both_failure_gates(
     stub = r"""
 python() {
   printf '%s\n' "$*" >> "$COMMAND_LOG"
-  if [[ "$*" == "-m coverage run -m pytest -p no:testmon tests" ]]; then
+  local test_command="-m pytest -n 2 --dist loadfile -p no:testmon"
+  test_command+=" --cov --cov-config=.coveragerc --cov-report= --cov-fail-under=0 tests"
+  if [[ "$*" == "$test_command" ]]; then
     return "$TEST_STATUS"
   fi
   if [[ "$*" == "-m coverage report -m" ]]; then
@@ -231,7 +350,8 @@ python() {
     assert result.returncode == expected_status, result.stderr
     assert log.read_text(encoding="utf-8").splitlines() == [
         "-m coverage erase",
-        "-m coverage run -m pytest -p no:testmon tests",
+        "-m pytest -n 2 --dist loadfile -p no:testmon --cov "
+        "--cov-config=.coveragerc --cov-report= --cov-fail-under=0 tests",
         "-m coverage json --fail-under=0",
         "-m coverage xml --fail-under=0",
         "-m coverage report -m",

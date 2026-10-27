@@ -52,16 +52,15 @@ STALE_FRONTEND_PATH_WHOLE_FILE_ALLOWLIST = {
     Path("docs/exec-plans/completed/rename-cook-web-directory.md"),
 }
 STALE_FRONTEND_PATH_LINE_ALLOWLIST = {
-    Path(".github/workflows/prepare-release.yml"): {
+    Path("scripts/release_notes.py"): {
         f'"legacy_path": "{STALE_FRONTEND_PATH}/package-lock.json",': 1,
     },
 }
 STALE_FRONTEND_PATH_CONTEXT_ALLOWLIST = {
-    Path(".github/workflows/prepare-release.yml"): (
-        "- name: Generate MarkdownFlow dependency changelog",
+    Path("scripts/release_notes.py"): (
+        "DEPENDENCIES = [",
         '"name": "markdown-flow-ui",',
         '"path": "src/web/package-lock.json",',
-        "def build_dependency_section",
     ),
 }
 BOUNDARY_BASELINE = DOCS_ROOT / "generated" / "architecture-boundary-baseline.json"
@@ -450,7 +449,7 @@ def check_root_docs(errors: list[str]) -> None:
 def _stale_path_is_in_allowed_context(
     relative_path: Path, lines: list[str], line_numbers: list[int]
 ) -> bool:
-    """Keep an allowed stale path inside its owning workflow step."""
+    """Keep an allowed stale path inside its owning dependency metadata block."""
     context_markers = STALE_FRONTEND_PATH_CONTEXT_ALLOWLIST.get(relative_path)
     if not context_markers:
         return True
@@ -467,8 +466,8 @@ def _stale_path_is_in_allowed_context(
     for index in range(step_start + 1, len(lines)):
         line = lines[index]
         line_indent = len(line) - len(line.lstrip())
-        if line_indent == step_indent and line.strip().startswith("- name:"):
-            step_end = index
+        if line_indent == step_indent and line.strip() == "]":
+            step_end = index + 1
             break
 
     step_lines = lines[step_start:step_end]

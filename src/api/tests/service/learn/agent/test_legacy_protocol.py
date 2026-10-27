@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 from flaskr.i18n import _
 from flaskr.service.learn.agent import legacy_protocol
-from flaskr.service.learn.agent.engine.events import (
+from flaskr.service.learn.learn_dtos import GeneratedType
+from markdownflow.engine.events import (
     ContentDelta,
     ErrorEvent,
     InteractionRequest,
@@ -18,12 +19,11 @@ from flaskr.service.learn.agent.engine.events import (
     TurnDone,
     Visual,
 )
-from flaskr.service.learn.agent.engine.interaction import (
+from markdownflow.engine.interaction import (
     DEFAULT_CONFIRM_LABEL,
     InteractionSpec,
     Option,
 )
-from flaskr.service.learn.learn_dtos import GeneratedType
 
 OUTLINE = "outline-bid"
 BLOCK = "block-bid"
@@ -51,7 +51,7 @@ def test_a_single_choice_renders_with_one_bar() -> None:
             variable="choice",
         )
     )
-    assert rendered == "?[%{{choice}} A | B]"
+    assert rendered == "?[%{{ choice }} A | B]"
 
 
 def test_a_multiple_choice_renders_with_two_bars() -> None:
@@ -64,7 +64,7 @@ def test_a_multiple_choice_renders_with_two_bars() -> None:
             variable="choices",
         )
     )
-    assert rendered == "?[%{{choices}} A || B]"
+    assert rendered == "?[%{{ choices }} A || B]"
 
 
 def test_a_choice_without_a_variable_stores_nothing() -> None:
@@ -72,6 +72,18 @@ def test_a_choice_without_a_variable_stores_nothing() -> None:
         _spec(type="single", prompt="Pick", options=[Option(display="A")])
     )
     assert rendered == "?[A]"
+
+
+@pytest.mark.parametrize("variable", ["", " \t\n", "\u0085\u001f\u3000"])
+def test_a_stored_blank_optional_variable_renders_without_a_marker(
+    variable: str,
+) -> None:
+    saved = _spec(
+        type="single", prompt="Pick", options=[Option(display="A")], variable=variable
+    )
+    restored = InteractionSpec.model_validate_json(saved.model_dump_json())
+    assert legacy_protocol.render_interaction(restored) == "?[A]"
+    assert restored.variable == variable
 
 
 def test_a_stored_value_is_kept_separate_from_the_text_the_learner_reads() -> None:
@@ -83,7 +95,7 @@ def test_a_stored_value_is_kept_separate_from_the_text_the_learner_reads() -> No
             variable="answer",
         )
     )
-    assert rendered == "?[%{{answer}} Yes, please//yes]"
+    assert rendered == "?[%{{ answer }} Yes, please//yes]"
 
 
 def test_a_value_is_written_even_when_it_equals_the_display() -> None:
@@ -100,7 +112,7 @@ def test_a_value_is_written_even_when_it_equals_the_display() -> None:
             variable="answer",
         )
     )
-    assert rendered == "?[%{{answer}} Yes//Yes]"
+    assert rendered == "?[%{{ answer }} Yes//Yes]"
 
 
 def test_an_empty_stored_value_is_not_mistaken_for_an_absent_one() -> None:
@@ -113,7 +125,7 @@ def test_an_empty_stored_value_is_not_mistaken_for_an_absent_one() -> None:
             variable="answer",
         )
     )
-    assert rendered == "?[%{{answer}} Skip//]"
+    assert rendered == "?[%{{ answer }} Skip//]"
 
 
 def test_free_text_renders_as_a_trailing_placeholder() -> None:
@@ -125,7 +137,7 @@ def test_free_text_renders_as_a_trailing_placeholder() -> None:
             placeholder="Your answer",
         )
     )
-    assert rendered == "?[%{{story}} ...Your answer]"
+    assert rendered == "?[%{{ story }} ...Your answer]"
 
 
 def test_a_choice_that_also_accepts_text_offers_both() -> None:
@@ -138,7 +150,7 @@ def test_a_choice_that_also_accepts_text_offers_both() -> None:
             placeholder="Something else",
         )
     )
-    assert rendered == "?[%{{answer}} A | ...Something else]"
+    assert rendered == "?[%{{ answer }} A | ...Something else]"
 
 
 def test_multiple_choice_with_text_keeps_the_double_bar() -> None:
@@ -151,7 +163,7 @@ def test_multiple_choice_with_text_keeps_the_double_bar() -> None:
             placeholder="Other",
         )
     )
-    assert rendered == "?[%{{answer}} A || B || ...Other]"
+    assert rendered == "?[%{{ answer }} A || B || ...Other]"
 
 
 def test_a_confirm_renders_one_button_and_stores_nothing() -> None:
@@ -198,7 +210,7 @@ def test_an_interaction_arrives_as_its_question_then_its_controls() -> None:
     assert question.type == GeneratedType.CONTENT
     assert question.content == "Which one?"
     assert controls.type == GeneratedType.INTERACTION
-    assert controls.content == "?[%{{pick}} A]"
+    assert controls.content == "?[%{{ pick }} A]"
 
 
 def test_a_question_reaches_the_learner_as_the_model_wrote_it() -> None:
@@ -433,7 +445,7 @@ def test_the_stored_value_a_learner_returns_is_the_one_the_engine_will_match() -
     A renderer that trimmed or dropped text would send the learner a token absent from that map,
     and a required answer would be rejected with nothing to explain it.
     """
-    from flaskr.service.learn.agent.engine.interaction import (
+    from markdownflow.engine.interaction import (
         InteractionAnswer,
         normalize_answer,
     )
@@ -578,7 +590,7 @@ def test_an_option_the_model_padded_with_spaces_is_still_asked() -> None:
             variable="v",
         )
     )
-    assert rendered == "?[%{{v}} A | B]"
+    assert rendered == "?[%{{ v }} A | B]"
 
 
 def test_translating_an_unrenderable_interaction_raises_rather_than_guessing() -> None:
@@ -760,7 +772,7 @@ def test_a_short_confirm_is_checked_as_the_button_it_becomes() -> None:
             type="single",
             prompt="q",
             options=[Option(display="first"), Option(display="second")],
-            variable="a]b",
+            variable="a\x00b",
         ),
         InteractionSpec(
             type="single",
@@ -769,7 +781,11 @@ def test_a_short_confirm_is_checked_as_the_button_it_becomes() -> None:
             variable="x}}y",
         ),
     ],
-    ids=["variable-syntax-in-an-option", "bracket-in-variable", "braces-in-variable"],
+    ids=[
+        "variable-syntax-in-an-option",
+        "control-in-variable",
+        "closing-pair-in-variable",
+    ],
 )
 def test_a_question_the_controls_cannot_carry_says_why(spec: InteractionSpec) -> None:
     reason = legacy_protocol.unrenderable_reason(spec)
@@ -780,3 +796,50 @@ def test_a_question_the_controls_cannot_carry_says_why(spec: InteractionSpec) ->
             outline_bid="o",
             generated_block_bid="b",
         )
+
+
+@pytest.mark.parametrize("kind", ["text", "single_or_text", "multi_or_text"])
+@pytest.mark.parametrize("placeholder", [None, "", " \t\n"])
+def test_text_controls_without_a_hint_still_have_a_visible_input(
+    kind: str, placeholder: str | None
+) -> None:
+    options = [] if kind == "text" else [Option(display="A", value="a")]
+    spec = _spec(
+        type=kind,
+        prompt="Describe your project.",
+        options=options,
+        variable="project",
+        placeholder=placeholder,
+    )
+    before = spec.model_dump()
+    rendered = legacy_protocol.render_interaction(spec)
+    parsed = _parse(rendered)
+    assert parsed["question"].strip()
+    assert parsed["question"] == _("server.learn.freeTextPlaceholder")
+    assert [(b["display"], b["value"]) for b in parsed.get("buttons", [])] == [
+        (o.display, o.stored) for o in options
+    ]
+    assert bool(parsed.get("is_multi_select")) == (kind == "multi_or_text")
+    assert parsed["variable"] == "project"
+    assert spec.model_dump() == before
+    assert legacy_protocol.unrenderable_reason(spec) is None
+
+
+@pytest.mark.parametrize(
+    "language", ["zh-CN", "en-US", "fr-FR", "de-DE", "es-ES", "ar-SA", "th-TH", "ur-PK"]
+)
+@pytest.mark.usefixtures("app")
+def test_default_text_hint_uses_the_learners_language(language: str) -> None:
+    from flaskr.i18n import clear_language, set_language, translate_for_language
+
+    key = "server.learn.freeTextPlaceholder"
+    expected = translate_for_language(key, language)
+    assert expected != key
+    set_language(language)
+    try:
+        rendered = legacy_protocol.render_interaction(_spec(type="text", prompt=""))
+        narrated = legacy_protocol.render_narrated_interaction("?[...]")
+    finally:
+        clear_language()
+    assert _parse(rendered)["question"] == expected
+    assert _parse(narrated)["question"] == expected

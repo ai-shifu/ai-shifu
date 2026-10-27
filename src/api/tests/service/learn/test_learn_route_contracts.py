@@ -11,7 +11,11 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn import routes
-from flaskr.service.learn.models import LearnLessonFeedback, LearnProgressRecord
+from flaskr.service.learn.models import (
+    LearnLessonFeedback,
+    LearnLessonResetRecord,
+    LearnProgressRecord,
+)
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -344,6 +348,36 @@ def test_record_reset_route_uses_authenticated_learner(
     )
 
 
+@pytest.mark.parametrize("allowed", [True, False])
+def test_preview_reset_checks_permission_before_scoped_reset(
+    monkeypatch: object, test_client: object, feedback_course: object, allowed: bool
+) -> None:
+    preview_user = "preview-reset-user"
+    feedback_course.user.user_id = preview_user
+    reset = Mock(return_value=True)
+    permission = Mock()
+    if not allowed:
+        permission.side_effect = lambda *_args: routes.raise_error(
+            "server.shifu.shifuNotFound"
+        )
+    monkeypatch.setattr(routes, "reset_learn_record", reset)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", permission)
+    response = test_client.delete(
+        f"/api/learn/shifu/{feedback_course.bid}/records/lesson?preview_mode=TRUE",
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+    assert permission.call_args.args[1:] == (preview_user, feedback_course.bid)
+    if allowed:
+        assert response["data"] is True
+        assert reset.call_args.kwargs == {
+            "preview_mode": True,
+            "reset_request_id": None,
+        }
+    else:
+        assert response["code"] != 0
+        reset.assert_not_called()
+
+
 @pytest.mark.parametrize("preview", [False, True])
 def test_generated_audio_route_admits_billing_and_serializes_provider_errors(
     monkeypatch: object, test_client: object, feedback_course: object, preview: bool
@@ -533,8 +567,10 @@ def test_runtime_route_rejects_a_lesson_missing_from_the_requested_version(
 def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     monkeypatch: object, test_client: object, feedback_course: object, visual: object
 ) -> None:
+    from flaskr.service.learn.agent import debug_session
+
     preview = Mock(return_value=iter([{"type": "done"}]))
-    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", preview)
+    monkeypatch.setattr(debug_session, "stream_debug_preview", preview)
     monkeypatch.setattr(routes, "is_builtin_demo_shifu", lambda *_: True)
     monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
     response = test_client.post(
@@ -544,35 +580,50 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
             "blockIndex": 0,
             "input": ["answer", None],
             "visual_mode": visual,
+            "debug_session_id": "editor-run-1",
         },
-        headers={"Token": "test-token", "Session-Id": "preview-session"},
+        headers={"Token": "test-token"},
     )
     assert '"type": "done"' in response.get_data(as_text=True)
     args = preview.call_args.kwargs
-    assert args["session_id"] == "preview-session"
+    assert args["run_bid"] == "editor-run-1"
     assert args["preview_request"].user_input == {"user_input": ["answer"]}
     assert args["preview_request"].visual_mode is (visual is not None)
     preview.reset_mock()
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
-        json={"content": "Lesson", "block_index": "invalid"},
+        json={
+            "content": "Lesson",
+            "block_index": "invalid",
+            "debug_session_id": "editor-run-1",
+        },
         headers={"Token": "test-token"},
     ).get_json(force=True)
     assert response["code"] == ERROR_CODE["server.common.paramsError"]
     preview.assert_not_called()
 
 
-def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks(
-    monkeypatch: object, test_client: object, feedback_course: object
+@pytest.mark.parametrize(
+    "variables",
+    [
+        None,
+        {"language": "en-US"},
+        {"sys_user_language": "en-US"},
+        {"sys_user_language": "en-US", "language": "zh-CN"},
+    ],
+)
+def test_editor_preview_streams_through_the_agent_with_synchronized_language(
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    variables: dict | None,
 ) -> None:
+    """Route editor sessions to the agent with synchronized language aliases."""
     from flaskr.service.learn.agent import debug_session
 
     marker = {"type": "preview_engine", "content": "2.0"}
     agent = Mock(return_value=iter([marker]))
-    legacy = Mock(return_value=iter([{"type": "done"}]))
-    monkeypatch.setattr(routes, "uses_agent_engine", lambda *_: True)
     monkeypatch.setattr(debug_session, "stream_debug_preview", agent)
-    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", legacy)
     monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
 
     response = test_client.post(
@@ -581,38 +632,188 @@ def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks
             "content": "Current editor draft",
             "block_index": 0,
             "debug_session_id": "editor-run-1",
+            "variables": variables,
         },
-        headers={"Token": "test-token"},
+        headers={"Token": "test-token", "Accept-Language": "fr-FR"},
     )
 
     assert '"preview_engine"' in response.get_data(as_text=True)
     assert agent.call_args.kwargs["preview_request"].content == "Current editor draft"
     assert agent.call_args.kwargs["run_bid"] == "editor-run-1"
-    legacy.assert_not_called()
+    expected_language = "en-US" if variables else "fr-FR"
+    assert agent.call_args.kwargs["preview_request"].variables == {
+        "sys_user_language": expected_language,
+        "language": expected_language,
+    }
 
 
-@pytest.mark.parametrize("allowlisted", [False, True])
-def test_editor_preview_keeps_legacy_path_without_matching_client_and_allowlist(
+@pytest.mark.parametrize(
+    ("variables", "expected"),
+    [
+        ({}, "fr-FR"),
+        ({"sys_user_language": "", "language": ""}, "fr-FR"),
+        ({"sys_user_language": "", "language": "zh-CN"}, "fr-FR"),
+        ({"sys_user_language": "unknown"}, "fr-FR"),
+        ({"sys_user_language": "en-US", "language": "zh-CN"}, "en-US"),
+    ],
+)
+def test_preview_captures_language_before_streaming(
     monkeypatch: object,
     test_client: object,
     feedback_course: object,
-    allowlisted: bool,
+    variables: dict,
+    expected: str,
 ) -> None:
-    legacy = Mock(return_value=iter([{"type": "done"}]))
-    monkeypatch.setattr(routes, "uses_agent_engine", lambda *_: allowlisted)
-    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", legacy)
+    """Keep resolved language valid after streaming loses request-local i18n."""
+    from flaskr.i18n import clear_language
+    from flaskr.service.learn.agent import debug_session
+    from flaskr.service.learn.preview_language import resolve_preview_language
+
+    seen = []
+
+    def stream(*_args: object, **kwargs: object) -> object:
+        """Observe captured variables after clearing the request language context."""
+        clear_language()
+        captured = kwargs["preview_request"].variables
+        seen.append(resolve_preview_language(captured))
+        yield {"type": "done"}
+
+    monkeypatch.setattr(debug_session, "stream_debug_preview", stream)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
+    response = test_client.post(
+        f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
+        json={
+            "content": "Draft",
+            "block_index": 0,
+            "debug_session_id": "run",
+            "variables": variables,
+        },
+        headers={"Token": "test-token", "Accept-Language": "fr-FR"},
+    )
+    assert '"done"' in response.get_data(as_text=True)
+    assert seen == [expected]
+
+
+@pytest.mark.parametrize("debug_session_id", [None, "", "not valid!"])
+def test_editor_preview_without_a_debug_session_is_refused(
+    monkeypatch: object,
+    test_client: object,
+    feedback_course: object,
+    debug_session_id: str | None,
+) -> None:
+    """Only a bundle old enough to expect the retired 1.0 block preview omits it."""
+    from flaskr.service.learn.agent import debug_session
+
+    agent = Mock(return_value=iter([{"type": "done"}]))
+    monkeypatch.setattr(debug_session, "stream_debug_preview", agent)
     monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
     payload = {"content": "Lesson", "block_index": 0}
-    if not allowlisted:
-        payload["debug_session_id"] = "editor-run-1"
-    else:
-        payload["debug_session_id"] = ""
+    if debug_session_id is not None:
+        payload["debug_session_id"] = debug_session_id
 
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
         json=payload,
         headers={"Token": "test-token"},
-    )
+    ).get_json(force=True)
 
-    assert '"done"' in response.get_data(as_text=True)
-    legacy.assert_called_once()
+    assert response["code"] == ERROR_CODE["server.common.paramsError"]
+    agent.assert_not_called()
+
+
+@pytest.mark.parametrize("allowed", [True, False])
+def test_reset_status_checks_preview_permission_and_keeps_identity(
+    monkeypatch: object, test_client: object, feedback_course: object, allowed: bool
+) -> None:
+    """The availability endpoint cannot turn a preview flag into a learner bypass."""
+    reader = "reset-status-reader"
+    feedback_course.user.user_id = reader
+    availability = Mock(return_value={"can_reset": True})
+    permission = Mock()
+    if not allowed:
+        permission.side_effect = lambda *_args: routes.raise_error(
+            "server.shifu.shifuNotFound"
+        )
+    monkeypatch.setattr(routes, "get_lesson_reset_status", availability)
+    monkeypatch.setattr(routes, "require_shifu_preview_permission", permission)
+    response = test_client.get(
+        f"/api/learn/shifu/{feedback_course.bid}/records/lesson/reset-status?preview_mode=true&user_id=forged",
+        headers={"Token": "test-token"},
+    ).get_json(force=True)
+    assert permission.call_args.args[1:] == (reader, feedback_course.bid)
+    if allowed:
+        assert response["data"] == {"can_reset": True}
+        assert availability.call_args.args[1:] == (
+            feedback_course.bid,
+            "lesson",
+            reader,
+        )
+        assert availability.call_args.kwargs == {"preview_mode": True}
+    else:
+        assert response["code"] != 0
+        availability.assert_not_called()
+
+
+def test_reset_route_passes_the_client_trace_id_through(
+    monkeypatch: object, test_client: object, feedback_course: object
+) -> None:
+    """The reset receipt reuses the existing trace header instead of a new one."""
+    reset = Mock(return_value=True)
+    monkeypatch.setattr(routes, "reset_learn_record", reset)
+    response = test_client.delete(
+        f"/api/learn/shifu/{feedback_course.bid}/records/lesson",
+        headers={"Token": "test-token", "X-Request-ID": "existing-client-trace"},
+    ).get_json(force=True)
+    assert response["data"] is True
+    assert reset.call_args.kwargs["reset_request_id"] == "existing-client-trace"
+
+
+def test_reset_status_reads_recorded_usage_over_http(
+    app: object, test_client: object, feedback_course: object, monkeypatch: object
+) -> None:
+    """A learner over the limit sees can_reset false without any count."""
+    learner = "reset-status-learner"
+    feedback_course.user.user_id = learner
+    monkeypatch.setitem(app.config, "LESSON_RESET_LIMIT", 1)
+    monkeypatch.setattr(routes, "get_shifu_context_snapshot", dict)
+    url = f"/api/learn/shifu/{feedback_course.bid}/records/{feedback_course.bid}"
+    before = test_client.get(
+        f"{url}/reset-status", headers={"Token": "test-token"}
+    ).get_json(force=True)
+    assert before["data"] == {"can_reset": True}
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            LearnProgressRecord(
+                progress_record_bid=learner,
+                shifu_bid=feedback_course.bid,
+                outline_item_bid=feedback_course.bid,
+                user_bid=learner,
+                status=LEARN_STATUS_COMPLETED,
+                deleted=0,
+            )
+        )
+    first = test_client.delete(url, headers={"Token": "test-token"}).get_json(
+        force=True
+    )
+    assert first["data"] is True
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            LearnProgressRecord(
+                progress_record_bid=learner + "-again",
+                shifu_bid=feedback_course.bid,
+                outline_item_bid=feedback_course.bid,
+                user_bid=learner,
+                status=LEARN_STATUS_COMPLETED,
+                deleted=0,
+            )
+        )
+    after = test_client.get(
+        f"{url}/reset-status", headers={"Token": "test-token"}
+    ).get_json(force=True)
+    assert after["data"] == {"can_reset": False}
+    blocked = test_client.delete(url, headers={"Token": "test-token"}).get_json(
+        force=True
+    )
+    assert blocked["code"] == ERROR_CODE["server.learn.resetLimitReached"]
+    with app.app_context(), unit_of_work():
+        LearnLessonResetRecord.query.filter_by(shifu_bid=feedback_course.bid).delete()

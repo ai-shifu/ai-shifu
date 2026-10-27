@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
+    "agentInputBudgetExceeded": "This lesson has reached the input capacity limit. Your answers and progress are saved. Please contact the course owner to continue.",
     "agentRewindUnavailable": "This step can't be regenerated. To change an earlier answer, use \"Reset\" to take this lesson again.",
     "agentTurnCapacity": "Too many lessons are running right now. Please try again in a moment.",
     "askProviderAuthFailed": "Knowledge base authentication failed. Please check the API Key and Client ID.",
@@ -11,6 +12,8 @@
     "askProviderUnavailable": "The external knowledge service is temporarily unavailable.",
     "continueButton": "Continue",
     "debugSessionExpired": "This debug session has expired or the script changed. Start debugging again.",
+    "defaultLearnerName": "Learner",
+    "freeTextPlaceholder": "Your answer",
     "generatedBlockNotFound": "Generated block not found",
     "invalidAction": "Invalid action",
     "lessonFeedbackCommentPlaceholder": "Optional: leave your feedback",
@@ -18,6 +21,7 @@
     "llmStreamInterrupted": "The generation connection was interrupted. Please refresh and try again.",
     "nextChapterButton": "Next",
     "outputInProgress": "Content is still generating. Please wait before retrying.",
+    "resetLimitReached": "You've used all resets for this lesson. You can still continue, review existing content, or ask questions.",
     "ttsRateLimited": "The voice service is busy right now. Please try again in a moment."
   }
 }

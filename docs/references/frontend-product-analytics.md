@@ -219,6 +219,9 @@ documented contract and privacy review.
   identity discards its queued calls; they must never be replayed under the new
   account. If the loaded tracker has no `identify` capability, keep the bounded
   queue instead of delivering un-attributed calls.
+- Apply the shared [analytics user exclusion policy](#analytics-user-exclusions)
+  before identifying an account, queuing or sending its events, or emitting
+  pageviews.
 - Preserve transport-level name, key, value, field-count, JSON-size, URL, and
   referrer sanitation. Feature code must still satisfy the stricter contract
   before sanitation.
@@ -227,6 +230,65 @@ documented contract and privacy review.
   success/failure handling.
 - Do not emit during render. Use the true user handler or a guarded effect for
   a documented visibility/state transition.
+
+## Analytics User Exclusions
+
+Set the backend environment variable `ANALYTICS_EXCLUDED_USER_IDS` to
+comma-separated account `user_id` values, for example:
+
+```dotenv
+ANALYTICS_EXCLUDED_USER_IDS=user-1,user-2
+```
+
+The shared exclusion policy is independent of the analytics provider. Its
+current consumers are browser and backend Umami tracking; future tracking
+integrations can reuse `is_analytics_user_excluded(user_bid)` from
+`src/api/flaskr/service/common/analytics_policy.py`.
+
+This prevents internal or test accounts from contributing to adoption,
+funnel, and retention metrics in those integrations. IDs match exactly and
+are case-sensitive; surrounding whitespace and empty entries are ignored.
+An unset or empty value
+preserves existing eligibility. Use account business identifiers (`user_bid`),
+which existing API responses expose as `user_id`, rather than database row
+numbers, email addresses, phone numbers, or nicknames. New internal policy
+parameters and variables use `user_bid`; existing public `user_id` fields and
+interfaces keep their compatibility contract. Restart the backend after
+changing the environment and reload open browser sessions so their user-info
+responses pick up the new policy.
+
+The shared user-info response adds `analytics_enabled`, which is `false` for
+an excluded account. This is the only policy value sent to the browser: the
+exclusion list remains server-side and is never included in Umami payloads.
+Older responses without this field retain existing tracking behavior. All
+login, current-user, and temporary-user responses use the same user-info DTO.
+
+Once the account is known, the browser drops its pending queue and sends no
+identify, business events, or SPA pageviews for that account. Switching to an
+eligible account, including a newly issued guest identity, resumes tracking
+without replaying the excluded account's calls. When eligibility resumes,
+`UmamiLoader` records the current normalized route once even if the pathname
+and initialization state have not changed. This uses the existing pageview
+deduplication and identify-before-drain rules, with no excluded-account
+referrer carried into the eligible session. Ordinary eligible identity
+refreshes do not create another pageview.
+
+Backend CLI identify/pageview pairs and legacy external-client events with a
+known account use the same policy before entering the delivery queue.
+Policy lookup failures suppress
+telemetry while allowing the underlying product operation to continue.
+
+Anonymous activity before an account can be identified cannot be matched to
+this list. Events already sent or queued for network delivery cannot be
+recalled, and this setting does not delete historical Umami data. Normal guest
+tracking remains eligible unless that guest's own `user_id` is listed.
+
+The decision, event triggers, deduplication rules, names, and payload schemas
+stay as defined by each event family; this policy adds an account-level
+population exclusion. Existing dashboards, funnels, and periodic Skill
+reports must treat the deployment as a population change and apply it to both
+numerators and denominators. Historical data retains the earlier population;
+do not interpret the resulting count decrease as a product-usage decline.
 
 ## Positive Example: Course Sharing
 
@@ -340,3 +402,105 @@ These behaviors are not approved examples. New code must not copy them. When a
 legacy event or the shared transport is changed, apply this contract and follow
 the product-approved replacement policy; do not preserve an incorrect event
 solely because historical Umami rows or queries exist.
+
+## Draft classroom rewind
+
+- Business question: Can teachers revise earlier draft answers or regenerate teaching successfully?
+- Metric: Weekly started attempts and terminal success / failure / cancellation shares, grouped by operation. Results and starts are aggregate event counts, not one-to-one joins; navigation loss and best-effort delivery can leave gaps.
+- Events: `teacher_preview_rewind_start` at an initiated classroom reload request; `teacher_preview_rewind_result` at its first terminal success, business/transport/timeout failure, or cancellation by stop, replacement, reset, navigation or unmount.
+- Population: Authorized full-course draft preview requests with a reload anchor. Ordinary answers/continuations, published learning, editor Debug, blocked clicks and cancelled confirmation dialogs are excluded.
+- Count and deduplication: One start and at most one result per initiated rewind, guarded by a closure shared across internal automatic continuation runs. Continuations neither start another attempt nor cancel the original; their final terminal outcome completes it. Intermediate text ends are not terminal success. No persistent identity or attempt token is added.
+- Payload: `shifu_bid` and `outline_bid` are stable pseudonymous machine IDs for course/lesson grouping; `operation` is `answer_edit|regenerate`; `learning_mode` is `read|listen`; only result events add `result=success|failed|cancelled`. No anchor, input, variable names, output, URL or errors are collected.
+- Consumers: Teacher draft-quality weekly Umami reports. New additive family; existing learner run/reset contracts and historical queries remain unchanged.
+- Verification: Hook tests cover exact anchors, initiation/confirmation timing, terminal outcomes, internal continuation chains and lifecycle cancellation. Helper tests cover payload allowlisting, exclusions, deduplication and synchronous/asynchronous tracking failures.
+
+## About dialog exposure
+
+- Business question and metric: How often do users open About to inspect the
+  running frontend version, grouped by teacher/admin versus learner surface?
+  Count About exposures; this is not proof that a person read the version text.
+- Event: `user_app_about_viewed`, emitted from a post-commit effect after the
+  shared user menu's About dialog renders its version information. Opening the
+  menu alone, closed dialogs and dialogs without a version are excluded. There
+  is no attempt/result workflow.
+- Population: Teacher/admin users and learners, including guests. Learner
+  course preview is excluded from analytics, while retaining the version UI.
+- Deduplication: Once per open lifecycle of About. Re-renders, fullscreen
+  portal remounts and changes to translation, user state or tracking callbacks
+  do not count again. Closing
+  and opening About starts a new exposure. No persistent deduplication.
+- Complete feature payload: `{ surface: 'admin' | 'learner' }`. The enum is
+  low cardinality and non-personal. No version, SHA, user/account/course ID,
+  authored text, URL or error is added. Shared transport continues to own
+  pseudonymous identity and normalized routing context.
+- Consumer: Aggregate About exposure counts by surface in Umami. This new
+  event replaces the retired `user_app_version_viewed` producer, whose history
+  counted passive menu-footer exposures. Keep these series separate; do not
+  dual-write or combine them into one trend. No repository-owned query or
+  dashboard consumes the retired event. The new event does not measure
+  deployment readiness or establish the running backend version.
+- Delivery: Use `useTracking`; synchronous throws, rejected promises, absent
+  analytics configuration or blocked scripts do not affect version display.
+- Verification: Exact event name and payload, guest/member eligibility,
+  preview exclusion, post-render timing, closed/reopened/re-rendered dialogs,
+  sensitive-field absence, and synchronous/asynchronous tracking failures.
+  Existing shared-transport regressions cover the delivered payload contract.
+
+## About open-source navigation
+
+- Business question and metric: How often do users follow the open-source
+  repository link from About, grouped by teacher/admin versus learner surface?
+  Count deliberate link activations; this does not prove arrival at GitHub.
+- Event: `user_app_open_source_clicked`, emitted by the About link's click
+  handler. Merely opening About does not emit it. Native middle-click and
+  context-menu navigation are outside this event's eligible population.
+- Population: Teacher/admin users and learners, including guests. Learner
+  course preview keeps the link but is excluded from analytics.
+- Deduplication: Once per click-handler invocation. Separate deliberate
+  activations count separately; there is no persistent deduplication or
+  asynchronous attempt/result workflow.
+- Complete feature payload: `{ surface: 'admin' | 'learner' }`. Do not add the
+  destination URL, logo URL, version, SHA, user/account/course identifiers,
+  authored content or errors. Shared transport owns identity and routing.
+- Consumer and compatibility: Aggregate About-to-repository navigation counts
+  by surface in Umami. This additive event has no predecessor or
+  repository-owned query/dashboard to migrate. About exposure remains a
+  separate, unchanged event contract.
+- Delivery: Use `useTracking` without awaiting or preventing native link
+  navigation. Missing analytics, synchronous throws and rejected promises
+  must leave the link usable with its normal new-tab behavior.
+- Verification: Exact event name and allowlisted payload, activation timing,
+  repeated clicks, guest/member eligibility, learner-preview exclusion,
+  sensitive-field absence, and synchronous/asynchronous analytics failures.
+
+## About dismissal
+
+- Business question and metric: Which dismissal methods do users choose for
+  About on teacher/admin and learner screens? Compare accepted dismissals by
+  method and surface, using About exposures as the eligible-view denominator.
+- Event: `user_app_about_closed`, emitted only when an open About dialog
+  transitions to closed after the close button, Escape or an accepted outside
+  pointer interaction. Internal clicks, prevented outside interactions,
+  fullscreen portal migration, component unmount and navigation do not count.
+  Touch dismissal follows Radix's accepted click after the outside touch.
+- Population: Teacher/admin users and learners, including guests, with a
+  configured frontend version. Learner course preview keeps dismissal behavior
+  but is excluded from analytics, matching About exposure eligibility.
+- Deduplication: Once per actual open-to-closed transition. Re-renders and
+  repeated callbacks cannot count a closed dialog again; reopening permits
+  another dismissal. There is no persistent deduplication or attempt/result
+  workflow.
+- Complete feature payload: `{ surface: 'admin' | 'learner', method: 'close_button' | 'escape' | 'outside' }`.
+  These are low-cardinality enums.
+  Do not add version, SHA, user/account/course IDs, text, URLs, pointer details
+  or errors. Shared transport owns identity and normalized routing context.
+- Consumer and compatibility: Aggregate dismissals by method and surface in
+  Umami. This additive event has no predecessor or repository-owned consumer
+  to migrate; About exposure and source-link contracts remain unchanged.
+- Delivery: Use `useTracking` after accepting the state change, without
+  awaiting analytics. Missing configuration, blocked scripts, synchronous
+  throws and rejected promises must not affect closing or focus restoration.
+- Verification: Exact name and allowlisted payload, transition timing,
+  repeated dismissal/reopening, guest/member and preview eligibility, missing
+  version exclusion, internal and prevented outside interactions, touch timing,
+  fullscreen migration, and synchronous/asynchronous tracking failures.

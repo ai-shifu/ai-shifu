@@ -104,6 +104,98 @@ def test_sse_business_error_does_not_invalidate(
     assert invalidations == []
 
 
+@pytest.mark.parametrize("error", [BrokenPipeError("closed"), OSError("closed")])
+def test_sse_transport_failure_closes_source_without_error_or_terminal_output(
+    app: object, invalidations: object, error: OSError
+) -> None:
+    closed = []
+    mapped_errors = []
+
+    def factory() -> object:
+        try:
+            yield {"type": "chunk"}
+            pytest.fail("A disconnected request must not advance the source")
+        finally:
+            closed.append(True)
+
+    def error_event_factory(exc: Exception) -> dict[str, str]:
+        mapped_errors.append(exc)
+        return {"type": "error"}
+
+    with app.test_request_context("/"):
+        response = learn_routes._stream_sse_response(
+            app,
+            message_iter_factory=factory,
+            close_log="closed",
+            error_log="failed",
+            error_event_factory=error_event_factory,
+            terminal_event_factory=lambda: {"type": "done", "is_terminal": True},
+        )
+        stream = iter(response.response)
+        next(stream)
+        with pytest.raises(StopIteration):
+            stream.throw(error)
+
+    assert invalidations == ["learn stream_sse_response close"]
+    assert closed == [True]
+    assert mapped_errors == []
+    assert list(stream) == []
+
+
+def test_source_close_cancellation_still_releases_the_db_session(
+    app: object, monkeypatch: object
+) -> None:
+    class Cancelled(BaseException):
+        pass
+
+    released = []
+    monkeypatch.setattr(
+        learn_routes,
+        "_release_db_session",
+        lambda *_a, **_k: released.append(True),
+    )
+
+    def factory() -> object:
+        try:
+            yield {"type": "done", "is_terminal": True}
+        finally:
+            raise Cancelled
+
+    with app.test_request_context("/"):
+        response = learn_routes._stream_sse_response(
+            app,
+            message_iter_factory=factory,
+            close_log="closed",
+            error_log="failed",
+        )
+        stream = iter(response.response)
+        next(stream)
+        with pytest.raises(Cancelled):
+            next(stream)
+    assert released == [True, True]
+
+
+def test_unserializable_terminal_still_emits_error_and_completion(
+    app: object, invalidations: object
+) -> None:
+    del invalidations
+    with app.test_request_context("/"):
+        response = learn_routes._stream_sse_response(
+            app,
+            message_iter_factory=lambda: iter(
+                [{"type": "done", "is_terminal": True, "content": object()}]
+            ),
+            close_log="closed",
+            error_log="failed",
+            error_event_factory=lambda _exc: {"type": "error"},
+            terminal_event_factory=lambda: {"type": "done", "is_terminal": True},
+        )
+        chunks = list(response.response)
+    assert '"type": "error"' in chunks[0]
+    assert chunks[1] == 'data: {"type": "done", "is_terminal": true}\n\n'
+    assert len(chunks) == 2
+
+
 def test_passthrough_close_invalidates_session(
     app: object, invalidations: object
 ) -> None:

@@ -3,6 +3,9 @@ import {
   isProfileOnboardingTypewriterCandidate,
   profileOnboardingConversationReducer,
   resolveProfileOnboardingElement,
+  resolveProfileRunState,
+  resolveNextTurnIndex,
+  isProfileSummaryPhase,
   syncProfileOnboardingTypewriterCache,
   type ProfileOnboardingConversationItem,
   upsertConversationItem,
@@ -67,6 +70,32 @@ describe('profileOnboardingConversationReducer', () => {
     expect(fatal.status).toBe('fatal_error');
   });
 
+  it('accepts only the validated interaction even when another question is last', () => {
+    const state = {
+      ...initialProfileOnboardingConversationState,
+      status: 'streaming' as const,
+      items: [
+        { ...interaction, interactionId: 'question-a' },
+        {
+          ...interaction,
+          elementBid: 'question-2',
+          interactionId: 'question-b',
+        },
+      ],
+    };
+    const accepted = profileOnboardingConversationReducer(state, {
+      type: 'accept_submission',
+      interactionId: 'question-a',
+      userInput: 'First answer',
+    });
+    expect(accepted.items[0]).toMatchObject({
+      finished: true,
+      userInput: 'First answer',
+    });
+    expect(accepted.items[1]).toMatchObject({ finished: false });
+    expect(accepted.items[1].userInput).toBeUndefined();
+  });
+
   it('ignores terminal and interaction events that arrive in invalid states', () => {
     const streaming = profileOnboardingConversationReducer(
       initialProfileOnboardingConversationState,
@@ -97,6 +126,29 @@ describe('profileOnboardingConversationReducer', () => {
   });
 });
 
+describe('native session turn state', () => {
+  it('reads the authoritative native pending order and validated input result', () => {
+    const event = {
+      type: 'done',
+      content: JSON.stringify({
+        next_turn_index: 8,
+        awaiting_input: true,
+        input_accepted: false,
+        pending_interaction_ids: ['first', 'second'],
+      }),
+    };
+    expect(resolveNextTurnIndex(event)).toBe(8);
+    expect(resolveProfileRunState(event)).toEqual({
+      awaitingInput: true,
+      inputAccepted: false,
+      pendingInteractionIds: ['first', 'second'],
+    });
+    expect(
+      isProfileSummaryPhase({ type: 'phase', content: { phase: 'summary' } }),
+    ).toBe(true);
+  });
+});
+
 describe('syncProfileOnboardingTypewriterCache', () => {
   it('keeps suppressed text finished when its content changes on restore', () => {
     const textItem: ProfileOnboardingConversationItem = {
@@ -124,6 +176,27 @@ describe('syncProfileOnboardingTypewriterCache', () => {
 });
 
 describe('resolveProfileOnboardingElement', () => {
+  it('retains a native question identity independently of its display element', () => {
+    const element = resolveProfileOnboardingElement({
+      type: 'interaction',
+      generated_block_bid: 'display-question-1',
+      interaction_id: 'native-question-1',
+      content: '?[...Your answer]',
+    });
+
+    expect(element).toMatchObject({
+      elementBid: 'display-question-1',
+      interactionId: 'native-question-1',
+      interaction: true,
+    });
+    expect(
+      resolveProfileOnboardingElement({
+        type: 'interaction',
+        content: '?[...Legacy question]',
+      }),
+    ).not.toHaveProperty('interactionId');
+  });
+
   it('preserves HTML element types from legacy content events', () => {
     const element = resolveProfileOnboardingElement({
       type: 'content',
@@ -145,6 +218,45 @@ describe('resolveProfileOnboardingElement', () => {
 });
 
 describe('upsertConversationItem', () => {
+  it('keeps the same native pending question mounted when its turn slot changes', () => {
+    const original = { ...interaction, interactionId: 'native-question' };
+    const nextTurn = {
+      ...original,
+      elementBid: 'turn-2:interaction',
+    };
+    const items = upsertConversationItem([original], nextTurn);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      interactionId: 'native-question',
+      elementBid: interaction.elementBid,
+      finished: false,
+    });
+  });
+
+  it('replaces an uncommitted question token at its stable display element', () => {
+    const firstQuestion = {
+      ...interaction,
+      interactionId: 'uncommitted-question',
+    };
+    const replacement = {
+      ...interaction,
+      interactionId: 'persisted-question',
+    };
+
+    const items = upsertConversationItem([firstQuestion], replacement);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      elementBid: interaction.elementBid,
+      interactionId: 'persisted-question',
+      interaction: true,
+      finished: false,
+    });
+    expect(
+      items.filter(item => item.interaction && !item.finished),
+    ).toHaveLength(1);
+  });
+
   it('moves a rejected interaction behind its new validation feedback', () => {
     const answeredInteraction = {
       ...interaction,

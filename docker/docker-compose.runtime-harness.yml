@@ -41,14 +41,15 @@ services:
   ai-shifu-cook-web-dev:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.web.runtime-harness
-    image: ai-shifu-cook-web-runtime-harness:latest
+      dockerfile: src/web/Dockerfile
+    image: ai-shifu-cook-web-dev:latest
     env_file:
       - ./.env
     environment:
-      I18N_ROOT: /app/src/i18n
+      I18N_ROOT: /app/i18n
       NEXT_TELEMETRY_DISABLED: "1"
       NODE_OPTIONS: --max-old-space-size=2048
+      PORT: "5000"
       NEXT_PUBLIC_LOGIN_METHODS_ENABLED: phone
       NEXT_PUBLIC_DEFAULT_LOGIN_METHOD: phone
     depends_on:

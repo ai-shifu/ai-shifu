@@ -1,6 +1,6 @@
 ---
 name: async-confirm-dialog-loading
-description: 当 Cook Web 的确认弹窗会触发重修、删除、恢复等异步请求时，使用本技能保证按钮防重复点击、loading 状态与弹窗关闭时机和请求完成保持一致。
+description: Use for Cook Web confirmation dialogs that trigger asynchronous restart, deletion, or restore requests. Prevent duplicate clicks, show loading state, and close the dialog only when the request completes.
 ---
 
 # 异步确认弹窗请求态

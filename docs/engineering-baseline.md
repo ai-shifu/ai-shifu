@@ -24,6 +24,18 @@ details behind those rules.
 | Start Docker dev stack (build local latest) | `./dev_in_docker.sh` | `cd docker` |
 | Build frontend dev image | `docker build ../src/web -t ai-shifu-cook-web-dev -f ../src/web/Dockerfile_DEV` | `cd docker` |
 
+Before the standalone frontend dev image command, prepare the source revision
+from `docker/`:
+
+```bash
+git rev-parse HEAD > ../src/web/.app-build-sha 2>/dev/null || rm -f ../src/web/.app-build-sha
+```
+
+`dev_in_docker.sh` does this automatically. Direct Compose startup must also
+prepare the marker and use `up --build`, as shown in the
+[development instructions](../README.md#development-mode-dev_in_dockersh).
+Source archives without Git metadata keep the package-version-only display.
+
 ### Essential Environment Variables
 
 Before starting the backend or running Flask migration commands, configure a
@@ -143,7 +155,12 @@ The application has two main runtime components:
 
 - Shared text and tool LLM calls use the LiteLLM gateway in
   `src/api/flaskr/api/llm/__init__.py`; the MarkdownFlow 2.0 engine delegates
-  through `src/api/flaskr/service/learn/agent/gateway_model.py`
+  through `src/api/flaskr/api/llm/markdownflow_model.py`
+- The application-independent engine library lives in `src/api/markdownflow/`;
+  course and Profile runtimes use `flaskr.api.markdownflow` for shared application
+  bindings. The foundation in PR #3163 is based on `main`; the Profile migration
+  in PR #3161 depends on it. See the
+  [library design](design-docs/markdownflow-engine-library.md)
 - Gemini Live has a separate credential and browser WebSocket path; see the
   [Live setup notes](../INSTALL_MANUAL.md#optional-gemini-live-voice-follow-up)
 - Provider credentials continue to live in `.env` via the existing API-key
@@ -365,10 +382,11 @@ src/api/tests/
   scripts do not inflate the application score.
 - Critical paths should target 100 percent coverage
 - Full coverage command (from `src/api`):
-  `PYTHON_DOTENV_DISABLED=1 python -m coverage run -m pytest -p no:testmon tests`,
+  `PYTHON_DOTENV_DISABLED=1 python -m pytest -n 2 --dist loadfile -p no:testmon --cov --cov-config=.coveragerc --cov-report= --cov-fail-under=0 tests`,
   then `python -m coverage report` and optionally `python -m coverage html`.
-  Install `requirements-ci.txt` first. Full coverage runs must not use cached
-  test selection. Run the `Backend Tests` workflow manually from GitHub Actions
+  Install `requirements-ci.txt` first. pytest-cov combines both workers before
+  the report enforces the shared threshold. Full coverage runs must not use
+  cached test selection. Run the `Backend Tests` workflow manually from GitHub Actions
   (`workflow_dispatch`) to check the threshold and retain raw, JSON, XML and
   text coverage evidence. Ordinary pull requests use the existing test target
   selection; pushes to `main` run the full tests without coverage. Neither
@@ -629,44 +647,96 @@ flows before promoting them.
 
 - `backend-tests.yml`: selects backend tests for PRs changing `src/api/**` or
   the backend workflow, with a successful no-op for unrelated PRs; runs the
-  full suite on pushes to `main` and full coverage on manual dispatch.
+  full suite on pushes to `main` and full coverage on manual dispatch. Tests
+  run in two pytest-xdist worker processes on one runner, distributed by file;
+  PR/main runs retain testmon and manual coverage merges both workers.
 - `frontend-tests.yml`: runs frontend Jest tests for frontend and shared i18n
-  changes while reporting a successful no-op check for unrelated PRs.
-- `prettier-check.yml`: checks frontend formatting for frontend changes.
+  changes with two worker processes on one runner, while reporting a successful
+  no-op check for unrelated PRs.
+- `prettier-check.yml`: checks frontend formatting for frontend changes in PRs;
+  does not run on pushes to `main`.
 - `repo-harness.yml`: the `Static Checks` job validates architecture
   boundaries, instructions, generated knowledge artifacts, translation
   parity and locale metadata, and the MarkdownFlow release pins on PRs into `main`.
-- `runtime-harness.yml`: runs the Docker-backed Playwright smoke harness for
-  runtime-affecting backend, frontend, Docker, and script changes.
-- `prepare-release.yml`: manually prepares a release draft from a requested
-  `vX.Y.Z` version and opens a version-update PR.
+- `runtime-harness.yml`: builds the API and Web production AMD64 images once
+  with Docker Bake on the same runner, smoke-tests their default startup and
+  dependencies, then reuses those loaded images for the Docker-backed
+  Playwright harness with `docker compose up --no-build`. Runs for
+  runtime-affecting backend, frontend, shared i18n, production Markdown,
+  Docker, and script changes in PRs or on manual dispatch; does not run on
+  pushes to `main`.
+- `docker-build-check.yml`: adds native ARM64 production-image build and smoke
+  checks only for services affected by packaging changes in PRs, including
+  Dockerfiles, runtime dependencies, production dependency checks, and Docker
+  build workflows. Ordinary application and shared i18n changes use the
+  runtime harness's AMD64 validation. Ordinary manual dispatch checks both
+  services on AMD64 and ARM64; explicit candidate dispatch also verifies
+  publication without moving normal tags.
+- `prepare-release.yml` (`Prepare Release PR`): manually validates a final
+  `vX.Y.Z` increase and opens a version-update PR against main; it creates no
+  formal tag or Release.
+- `draft-release.yml` (`Prepare Merged Release Draft`): compares the primary
+  version before/after each main push, validates merged release-PR provenance,
+  and pins a draft to the exact event commit only when the version increased.
 - `build-latest.yml`: builds `:latest` Docker images on pushes to `main` or
-  manual dispatch; publishing depends on the push toggle and registry credentials.
+  manual dispatch on main; publishes to GHCR and configured Docker Hub / Aliyun
+  mirrors unless the push toggle is disabled.
 - `build-on-release.yml`: builds and pushes release-tagged Docker images when
   a GitHub release is published.
 
+See [Docker image publication](references/docker-image-publication.md) for
+registry permissions, private-to-public GHCR setup, candidate verification and
+manual main backfills. This uses repository Dockerfiles independently of CICD.
+
+The runtime harness uses `src/api/Dockerfile` and `src/web/Dockerfile`, including
+the Web image's Alpine base, production dependency pruning, and non-root user.
+The default image commands are smoke-tested before Compose applies its API
+migration and demo-seeding command. Web keeps the production command and uses
+`PORT=5000` for the shared development nginx route and `/app/i18n` for shared
+translations. A passing harness therefore validates the built production AMD64
+images; it does not establish ARM64 compatibility or registry publication.
+Latest, release, and candidate publication retain both services and both native
+architectures, with smoke checks before pushing. Architecture-specific failures
+from ordinary application changes may first be detected by the main build.
+
 ### Release Path
 
-1. Start with `prepare-release.yml` and provide a version that starts with
-   `v`, such as `v1.5.0`.
-2. Review and merge the generated `release/version-bump-<tag>` PR into the
-   intended release branch. Confirm that the draft's tag will point to the
-   intended commit, including those version updates, before publishing it.
-3. Review the draft content. It includes repository commits since the previous `vX.Y.Z`
-   tag, plus MarkdownFlow dependency updates when the pinned `markdown-flow` or
-   `markdown-flow-ui` versions change; dependency notes are generated from the
-   corresponding library repository tag range when tags exist. When matching
-   tags do not exist, registry publish times are used to limit a GitHub commit
-   lookup for the dependency repository.
-4. Publish the final release through GitHub Releases. This triggers
-   `build-on-release.yml`, which skips drafts and prereleases and builds the
-   release-tagged images. Unexpected tag formats only produce a warning in
-   that workflow, so verify the tag before publication.
-5. `main` continues to drive `build-latest.yml` independently. A `:latest`
-   image may contain commits newer than the selected release tag.
-6. After image publication, smoke-check the pinned or latest Docker Compose
-   startup path, backend boot, and the primary frontend entry path before
-   treating the release as ready.
+1. Run `prepare-release.yml` on main with a canonical final `vX.Y.Z` increase
+   (no prerelease, build suffix or leading zeroes). It updates the two npm
+   manifests and lock roots, the vendored engine version, and first-party pinned
+   Compose images. Third-party images and rolling `latest` are unchanged. The
+   generated PR includes a notes preview; no formal tag or Release is created.
+2. A human reviews the version-only diff and CI, then **manually merges** the
+   `release/version-bump-<tag>` PR into main. AI/scripts must never merge or
+   enable auto-merge. Main/latest publication and existing production CICD/Drone
+   auto-deployment remain independent effects of that merge.
+3. `draft-release.yml` freezes the exact main push SHA, not moving main or
+   checkout HEAD. Unchanged versions and an initial missing baseline skip;
+   decreases, malformed versions, forced/deleted pushes and inconsistent source
+   versions fail closed. The source must introduce the version increase and be
+   the exact merge commit of a release PR into this repository's main.
+4. Automation verifies the npm/lock/engine versions and pinned Compose tags,
+   creates a non-forced exact-source formal tag, and creates a **draft only**.
+   Conflicting tags, mismatched drafts and already public releases fail closed.
+   Same-source reruns reuse a verified tag/draft without overwriting human notes.
+5. A human reviews the draft and **manually Publishes** in GitHub Releases.
+   `build-on-release.yml` revalidates the source, version, tag and merged-PR
+   provenance before passing the exact commit to the native image builder.
+   Drafts/prereleases skip; malformed or premature publication does not silently
+   build mislabeled images. Existing image names, registries and architectures
+   are retained. A `:latest` image can still be newer than the release.
+6. After image publication, smoke-check Compose startup, backend boot and the
+   primary frontend path before treating the release as ready. This automation
+   adds no production deployment operation and does not rewrite historical tags
+   or releases.
+
+Notes are recomputed at the frozen merged candidate, using the highest reachable
+lower final-version tag and excluding the candidate's own tag. Commitizen is
+preferred, with a Git fallback and omitted-PR coverage. MarkdownFlow notes retain
+locked dependency versions, historical frontend-lock lookup, library tag
+comparisons, registry-time fallback, author enrichment, deduplication, sorting
+and bounded detail. See [Docker image publication](references/docker-image-publication.md#pr-first-release-gates)
+for recovery and human-gate limitations.
 
 ### Release And Automation Rules
 

@@ -584,8 +584,8 @@ def test_restore_shifu_mdflow_history_restores_content(
     )
     monkeypatch.setattr(
         "flaskr.service.shifu.shifu_mdflow_funcs.save_outline_history",
-        lambda _app, _user_id, _shifu_bid, _outline_bid, version_id, *_rest: int(
-            version_id
+        lambda _app, _user_id, _shifu_bid, _outline_bid, version_id, *_rest, **_kwargs: (
+            int(version_id)
         ),
     )
     monkeypatch.setattr(
