@@ -14,8 +14,7 @@ Profile onboarding and operator questionnaire previews use the shared
 MarkdownFlow 2.0 library through the shared `flaskr.api.markdownflow` binding.
 The application-independent implementation lives in `src/api/markdownflow/`;
 see the [library design](../design-docs/markdownflow-engine-library.md).
-The course-only `FLOW_ENGINE_V2_ENABLED` flag does not select the profile
-runtime: both profile entrypoints always use 2.0.
+Both profile entrypoints always use 2.0.
 
 The entire frozen questionnaire is the script of one native engine Session.
 The engine owns script progression, deferred interactions, accepted answers,
