@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 from flaskr.api import langfuse_markdownflow as tracing_module
 from flaskr.api import markdownflow as application
+from flaskr.api.langfuse import get_session_trace_id
 from flaskr.api.llm import markdownflow_model as gateway
 from flaskr.service.learn.agent import langfuse_tracing as course_tracing
 from flaskr.service.learn.agent import lesson_entry, run_agent
@@ -32,6 +33,93 @@ from tests.service.learn.agent.test_run_agent import _drive, _Engine, _Session
 
 calls = host_tests.calls
 captured_spans = sdk_tests.captured_spans
+
+
+@pytest.mark.parametrize("scene", ["learn", "preview", "debug"])
+def test_session_trace_groups_requests_and_preserves_each_request_tree(
+    monkeypatch: pytest.MonkeyPatch, captured_spans: object, scene: str
+) -> None:
+    client, exporter, _provider = captured_spans
+    monkeypatch.setattr(tracing_module, "get_langfuse_client", lambda: client)
+    for index, session_id in enumerate(("conversation", "conversation", "reset")):
+        monkeypatch.setattr(
+            tracing_module, "get_request_id", lambda index=index: f"request-{index}"
+        )
+        monkeypatch.setattr(
+            tracing_module,
+            "get_request_trace_id",
+            lambda index=index: f"{index + 1:032x}",
+        )
+        trace = course_tracing.CourseTrace(
+            user_bid="learner",
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_input=f"answer-{index}",
+            preview_mode=scene != "learn",
+            debug=scene == "debug",
+            listen=False,
+            learning_mode="read",
+            regenerate=False,
+        )
+        session = _Session(started=index > 0)
+        session.id = session_id
+        with trace:
+            loaded = trace.prepare_turn(
+                user_input=f"answer-{index}",
+                regenerate=False,
+                teaching_brief="Teach clearly.",
+                content_revision=1,
+            )
+            assert trace.model_parent.trace_id == ""
+            if index == 0:
+                # New sessions are created on the producer after host progress opens.
+                trace.bind_execution(f"progress-{index}", f"block-{index}")
+                loaded(session)
+            else:
+                # Restored sessions arrive before the host opens its next block.
+                loaded(session)
+                trace.bind_execution(f"progress-{index}", f"block-{index}")
+            trace.model_parent.generation(name="teaching", model="test-model").end(
+                output=f"model-{index}"
+            )
+            trace.append_output(f"visible-{index}")
+            trace.complete_turn("waiting")
+
+    spans = exporter.get_finished_spans()
+    roots = [span for span in spans if span.name == f"{scene}/course/lesson"]
+    assert len(roots) == 3
+    assert len({span.context.span_id for span in roots}) == 3
+    assert roots[0].context.trace_id == roots[1].context.trace_id
+    assert roots[2].context.trace_id != roots[0].context.trace_id
+    assert roots[0].context.trace_id == int(
+        get_session_trace_id("conversation", user_id="learner"), 16
+    )
+    for index, root in enumerate(roots):
+        assert root.attributes["langfuse.observation.input"] == f"answer-{index}"
+        assert root.attributes["langfuse.observation.output"] == f"visible-{index}"
+        assert (
+            root.attributes["langfuse.trace.metadata.request_id"] == f"request-{index}"
+        )
+        turn = next(
+            span
+            for span in spans
+            if span.name == "teaching_round"
+            and span.parent.span_id == root.context.span_id
+        )
+        generation = next(
+            span
+            for span in spans
+            if span.name == "teaching" and span.parent.span_id == turn.context.span_id
+        )
+        assert (
+            turn.attributes["langfuse.observation.metadata.progress_record_bid"]
+            == f"progress-{index}"
+        )
+        assert (
+            turn.attributes["langfuse.observation.metadata.generated_block_bid"]
+            == f"block-{index}"
+        )
+        assert generation.context.trace_id == root.context.trace_id
 
 
 def _entry(

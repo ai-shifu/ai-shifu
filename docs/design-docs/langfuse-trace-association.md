@@ -2,30 +2,34 @@
 title: Langfuse Trace Association
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-27
 canonical: true
 ---
 
 # Langfuse Trace Association
 
 ## Background
+
 - The backend used two different Langfuse patterns.
 - `learn` runtime and preview created `generation` objects directly on the trace.
 - `learn` ask, guardrail, and some `shifu` flows created a span first and then nested `generation` and `event` objects under that span.
 - `learn` runtime also initialized trace `output` with an empty string and later called `trace.update(**trace_args)`, which could overwrite real output written earlier in the request.
 
 ## Goal
+
 - Make Langfuse trees structurally consistent so related observations appear under the same trace in the UI.
 - Stop empty `input` and `output` values from overwriting real trace data.
 - Keep HTTP contracts unchanged.
 
 ## Decisions
+
 - Introduce a shared helper in `src/api/flaskr/api/langfuse.py` that creates `trace + root span`.
 - Treat the root span as the parent observation for runtime `generation` and `event` records.
 - Keep ask-specific child spans, but always nest them under the runtime root span.
 - Only send `input` and `output` to Langfuse when a real value exists.
 
 ## Scope
+
 - `src/api/flaskr/service/learn/context_v2.py`
 - `src/api/flaskr/service/learn/handle_input_ask.py`
 - `src/api/flaskr/service/shifu/route.py`
@@ -33,6 +37,7 @@ canonical: true
 - Focused backend tests for the affected paths
 
 ## Implementation Notes
+
 - `RUNLLMProvider` now receives both the trace and a `parent_observation`.
 - `chat_llm` and `invoke_llm` continue to work with span-like observations, but callers no longer pass a trace directly for runtime work.
 - `learn` runtime accumulates emitted teacher content and uses it when finalizing the root span and trace.
@@ -40,6 +45,7 @@ canonical: true
 - `shifu` ask preview and publish summary use the shared helper and finalize trace output explicitly.
 
 ## SDK v4 Semantics
+
 - Langfuse SDK v4 has no mutable trace record: a trace is the tree of its
   observations, so `src/api/flaskr/api/langfuse.py` keeps the legacy
   `trace.update()` / `trace.span()` call surface but maps it onto observations.
@@ -54,23 +60,59 @@ canonical: true
   and `start_generation()` no longer exist.
 
 ## Verification
+
 - Add focused tests for:
   - runtime trace finalization without empty-output overwrite
   - preview trace top-level `session_id` and root span finalization
   - ask nesting under a parent observation
   - publish summary trace output propagation
 
-## MarkdownFlow 2.0 Request Contract
+## Session Trace Identity
+
+Learning and Profile requests reuse one trace per session. The shared
+`get_session_trace_id(session_id, user_id=...)` helper deterministically maps
+the namespaced user/session pair to a W3C trace id. This works across requests,
+worker processes, reconnects, and application restarts without keeping SDK
+objects or trace ids in session storage. A reset that creates a new session
+creates a new trace; different users remain isolated. Request ids remain
+metadata on each request observation and its descendants.
+
+Each request creates a distinct root observation in that trace and ends its
+own observations normally. Multiple request roots are siblings within the same
+trace, rather than repeatedly updating a shared long-lived observation. Their
+inputs, outputs, timings, and outcomes remain request-specific. There is no
+synthetic aggregate session input/output and no span held open while waiting
+for the learner. Inspect each request root for its public result and its child
+generations for model inputs, usage, and costs.
+
+Legacy preview already knows its session id when it starts. Legacy learning
+defers trace creation until the progress session resolves, before any model
+call. Automatic steps in the same request reuse its root; moving to another
+progress session ends that root and starts a distinct trace. MarkdownFlow
+courses defer trace and round creation until the native session is restored or
+created; progress/block metadata received earlier is retained. Profile uses its
+existing questionnaire session id from the outset. A course request that fails
+before any session is resolved retains a request-based error trace.
+
+Only new observations use this identity. Historical request traces remain
+unchanged, including those belonging to sessions resumed after rollout; the
+resumed session's later observations share the new deterministic trace. Request
+replay still does not execute a model or create an additional execution root.
+
+The identity uses Langfuse's documented
+[deterministic trace context](https://langfuse.com/docs/observability/features/trace-ids-and-distributed-tracing).
+
+## MarkdownFlow 2.0 Request Observations
 
 Course teaching and Profile onboarding share `flaskr.api.langfuse_markdownflow`.
 Their service-local `langfuse_tracing.py` modules own scene names, metadata,
 request actions, output filtering, and outcome mapping. Business code passes
 resolved objects and execution facts through small lifecycle hooks. Each
-accepted execution request owns one root observation; automatic native turns
-and model requests remain children of that root. Related requests use the
-native course session id or the existing Profile session id. Exact Profile
-request replay does not execute or charge a model again and does not start an
-additional execution trace.
+accepted execution request owns one root observation within its session trace;
+automatic native turns and model requests remain children of that root. Related
+requests share a trace through the native course session id or the existing
+Profile session id. Exact Profile request replay does not execute or charge a
+model again and does not start an additional request observation.
 
 ### Names and correlation
 
@@ -89,15 +131,15 @@ makes the diagnostic limit visible without adding unbounded telemetry queries.
 
 The tree uses stable operation names:
 
-| Operation | Observation name |
-| --- | --- |
-| Effective prompt snapshot | `prompts` |
-| Course execution round | `teaching_round` |
-| Primary course model | `teaching` |
-| Delivered teaching history summary | `history_summary` |
-| Learner memory request check | `memory_check` |
-| Profile questionnaire model | `questionnaire` |
-| Delegated answer extraction | `answer_extraction` |
+| Operation                          | Observation name    |
+| ---------------------------------- | ------------------- |
+| Effective prompt snapshot          | `prompts`           |
+| Course execution round             | `teaching_round`    |
+| Primary course model               | `teaching`          |
+| Delivered teaching history summary | `history_summary`   |
+| Learner memory request check       | `memory_check`      |
+| Profile questionnaire model        | `questionnaire`     |
+| Delegated answer extraction        | `answer_extraction` |
 
 A round is an `agent` observation, an LLM request is a `generation`, and an
 engine tool execution is a `tool`. Profile retains its generic `turn` round and
@@ -184,13 +226,15 @@ retry semantics, including failures during private summary generation.
 SDK create, update, child creation, and end operations are best-effort through
 safe observation handles. Their failure cannot interrupt teaching, settlement,
 session writes, or SSE publication. This contract uses Langfuse 4.14.4, changes
-no database or persisted native-session schema, and applies only to new traces.
+no database or persisted native-session schema, and applies only to new observations.
 Independent ask, live voice, and capability probes retain their existing
 semantics.
 
 ### Acceptance checks
 
-Focused host regressions cover all five scenes, structured answers, no-text
+Focused host regressions cover cross-request trace identity, session resets,
+user isolation, request-specific IO and metadata, early progress identifiers,
+all five scenes, structured answers, no-text
 actions, restored context, automatic continuation, tool completion, visible
 interactions, failed/discarded saves, terminal-close classification, replay, and
 SDK failure isolation. Real-SDK in-memory tests assert observation types,

@@ -758,3 +758,17 @@ def test_safe_observation_ends_only_once_when_the_sdk_raises() -> None:
     handle.end(output="Result")
     handle.end(output="Result")
     sdk.end.assert_called_once_with(output="Result")
+
+
+def test_deferred_session_failure_keeps_request_error_without_hiding_business_error(
+    observations: InMemorySpanExporter,
+) -> None:
+    trace = _trace(defer_until_session=True)
+    assert trace.model_parent.trace_id == ""
+    message = "Session storage failed"
+    with pytest.raises(RuntimeError, match=message), trace:
+        raise RuntimeError(message)
+    root = _spans(observations)["learn/Course/Chapter/Lesson"]
+    assert root.context.trace_id == int("a" * 32, 16)
+    assert root.attributes["langfuse.observation.metadata.runtime_outcome"] == "error"
+    assert root.attributes["langfuse.observation.level"] == "ERROR"

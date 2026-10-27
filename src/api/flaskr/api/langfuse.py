@@ -122,6 +122,13 @@ def get_request_trace_id() -> str:
     return coerce_langfuse_trace_id(get_request_id() or uuid.uuid4().hex)
 
 
+def get_session_trace_id(session_id: str, *, user_id: str = "") -> str:
+    """Keep one session in one trace across requests and worker processes."""
+    if session_id:
+        return coerce_langfuse_trace_id(f"session:{user_id}:{session_id}")
+    return get_request_trace_id()
+
+
 def resolve_langfuse_trace_id(observation: object, trace_id: str | None = None) -> str:
     # Only accept real string trace ids. When Langfuse is disabled the client is
     # a MockClient whose __getattr__ returns a method object for any attribute

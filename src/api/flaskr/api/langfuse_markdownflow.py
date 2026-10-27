@@ -11,6 +11,7 @@ from flaskr.api.langfuse import (
     get_langfuse_client,
     get_request_id,
     get_request_trace_id,
+    get_session_trace_id,
 )
 
 if TYPE_CHECKING:
@@ -115,6 +116,7 @@ class MarkdownFlowTrace:
         input: object,  # noqa: A002 - Match the Langfuse observation payload field.
         metadata: dict[str, object] | None = None,
         session_id: str | None = None,
+        defer_until_session: bool = False,
     ) -> None:
         """Start the request root, falling back to no-op handles on SDK failure."""
         self._metadata = {
@@ -122,27 +124,18 @@ class MarkdownFlowTrace:
             "flow_engine": "2.0",
             "request_id": get_request_id(),
         }
-        try:
-            trace, root = create_trace_with_root_span(
-                client=get_langfuse_client(),
-                trace_payload={
-                    "id": get_request_trace_id(),
-                    "name": name,
-                    "user_id": user_id,
-                    "session_id": session_id,
-                    "input": input,
-                    "metadata": self._metadata,
-                },
-                root_span_payload={"name": name},
-            )
-        except Exception as error:
-            logger.warning(
-                "MarkdownFlow trace creation failed (%s)", type(error).__name__
-            )
-            trace, root = MockClient(), MockClient()
-        self._trace = SafeObservation(trace)
-        self.root = SafeObservation(root)
+        self._trace_payload = {
+            "name": name,
+            "user_id": user_id,
+            "input": input,
+            "metadata": self._metadata,
+        }
+        self._started = False
+        self._trace = SafeObservation()
+        self.root = SafeObservation()
         self.current = self.root
+        if not defer_until_session or session_id:
+            self._start_trace(session_id)
         # Gateway instances can be reused across turns. This permanent handle
         # resolves the explicit parent when a generation starts, on any thread.
         self.model_parent = SafeObservation(observation_source=lambda: self.current)
@@ -153,6 +146,34 @@ class MarkdownFlowTrace:
         self._outcome = "running"
         self._finished = False
         self._context_identity: tuple[str, str, str] | None = None
+
+    def _start_trace(self, session_id: str | None = None) -> None:
+        """Create the request observation after its session identity is known."""
+        if self._started:
+            return
+        self._started = True
+        try:
+            trace, root = create_trace_with_root_span(
+                client=get_langfuse_client(),
+                trace_payload={
+                    **self._trace_payload,
+                    "id": get_session_trace_id(
+                        session_id, user_id=self._trace_payload["user_id"]
+                    )
+                    if session_id
+                    else get_request_trace_id(),
+                    "session_id": session_id,
+                },
+                root_span_payload={"name": self._trace_payload["name"]},
+            )
+        except Exception as error:
+            logger.warning(
+                "MarkdownFlow trace creation failed (%s)", type(error).__name__
+            )
+            trace, root = MockClient(), MockClient()
+        self._trace = SafeObservation(trace)
+        self.root = SafeObservation(root)
+        self.current = self.root
 
     def __enter__(self) -> Self:
         """Keep request lifetime management inside the tracing integration."""
@@ -165,6 +186,7 @@ class MarkdownFlowTrace:
         _traceback: TracebackType | None,
     ) -> None:
         """Finalize tracing while propagating the original business exception."""
+        self._start_trace()
         if isinstance(error, GeneratorExit):
             self.finish(transport_closed=True)
         elif error is not None:
@@ -175,6 +197,7 @@ class MarkdownFlowTrace:
 
     def set_input(self, value: object) -> None:
         """Refine a no-text action after the host restores its native session."""
+        self._trace_payload["input"] = value
         self.root.update(input=value)
 
     def set_context(
@@ -186,6 +209,7 @@ class MarkdownFlowTrace:
         metadata: dict[str, object] | None = None,
     ) -> None:
         """Record the effective script separately from the learner's request."""
+        self._start_trace(session_id)
         self._trace.update(session_id=session_id, metadata=metadata or {})
         if self.current is not self.root:
             self.current.update_trace(session_id=session_id, metadata=metadata or {})
@@ -339,6 +363,7 @@ class MarkdownFlowTrace:
         """Close once, retaining committed success when the transport closes later."""
         if self._finished:
             return
+        self._start_trace()
         self._finished = True
         actual = outcome or self._outcome
         if transport_closed and actual in {"running", "end"}:

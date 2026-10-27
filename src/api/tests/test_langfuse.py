@@ -10,6 +10,7 @@ from flaskr.api.langfuse import (
     MockClient,
     coerce_langfuse_trace_id,
     get_request_trace_id,
+    get_session_trace_id,
     resolve_langfuse_trace_id,
 )
 from flaskr.common.log import thread_local
@@ -73,6 +74,20 @@ class RequestTraceIdTests(unittest.TestCase):
 
         with patch("flaskr.api.langfuse.uuid.uuid4", return_value=fake_uuid):
             assert get_request_trace_id() == fake_uuid.hex
+
+
+def test_session_trace_identity_is_stable_and_isolates_users_and_resets() -> None:
+    first = get_session_trace_id("conversation", user_id="learner")
+    assert re.fullmatch(TRACE_ID_RE, first)
+    assert first == get_session_trace_id("conversation", user_id="learner")
+    assert first != get_session_trace_id("new-conversation", user_id="learner")
+    assert first != get_session_trace_id("conversation", user_id="another-learner")
+    assert first != coerce_langfuse_trace_id("conversation")
+
+
+def test_missing_session_uses_request_identity() -> None:
+    with patch("flaskr.api.langfuse.get_request_trace_id", return_value="a" * 32):
+        assert get_session_trace_id("") == "a" * 32
 
 
 class ResolveLangfuseTraceIdTests(unittest.TestCase):

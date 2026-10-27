@@ -33,7 +33,7 @@
 | `docs/design-docs/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `design-doc` | `implemented` | `shared` | `2026-07-12` | `true` |
 | `docs/design-docs/fresh-mysql-migration.md` | Fresh MySQL Migration Replay Repair | `design-doc` | `needs-review` | `backend` | `-` | `true` |
 | `docs/design-docs/index.md` | Design Docs | `generated-doc` | `generated` | `repo` | `-` | `false` |
-| `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-10-26` | `true` |
+| `docs/design-docs/langfuse-trace-association.md` | Langfuse Trace Association | `design-doc` | `implemented` | `backend` | `2026-10-27` | `true` |
 | `docs/design-docs/learner-follow-up-input-shortcuts.md` | Learner follow-up input shortcuts | `design-doc` | `implemented` | `learner-web` | `2026-09-04` | `true` |
 | `docs/design-docs/markdownflow-engine-library.md` | MarkdownFlow engine library | `design-doc` | `implemented` | `backend` | `2026-10-26` | `true` |
 | `docs/design-docs/native-cn-payments.md` | Native China Payments | `design-doc` | `needs-review` | `backend` | `-` | `true` |
@@ -95,6 +95,7 @@
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/resumed-learner-nickname.md` | Refresh Nicknames in Existing Agent Lessons | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/session-langfuse-traces.md` | Session Langfuse Traces | `exec-plan-active` | `active` | `backend` | `2026-10-27` | `true` |
 | `docs/exec-plans/active/simplify-typed-marker-cleanup.md` | Simplify typed MarkdownFlow marker cleanup | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-request-analytics.md` | Account-linked Skill request pageviews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
