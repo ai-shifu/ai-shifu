@@ -174,7 +174,7 @@ export default function AdminOperationCreditNotificationsPage() {
   >(null);
   const requestIdRef = React.useRef(0);
   const templateListRequestIdRef = React.useRef(0);
-  const loadedTemplateChannelRef = React.useRef<
+  const requestedTemplateChannelRef = React.useRef<
     CreditNotificationRule['channel'] | null
   >(null);
   const configLoadStartedRef = React.useRef(false);
@@ -277,7 +277,7 @@ export default function AdminOperationCreditNotificationsPage() {
     async (mode: 'initial' | 'manual' = 'initial') => {
       const requestId = templateListRequestIdRef.current + 1;
       templateListRequestIdRef.current = requestId;
-      loadedTemplateChannelRef.current = notificationChannel;
+      requestedTemplateChannelRef.current = notificationChannel;
       setTemplateListLoading(true);
       const templateTrackingContext =
         notificationChannel === 'email'
@@ -519,7 +519,7 @@ export default function AdminOperationCreditNotificationsPage() {
     if (
       !isReady ||
       (activeTab !== 'config' && activeTab !== 'templates') ||
-      loadedTemplateChannelRef.current === notificationChannel
+      requestedTemplateChannelRef.current === notificationChannel
     ) {
       return;
     }
