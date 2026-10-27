@@ -15,11 +15,9 @@ Each item below identifies its dependency and next evidence needed.
   production access evidence before proposing removals. The July inventory's
   count is historical and is not deletion authorization.
 - Learning backend: finish the 1.0 retirement. The `RunScriptContextV2`
-  runtime, its `learn/run/` collaborators and the 1.0 preview are deleted, and
-  `uses_agent_engine` now answers true for every identified course. Remaining:
-  remove `uses_agent_engine` with its now-dead 1.0 branches (`learn_funcs`,
-  `listen_elements`, `follow_up_context`, `ask`, preview history), drop the
-  `preview_engine` 1.0 handling in the editor, stop setting
+  runtime, its `learn/run/` collaborators, the 1.0 preview and the
+  `uses_agent_engine` routing switch with its 1.0 branches are deleted.
+  Remaining: drop the `preview_engine` 1.0 handling in the editor, stop setting
   `FLOW_ENGINE_V2_ENABLED` in deployments and then unregister it, and migrate
   away the course `flow_engine` column.
 - Learning backend: extend deterministic golden fixtures for mid-stream errors
