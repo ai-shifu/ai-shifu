@@ -25,6 +25,8 @@ class FakeLLMResponse:
         self.finish_reason = finish_reason
         self.usage = usage
         self.choices = [SimpleNamespace(delta=SimpleNamespace(content=result))]
+        # The 2.0 gateway model reads tool calls off every chunk.
+        self.tool_call_deltas: list[dict] = []
 
 
 def _stream_chunks(stream: bool) -> list[str]:

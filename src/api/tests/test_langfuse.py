@@ -9,6 +9,7 @@ from flask import Flask
 from flaskr.api.langfuse import (
     MockClient,
     coerce_langfuse_trace_id,
+    create_advancement_trace_id,
     get_request_trace_id,
     resolve_langfuse_trace_id,
 )
@@ -73,6 +74,24 @@ class RequestTraceIdTests(unittest.TestCase):
 
         with patch("flaskr.api.langfuse.uuid.uuid4", return_value=fake_uuid):
             assert get_request_trace_id() == fake_uuid.hex
+
+
+def test_advancements_allocate_distinct_valid_trace_ids() -> None:
+    """Separate admitted operations never share a trace because their HTTP id matches."""
+    with patch("flaskr.api.langfuse.get_request_id", return_value="shared-request"):
+        identities = {create_advancement_trace_id() for _ in range(3)}
+    assert len(identities) == 3
+    assert all(re.fullmatch(TRACE_ID_RE, identity) for identity in identities)
+    assert all(int(identity, 16) != 0 for identity in identities)
+
+
+def test_advancement_identity_needs_no_http_or_session_context() -> None:
+    """Allocate before producer work without consulting ambient request state."""
+    with (
+        patch("flaskr.api.langfuse.get_request_id", side_effect=AssertionError),
+        patch("flaskr.api.langfuse.get_request_trace_id", side_effect=AssertionError),
+    ):
+        assert re.fullmatch(TRACE_ID_RE, create_advancement_trace_id())
 
 
 class ResolveLangfuseTraceIdTests(unittest.TestCase):

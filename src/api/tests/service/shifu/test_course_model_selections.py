@@ -70,8 +70,6 @@ def test_deleted_number_resumes_after_configuration_is_restored(
 def test_preview_falls_back_without_modifying_original_values(
     app: object, selection: str
 ) -> None:
-    from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
-
     with app.app_context(), unit_of_work():
         row = DraftShifu(
             shifu_bid=uuid4().hex, llm=selection, ask_llm=selection, llm_temperature=0.3
@@ -79,10 +77,10 @@ def test_preview_falls_back_without_modifying_original_values(
         db.session.add(row)
         db.session.flush()
         updated = row.updated_at
-        context = RunScriptPreviewContextV2(app)
-        model, _temperature = context._resolve_llm_settings(row)
+        # The 2.0 lesson and its preview resolve a course model through these helpers.
+        model = model_selection.selection_model(row)
         assert model == selection
-        metadata = context._preview_model_selection_metadata
+        metadata = model_selection.selection_metadata(row)
         assert "resolved_model" not in metadata
         assert model_selection.resolve_selection(model, metadata)[0] == "configured-1"
         assert metadata["model_selection_original"] == selection
@@ -123,7 +121,7 @@ def test_new_course_persists_independent_numbered_defaults(
 def test_course_selections_drive_preview_learning_and_follow_up(
     app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from flaskr.service.learn import context_v2, utils_v2
+    from flaskr.service.learn import utils_v2
     from flaskr.service.shifu.consts import ASK_MODE_DEFAULT, ASK_MODE_ENABLE
     from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
@@ -176,25 +174,11 @@ def test_course_selections_drive_preview_learning_and_follow_up(
                 )
             ],
         )
-        monkeypatch.setattr(context_v2, "get_shifu_struct", lambda *_args: struct)
         monkeypatch.setattr(utils_v2, "get_shifu_struct", lambda *_args: struct)
-        runtime = context_v2.RunScriptContextV2.__new__(context_v2.RunScriptContextV2)
-        runtime._struct = struct
-        runtime._preview_mode = True
-        runtime._outline_model = DraftOutlineItem
-        runtime._shifu_model = DraftShifu
-        settings = runtime.get_llm_settings(leaf.outline_item_bid)
-        assert (
-            model_selection.resolve_selection(settings.model, settings.usage_metadata)[
-                0
-            ]
-            == "configured-1"
-        )
-        preview = context_v2.RunScriptPreviewContextV2(app)
-        preview_model, _temperature = preview._resolve_llm_settings(course)
         assert (
             model_selection.resolve_selection(
-                preview_model, preview._preview_model_selection_metadata
+                model_selection.selection_model(course),
+                model_selection.selection_metadata(course),
             )[0]
             == "configured-1"
         )
@@ -211,11 +195,11 @@ def test_course_selections_drive_preview_learning_and_follow_up(
         with unit_of_work():
             course.llm = "3"
             course.ask_llm = "7"
-        settings = runtime.get_llm_settings(leaf.outline_item_bid)
         assert (
-            model_selection.resolve_selection(settings.model, settings.usage_metadata)[
-                0
-            ]
+            model_selection.resolve_selection(
+                model_selection.selection_model(course),
+                model_selection.selection_metadata(course),
+            )[0]
             == "configured-3"
         )
         follow_up = utils_v2.get_follow_up_info_v2(

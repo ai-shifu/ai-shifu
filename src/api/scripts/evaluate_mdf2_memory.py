@@ -879,16 +879,11 @@ def main(argv: list[str] | None = None) -> int:
     from flaskr.api.llm.markdownflow_model import GatewayModel
     from flaskr.api.llm.model_selection import resolve_selection
     from flaskr.service.learn.agent.lesson_entry import _resolve
-    from flaskr.service.learn.agent.routing import uses_agent_engine
     from flaskr.service.metering.api import UsageContext
     from flaskr.service.user.models import UserInfo
 
     app = create_app(serving_http=False)
     with app.app_context():
-        if not uses_agent_engine(args.course):
-            parser.error(
-                "live evaluation requires an environment already running engine 2.0"
-            )
         if UserInfo.query.filter_by(user_bid=args.learner, deleted=0).first() is None:
             parser.error("the dedicated evaluation learner does not exist")
         _, _, settings, _content_revision, _language = _resolve(

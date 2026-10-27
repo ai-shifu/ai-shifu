@@ -154,6 +154,7 @@ class CourseTrace(MarkdownFlowTrace):
         self._content_revision: int | None = None
         self._first_turn = True
         self._initialized = False
+        self._execution: dict[str, object] = {}
 
     def resolved(
         self,
@@ -183,6 +184,7 @@ class CourseTrace(MarkdownFlowTrace):
                 ),
                 user_id=self._user_bid,
                 input=self._request_input,
+                defer_until_session=True,
                 metadata={
                     "shifu_bid": self._shifu_bid,
                     "outline_item_bid": self._outline_bid,
@@ -205,12 +207,14 @@ class CourseTrace(MarkdownFlowTrace):
     ) -> Callable[[Session], None]:
         """Open the turn and return its native-session context binding callback."""
         first, self._first_turn = self._first_turn, False
-        self.start_turn(
-            metadata={"outline_item_bid": self._outline_bid},
-            input=_request_input(user_input, regenerate=regenerate),
-        )
+        self._execution = {}
 
         def loaded(session: Session) -> None:
+            turn_input = _request_input(
+                user_input, regenerate=regenerate, started=session.started
+            )
+            if first:
+                self.set_input(turn_input)
             self.set_context(
                 session_id=getattr(session, "id", ""),
                 script=session.script.script,
@@ -220,12 +224,10 @@ class CourseTrace(MarkdownFlowTrace):
                     "content_revision": content_revision,
                 },
             )
-            turn_input = _request_input(
-                user_input, regenerate=regenerate, started=session.started
+            self.start_turn(
+                metadata={"outline_item_bid": self._outline_bid, **self._execution},
+                input=turn_input,
             )
-            self.current.update(input=turn_input)
-            if first:
-                self.set_input(turn_input)
 
         return loaded
 
@@ -233,12 +235,12 @@ class CourseTrace(MarkdownFlowTrace):
         self, progress_record_bid: str, generated_block_bid: str
     ) -> None:
         """Associate the current turn with its host-owned attempt and block."""
-        self.current.update(
-            metadata={
-                "progress_record_bid": progress_record_bid,
-                "generated_block_bid": generated_block_bid,
-            }
-        )
+        self._execution = {
+            "progress_record_bid": progress_record_bid,
+            "generated_block_bid": generated_block_bid,
+        }
+        if self._turn is not None:
+            self.current.update(metadata=self._execution)
 
     def after_save(
         self,

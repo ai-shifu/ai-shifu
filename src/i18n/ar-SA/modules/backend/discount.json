@@ -2,12 +2,12 @@
   "__namespace__": "server.discount",
   "__flat__": {
     "couponCodeGenerationFailed": "فشل إنشاء رمز الخصم، يرجى المحاولة مرة أخرى لاحقًا.",
-    "discountAlreadyExpired": "انتهت صلاحية رمز الاسترداد",
-    "discountAlreadyUsed": "تم استخدام رمز الاسترداد",
-    "discountLimitExceeded": "تم بلوغ الحد الأقصى لاستخدام رمز الاسترداد",
-    "discountNotApply": "لا ينطبق رمز الاسترداد على هذه الدورة",
-    "discountNotFound": "رمز الاسترداد غير موجود",
-    "discountNotStart": "رمز الاسترداد غير ساري بعد",
-    "orderDiscountAlreadyUsed": "استخدم الطلب رمز الاسترداد بالفعل"
+    "discountAlreadyExpired": "انتهت صلاحية رمز الخصم",
+    "discountAlreadyUsed": "تم استخدام رمز الخصم",
+    "discountLimitExceeded": "تم بلوغ الحد الأقصى لاستخدام رمز الخصم",
+    "discountNotApply": "لا ينطبق رمز الخصم على هذه الدورة",
+    "discountNotFound": "رمز الخصم غير موجود",
+    "discountNotStart": "رمز الخصم غير ساري بعد",
+    "orderDiscountAlreadyUsed": "استخدم الطلب رمز الخصم بالفعل"
   }
 }

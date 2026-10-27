@@ -567,8 +567,10 @@ def test_runtime_route_rejects_a_lesson_missing_from_the_requested_version(
 def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
     monkeypatch: object, test_client: object, feedback_course: object, visual: object
 ) -> None:
+    from flaskr.service.learn.agent import debug_session
+
     preview = Mock(return_value=iter([{"type": "done"}]))
-    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", preview)
+    monkeypatch.setattr(debug_session, "stream_debug_preview", preview)
     monkeypatch.setattr(routes, "is_builtin_demo_shifu", lambda *_: True)
     monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
     response = test_client.post(
@@ -578,18 +580,23 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
             "blockIndex": 0,
             "input": ["answer", None],
             "visual_mode": visual,
+            "debug_session_id": "editor-run-1",
         },
-        headers={"Token": "test-token", "Session-Id": "preview-session"},
+        headers={"Token": "test-token"},
     )
     assert '"type": "done"' in response.get_data(as_text=True)
     args = preview.call_args.kwargs
-    assert args["session_id"] == "preview-session"
+    assert args["run_bid"] == "editor-run-1"
     assert args["preview_request"].user_input == {"user_input": ["answer"]}
     assert args["preview_request"].visual_mode is (visual is not None)
     preview.reset_mock()
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/lesson",
-        json={"content": "Lesson", "block_index": "invalid"},
+        json={
+            "content": "Lesson",
+            "block_index": "invalid",
+            "debug_session_id": "editor-run-1",
+        },
         headers={"Token": "test-token"},
     ).get_json(force=True)
     assert response["code"] == ERROR_CODE["server.common.paramsError"]
@@ -605,7 +612,7 @@ def test_preview_route_supports_legacy_aliases_and_validates_before_model_call(
         {"sys_user_language": "en-US", "language": "zh-CN"},
     ],
 )
-def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks(
+def test_editor_preview_streams_through_the_agent_with_synchronized_language(
     monkeypatch: object,
     test_client: object,
     feedback_course: object,
@@ -616,10 +623,7 @@ def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks
 
     marker = {"type": "preview_engine", "content": "2.0"}
     agent = Mock(return_value=iter([marker]))
-    legacy = Mock(return_value=iter([{"type": "done"}]))
-    monkeypatch.setattr(routes, "uses_agent_engine", lambda *_: True)
     monkeypatch.setattr(debug_session, "stream_debug_preview", agent)
-    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", legacy)
     monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
 
     response = test_client.post(
@@ -641,10 +645,8 @@ def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks
         "sys_user_language": expected_language,
         "language": expected_language,
     }
-    legacy.assert_not_called()
 
 
-@pytest.mark.parametrize("agent_enabled", [False, True])
 @pytest.mark.parametrize(
     ("variables", "expected"),
     [
@@ -655,11 +657,10 @@ def test_editor_preview_routes_allowlisted_course_to_agent_without_legacy_blocks
         ({"sys_user_language": "en-US", "language": "zh-CN"}, "en-US"),
     ],
 )
-def test_preview_captures_language_before_streaming_for_both_runtimes(
+def test_preview_captures_language_before_streaming(
     monkeypatch: object,
     test_client: object,
     feedback_course: object,
-    agent_enabled: bool,
     variables: dict,
     expected: str,
 ) -> None:
@@ -677,9 +678,7 @@ def test_preview_captures_language_before_streaming_for_both_runtimes(
         seen.append(resolve_preview_language(captured))
         yield {"type": "done"}
 
-    monkeypatch.setattr(routes, "uses_agent_engine", lambda *_: agent_enabled)
     monkeypatch.setattr(debug_session, "stream_debug_preview", stream)
-    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", stream)
     monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
@@ -695,31 +694,31 @@ def test_preview_captures_language_before_streaming_for_both_runtimes(
     assert seen == [expected]
 
 
-@pytest.mark.parametrize("allowlisted", [False, True])
-def test_editor_preview_keeps_legacy_path_without_matching_client_and_allowlist(
+@pytest.mark.parametrize("debug_session_id", [None, "", "not valid!"])
+def test_editor_preview_without_a_debug_session_is_refused(
     monkeypatch: object,
     test_client: object,
     feedback_course: object,
-    allowlisted: bool,
+    debug_session_id: str | None,
 ) -> None:
-    legacy = Mock(return_value=iter([{"type": "done"}]))
-    monkeypatch.setattr(routes, "uses_agent_engine", lambda *_: allowlisted)
-    monkeypatch.setattr(routes.RunScriptPreviewContextV2, "stream_preview", legacy)
+    """Only a bundle old enough to expect the retired 1.0 block preview omits it."""
+    from flaskr.service.learn.agent import debug_session
+
+    agent = Mock(return_value=iter([{"type": "done"}]))
+    monkeypatch.setattr(debug_session, "stream_debug_preview", agent)
     monkeypatch.setattr(routes, "require_shifu_preview_permission", Mock())
     payload = {"content": "Lesson", "block_index": 0}
-    if not allowlisted:
-        payload["debug_session_id"] = "editor-run-1"
-    else:
-        payload["debug_session_id"] = ""
+    if debug_session_id is not None:
+        payload["debug_session_id"] = debug_session_id
 
     response = test_client.post(
         f"/api/learn/shifu/{feedback_course.bid}/preview/{feedback_course.bid}",
         json=payload,
         headers={"Token": "test-token"},
-    )
+    ).get_json(force=True)
 
-    assert '"done"' in response.get_data(as_text=True)
-    legacy.assert_called_once()
+    assert response["code"] == ERROR_CODE["server.common.paramsError"]
+    agent.assert_not_called()
 
 
 @pytest.mark.parametrize("allowed", [True, False])

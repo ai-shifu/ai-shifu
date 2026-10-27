@@ -12,17 +12,33 @@ jest.mock('@/api', () => ({
   },
 }));
 
-const translationCache = new Map<string, (key: string) => string>();
+type MockTranslation = (
+  key: string,
+  options?: Record<string, unknown>,
+) => string;
+const translationCache = new Map<string, MockTranslation>();
 jest.mock('react-i18next', () => ({
   useTranslation: (namespace?: string) => {
     const cacheKey = namespace || 'translation';
     if (!translationCache.has(cacheKey)) {
-      translationCache.set(cacheKey, (key: string) =>
-        namespace ? `${namespace}.${key}` : key,
-      );
+      translationCache.set(cacheKey, (key, options) => {
+        if (key === 'module.order.redemptionCodes.valueAmountLabel') {
+          return `${key} (${options?.currency})`;
+        }
+        if (key.startsWith('module.order.redemptionCodes.quantityEditHint')) {
+          return `${key} (${options?.usedCount})`;
+        }
+        return namespace ? `${namespace}.${key}` : key;
+      });
     }
     return { t: translationCache.get(cacheKey)! };
   },
+}));
+
+let mockCurrencySymbol = '€';
+jest.mock('@/store/envStore', () => ({
+  useEnvStore: (selector: (state: { currencySymbol: string }) => unknown) =>
+    selector({ currencySymbol: mockCurrencySymbol }),
 }));
 
 jest.mock('@/hooks/useToast', () => ({
@@ -128,6 +144,7 @@ const mockUpdateCreatorCourseRedemptionCode =
 
 describe('CreatorRedemptionCodeDialog', () => {
   beforeEach(() => {
+    mockCurrencySymbol = '€';
     mockGetAdminOrderShifus.mockReset();
     mockCreateCreatorCourseRedemptionCode.mockReset();
     mockUpdateCreatorCourseRedemptionCode.mockReset();
@@ -141,6 +158,33 @@ describe('CreatorRedemptionCodeDialog', () => {
       coupon_bid: 'coupon-1',
     });
   });
+
+  test.each(['€', '$'])(
+    'shows the configured currency %s only for fixed amount discounts',
+    async currency => {
+      mockCurrencySymbol = currency;
+      render(
+        <CreatorRedemptionCodeDialog
+          open
+          onOpenChange={jest.fn()}
+        />,
+      );
+
+      await screen.findByRole('button', { name: 'Course 1' });
+      const amountLabel = `module.order.redemptionCodes.valueAmountLabel (${currency})`;
+      expect(screen.getByText(amountLabel)).toBeVisible();
+
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.order.redemptionCodes.discountTypePercent',
+        }),
+      );
+      expect(
+        screen.getByText('module.order.redemptionCodes.valuePercentLabel'),
+      ).toBeVisible();
+      expect(screen.queryByText(amountLabel)).not.toBeInTheDocument();
+    },
+  );
 
   test('loads published courses and submits a course scoped redemption code', async () => {
     render(
@@ -158,47 +202,88 @@ describe('CreatorRedemptionCodeDialog', () => {
       });
     });
 
+    expect(
+      screen.getByText('module.order.redemptionCodes.description'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.genericHint'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.singleUseHint'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.dateRangeHint'),
+    ).toBeVisible();
+
     fireEvent.change(
       screen.getByPlaceholderText(
-        'module.operationsPromotion.filters.namePlaceholder',
+        'module.order.redemptionCodes.namePlaceholder',
       ),
       { target: { value: 'Creator Batch' } },
     );
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsPromotion.usageType.singleUse',
+        name: 'module.order.redemptionCodes.genericLabel',
       }),
     );
+    expect(
+      screen.getByText('module.order.redemptionCodes.quantityLabelGeneric'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.quantityHintGeneric'),
+    ).toBeVisible();
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsPromotion.discountType.fixed',
+        name: 'module.order.redemptionCodes.singleUseLabel',
       }),
     );
+    expect(
+      screen.getByText('module.order.redemptionCodes.quantityLabelSingleUse'),
+    ).toBeVisible();
+    expect(
+      screen.getByText('module.order.redemptionCodes.quantityHintSingleUse'),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.redemptionCodes.discountTypePercent',
+      }),
+    );
+    expect(
+      screen.getByText('module.order.redemptionCodes.valuePercentHint'),
+    ).toBeVisible();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'module.order.redemptionCodes.discountTypeFixed',
+      }),
+    );
+    expect(
+      screen.queryByText('module.order.redemptionCodes.valuePercentHint'),
+    ).not.toBeInTheDocument();
     fireEvent.change(
       screen.getByPlaceholderText(
-        'module.operationsPromotion.coupon.valueAmountPlaceholder',
+        'module.order.redemptionCodes.valueAmountPlaceholder',
       ),
       { target: { value: '20' } },
     );
     fireEvent.change(
       screen.getByPlaceholderText(
-        'module.operationsPromotion.coupon.quantityPlaceholder',
+        'module.order.redemptionCodes.quantityPlaceholder',
       ),
       { target: { value: '3' } },
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Course 1' }));
     fireEvent.change(
-      screen.getByLabelText('module.operationsPromotion.coupon.startAt'),
+      screen.getByLabelText('module.order.redemptionCodes.startAtLabel'),
       { target: { value: '2026-04-24 10:00:00' } },
     );
     fireEvent.change(
-      screen.getByLabelText('module.operationsPromotion.coupon.endAt'),
+      screen.getByLabelText('module.order.redemptionCodes.endAtLabel'),
       { target: { value: '2026-05-24 10:00:00' } },
     );
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'module.operationsPromotion.actions.confirmCreate',
+        name: 'module.order.redemptionCodes.submit',
       }),
     );
 
@@ -254,6 +339,9 @@ describe('CreatorRedemptionCodeDialog', () => {
       screen.getAllByText('module.order.redemptionCodes.editDialogTitle')
         .length,
     ).toBeGreaterThan(0);
+    expect(
+      screen.getByText('module.order.redemptionCodes.editDescription'),
+    ).toBeVisible();
 
     fireEvent.change(screen.getByDisplayValue('Old Batch'), {
       target: { value: 'Updated Batch' },
@@ -283,6 +371,84 @@ describe('CreatorRedemptionCodeDialog', () => {
     });
     expect(mockCreateCreatorCourseRedemptionCode).not.toHaveBeenCalled();
   });
+
+  test.each([
+    { usageType: 801, usageKey: 'generic', suffix: 'Generic' },
+    { usageType: 802, usageKey: 'singleUse', suffix: 'SingleUse' },
+  ])(
+    'edits $usageKey quantity as the absolute total including used quota',
+    async ({ usageType, usageKey, suffix }) => {
+      render(
+        <CreatorRedemptionCodeDialog
+          open
+          onOpenChange={jest.fn()}
+          coupon={{
+            coupon_bid: 'coupon-1',
+            name: 'Existing batch',
+            code: usageType === 801 ? 'EXISTING-CODE' : '',
+            usage_type: usageType,
+            usage_type_key: `module.operationsPromotion.usageType.${usageKey}`,
+            discount_type: 701,
+            discount_type_key: 'module.operationsPromotion.discountType.fixed',
+            value: '20',
+            scope_type: 'single_course',
+            shifu_bid: 'course-1',
+            course_name: 'Course 1',
+            start_at: '2026-04-24 10:00:00',
+            end_at: '2026-05-24 10:00:00',
+            total_count: 100,
+            used_count: 10,
+            computed_status: 'active',
+            computed_status_key: 'module.operationsPromotion.status.active',
+            created_at: '2026-04-24 10:00:00',
+            updated_at: '2026-04-24 10:00:00',
+          }}
+        />,
+      );
+
+      await screen.findByRole('button', { name: 'Course 1' });
+      expect(
+        screen.getByText(
+          `module.order.redemptionCodes.quantityEditLabel${suffix}`,
+        ),
+      ).toBeVisible();
+      expect(
+        screen.getByText(
+          `module.order.redemptionCodes.quantityEditHint${suffix} (10)`,
+        ),
+      ).toBeVisible();
+      expect(
+        screen.queryByText(
+          `module.order.redemptionCodes.quantityLabel${suffix}`,
+        ),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(
+          `module.order.redemptionCodes.quantityHint${suffix}`,
+        ),
+      ).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByDisplayValue('100'), {
+        target: { value: '120' },
+      });
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.operationsPromotion.actions.confirmUpdate',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockUpdateCreatorCourseRedemptionCode).toHaveBeenCalledWith(
+          expect.objectContaining({
+            coupon_bid: 'coupon-1',
+            usage_type: String(usageType),
+            total_count: '120',
+          }),
+        );
+      });
+      expect(mockCreateCreatorCourseRedemptionCode).not.toHaveBeenCalled();
+    },
+  );
 
   test('locks the selected course when opened from a course card shortcut', async () => {
     render(

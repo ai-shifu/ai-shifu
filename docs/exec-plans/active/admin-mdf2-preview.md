@@ -21,6 +21,7 @@ Teachers debugging an allowlisted course on the simulation deployment should see
 
 - 2026-09-30: Route only allowlisted courses to 2.0 in the deployment serving the request. Reuse `agent_lesson_events`, `run_agent_lesson`, and `PreviewElementRunAdapter`; do not build a second turn translator.
 - 2026-09-30: Use a per-debug-run expiring session so editor resets and draft changes cannot contaminate learner or teacher lesson sessions.
+- 2026-10-27: The 1.0 preview was removed (#3203) and the editor hook no longer handles it (#3209). Every editor debug run is 2.0, so `creator_lesson_preview_engine_started` now only reports `engine: v2`.
 
 ### Creator lesson preview engine event
 
@@ -28,10 +29,10 @@ Teachers debugging an allowlisted course on the simulation deployment should see
 - Metric definition: Count distinct `creator_lesson_preview_engine_started` events by `engine` per day, optionally grouping by course and lesson. The existing `creator_lesson_preview_click` is an intent signal; aggregate click-to-start ratios are approximate because clicks and starts have no shared attempt identifier.
 - Actor and surface: Signed-in teachers and collaborators in the lesson editor. Guests and learner preview are excluded.
 - Trigger: The first valid engine marker received for a fresh editor debug session, before content arrives. One event per editor debug session; block continuations and answer requests do not repeat it. A new reset creates a new session.
-- Payload: `engine` is `v1` or `v2`; `shifu_bid` and `outline_bid` are stable machine IDs needed to inspect rollout by course and lesson. No script, answer, title, URL, user identity, or model output is sent.
-- Consumers: Rollout review of 2.0 teacher debug usage. No correctness or billing decision uses this best-effort signal.
-- Compatibility: New event, no historical backfill. The existing click event keeps its meaning.
-- Verification: Frontend tests cover the exact event, deduplication, payload, and tracking failure isolation. Backend route tests cover both engine markers.
+- Payload: `engine` is `v2` (it was `v1` or `v2` until 2026-10-27, when the 1.0 preview was removed); `shifu_bid` and `outline_bid` are stable machine IDs needed to inspect rollout by course and lesson. No script, answer, title, URL, user identity, or model output is sent.
+- Consumers: Rollout review of 2.0 teacher debug usage. No correctness or billing decision uses this best-effort signal. With only `v2` emitted after 2026-10-27, the v1-versus-v2 split is historical; the event still counts editor debug sessions per course and lesson.
+- Compatibility: New event, no historical backfill. The existing click event keeps its meaning. Event name, trigger and payload fields are unchanged by the 2026-10-27 removal; `v1` values exist only in earlier data.
+- Verification: Frontend tests cover the exact event, deduplication, the `v2` payload, and tracking failure isolation. The backend debug preview always sends the `2.0` marker.
 
 ## Outcomes & Retrospective
 

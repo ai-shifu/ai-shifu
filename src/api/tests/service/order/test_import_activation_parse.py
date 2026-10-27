@@ -24,6 +24,7 @@ from flaskr.service.user.repository import (
     load_user_aggregate_by_identifier,
     upsert_credential,
 )
+from sqlalchemy import update
 
 PROFILE_UPDATED_AT = datetime(2026, 8, 12, 8, 30, tzinfo=UTC)
 
@@ -134,7 +135,7 @@ def test_parse_import_activation_entries_email_with_nickname(
     ],
     ids=["phone-profile", "email-cleared-state"],
 )
-def test_import_activation_keeps_pre_profile_nickname_behavior(
+def test_import_activation_preserves_existing_nickname_and_fills_empty_nickname(
     app: object,
     monkeypatch: object,
     contact_type: object,
@@ -190,7 +191,7 @@ def test_import_activation_keeps_pre_profile_nickname_behavior(
 
         assert result == {"order_bid": "import-order"}
         assert stored_user is not None
-        assert stored_user.nickname == "Imported nickname"
+        assert stored_user.nickname == (canonical_nickname or "Imported nickname")
 
 
 def test_import_activation_does_not_consult_profile_state_for_nickname_defaults(
@@ -288,14 +289,120 @@ def test_import_activation_does_not_consult_profile_state_for_nickname_defaults(
         stored_user = db.session.get(UserInfo, user.id)
         assert result == {"order_bid": "import-order"}
         assert stored_user is not None
-        assert stored_user.nickname == "Imported Name"
+        assert stored_user.nickname == "Canonical Name"
+
+
+@pytest.mark.parametrize("contact_type", ["phone", "email"])
+@pytest.mark.parametrize("allow_empty_nickname", [False, True])
+@pytest.mark.parametrize(
+    ("case", "existing_nickname", "imported_nickname", "expected_nickname"),
+    [
+        (1, "Learner chosen name", "Imported name", "Learner chosen name"),
+        (2, "  Learner chosen name  ", "Imported name", "  Learner chosen name  "),
+        (3, "", "Imported name", "Imported name"),
+        (4, " \t ", "Imported name", "Imported name"),
+        (5, "Learner chosen name", None, "Learner chosen name"),
+        (6, "", None, ""),
+        (7, " \t ", None, " \t "),
+        (8, "Learner chosen name", " \t ", "Learner chosen name"),
+        (9, "", " \t ", ""),
+    ],
+)
+def test_import_activation_only_fills_missing_nicknames(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    contact_type: str,
+    allow_empty_nickname: bool,
+    case: int,
+    existing_nickname: str,
+    imported_nickname: str | None,
+    expected_nickname: str,
+) -> None:
+    _stub_activation_order_side_effects(monkeypatch)
+    suffix = 100 + case + (100 if allow_empty_nickname else 0)
+    identifier = (
+        f"13800138{suffix:03d}"
+        if contact_type == "phone"
+        else f"nickname-import-{suffix}@example.com"
+    )
+
+    with app.app_context():
+        user = create_user_entity(
+            user_bid=f"nickname-import-{contact_type}-{suffix}",
+            identify=identifier,
+            nickname=existing_nickname,
+            state=USER_STATE_REGISTERED,
+        )
+        db.session.commit()
+
+        result = import_activation_order(
+            app,
+            identifier,
+            "nickname-preservation-course",
+            imported_nickname,
+            contact_type=contact_type,
+            allow_empty_nickname=allow_empty_nickname,
+        )
+        db.session.expire_all()
+        stored_user = db.session.get(UserInfo, user.id)
+
+        assert result == {"order_bid": "import-order"}
+        assert stored_user is not None
+        assert stored_user.nickname == expected_nickname
+
+
+def test_import_activation_refreshes_nickname_before_filling_a_stale_empty_value(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import flaskr.service.order.admin as order_admin
+
+    _stub_activation_order_side_effects(monkeypatch)
+    original_ensure_user = order_admin.ensure_user_for_identifier
+
+    def update_after_lookup(*args: object, **kwargs: object) -> object:
+        aggregate, created = original_ensure_user(*args, **kwargs)
+        # Simulate the database changing after the aggregate and entity were read.
+        db.session.execute(
+            update(UserInfo)
+            .where(UserInfo.user_bid == aggregate.user_bid)
+            .values(nickname="Latest learner name")
+            .execution_options(synchronize_session=False)
+        )
+        return aggregate, created
+
+    monkeypatch.setattr(order_admin, "ensure_user_for_identifier", update_after_lookup)
+
+    with app.app_context():
+        user = create_user_entity(
+            user_bid="nickname-import-stale-empty",
+            identify="13800138300",
+            nickname="",
+            state=USER_STATE_REGISTERED,
+        )
+        db.session.commit()
+
+        result = import_activation_order(
+            app,
+            "13800138300",
+            "nickname-preservation-course",
+            "Imported name",
+        )
+        db.session.expire_all()
+        stored_user = db.session.get(UserInfo, user.id)
+
+        assert result == {"order_bid": "import-order"}
+        assert stored_user is not None
+        assert stored_user.nickname == "Latest learner name"
 
 
 @pytest.mark.parametrize(
-    ("contact_type", "identifier"),
+    ("contact_type", "identifier", "allow_empty_nickname"),
     [
-        ("phone", "13800138005"),
-        ("email", "new-profile@example.com"),
+        ("phone", "13800138005", False),
+        ("email", "new-profile@example.com", False),
+        ("phone", "13800138305", True),
+        ("email", "new-bulk-profile@example.com", True),
     ],
 )
 def test_import_activation_keeps_nickname_behavior_for_new_users(
@@ -303,6 +410,7 @@ def test_import_activation_keeps_nickname_behavior_for_new_users(
     monkeypatch: object,
     contact_type: object,
     identifier: object,
+    allow_empty_nickname: bool,
 ) -> None:
     _stub_activation_order_side_effects(monkeypatch)
 
@@ -313,6 +421,7 @@ def test_import_activation_keeps_nickname_behavior_for_new_users(
             "new-profile-course",
             "Imported nickname",
             contact_type=contact_type,
+            allow_empty_nickname=allow_empty_nickname,
         )
         stored_user = load_user_aggregate_by_identifier(
             identifier,
@@ -331,10 +440,12 @@ def test_import_activation_keeps_nickname_behavior_for_new_users(
 
 
 @pytest.mark.parametrize(
-    ("contact_type", "identifier"),
+    ("contact_type", "identifier", "allow_empty_nickname"),
     [
-        ("phone", "13987654321"),
-        ("email", "fallback-profile@example.com"),
+        ("phone", "13987654321", False),
+        ("email", "fallback-profile@example.com", False),
+        ("phone", "13987654322", True),
+        ("email", "empty-profile@example.com", True),
     ],
 )
 def test_import_activation_identifier_fallback_is_not_profile_prefill(
@@ -342,6 +453,7 @@ def test_import_activation_identifier_fallback_is_not_profile_prefill(
     monkeypatch: object,
     contact_type: object,
     identifier: object,
+    allow_empty_nickname: bool,
 ) -> None:
     _stub_activation_order_side_effects(monkeypatch)
 
@@ -351,6 +463,7 @@ def test_import_activation_identifier_fallback_is_not_profile_prefill(
             identifier,
             "fallback-profile-course",
             contact_type=contact_type,
+            allow_empty_nickname=allow_empty_nickname,
         )
         stored_user = load_user_aggregate_by_identifier(
             identifier,
@@ -361,7 +474,7 @@ def test_import_activation_identifier_fallback_is_not_profile_prefill(
         assert stored_user is not None
         # Keep the compatibility field unchanged while excluding its
         # import-only fallback from the learner-owned profile draft.
-        assert stored_user.nickname == identifier
+        assert stored_user.nickname == ("" if allow_empty_nickname else identifier)
         assert (
             get_learner_profile(user_id=stored_user.user_bid)["legacy_profile_values"]
             == {}

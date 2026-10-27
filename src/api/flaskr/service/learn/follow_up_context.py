@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.service.common import raise_error
 from flaskr.service.learn.agent.rewind import read_turn_learner_values
-from flaskr.service.learn.agent.routing import uses_agent_engine
 from flaskr.service.learn.follow_up_memory import render_follow_up_memory
 from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
@@ -404,7 +403,6 @@ def build_follow_up_conversation_context(
     if not str(outline_item_bid or "").strip():
         message = "Follow-up context requires an outline item BID"
         raise ValueError(message)
-    agent_memory = uses_agent_engine(shifu_bid)
     context_prompt = course_system_prompt or fallback_system_prompt
     profiles = dict(
         runtime_profiles
@@ -414,7 +412,7 @@ def build_follow_up_conversation_context(
             user_info.user_id,
             shifu_bid,
             reference_text=context_prompt or "",
-            **({"include_course_variables": True} if agent_memory else {}),
+            include_course_variables=True,
         ).as_variables()
     )
     if use_learner_language and runtime_language:
@@ -471,7 +469,7 @@ def build_follow_up_conversation_context(
             f"\n\nIMPORTANT: You MUST respond in {resolved_output_language}."
         )
 
-    memory_prompt = render_follow_up_memory(profiles) if agent_memory else ""
+    memory_prompt = render_follow_up_memory(profiles)
     if memory_prompt:
         system_instruction += "\n\n" + memory_prompt
 

@@ -11,7 +11,6 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import learn_funcs
-from flaskr.service.learn.agent import routing
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.lesson_reset_limit import get_lesson_reset_status
 from flaskr.service.learn.models import LearnLessonResetRecord, LearnProgressRecord
@@ -316,9 +315,9 @@ def test_preview_reset_is_not_counted_and_status_is_open(
     assert status(app, course) is False
     assert status(app, course, preview_mode=True) is True
     assert reset(app, course, preview_mode=True) is True
-    rows = reset_rows(app, course)
-    assert [row.counted for row in rows] == [1, 1, 0]
-    assert rows[-1].preview_mode == 1
+    # A preview with no live draft session resets nothing and spends nothing; the
+    # uncounted audit row for a live one is covered by the agent preview test below.
+    assert [row.counted for row in reset_rows(app, course)] == [1, 1]
 
 
 def test_lesson_outside_the_course_is_rejected(
@@ -394,10 +393,9 @@ def test_same_trace_id_on_another_lesson_is_not_a_retry(
 
 
 def test_agent_preview_reset_is_recorded_as_uncounted(
-    app: Flask, course: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+    app: Flask, course: SimpleNamespace
 ) -> None:
     """The 2.0 draft-preview branch returns early but still leaves an audit row."""
-    monkeypatch.setattr(routing, "uses_agent_engine", lambda _bid: True)
     with app.app_context(), unit_of_work():
         db.session.add(
             DraftOutlineItem(

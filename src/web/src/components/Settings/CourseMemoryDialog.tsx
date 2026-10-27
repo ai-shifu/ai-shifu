@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import {
   Dialog,
@@ -129,7 +129,7 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
       }}
     >
       <DialogContent
-        className='max-w-xl'
+        className='flex max-h-[calc(100dvh-2rem)] max-w-xl flex-col'
         showClose={!deleting}
         onEscapeKeyDown={event => {
           if (pending.current) event.preventDefault();
@@ -141,50 +141,86 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
             {t('module.settings.memoryDescription')}
           </DialogDescription>
         </DialogHeader>
-        {error ? <p role='alert'>{t(`module.settings.${error}`)}</p> : null}
+        {error ? (
+          <p
+            role='alert'
+            className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground'
+          >
+            {t(`module.settings.${error}`)}
+          </p>
+        ) : null}
         <div
-          className='max-h-[55vh] overflow-y-auto space-y-3'
+          role='status'
+          className='sr-only'
+        >
+          {loading ? t('module.settings.memoryLoading') : ''}
+        </div>
+        <div
+          className='-mx-1 min-h-0 flex-1 overflow-y-auto px-1'
           aria-busy={loading}
         >
           {!loading && !items.length && !error ? (
-            <p>{t('module.settings.memoryEmpty')}</p>
+            <p className='py-10 text-center text-sm text-muted-foreground'>
+              {t('module.settings.memoryEmpty')}
+            </p>
           ) : null}
-          {items.map(item => (
-            <div
-              key={item.value_id}
-              className='border rounded p-3 space-y-2'
-            >
-              <p className='font-medium break-all'>{item.key}</p>
-              <p className='whitespace-pre-wrap break-words'>{item.value}</p>
-              <Button
-                variant='outline'
-                disabled={deleting || loading || !!selected}
-                onClick={() => {
-                  if (!selected) {
-                    setError('');
-                    setSelected(item);
-                  }
-                }}
-              >
-                {t('module.settings.memoryDelete')}
-              </Button>
+          {items.length ? (
+            <ul className='divide-y rounded-lg border'>
+              {items.map(item => (
+                <li
+                  key={item.value_id}
+                  className='flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40'
+                >
+                  <div className='min-w-0 flex-1 space-y-1.5'>
+                    <span className='inline-block max-w-full break-all rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground'>
+                      {item.key}
+                    </span>
+                    <p className='whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground'>
+                      {item.value}
+                    </p>
+                  </div>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    className='h-8 w-8 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive'
+                    aria-label={t('module.settings.memoryDelete')}
+                    title={t('module.settings.memoryDelete')}
+                    disabled={deleting || loading || !!selected}
+                    onClick={() => {
+                      if (!selected) {
+                        setError('');
+                        setSelected(item);
+                      }
+                    }}
+                  >
+                    <Trash2 className='h-4 w-4' />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {loading ? (
+            <div className='flex justify-center py-6'>
+              <Loader2
+                aria-hidden='true'
+                className='h-5 w-5 animate-spin text-muted-foreground'
+              />
             </div>
-          ))}
+          ) : null}
         </div>
-        {loading ? (
-          <Loader2
-            role='status'
-            aria-label={t('module.settings.memoryLoading')}
-            className='animate-spin'
-          />
-        ) : null}
         {!loading && error === 'memoryLoadFailed' ? (
-          <Button onClick={() => void load(cursor ?? undefined)}>
+          <Button
+            variant='outline'
+            className='w-full'
+            onClick={() => void load(cursor ?? undefined)}
+          >
             {t('module.settings.memoryRetry')}
           </Button>
         ) : null}
         {!loading && cursor !== null ? (
           <Button
+            variant='outline'
+            className='w-full'
             disabled={deleting || !!selected}
             onClick={() => void load(cursor)}
           >
@@ -211,7 +247,12 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
               </AlertDialogDescription>
             </AlertDialogHeader>
             {error === 'memoryDeleteFailed' ? (
-              <p role='alert'>{t('module.settings.memoryDeleteFailed')}</p>
+              <p
+                role='alert'
+                className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground'
+              >
+                {t('module.settings.memoryDeleteFailed')}
+              </p>
             ) : null}
             <AlertDialogFooter>
               <Button

@@ -3,7 +3,7 @@
   "__flat__": {
     "checkout": "Ir al pago",
     "courseNotPaid": "Aún no has comprado este curso. Cómpralo para continuar.",
-    "emailAlreadyActivated": "El correo electrónico {email} ya tiene acceso a este curso.",
+    "emailAlreadyActivated": "Este curso ya está activado para este estudiante; no es necesario volver a activarlo: {email}",
     "importActivationFailed": "No se ha podido importar esta fila de activación. Revisa sus datos e inténtalo de nuevo.",
     "learnStatusBranch": "Rama",
     "learnStatusCompleted": "Completado",
@@ -13,7 +13,7 @@
     "learnStatusRefund": "Reembolso",
     "learnStatusReset": "Restablecido",
     "learnStatusUnavailable": "No disponible",
-    "mobileAlreadyActivated": "El móvil {mobile} ya tiene acceso a este curso.",
+    "mobileAlreadyActivated": "Este curso ya está activado para este estudiante; no es necesario volver a activarlo: {mobile}",
     "orderHasPaid": "El pedido ya se ha pagado.",
     "orderNotFound": "No se ha encontrado el pedido.",
     "orderPayExpired": "El pedido ha caducado. Haz uno nuevo.",

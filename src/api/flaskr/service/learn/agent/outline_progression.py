@@ -11,10 +11,8 @@ What is decided here is only *which* items changed and how. Writing that down, a
 events, belongs to the caller: this walks a tree and returns a list, so it can be tested against
 an outline without a database, a learner, or a lesson.
 
-The equivalent for 1.0 lives in `learn/run/state.py` and decides the same thing from a block
-position, which 2.0 has no notion of -- its lesson ends when the engine says the lesson is over.
-The two should converge once 1.0 is retired; until then this deliberately covers only the endings
-a 2.0 lesson produces, rather than reimplementing a state machine that already works.
+A 2.0 lesson has no block position: it ends when the engine says the lesson is over, or, for a
+lesson with no script, as soon as it is opened. This covers only those endings.
 """
 
 from __future__ import annotations

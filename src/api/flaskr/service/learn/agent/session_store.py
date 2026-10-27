@@ -101,6 +101,27 @@ def load_agent_session(
         return _load(user_bid, outline_item_bid, preview_mode=preview_mode)
 
 
+def active_session_id(
+    user_bid: str, outline_item_bid: str, *, preview_mode: bool = False
+) -> str | None:
+    """Return the native id of the learner's live session for this lesson, if any.
+
+    This is the Langfuse Session the lesson's turns are traced in. Only the id is read, so a
+    session this build could not resume still names its Session.
+    """
+    row = LearnAgentSession.query.filter(
+        LearnAgentSession.active_key
+        == active_key_for(user_bid, outline_item_bid, preview_mode=preview_mode)
+    ).first()
+    if row is None:
+        return None
+    try:
+        session_id = json.loads(row.session_data).get("id")
+    except (TypeError, ValueError, AttributeError):
+        return None
+    return session_id if isinstance(session_id, str) and session_id else None
+
+
 def _load(
     user_bid: str, outline_item_bid: str, *, preview_mode: bool = False
 ) -> Session | None:

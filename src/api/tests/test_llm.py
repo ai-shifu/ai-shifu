@@ -4406,6 +4406,7 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
     from flaskr.api import langfuse_markdownflow
     from flaskr.api.langfuse import MockClient
     from flaskr.api.llm import model_selection
+    from flaskr.api.markdownflow import ScriptBundle, Session
     from flaskr.dao import db
     from flaskr.service.learn.agent import lesson_entry
     from pydantic_ai.models import ModelRequestParameters
@@ -4438,7 +4439,22 @@ def test_agent_lesson_keeps_course_selection_provenance_at_gateway(
         ),
     )
 
-    def run_gateway(_app: object, *, engine: object, **_kwargs: object) -> object:
+    def run_gateway(
+        _app: object, *, engine: object, tracing: object, **kwargs: object
+    ) -> object:
+        """Load the native session before invoking the traced teaching gateway."""
+        on_session_loaded = tracing.prepare_turn(
+            user_input=kwargs["user_input"],
+            regenerate=kwargs["rewind"] is not None,
+            teaching_brief=kwargs["teaching_brief"],
+            content_revision=kwargs["content_revision"],
+        )
+        on_session_loaded(
+            Session(
+                script=ScriptBundle(script=kwargs["script"]),
+                user_id=kwargs["user_bid"],
+            )
+        )
         # Exercise the gateway without presenting provider chunks as lesson DTOs.
         list(engine.model._stream([], ModelRequestParameters(), engine.settings))
         yield from ()
@@ -4812,7 +4828,7 @@ def test_quality_cli_attributes_every_family_without_fabricating_classroom_recor
     from flaskr.api import langfuse
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.billing import ownership
-    from flaskr.service.learn.agent import lesson_entry, routing
+    from flaskr.service.learn.agent import lesson_entry
     from flaskr.service.learn.llmsetting import LLMSettings
     from flaskr.service.metering import recorder
     from flaskr.service.metering.models import BillUsageRecord
@@ -4826,7 +4842,6 @@ def test_quality_cli_attributes_every_family_without_fabricating_classroom_recor
     _use_fake_provider(monkeypatch)
     learner, course, lesson, owner = [uuid.uuid4().hex for _ in range(4)]
     monkeypatch.setattr(app_module, "create_app", lambda **_kwargs: app)
-    monkeypatch.setattr(routing, "uses_agent_engine", lambda _course: True)
     monkeypatch.setattr(
         lesson_entry,
         "_resolve",

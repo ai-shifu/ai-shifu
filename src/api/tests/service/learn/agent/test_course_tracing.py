@@ -34,6 +34,98 @@ calls = host_tests.calls
 captured_spans = sdk_tests.captured_spans
 
 
+@pytest.mark.parametrize("scene", ["learn", "preview", "debug"])
+@pytest.mark.parametrize("shared_http_id", [True, False])
+def test_advances_keep_distinct_traces_in_one_document_execution_session(
+    monkeypatch: pytest.MonkeyPatch,
+    captured_spans: object,
+    scene: str,
+    shared_http_id: bool,
+) -> None:
+    """HTTP identity and document continuity cannot merge separate advances."""
+    client, exporter, _provider = captured_spans
+    monkeypatch.setattr(tracing_module, "get_langfuse_client", lambda: client)
+    for index, session_id in enumerate(("conversation", "conversation", "reset")):
+        monkeypatch.setattr(
+            tracing_module,
+            "get_request_id",
+            lambda index=index: (
+                "shared-request" if shared_http_id else f"request-{index}"
+            ),
+        )
+        trace = course_tracing.CourseTrace(
+            user_bid="learner",
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_input=f"answer-{index}",
+            preview_mode=scene != "learn",
+            debug=scene == "debug",
+            listen=False,
+            learning_mode="read",
+            regenerate=False,
+        )
+        session = _Session(started=index > 0)
+        session.id = session_id
+        with trace:
+            loaded = trace.prepare_turn(
+                user_input=f"answer-{index}",
+                regenerate=False,
+                teaching_brief="Teach clearly.",
+                content_revision=1,
+            )
+            assert trace.model_parent.trace_id == ""
+            if index == 0:
+                # New sessions are created on the producer after host progress opens.
+                trace.bind_execution(f"progress-{index}", f"block-{index}")
+                loaded(session)
+            else:
+                # Restored sessions arrive before the host opens its next block.
+                loaded(session)
+                trace.bind_execution(f"progress-{index}", f"block-{index}")
+            trace.model_parent.generation(name="teaching", model="test-model").end(
+                output=f"model-{index}"
+            )
+            trace.append_output(f"visible-{index}")
+            trace.complete_turn("waiting")
+
+    spans = exporter.get_finished_spans()
+    roots = [span for span in spans if span.name == f"{scene}/course/lesson"]
+    assert len(roots) == 3
+    assert len({span.context.span_id for span in roots}) == 3
+    assert len({root.context.trace_id for root in roots}) == 3
+    assert [root.attributes["session.id"] for root in roots] == [
+        "conversation",
+        "conversation",
+        "reset",
+    ]
+    for index, root in enumerate(roots):
+        assert root.attributes["langfuse.observation.input"] == f"answer-{index}"
+        assert root.attributes["langfuse.observation.output"] == f"visible-{index}"
+        assert root.attributes["langfuse.trace.metadata.request_id"] == (
+            "shared-request" if shared_http_id else f"request-{index}"
+        )
+        turn = next(
+            span
+            for span in spans
+            if span.name == "teaching_round"
+            and span.parent.span_id == root.context.span_id
+        )
+        generation = next(
+            span
+            for span in spans
+            if span.name == "teaching" and span.parent.span_id == turn.context.span_id
+        )
+        assert (
+            turn.attributes["langfuse.observation.metadata.progress_record_bid"]
+            == f"progress-{index}"
+        )
+        assert (
+            turn.attributes["langfuse.observation.metadata.generated_block_bid"]
+            == f"block-{index}"
+        )
+        assert generation.context.trace_id == root.context.trace_id
+
+
 def _entry(
     monkeypatch: pytest.MonkeyPatch, engine: object, title_context: dict | None = None
 ) -> None:

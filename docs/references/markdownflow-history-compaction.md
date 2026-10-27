@@ -2,14 +2,24 @@
 title: MarkdownFlow recall history compaction
 status: active
 owner_surface: learner
-last_reviewed: 2026-10-08
+last_reviewed: 2026-10-26
 ---
 
 # MarkdownFlow recall history compaction
 
-AI-Shifu 2.0 teaching and author previews enable
-`Engine(memory_recall=True, recall_history_compaction=True)`. Portable engines
-default to no compaction. Compaction requires recall to remain available.
+The engine supports `Engine(memory_recall=True, recall_history_compaction=True)`,
+and portable engines default to no compaction. Compaction requires recall to
+remain available.
+
+AI-Shifu 2.0 teaching and author previews keep it disabled. Recall results are
+small, so compaction saves little input. Each turn it rewrites the previous
+turn's results, which moves the provider prefix-cache break point. It also marks
+those keys stale, so the revalidation notice in the instructions appears and
+disappears between requests. Because that notice ends the instructions, every
+request that toggles it cannot reuse the provider prefix cache for the history
+that follows. The production cache-hit effect has not been measured yet. The
+model is also nudged into extra recall calls. Long teaching text
+continues to be projected by teaching-history compaction.
 
 ## Request projection
 
