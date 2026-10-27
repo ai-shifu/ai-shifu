@@ -54,7 +54,8 @@
     "userBidPhone": "Mobile"
   },
   "importActivation": {
-    "action": "Import Activation",
+    "action": "Add learners",
+    "actionDescription": "Enter phone numbers or emails to activate the course at no charge",
     "confirmDescription": "{mobiles}, import {count} mobile numbers. Proceed?",
     "confirmTitle": "Confirm mobile import",
     "courseLabel": "Course",
@@ -113,7 +114,8 @@
     "unknown": "Unknown"
   },
   "redemptionCodes": {
-    "action": "Create Code",
+    "action": "Generate discount codes",
+    "actionDescription": "Let learners use a code to reduce the course price",
     "courseLabel": "Course",
     "coursePlaceholder": "Select a published course",
     "courseRequired": "Course is required",

@@ -54,7 +54,8 @@
     "userBidPhone": "Telefonnummer"
   },
   "importActivation": {
-    "action": "Aktivierung importieren",
+    "action": "Lernende hinzufügen",
+    "actionDescription": "Telefonnummern oder E-Mail-Adressen eingeben und den Kurs kostenlos freischalten",
     "confirmDescription": "Es werden {count} Telefonnummern importiert: {mobiles}. Fortfahren?",
     "confirmTitle": "Mobiler Import bestätigen",
     "courseLabel": "Kurs",
@@ -113,7 +114,8 @@
     "unknown": "Unbekannt"
   },
   "redemptionCodes": {
-    "action": "Code erstellen",
+    "action": "Rabattcodes generieren",
+    "actionDescription": "Lernende können den Kurspreis mit einem Code reduzieren",
     "courseLabel": "Kurs",
     "coursePlaceholder": "Wählen Sie einen veröffentlichten Kurs aus",
     "courseRequired": "Kurs ist erforderlich",

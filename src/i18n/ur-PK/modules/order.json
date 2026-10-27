@@ -54,7 +54,8 @@
     "userBidPhone": "موبائل فون نمبر"
   },
   "importActivation": {
-    "action": "ایکٹیویشن درآمد کریں۔",
+    "action": "طلبہ شامل کریں",
+    "actionDescription": "فون نمبر یا ای میل درج کرکے کورس تک مفت رسائی دیں",
     "confirmDescription": "{mobiles}، کل {count} موبائل نمبر درآمد ہوں گے۔ کیا درآمد کرنا چاہتے ہیں؟",
     "confirmTitle": "موبائل فون نمبر درآمد کرنے کی تصدیق کریں۔",
     "courseLabel": "کورس",
@@ -113,7 +114,8 @@
     "unknown": "نامعلوم"
   },
   "redemptionCodes": {
-    "action": "ریڈیمپشن کوڈ بنائیں",
+    "action": "رعایتی کوڈ بنائیں",
+    "actionDescription": "طلبہ کوڈ استعمال کرکے کورس کی فیس میں رعایت حاصل کریں",
     "courseLabel": "کورس",
     "coursePlaceholder": "براہ کرم شائع شدہ کورس منتخب کریں۔",
     "courseRequired": "براہ کرم ایک کورس منتخب کریں۔",

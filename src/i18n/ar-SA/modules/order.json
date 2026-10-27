@@ -54,7 +54,8 @@
     "userBidPhone": "رقم الهاتف"
   },
   "importActivation": {
-    "action": "استيراد وتفعيل",
+    "action": "إضافة متعلمين",
+    "actionDescription": "أدخل أرقام الهواتف أو البريد الإلكتروني لتفعيل الدورة مجانًا للمتعلمين",
     "confirmDescription": "{mobiles}، إجمالي {count} رقم هاتف، هل تريد تأكيد الاستيراد؟",
     "confirmTitle": "تأكيد استيراد أرقام الهواتف",
     "courseLabel": "الدورة",
@@ -113,7 +114,8 @@
     "unknown": "غير معروف"
   },
   "redemptionCodes": {
-    "action": "إنشاء رمز استرداد",
+    "action": "إنشاء رموز خصم",
+    "actionDescription": "يستخدم المتعلمون رمزًا لتخفيض سعر الدورة",
     "courseLabel": "الدورة",
     "coursePlaceholder": "اختر دورة منشورة",
     "courseRequired": "يرجى اختيار دورة",
