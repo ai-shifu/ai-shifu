@@ -98,8 +98,13 @@ def _ask(app: object, course: SimpleNamespace, **overrides: object) -> list:
     return list(follow_up_events(app, **arguments))
 
 
-def _ask_block() -> LearnGeneratedBlock:
-    return LearnGeneratedBlock.query.filter_by(type=BLOCK_TYPE_MDASK_VALUE).one()
+def _ask_block(course: SimpleNamespace) -> LearnGeneratedBlock:
+    # Scoped to this test's learner and lesson: the database is shared across tests.
+    return LearnGeneratedBlock.query.filter_by(
+        type=BLOCK_TYPE_MDASK_VALUE,
+        user_bid=course.user_bid,
+        outline_item_bid=course.outline_bid,
+    ).one()
 
 
 def test_answers_at_the_learners_position(
@@ -119,7 +124,7 @@ def test_answers_at_the_learners_position(
             e.type == GeneratedType.CONTENT and e.content == "Follow-up answer"
             for e in events
         )
-        block = _ask_block()
+        block = _ask_block(course)
         assert block.progress_record_bid == progress_bid
         assert block.position == 1
         assert block.generated_content == "Explain this"
@@ -159,7 +164,7 @@ def test_an_anchored_question_is_asked_at_the_anchor_block(
             )
         _ask(app, course, reload_generated_block_bid=anchor_bid)
 
-        assert _ask_block().position == 0
+        assert _ask_block(course).position == 0
 
 
 def test_an_anchor_from_another_lesson_is_ignored(
@@ -188,7 +193,7 @@ def test_an_anchor_from_another_lesson_is_ignored(
             )
         _ask(app, course, reload_generated_block_bid=foreign_bid)
 
-        assert _ask_block().position == 2
+        assert _ask_block(course).position == 2
 
 
 def _sell_lesson(course: SimpleNamespace) -> None:
@@ -240,7 +245,7 @@ def test_a_guest_may_ask_in_a_trial_lesson_like_the_2_0_lesson_allows(
     with app.app_context():
         _ask(app, course)
 
-        assert _ask_block().user_bid == course.user_bid
+        assert _ask_block(course).user_bid == course.user_bid
         assert ask_runtime.calls.llm
 
 
@@ -260,7 +265,7 @@ def test_a_question_before_the_lesson_started_creates_a_placeholder(
             outline_item_bid=course.outline_bid, user_bid=course.user_bid
         ).one()
         assert record.status == LEARN_STATUS_NOT_STARTED
-        assert _ask_block().progress_record_bid == record.progress_record_bid
+        assert _ask_block(course).progress_record_bid == record.progress_record_bid
 
 
 @pytest.mark.parametrize("preview", [False, True])
