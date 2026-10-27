@@ -209,10 +209,7 @@ def get_listen_element_record(
     include_non_navigable: bool = False,
 ) -> LearnElementRecordDTO:
     """Return listen element record."""
-    from flaskr.service.learn.agent.routing import uses_agent_engine
-
-    agent_enabled = uses_agent_engine(shifu_bid)
-    if preview_mode and agent_enabled:
+    if preview_mode:
         from flaskr.service.learn.agent.preview_history import (
             get_preview_record,
             uses_preview_session_history,
@@ -247,7 +244,7 @@ def get_listen_element_record(
             progress_record_bid=progress_record_bid,
         ),
     )
-    if agent_enabled and not preview_mode:
+    if not preview_mode:
         progress = (
             LearnProgressRecord.query.with_entities(LearnProgressRecord.status)
             .filter(

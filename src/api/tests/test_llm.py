@@ -4828,7 +4828,7 @@ def test_quality_cli_attributes_every_family_without_fabricating_classroom_recor
     from flaskr.api import langfuse
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.billing import ownership
-    from flaskr.service.learn.agent import lesson_entry, routing
+    from flaskr.service.learn.agent import lesson_entry
     from flaskr.service.learn.llmsetting import LLMSettings
     from flaskr.service.metering import recorder
     from flaskr.service.metering.models import BillUsageRecord
@@ -4842,7 +4842,6 @@ def test_quality_cli_attributes_every_family_without_fabricating_classroom_recor
     _use_fake_provider(monkeypatch)
     learner, course, lesson, owner = [uuid.uuid4().hex for _ in range(4)]
     monkeypatch.setattr(app_module, "create_app", lambda **_kwargs: app)
-    monkeypatch.setattr(routing, "uses_agent_engine", lambda _course: True)
     monkeypatch.setattr(
         lesson_entry,
         "_resolve",

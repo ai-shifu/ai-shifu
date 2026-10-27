@@ -28,7 +28,6 @@ from flaskr.dao import (
 from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common.models import AppError, raise_error
-from flaskr.service.learn.agent.routing import uses_agent_engine
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.exceptions import BreakError
 from flaskr.service.learn.learn_dtos import (
@@ -766,7 +765,7 @@ def _teaches_with_agent(
         reload_generated_block_bid,
         reload_element_bid,
     )  # kept for the call sites; no longer decide
-    if not uses_agent_engine(shifu_bid):
+    if not str(shifu_bid or "").strip():
         return False
     return input_type != INPUT_TYPE_ASK
 

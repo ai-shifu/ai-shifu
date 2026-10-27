@@ -15,7 +15,7 @@ from flaskr.api.langfuse import MockClient
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn import runscript_v2 as runtime
-from flaskr.service.learn.agent import lesson_entry, routing
+from flaskr.service.learn.agent import lesson_entry
 from flaskr.service.learn.agent.models import LearnAgentSession
 from flaskr.service.learn.agent.preview_history import (
     begin_preview_run,
@@ -153,8 +153,6 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
 
     monkeypatch.setattr(lesson_entry, "_resolve", resolve)
     monkeypatch.setattr(langfuse_markdownflow, "get_langfuse_client", MockClient)
-    monkeypatch.setattr(runtime, "uses_agent_engine", lambda _bid: True)
-    monkeypatch.setattr(routing, "uses_agent_engine", lambda _bid: True)
 
     def drive(make_events: Callable, **_kwargs: object) -> Iterator:
         async def collect() -> list:

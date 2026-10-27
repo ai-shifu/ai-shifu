@@ -208,9 +208,6 @@ def format_environment(
     for name in ("USER", "SHIFU", "OUTLINE", "PROGRESS"):
         monkeypatch.setattr(host_fixture, name, f"{name.lower()}-{suffix}")
     monkeypatch.setattr(run_agent, "LessonVoice", _Voice)
-    monkeypatch.setattr(
-        "flaskr.service.learn.agent.routing.uses_agent_engine", lambda _bid: False
-    )
     assert calls == []
     return app
 
