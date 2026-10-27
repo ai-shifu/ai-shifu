@@ -42,7 +42,8 @@ returns the expected demo exemption inside the existing app-context helper.
   existing caller session; end a temporary native scope before autonomous writes.
 - Keep the fix in the shared recorder so both LLM and TTS callers benefit.
 - Preserve billing defaults, settlement enqueue rules, schemas and dependencies.
-- Keep both production flags false until the corrected image is verified.
+- 2026-10-09 (historical): keep both production flags false until the corrected
+  image is verified. The flag was removed on 2026-10-27.
 
 ## Outcomes & Retrospective
 
@@ -72,8 +73,8 @@ separate teaching-attempt attribution follow-up.
 3. Push a focused source PR and its exact tree to sim; inspect the deployed image,
    recorder hash and fresh learner's normal streaming response and usage rows.
 4. Audit reviews, inline comments and issue comments; reply in original threads.
-5. After human merge, verify the production image before a separate versioned
-   flag-only configuration update and actual regional streaming acceptance.
+5. After human merge, verify the production image and run regional fresh-learner
+   streaming acceptance.
 
 ## Validation and Acceptance
 
