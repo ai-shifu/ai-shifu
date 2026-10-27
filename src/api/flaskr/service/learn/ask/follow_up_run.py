@@ -25,7 +25,6 @@ from flaskr.api.langfuse import (
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common import raise_error
-from flaskr.service.learn.agent.routing import uses_agent_engine
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.follow_up_context import resolve_course_system_prompt
@@ -510,15 +509,14 @@ def _answer(
     _stop_if_requested(app, context)
     app.logger.info("Ask input normalized: input_chars=%s", len(question))
 
-    agent_course = uses_agent_engine(outline_item_info.shifu_bid)
     runtime_profiles = load_memory(
         app,
         user_info.user_id,
         outline_item_info.shifu_bid,
         reference_text=context.get_system_prompt(outline_item_info.bid) or "",
-        **({"include_course_variables": True} if agent_course else {}),
+        include_course_variables=True,
     ).as_variables()
-    memory_patch = FollowUpMemoryPatch() if agent_course else None
+    memory_patch = FollowUpMemoryPatch()
 
     events = handle_input_ask(
         app,
@@ -542,11 +540,7 @@ def _answer(
 
     # handle_input_ask stages its history rows with plain flushes; the caller
     # commits them once the stream has completed.
-    if (
-        memory_patch is not None
-        and memory_patch.variables
-        and not context._preview_mode
-    ):
+    if memory_patch.variables and not context._preview_mode:
         with unit_of_work():
             stage_follow_up_memory(
                 app,

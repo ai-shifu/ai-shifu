@@ -8,7 +8,6 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn import listen_elements
-from flaskr.service.learn.agent import routing
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.learn_dtos import LearnElementRecordDTO, LearnStatus
 from flaskr.service.learn.learn_funcs import (
@@ -35,7 +34,6 @@ from sqlalchemy import event
 def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     """Create independent formal/preview baselines and current physical versions."""
     identity = uuid4().hex
-    monkeypatch.setattr(routing, "uses_agent_engine", lambda _bid: True)
     # Rendering is covered by the classroom and listen-history suites. Keep the
     # formal integration focused on routing, current physical versions and flags.
     monkeypatch.setattr(

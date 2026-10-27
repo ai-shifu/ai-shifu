@@ -463,9 +463,8 @@ def test_missing_git_in_runtime_image_cannot_discard_evaluation_results(
     assert quality.source_revision() is None
 
 
-@pytest.mark.parametrize("enabled", [True, False])
-def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
-    app: object, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, enabled: bool
+def test_live_cli_wires_required_trace(
+    app: object, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     from types import SimpleNamespace
     from unittest.mock import Mock
@@ -476,7 +475,7 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
     from flaskr.api.llm import markdownflow_model as gateway_model
     from flaskr.api.llm import model_selection
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.agent import lesson_entry, routing
+    from flaskr.service.learn.agent import lesson_entry
     from flaskr.service.metering.api import UsageContext
     from flaskr.service.user.repository import create_user_entity
 
@@ -484,7 +483,6 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
     with app.app_context(), unit_of_work():
         create_user_entity(user_bid=identity, identify=identity, nickname="Evaluation")
     monkeypatch.setattr(app_module, "create_app", lambda **_kwargs: app)
-    monkeypatch.setattr(routing, "uses_agent_engine", lambda _course: enabled)
     resolve = Mock(
         return_value=(
             "",
@@ -533,14 +531,6 @@ def test_live_cli_wires_required_trace_and_refuses_legacy_environment(
         "--output",
         str(output),
     ]
-    if not enabled:
-        with pytest.raises(SystemExit) as error:
-            quality.main(args)
-        assert error.value.code == 2
-        assert not calls
-        resolve.assert_not_called()
-        assert not output.exists()
-        return
     assert quality.main(args) == 0
     assert len(calls) == 1
     assert calls[0][:3] == ("resolved-model", identity, span)

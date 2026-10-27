@@ -419,10 +419,7 @@ def get_outline_item_tree(
         from flaskr.service.learn.agent.preview_history import (
             outlines_with_agent_history,
         )
-        from flaskr.service.learn.agent.routing import uses_agent_engine
 
-        agent_enabled = uses_agent_engine(shifu_bid)
-        agent_preview = preview_mode and agent_enabled
         candidate_outline_ids = {
             item.bid: item.id
             for item in outline_items
@@ -433,7 +430,7 @@ def get_outline_item_tree(
             and not outline_items_db_map[item.id].hidden
         }
         # A cleared 2.0 draft must stay isolated even after its session is reset.
-        # Truly scriptless 1.0 lessons retain their existing history behavior.
+        # Scriptless lessons without draft history keep their recorded progress.
         scoped_empty_previews = (
             outlines_with_agent_history(
                 user_bid=user_bid,
@@ -444,7 +441,7 @@ def get_outline_item_tree(
                     if not (outline_items_db_map[row_id].content or "").strip()
                 ],
             )
-            if agent_preview
+            if preview_mode
             else set()
         )
         progress_outline_bids = (
@@ -455,7 +452,7 @@ def get_outline_item_tree(
                 and not (outline_items_db_map[item.id].content or "").strip()
                 and item.bid not in scoped_empty_previews
             ]
-            if agent_preview
+            if preview_mode
             else outline_items_bids
         )
         progress_records = (
@@ -483,26 +480,22 @@ def get_outline_item_tree(
         eligible_outline_ids = {
             bid: row_id
             for bid, row_id in candidate_outline_ids.items()
-            if agent_preview
+            if preview_mode
             or (
                 bid in progress_records_map
                 and progress_records_map[bid].status
                 in (LEARN_STATUS_IN_PROGRESS, LEARN_STATUS_COMPLETED)
             )
         }
-        content_states = (
-            load_lesson_content_states(
-                user_bid=user_bid,
-                shifu_bid=shifu_bid,
-                preview_mode=preview_mode,
-                outline_revisions={
-                    item.bid: item.content_revision
-                    for item in outline_items
-                    if item.bid in eligible_outline_ids
-                },
-            )
-            if agent_enabled
-            else {}
+        content_states = load_lesson_content_states(
+            user_bid=user_bid,
+            shifu_bid=shifu_bid,
+            preview_mode=preview_mode,
+            outline_revisions={
+                item.bid: item.content_revision
+                for item in outline_items
+                if item.bid in eligible_outline_ids
+            },
         )
 
         def build_outline_item_tree(
@@ -523,7 +516,7 @@ def get_outline_item_tree(
                 if status == LEARN_STATUS_LOCKED:
                     status = LEARN_STATUS_NOT_STARTED
             content_state = content_states.get(outline_item.outline_item_bid)
-            if agent_preview and (
+            if preview_mode and (
                 (outline_item.content or "").strip()
                 or outline_item.outline_item_bid in scoped_empty_previews
             ):
@@ -800,7 +793,6 @@ def reset_learn_record(
     """
     with app_context_scope(app), unit_of_work():
         from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
-        from flaskr.service.learn.agent.routing import uses_agent_engine
 
         limit = get_lesson_reset_limit()
         limited = (
@@ -826,7 +818,7 @@ def reset_learn_record(
             # column is unique per user, so this reset is recorded without one.
             request_id = None
 
-        if preview_mode and uses_agent_engine(shifu_bid):
+        if preview_mode:
             from flaskr.service.learn.agent.preview_history import (
                 uses_preview_session_history,
             )
