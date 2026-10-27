@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -32,7 +33,32 @@ from tests.service.learn.test_run_published_follow_up import (
     follow_up_dependencies,  # noqa: F401 - pytest fixture
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
 runtime_dependencies = revision.runtime_dependencies
+
+
+@pytest.fixture
+def unrelated_ask_block(app: object) -> Iterator[None]:
+    """Keep a committed follow-up from another learner during the test."""
+    foreign_bid = uuid4().hex
+    with app.app_context(), unit_of_work():
+        db.session.add(
+            LearnGeneratedBlock(
+                generated_block_bid=foreign_bid,
+                progress_record_bid=uuid4().hex,
+                user_bid=uuid4().hex,
+                shifu_bid=uuid4().hex,
+                outline_item_bid=uuid4().hex,
+                type=BLOCK_TYPE_MDASK_VALUE,
+                position=1,
+                status=1,
+            )
+        )
+    yield
+    with app.app_context(), unit_of_work():
+        LearnGeneratedBlock.query.filter_by(generated_block_bid=foreign_bid).delete()
 
 
 @pytest.fixture
@@ -105,8 +131,13 @@ def _ask(app: object, course: SimpleNamespace, **overrides: object) -> list:
     return list(follow_up_events(app, **arguments))
 
 
-def _ask_block() -> LearnGeneratedBlock:
-    return LearnGeneratedBlock.query.filter_by(type=BLOCK_TYPE_MDASK_VALUE).one()
+def _ask_block(course: SimpleNamespace) -> LearnGeneratedBlock:
+    return LearnGeneratedBlock.query.filter_by(
+        type=BLOCK_TYPE_MDASK_VALUE,
+        user_bid=course.user_bid,
+        shifu_bid=course.course_bid,
+        outline_item_bid=course.outline_bid,
+    ).one()
 
 
 def test_answers_at_the_learners_position_without_the_script_context(
@@ -114,8 +145,9 @@ def test_answers_at_the_learners_position_without_the_script_context(
     monkeypatch: pytest.MonkeyPatch,
     runtime_dependencies: object,
     ask_runtime: SimpleNamespace,
+    unrelated_ask_block: None,
 ) -> None:
-    _ = runtime_dependencies
+    _ = runtime_dependencies, unrelated_ask_block
     course = revision._seed_course(app)
     _learner(monkeypatch, course.user_bid)
     with app.app_context():
@@ -126,7 +158,7 @@ def test_answers_at_the_learners_position_without_the_script_context(
             e.type == GeneratedType.CONTENT and e.content == "Follow-up answer"
             for e in events
         )
-        block = _ask_block()
+        block = _ask_block(course)
         assert block.progress_record_bid == progress_bid
         assert block.position == 1
         assert block.generated_content == "Explain this"
@@ -166,7 +198,7 @@ def test_an_anchored_question_is_asked_at_the_anchor_block(
             )
         _ask(app, course, reload_generated_block_bid=anchor_bid)
 
-        assert _ask_block().position == 0
+        assert _ask_block(course).position == 0
 
 
 def test_an_anchor_from_another_lesson_is_ignored(
@@ -195,7 +227,7 @@ def test_an_anchor_from_another_lesson_is_ignored(
             )
         _ask(app, course, reload_generated_block_bid=foreign_bid)
 
-        assert _ask_block().position == 2
+        assert _ask_block(course).position == 2
 
 
 def _sell_lesson(course: SimpleNamespace) -> None:
@@ -247,7 +279,7 @@ def test_a_guest_may_ask_in_a_trial_lesson_like_the_2_0_lesson_allows(
     with app.app_context():
         _ask(app, course)
 
-        assert _ask_block().user_bid == course.user_bid
+        assert _ask_block(course).user_bid == course.user_bid
         assert ask_runtime.calls.llm
 
 
@@ -267,7 +299,7 @@ def test_a_question_before_the_lesson_started_creates_a_placeholder(
             outline_item_bid=course.outline_bid, user_bid=course.user_bid
         ).one()
         assert record.status == LEARN_STATUS_NOT_STARTED
-        assert _ask_block().progress_record_bid == record.progress_record_bid
+        assert _ask_block(course).progress_record_bid == record.progress_record_bid
 
 
 @pytest.mark.parametrize("preview", [False, True])
