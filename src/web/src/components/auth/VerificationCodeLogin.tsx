@@ -17,7 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCaptchaTicket } from '@/hooks/useCaptchaTicket';
 import { useToast } from '@/hooks/useToast';
 import i18n from '@/i18n';
-import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { cn } from '@/lib/utils';
 import { isValidEmail, isValidPhoneNumber } from '@/lib/validators';
 import type { ReferralLoginMetadata } from '@/types/referral';
@@ -26,7 +26,7 @@ const VERIFICATION_CODE_LENGTH = 4;
 const VERIFICATION_CODE_COOLDOWN_SECONDS = 60;
 
 type VerificationCodeLoginProps = {
-  mode: LoginMethodDisplayMode;
+  mode: LoginIdentifierType;
   onLoginSuccess: (userInfo: UserInfo) => void;
   loginContext?: string;
   courseId?: string;

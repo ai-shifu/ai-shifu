@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/Sheet';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { ErrorWithCode } from '@/lib/request';
 import { useTranslation } from 'react-i18next';
 import { getOperationOrderSourceLabel } from '../operation-order-source';
@@ -76,12 +76,15 @@ const OperatorOrderDetailSheet = ({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const loginMethodDisplayMode = useMemo(
+  const preferredLoginIdentifierType = useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
-  const isEmailMode = loginMethodDisplayMode === 'email';
+  const isEmailMode = preferredLoginIdentifierType === 'email';
   const [detail, setDetail] =
     useState<AdminOperationOrderDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);

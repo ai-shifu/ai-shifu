@@ -34,7 +34,7 @@ import type { EnvStoreState } from '@/types/store';
 import { useToast } from '@/hooks/useToast';
 import { copyText } from '@/lib/textutils';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { normalizeModelOptions } from '@/lib/modelOptions';
 import {
   normalizeTtsModelOptions,
@@ -201,9 +201,12 @@ const OperationsPage = () => {
     (state: EnvStoreState) => state.currencySymbol,
   );
 
-  const loginMethodDisplayMode = useMemo(
+  const preferredLoginIdentifierType = useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const transferContactOptions = useMemo<TransferContactType[]>(() => {
@@ -222,10 +225,10 @@ const OperationsPage = () => {
       options.push('email');
     }
     if (options.length === 0) {
-      options.push(loginMethodDisplayMode);
+      options.push(preferredLoginIdentifierType);
     }
     return Array.from(new Set(options));
-  }, [loginMethodDisplayMode, loginMethodsEnabled]);
+  }, [preferredLoginIdentifierType, loginMethodsEnabled]);
   const defaultTransferContactType = useMemo<TransferContactType>(() => {
     if (transferContactOptions.includes('phone')) {
       return 'phone';
@@ -233,12 +236,12 @@ const OperationsPage = () => {
     if (transferContactOptions.includes('email')) {
       return 'email';
     }
-    if (transferContactOptions.includes(loginMethodDisplayMode)) {
-      return loginMethodDisplayMode;
+    if (transferContactOptions.includes(preferredLoginIdentifierType)) {
+      return preferredLoginIdentifierType;
     }
     return transferContactOptions[0] || 'phone';
-  }, [loginMethodDisplayMode, transferContactOptions]);
-  const isEmailMode = loginMethodDisplayMode === 'email';
+  }, [preferredLoginIdentifierType, transferContactOptions]);
+  const isEmailMode = preferredLoginIdentifierType === 'email';
   const creatorPlaceholder = useMemo(
     () =>
       isEmailMode

@@ -24,6 +24,15 @@ chooses the login identifier type from the default login method. This guidance
 does not change account parsing, mixed-list compatibility, request grouping or
 analytics eligibility.
 
+The dialog derives a deduplicated `loginIdentifierTypes` collection of
+`LoginIdentifierType` values from the enabled login methods. Google and email
+both contribute the same `email` identifier type; phone contributes `phone`.
+If the collection would be empty, `resolvePreferredLoginIdentifierType`
+supplies the existing fallback. Translations receive `hasPhoneIdentifier` and
+`hasEmailIdentifier` membership flags derived from the collection. Showing both
+types is a presentation combination, not a third identifier type. Changes to
+runtime settings update the prompts without clearing the current input.
+
 The course-card entry binds the selected course and hides the redundant course
 field. The orders-page entry retains the published-course selector. The review
 step identifies the course before the teacher confirms activation.

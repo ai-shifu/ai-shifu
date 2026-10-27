@@ -48,7 +48,7 @@ import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import { resolveBillingOrderStatusLabel } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { cn } from '@/lib/utils';
 import {
   resolveOperationCreditOrderKindLabel,
@@ -204,9 +204,12 @@ export default function CreditOrdersTab() {
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const loginMethodDisplayMode = React.useMemo(
+  const preferredLoginIdentifierType = React.useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultCreatorName = React.useMemo(
@@ -256,7 +259,7 @@ export default function CreditOrdersTab() {
     usesLatinLabels && 'xl:max-w-[220px]',
   );
   const creatorKeywordPlaceholder = React.useMemo(() => {
-    if (loginMethodDisplayMode === 'email') {
+    if (preferredLoginIdentifierType === 'email') {
       return tOperationsOrder(
         'creditOrders.filters.creatorKeywordPlaceholderEmail',
       );
@@ -264,7 +267,7 @@ export default function CreditOrdersTab() {
     return tOperationsOrder(
       'creditOrders.filters.creatorKeywordPlaceholderPhone',
     );
-  }, [loginMethodDisplayMode, tOperationsOrder]);
+  }, [preferredLoginIdentifierType, tOperationsOrder]);
 
   const fetchOverview = React.useCallback(async () => {
     try {
@@ -892,7 +895,7 @@ export default function CreditOrdersTab() {
                       order.creator_bid,
                     );
                     const creatorContact =
-                      loginMethodDisplayMode === 'email'
+                      preferredLoginIdentifierType === 'email'
                         ? order.creator_email ||
                           order.creator_mobile ||
                           order.creator_identify ||

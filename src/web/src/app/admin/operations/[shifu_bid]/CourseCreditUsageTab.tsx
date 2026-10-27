@@ -38,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { cn } from '@/lib/utils';
 import type {
   AdminOperationCourseCreditUsageDetailItem,
@@ -161,7 +161,7 @@ export default function CourseCreditUsageTab({
   data,
   loading,
   error,
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   defaultUserName,
   emptyValue,
   onKeywordChange,
@@ -177,7 +177,7 @@ export default function CourseCreditUsageTab({
   data: AdminOperationCourseCreditUsageListResponse;
   loading: boolean;
   error: ErrorState | null;
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   defaultUserName: string;
   emptyValue: string;
   onKeywordChange: (value: string) => void;
@@ -228,26 +228,26 @@ export default function CourseCreditUsageTab({
   const pageCount = Math.max(data.page_count || 0, 1);
   const keywordPlaceholder = useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? tOperations('detail.creditUsage.filters.userKeywordPlaceholderEmail')
         : tOperations('detail.creditUsage.filters.userKeywordPlaceholderPhone'),
-    [loginMethodDisplayMode, tOperations],
+    [preferredLoginIdentifierType, tOperations],
   );
   const accountLabel = useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? tOperations('detail.usersTable.accountEmail')
         : tOperations('detail.usersTable.accountPhone'),
-    [loginMethodDisplayMode, tOperations],
+    [preferredLoginIdentifierType, tOperations],
   );
 
   const resolveAccount = useCallback(
     (row: AdminOperationCourseCreditUsageItem) => {
       const preferred =
-        loginMethodDisplayMode === 'email' ? row.email : row.mobile;
+        preferredLoginIdentifierType === 'email' ? row.email : row.mobile;
       return preferred || emptyValue;
     },
-    [loginMethodDisplayMode, emptyValue],
+    [preferredLoginIdentifierType, emptyValue],
   );
 
   const resolveSceneLabel = useCallback(

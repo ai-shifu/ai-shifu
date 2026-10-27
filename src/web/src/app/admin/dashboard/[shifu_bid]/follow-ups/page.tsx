@@ -32,9 +32,9 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
-  resolveLoginMethodDisplayMode,
-  type LoginMethodDisplayMode,
-} from '@/lib/resolve-login-method-display-mode';
+  resolvePreferredLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/resolve-preferred-login-identifier-type';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { useUserStore } from '@/store';
@@ -157,17 +157,17 @@ const resolvePrimaryAccount = ({
   mobile,
   email,
   userBid,
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   emptyValue,
 }: {
   mobile?: string;
   email?: string;
   userBid?: string;
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   emptyValue: string;
 }) => {
-  const preferred = loginMethodDisplayMode === 'email' ? email : mobile;
-  const alternate = loginMethodDisplayMode === 'email' ? mobile : email;
+  const preferred = preferredLoginIdentifierType === 'email' ? email : mobile;
+  const alternate = preferredLoginIdentifierType === 'email' ? mobile : email;
   return formatValue(preferred || alternate || userBid, emptyValue);
 };
 
@@ -209,9 +209,12 @@ export default function AdminDashboardCourseFollowUpsPage() {
     'module.dashboard.messages.loadFollowUpDetailFailed',
   );
   const defaultUserName = t('module.user.defaultUserName');
-  const loginMethodDisplayMode = useMemo<LoginMethodDisplayMode>(
+  const preferredLoginIdentifierType = useMemo<LoginIdentifierType>(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const initialFilters = useMemo(
@@ -228,14 +231,14 @@ export default function AdminDashboardCourseFollowUpsPage() {
   );
   const userKeywordPlaceholder = useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? t(
             'module.dashboard.detail.followUps.filters.userKeywordPlaceholderEmail',
           )
         : t(
             'module.dashboard.detail.followUps.filters.userKeywordPlaceholderPhone',
           ),
-    [loginMethodDisplayMode, t],
+    [preferredLoginIdentifierType, t],
   );
 
   const [followUps, setFollowUps] =
@@ -824,7 +827,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
                                 mobile: item.mobile,
                                 email: item.email,
                                 userBid: item.user_bid,
-                                loginMethodDisplayMode,
+                                preferredLoginIdentifierType,
                                 emptyValue,
                               });
                               const secondaryAccount =
@@ -976,7 +979,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
         loading={detailLoading}
         error={detailError}
         emptyValue={emptyValue}
-        loginMethodDisplayMode={loginMethodDisplayMode}
+        preferredLoginIdentifierType={preferredLoginIdentifierType}
         defaultUserName={defaultUserName}
         resolveLessonDisplay={resolvePrimaryLessonDisplay}
         onRetry={() => fetchFollowUpDetail({ forceRefresh: true })}

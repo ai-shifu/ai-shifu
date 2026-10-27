@@ -20,7 +20,7 @@ import {
   NOTIFICATION_SKIP_REASONS,
   NOTIFICATION_TYPES,
 } from './creditNotificationUtils';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 
 const SELECT_ITEM_CLASS = 'pl-3 pr-8';
 
@@ -55,8 +55,10 @@ export function CreditNotificationRecordsFilter({
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const clearLabel = t('common.core.close');
   const creatorPlaceholderKey =
-    resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod) ===
-    'email'
+    resolvePreferredLoginIdentifierType(
+      loginMethodsEnabled,
+      defaultLoginMethod,
+    ) === 'email'
       ? 'module.operationsCreditNotifications.filters.creatorPlaceholderEmail'
       : 'module.operationsCreditNotifications.filters.creatorPlaceholderPhone';
 

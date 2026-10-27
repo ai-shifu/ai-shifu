@@ -47,7 +47,10 @@ import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/store';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import {
+  resolvePreferredLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/resolve-preferred-login-identifier-type';
 
 interface ImportActivationDialogProps {
   open: boolean;
@@ -60,7 +63,7 @@ interface ImportActivationDialogProps {
 interface ImportActivationEntry {
   mobile: string;
   nickname: string;
-  contactType: 'phone' | 'email';
+  identifierType: LoginIdentifierType;
 }
 
 type ActivationFailure = { mobile: string; message: string };
@@ -175,7 +178,7 @@ const parseImportText = (
 
     const emails = findEmailMatches(line);
     const matches = [
-      ...emails.map(match => ({ ...match, contactType: 'email' as const })),
+      ...emails.map(match => ({ ...match, identifierType: 'email' as const })),
       ...findPhoneMatches(line)
         .filter(
           phone =>
@@ -186,7 +189,7 @@ const parseImportText = (
                   email.index + email.value.length,
             ),
         )
-        .map(match => ({ ...match, contactType: 'phone' as const })),
+        .map(match => ({ ...match, identifierType: 'phone' as const })),
     ];
     const match = matches[0];
     if (
@@ -200,9 +203,11 @@ const parseImportText = (
     }
     entries.push({
       mobile:
-        match.contactType === 'email' ? match.value.toLowerCase() : match.value,
+        match.identifierType === 'email'
+          ? match.value.toLowerCase()
+          : match.value,
       nickname: trimNickname(line.slice(match.value.length)),
-      contactType: match.contactType,
+      identifierType: match.identifierType,
     });
   }
 
@@ -229,14 +234,28 @@ const ImportActivationDialog = ({
   const { trackEvent } = useTracking();
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const loginMethods = loginMethodsEnabled.map(method =>
-    method.trim().toLowerCase(),
-  );
-  const loginMethodDisplayMode =
-    loginMethods.includes('phone') &&
-    (loginMethods.includes('email') || loginMethods.includes('google'))
-      ? 'mixed'
-      : resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod);
+  const loginIdentifierTypes = React.useMemo<
+    ReadonlyArray<LoginIdentifierType>
+  >(() => {
+    const loginMethods = loginMethodsEnabled.map(method =>
+      method.trim().toLowerCase(),
+    );
+    const identifierTypes: LoginIdentifierType[] = [];
+    if (loginMethods.includes('phone')) identifierTypes.push('phone');
+    if (loginMethods.includes('email') || loginMethods.includes('google')) {
+      identifierTypes.push('email');
+    }
+    return identifierTypes.length > 0
+      ? identifierTypes
+      : [
+          resolvePreferredLoginIdentifierType(
+            loginMethodsEnabled,
+            defaultLoginMethod,
+          ),
+        ];
+  }, [defaultLoginMethod, loginMethodsEnabled]);
+  const hasPhoneIdentifier = loginIdentifierTypes.includes('phone');
+  const hasEmailIdentifier = loginIdentifierTypes.includes('email');
   const [courses, setCourses] = React.useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = React.useState(false);
   const [coursesError, setCoursesError] = React.useState<string | null>(null);
@@ -267,34 +286,38 @@ const ImportActivationDialog = ({
     return pendingIdentifiers.join(listSeparator);
   }, [listSeparator, pendingIdentifiers]);
   const identifierLabel = t('module.order.importActivation.mobileLabel', {
-    loginMethodDisplayMode,
+    hasPhoneIdentifier,
+    hasEmailIdentifier,
   });
   const identifierPlaceholder = t(
     'module.order.importActivation.mobilePlaceholder',
-    { loginMethodDisplayMode },
+    { hasPhoneIdentifier, hasEmailIdentifier },
   );
   const identifierHint = t('module.order.importActivation.mobileHint', {
-    loginMethodDisplayMode,
+    hasPhoneIdentifier,
+    hasEmailIdentifier,
   });
   const identifierRequiredMessage = t(
     'module.order.importActivation.mobileRequired',
-    { loginMethodDisplayMode },
+    { hasPhoneIdentifier, hasEmailIdentifier },
   );
   const buildInvalidMessage = React.useCallback(
     (values: string) =>
       t('module.order.importActivation.mobileInvalidLines', {
         values,
-        loginMethodDisplayMode,
+        hasPhoneIdentifier,
+        hasEmailIdentifier,
       }),
-    [loginMethodDisplayMode, t],
+    [hasPhoneIdentifier, hasEmailIdentifier, t],
   );
   const buildDuplicateMessage = React.useCallback(
     (numbers: string) =>
       t('module.order.importActivation.mobileDuplicate', {
         numbers,
-        loginMethodDisplayMode,
+        hasPhoneIdentifier,
+        hasEmailIdentifier,
       }),
-    [loginMethodDisplayMode, t],
+    [hasPhoneIdentifier, hasEmailIdentifier, t],
   );
   const buildLimitMessage = React.useCallback(
     (count: number) =>
@@ -475,14 +498,16 @@ const ImportActivationDialog = ({
     isImportingRef.current = true;
     setIsImporting(true);
     const groups = (['phone', 'email'] as const)
-      .map(contactType => ({
-        contactType,
-        entries: entries.filter(entry => entry.contactType === contactType),
+      .map(identifierType => ({
+        identifierType,
+        entries: entries.filter(
+          entry => entry.identifierType === identifierType,
+        ),
       }))
       .filter(group => group.entries.length > 0);
     const analyticsContext = {
       surface: initialCourseId ? 'admin_course_list' : 'admin_orders',
-      contact_mode: groups.length === 2 ? 'mixed' : groups[0].contactType,
+      contact_mode: groups.length === 2 ? 'mixed' : groups[0].identifierType,
       requested_count: entries.length,
     };
     sendActivationAnalytics(
@@ -503,7 +528,7 @@ const ImportActivationDialog = ({
                 : entry.mobile,
             ),
             course_id: courseId,
-            contact_type: group.contactType,
+            contact_type: group.identifierType,
             ...(defaultNickname ? { user_nick_name: defaultNickname } : {}),
           })) as ActivationResponse;
           outcomes.push({ status: 'fulfilled', value });
@@ -721,7 +746,8 @@ const ImportActivationDialog = ({
             </DialogTitle>
             <DialogDescription>
               {t('module.order.importActivation.description', {
-                loginMethodDisplayMode,
+                hasPhoneIdentifier,
+                hasEmailIdentifier,
               })}
             </DialogDescription>
           </DialogHeader>

@@ -61,7 +61,7 @@ const renderBoundDialog = (
 ) => {
   const onOpenChange = jest.fn();
   const onSuccess = jest.fn();
-  render(
+  const { rerender } = render(
     <ImportActivationDialog
       open
       onOpenChange={onOpenChange}
@@ -71,7 +71,7 @@ const renderBoundDialog = (
       {...props}
     />,
   );
-  return { onOpenChange, onSuccess };
+  return { onOpenChange, onSuccess, rerender };
 };
 
 const reviewList = async (value: string) => {
@@ -145,6 +145,17 @@ describe('ImportActivationDialog validation', () => {
       label: '手机号',
     },
     { methods: [], defaultMethod: 'email', label: 'Email' },
+    { methods: [], defaultMethod: 'phone', label: '手机号' },
+    {
+      methods: ['email', ' GOOGLE ', 'google'],
+      defaultMethod: 'phone',
+      label: 'Email',
+    },
+    {
+      methods: ['email', ' PHONE ', 'google', 'email', 'phone'],
+      defaultMethod: 'email',
+      label: '手机号或 Email',
+    },
   ])(
     'matches prompts to $methods with default $defaultMethod',
     async ({ methods, defaultMethod, label }) => {
@@ -164,6 +175,13 @@ describe('ImportActivationDialog validation', () => {
       renderBoundDialog();
 
       const contact = screen.getByLabelText(`学员${label}`);
+      expect(mockTranslate).toHaveBeenCalledWith(
+        'module.order.importActivation.mobileLabel',
+        {
+          hasPhoneIdentifier: label !== 'Email',
+          hasEmailIdentifier: label !== '手机号',
+        },
+      );
       expect(
         screen.getByText(
           `输入学员登录时使用的${label}，直接开通本课程，无需学员付款。未注册的学员将自动创建账号。`,
@@ -191,6 +209,50 @@ describe('ImportActivationDialog validation', () => {
       expect(mockTrackEvent).not.toHaveBeenCalled();
     },
   );
+
+  it('updates identifier membership prompts without clearing input when login settings change', async () => {
+    const i18n = i18next.createInstance().use(new ICU());
+    await i18n.init({
+      lng: 'zh-CN',
+      fallbackLng: false,
+      resources: {
+        'zh-CN': { translation: { module: { order: zhOrder } } },
+      },
+    });
+    mockTranslate.mockImplementation((key, options) =>
+      String(i18n.t(key, options)),
+    );
+    const { rerender, onOpenChange, onSuccess } = renderBoundDialog();
+    const rerenderDialog = () =>
+      rerender(
+        <ImportActivationDialog
+          open
+          onOpenChange={onOpenChange}
+          onSuccess={onSuccess}
+          initialCourseId='private-course'
+          initialCourseName='Private course name'
+        />,
+      );
+    fireEvent.change(screen.getByLabelText('学员手机号'), {
+      target: { value: 'learner@example.test' },
+    });
+
+    mockEnvState.loginMethodsEnabled = ['google', 'email', ' GOOGLE '];
+    rerenderDialog();
+    expect(screen.getByLabelText('学员Email')).toHaveValue(
+      'learner@example.test',
+    );
+    expect(screen.queryByText(/可混合填写/)).not.toBeInTheDocument();
+
+    mockEnvState.loginMethodsEnabled = ['google', 'phone', 'email'];
+    rerenderDialog();
+    expect(screen.getByLabelText('学员手机号或 Email')).toHaveValue(
+      'learner@example.test',
+    );
+    expect(screen.getByText(/可混合填写/)).toBeInTheDocument();
+    expect(mockImportActivationOrder).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
 
   it('shows both required field errors without opening import confirmation', async () => {
     render(
@@ -481,7 +543,11 @@ describe('ImportActivationDialog validation', () => {
     await screen.findByText('module.order.importActivation.mobileDuplicate');
     expect(mockTranslate).toHaveBeenCalledWith(
       'module.order.importActivation.mobileDuplicate',
-      { numbers: 'learner@example.test', loginMethodDisplayMode: 'phone' },
+      {
+        numbers: 'learner@example.test',
+        hasPhoneIdentifier: true,
+        hasEmailIdentifier: false,
+      },
     );
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(mockImportActivationOrder).not.toHaveBeenCalled();

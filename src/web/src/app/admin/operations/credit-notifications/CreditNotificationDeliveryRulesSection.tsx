@@ -1,4 +1,4 @@
-import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/Badge';
@@ -22,7 +22,7 @@ import {
 import type { UpdatePolicy } from './useCreditNotificationConfigTabState';
 
 export type CreditNotificationDeliveryRulesSectionProps = {
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   policy: AdminOperationCreditNotificationPolicy;
   updatePolicy: UpdatePolicy;
   getIntegerInputValue: (path: string, value: number) => string;
@@ -83,7 +83,7 @@ function RuleSummaryCard({
 }
 
 export function CreditNotificationDeliveryRulesSection({
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   policy,
   updatePolicy,
   getIntegerInputValue,
@@ -107,7 +107,7 @@ export function CreditNotificationDeliveryRulesSection({
           policy.frequency.per_mobile_per_day > 0 ||
           policy.frequency.per_creator_per_type_per_day > 0,
         summary:
-          loginMethodDisplayMode === 'email'
+          preferredLoginIdentifierType === 'email'
             ? t(
                 'module.operationsCreditNotifications.config.deliveryRules.summaries.frequencyEmail',
                 {
@@ -149,7 +149,7 @@ export function CreditNotificationDeliveryRulesSection({
         ),
         active: policy.softlimit.enabled,
         summary:
-          loginMethodDisplayMode === 'email'
+          preferredLoginIdentifierType === 'email'
             ? t(
                 'module.operationsCreditNotifications.config.deliveryRules.summaries.softlimitEmail',
                 {
@@ -170,7 +170,7 @@ export function CreditNotificationDeliveryRulesSection({
       },
     ];
 
-    if (loginMethodDisplayMode === 'phone') {
+    if (preferredLoginIdentifierType === 'phone') {
       items.splice(2, 0, {
         key: 'budget',
         title: t('module.operationsCreditNotifications.config.sections.budget'),
@@ -188,7 +188,7 @@ export function CreditNotificationDeliveryRulesSection({
     }
 
     return items;
-  }, [loginMethodDisplayMode, no, policy, t, yes]);
+  }, [preferredLoginIdentifierType, no, policy, t, yes]);
 
   return (
     <>
@@ -197,7 +197,7 @@ export function CreditNotificationDeliveryRulesSection({
           'module.operationsCreditNotifications.config.sections.deliveryPolicy',
         )}
         description={t(
-          loginMethodDisplayMode === 'email'
+          preferredLoginIdentifierType === 'email'
             ? 'module.operationsCreditNotifications.config.deliveryRules.descriptionEmail'
             : 'module.operationsCreditNotifications.config.deliveryRules.description',
         )}
@@ -238,7 +238,7 @@ export function CreditNotificationDeliveryRulesSection({
             </DialogTitle>
             <DialogDescription>
               {t(
-                loginMethodDisplayMode === 'email'
+                preferredLoginIdentifierType === 'email'
                   ? 'module.operationsCreditNotifications.config.deliveryRules.dialogDescriptionEmail'
                   : 'module.operationsCreditNotifications.config.deliveryRules.dialogDescription',
               )}
@@ -246,7 +246,7 @@ export function CreditNotificationDeliveryRulesSection({
           </DialogHeader>
           <div className='grid gap-4 xl:grid-cols-2'>
             <FrequencyCard
-              loginMethodDisplayMode={loginMethodDisplayMode}
+              preferredLoginIdentifierType={preferredLoginIdentifierType}
               policy={policy}
               updatePolicy={updatePolicy}
               getIntegerInputValue={getIntegerInputValue}
@@ -257,9 +257,9 @@ export function CreditNotificationDeliveryRulesSection({
               policy={policy}
               updatePolicy={updatePolicy}
             />
-            {loginMethodDisplayMode === 'phone' ? (
+            {preferredLoginIdentifierType === 'phone' ? (
               <BudgetCard
-                loginMethodDisplayMode={loginMethodDisplayMode}
+                preferredLoginIdentifierType={preferredLoginIdentifierType}
                 policy={policy}
                 updatePolicy={updatePolicy}
                 getIntegerInputValue={getIntegerInputValue}
@@ -268,7 +268,7 @@ export function CreditNotificationDeliveryRulesSection({
               />
             ) : null}
             <SoftlimitCard
-              loginMethodDisplayMode={loginMethodDisplayMode}
+              preferredLoginIdentifierType={preferredLoginIdentifierType}
               policy={policy}
               updatePolicy={updatePolicy}
             />
