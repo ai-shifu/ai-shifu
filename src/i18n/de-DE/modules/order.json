@@ -55,7 +55,7 @@
   },
   "importActivation": {
     "action": "Lernende hinzufügen",
-    "actionDescription": "Telefonnummern oder E-Mail-Adressen eingeben und den Kurs kostenlos freischalten",
+    "actionDescription": "Lernkonten eingeben und den Kurs kostenlos freischalten",
     "backToEdit": "Zurück zum Bearbeiten",
     "confirmDescription": "Diese {count} Lernenden erhalten kostenlosen Zugang zu „{courseName}“. Bitte prüfen Sie die Konten: {mobiles}",
     "confirmSubmit": "Kurs freischalten",

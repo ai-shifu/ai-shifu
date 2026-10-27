@@ -55,7 +55,7 @@
   },
   "importActivation": {
     "action": "Añadir alumnos",
-    "actionDescription": "Introduce números de móvil o correos para activar el curso sin coste para los alumnos",
+    "actionDescription": "Introduce las cuentas de los alumnos para activar el curso sin coste para ellos",
     "backToEdit": "Volver a editar",
     "confirmDescription": "Se activará el acceso a «{courseName}» para estos {count} alumnos sin que tengan que pagar. Revisa las cuentas: {mobiles}",
     "confirmSubmit": "Activar curso",

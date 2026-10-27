@@ -38,8 +38,10 @@ collection. Showing both
 types is a presentation combination, not a third identifier type. Changes to
 runtime settings update the prompts without clearing the current input.
 
-The course-card entry binds the selected course and hides the redundant course
-field. The orders-page entry retains the published-course selector. The review
+The course-card help refers to learner accounts without listing identifier
+types, so it remains accurate for every login configuration. The dialog
+provides the configuration-specific guidance. The course-card entry binds the
+selected course and hides the redundant course field. The orders-page entry retains the published-course selector. The review
 step identifies the course before the teacher confirms activation.
 
 The existing API accepts one contact type per request. The frontend groups the

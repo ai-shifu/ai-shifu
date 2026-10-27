@@ -55,7 +55,7 @@
   },
   "importActivation": {
     "action": "طلبہ شامل کریں",
-    "actionDescription": "فون نمبر یا ای میل درج کرکے کورس تک مفت رسائی دیں",
+    "actionDescription": "طلبہ کے اکاؤنٹس درج کرکے انہیں کورس تک مفت رسائی دیں",
     "backToEdit": "واپس جا کر ترمیم کریں",
     "confirmDescription": "ان {count} طلبہ کے لیے ”{courseName}“ تک رسائی فعال کی جائے گی اور انہیں ادائیگی نہیں کرنی ہوگی۔ اکاؤنٹس چیک کریں: {mobiles}",
     "confirmSubmit": "کورس تک رسائی فعال کریں",

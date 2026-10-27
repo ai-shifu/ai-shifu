@@ -55,7 +55,7 @@
   },
   "importActivation": {
     "action": "Ajouter des apprenants",
-    "actionDescription": "Saisissez des numéros de téléphone ou des e-mails pour activer gratuitement le cours",
+    "actionDescription": "Saisissez les comptes des apprenants pour leur activer gratuitement le cours",
     "backToEdit": "Revenir à la saisie",
     "confirmDescription": "Ces {count} apprenants auront accès gratuitement à « {courseName} ». Vérifiez les comptes : {mobiles}",
     "confirmSubmit": "Activer le cours",

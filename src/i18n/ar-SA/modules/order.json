@@ -55,7 +55,7 @@
   },
   "importActivation": {
     "action": "إضافة متعلمين",
-    "actionDescription": "أدخل أرقام الهواتف أو البريد الإلكتروني لتفعيل الدورة مجانًا للمتعلمين",
+    "actionDescription": "أدخل حسابات المتعلمين لتفعيل الدورة لهم مجانًا",
     "backToEdit": "العودة للتعديل",
     "confirmDescription": "سيتم تفعيل دورة «{courseName}» لهؤلاء المتعلمين البالغ عددهم {count} دون مطالبتهم بالدفع. تحقق من الحسابات: {mobiles}",
     "confirmSubmit": "تفعيل الدورة",

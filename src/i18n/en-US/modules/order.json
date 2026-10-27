@@ -55,7 +55,7 @@
   },
   "importActivation": {
     "action": "Add learners",
-    "actionDescription": "Enter phone numbers or emails to activate the course at no charge",
+    "actionDescription": "Enter learner accounts to activate the course at no charge",
     "backToEdit": "Back to edit",
     "confirmDescription": "Activate “{courseName}” for these {count} learners at no charge to them. Check the accounts: {mobiles}",
     "confirmSubmit": "Activate course",
