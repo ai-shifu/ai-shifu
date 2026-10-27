@@ -283,6 +283,9 @@ def _script_questions(script_text: str) -> list[_Question]:
         end = end_exclusive - 1
         raw = text[start + 2 : end]
         variable = read_interaction_variable(raw)
+        if variable is not None and variable.name is None:
+            # Both component parsers reject an invalid leading binding as a whole control.
+            continue
         body = raw[variable.end :] if variable is not None else raw
         newline = min(
             (
