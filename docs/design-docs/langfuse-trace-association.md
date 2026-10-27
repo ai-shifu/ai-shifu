@@ -103,9 +103,12 @@ Early failures before a session is known retain an error Trace with the captured
 advancement id and request metadata. Finalization records the exception type
 and error outcome at most once per root. SDK failures use no-op trace and
 observation handles carrying that same advancement id, so teaching, moderation
-and usage correlation continue normally. Follow-up questions open their own trace
-in `learn/ask/follow_up_run.py` and do not yet share this advancement-id
-isolation. SDK errors cannot
+and usage correlation continue normally. A follow-up question
+(`learn/ask/follow_up_run.py`) follows the same rules: its own advancement trace
+id at admission, its root created once the learner's progress is resolved, the
+lesson's native 2.0 session id as its Session (none before that session exists),
+the progress record as metadata, no-op handles on SDK failure, and one error
+trace when it fails before its progress is resolved. SDK errors cannot
 replace original business errors or prevent database cleanup. Failed session
 rollover cannot reuse the previous execution's ended observation handles.
 

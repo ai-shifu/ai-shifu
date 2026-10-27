@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -11,6 +12,7 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.ask import (
     FollowUpCancelledError,
     follow_up_events,
@@ -40,6 +42,7 @@ def ask_runtime(
     follow_up_dependencies: SimpleNamespace,  # noqa: F811 - pytest fixture
 ) -> SimpleNamespace:
     traces = []
+    finalized = []
 
     def create_trace(**kwargs: object) -> tuple[MagicMock, None]:
         traces.append(kwargs)
@@ -47,13 +50,17 @@ def ask_runtime(
 
     monkeypatch.setattr(follow_up_run, "create_trace_with_root_span", create_trace)
     monkeypatch.setattr(follow_up_run, "get_langfuse_client", lambda: None)
-    monkeypatch.setattr(follow_up_run, "finalize_langfuse_trace", lambda **_k: None)
+    monkeypatch.setattr(
+        follow_up_run, "finalize_langfuse_trace", lambda **k: finalized.append(k)
+    )
     monkeypatch.setattr(
         follow_up_run,
         "load_memory",
         lambda *_args, **_kwargs: SimpleNamespace(as_variables=dict),
     )
-    return SimpleNamespace(traces=traces, calls=follow_up_dependencies)
+    return SimpleNamespace(
+        traces=traces, finalized=finalized, calls=follow_up_dependencies
+    )
 
 
 def _learner(monkeypatch: pytest.MonkeyPatch, user_bid: str) -> None:
@@ -309,3 +316,134 @@ def test_a_closed_stream_stops_the_answer(
         with pytest.raises(FollowUpCancelledError):
             _ask(app, course, stop_event=stop_event)
         assert ask_runtime.calls.llm == []
+
+
+def test_each_question_gets_its_own_trace_in_the_lessons_session(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    monkeypatch.setattr(follow_up_run, "get_request_id", lambda: "request-1")
+    native_id = uuid4().hex
+    with app.app_context():
+        progress_bid = _progress(course, position=0)
+        with unit_of_work():
+            # The lesson's turns trace under the native id stored in its session data.
+            db.session.add(
+                LearnAgentSession(
+                    agent_session_bid=uuid4().hex,
+                    user_bid=course.user_bid,
+                    shifu_bid=course.course_bid,
+                    outline_item_bid=course.outline_bid,
+                    session_data=json.dumps({"id": native_id}),
+                    active_key=active_key_for(course.user_bid, course.outline_bid),
+                )
+            )
+        _ask(app, course)
+        _ask(app, course)
+
+    first, second = (trace["trace_payload"] for trace in ask_runtime.traces)
+    assert first["id"] != second["id"]
+    assert first["id"] != "request-1"
+    assert first["session_id"] == second["session_id"] == native_id
+    assert first["metadata"]["request_id"] == "request-1"
+    assert first["metadata"]["progress_record_bid"] == progress_bid
+    assert len(ask_runtime.finalized) == 2
+
+
+def test_a_question_before_the_lesson_session_exists_has_no_session(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        _progress(course, position=0)
+        _ask(app, course)
+
+    assert "session_id" not in ask_runtime.traces[-1]["trace_payload"]
+
+
+def test_a_tracing_outage_does_not_stop_the_answer(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+
+    def outage(**_kwargs: object) -> None:
+        message = "langfuse unavailable"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(follow_up_run, "create_trace_with_root_span", outage)
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        _progress(course, position=0)
+        events = _ask(app, course)
+
+    assert any(
+        e.type == GeneratedType.CONTENT and e.content == "Follow-up answer"
+        for e in events
+    )
+    finalized = ask_runtime.finalized[-1]
+    # The no-op handles keep the admitted trace id for usage correlation.
+    assert finalized["trace"].trace_id == finalized["root_span"].trace_id
+    assert finalized["trace"].trace_id
+
+
+def test_a_failure_before_the_session_is_known_leaves_one_error_trace(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        _sell_lesson(course)
+        with pytest.raises(PaidError):
+            _ask(app, course)
+
+    assert len(ask_runtime.traces) == 1
+    assert "session_id" not in ask_runtime.traces[0]["trace_payload"]
+    assert len(ask_runtime.finalized) == 1
+    root = ask_runtime.finalized[0]["root_span_payload"]
+    assert root["level"] == "ERROR"
+    assert root["status_message"] == "PaidError"
+
+
+def test_a_failed_session_lookup_still_answers_without_a_session(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+
+    def broken_lookup(*_args: object, **_kwargs: object) -> None:
+        message = "session store unavailable"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(follow_up_run, "active_session_id", broken_lookup)
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        _progress(course, position=0)
+        events = _ask(app, course)
+
+    assert any(
+        e.type == GeneratedType.CONTENT and e.content == "Follow-up answer"
+        for e in events
+    )
+    assert "session_id" not in ask_runtime.traces[-1]["trace_payload"]
+    assert "level" not in ask_runtime.finalized[-1]["root_span_payload"]
