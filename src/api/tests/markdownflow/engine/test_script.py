@@ -1,35 +1,35 @@
-"""Script bundling: variable substitution, 1.0 syntax detection, prompt assembly."""
+"""Script bundling: variable substitution, script syntax detection, prompt assembly."""
 
 import pytest
 from markdownflow.engine import (
     ScriptBundle,
     collected_names,
-    detect_v1_syntax,
+    detect_syntax,
     render_first_prompt,
     substitute_variables,
 )
 from markdownflow.engine.script import substitution_names
 
 
-def test_detects_each_v1_marker() -> None:
-    assert detect_v1_syntax("intro\n---\nnext")
-    assert detect_v1_syntax("ask ?[%{{x}} A | B]")
-    assert detect_v1_syntax("hello {{name}}")
-    assert detect_v1_syntax("keep %{{name}}")
-    assert detect_v1_syntax("===verbatim===")
-    assert detect_v1_syntax("!===\nblock\n!===")
+def test_detects_each_syntax_marker() -> None:
+    assert detect_syntax("intro\n---\nnext")
+    assert detect_syntax("ask ?[%{{x}} A | B]")
+    assert detect_syntax("hello {{name}}")
+    assert detect_syntax("keep %{{name}}")
+    assert detect_syntax("===verbatim===")
+    assert detect_syntax("!===\nblock\n!===")
 
 
-def test_plain_prose_is_not_v1() -> None:
-    assert not detect_v1_syntax(
+def test_plain_prose_has_no_syntax_markers() -> None:
+    assert not detect_syntax(
         "Greet the learner. Ask how they feel. Offer three options."
     )
-    assert not detect_v1_syntax("a link ?[text](http://x) is not an interaction")
-    assert not detect_v1_syntax("escaped \\?[not one]")
+    assert not detect_syntax("a link ?[text](http://x) is not an interaction")
+    assert not detect_syntax("escaped \\?[not one]")
 
 
 def test_markers_inside_code_fences_are_ignored() -> None:
-    assert not detect_v1_syntax("```\n---\n?[x|y]\n{{v}}\n```\nprose")
+    assert not detect_syntax("```\n---\n?[x|y]\n{{v}}\n```\nprose")
 
 
 def test_substitute_replaces_known_and_keeps_unknown_and_preserved() -> None:

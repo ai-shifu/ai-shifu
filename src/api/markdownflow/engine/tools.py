@@ -48,7 +48,7 @@ class Deps:
     memory: dict[str, Any]  # session scope (mutated in place)
     user_memory: dict[str, Any]  # user scope (mutated in place)
     listen_mode: bool = False
-    uses_v1_syntax: bool = False
+    uses_syntax: bool = False
     memory_updates: list[tuple[str, str, Any]] = field(
         default_factory=list
     )  # (scope, key, value)
@@ -75,7 +75,7 @@ class Deps:
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
-    # when the script is in the 1.0 notation; see `_as_the_script_writes_it`.
+    # when the script is in MarkdownFlow notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
     # Authored text-input questions, used only to repair an extra placeholder button.
     script_text_inputs: tuple[_Question, ...] = ()

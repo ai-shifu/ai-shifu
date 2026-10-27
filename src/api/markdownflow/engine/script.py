@@ -1,4 +1,4 @@
-"""Script bundle, 1.0-notation detection and variable substitution."""
+"""Script bundle, script notation detection and variable substitution."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Any
 
 from .marker_context import analyze_marker_context
 
-# Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
-V1_SYNTAX_RE = re.compile(
+# Anything that only makes sense with the MarkdownFlow syntax note.
+SYNTAX_RE = re.compile(
     r"(^---[ \t]*$)"  # block separator
     r"|(?<!\\)\?\[[^\]\n]*\](?!\()"  # ?[...] interaction (not an escaped one, not a link)
     r"|^!?===.*$",  # ===preserved=== / !=== fences
@@ -26,7 +26,7 @@ def _closes_fence(line: str, opening: str) -> bool:
 
     A fence closes on a line of the same marker, at least as long as the opener, and nothing else.
     Keeping the opening length matters: a ``` line inside a ```` block is content, and closing on
-    it would expose the rest of the block to variable substitution and 1.0 syntax detection.
+    it would expose the rest of the block to variable substitution and script syntax detection.
     """
     # rstrip, not strip: the opening fences recognized here must start at column 0, so an indented
     # marker is content -- a lesson showing a fenced block inside one would otherwise close early.
@@ -80,10 +80,10 @@ class ScriptBundle:
         )
 
 
-def detect_v1_syntax(text: str) -> bool:
-    """Report whether the text uses any MarkdownFlow 1.0 notation outside fenced code blocks."""
+def detect_syntax(text: str) -> bool:
+    """Report whether the text uses any MarkdownFlow notation outside fenced code blocks."""
     source = _strip_fences(text)
-    return bool(V1_SYNTAX_RE.search(source)) or any(
+    return bool(SYNTAX_RE.search(source)) or any(
         marker.name is not None for marker in analyze_marker_context(source).markers
     )
 
