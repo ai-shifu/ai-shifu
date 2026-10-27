@@ -84,9 +84,13 @@ interface StartPreviewParams {
 type PreviewSseSource = InstanceType<typeof SSE>;
 
 // The preview API requires a debug session ID, so every browser context gets one.
-// It only scopes the author's own preview session; it is not a secret.
-const fallbackDebugSessionId = () =>
-  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+// The server keys a debug session by author, course, lesson and this ID, so the
+// fallback only has to differ between this author's previews; it is not a secret.
+let fallbackDebugSessionCount = 0;
+const fallbackDebugSessionId = () => {
+  fallbackDebugSessionCount += 1;
+  return `${Date.now().toString(36)}-${fallbackDebugSessionCount.toString(36)}`;
+};
 
 const newDebugSessionId = () => {
   const webCrypto: Partial<Crypto> | undefined = globalThis.crypto;
