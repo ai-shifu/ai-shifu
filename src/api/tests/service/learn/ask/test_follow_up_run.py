@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import threading
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -11,6 +12,7 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
 from flaskr.service.learn.ask import (
     FollowUpCancelledError,
     follow_up_events,
@@ -326,17 +328,47 @@ def test_each_question_gets_its_own_trace_in_the_lessons_session(
     course = revision._seed_course(app)
     _learner(monkeypatch, course.user_bid)
     monkeypatch.setattr(follow_up_run, "get_request_id", lambda: "request-1")
+    native_id = uuid4().hex
     with app.app_context():
         progress_bid = _progress(course, position=0)
+        with unit_of_work():
+            # The lesson's turns trace under the native id stored in its session data.
+            db.session.add(
+                LearnAgentSession(
+                    agent_session_bid=uuid4().hex,
+                    user_bid=course.user_bid,
+                    shifu_bid=course.course_bid,
+                    outline_item_bid=course.outline_bid,
+                    session_data=json.dumps({"id": native_id}),
+                    active_key=active_key_for(course.user_bid, course.outline_bid),
+                )
+            )
         _ask(app, course)
         _ask(app, course)
 
     first, second = (trace["trace_payload"] for trace in ask_runtime.traces)
     assert first["id"] != second["id"]
     assert first["id"] != "request-1"
-    assert first["session_id"] == second["session_id"] == progress_bid
+    assert first["session_id"] == second["session_id"] == native_id
     assert first["metadata"]["request_id"] == "request-1"
+    assert first["metadata"]["progress_record_bid"] == progress_bid
     assert len(ask_runtime.finalized) == 2
+
+
+def test_a_question_before_the_lesson_session_exists_has_no_session(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        _progress(course, position=0)
+        _ask(app, course)
+
+    assert "session_id" not in ask_runtime.traces[-1]["trace_payload"]
 
 
 def test_a_tracing_outage_does_not_stop_the_answer(

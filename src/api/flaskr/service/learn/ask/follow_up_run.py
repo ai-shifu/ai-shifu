@@ -26,6 +26,7 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common import raise_error
 from flaskr.service.learn.agent.routing import uses_agent_engine
+from flaskr.service.learn.agent.session_store import active_session_id
 from flaskr.service.learn.const import INPUT_TYPE_ASK
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.follow_up_context import resolve_course_system_prompt
@@ -195,7 +196,12 @@ def follow_up_events(
             outline_bid=outline_item_info.bid,
             is_paid=_is_paid(user_bid, shifu_info),
         )
-        tracing.start(session_id=attend.progress_record_bid)
+        tracing.args["metadata"]["progress_record_bid"] = attend.progress_record_bid
+        tracing.start(
+            session_id=active_session_id(
+                user_info.user_id, outline_item_info.bid, preview_mode=preview_mode
+            )
+        )
         _require_live_course(context, outline_item_info.bid)
         yield from _answer(
             app,
@@ -226,9 +232,11 @@ class _FollowUpTrace:
     """One Langfuse trace per follow-up question, grouped by the lesson's session.
 
     Like a lesson advancement, a question gets its own trace id when admitted and
-    its root only once the progress record (the Langfuse Session) is known. Until
-    then, and if the SDK fails, no-op handles carry the same id, so usage records
-    stay correlated and telemetry failures never interrupt the answer.
+    its root only once the learner's progress is resolved. Its Langfuse Session is
+    the native id of the lesson's live 2.0 session, the same one the lesson's turns
+    use; a question asked before that session exists has none. Until the root
+    exists, and if the SDK fails, no-op handles carry the same trace id, so usage
+    records stay correlated and telemetry failures never interrupt the answer.
     """
 
     app: Flask
