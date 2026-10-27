@@ -9,7 +9,7 @@ The offline tests that came with it live in tests/markdownflow/engine/ and run i
 drive the engine with pydantic-ai's FunctionModel, so they need no network and no API key. Keep
 them green: they cover the parts that are easy to break and hard to notice, such as pausing and
 resuming an interaction, writing a variable to memory, splitting listen mode into segments,
-detecting 1.0 syntax and the guard against an empty confirm.
+detecting script syntax and the guard against an empty confirm.
 
 What this package must not do is reach back into the rest of the service. It takes a model, a
 script and a session; application hosts bind the shared LLM model through
@@ -48,7 +48,7 @@ from .memory import InMemoryMemoryStore, MemoryStore
 from .script import (
     ScriptBundle,
     collected_names,
-    detect_v1_syntax,
+    detect_syntax,
     render_first_prompt,
     substitute_variables,
 )
@@ -101,7 +101,7 @@ __all__ = [
     "TurnInput",
     "Visual",
     "collected_names",
-    "detect_v1_syntax",
+    "detect_syntax",
     "parse_event",
     "plain_narration",
     "render_first_prompt",

@@ -97,7 +97,7 @@ from .recall import recall
 from .script import (
     ScriptBundle,
     collected_names,
-    detect_v1_syntax,
+    detect_syntax,
     final_preserved_line,
     render_first_prompt,
     substitute_variables,
@@ -208,7 +208,7 @@ class Prompts:
 
     base: str
     listen_mode: str
-    v1_syntax: str
+    syntax: str
     html_display: str = ""
     html_display_generic: str = ""
     answer_review: str = ""
@@ -219,7 +219,7 @@ class Prompts:
         return cls(
             base=load_prompt("system"),
             listen_mode=load_prompt("listen_mode"),
-            v1_syntax=load_prompt("v1_syntax"),
+            syntax=load_prompt("syntax"),
             html_display=load_prompt("html_display"),
             html_display_generic=load_prompt("html_display_generic"),
             answer_review=load_prompt("answer_review").strip(),
@@ -654,7 +654,7 @@ class Engine:
         self,
         *,
         listen_mode: bool = False,
-        uses_v1_syntax: bool = False,
+        uses_syntax: bool = False,
         render: RenderProfile = "sandbox",
     ) -> str:
         """Build the single system message for a given host capability set.
@@ -674,8 +674,8 @@ class Engine:
             parts.append(self.prompts.html_display_generic)
         if listen_mode:
             parts.append(self.prompts.listen_mode)
-        if uses_v1_syntax:
-            parts.append(self.prompts.v1_syntax)
+        if uses_syntax:
+            parts.append(self.prompts.syntax)
         if self.extra_instructions:
             parts.append(self.extra_instructions)
         parts.append(self.exercise_instructions)
@@ -685,7 +685,7 @@ class Engine:
     def _instructions(self, ctx: RunContext[Deps]) -> str:
         instructions = self.compose_instructions(
             listen_mode=ctx.deps.listen_mode,
-            uses_v1_syntax=ctx.deps.uses_v1_syntax,
+            uses_syntax=ctx.deps.uses_syntax,
             render=self.render,
         )
         if self.memory_recall:
@@ -759,10 +759,8 @@ class Engine:
             return
         turn = turn or (StartTurn() if not session.started else ContinueTurn())
         script_text = session.script.all_text()
-        uses_v1_syntax = detect_v1_syntax(script_text)
-        text_inputs = (
-            script_text_inputs(session.script.script) if uses_v1_syntax else ()
-        )
+        uses_syntax = detect_syntax(script_text)
+        text_inputs = script_text_inputs(session.script.script) if uses_syntax else ()
         for pending in session.pending:
             pending.spec = normalize_script_text_input(pending.spec, text_inputs)
         deps = Deps(
@@ -777,9 +775,9 @@ class Engine:
             memory=session.memory,
             user_memory=session.user_memory,
             listen_mode=session.listen_mode,
-            uses_v1_syntax=uses_v1_syntax,
+            uses_syntax=uses_syntax,
             interaction_check=self.interaction_check,
-            script_options=script_options(script_text) if uses_v1_syntax else {},
+            script_options=script_options(script_text) if uses_syntax else {},
             script_text_inputs=text_inputs,
             literal_interaction_markup=authored_interaction_markup(script_text),
             # The lesson's own script only: a brief or a reference document may show `?[继续]`

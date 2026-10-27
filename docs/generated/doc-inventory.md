@@ -355,10 +355,10 @@
 | `src/api/markdownflow/engine/prompts/memory_recall.md` | Read memory on demand | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/memory_unrestricted.md` | Memory policy | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/recall_history_compaction.md` | Recall_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/system.md` | Core rules | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/teaching_history_compaction.md` | Teaching_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/teaching_summary.md` | Teaching_Summary | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/markdownflow/engine/prompts/v1_syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask.md` | 回答规则 | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask_knowledge.md` | 知识库资料 | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask_knowledge_rule.md` | Ask_Knowledge_Rule | `reference` | `reference` | `backend` | `-` | `false` |

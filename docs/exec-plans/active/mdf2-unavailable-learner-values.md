@@ -58,7 +58,7 @@ evidence. This focused fix does not close broader classroom acceptance.
 
 ## Context and Orientation
 
-`engine/script.py` renders the initial script/brief. `prompts/v1_syntax.md` defines
+`engine/script.py` renders the initial script/brief. `prompts/syntax.md` defines
 its semantics; `nickname.py` and `deleted_memory.py` refresh known host sections.
 The canonical contract is [memory recall](../../references/markdownflow-memory-recall.md).
 
