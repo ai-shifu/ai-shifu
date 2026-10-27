@@ -38,9 +38,9 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
-  resolveLoginMethodDisplayMode,
-  type LoginMethodDisplayMode,
-} from '@/lib/resolve-login-method-display-mode';
+  resolvePreferredLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/resolve-preferred-login-identifier-type';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
@@ -194,15 +194,15 @@ const resolvePrimaryLessonDisplay = ({
 const resolvePrimaryAccount = ({
   mobile,
   email,
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   emptyValue,
 }: {
   mobile?: string;
   email?: string;
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   emptyValue: string;
 }) => {
-  const preferred = loginMethodDisplayMode === 'email' ? email : mobile;
+  const preferred = preferredLoginIdentifierType === 'email' ? email : mobile;
   return formatValue(preferred, emptyValue);
 };
 
@@ -272,9 +272,12 @@ export default function AdminOperationCourseRatingsPage() {
   const defaultUserName = t('module.user.defaultUserName');
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const loginMethodDisplayMode = useMemo<LoginMethodDisplayMode>(
+  const preferredLoginIdentifierType = useMemo<LoginIdentifierType>(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
 
@@ -415,7 +418,7 @@ export default function AdminOperationCourseRatingsPage() {
     'detail.ratings.filters.ratingTime',
   );
   const userKeywordPlaceholder =
-    loginMethodDisplayMode === 'email'
+    preferredLoginIdentifierType === 'email'
       ? tOperations('detail.ratings.filters.userKeywordPlaceholderEmail')
       : tOperations('detail.ratings.filters.userKeywordPlaceholderPhone');
 
@@ -964,7 +967,7 @@ export default function AdminOperationCourseRatingsPage() {
                                 const primaryAccount = resolvePrimaryAccount({
                                   mobile: item.mobile,
                                   email: item.email,
-                                  loginMethodDisplayMode,
+                                  preferredLoginIdentifierType,
                                   emptyValue,
                                 });
                                 const isGuestAccount =

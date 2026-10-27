@@ -1,4 +1,4 @@
-import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
@@ -32,7 +32,7 @@ const resolveSummaryCountKey = (type: CreditNotificationManagedListType) =>
     : 'module.operationsCreditNotifications.config.listDialog.optedOutSummary';
 
 export function CreditNotificationCreatorListsSection({
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   blockedCreatorInput,
   blockedCreatorIdentifiers,
   optedOutCreatorIdentifiers,
@@ -40,7 +40,7 @@ export function CreditNotificationCreatorListsSection({
   onAddBlockedCreators,
   onOpenManagedListDialog,
 }: {
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   blockedCreatorInput: string;
   blockedCreatorIdentifiers: string[];
   optedOutCreatorIdentifiers: string[];
@@ -150,7 +150,7 @@ export function CreditNotificationCreatorListsSection({
                   'module.operationsCreditNotifications.config.fields.blockedCreators',
                 )}
                 tooltip={t(
-                  loginMethodDisplayMode === 'email'
+                  preferredLoginIdentifierType === 'email'
                     ? 'module.operationsCreditNotifications.config.fieldTips.creatorIdentifierListEmail'
                     : 'module.operationsCreditNotifications.config.fieldTips.creatorIdentifierListPhone',
                 )}
@@ -162,7 +162,7 @@ export function CreditNotificationCreatorListsSection({
                     autoComplete='off'
                     spellCheck={false}
                     placeholder={t(
-                      loginMethodDisplayMode === 'email'
+                      preferredLoginIdentifierType === 'email'
                         ? 'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsEmail'
                         : 'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
                     )}

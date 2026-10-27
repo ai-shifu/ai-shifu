@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { useUserStore } from '@/store';
 import type {
   DashboardCourseDetailLearnerItem,
@@ -124,17 +124,20 @@ export default function AdminDashboardCourseDetailPage() {
   const followUpListUrl = buildAdminDashboardCourseFollowUpsUrl(shifuBid);
   const ratingsPageUrl = buildAdminDashboardCourseRatingsUrl(shifuBid);
   const learnerSearchPlaceholder = useMemo(() => {
-    const loginMethodDisplayMode = resolveLoginMethodDisplayMode(
+    const preferredLoginIdentifierType = resolvePreferredLoginIdentifierType(
       loginMethodsEnabled,
       defaultLoginMethod,
     );
-    return loginMethodDisplayMode === 'email'
+    return preferredLoginIdentifierType === 'email'
       ? t('module.dashboard.detail.learners.searchPlaceholderEmail')
       : t('module.dashboard.detail.learners.searchPlaceholderPhone');
   }, [defaultLoginMethod, loginMethodsEnabled, t]);
-  const loginMethodDisplayMode = useMemo(
+  const preferredLoginIdentifierType = useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const courseStatusLabel = useMemo(() => {
@@ -343,7 +346,7 @@ export default function AdminDashboardCourseDetailPage() {
   const handleLearnerFollowUpClick = useCallback(
     (learner: DashboardCourseDetailLearnerItem) => {
       const preferredKeyword =
-        loginMethodDisplayMode === 'email'
+        preferredLoginIdentifierType === 'email'
           ? learner.email ||
             learner.mobile ||
             learner.nickname ||
@@ -361,7 +364,7 @@ export default function AdminDashboardCourseDetailPage() {
       }
       router.push(targetUrl);
     },
-    [loginMethodDisplayMode, router, shifuBid],
+    [preferredLoginIdentifierType, router, shifuBid],
   );
 
   const coreDataItems = useMemo(

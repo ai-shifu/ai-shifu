@@ -1,4 +1,4 @@
-export type LoginMethodDisplayMode = 'email' | 'phone';
+export type LoginIdentifierType = 'email' | 'phone';
 
 type LoginMethodsInput = string[] | string | null | undefined;
 
@@ -17,10 +17,10 @@ const normalizeMethods = (methods: LoginMethodsInput): string[] => {
   return [];
 };
 
-export const resolveLoginMethodDisplayMode = (
+export const resolvePreferredLoginIdentifierType = (
   loginMethodsEnabled: LoginMethodsInput,
   defaultLoginMethod: DefaultLoginInput,
-): LoginMethodDisplayMode => {
+): LoginIdentifierType => {
   const methods = normalizeMethods(loginMethodsEnabled);
   const hasEmail = methods.includes('email') || methods.includes('google');
   const hasPhone = methods.includes('phone');

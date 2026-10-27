@@ -46,7 +46,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { cn } from '@/lib/utils';
 import { getOperationOrderSourceLabel } from '../operation-order-source';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
@@ -221,9 +221,12 @@ export default function LearnOrdersTab() {
   const currencySymbol = useEnvStore(
     (state: EnvStoreState) => state.currencySymbol || '',
   );
-  const loginMethodDisplayMode = useMemo(
+  const preferredLoginIdentifierType = useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
@@ -274,11 +277,11 @@ export default function LearnOrdersTab() {
     });
 
   const userKeywordPlaceholder = useMemo(() => {
-    if (loginMethodDisplayMode === 'email') {
+    if (preferredLoginIdentifierType === 'email') {
       return tOperationsOrder('filters.userKeywordPlaceholderEmail');
     }
     return tOperationsOrder('filters.userKeywordPlaceholderPhone');
-  }, [loginMethodDisplayMode, tOperationsOrder]);
+  }, [preferredLoginIdentifierType, tOperationsOrder]);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -815,7 +818,7 @@ export default function LearnOrdersTab() {
                       order.shifu_bid,
                     );
                     const primaryContact =
-                      loginMethodDisplayMode === 'email'
+                      preferredLoginIdentifierType === 'email'
                         ? order.user_email ||
                           order.user_mobile ||
                           order.user_bid

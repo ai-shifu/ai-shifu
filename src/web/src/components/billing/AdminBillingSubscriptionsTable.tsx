@@ -35,7 +35,7 @@ import {
   resolveBillingProviderLabel,
   resolveBillingSubscriptionStatusLabel,
 } from '@/lib/billing';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import {
   AdminBillingIdentityCell,
   resolveAdminBillingPaginationFootnote,
@@ -165,19 +165,22 @@ export function AdminBillingSubscriptionsTable() {
   } = useAdminListQueryState({
     defaultFilters,
   });
-  const loginMethodDisplayMode = React.useMemo(
+  const preferredLoginIdentifierType = React.useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const searchPlaceholder = React.useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? t('module.billing.admin.subscriptions.filters.searchPlaceholderEmail')
         : t(
             'module.billing.admin.subscriptions.filters.searchPlaceholderPhone',
           ),
-    [loginMethodDisplayMode, t],
+    [preferredLoginIdentifierType, t],
   );
   const statusOptions = React.useMemo(
     () => [
