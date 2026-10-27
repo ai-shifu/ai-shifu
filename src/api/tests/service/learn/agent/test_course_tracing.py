@@ -6,7 +6,6 @@ from types import SimpleNamespace
 import pytest
 from flaskr.api import langfuse_markdownflow as tracing_module
 from flaskr.api import markdownflow as application
-from flaskr.api.langfuse import get_session_trace_id
 from flaskr.api.llm import markdownflow_model as gateway
 from flaskr.service.learn.agent import langfuse_tracing as course_tracing
 from flaskr.service.learn.agent import lesson_entry, run_agent
@@ -36,19 +35,23 @@ captured_spans = sdk_tests.captured_spans
 
 
 @pytest.mark.parametrize("scene", ["learn", "preview", "debug"])
-def test_session_trace_groups_requests_and_preserves_each_request_tree(
-    monkeypatch: pytest.MonkeyPatch, captured_spans: object, scene: str
+@pytest.mark.parametrize("shared_http_id", [True, False])
+def test_advances_keep_distinct_traces_in_one_document_execution_session(
+    monkeypatch: pytest.MonkeyPatch,
+    captured_spans: object,
+    scene: str,
+    shared_http_id: bool,
 ) -> None:
+    """HTTP identity and document continuity cannot merge separate advances."""
     client, exporter, _provider = captured_spans
     monkeypatch.setattr(tracing_module, "get_langfuse_client", lambda: client)
     for index, session_id in enumerate(("conversation", "conversation", "reset")):
         monkeypatch.setattr(
-            tracing_module, "get_request_id", lambda index=index: f"request-{index}"
-        )
-        monkeypatch.setattr(
             tracing_module,
-            "get_request_trace_id",
-            lambda index=index: f"{index + 1:032x}",
+            "get_request_id",
+            lambda index=index: (
+                "shared-request" if shared_http_id else f"request-{index}"
+            ),
         )
         trace = course_tracing.CourseTrace(
             user_bid="learner",
@@ -89,16 +92,17 @@ def test_session_trace_groups_requests_and_preserves_each_request_tree(
     roots = [span for span in spans if span.name == f"{scene}/course/lesson"]
     assert len(roots) == 3
     assert len({span.context.span_id for span in roots}) == 3
-    assert roots[0].context.trace_id == roots[1].context.trace_id
-    assert roots[2].context.trace_id != roots[0].context.trace_id
-    assert roots[0].context.trace_id == int(
-        get_session_trace_id("conversation", user_id="learner"), 16
-    )
+    assert len({root.context.trace_id for root in roots}) == 3
+    assert [root.attributes["session.id"] for root in roots] == [
+        "conversation",
+        "conversation",
+        "reset",
+    ]
     for index, root in enumerate(roots):
         assert root.attributes["langfuse.observation.input"] == f"answer-{index}"
         assert root.attributes["langfuse.observation.output"] == f"visible-{index}"
-        assert (
-            root.attributes["langfuse.trace.metadata.request_id"] == f"request-{index}"
+        assert root.attributes["langfuse.trace.metadata.request_id"] == (
+            "shared-request" if shared_http_id else f"request-{index}"
         )
         turn = next(
             span

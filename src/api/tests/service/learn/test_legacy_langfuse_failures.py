@@ -6,7 +6,6 @@ from unittest.mock import Mock
 import pytest
 from flask import Flask
 from flaskr.api import langfuse as langfuse_module
-from flaskr.api.langfuse import coerce_langfuse_trace_id, get_session_trace_id
 from flaskr.service.learn import context_v2 as context_module
 from flaskr.service.learn import runscript_v2 as run
 from flaskr.service.learn.context_v2 import RunScriptContextV2
@@ -32,15 +31,19 @@ def execution(monkeypatch: pytest.MonkeyPatch, captured_spans: object) -> object
     )
     struct = HistoryItem(bid="lesson", id=1, type="outline", children=[])
     user = SimpleNamespace(user_id="learner")
-    context = RunScriptContextV2(
-        app=app,
-        shifu_info=course,
-        struct=struct,
-        outline_item_info=outline,
-        user_info=user,
-        is_paid=True,
-        preview_mode=False,
-    )
+
+    def make_context() -> RunScriptContextV2:
+        return RunScriptContextV2(
+            app=app,
+            shifu_info=course,
+            struct=struct,
+            outline_item_info=outline,
+            user_info=user,
+            is_paid=True,
+            preview_mode=False,
+        )
+
+    context = make_context()
     error = LookupError("progress storage failed")
     monkeypatch.setattr(context, "_get_current_attend", Mock(side_effect=error))
 
@@ -61,6 +64,8 @@ def execution(monkeypatch: pytest.MonkeyPatch, captured_spans: object) -> object
     return SimpleNamespace(
         app=app,
         context=context,
+        make_context=make_context,
+        advancement_id=context._trace_id,
         exporter=exporter,
         error=error,
         session=session,
@@ -95,7 +100,7 @@ def test_progress_failure_exports_one_request_error_and_preserves_original_excep
     spans = execution.exporter.get_finished_spans()
     assert len(spans) == 1
     root = spans[0]
-    assert root.context.trace_id == int(coerce_langfuse_trace_id("failed-request"), 16)
+    assert root.context.trace_id == int(execution.advancement_id, 16)
     assert root.attributes["langfuse.observation.input"] == "Current answer"
     assert root.attributes["langfuse.trace.metadata.request_id"] == "failed-request"
     assert root.attributes["langfuse.observation.level"] == "ERROR"
@@ -110,7 +115,7 @@ def test_progress_failure_exports_one_request_error_and_preserves_original_excep
 def test_bound_session_error_ends_its_session_root_without_creating_fallback(
     execution: object,
 ) -> None:
-    """Keep a failed resolved session in its deterministic trace."""
+    """Keep a failed resolved advancement in its original trace and session."""
     context = execution.context
     context._current_attend = SimpleNamespace(progress_record_bid="progress")
     context._bind_trace_session()
@@ -119,11 +124,77 @@ def test_bound_session_error_ends_its_session_root_without_creating_fallback(
     spans = execution.exporter.get_finished_spans()
     assert len(spans) == 1
     root = spans[0]
-    assert root.context.trace_id == int(
-        get_session_trace_id("progress", user_id="learner"), 16
-    )
+    assert root.context.trace_id == int(execution.advancement_id, 16)
     assert root.attributes["session.id"] == "progress"
     assert root.attributes["langfuse.observation.level"] == "ERROR"
+
+
+def test_legacy_advancements_keep_distinct_traces_with_one_session_and_request_id(
+    execution: object,
+) -> None:
+    """Operation ownership, rather than a shared HTTP id, defines trace identity."""
+    contexts = [execution.context, execution.make_context()]
+    for index, context in enumerate(contexts):
+        context.set_input(f"answer-{index}", "text")
+        context._current_attend = SimpleNamespace(progress_record_bid="document-run")
+        for step in range(2):
+            context._bind_trace_session()
+            context._trace_root_span.generation(name=f"teaching-{step}").end(
+                output=f"model-{index}-{step}"
+            )
+        context.append_langfuse_output(f"visible-{index}")
+        context._finalize_langfuse_trace()
+    spans = execution.exporter.get_finished_spans()
+    assert len(spans) == 6
+    assert contexts[0]._trace_id != contexts[1]._trace_id
+    for index, context in enumerate(contexts):
+        owned = [
+            span
+            for span in spans
+            if span.context.trace_id == int(context._trace_id, 16)
+        ]
+        assert len(owned) == 3
+        root = next(
+            span
+            for span in owned
+            if span.context.span_id == int(context._trace_root_span.id, 16)
+        )
+        assert root.attributes["langfuse.observation.input"] == f"answer-{index}"
+        assert root.attributes["langfuse.observation.output"] == f"visible-{index}"
+        assert all(span.attributes["session.id"] == "document-run" for span in owned)
+        assert all(
+            span.attributes["langfuse.trace.metadata.request_id"] == "failed-request"
+            for span in owned
+        )
+        assert all(
+            span.parent.span_id == root.context.span_id
+            for span in owned
+            if span is not root
+        )
+
+
+def test_legacy_document_transition_splits_sessions_and_advancement_traces(
+    execution: object,
+) -> None:
+    """One stream may enter another document without mixing its output or timing."""
+    context = execution.context
+    trace_ids = []
+    for index in range(2):
+        context._current_attend = SimpleNamespace(
+            progress_record_bid=f"document-{index}"
+        )
+        context._bind_trace_session()
+        trace_ids.append(context._trace_id)
+        context.append_langfuse_output(f"visible-{index}")
+    context._finalize_langfuse_trace()
+    roots = execution.exporter.get_finished_spans()
+    assert len(roots) == 2
+    assert trace_ids[0] != trace_ids[1]
+    for index, root in enumerate(roots):
+        assert root.context.trace_id == int(trace_ids[index], 16)
+        assert root.attributes["session.id"] == f"document-{index}"
+        assert root.attributes["langfuse.observation.output"] == f"visible-{index}"
+        assert root.attributes["langfuse.trace.metadata.request_id"] == "failed-request"
 
 
 def _resume_learning(
@@ -177,7 +248,9 @@ def _resume_learning(
         # A no-op root still needs all observation methods and a real trace id
         # for the unchanged provider, interaction, ask, and billing paths.
         context._bind_trace_session()
-        expected_id = get_session_trace_id("next-progress", user_id="learner")
+        expected_id = context._trace_id
+        assert len(expected_id) == 32
+        assert (expected_id != execution.advancement_id) is rollover
         assert parent.trace_id == expected_id
         assert kwargs["usage_context"] is usage
         assert kwargs["stream"] is True
@@ -282,7 +355,7 @@ def test_progress_failure_retains_captured_request_identity_during_late_cleanup(
         _run(execution)
     assert caught.value is execution.error
     root = execution.exporter.get_finished_spans()[0]
-    assert root.context.trace_id == int(coerce_langfuse_trace_id("failed-request"), 16)
+    assert root.context.trace_id == int(execution.advancement_id, 16)
     assert root.attributes["langfuse.trace.metadata.request_id"] == "failed-request"
 
 

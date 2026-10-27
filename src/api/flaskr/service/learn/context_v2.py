@@ -17,13 +17,11 @@ from flaskr.api.langfuse import (
     LangfuseObservationHandle,
     LangfuseTraceHandle,
     MockClient,
-    coerce_langfuse_trace_id,
+    create_advancement_trace_id,
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
     get_request_id,
-    get_request_trace_id,
-    get_session_trace_id,
     normalize_langfuse_input_value,
     normalize_langfuse_output_value,
 )
@@ -886,7 +884,7 @@ class RunScriptPreviewContextV2:
         chapter_title = getattr(outline, "title", "") or outline_bid
         trace_scene = "lesson_preview"
         request_id = get_request_id()
-        trace_id = get_session_trace_id(session_id, user_id=user_bid)
+        trace_id = create_advancement_trace_id()
         trace_args = {
             "user_id": user_bid,
             "session_id": session_id,
@@ -1638,7 +1636,7 @@ class RunScriptContextV2:
         self._trace_args = {}
         chapter_title = self._outline_item_info.title
         trace_scene = "lesson_preview_runtime" if preview_mode else "lesson_runtime"
-        self._trace_id = ""
+        self._trace_id = create_advancement_trace_id()
         self._trace_args["user_id"] = user_info.user_id
         self._trace_args["name"] = build_langfuse_trace_name(chapter_title, trace_scene)
         self._trace_args["metadata"] = {
@@ -1684,18 +1682,15 @@ class RunScriptContextV2:
         self._langfuse_output_chunks.append(text)
 
     def _finalize_langfuse_trace(self, error: Exception | None = None) -> None:
-        """End once, retaining a request error when no session could be selected."""
+        """End once, retaining the admitted advancement even before session loading."""
         if getattr(self, "_trace_finalized", False):
             return
         self._trace_finalized = True
         try:
             if getattr(self, "_trace_root_span", None) is None:
                 metadata = self._trace_args.get("metadata", {})
-                request_id = metadata.get("request_id")
-                self._trace_id = getattr(self, "_trace_id", "") or (
-                    coerce_langfuse_trace_id(request_id)
-                    if request_id
-                    else get_request_trace_id()
+                self._trace_id = (
+                    getattr(self, "_trace_id", "") or create_advancement_trace_id()
                 )
                 self._trace, self._trace_root_span = create_trace_with_root_span(
                     client=get_langfuse_client(),
@@ -2230,7 +2225,7 @@ class RunScriptContextV2:
         yield from self._phase_completion_tail()
 
     def _bind_trace_session(self) -> None:
-        """Start this request's root in the resolved progress session's trace."""
+        """Bind this advancement to its effective document execution session."""
         if not isinstance(getattr(self, "_trace_args", None), dict):
             self._trace_args = {}
         if not hasattr(self, "_trace_root_span"):
@@ -2241,11 +2236,10 @@ class RunScriptContextV2:
                 return
             self._finalize_langfuse_trace()
             self._langfuse_output_chunks = []
+            self._trace_id = create_advancement_trace_id()
         metadata = self._trace_args.setdefault("metadata", {})
         self._trace_args["session_id"] = session_id
-        self._trace_id = get_session_trace_id(
-            session_id, user_id=self._trace_args.get("user_id", "")
-        )
+        self._trace_id = getattr(self, "_trace_id", "") or create_advancement_trace_id()
         # Keep downstream model, ask, and interaction calls usable if the SDK
         # fails, without reusing an earlier session's ended handles.
         self._trace = LangfuseTraceHandle(MockClient(), self._trace_id)

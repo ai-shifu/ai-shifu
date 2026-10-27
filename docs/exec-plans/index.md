@@ -119,6 +119,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Lobster Course Entry Analytics](./completed/lobster-course-entry-analytics.md)
 - [Expose Learner Memory through a Typed Host Facade](./completed/markdown-flow-agent-memory-migration.md)
 - [MarkdownFlow Scroll Controls](./completed/markdown-flow-scroll-controls.md)
+- [MarkdownFlow Advancement Traces](./completed/markdownflow-advancement-traces.md)
 - [Shared MarkdownFlow foundation library](./completed/markdownflow-foundation-library.md)
 - [MarkdownFlow Langfuse Tracing](./completed/markdownflow-langfuse-tracing.md)
 - [Local MarkdownFlow slide comparison ExecPlan](./completed/markdownflow-model-arena.md)

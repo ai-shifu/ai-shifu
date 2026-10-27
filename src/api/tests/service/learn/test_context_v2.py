@@ -1967,15 +1967,15 @@ class LangfuseTraceFinalizationTests(unittest.TestCase):
                 preview_mode=False,
             )
             assert not captured
+            advancement_id = ctx._trace_id
             ctx._current_attend = types.SimpleNamespace(
                 progress_record_bid="progress-1"
             )
             ctx._bind_trace_session()
 
         assert captured["client"] is sentinel_client
-        assert captured["trace_payload"][
-            "id"
-        ] == context_v2_module.get_session_trace_id("progress-1", user_id="user-1")
+        assert captured["trace_payload"]["id"] == advancement_id
+        assert len(advancement_id) == 32
         assert captured["trace_payload"]["session_id"] == "progress-1"
         assert captured["trace_payload"]["metadata"]["request_id"] == "request-1"
 
@@ -2052,7 +2052,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
         app = Flask("preview-langfuse-trace")
         preview_ctx = RunScriptPreviewContextV2(app)
         preview_request = PlaygroundPreviewRequest(block_index=0)
-        captured = {}
+        captured = {"payloads": []}
 
         class _FakePreviewContextStore:
             def __init__(self, *_args: object, **_kwargs: object) -> None:
@@ -2107,6 +2107,7 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
         ) -> object:
             _ = client, root_span_payload
             captured["trace_payload"] = trace_payload
+            captured["payloads"].append(trace_payload)
             trace = _FakeLangfuseTrace()
             root_span = _FakeLangfuseSpan()
             captured["trace"] = trace
@@ -2166,12 +2167,26 @@ class PreviewLangfuseTraceTests(unittest.TestCase):
                     session_id="preview-session-1",
                 )
             )
+            repeated = list(
+                preview_ctx.stream_preview(
+                    preview_request=preview_request,
+                    shifu_bid="shifu-1",
+                    outline_bid="outline-1",
+                    user_bid="user-1",
+                    session_id="preview-session-1",
+                )
+            )
 
         assert messages
-        assert captured["trace_payload"][
-            "id"
-        ] == context_v2_module.get_session_trace_id(
-            "preview-session-1", user_id="user-1"
+        assert repeated
+        first, second = captured["payloads"]
+        assert first["id"] != second["id"]
+        assert all(
+            payload["session_id"] == "preview-session-1" for payload in (first, second)
+        )
+        assert all(
+            payload["metadata"]["request_id"] == "preview-request-1"
+            for payload in (first, second)
         )
         assert captured["trace_payload"]["session_id"] == "preview-session-1"
         assert (
@@ -2998,7 +3013,7 @@ class BuildContextNoVariableInteractionTests(unittest.TestCase):
 
 
 class TraceSessionBindingTests(unittest.TestCase):
-    """Keep separate requests in the session trace and reset sessions isolated."""
+    """Keep automatic steps together and admitted advancements distinct."""
 
     def _context(self, request_id: str = "request-1") -> RunScriptContextV2:
         ctx = _make_context()
@@ -3022,8 +3037,8 @@ class TraceSessionBindingTests(unittest.TestCase):
         )
         return ctx
 
-    def test_separate_requests_share_trace_and_each_step_keeps_its_root(self) -> None:
-        contexts = [self._context("request-1"), self._context("request-2")]
+    def test_advancements_have_distinct_traces_even_with_one_request_id(self) -> None:
+        contexts = [self._context("request-1"), self._context("request-1")]
         roots = [_FakeLangfuseSpan(), _FakeLangfuseSpan()]
         with patch.object(
             context_v2_module,
@@ -3036,14 +3051,13 @@ class TraceSessionBindingTests(unittest.TestCase):
 
         assert create.call_count == 2
         payloads = [call.kwargs["trace_payload"] for call in create.call_args_list]
-        assert payloads[0]["id"] == payloads[1]["id"]
-        assert payloads[0]["id"] == context_v2_module.get_session_trace_id(
-            "progress-1", user_id="user-1"
-        )
+        assert payloads[0]["id"] != payloads[1]["id"]
+        assert payloads[0]["id"] == contexts[0]._trace_id
+        assert payloads[1]["id"] == contexts[1]._trace_id
         assert all(payload["session_id"] == "progress-1" for payload in payloads)
         assert [payload["metadata"]["request_id"] for payload in payloads] == [
             "request-1",
-            "request-2",
+            "request-1",
         ]
         assert contexts[0]._trace_root_span is roots[0]
         assert contexts[1]._trace_root_span is roots[1]

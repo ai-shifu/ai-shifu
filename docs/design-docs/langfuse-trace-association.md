@@ -49,7 +49,7 @@ canonical: true
 - Langfuse SDK v4 has no mutable trace record: a trace is the tree of its
   observations, so `src/api/flaskr/api/langfuse.py` keeps the legacy
   `trace.update()` / `trace.span()` call surface but maps it onto observations.
-- The overall `input` and `output` of a request live on the root observation.
+- The overall `input` and `output` of an advancement live on the root observation.
   Trace-level input/output APIs are deprecated and are not used.
 - Correlating attributes (`user_id`, `session_id`, `tags`, `version`,
   `metadata`, environment) are replicated onto every observation through
@@ -67,60 +67,66 @@ canonical: true
   - ask nesting under a parent observation
   - publish summary trace output propagation
 
-## Session Trace Identity
+## Session and Advancement Identity
 
-Learning and Profile requests reuse one trace per session. The shared
-`get_session_trace_id(session_id, user_id=...)` helper deterministically maps
-the namespaced user/session pair to a W3C trace id. This works across requests,
-worker processes, reconnects, and application restarts without keeping SDK
-objects or trace ids in session storage. A reset that creates a new session
-creates a new trace; different users remain isolated. Request ids remain
-metadata on each request observation and its descendants.
+A complete interactive document execution is a Langfuse Session. Each admitted
+business advancement is a separate Trace: start, answer, continue, or regenerate
+runs automatically until the next wait, completion, or failure. A single advance
+can contain several engine turns and model calls. The document definition is
+identified by existing course/outline and content-revision metadata, or Profile
+purpose/configuration-revision metadata; it is not itself an execution trace.
 
-Each request creates a distinct root observation in that trace and ends its
-own observations normally. Multiple request roots are siblings within the same
-trace, rather than repeatedly updating a shared long-lived observation. Their
-inputs, outputs, timings, and outcomes remain request-specific. There is no
-synthetic aggregate session input/output and no span held open while waiting
-for the learner. Inspect each request root for its public result and its child
-generations for model inputs, usage, and costs.
+The native course session id, Profile questionnaire session id, or legacy
+progress-session id remains `session_id` across advancements and HTTP requests.
+A reset creates a new execution Session. The shared
+`create_advancement_trace_id()` helper allocates a fresh W3C trace id once when
+an advancement coordinator is admitted, before producer-thread work. Different
+advances cannot share a trace merely because they share a document, user, or
+HTTP request id. Request ids remain transport correlation metadata.
 
-Legacy preview already knows its session id when it starts. Legacy learning
-defers trace creation until outline synchronization selects the effective
-progress session, before any model call. Automatic steps in the same request
-reuse its root; moving to another
-progress session ends that root and starts a distinct trace. MarkdownFlow
-courses defer trace and round creation until the native session is restored or
-created; progress/block metadata received earlier is retained. Profile uses its
-existing questionnaire session id from the outset. A learning request that
-fails before any session is resolved retains a request-based error trace.
-Legacy finalization uses the captured request id for that fallback, records the
-exception type and error outcome, and runs at most once per root. SDK failures
-during session binding use no-op trace and observation handles with the same
-session trace id, so teaching, moderation, follow-up questions, and usage
-correlation continue normally. Optional finalization cannot replace the original
-business error or prevent database cleanup. Errors after session binding retain
-that session's trace instead of creating a request-based fallback.
+Each advancement owns one public root observation with its input, output,
+timing, and outcome. Automatic turns, generations, tools, and private helpers
+remain descendants of that root until it closes. A standalone Profile summary
+or answer-import operation owns its own Trace in the same execution Session;
+the same helper invoked inside an existing advancement remains a child. Exact
+Profile replay and already-completed responses are rejected before tracing and
+do not create execution observations or charge another model call.
 
-Only new observations use this identity. Historical request traces remain
-unchanged, including those belonging to sessions resumed after rollout; the
-resumed session's later observations share the new deterministic trace. Request
-replay still does not execute a model or create an additional execution root.
+Legacy preview allocates an id per preview operation. Legacy learning captures
+its id at context construction, then binds its root only after outline
+synchronization selects the effective progress record. Automatic steps with
+that record reuse the root; crossing to another document's progress Session
+closes the earlier root, clears its output, and allocates a new Trace even in
+one HTTP stream. MarkdownFlow courses bind after native session loading,
+retaining any early progress/block metadata. Profile knows its Session from
+admission. No observation remains open during learner waiting time.
 
-The identity uses Langfuse's documented
-[deterministic trace context](https://langfuse.com/docs/observability/features/trace-ids-and-distributed-tracing).
+Early failures before a session is known retain an error Trace with the captured
+advancement id and request metadata. Finalization records the exception type
+and error outcome at most once per root. SDK failures use no-op trace and
+observation handles carrying that same advancement id, so teaching, moderation,
+follow-up questions, and usage correlation continue normally. SDK errors cannot
+replace original business errors or prevent database cleanup. Failed session
+rollover cannot reuse the previous execution's ended observation handles.
 
-## MarkdownFlow 2.0 Request Observations
+Trace-based metrics and evaluators now describe individual advancements;
+Session-based analysis describes complete document executions. Generation-level
+usage and cost accounting remain unchanged. Historical traces are not rewritten:
+later advances use new Trace ids while retaining their execution's Session id.
+No database or native-session migration is required.
+
+This boundary follows Langfuse's
+[trace and session model](https://langfuse.com/docs/observability/best-practices).
+
+## MarkdownFlow 2.0 Advancement Observations
 
 Course teaching and Profile onboarding share `flaskr.api.langfuse_markdownflow`.
 Their service-local `langfuse_tracing.py` modules own scene names, metadata,
-request actions, output filtering, and outcome mapping. Business code passes
+advancement actions, output filtering, and outcome mapping. Business code passes
 resolved objects and execution facts through small lifecycle hooks. Each
-accepted execution request owns one root observation within its session trace;
-automatic native turns and model requests remain children of that root. Related
-requests share a trace through the native course session id or the existing
-Profile session id. Exact Profile request replay does not execute or charge a
-model again and does not start an additional request observation.
+accepted advancement owns one Trace and root observation; automatic native turns
+and model requests remain children of that root. Related advances retain the
+same execution Session. Exact Profile replay does not create another Trace.
 
 ### Names and correlation
 
@@ -240,8 +246,9 @@ semantics.
 
 ### Acceptance checks
 
-Focused host regressions cover cross-request trace identity, session resets,
-user isolation, request-specific IO and metadata, early progress identifiers,
+Focused host regressions cover distinct advancement traces within one execution
+Session, identical HTTP ids, session resets, automatic-turn trace continuity,
+advancement-specific IO and request metadata, early progress identifiers,
 all five scenes, structured answers, no-text
 actions, restored context, automatic continuation, tool completion, visible
 interactions, failed/discarded saves, terminal-close classification, replay, and

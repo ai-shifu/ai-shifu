@@ -8,6 +8,10 @@ canonical: false
 
 # Session Langfuse Traces
 
+The session-to-trace identity decision below is superseded by the
+[advancement tracing contract](../../design-docs/langfuse-trace-association.md#session-and-advancement-identity).
+The verified fault-isolation and regression work remains in effect.
+
 ## Purpose / Big Picture
 
 Use one Langfuse trace per learning or Profile session, while preserving each

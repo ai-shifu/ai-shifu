@@ -26,6 +26,7 @@ def test_trace_binds_the_effective_progress_after_synchronization(
     context._trace = runtime.MockClient()
     context._trace_root_span = None
     context._trace_args = {"user_id": "learner", "metadata": {}}
+    context._trace_id = "a" * 32
     context._get_current_attend = Mock(return_value=context._current_attend)
     refreshed = SimpleNamespace(
         progress_record_bid="refreshed-progress", block_position=0, status=1
@@ -47,9 +48,7 @@ def test_trace_binds_the_effective_progress_after_synchronization(
     def resolve_script(progress: object, **_kwargs: object) -> None:
         assert progress is refreshed
         assert context._trace_args["session_id"] == refreshed.progress_record_bid
-        assert context._trace_id == runtime.get_session_trace_id(
-            refreshed.progress_record_bid, user_id="learner"
-        )
+        assert context._trace_id == "a" * 32
 
     context._phase_sync_outline_progress = synchronize
     context._get_run_script_info = Mock(side_effect=resolve_script)

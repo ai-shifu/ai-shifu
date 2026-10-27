@@ -151,6 +151,7 @@
 | `docs/exec-plans/completed/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdown-flow-agent-memory-migration.md` | Expose Learner Memory through a Typed Host Facade | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdown-flow-scroll-controls.md` | MarkdownFlow Scroll Controls | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/markdownflow-advancement-traces.md` | MarkdownFlow Advancement Traces | `exec-plan-completed` | `completed` | `backend` | `2026-10-27` | `false` |
 | `docs/exec-plans/completed/markdownflow-foundation-library.md` | Shared MarkdownFlow foundation library | `exec-plan-completed` | `completed` | `backend` | `2026-10-23` | `false` |
 | `docs/exec-plans/completed/markdownflow-langfuse-tracing.md` | MarkdownFlow Langfuse Tracing | `exec-plan-completed` | `completed` | `backend` | `2026-10-26` | `false` |
 | `docs/exec-plans/completed/markdownflow-model-arena.md` | Local MarkdownFlow slide comparison ExecPlan | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |

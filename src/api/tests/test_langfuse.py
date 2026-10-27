@@ -9,8 +9,8 @@ from flask import Flask
 from flaskr.api.langfuse import (
     MockClient,
     coerce_langfuse_trace_id,
+    create_advancement_trace_id,
     get_request_trace_id,
-    get_session_trace_id,
     resolve_langfuse_trace_id,
 )
 from flaskr.common.log import thread_local
@@ -76,18 +76,22 @@ class RequestTraceIdTests(unittest.TestCase):
             assert get_request_trace_id() == fake_uuid.hex
 
 
-def test_session_trace_identity_is_stable_and_isolates_users_and_resets() -> None:
-    first = get_session_trace_id("conversation", user_id="learner")
-    assert re.fullmatch(TRACE_ID_RE, first)
-    assert first == get_session_trace_id("conversation", user_id="learner")
-    assert first != get_session_trace_id("new-conversation", user_id="learner")
-    assert first != get_session_trace_id("conversation", user_id="another-learner")
-    assert first != coerce_langfuse_trace_id("conversation")
+def test_advancements_allocate_distinct_valid_trace_ids() -> None:
+    """Separate admitted operations never share a trace because their HTTP id matches."""
+    with patch("flaskr.api.langfuse.get_request_id", return_value="shared-request"):
+        identities = {create_advancement_trace_id() for _ in range(3)}
+    assert len(identities) == 3
+    assert all(re.fullmatch(TRACE_ID_RE, identity) for identity in identities)
+    assert all(int(identity, 16) != 0 for identity in identities)
 
 
-def test_missing_session_uses_request_identity() -> None:
-    with patch("flaskr.api.langfuse.get_request_trace_id", return_value="a" * 32):
-        assert get_session_trace_id("") == "a" * 32
+def test_advancement_identity_needs_no_http_or_session_context() -> None:
+    """Allocate before producer work without consulting ambient request state."""
+    with (
+        patch("flaskr.api.langfuse.get_request_id", side_effect=AssertionError),
+        patch("flaskr.api.langfuse.get_request_trace_id", side_effect=AssertionError),
+    ):
+        assert re.fullmatch(TRACE_ID_RE, create_advancement_trace_id())
 
 
 class ResolveLangfuseTraceIdTests(unittest.TestCase):
