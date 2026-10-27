@@ -497,32 +497,31 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             - name: outline_bid
               type: string
               required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    content:
-                        type: string
-                        required: true
-                        description: Markdown-Flow document content
-                    block_index:
-                        type: integer
-                        required: true
-                        description: block index to preview
-                    variables:
+        requestBody:
+            required: true
+            content:
+                application/json:
+                    schema:
                         type: object
-                        required: false
-                        description: variables
-                    user_input:
-                        type: object
-                        required: false
-                        description: user input map
-                    debug_session_id:
-                        type: string
-                        required: true
-                        description: editor debug session identifier
+                        required:
+                            - block_index
+                            - debug_session_id
+                        properties:
+                            content:
+                                type: string
+                                description: Markdown-Flow document content
+                            block_index:
+                                type: integer
+                                description: block index to preview
+                            variables:
+                                type: object
+                                description: variables
+                            user_input:
+                                type: object
+                                description: user input map
+                            debug_session_id:
+                                type: string
+                                description: editor debug session identifier
         responses:
             200:
                 description: stream preview block success
