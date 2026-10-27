@@ -40,6 +40,7 @@ def ask_runtime(
     follow_up_dependencies: SimpleNamespace,  # noqa: F811 - pytest fixture
 ) -> SimpleNamespace:
     traces = []
+    finalized = []
 
     def create_trace(**kwargs: object) -> tuple[MagicMock, None]:
         traces.append(kwargs)
@@ -47,13 +48,17 @@ def ask_runtime(
 
     monkeypatch.setattr(follow_up_run, "create_trace_with_root_span", create_trace)
     monkeypatch.setattr(follow_up_run, "get_langfuse_client", lambda: None)
-    monkeypatch.setattr(follow_up_run, "finalize_langfuse_trace", lambda **_k: None)
+    monkeypatch.setattr(
+        follow_up_run, "finalize_langfuse_trace", lambda **k: finalized.append(k)
+    )
     monkeypatch.setattr(
         follow_up_run,
         "load_memory",
         lambda *_args, **_kwargs: SimpleNamespace(as_variables=dict),
     )
-    return SimpleNamespace(traces=traces, calls=follow_up_dependencies)
+    return SimpleNamespace(
+        traces=traces, finalized=finalized, calls=follow_up_dependencies
+    )
 
 
 def _learner(monkeypatch: pytest.MonkeyPatch, user_bid: str) -> None:
@@ -309,3 +314,77 @@ def test_a_closed_stream_stops_the_answer(
         with pytest.raises(FollowUpCancelledError):
             _ask(app, course, stop_event=stop_event)
         assert ask_runtime.calls.llm == []
+
+
+def test_each_question_gets_its_own_trace_in_the_lessons_session(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    monkeypatch.setattr(follow_up_run, "get_request_id", lambda: "request-1")
+    with app.app_context():
+        progress_bid = _progress(course, position=0)
+        _ask(app, course)
+        _ask(app, course)
+
+    first, second = (trace["trace_payload"] for trace in ask_runtime.traces)
+    assert first["id"] != second["id"]
+    assert first["id"] != "request-1"
+    assert first["session_id"] == second["session_id"] == progress_bid
+    assert first["metadata"]["request_id"] == "request-1"
+    assert len(ask_runtime.finalized) == 2
+
+
+def test_a_tracing_outage_does_not_stop_the_answer(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+
+    def outage(**_kwargs: object) -> None:
+        message = "langfuse unavailable"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(follow_up_run, "create_trace_with_root_span", outage)
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        _progress(course, position=0)
+        events = _ask(app, course)
+
+    assert any(
+        e.type == GeneratedType.CONTENT and e.content == "Follow-up answer"
+        for e in events
+    )
+    finalized = ask_runtime.finalized[-1]
+    # The no-op handles keep the admitted trace id for usage correlation.
+    assert finalized["trace"].trace_id == finalized["root_span"].trace_id
+    assert finalized["trace"].trace_id
+
+
+def test_a_failure_before_the_session_is_known_leaves_one_error_trace(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        _sell_lesson(course)
+        with pytest.raises(PaidError):
+            _ask(app, course)
+
+    assert len(ask_runtime.traces) == 1
+    assert "session_id" not in ask_runtime.traces[0]["trace_payload"]
+    assert len(ask_runtime.finalized) == 1
+    root = ask_runtime.finalized[0]["root_span_payload"]
+    assert root["level"] == "ERROR"
+    assert root["status_message"] == "PaidError"

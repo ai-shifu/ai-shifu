@@ -11,13 +11,16 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from flaskr.api.langfuse import (
+    LangfuseObservationHandle,
+    LangfuseTraceHandle,
+    MockClient,
+    create_advancement_trace_id,
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
-    get_request_trace_id,
+    get_request_id,
     normalize_langfuse_input_value,
     normalize_langfuse_output_value,
-    update_langfuse_trace,
 )
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
@@ -175,7 +178,7 @@ def follow_up_events(
         _learning_mode=normalized_mode,
         _stop_event=stop_event,
     )
-    trace_args, trace, root_span = _open_trace(
+    tracing = _FollowUpTrace.admit(
         app, user_info, outline_item_info, user_input, preview_mode
     )
     try:
@@ -192,7 +195,7 @@ def follow_up_events(
             outline_bid=outline_item_info.bid,
             is_paid=_is_paid(user_bid, shifu_info),
         )
-        _bind_trace_session(trace, trace_args, attend)
+        tracing.start(session_id=attend.progress_record_bid)
         _require_live_course(context, outline_item_info.bid)
         yield from _answer(
             app,
@@ -205,80 +208,121 @@ def follow_up_events(
                 attend.block_position if anchor_position is None else anchor_position
             ),
             anchor_element_bid=anchor_element_bid,
-            trace_args=trace_args,
-            trace=trace,
-            root_span=root_span,
+            trace_args=tracing.args,
+            trace=tracing.trace,
+            root_span=tracing.root_span,
         )
     except (FollowUpCancelledError, GeneratorExit):
         # The learner walked away; the trace is left as it stands.
         raise
-    except BaseException:
-        _finalize_trace(context, trace_args, trace, root_span)
+    except Exception as error:
+        tracing.finalize(context, error=error)
         raise
-    _finalize_trace(context, trace_args, trace, root_span)
+    tracing.finalize(context)
 
 
-def _open_trace(
-    app: Flask,
-    user_info: UserAggregate,
-    outline_item_info: ShifuOutlineItemDto,
-    user_input: object,
-    preview_mode: bool,
-) -> tuple[dict, object, object]:
-    chapter_title = outline_item_info.title
-    trace_scene = "lesson_preview_runtime" if preview_mode else "lesson_runtime"
-    trace_id = get_request_trace_id()
-    trace_args: dict = {
-        "user_id": user_info.user_id,
-        "name": build_langfuse_trace_name(chapter_title, trace_scene),
-        "metadata": {
-            "scene": trace_scene,
-            "chapter_title": chapter_title,
-            "outline_item_bid": outline_item_info.bid,
-            "shifu_bid": outline_item_info.shifu_bid,
-            "preview_mode": int(bool(preview_mode)),
-        },
-    }
-    trace, root_span = create_trace_with_root_span(
-        client=get_langfuse_client(),
-        trace_payload={"id": trace_id, **trace_args},
-        root_span_payload={
-            "name": build_langfuse_span_name(chapter_title, trace_scene, "root")
-        },
-    )
-    trace_args["input"] = normalize_langfuse_input_value(user_input)
-    trace_args["input_type"] = INPUT_TYPE_ASK
-    app.logger.info(
-        "langfuse ask trace created | trace_id=%s scene=%s user_id=%s shifu_bid=%s "
-        "outline_item_bid=%s",
-        trace_id,
-        trace_scene,
-        user_info.user_id,
-        outline_item_info.shifu_bid,
-        outline_item_info.bid,
-    )
-    return trace_args, trace, root_span
+@dataclass
+class _FollowUpTrace:
+    """One Langfuse trace per follow-up question, grouped by the lesson's session.
 
+    Like a lesson advancement, a question gets its own trace id when admitted and
+    its root only once the progress record (the Langfuse Session) is known. Until
+    then, and if the SDK fails, no-op handles carry the same id, so usage records
+    stay correlated and telemetry failures never interrupt the answer.
+    """
 
-def _bind_trace_session(
-    trace: object, trace_args: dict, attend: LearnProgressRecord
-) -> None:
-    # Observations started after this carry the session id; the root span already exists.
-    trace_args["session_id"] = attend.progress_record_bid
-    if trace is not None:
-        update_langfuse_trace(trace, session_id=attend.progress_record_bid)
+    app: Flask
+    args: dict
+    trace_id: str
+    trace: object
+    root_span: object
+    started: bool = False
+    finalized: bool = False
 
+    @classmethod
+    def admit(
+        cls,
+        app: Flask,
+        user_info: UserAggregate,
+        outline_item_info: ShifuOutlineItemDto,
+        user_input: object,
+        preview_mode: bool,
+    ) -> _FollowUpTrace:
+        chapter_title = outline_item_info.title
+        trace_scene = "lesson_preview_runtime" if preview_mode else "lesson_runtime"
+        trace_id = create_advancement_trace_id()
+        args: dict = {
+            "user_id": user_info.user_id,
+            "name": build_langfuse_trace_name(chapter_title, trace_scene),
+            "metadata": {
+                "scene": trace_scene,
+                "chapter_title": chapter_title,
+                "outline_item_bid": outline_item_info.bid,
+                "shifu_bid": outline_item_info.shifu_bid,
+                "preview_mode": int(bool(preview_mode)),
+                "request_id": get_request_id(),
+            },
+            "input": normalize_langfuse_input_value(user_input),
+            "input_type": INPUT_TYPE_ASK,
+        }
+        return cls(
+            app=app,
+            args=args,
+            trace_id=trace_id,
+            trace=LangfuseTraceHandle(MockClient(), trace_id),
+            root_span=LangfuseObservationHandle(MockClient(), trace_id),
+        )
 
-def _finalize_trace(
-    context: AskContext, trace_args: dict, trace: object, root_span: object
-) -> None:
-    output = "".join(context._langfuse_output_chunks) or None
-    finalize_langfuse_trace(
-        trace=trace,
-        root_span=root_span,
-        trace_payload={**trace_args, "output": output},
-        root_span_payload={"input": trace_args.get("input"), "output": output},
-    )
+    def start(self, *, session_id: str | None = None) -> None:
+        """Create the root once; a session id groups it with the lesson's other traces."""
+        if self.started:
+            return
+        self.started = True
+        if session_id:
+            self.args["session_id"] = session_id
+        metadata = self.args["metadata"]
+        try:
+            self.trace, self.root_span = create_trace_with_root_span(
+                client=get_langfuse_client(),
+                trace_payload={"id": self.trace_id, **self.args},
+                root_span_payload={
+                    "name": build_langfuse_span_name(
+                        metadata["chapter_title"], metadata["scene"], "root"
+                    )
+                },
+            )
+        except Exception as telemetry_error:
+            self.app.logger.warning(
+                "Langfuse follow-up trace creation failed (%s)",
+                type(telemetry_error).__name__,
+            )
+
+    def finalize(self, context: AskContext, *, error: Exception | None = None) -> None:
+        """End the root once; a failure before the session is known still leaves a trace."""
+        if self.finalized:
+            return
+        self.finalized = True
+        self.start()
+        output = "".join(context._langfuse_output_chunks) or None
+        root_payload: dict = {"input": self.args.get("input"), "output": output}
+        if error is not None:
+            root_payload.update(
+                level="ERROR",
+                status_message=type(error).__name__,
+                metadata={"runtime_outcome": "error"},
+            )
+        try:
+            finalize_langfuse_trace(
+                trace=self.trace,
+                root_span=self.root_span,
+                trace_payload={**self.args, "output": output},
+                root_span_payload=root_payload,
+            )
+        except Exception as telemetry_error:
+            self.app.logger.warning(
+                "Langfuse follow-up trace finalization failed (%s)",
+                type(telemetry_error).__name__,
+            )
 
 
 def _resolve_anchor(
