@@ -1,4 +1,8 @@
+jest.unmock('i18next');
+
 import React from 'react';
+import i18next from 'i18next';
+import ICU from 'i18next-icu';
 import {
   act,
   fireEvent,
@@ -11,6 +15,10 @@ import CourseMemoryDialog from './CourseMemoryDialog';
 
 const mockTrack = jest.fn();
 let mockIdentity = 0;
+let mockTranslate: (
+  key: string,
+  options?: Record<string, string>,
+) => string = key => key;
 jest.mock('@/api/courseMemory', () => ({
   listCourseMemory: jest.fn(),
   deleteCourseMemory: jest.fn(),
@@ -22,7 +30,7 @@ jest.mock('@/lib/tracking', () => ({
   getTrackingIdentityGeneration: () => mockIdentity,
 }));
 jest.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({ t: mockTranslate }),
 }));
 
 const entry = {
@@ -53,10 +61,40 @@ const confirm = async () => {
 describe('CourseMemoryDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTranslate = key => key;
     mockIdentity = 0;
     mockTrack.mockResolvedValue(undefined);
     (listCourseMemory as jest.Mock).mockResolvedValue(page);
     (deleteCourseMemory as jest.Mock).mockResolvedValue({ conflict: false });
+  });
+
+  it.each(
+    Object.keys(jest.requireActual('../../../../i18n/locales.json').locales),
+  )('references the exact Profile menu label in %s', async locale => {
+    const settings = jest.requireActual(
+      `../../../../i18n/${locale}/modules/settings.json`,
+    );
+    const menus = jest.requireActual(
+      `../../../../i18n/${locale}/components/menus.json`,
+    );
+    const i18n = i18next.createInstance().use(new ICU());
+    await i18n.init({
+      lng: locale,
+      fallbackLng: false,
+      resources: {
+        [locale]: {
+          translation: { module: { settings }, component: { menus } },
+        },
+      },
+    });
+    mockTranslate = (key, options) => i18n.t(key, options);
+    setup();
+    await screen.findByText(entry.value);
+    const description = document.getElementById(
+      screen.getByRole('dialog').getAttribute('aria-describedby')!,
+    );
+    expect(description).toHaveTextContent(menus.navigationMenus.personalInfo);
+    expect(description).not.toHaveTextContent('{entry}');
   });
 
   it('shows plain text and records one eligible open even under StrictMode', async () => {
