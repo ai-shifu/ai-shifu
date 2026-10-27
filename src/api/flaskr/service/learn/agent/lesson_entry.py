@@ -36,7 +36,7 @@ from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
 )
-from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
+from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, ORDER_STATUS_SUCCESS
 from flaskr.service.order.models import Order
 from flaskr.service.profile.api import (
     COURSE_REFERENCE_PREFIX,
@@ -184,9 +184,15 @@ def complete_empty_lesson(
         if preview_mode:
             return
         with unit_of_work():
-            progress_record_bid = active_progress_record(
+            record = active_progress_record(
                 app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
-            ).progress_record_bid
+            )
+            progress_record_bid = record.progress_record_bid
+            already_completed = record.status == LEARN_STATUS_COMPLETED
+    if already_completed:
+        # Reopened after it was completed: its outline updates and next-lesson button are
+        # already recorded and come back through history, as with any finished lesson.
+        return
     yield from _outline_progression(
         app,
         user_bid=user_bid,

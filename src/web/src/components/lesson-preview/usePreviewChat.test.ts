@@ -549,7 +549,7 @@ describe('usePreviewChat helpers and business error rendering', () => {
     expect(multiAnswerRequest.block_index).toBe(0);
   });
 
-  test('omits the debug session ID when browser cryptography is unavailable', async () => {
+  test('still sends a debug session ID when browser cryptography is unavailable', async () => {
     const cryptoProperty = Object.getOwnPropertyDescriptor(
       globalThis,
       'crypto',
@@ -571,7 +571,8 @@ describe('usePreviewChat helpers and business error rendering', () => {
         }),
       );
       const payload = JSON.parse((SSE as jest.Mock).mock.calls[0][1].payload);
-      expect(payload).not.toHaveProperty('debug_session_id');
+      // The preview API refuses requests without one.
+      expect(payload.debug_session_id).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
     } finally {
       if (cryptoProperty) {
         Object.defineProperty(globalThis, 'crypto', cryptoProperty);

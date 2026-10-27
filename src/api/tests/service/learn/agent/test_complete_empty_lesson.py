@@ -133,3 +133,17 @@ def test_a_missing_lesson_is_reported_not_completed(
             _complete(app, course, learner)
         assert error.value.code == ERROR_CODE["server.shifu.lessonNotFoundInCourse"]
         assert _records(course, learner) == {}
+
+
+def test_reopening_a_completed_empty_lesson_replays_nothing(
+    app: object,
+    course: str,  # noqa: F811 - pytest fixture
+) -> None:
+    learner = uuid.uuid4().hex
+    with app.app_context():
+        _publish(course)
+        assert _complete(app, course, learner)
+        records = _records(course, learner)
+
+        assert _complete(app, course, learner) == []
+        assert _records(course, learner) == records

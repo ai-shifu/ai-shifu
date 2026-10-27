@@ -83,21 +83,23 @@ interface StartPreviewParams {
 
 type PreviewSseSource = InstanceType<typeof SSE>;
 
+// The preview API requires a debug session ID, so every browser context gets one.
+// It only scopes the author's own preview session; it is not a secret.
+const fallbackDebugSessionId = () =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+
 const newDebugSessionId = () => {
-  if (typeof globalThis.crypto === 'undefined') {
-    return '';
-  }
-  const webCrypto: Partial<Crypto> = globalThis.crypto;
-  if (typeof webCrypto.randomUUID === 'function') {
+  const webCrypto: Partial<Crypto> | undefined = globalThis.crypto;
+  if (typeof webCrypto?.randomUUID === 'function') {
     return webCrypto.randomUUID();
   }
-  if (typeof webCrypto.getRandomValues === 'function') {
+  if (typeof webCrypto?.getRandomValues === 'function') {
     const bytes = webCrypto.getRandomValues(new Uint8Array(16));
     return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join(
       '',
     );
   }
-  return '';
+  return fallbackDebugSessionId();
 };
 
 export const buildInteractionContinuationPreviewParams = ({

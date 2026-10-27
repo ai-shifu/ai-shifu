@@ -29,6 +29,9 @@ def _no_real_commit(monkeypatch: pytest.MonkeyPatch) -> None:
     from flaskr.common.config import Config
 
     monkeypatch.setattr(runscript_v2, "_commit_pending_step", lambda: None)
+    monkeypatch.setattr(
+        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
+    )
     monkeypatch.setattr(Config, "_instance", None)
     monkeypatch.delenv("FLOW_ENGINE_V2_ENABLED", raising=False)
 
@@ -310,6 +313,20 @@ def test_a_lesson_with_no_script_is_completed_rather_than_failing(
         yield marker
 
     monkeypatch.setattr(lesson_entry, "complete_empty_lesson", _complete)
+    steps: list[str] = []
+    monkeypatch.setattr(
+        runscript_v2,
+        "_ensure_healthy_db_connection",
+        lambda _app: steps.append("probe"),
+    )
+    monkeypatch.setattr(
+        runscript_v2, "_commit_pending_step", lambda: steps.append("commit")
+    )
+
+    def _adapt(events: Iterator[object]) -> Iterator[object]:
+        for event in events:
+            steps.append("adapted")
+            yield event
 
     class _App:
         logger = logging.getLogger("test_lesson_routing")
@@ -328,11 +345,14 @@ def test_a_lesson_with_no_script_is_completed_rather_than_failing(
             learning_mode="read",
             preview_mode=False,
             stop_event=None,
-            element_adapter=SimpleNamespace(persist_only_final=True),
+            element_adapter=SimpleNamespace(persist_only_final=True, process=_adapt),
             heartbeat_interval=0.5,
         )
     )
     assert events == [marker]
+    # The connection is checked before any lesson read, and what the adapter staged for the
+    # next-lesson button is committed before the stream ends.
+    assert steps == ["probe", "adapted", "commit"]
     assert completed == [
         {
             "user_bid": "user-bid",

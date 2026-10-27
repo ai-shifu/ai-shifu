@@ -558,6 +558,8 @@ def _lesson_events(
         shifu_bid,
         outline_bid,
     )
+    # Replace a pooled connection an interrupted stream left desynced before any lesson read.
+    _ensure_healthy_db_connection(app)
     try:
         preview_options = {}
         if preview_mode:
@@ -732,13 +734,19 @@ def _lesson_events(
             shifu_bid,
             outline_bid,
         )
-        yield from complete_empty_lesson(
+        events = complete_empty_lesson(
             app,
             user_bid=user_bid,
             shifu_bid=shifu_bid,
             outline_bid=outline_bid,
             preview_mode=preview_mode,
         )
+        # Adapt here, as a lesson turn does, so the next-lesson element the adapter stages
+        # is committed before the stream ends rather than discarded with the session.
+        yield from (
+            element_adapter.process(events) if element_adapter is not None else events
+        )
+        _commit_pending_step()
 
 
 def _teaches_with_agent(
