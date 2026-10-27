@@ -1,10 +1,12 @@
-# Rename login method display terminology
+# Clarify login identifier terminology
 
 ## Purpose / Big Picture
 
-The shared phone/email display resolver is named after contact information,
-although its inputs are configured login methods. Rename the module, exported
-function and type, and every consumer to describe login method display.
+Phone and email describe login identifier types, while Google and password
+describe login methods. The shared type is used for authentication, account
+lookup, input validation and API requests as well as presentation. Rename the
+module, exported type, resolver and consumers to describe identifiers and the
+policy that chooses one preferred type.
 Deliver this foundation separately from the learner activation prompt change.
 
 ## Progress
@@ -18,22 +20,34 @@ Deliver this foundation separately from the learner activation prompt change.
   architecture and repository checks passed. Reviewed acceptance and archived
   this execution plan before preparing the standalone PR.
 
+- [x] 2026-10-27 07:02 UTC: Migrated to identifier types and preferred selection;
+  all 25 affected suites (382 tests), TypeScript and lint passed. Verified the
+  resolver body is unchanged after export-name substitution and reviewed the
+  scope before archiving the revised foundation plan.
+
 ## Surprises & Discoveries
 
-Google login selects email display. With both identifier types enabled, the
-shared resolver selects a single type according to the existing default rule.
+Google login corresponds to an email identifier. With both identifier types
+enabled, the shared resolver selects one preferred type according to the
+existing default rule.
 Some notification components use `contactMode` for SMS/email delivery rather
 than login display; those channel values retain their separate meaning.
 Duplicate local display-mode type declarations were removed in favor of the
 shared exported type, avoiding conflicting declarations after migration.
 
+The former display-mode terminology proved too narrow for validation and
+authentication consumers. The shared model now represents identifier types;
+selection of a preferred type and presentation of a type collection are
+separate responsibilities.
+
 ## Decision Log
 
-- Use `resolve-login-method-display-mode.ts`,
-  `resolveLoginMethodDisplayMode` and `LoginMethodDisplayMode`.
+- Use `resolve-preferred-login-identifier-type.ts`,
+  `resolvePreferredLoginIdentifierType` and `LoginIdentifierType`.
 - Keep the shared type as `phone | email` and preserve every decision branch.
-  The learner activation dialog's mixed display policy belongs to its own PR.
-- Update internal display variables and forwarded props together. Preserve
+  The dependent learner activation PR uses a `loginIdentifierTypes` collection;
+  a collection containing both types does not introduce a third identifier type.
+- Update selected-identifier variables and forwarded props together. Preserve
   backend fields, notification channel values, independent contact-management
   APIs, translations and analytics contracts.
 - Remove the old module and exports after migrating all repository consumers;
@@ -41,9 +55,9 @@ shared exported type, avoiding conflicting declarations after migration.
 
 ## Outcomes & Retrospective
 
-The shared module, function, type and consumer display names now describe login
-method display. Notification channels remain a separate concept. The resolver
-body is identical after exported-name substitution, and affected UI regressions
+The shared module, function, type and consumer names now distinguish login
+identifier types from login methods. Notification channels remain a separate
+concept. The resolver body is identical after exported-name substitution, and affected UI regressions
 pass. The learner activation prompt commit remains on its feature branch for
 the separate dependent PR.
 
@@ -58,7 +72,7 @@ form a transitive consumer chain and must be coordinated with their producers.
 
 Rename the shared boundary without changing behavior. Migrate all imports,
 exported type uses and display-related names, preserving the distinction between
-login display and notification delivery. Validate the standalone foundation,
+login identifiers and notification delivery. Validate the standalone foundation,
 then place the existing learner activation prompt change on top of it.
 
 ## Concrete Steps
@@ -83,8 +97,11 @@ commit that imports its new module. Keep the two PRs separately reviewable.
 
 ## Interfaces and Dependencies
 
-`LoginMethodDisplayMode` remains `email | phone`.
-`resolveLoginMethodDisplayMode` accepts the same enabled-method array, CSV,
+`LoginIdentifierType` is `email | phone`.
+Consumers that resolve one preferred type use `preferredLoginIdentifierType`;
+normalization and verification helpers accept an identifier type independently
+of that preference policy.
+`resolvePreferredLoginIdentifierType` accepts the same enabled-method array, CSV,
 null or undefined input and optional default login method. Independent contact
 identifier and permission helpers adopt the new imported type without renaming
 their own APIs. Notification delivery continues to use the same SMS/email values.

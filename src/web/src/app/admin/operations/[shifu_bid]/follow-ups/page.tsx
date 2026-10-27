@@ -41,9 +41,9 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
-  resolveLoginMethodDisplayMode,
-  type LoginMethodDisplayMode,
-} from '@/lib/resolve-login-method-display-mode';
+  resolvePreferredLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/resolve-preferred-login-identifier-type';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
@@ -249,17 +249,17 @@ const resolvePrimaryAccount = ({
   mobile,
   email,
   userBid,
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   emptyValue,
 }: {
   mobile?: string;
   email?: string;
   userBid?: string;
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   emptyValue: string;
 }) => {
-  const preferred = loginMethodDisplayMode === 'email' ? email : mobile;
-  const alternate = loginMethodDisplayMode === 'email' ? mobile : email;
+  const preferred = preferredLoginIdentifierType === 'email' ? email : mobile;
+  const alternate = preferredLoginIdentifierType === 'email' ? mobile : email;
   return formatValue(preferred || alternate || userBid, emptyValue);
 };
 
@@ -318,9 +318,12 @@ export default function AdminOperationCourseFollowUpsPage() {
     'module.operationsCourse.messages.loadFollowUpDetailFailed',
   );
   const defaultUserName = t('module.user.defaultUserName');
-  const loginMethodDisplayMode = useMemo<LoginMethodDisplayMode>(
+  const preferredLoginIdentifierType = useMemo<LoginIdentifierType>(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const detailPageUrl = useMemo(
@@ -333,10 +336,10 @@ export default function AdminOperationCourseFollowUpsPage() {
   );
   const userKeywordPlaceholder = useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? tOperations('detail.followUps.filters.userKeywordPlaceholderEmail')
         : tOperations('detail.followUps.filters.userKeywordPlaceholderPhone'),
-    [loginMethodDisplayMode, tOperations],
+    [preferredLoginIdentifierType, tOperations],
   );
 
   const [followUps, setFollowUps] =
@@ -987,7 +990,7 @@ export default function AdminOperationCourseFollowUpsPage() {
                                   mobile: item.mobile,
                                   email: item.email,
                                   userBid: item.user_bid,
-                                  loginMethodDisplayMode,
+                                  preferredLoginIdentifierType,
                                   emptyValue,
                                 });
                                 const secondaryAccount =
@@ -1165,7 +1168,7 @@ export default function AdminOperationCourseFollowUpsPage() {
         loading={detailLoading}
         error={detailError}
         emptyValue={emptyValue}
-        loginMethodDisplayMode={loginMethodDisplayMode}
+        preferredLoginIdentifierType={preferredLoginIdentifierType}
         defaultUserName={defaultUserName}
         resolveLessonDisplay={resolveDetailLessonDisplay}
         resolveOutlineFieldLabel={resolveDetailOutlineFieldLabel}

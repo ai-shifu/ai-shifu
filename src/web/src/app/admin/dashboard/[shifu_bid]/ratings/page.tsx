@@ -31,9 +31,9 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
-  resolveLoginMethodDisplayMode,
-  type LoginMethodDisplayMode,
-} from '@/lib/resolve-login-method-display-mode';
+  resolvePreferredLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/resolve-preferred-login-identifier-type';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { useUserStore } from '@/store';
@@ -147,22 +147,24 @@ const resolvePrimaryUserDisplay = ({
   mobile,
   email,
   userBid,
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   guestUserLabel,
 }: {
   nickname?: string;
   mobile?: string;
   email?: string;
   userBid?: string;
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   guestUserLabel: string;
 }) => {
   const normalizedNickname = nickname?.trim() || '';
   if (normalizedNickname) {
     return normalizedNickname;
   }
-  const preferredContact = loginMethodDisplayMode === 'email' ? email : mobile;
-  const alternateContact = loginMethodDisplayMode === 'email' ? mobile : email;
+  const preferredContact =
+    preferredLoginIdentifierType === 'email' ? email : mobile;
+  const alternateContact =
+    preferredLoginIdentifierType === 'email' ? mobile : email;
   return (
     preferredContact?.trim() ||
     alternateContact?.trim() ||
@@ -176,16 +178,18 @@ const resolveSecondaryUserDisplay = ({
   mobile,
   email,
   userBid,
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
 }: {
   nickname?: string;
   mobile?: string;
   email?: string;
   userBid?: string;
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
 }) => {
-  const preferredContact = loginMethodDisplayMode === 'email' ? email : mobile;
-  const alternateContact = loginMethodDisplayMode === 'email' ? mobile : email;
+  const preferredContact =
+    preferredLoginIdentifierType === 'email' ? email : mobile;
+  const alternateContact =
+    preferredLoginIdentifierType === 'email' ? mobile : email;
   const contact = preferredContact?.trim() || alternateContact?.trim() || '';
   if (nickname?.trim()) {
     return contact || userBid?.trim() || '';
@@ -230,21 +234,24 @@ export default function AdminDashboardCourseRatingsPage() {
     'module.dashboard.messages.loadRatingsFailed',
   );
   const guestUserLabel = t('module.dashboard.detail.ratings.table.guestUser');
-  const loginMethodDisplayMode = useMemo<LoginMethodDisplayMode>(
+  const preferredLoginIdentifierType = useMemo<LoginIdentifierType>(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const userKeywordPlaceholder = useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? t(
             'module.dashboard.detail.ratings.filters.userKeywordPlaceholderEmail',
           )
         : t(
             'module.dashboard.detail.ratings.filters.userKeywordPlaceholderPhone',
           ),
-    [loginMethodDisplayMode, t],
+    [preferredLoginIdentifierType, t],
   );
 
   const [ratings, setRatings] = useState<DashboardCourseRatingListResponse>(
@@ -672,7 +679,7 @@ export default function AdminDashboardCourseRatingsPage() {
                                 mobile: item.mobile,
                                 email: item.email,
                                 userBid: item.user_bid,
-                                loginMethodDisplayMode,
+                                preferredLoginIdentifierType,
                                 guestUserLabel,
                               });
                               const secondaryUser = resolveSecondaryUserDisplay(
@@ -681,7 +688,7 @@ export default function AdminDashboardCourseRatingsPage() {
                                   mobile: item.mobile,
                                   email: item.email,
                                   userBid: item.user_bid,
-                                  loginMethodDisplayMode,
+                                  preferredLoginIdentifierType,
                                 },
                               );
                               const primaryLessonDisplay =

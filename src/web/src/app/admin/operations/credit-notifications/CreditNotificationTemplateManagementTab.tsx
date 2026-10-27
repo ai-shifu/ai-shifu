@@ -40,7 +40,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import type {
   CreditNotificationType,
   AdminOperationCreditNotificationPolicy,
@@ -167,7 +167,7 @@ export function CreditNotificationTemplateManagementTab({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const loginMethodDisplayMode = resolveLoginMethodDisplayMode(
+  const preferredLoginIdentifierType = resolvePreferredLoginIdentifierType(
     loginMethodsEnabled,
     defaultLoginMethod,
   );
@@ -194,11 +194,11 @@ export function CreditNotificationTemplateManagementTab({
     }
     hasTrackedViewRef.current = true;
     onViewed();
-  }, [active, loginMethodDisplayMode, onViewed]);
+  }, [active, preferredLoginIdentifierType, onViewed]);
 
   const statusLabel = React.useCallback(
     (value: string) => {
-      if (loginMethodDisplayMode === 'email') {
+      if (preferredLoginIdentifierType === 'email') {
         return t(
           `module.operationsCreditNotifications.templateManagement.emailStatus.${value}`,
         );
@@ -207,7 +207,7 @@ export function CreditNotificationTemplateManagementTab({
         ? t(TEMPLATE_STATUS_KEYS[value])
         : value || '--';
     },
-    [loginMethodDisplayMode, t],
+    [preferredLoginIdentifierType, t],
   );
   const typeLabel = React.useCallback(
     (value: string) =>
@@ -283,7 +283,7 @@ export function CreditNotificationTemplateManagementTab({
     {
       key: 'status',
       header:
-        loginMethodDisplayMode === 'email'
+        preferredLoginIdentifierType === 'email'
           ? t(
               'module.operationsCreditNotifications.templateManagement.emailFields.status',
             )
@@ -322,11 +322,11 @@ export function CreditNotificationTemplateManagementTab({
     },
   ];
   const templateTitle =
-    loginMethodDisplayMode === 'email'
+    preferredLoginIdentifierType === 'email'
       ? t('module.operationsCreditNotifications.templateManagement.emailTitle')
       : t('module.operationsCreditNotifications.templateManagement.smsTitle');
   const templateDescription =
-    loginMethodDisplayMode === 'email'
+    preferredLoginIdentifierType === 'email'
       ? t(
           'module.operationsCreditNotifications.templateManagement.emailDescription',
         )
@@ -334,7 +334,7 @@ export function CreditNotificationTemplateManagementTab({
           'module.operationsCreditNotifications.templateManagement.smsDescription',
         );
   const refreshLabel =
-    loginMethodDisplayMode === 'email'
+    preferredLoginIdentifierType === 'email'
       ? t('module.operationsCreditNotifications.templateManagement.reload')
       : t('module.operationsCreditNotifications.templateManagement.refresh');
   const smsLoadError = t(
@@ -366,14 +366,14 @@ export function CreditNotificationTemplateManagementTab({
             onClick={() => void refresh()}
             disabled={loading}
           >
-            {loginMethodDisplayMode !== 'email' ? (
+            {preferredLoginIdentifierType !== 'email' ? (
               <RefreshCw
                 className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
               />
             ) : null}
             {refreshLabel}
           </Button>
-          {loginMethodDisplayMode === 'email' ? (
+          {preferredLoginIdentifierType === 'email' ? (
             <Button
               type='button'
               onClick={() =>
@@ -433,7 +433,7 @@ export function CreditNotificationTemplateManagementTab({
           <SelectTrigger
             className='h-10 min-w-48 bg-white'
             aria-label={
-              loginMethodDisplayMode === 'email'
+              preferredLoginIdentifierType === 'email'
                 ? t(
                     'module.operationsCreditNotifications.templateManagement.emailStatusFilter',
                   )
@@ -446,7 +446,7 @@ export function CreditNotificationTemplateManagementTab({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='__all__'>
-              {loginMethodDisplayMode === 'email'
+              {preferredLoginIdentifierType === 'email'
                 ? t(
                     'module.operationsCreditNotifications.templateManagement.allEmailStatuses',
                   )
@@ -467,7 +467,9 @@ export function CreditNotificationTemplateManagementTab({
       </div>
       {error ? (
         <p className='text-sm text-destructive'>
-          {loginMethodDisplayMode === 'email' ? emailLoadError : smsLoadError}
+          {preferredLoginIdentifierType === 'email'
+            ? emailLoadError
+            : smsLoadError}
         </p>
       ) : null}
       {rows.length ? (
@@ -567,7 +569,7 @@ export function CreditNotificationTemplateManagementTab({
                           onDetailOpened();
                         },
                       },
-                      ...(loginMethodDisplayMode === 'email'
+                      ...(preferredLoginIdentifierType === 'email'
                         ? [
                             {
                               key: 'toggle-status',

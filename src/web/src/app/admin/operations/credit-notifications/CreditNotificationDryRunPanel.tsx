@@ -1,16 +1,16 @@
-import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import type { AdminOperationCreditNotificationDryRunResponse } from '../operation-credit-notification-types';
 import { CreditNotificationConfigSection as ConfigSection } from './CreditNotificationFormPrimitives';
 
 export function CreditNotificationDryRunPanel({
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   dryRunResult,
   dryRunError,
   dryRun,
 }: {
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   dryRunResult: AdminOperationCreditNotificationDryRunResponse | null;
   dryRunError: string;
   dryRun: () => void;
@@ -32,7 +32,7 @@ export function CreditNotificationDryRunPanel({
           ),
           value: dryRunResult.created_count || 0,
         },
-        ...(loginMethodDisplayMode === 'phone'
+        ...(preferredLoginIdentifierType === 'phone'
           ? [
               {
                 key: 'cost',
@@ -50,7 +50,7 @@ export function CreditNotificationDryRunPanel({
     <ConfigSection
       title={t('module.operationsCreditNotifications.dryRun.title')}
       description={t(
-        loginMethodDisplayMode === 'email'
+        preferredLoginIdentifierType === 'email'
           ? 'module.operationsCreditNotifications.dryRun.descriptionEmail'
           : 'module.operationsCreditNotifications.dryRun.description',
       )}

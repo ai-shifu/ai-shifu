@@ -59,7 +59,7 @@ import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
 import { buildBillingSwrKey } from '@/lib/billing';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
@@ -481,9 +481,12 @@ export default function AdminOperationUsersPage() {
     [tOperationsCourse],
   );
 
-  const loginMethodDisplayMode = React.useMemo(
+  const preferredLoginIdentifierType = React.useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const userQueryPlaceholder = React.useMemo(() => {
@@ -501,17 +504,17 @@ export default function AdminOperationUsersPage() {
     if (hasPhone && hasEmail) {
       return tOperationsUsers('filters.userPlaceholderPhoneEmail');
     }
-    if (loginMethodDisplayMode === 'email') {
+    if (preferredLoginIdentifierType === 'email') {
       return tOperationsUsers('filters.userPlaceholderEmail');
     }
     return tOperationsUsers('filters.userPlaceholderPhone');
-  }, [loginMethodDisplayMode, loginMethodsEnabled, tOperationsUsers]);
+  }, [preferredLoginIdentifierType, loginMethodsEnabled, tOperationsUsers]);
   const contactColumnLabel = React.useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? tOperationsUsers('table.email')
         : tOperationsUsers('table.mobile'),
-    [loginMethodDisplayMode, tOperationsUsers],
+    [preferredLoginIdentifierType, tOperationsUsers],
   );
   const guestUserLabel = React.useMemo(
     () => tOperationsUsers('table.guestUser'),
@@ -1294,7 +1297,7 @@ export default function AdminOperationUsersPage() {
                   {emptyRow}
                   {users.map(user => {
                     const primaryContact =
-                      loginMethodDisplayMode === 'email'
+                      preferredLoginIdentifierType === 'email'
                         ? user.email?.trim() || ''
                         : user.mobile?.trim() || '';
                     const isGuestUser =
@@ -1512,7 +1515,7 @@ export default function AdminOperationUsersPage() {
                                 {
                                   key: 'change-contact',
                                   label: tOperationsUsers(
-                                    `contactChange.${loginMethodDisplayMode}.action`,
+                                    `contactChange.${preferredLoginIdentifierType}.action`,
                                   ),
                                   disabled: user.user_status === 'cancelled',
                                   onClick: () =>
@@ -1710,7 +1713,7 @@ export default function AdminOperationUsersPage() {
           <UserCancellationDialog
             open={Boolean(cancellationDialogUser)}
             user={cancellationDialogUser}
-            contactType={loginMethodDisplayMode}
+            contactType={preferredLoginIdentifierType}
             onOpenChange={nextOpen => {
               if (!nextOpen) setCancellationDialogUser(null);
             }}
@@ -1723,9 +1726,9 @@ export default function AdminOperationUsersPage() {
           <UserContactChangeDialog
             open={Boolean(contactChangeDialogUser)}
             userBid={contactChangeDialogUser?.user_bid || ''}
-            contactType={loginMethodDisplayMode}
+            contactType={preferredLoginIdentifierType}
             currentIdentifier={
-              loginMethodDisplayMode === 'email'
+              preferredLoginIdentifierType === 'email'
                 ? contactChangeDialogUser?.email || ''
                 : contactChangeDialogUser?.mobile || ''
             }

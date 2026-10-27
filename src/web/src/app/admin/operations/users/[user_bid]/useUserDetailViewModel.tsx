@@ -9,7 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { formatOperatorUtcDateTime } from '../dateTime';
 import type {
   AdminOperationUserCourseItem,
@@ -82,24 +82,27 @@ export default function useUserDetailViewModel({
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
 
-  const loginMethodDisplayMode = useMemo(
+  const preferredLoginIdentifierType = useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const contactLabel = useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? tOperationsUsers('table.email')
         : tOperationsUsers('table.mobile'),
-    [loginMethodDisplayMode, tOperationsUsers],
+    [preferredLoginIdentifierType, tOperationsUsers],
   );
   const contactValue = useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? detail.email || detail.mobile
         : detail.mobile || detail.email,
-    [loginMethodDisplayMode, detail.email, detail.mobile],
+    [preferredLoginIdentifierType, detail.email, detail.mobile],
   );
   const creditOwnerLabel = useMemo(() => {
     const mobile = detail.mobile || '';

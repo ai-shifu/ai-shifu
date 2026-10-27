@@ -27,9 +27,9 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import {
-  resolveLoginMethodDisplayMode,
-  type LoginMethodDisplayMode,
-} from '@/lib/resolve-login-method-display-mode';
+  resolvePreferredLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/resolve-preferred-login-identifier-type';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   Table,
@@ -94,9 +94,12 @@ export default function ReferralCampaignRecordsDialog({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const loginMethodDisplayMode = React.useMemo(
+  const preferredLoginIdentifierType = React.useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const fetchCampaignRelations = React.useCallback(
@@ -169,7 +172,7 @@ export default function ReferralCampaignRecordsDialog({
               <ReferralCampaignInvitationsPanel
                 campaignBid={campaignBid}
                 enabled={open && Boolean(campaignBid)}
-                loginMethodDisplayMode={loginMethodDisplayMode}
+                preferredLoginIdentifierType={preferredLoginIdentifierType}
                 t={t}
                 tPromotion={tPromotion}
               />
@@ -184,13 +187,13 @@ export default function ReferralCampaignRecordsDialog({
 function ReferralCampaignInvitationsPanel({
   campaignBid,
   enabled,
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   t,
   tPromotion,
 }: {
   campaignBid: string;
   enabled: boolean;
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   t: (key: string, values?: Record<string, unknown>) => string;
   tPromotion: (key: string, values?: Record<string, unknown>) => string;
 }) {
@@ -209,7 +212,7 @@ function ReferralCampaignInvitationsPanel({
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const inviterPlaceholder =
-    loginMethodDisplayMode === 'email'
+    preferredLoginIdentifierType === 'email'
       ? tPromotion('referralCampaign.records.inviterEmailPlaceholder')
       : tPromotion('referralCampaign.records.inviterMobilePlaceholder');
 

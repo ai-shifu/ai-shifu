@@ -1,4 +1,4 @@
-import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { TFunction } from 'i18next';
 import { toast } from '@/hooks/useToast';
@@ -62,7 +62,7 @@ const trimInvalidDisplay = (value: string): string =>
 
 const parseBlockedCreatorInput = (
   value: string,
-  loginMethodDisplayMode: LoginMethodDisplayMode,
+  preferredLoginIdentifierType: LoginIdentifierType,
 ) => {
   const normalized = normalizeListInputCharacters(value).replace(/\t/g, ' ');
   const creatorBids: string[] = [];
@@ -94,11 +94,11 @@ const parseBlockedCreatorInput = (
       return;
     }
     const contactMatches =
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? findEmailIdentifiers(line)
         : findPhoneIdentifiers(line);
     if (contactMatches.length > 0) {
-      if (loginMethodDisplayMode === 'email') {
+      if (preferredLoginIdentifierType === 'email') {
         creatorBids.push(...contactMatches);
         return;
       }
@@ -142,7 +142,7 @@ const buildListDetails = (
 const filterListDetails = (
   items: AdminOperationCreditNotificationPolicyListItem[],
   keyword: string,
-  loginMethodDisplayMode: LoginMethodDisplayMode,
+  preferredLoginIdentifierType: LoginIdentifierType,
 ) => {
   const normalized = keyword.trim().toLowerCase();
   if (!normalized) {
@@ -150,11 +150,11 @@ const filterListDetails = (
   }
   return items.filter(item => {
     const contactValue =
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? item.email || item.identifier
         : item.mobile || item.identifier;
     const isContactSearch =
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? normalized.includes('@')
         : /^\d+$/.test(normalized);
     if (isContactSearch) {
@@ -165,13 +165,13 @@ const filterListDetails = (
 };
 
 export function useCreditNotificationConfigTabState({
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
   policy,
   resolvedLists,
   updatePolicy,
   t,
 }: {
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
   policy: AdminOperationCreditNotificationPolicy;
   resolvedLists: AdminOperationCreditNotificationPolicyResolvedLists;
   updatePolicy: UpdatePolicy;
@@ -301,7 +301,7 @@ export function useCreditNotificationConfigTabState({
     const normalized = normalizeListInputCharacters(blockedCreatorInput);
     const { creatorBids, invalidItems, mobiles } = parseBlockedCreatorInput(
       normalized,
-      loginMethodDisplayMode,
+      preferredLoginIdentifierType,
     );
     if (invalidItems.length > 0) {
       const sample = invalidItems.slice(0, INVALID_SAMPLE_LIMIT).join(', ');
@@ -380,9 +380,9 @@ export function useCreditNotificationConfigTabState({
       filterListDetails(
         managedListDetails,
         managedListSearch,
-        loginMethodDisplayMode,
+        preferredLoginIdentifierType,
       ),
-    [loginMethodDisplayMode, managedListDetails, managedListSearch],
+    [preferredLoginIdentifierType, managedListDetails, managedListSearch],
   );
   const managedListTitle =
     managedListDialog === 'blocked'

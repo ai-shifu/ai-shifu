@@ -6,7 +6,7 @@ import Loading from '@/components/loading';
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Switch } from '@/components/ui/Switch';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import type {
   AdminOperationCreditNotificationDryRunResponse,
   AdminOperationCreditNotificationPolicy,
@@ -68,7 +68,7 @@ export function CreditNotificationConfigTab({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const loginMethodDisplayMode = resolveLoginMethodDisplayMode(
+  const preferredLoginIdentifierType = resolvePreferredLoginIdentifierType(
     loginMethodsEnabled,
     defaultLoginMethod,
   );
@@ -91,7 +91,7 @@ export function CreditNotificationConfigTab({
     setManagedListSearch,
     updateIntegerInput,
   } = useCreditNotificationConfigTabState({
-    loginMethodDisplayMode,
+    preferredLoginIdentifierType,
     policy,
     resolvedLists,
     updatePolicy,
@@ -123,14 +123,14 @@ export function CreditNotificationConfigTab({
                   className='text-sm font-medium text-foreground'
                 >
                   {t(
-                    loginMethodDisplayMode === 'email'
+                    preferredLoginIdentifierType === 'email'
                       ? 'module.operationsCreditNotifications.config.fields.enabledEmail'
                       : 'module.operationsCreditNotifications.config.fields.enabled',
                   )}
                 </Label>
                 <HelpTooltip>
                   {t(
-                    loginMethodDisplayMode === 'email'
+                    preferredLoginIdentifierType === 'email'
                       ? 'module.operationsCreditNotifications.config.fieldTips.enabledEmail'
                       : 'module.operationsCreditNotifications.config.fieldTips.enabled',
                   )}
@@ -138,7 +138,7 @@ export function CreditNotificationConfigTab({
               </div>
               <p className='mt-1 text-xs leading-5 text-muted-foreground'>
                 {t(
-                  loginMethodDisplayMode === 'email'
+                  preferredLoginIdentifierType === 'email'
                     ? 'module.operationsCreditNotifications.config.masterSwitchDescriptionEmail'
                     : 'module.operationsCreditNotifications.config.masterSwitchDescription',
                 )}
@@ -158,7 +158,7 @@ export function CreditNotificationConfigTab({
 
         <CreditNotificationRuleManagementSection
           notificationChannel={
-            loginMethodDisplayMode === 'email' ? 'email' : 'sms'
+            preferredLoginIdentifierType === 'email' ? 'email' : 'sms'
           }
           policy={policy}
           templateOptions={templateOptions}
@@ -169,7 +169,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationDeliveryRulesSection
-          loginMethodDisplayMode={loginMethodDisplayMode}
+          preferredLoginIdentifierType={preferredLoginIdentifierType}
           policy={policy}
           updatePolicy={updatePolicy}
           getIntegerInputValue={getIntegerInputValue}
@@ -178,7 +178,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationCreatorListsSection
-          loginMethodDisplayMode={loginMethodDisplayMode}
+          preferredLoginIdentifierType={preferredLoginIdentifierType}
           blockedCreatorInput={blockedCreatorInput}
           blockedCreatorIdentifiers={blockedCreatorIdentifiers}
           optedOutCreatorIdentifiers={optedOutCreatorIdentifiers}
@@ -188,7 +188,7 @@ export function CreditNotificationConfigTab({
         />
 
         <CreditNotificationDryRunPanel
-          loginMethodDisplayMode={loginMethodDisplayMode}
+          preferredLoginIdentifierType={preferredLoginIdentifierType}
           dryRunResult={dryRunResult}
           dryRunError={dryRunError}
           dryRun={dryRun}
@@ -205,7 +205,7 @@ export function CreditNotificationConfigTab({
           open={managedListDialog !== null}
           title={managedListTitle}
           canDelete={managedListCanDelete}
-          loginMethodDisplayMode={loginMethodDisplayMode}
+          preferredLoginIdentifierType={preferredLoginIdentifierType}
           items={filteredManagedListDetails}
           search={managedListSearch}
           onSearchChange={setManagedListSearch}

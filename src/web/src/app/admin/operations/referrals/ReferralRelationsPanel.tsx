@@ -30,9 +30,9 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
-  resolveLoginMethodDisplayMode,
-  type LoginMethodDisplayMode,
-} from '@/lib/resolve-login-method-display-mode';
+  resolvePreferredLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/resolve-preferred-login-identifier-type';
 import { ErrorWithCode } from '@/lib/request';
 import type {
   AdminReferralListResponse,
@@ -181,9 +181,12 @@ export default function ReferralRelationsPanel({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const loginMethodDisplayMode = React.useMemo(
+  const preferredLoginIdentifierType = React.useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const [filters, setFilters] = React.useState<ReferralFilters>(
@@ -296,7 +299,7 @@ export default function ReferralRelationsPanel({
     setFilters,
     includeCampaignFilter,
     relationStatusLabel,
-    loginMethodDisplayMode,
+    preferredLoginIdentifierType,
   });
 
   return (
@@ -440,7 +443,7 @@ function buildFilterItems({
   setFilters,
   includeCampaignFilter,
   relationStatusLabel,
-  loginMethodDisplayMode,
+  preferredLoginIdentifierType,
 }: {
   t: (key: string, values?: Record<string, unknown>) => string;
   tCommon: (key: string, values?: Record<string, unknown>) => string;
@@ -448,14 +451,14 @@ function buildFilterItems({
   setFilters: React.Dispatch<React.SetStateAction<ReferralFilters>>;
   includeCampaignFilter: boolean;
   relationStatusLabel: (status: number) => string;
-  loginMethodDisplayMode: LoginMethodDisplayMode;
+  preferredLoginIdentifierType: LoginIdentifierType;
 }) {
   const inviterPlaceholder =
-    loginMethodDisplayMode === 'email'
+    preferredLoginIdentifierType === 'email'
       ? t('operator.filters.inviterEmailPlaceholder')
       : t('operator.filters.inviterMobilePlaceholder');
   const inviteePlaceholder =
-    loginMethodDisplayMode === 'email'
+    preferredLoginIdentifierType === 'email'
       ? t('operator.filters.inviteeEmailPlaceholder')
       : t('operator.filters.inviteeMobilePlaceholder');
   const items = [

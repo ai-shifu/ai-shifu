@@ -13,7 +13,7 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { fail, show } from '@/hooks/useToast';
-import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { ErrorWithCode } from '@/lib/request';
 import {
   buildAdminOperationsCourseFollowUpsUrl,
@@ -452,25 +452,28 @@ export default function AdminOperationCourseDetailPage() {
       }
     }
   }, [searchParams]);
-  const loginMethodDisplayMode = useMemo(
+  const preferredLoginIdentifierType = useMemo(
     () =>
-      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
+      resolvePreferredLoginIdentifierType(
+        loginMethodsEnabled,
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const courseUserKeywordPlaceholder = useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? tOperations('detail.usersFilters.userKeywordPlaceholderEmail')
         : tOperations('detail.usersFilters.userKeywordPlaceholderPhone'),
-    [loginMethodDisplayMode, tOperations],
+    [preferredLoginIdentifierType, tOperations],
   );
   const courseUserAccountLabel = useMemo(
     () =>
-      loginMethodDisplayMode === 'email'
+      preferredLoginIdentifierType === 'email'
         ? tOperations('detail.usersTable.accountEmail')
         : tOperations('detail.usersTable.accountPhone'),
-    [loginMethodDisplayMode, tOperations],
+    [preferredLoginIdentifierType, tOperations],
   );
   const fetchDetail = useCallback(async () => {
     if (!shifuBid.trim()) {
@@ -914,12 +917,12 @@ export default function AdminOperationCourseDetailPage() {
   const resolveCourseUserAccount = useCallback(
     (courseUser: AdminOperationCourseUserItem) => {
       const preferred =
-        loginMethodDisplayMode === 'email'
+        preferredLoginIdentifierType === 'email'
           ? courseUser.email
           : courseUser.mobile;
       return preferred || emptyValue;
     },
-    [loginMethodDisplayMode, emptyValue],
+    [preferredLoginIdentifierType, emptyValue],
   );
 
   const handleCourseUserSearch = useCallback(() => {
@@ -1663,7 +1666,7 @@ export default function AdminOperationCourseDetailPage() {
                   data={courseCreditUsages}
                   loading={courseCreditUsagesLoading}
                   error={courseCreditUsagesError}
-                  loginMethodDisplayMode={loginMethodDisplayMode}
+                  preferredLoginIdentifierType={preferredLoginIdentifierType}
                   defaultUserName={defaultUserName}
                   emptyValue={emptyValue}
                   onKeywordChange={value =>
