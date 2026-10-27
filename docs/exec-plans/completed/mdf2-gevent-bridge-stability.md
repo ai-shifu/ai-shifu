@@ -43,6 +43,8 @@ with many simultaneous requests under the production gevent worker.
   pre-commit gate pass.
 - [x] 2026-10-08: Run bridge and learning regressions, Linux concurrency checks,
   repository gates, publish one PR and validate sim before manual main merge.
+  Closed 2026-10-27 as superseded: the gevent branch shipped to main, but no
+  sim validation of it was recorded here, and the branch has now been removed.
 - [x] 2026-10-27: Retire the gevent branch. All environments run gthread
   workers, so the bridge, gunicorn config, hub observer, gevent tests and the
   gevent dependency were removed.
