@@ -92,8 +92,13 @@ reuse its root; moving to another
 progress session ends that root and starts a distinct trace. MarkdownFlow
 courses defer trace and round creation until the native session is restored or
 created; progress/block metadata received earlier is retained. Profile uses its
-existing questionnaire session id from the outset. A course request that fails
-before any session is resolved retains a request-based error trace.
+existing questionnaire session id from the outset. A learning request that
+fails before any session is resolved retains a request-based error trace.
+Legacy finalization uses the captured request id for that fallback, records the
+exception type and error outcome, and runs at most once per root. SDK failures
+during this optional finalization cannot replace the original business error or
+prevent database cleanup. Errors after session binding retain that session's
+trace instead of creating a fallback.
 
 Only new observations use this identity. Historical request traces remain
 unchanged, including those belonging to sessions resumed after rollout; the

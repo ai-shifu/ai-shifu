@@ -357,10 +357,14 @@ def run_script_inner(
 
     def _finalize_langfuse_if_available(
         context: RunScriptContextV2 | None,
+        error: Exception | None = None,
     ) -> None:
         finalize_trace = getattr(context, "_finalize_langfuse_trace", None)
         if callable(finalize_trace):
-            finalize_trace()
+            if error is None:
+                finalize_trace()
+            else:
+                finalize_trace(error=error)
 
     def _run() -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
         run_script_context: RunScriptContextV2 | None = None
@@ -533,7 +537,7 @@ def run_script_inner(
             _discard_session_connection(source="run_script_inner GeneratorExit")
             app.logger.info("GeneratorExit")
         except Exception as exc:
-            _finalize_langfuse_if_available(run_script_context)
+            _finalize_langfuse_if_available(run_script_context, error=exc)
             if _is_protocol_desync_error(exc):
                 # Rolling back on a desynced connection consumes stale packets
                 # ("Command Out of Sync") and re-pools the poisoned stream.

@@ -16,10 +16,12 @@ from flask import Flask
 from flaskr.api.langfuse import (
     LangfuseTraceHandle,
     MockClient,
+    coerce_langfuse_trace_id,
     create_trace_with_root_span,
     finalize_langfuse_trace,
     get_langfuse_client,
     get_request_id,
+    get_request_trace_id,
     get_session_trace_id,
     normalize_langfuse_input_value,
     normalize_langfuse_output_value,
@@ -1648,6 +1650,7 @@ class RunScriptContextV2:
         }
         self._trace = MockClient()
         self._trace_root_span = None
+        self._trace_finalized = False
         context_local.current_context = self
 
     def _stop_requested(self) -> bool:
@@ -1679,20 +1682,51 @@ class RunScriptContextV2:
             return
         self._langfuse_output_chunks.append(text)
 
-    def _finalize_langfuse_trace(self) -> None:
-        output_chunks = getattr(self, "_langfuse_output_chunks", [])
-        finalize_langfuse_trace(
-            trace=self._trace,
-            root_span=getattr(self, "_trace_root_span", None),
-            trace_payload={
-                **self._trace_args,
-                "output": "".join(output_chunks) or None,
-            },
-            root_span_payload={
-                "input": self._trace_args.get("input"),
-                "output": "".join(output_chunks) or None,
-            },
-        )
+    def _finalize_langfuse_trace(self, error: Exception | None = None) -> None:
+        """End once, retaining a request error when no session could be selected."""
+        if getattr(self, "_trace_finalized", False):
+            return
+        self._trace_finalized = True
+        try:
+            if getattr(self, "_trace_root_span", None) is None:
+                metadata = self._trace_args.get("metadata", {})
+                request_id = metadata.get("request_id")
+                self._trace_id = getattr(self, "_trace_id", "") or (
+                    coerce_langfuse_trace_id(request_id)
+                    if request_id
+                    else get_request_trace_id()
+                )
+                self._trace, self._trace_root_span = create_trace_with_root_span(
+                    client=get_langfuse_client(),
+                    trace_payload={"id": self._trace_id, **self._trace_args},
+                    root_span_payload={
+                        "name": build_langfuse_span_name(
+                            metadata.get("chapter_title")
+                            or getattr(self._outline_item_info, "title", ""),
+                            metadata.get("scene", "lesson_runtime"),
+                            "root",
+                        ),
+                    },
+                )
+            output = "".join(getattr(self, "_langfuse_output_chunks", [])) or None
+            root_payload = {"input": self._trace_args.get("input"), "output": output}
+            if error is not None:
+                root_payload.update(
+                    level="ERROR",
+                    status_message=type(error).__name__,
+                    metadata={"runtime_outcome": "error"},
+                )
+            finalize_langfuse_trace(
+                trace=self._trace,
+                root_span=self._trace_root_span,
+                trace_payload={**self._trace_args, "output": output},
+                root_span_payload=root_payload,
+            )
+        except Exception as telemetry_error:
+            self.app.logger.warning(
+                "Langfuse trace finalization failed (%s)",
+                type(telemetry_error).__name__,
+            )
 
     def _should_stream_tts(self) -> bool:
         return (
@@ -2211,6 +2245,10 @@ class RunScriptContextV2:
         self._trace_id = get_session_trace_id(
             session_id, user_id=self._trace_args.get("user_id", "")
         )
+        # A failed replacement must never leave the previous session's ended
+        # handles available to the error finalizer.
+        self._trace, self._trace_root_span = MockClient(), None
+        self._trace_finalized = False
         self._trace, self._trace_root_span = create_trace_with_root_span(
             client=get_langfuse_client(),
             trace_payload={"id": self._trace_id, **self._trace_args},
