@@ -10,7 +10,6 @@ from uuid import uuid4
 import pytest
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn import follow_up_context as context
-from flaskr.service.learn.agent import routing
 from flaskr.service.learn.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
 from flaskr.service.profile.api import delete_course_memory
 from flaskr.service.profile.models import VariableValue
@@ -42,7 +41,6 @@ def _conversation(
 @pytest.fixture
 def scope(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]:
     """Seed conflicting notes across real users and courses without variable definitions."""
-    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: True)
     monkeypatch.setattr(context, "load_follow_up_history", lambda **_kwargs: [])
     user, course, other_user, other_course = (uuid4().hex for _ in range(4))
     with app.app_context(), unit_of_work():
@@ -105,17 +103,6 @@ def test_follow_up_reads_current_course_notes(
             delete_course_memory(user, course, row.id)
         deleted = _conversation(app, user, course, voice=voice)
         assert "Prefers diagrams" not in deleted.system_instruction
-
-
-def test_legacy_does_not_gain_course_notes(
-    app: Flask, scope: tuple[str, str], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Keep legacy prompt and profile resolution unchanged."""
-    monkeypatch.setattr(routing, "get_config", lambda *_args, **_kwargs: False)
-    with app.app_context():
-        result = _conversation(app, *scope)
-    assert "Prefers short examples" not in result.system_instruction
-    assert "<course_memory>" not in result.system_instruction
 
 
 @pytest.mark.parametrize("snapshot", [{}, {"note": "Resolved current value"}])

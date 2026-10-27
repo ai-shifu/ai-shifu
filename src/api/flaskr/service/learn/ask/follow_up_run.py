@@ -1,9 +1,8 @@
-"""Answer one follow-up question without building the 1.0 script run context.
+"""Answer one follow-up question beside the lesson.
 
-A follow-up runs beside the lesson under its own semaphore. It never advanced the
-script, so all it took from ``RunScriptContextV2`` was the lesson lookup, the
-learner's progress record, the course prompt and a Langfuse trace. This module
-supplies exactly those, so asking a question no longer depends on the 1.0 engine.
+A follow-up runs under its own semaphore and never advances the lesson. It needs
+the lesson lookup, the learner's progress record, the course prompt and a
+Langfuse trace, which this module supplies before calling ``handle_input_ask``.
 """
 
 from __future__ import annotations

@@ -1939,10 +1939,9 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         default=False,
         type=bool,
         description=(
-            "Enable the MarkdownFlow 2.0 lesson engine for every course in this "
-            "deployment. Defaults to false (1.0). Set only in the target "
-            "deployment's environment, never shared database configuration. "
-            "The retired FLOW_ENGINE_V2_SHIFU_BIDS allowlist is ignored."
+            "Deprecated and ignored: every course is taught by the MarkdownFlow "
+            "2.0 lesson engine. Kept registered until deployments stop setting "
+            "it. The retired FLOW_ENGINE_V2_SHIFU_BIDS allowlist is ignored."
         ),
         group="shifu",
         required=False,

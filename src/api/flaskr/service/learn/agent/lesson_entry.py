@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 from flaskr.api.llm.model_selection import selection_metadata, selection_model
 from flaskr.api.markdownflow import Engine, GatewayModel
-from flaskr.dao.uow import app_context_scope
+from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.agent.langfuse_tracing import (
     MEMORY_ADMISSION_GENERATION_NAME,
@@ -66,8 +66,8 @@ class DiscardedTurnError(AppError):
 class LessonNotTeachable(Exception):  # noqa: N818 - an outcome, not a failure
     """A lesson with nothing for the 2.0 engine to teach.
 
-    Raised rather than streamed as an empty turn so the caller can fall back to 1.0, which is what
-    a course selected for 2.0 with an empty or missing outline should get.
+    Raised rather than streamed as an empty turn so the caller can complete the lesson instead
+    (`complete_empty_lesson`).
     """
 
 
@@ -145,6 +145,55 @@ def _resolve(
         ),
         content_revision,
         bool(getattr(shifu, "use_learner_language", 0)),
+    )
+
+
+def complete_empty_lesson(
+    app: Flask,
+    *,
+    user_bid: str,
+    shifu_bid: str,
+    outline_bid: str,
+    preview_mode: bool,
+) -> Generator[RunMarkdownFlowDTO, None, None]:
+    """Complete a lesson that has no script, handing the learner on to the next one.
+
+    1.0 ran such a lesson as zero blocks and went straight to its end. This keeps that: the
+    lesson is marked complete, the outline moves on, and the next lesson's button is offered.
+    Access is checked first, so an empty lesson cannot carry a learner past a lesson they have
+    not paid for. A preview changes no progress, as with any finished 2.0 preview.
+    """
+    from flaskr.service.learn.agent.lesson_record import active_progress_record
+    from flaskr.service.learn.agent.run_agent import _outline_progression
+
+    with app_context_scope(app):
+        outline_model, shifu_model = _models(preview_mode)
+        outline = _latest(
+            outline_model, outline_item_bid=outline_bid, shifu_bid=shifu_bid
+        )
+        if outline is None:
+            raise_error("server.shifu.lessonNotFoundInCourse")
+        shifu = _latest(shifu_model, shifu_bid=shifu_bid)
+        _require_access(
+            app,
+            user_bid=user_bid,
+            shifu=shifu,
+            outline=outline,
+            preview_mode=preview_mode,
+        )
+        if preview_mode:
+            return
+        with unit_of_work():
+            progress_record_bid = active_progress_record(
+                app, user_bid=user_bid, shifu_bid=shifu_bid, outline_bid=outline_bid
+            ).progress_record_bid
+    yield from _outline_progression(
+        app,
+        user_bid=user_bid,
+        shifu_bid=shifu_bid,
+        outline_bid=outline_bid,
+        progress_record_bid=progress_record_bid,
+        preview_mode=preview_mode,
     )
 
 

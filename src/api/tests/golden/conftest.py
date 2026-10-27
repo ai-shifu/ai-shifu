@@ -7,8 +7,7 @@ contract is unchanged (backend overhaul master plan, Phase 0).
 Determinism strategy:
 
 - A deterministic fake LLM is patched both on ``flaskr.api.llm`` and on the
-  names imported directly into ``flaskr.service.learn.context_v2``,
-  ``flaskr.service.learn.check_text`` and
+  names imported directly into ``flaskr.service.learn.check_text`` and
   ``flaskr.service.learn.handle_input_ask`` (the session-level autouse fake in
   ``tests/conftest.py`` only patches ``flaskr.api.llm`` attributes, which the
   /run path bypasses via ``from flaskr.api.llm import chat_llm``).
@@ -150,11 +149,8 @@ def golden_llm(monkeypatch: object) -> None:
             ("invoke_llm", golden_invoke_llm),
             ("get_current_models", golden_get_current_models),
         ),
-        # context_v2 binds these names at import time.
-        "flaskr.service.learn.context_v2": (
-            ("chat_llm", golden_chat_llm),
-            ("get_current_models", golden_get_current_models),
-        ),
+        # The 2.0 gateway model (follow-up memory answers) binds chat_llm.
+        "flaskr.api.llm.markdownflow_model": (("chat_llm", golden_chat_llm),),
         # check_text binds invoke_llm at import time.
         "flaskr.service.learn.check_text": (("invoke_llm", golden_invoke_llm),),
         # handle_input_ask resolves a module-level `chat_llm` global first.

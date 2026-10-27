@@ -4,7 +4,6 @@ import contextlib
 import json
 import re
 import sys
-import uuid
 from collections.abc import Iterator
 
 from flask import Flask, Response, request, stream_with_context
@@ -22,8 +21,6 @@ from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import admit_creator_preview_usage
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import AppError, raise_param_error
-from flaskr.service.learn.agent.routing import uses_agent_engine
-from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
     RunElementSSEMessageDTO,
@@ -239,7 +236,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     )
 
     register_live_follow_up_routes(app, path_prefix)
-    preview_service = RunScriptPreviewContextV2(app)
 
     def _require_shifu_owner(shifu_bid: str) -> str:
         """Ensure current user is the owner of the specified shifu."""
@@ -606,9 +602,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             raise_param_error(str(exc))
 
         user_bid = request.user.user_id
-        session_id = (
-            request.headers.get("Session-Id") or f"preview-{uuid.uuid4().hex[:8]}"
-        )
         app.logger.info(
             "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s, visual_mode: %s",
             shifu_bid,
@@ -623,8 +616,10 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             BILL_USAGE_SCENE_PREVIEW,
         )
 
+        # Every editor bundle sends one; a request without it comes from a bundle
+        # old enough to expect the retired 1.0 block preview.
         debug_run_bid = payload.get("debug_session_id")
-        if debug_run_bid not in (None, "") and not (
+        if not (
             isinstance(debug_run_bid, str)
             and re.fullmatch(r"[A-Za-z0-9_-]{1,64}", debug_run_bid)
         ):
@@ -639,35 +634,17 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             "sys_user_language": preview_language,
             "language": preview_language,
         }
-        if uses_agent_engine(shifu_bid) and debug_run_bid:
-            from flaskr.service.learn.agent.debug_session import stream_debug_preview
+        from flaskr.service.learn.agent.debug_session import stream_debug_preview
 
-            def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
-                return stream_debug_preview(
-                    app,
-                    preview_request=preview_request,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    user_bid=user_bid,
-                    run_bid=debug_run_bid,
-                )
-        else:
-            # Older editor bundles do not send a debug session identifier. Keep their
-            # block-oriented preview until they refresh to the 2.0-aware client.
-            def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
-                yield RunElementSSEMessageDTO(
-                    type="preview_engine",
-                    event_type="preview_engine",
-                    content="1.0",
-                    is_terminal=False,
-                )
-                yield from preview_service.stream_preview(
-                    preview_request=preview_request,
-                    shifu_bid=shifu_bid,
-                    outline_bid=outline_bid,
-                    user_bid=user_bid,
-                    session_id=session_id,
-                )
+        def message_iter_factory() -> Iterator[RunElementSSEMessageDTO]:
+            return stream_debug_preview(
+                app,
+                preview_request=preview_request,
+                shifu_bid=shifu_bid,
+                outline_bid=outline_bid,
+                user_bid=user_bid,
+                run_bid=debug_run_bid,
+            )
 
         return _stream_sse_response(
             app,

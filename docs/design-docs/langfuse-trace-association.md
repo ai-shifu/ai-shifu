@@ -26,7 +26,8 @@ canonical: true
 - Only send `input` and `output` to Langfuse when a real value exists.
 
 ## Scope
-- `src/api/flaskr/service/learn/context_v2.py`
+- `src/api/flaskr/service/learn/context_v2.py` (removed with the 1.0 runtime;
+  follow-up traces now open in `src/api/flaskr/service/learn/ask/follow_up_run.py`)
 - `src/api/flaskr/service/learn/handle_input_ask.py`
 - `src/api/flaskr/service/shifu/route.py`
 - `src/api/flaskr/service/shifu/shifu_publish_funcs.py`

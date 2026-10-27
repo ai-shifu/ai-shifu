@@ -316,9 +316,9 @@ def test_preview_reset_is_not_counted_and_status_is_open(
     assert status(app, course) is False
     assert status(app, course, preview_mode=True) is True
     assert reset(app, course, preview_mode=True) is True
-    rows = reset_rows(app, course)
-    assert [row.counted for row in rows] == [1, 1, 0]
-    assert rows[-1].preview_mode == 1
+    # A preview with no live draft session resets nothing and spends nothing; the
+    # uncounted audit row for a live one is covered by the agent preview test below.
+    assert [row.counted for row in reset_rows(app, course)] == [1, 1]
 
 
 def test_lesson_outside_the_course_is_rejected(
