@@ -2,12 +2,12 @@
   "__namespace__": "server.discount",
   "__flat__": {
     "couponCodeGenerationFailed": "No se han podido generar los códigos de descuento. Inténtalo más tarde.",
-    "discountAlreadyExpired": "El código de canje ha caducado.",
-    "discountAlreadyUsed": "El código de canje ya se ha utilizado.",
-    "discountLimitExceeded": "El código de canje ha alcanzado su límite de usos.",
-    "discountNotApply": "El código de canje no se puede usar para este curso.",
-    "discountNotFound": "El código de canje no existe.",
-    "discountNotStart": "El código de canje aún no está vigente.",
-    "orderDiscountAlreadyUsed": "Este pedido ya ha utilizado un código de canje."
+    "discountAlreadyExpired": "El código de descuento ha caducado.",
+    "discountAlreadyUsed": "El código de descuento ya se ha utilizado.",
+    "discountLimitExceeded": "El código de descuento ha alcanzado su límite de usos.",
+    "discountNotApply": "El código de descuento no se puede usar para este curso.",
+    "discountNotFound": "El código de descuento no existe.",
+    "discountNotStart": "El código de descuento aún no está vigente.",
+    "orderDiscountAlreadyUsed": "Este pedido ya ha utilizado un código de descuento."
   }
 }
