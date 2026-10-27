@@ -26,12 +26,14 @@ invocation path, so tooltip use has an additive event contract.
 - Business question: which course actions need the most explanation, so product
   owners can prioritize clearer labels and onboarding?
 - Metric definition: weekly help-view event counts and distinct eligible
-  teachers by action on the course list. Compare the distribution of observed
-  help views across actions. Menu-open or action-exposure denominators are not
+  signed-in course-administration users by action on the course list. This
+  population includes teachers, authorized course collaborators and operators
+  that satisfy the shared analytics policy. Compare observed help views across
+  actions. Menu-open or action-exposure denominators are not
   collected, so these counts are not help-open rates or action-conversion rates.
 - Event: `creator_course_action_help_view`.
-- Actor and surface: signed-in teachers and authorized course collaborators or
-  operators using the course action menu, with surface `admin_course_list`.
+- Actor and surface: the same eligible signed-in course-administration users
+  defined above, using the course action menu with surface `admin_course_list`.
 - Trigger: help becomes visible for an action in an open course menu after
   300 ms of continuous pointer dwell or immediately on keyboard focus. Merely
   rendering a card, opening a menu, pointing briefly at an item, or selecting an
@@ -48,7 +50,7 @@ invocation path, so tooltip use has an additive event contract.
   window. Mark an action before calling tracking so failed delivery is not
   retried by repeated hover or focus.
 - Correlation: no course ID or additional user ID is needed. The existing shared
-  identity supplies distinct eligible teachers. There is no per-menu identifier
+  identity supplies distinct eligible course-administration users. There is no per-menu identifier
   or exact join with action outcomes.
 - Consumers: the product owner reviews aggregate weekly help demand by action
   in Umami. No checked-in query or dashboard consumes the new event yet.
