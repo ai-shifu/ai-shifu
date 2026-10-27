@@ -28,6 +28,7 @@ from flaskr.dao.uow import unit_of_work
 from flaskr.i18n import _, get_current_language, set_language
 from flaskr.service.common.models import AppError, raise_error
 from flaskr.service.learn.const import INPUT_TYPE_ASK
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.exceptions import BreakError
 from flaskr.service.learn.learn_dtos import (
     AudioBackfillReadyDTO,
@@ -36,7 +37,6 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
     RunStatusDTO,
 )
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.request_stream import RequestCompletion
 from flaskr.util.datetime import to_utc_iso
 from sqlalchemy import text as sa_text

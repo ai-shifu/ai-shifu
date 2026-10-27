@@ -4,8 +4,13 @@ This module owns learning-session orchestration, SSE streaming, ask-provider
 adapters, listen-mode assembly, and runtime conversation state.
 
 Entry files in this directory: `routes.py`, `learn_funcs.py`,
-`runscript_v2.py`, `listen_element_run_stream.py`,
+`runscript_v2.py`, `elements/run_stream.py`,
 `ask_provider_adapters/registry.py`.
+
+Element building, streaming, persistence and history readers live in
+`elements/`, which must not import routes, the run host or follow-up modules
+(`scripts/check_architecture_boundaries.py` enforces this). The old
+`listen_element_*` module paths are one-release aliases of `elements/`.
 
 ## Do
 

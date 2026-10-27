@@ -165,8 +165,8 @@ for m in unreachable:
 # extra: reverse-edge counts for specific legacy modules
 print("\nREVERSE IMPORTS for adjudicated legacy modules:")
 for target in (
-    "flaskr.service.learn.listen_element_legacy",
-    "flaskr.service.learn.legacy_record_builder",
+    "flaskr.service.learn.elements.legacy",
+    "flaskr.service.learn.elements.legacy_record_builder",
 ):
     importers = sorted(s for s, ts in graph.items() if target in ts)
     print(f"  {target}: imported by {len(importers)} modules")

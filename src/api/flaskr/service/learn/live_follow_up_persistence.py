@@ -12,12 +12,12 @@ from typing import TYPE_CHECKING, Any
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
-from flaskr.service.learn.learn_dtos import ElementPayloadDTO, ElementType
-from flaskr.service.learn.listen_element_payloads import _serialize_payload
-from flaskr.service.learn.listen_element_queries import (
+from flaskr.service.learn.elements.element_types import ELEMENT_TYPE_CODES
+from flaskr.service.learn.elements.payloads import _serialize_payload
+from flaskr.service.learn.elements.queries import (
     _load_latest_active_element_row,
 )
-from flaskr.service.learn.listen_element_types import ELEMENT_TYPE_CODES
+from flaskr.service.learn.learn_dtos import ElementPayloadDTO, ElementType
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.metering.api import (
     BillUsageRecord,

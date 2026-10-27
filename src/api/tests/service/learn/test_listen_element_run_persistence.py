@@ -2,8 +2,8 @@
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.learn import listen_element_run_persistence
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.learn.elements import run_persistence
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.models import LearnGeneratedElement
 from sqlalchemy.exc import ResourceClosedError
 
@@ -141,7 +141,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(
     class _FakeDb:
         session = _FakeSession(fake_connection)
 
-    monkeypatch.setattr(listen_element_run_persistence, "db", _FakeDb)
+    monkeypatch.setattr(run_persistence, "db", _FakeDb)
 
     with app.app_context():
         adapter = ListenElementRunAdapter(
@@ -154,7 +154,7 @@ def test_find_active_element_row_ids_invalidates_desynced_connection(
 
         invalidations = []
         monkeypatch.setattr(
-            listen_element_run_persistence,
+            run_persistence,
             "invalidate_session",
             lambda *, source, _session=None: invalidations.append(source) or True,
         )
@@ -214,7 +214,7 @@ def test_deactivate_active_element_rows_retires_rows_without_touching_others(
 
 
 def test_desync_forensics_capture_fingerprints_the_stale_response() -> None:
-    from flaskr.service.learn.listen_element_run_persistence import (
+    from flaskr.service.learn.elements.run_persistence import (
         _describe_desynced_connection,
     )
 
@@ -256,7 +256,7 @@ def test_desync_forensics_capture_fingerprints_the_stale_response() -> None:
 
 
 def test_desync_forensics_survives_missing_raw_connection() -> None:
-    from flaskr.service.learn.listen_element_run_persistence import (
+    from flaskr.service.learn.elements.run_persistence import (
         _describe_desynced_connection,
     )
 
@@ -273,7 +273,7 @@ def test_desync_forensics_survives_missing_raw_connection() -> None:
 def test_desync_forensics_logs_only_packet_header_not_payload() -> None:
     import socket as socket_module
 
-    from flaskr.service.learn.listen_element_run_persistence import (
+    from flaskr.service.learn.elements.run_persistence import (
         _describe_desynced_connection,
     )
 

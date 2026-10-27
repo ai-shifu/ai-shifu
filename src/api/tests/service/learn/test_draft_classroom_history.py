@@ -26,6 +26,10 @@ from flaskr.service.learn.agent.session_store import (
     preview_presentation,
     save_agent_session,
 )
+from flaskr.service.learn.elements.run_adapter import (
+    ListenElementRunAdapter,
+    get_listen_element_record,
+)
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
@@ -33,10 +37,6 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, reset_learn_record
-from flaskr.service.learn.listen_elements import (
-    ListenElementRunAdapter,
-    get_listen_element_record,
-)
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,

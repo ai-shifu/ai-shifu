@@ -31,7 +31,7 @@ class TestListenElementHistorySubtitles:
 
     def test_final_elements_are_hydrated_from_persisted_audio_subtitles(self) -> None:
         from flaskr.dao import db
-        from flaskr.service.learn.listen_element_history import (
+        from flaskr.service.learn.elements.history import (
             get_final_elements_for_generated_block,
         )
         from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
@@ -115,7 +115,7 @@ class TestListenElementHistorySubtitles:
 
     def test_multi_position_audio_is_hydrated_by_speakable_element_order(self) -> None:
         from flaskr.dao import db
-        from flaskr.service.learn.listen_element_history import (
+        from flaskr.service.learn.elements.history import (
             get_final_elements_for_generated_block,
         )
         from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED
@@ -247,7 +247,7 @@ class TestListenElementHistorySubtitles:
         self,
     ) -> None:
         from flaskr.dao import db
-        from flaskr.service.learn.listen_element_history import (
+        from flaskr.service.learn.elements.history import (
             get_final_elements_for_generated_block,
         )
         from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED

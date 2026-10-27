@@ -246,8 +246,8 @@ class TestElementType:
             ElementType("nonexistent")
 
     def test_element_type_codes_complete(self) -> None:
+        from flaskr.service.learn.elements.element_types import ELEMENT_TYPE_CODES
         from flaskr.service.learn.learn_dtos import ElementType
-        from flaskr.service.learn.listen_element_types import ELEMENT_TYPE_CODES
 
         # Every non-legacy type must have a code
         for et in ElementType:
@@ -256,8 +256,8 @@ class TestElementType:
             assert et in ELEMENT_TYPE_CODES, f"Missing code for {et}"
 
     def test_legacy_mapping(self) -> None:
+        from flaskr.service.learn.elements.element_types import LEGACY_ELEMENT_TYPE_MAP
         from flaskr.service.learn.learn_dtos import ElementType
-        from flaskr.service.learn.listen_element_types import LEGACY_ELEMENT_TYPE_MAP
 
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._SANDBOX] == ElementType.HTML
         assert LEGACY_ELEMENT_TYPE_MAP[ElementType._PICTURE] == ElementType.IMG
@@ -559,10 +559,10 @@ class TestVisualKindMapping:
     """Verify visual kind mapping behavior."""
 
     def test_known_mappings(self) -> None:
-        from flaskr.service.learn.learn_dtos import ElementType
-        from flaskr.service.learn.listen_element_types import (
+        from flaskr.service.learn.elements.element_types import (
             _element_type_for_visual_kind,
         )
+        from flaskr.service.learn.learn_dtos import ElementType
 
         assert _element_type_for_visual_kind("video") == ElementType.HTML
         assert _element_type_for_visual_kind("img") == ElementType.IMG
@@ -579,10 +579,10 @@ class TestVisualKindMapping:
         assert _element_type_for_visual_kind("text") == ElementType.TEXT
 
     def test_unknown_defaults_to_text(self) -> None:
-        from flaskr.service.learn.learn_dtos import ElementType
-        from flaskr.service.learn.listen_element_types import (
+        from flaskr.service.learn.elements.element_types import (
             _element_type_for_visual_kind,
         )
+        from flaskr.service.learn.learn_dtos import ElementType
 
         assert _element_type_for_visual_kind("unknown") == ElementType.TEXT
         assert _element_type_for_visual_kind("") == ElementType.TEXT
@@ -604,7 +604,7 @@ def test_is_new_false_applies_to_target_element_in_records(app: object) -> None:
     import json
 
     from flaskr.dao import db
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -712,7 +712,7 @@ def test_records_ordered_by_sequence_number(app: object) -> None:
     import json
 
     from flaskr.dao import db
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -789,9 +789,9 @@ def test_records_merge_follow_up_history_after_anchor_element(app: object) -> No
     _require_app(app)
 
     from flaskr.dao import db
+    from flaskr.service.learn.elements.payloads import _serialize_payload
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.learn_dtos import ElementPayloadDTO
-    from flaskr.service.learn.listen_element_payloads import _serialize_payload
-    from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -974,7 +974,7 @@ def test_include_non_navigable_returns_events(app: object) -> None:
     import json
 
     from flaskr.dao import db
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -1098,8 +1098,8 @@ def test_legacy_element_type_deserialized_to_new_enum(app: object) -> None:
     import json
 
     from flaskr.dao import db
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.learn_dtos import ElementType
-    from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -1166,8 +1166,8 @@ def test_non_text_elements_are_never_speakable_in_records(app: object) -> None:
     import json
 
     from flaskr.dao import db
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.learn_dtos import ElementType
-    from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -1246,7 +1246,7 @@ def test_interaction_elements_backfill_user_input_from_generated_blocks(
     import json
 
     from flaskr.dao import db
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -1348,7 +1348,7 @@ def test_a_turn_block_s_lesson_text_is_not_read_as_the_learner_s_answer(
     import json
 
     from flaskr.dao import db
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -1442,12 +1442,12 @@ def test_live_interaction_events_use_ui_role_and_generated_input(
 ) -> None:
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
     from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
 
@@ -1537,11 +1537,11 @@ class TestElementPayloadAsks:
         assert serialized["asks"] == []
 
     def test_payload_asks_deserialization(self) -> None:
-        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
-        from flaskr.service.learn.listen_element_payloads import (
+        from flaskr.service.learn.elements.payloads import (
             _deserialize_payload,
             _serialize_payload,
         )
+        from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
         asks = [
             {"role": "student", "content": "question"},
@@ -1553,14 +1553,14 @@ class TestElementPayloadAsks:
         assert restored.asks == asks
 
     def test_payload_asks_deserialization_missing(self) -> None:
-        from flaskr.service.learn.listen_element_payloads import _deserialize_payload
+        from flaskr.service.learn.elements.payloads import _deserialize_payload
 
         raw = '{"audio": null, "previous_visuals": []}'
         restored = _deserialize_payload(raw)
         assert restored.asks is None
 
     def test_payload_asks_deserialization_invalid_type(self) -> None:
-        from flaskr.service.learn.listen_element_payloads import _deserialize_payload
+        from flaskr.service.learn.elements.payloads import _deserialize_payload
 
         raw = '{"audio": null, "previous_visuals": [], "asks": "not_a_list"}'
         restored = _deserialize_payload(raw)
@@ -1625,11 +1625,11 @@ class TestAskContextLoading:
     def test_load_context_from_follow_up_elements(self) -> None:
         import types
 
+        from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.follow_up_context import (
             build_follow_up_element_history as _load_ask_context,
         )
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
         payload = ElementPayloadDTO()
         anchor = types.SimpleNamespace(
@@ -1664,11 +1664,11 @@ class TestAskContextLoading:
     def test_load_context_fallback_to_legacy_payload_asks(self) -> None:
         import types
 
+        from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.follow_up_context import (
             build_follow_up_element_history as _load_ask_context,
         )
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
         asks = [
             {"role": "student", "content": "q1"},
@@ -1695,11 +1695,11 @@ class TestAskContextLoading:
     def test_load_context_fallback_to_none(self) -> None:
         import types
 
+        from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.follow_up_context import (
             build_follow_up_element_history as _load_ask_context,
         )
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
         payload = ElementPayloadDTO()
         anchor = types.SimpleNamespace(
@@ -1719,11 +1719,11 @@ class TestAskContextLoading:
     def test_load_context_truncation(self) -> None:
         import types
 
+        from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.follow_up_context import (
             build_follow_up_element_history as _load_ask_context,
         )
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
 
         follow_up_elements = [
             types.SimpleNamespace(
@@ -1755,13 +1755,13 @@ class TestHandleAskAdapter:
         import json
 
         from flaskr.dao import db
+        from flaskr.service.learn.elements.payloads import _serialize_payload
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
 
         with adapter_app.app_context():
@@ -1818,13 +1818,13 @@ class TestHandleAskAdapter:
         import json
 
         from flaskr.dao import db
+        from flaskr.service.learn.elements.payloads import _serialize_payload
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
 
         with adapter_app.app_context():
@@ -1886,13 +1886,13 @@ class TestHandleAskAdapter:
 
     def test_handle_ask_sets_anchor_bid_state(self, adapter_app: object) -> None:
         from flaskr.dao import db
+        from flaskr.service.learn.elements.payloads import _serialize_payload
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
 
         with adapter_app.app_context():
@@ -1941,14 +1941,14 @@ class TestHandleAskAdapter:
         import json
 
         from flaskr.dao import db
+        from flaskr.service.learn.elements.payloads import _serialize_payload
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
 
         with adapter_app.app_context():
@@ -2050,14 +2050,14 @@ class TestHandleAskAdapter:
         self, adapter_app: object
     ) -> None:
         from flaskr.dao import db
+        from flaskr.service.learn.elements.payloads import _serialize_payload
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
 
         with adapter_app.app_context():
@@ -2165,14 +2165,14 @@ class TestHandleAskAdapter:
         self, adapter_app: object
     ) -> None:
         from flaskr.dao import db
+        from flaskr.service.learn.elements.payloads import _serialize_payload
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
 
         with adapter_app.app_context():
@@ -2281,6 +2281,8 @@ class TestHandleAskAdapter:
 
     def test_answer_audio_events_do_not_attach_audio(self, adapter_app: object) -> None:
         from flaskr.dao import db
+        from flaskr.service.learn.elements.payloads import _serialize_payload
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -2289,8 +2291,6 @@ class TestHandleAskAdapter:
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
 
         with adapter_app.app_context():
@@ -2387,13 +2387,13 @@ class TestHandleAskAdapter:
     ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn import handle_input_ask as module
+        from flaskr.service.learn.elements.payloads import _serialize_payload
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             ElementType,
             GeneratedType,
         )
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
 
         ask_provider_config = {
@@ -2504,13 +2504,13 @@ class TestHandleAskAdapter:
         from flaskr.dao import db
         from flaskr.service.learn import handle_input_ask as module
         from flaskr.service.learn.ask_provider_adapters import AskProviderError
+        from flaskr.service.learn.elements.payloads import _serialize_payload
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementPayloadDTO,
             ElementType,
             GeneratedType,
         )
-        from flaskr.service.learn.listen_element_payloads import _serialize_payload
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.learn.models import LearnGeneratedElement
 
         ask_provider_config = {
@@ -2660,13 +2660,13 @@ class TestElementChangeTypeSemantics:
     """Verify element change type semantics behavior."""
 
     def test_text_patch_keeps_render_change_type(self, adapter_app: object) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementChangeType,
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -2708,13 +2708,13 @@ class TestElementChangeTypeSemantics:
     def test_gitdiff_element_uses_diff_change_type_without_forcing_patch(
         self, adapter_app: object
     ) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementChangeType,
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -2754,12 +2754,12 @@ class TestElementChangeTypeSemantics:
             assert diff_events[1].target_element_bid == diff_events[0].element_bid
 
     def test_html_after_text_creates_new_element(self, adapter_app: object) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -2806,6 +2806,7 @@ class TestElementChangeTypeSemantics:
     def test_html_only_stream_does_not_keep_audio_on_finalize(
         self, adapter_app: object
     ) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -2813,7 +2814,6 @@ class TestElementChangeTypeSemantics:
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -2883,12 +2883,12 @@ class TestElementChangeTypeSemantics:
     def test_chunked_html_table_stream_stays_single_html_element(
         self, adapter_app: object
     ) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -2941,13 +2941,13 @@ class TestElementChangeTypeSemantics:
     def test_mdflow_stream_elements_are_not_rebuilt_from_av_contract(
         self, adapter_app: object
     ) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             ElementType,
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
         from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
         raw_content = (
@@ -3064,6 +3064,7 @@ class TestElementChangeTypeSemantics:
     def test_pending_audio_skips_image_stream_and_binds_to_following_text(
         self, adapter_app: object
     ) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -3071,7 +3072,6 @@ class TestElementChangeTypeSemantics:
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -3181,14 +3181,14 @@ class TestElementChangeTypeSemantics:
     ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.const import ROLE_TEACHER
+        from flaskr.service.learn.elements.run_adapter import (
+            ListenElementRunAdapter,
+            get_listen_element_record,
+        )
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             GeneratedType,
             RunMarkdownFlowDTO,
-        )
-        from flaskr.service.learn.listen_elements import (
-            ListenElementRunAdapter,
-            get_listen_element_record,
         )
         from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
         from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
@@ -3293,14 +3293,14 @@ class TestElementChangeTypeSemantics:
     ) -> None:
         from flaskr.dao import db
         from flaskr.service.learn.const import ROLE_TEACHER
+        from flaskr.service.learn.elements.run_adapter import (
+            ListenElementRunAdapter,
+            get_listen_element_record,
+        )
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             GeneratedType,
             RunMarkdownFlowDTO,
-        )
-        from flaskr.service.learn.listen_elements import (
-            ListenElementRunAdapter,
-            get_listen_element_record,
         )
         from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
         from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
@@ -3401,6 +3401,7 @@ class TestElementChangeTypeSemantics:
     def test_live_audio_patches_mirror_progressive_subtitles_on_same_element(
         self, adapter_app: object
     ) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -3408,7 +3409,6 @@ class TestElementChangeTypeSemantics:
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -3636,6 +3636,7 @@ class TestElementChangeTypeSemantics:
     def test_live_audio_patches_do_not_rewrite_same_count_updates(
         self, adapter_app: object
     ) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -3643,7 +3644,6 @@ class TestElementChangeTypeSemantics:
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -3784,6 +3784,7 @@ class TestElementChangeTypeSemantics:
     def test_live_audio_patches_preserve_incoming_middle_cues(
         self, adapter_app: object
     ) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -3791,7 +3792,6 @@ class TestElementChangeTypeSemantics:
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(
@@ -3952,6 +3952,7 @@ class TestElementChangeTypeSemantics:
     def test_explicit_stream_audio_waits_for_matching_text_element(
         self, adapter_app: object
     ) -> None:
+        from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             AudioSegmentDTO,
@@ -3959,7 +3960,6 @@ class TestElementChangeTypeSemantics:
             GeneratedType,
             RunMarkdownFlowDTO,
         )
-        from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 
         with adapter_app.app_context():
             adapter = ListenElementRunAdapter(

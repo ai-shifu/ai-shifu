@@ -7,7 +7,9 @@ from flaskr.api.tts import AudioSettings, VoiceSettings
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn import learn_funcs as learn
-from flaskr.service.learn import listen_element_history as history
+from flaskr.service.learn.elements import history
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
+from flaskr.service.learn.elements.run_state import BlockState
 from flaskr.service.learn.learn_dtos import (
     ElementAudioDTO,
     ElementDTO,
@@ -16,8 +18,6 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_element_run_state import BlockState
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.tts.models import AUDIO_STATUS_COMPLETED, LearnGeneratedAudio
 

@@ -413,11 +413,11 @@ def _append_terminal_events(
 
 
 def _expected_visual_segment_count(raw_content: str, generated_block_bid: str) -> int:
-    from flaskr.service.learn.listen_slide_builder import (
+    from flaskr.service.learn.elements.slide_builder import (
         VisualSegment,
         build_visual_segments_for_block,
     )
-    from flaskr.service.learn.listen_source_span_utils import (
+    from flaskr.service.learn.elements.source_spans import (
         normalize_source_span,
         slice_source_by_span,
     )
@@ -469,7 +469,7 @@ def _analyze_stream_only(
     sample: BlockSample,
     parts: list[tuple[str, str, int]],
 ) -> AnalysisResult:
-    from flaskr.service.learn.listen_elements import (
+    from flaskr.service.learn.elements.run_adapter import (
         ListenElementRunAdapter,
         _element_type_from_mdflow_stream,
         get_listen_element_record,
@@ -569,7 +569,7 @@ def _analyze_stream_with_av(
     sample: BlockSample,
     parts: list[tuple[str, str, int]],
 ) -> AnalysisResult:
-    from flaskr.service.learn.listen_elements import (
+    from flaskr.service.learn.elements.run_adapter import (
         ListenElementRunAdapter,
         get_listen_element_record,
     )

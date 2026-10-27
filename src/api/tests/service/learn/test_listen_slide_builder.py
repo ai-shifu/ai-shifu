@@ -1,6 +1,6 @@
 """Verify listen slide builder behavior."""
 
-from flaskr.service.learn.listen_slide_builder import build_visual_segments_for_block
+from flaskr.service.learn.elements.slide_builder import build_visual_segments_for_block
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
 

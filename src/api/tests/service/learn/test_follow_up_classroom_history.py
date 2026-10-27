@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.learn.elements.payloads import _serialize_payload
 from flaskr.service.learn.follow_up_context import (
     build_follow_up_conversation_context,
     load_follow_up_history,
 )
 from flaskr.service.learn.learn_dtos import ElementPayloadDTO
-from flaskr.service.learn.listen_element_payloads import _serialize_payload
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,

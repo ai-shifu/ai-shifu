@@ -40,7 +40,7 @@ parameter error.
 ## History
 
 Learning records written by 1.0 remain readable through the element history
-readers (`legacy_record_builder`, `listen_element_legacy`); only the runtime was
+readers (`elements/legacy_record_builder`, `elements/legacy`); only the runtime was
 removed. Pre-checkpoint history, including 1.0 blocks, cannot be regenerated or
 have an earlier answer changed through 2.0; the localized error directs the
 learner to Reset the lesson first.

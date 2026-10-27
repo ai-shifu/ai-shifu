@@ -29,6 +29,14 @@ from flaskr.service.learn.agent.session_store import (
     stage_agent_session_discard,
 )
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.elements.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
+    LegacyLearnRecord,
+    build_legacy_record_for_progress,
+)
+from flaskr.service.learn.elements.matching import (
+    get_speakable_text_elements,
+)
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -44,11 +52,6 @@ from flaskr.service.learn.learn_dtos import (
     OutlineType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.legacy_record_builder import (
-    LegacyGeneratedBlockRecord,
-    LegacyLearnRecord,
-    build_legacy_record_for_progress,
-)
 from flaskr.service.learn.lesson_content_updates import load_lesson_content_states
 from flaskr.service.learn.lesson_feedback import (
     build_lesson_feedback_interaction_md,
@@ -62,9 +65,6 @@ from flaskr.service.learn.lesson_reset_limit import (
     normalize_reset_request_id,
     record_lesson_reset,
     require_reset_lesson,
-)
-from flaskr.service.learn.listen_element_matching import (
-    get_speakable_text_elements,
 )
 from flaskr.service.learn.live_follow_up_config import (
     get_follow_up_interaction_mode,
@@ -2049,7 +2049,7 @@ def stream_generated_block_audio(
             )
 
         if listen:
-            from flaskr.service.learn.listen_element_history import (
+            from flaskr.service.learn.elements.history import (
                 get_final_elements_for_generated_block,
             )
 

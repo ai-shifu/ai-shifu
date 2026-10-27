@@ -8,15 +8,15 @@ from typing import TYPE_CHECKING, Any
 from flaskr.common.i18n_utils import resolve_markdownflow_output_language
 from flaskr.service.common import raise_error
 from flaskr.service.learn.agent.rewind import read_turn_learner_values
+from flaskr.service.learn.elements.payloads import _deserialize_payload
+from flaskr.service.learn.elements.queries import (
+    _load_latest_active_element_row,
+    find_follow_up_element_rows,
+)
 from flaskr.service.learn.follow_up_memory import render_follow_up_memory
 from flaskr.service.learn.learner_profile_prompt import (
     build_course_prompt,
     render_course_prompt_identity_variables,
-)
-from flaskr.service.learn.listen_element_payloads import _deserialize_payload
-from flaskr.service.learn.listen_element_queries import (
-    _load_latest_active_element_row,
-    find_follow_up_element_rows,
 )
 from flaskr.service.learn.memory import load_memory
 from flaskr.service.learn.models import LearnGeneratedBlock

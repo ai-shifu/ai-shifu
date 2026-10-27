@@ -80,7 +80,7 @@ _install_openai_responses_stub()
 
 from flaskr.dao import db
 from flaskr.service.learn.const import ROLE_TEACHER
-from flaskr.service.learn.listen_element_mdflow_backfill import (
+from flaskr.service.learn.elements.mdflow_backfill import (
     backfill_learn_generated_elements_batch,
     backfill_learn_generated_elements_for_progress,
 )

@@ -21,6 +21,7 @@ from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import admit_creator_preview_usage
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import AppError, raise_param_error
+from flaskr.service.learn.elements.run_adapter import get_listen_element_record
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
     RunElementSSEMessageDTO,
@@ -39,7 +40,6 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
 )
 from flaskr.service.learn.lesson_reset_limit import get_lesson_reset_status
-from flaskr.service.learn.listen_elements import get_listen_element_record
 from flaskr.service.learn.preview_language import resolve_preview_language
 from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,

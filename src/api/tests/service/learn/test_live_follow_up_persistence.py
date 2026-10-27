@@ -11,15 +11,15 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.service.learn import follow_up_context as follow_up_context_module
+from flaskr.service.learn.elements.payloads import (
+    _deserialize_payload,
+    _serialize_payload,
+)
 from flaskr.service.learn.follow_up_context import (
     build_follow_up_conversation_context,
     build_follow_up_element_history,
 )
 from flaskr.service.learn.learn_dtos import ElementPayloadDTO
-from flaskr.service.learn.listen_element_payloads import (
-    _deserialize_payload,
-    _serialize_payload,
-)
 from flaskr.service.learn.live_follow_up_persistence import (
     LiveFollowUpPersistenceError,
     LiveTurnPersistenceContext,

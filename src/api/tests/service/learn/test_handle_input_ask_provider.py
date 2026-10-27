@@ -1554,8 +1554,8 @@ def test_two_follow_up_requests_preserve_literal_braces_for_quotations(
     from flaskr.dao import db
     from flaskr.dao.uow import unit_of_work
     from flaskr.service.learn import handle_input_ask as module
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.follow_up_quotations import LearnerQuotationSource
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
     from flaskr.service.shifu.consts import (
         BLOCK_TYPE_MDASK_VALUE,
