@@ -48,7 +48,10 @@ import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import { resolveBillingOrderStatusLabel } from '@/lib/billing';
 import { ErrorWithCode } from '@/lib/request';
-import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { cn } from '@/lib/utils';
 import {
   resolveOperationCreditOrderKindLabel,
@@ -204,10 +207,10 @@ export default function CreditOrdersTab() {
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const preferredLoginIdentifierType = React.useMemo(
+  const displayIdentifierType = React.useMemo(
     () =>
-      resolvePreferredLoginIdentifierType(
-        loginMethodsEnabled,
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
         defaultLoginMethod,
       ),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -259,7 +262,7 @@ export default function CreditOrdersTab() {
     usesLatinLabels && 'xl:max-w-[220px]',
   );
   const creatorKeywordPlaceholder = React.useMemo(() => {
-    if (preferredLoginIdentifierType === 'email') {
+    if (displayIdentifierType === 'email') {
       return tOperationsOrder(
         'creditOrders.filters.creatorKeywordPlaceholderEmail',
       );
@@ -267,7 +270,7 @@ export default function CreditOrdersTab() {
     return tOperationsOrder(
       'creditOrders.filters.creatorKeywordPlaceholderPhone',
     );
-  }, [preferredLoginIdentifierType, tOperationsOrder]);
+  }, [displayIdentifierType, tOperationsOrder]);
 
   const fetchOverview = React.useCallback(async () => {
     try {
@@ -894,8 +897,8 @@ export default function CreditOrdersTab() {
                     const creatorDetailUrl = buildAdminOperationsUserDetailUrl(
                       order.creator_bid,
                     );
-                    const creatorContact =
-                      preferredLoginIdentifierType === 'email'
+                    const creatorIdentifier =
+                      displayIdentifierType === 'email'
                         ? order.creator_email ||
                           order.creator_mobile ||
                           order.creator_identify ||
@@ -966,11 +969,11 @@ export default function CreditOrdersTab() {
                                 href={creatorDetailUrl}
                                 className='block truncate text-sm font-medium text-primary transition-colors hover:text-primary/80 hover:underline'
                               >
-                                {creatorContact || EMPTY_STATE_LABEL}
+                                {creatorIdentifier || EMPTY_STATE_LABEL}
                               </Link>
                             ) : (
                               <div className='truncate text-sm font-medium text-foreground'>
-                                {creatorContact || EMPTY_STATE_LABEL}
+                                {creatorIdentifier || EMPTY_STATE_LABEL}
                               </div>
                             )}
                             <div className='truncate text-xs text-muted-foreground'>

@@ -31,9 +31,10 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
-  resolvePreferredLoginIdentifierType,
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
   type LoginIdentifierType,
-} from '@/lib/resolve-preferred-login-identifier-type';
+} from '@/lib/login-identifiers';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { useUserStore } from '@/store';
@@ -147,27 +148,26 @@ const resolvePrimaryUserDisplay = ({
   mobile,
   email,
   userBid,
-  preferredLoginIdentifierType,
+  displayIdentifierType,
   guestUserLabel,
 }: {
   nickname?: string;
   mobile?: string;
   email?: string;
   userBid?: string;
-  preferredLoginIdentifierType: LoginIdentifierType;
+  displayIdentifierType: LoginIdentifierType;
   guestUserLabel: string;
 }) => {
   const normalizedNickname = nickname?.trim() || '';
   if (normalizedNickname) {
     return normalizedNickname;
   }
-  const preferredContact =
-    preferredLoginIdentifierType === 'email' ? email : mobile;
-  const alternateContact =
-    preferredLoginIdentifierType === 'email' ? mobile : email;
+  const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
+  const alternateIdentifier =
+    displayIdentifierType === 'email' ? mobile : email;
   return (
-    preferredContact?.trim() ||
-    alternateContact?.trim() ||
+    primaryIdentifier?.trim() ||
+    alternateIdentifier?.trim() ||
     userBid?.trim() ||
     guestUserLabel
   );
@@ -178,23 +178,23 @@ const resolveSecondaryUserDisplay = ({
   mobile,
   email,
   userBid,
-  preferredLoginIdentifierType,
+  displayIdentifierType,
 }: {
   nickname?: string;
   mobile?: string;
   email?: string;
   userBid?: string;
-  preferredLoginIdentifierType: LoginIdentifierType;
+  displayIdentifierType: LoginIdentifierType;
 }) => {
-  const preferredContact =
-    preferredLoginIdentifierType === 'email' ? email : mobile;
-  const alternateContact =
-    preferredLoginIdentifierType === 'email' ? mobile : email;
-  const contact = preferredContact?.trim() || alternateContact?.trim() || '';
+  const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
+  const alternateIdentifier =
+    displayIdentifierType === 'email' ? mobile : email;
+  const identifier =
+    primaryIdentifier?.trim() || alternateIdentifier?.trim() || '';
   if (nickname?.trim()) {
-    return contact || userBid?.trim() || '';
+    return identifier || userBid?.trim() || '';
   }
-  if (contact && userBid?.trim() && contact !== userBid.trim()) {
+  if (identifier && userBid?.trim() && identifier !== userBid.trim()) {
     return userBid.trim();
   }
   return '';
@@ -234,24 +234,24 @@ export default function AdminDashboardCourseRatingsPage() {
     'module.dashboard.messages.loadRatingsFailed',
   );
   const guestUserLabel = t('module.dashboard.detail.ratings.table.guestUser');
-  const preferredLoginIdentifierType = useMemo<LoginIdentifierType>(
+  const displayIdentifierType = useMemo<LoginIdentifierType>(
     () =>
-      resolvePreferredLoginIdentifierType(
-        loginMethodsEnabled,
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
         defaultLoginMethod,
       ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const userKeywordPlaceholder = useMemo(
     () =>
-      preferredLoginIdentifierType === 'email'
+      displayIdentifierType === 'email'
         ? t(
             'module.dashboard.detail.ratings.filters.userKeywordPlaceholderEmail',
           )
         : t(
             'module.dashboard.detail.ratings.filters.userKeywordPlaceholderPhone',
           ),
-    [preferredLoginIdentifierType, t],
+    [displayIdentifierType, t],
   );
 
   const [ratings, setRatings] = useState<DashboardCourseRatingListResponse>(
@@ -679,7 +679,7 @@ export default function AdminDashboardCourseRatingsPage() {
                                 mobile: item.mobile,
                                 email: item.email,
                                 userBid: item.user_bid,
-                                preferredLoginIdentifierType,
+                                displayIdentifierType,
                                 guestUserLabel,
                               });
                               const secondaryUser = resolveSecondaryUserDisplay(
@@ -688,7 +688,7 @@ export default function AdminDashboardCourseRatingsPage() {
                                   mobile: item.mobile,
                                   email: item.email,
                                   userBid: item.user_bid,
-                                  preferredLoginIdentifierType,
+                                  displayIdentifierType,
                                 },
                               );
                               const primaryLessonDisplay =

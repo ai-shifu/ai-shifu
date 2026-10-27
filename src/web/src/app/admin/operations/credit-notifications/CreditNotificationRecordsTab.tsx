@@ -1,3 +1,4 @@
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminTableShell from '@/components/admin/AdminTableShell';
@@ -58,6 +59,7 @@ const TABLE_INLINE_ACTION_BUTTON_CLASS =
   'inline-flex h-8 items-center justify-center rounded-md px-2.5 text-sm font-normal text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2';
 
 export function CreditNotificationRecordsTab({
+  identifierType,
   items,
   loading,
   error,
@@ -78,6 +80,7 @@ export function CreditNotificationRecordsTab({
   resolveSkipReasonLabel,
   resolveTypeLabel,
 }: {
+  identifierType: LoginIdentifierType;
   items: AdminOperationCreditNotificationItem[];
   loading: boolean;
   error: ErrorState | null;
@@ -185,6 +188,7 @@ export function CreditNotificationRecordsTab({
       />
 
       <CreditNotificationRecordsFilter
+        identifierType={identifierType}
         draftFilters={draftFilters}
         updateDraftFilter={updateDraftFilter}
         searchRecords={searchRecords}

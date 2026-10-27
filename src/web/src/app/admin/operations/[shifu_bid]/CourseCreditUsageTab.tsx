@@ -38,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { cn } from '@/lib/utils';
 import type {
   AdminOperationCourseCreditUsageDetailItem,
@@ -161,7 +161,7 @@ export default function CourseCreditUsageTab({
   data,
   loading,
   error,
-  preferredLoginIdentifierType,
+  accountColumnType,
   defaultUserName,
   emptyValue,
   onKeywordChange,
@@ -177,7 +177,7 @@ export default function CourseCreditUsageTab({
   data: AdminOperationCourseCreditUsageListResponse;
   loading: boolean;
   error: ErrorState | null;
-  preferredLoginIdentifierType: LoginIdentifierType;
+  accountColumnType: LoginIdentifierType;
   defaultUserName: string;
   emptyValue: string;
   onKeywordChange: (value: string) => void;
@@ -228,26 +228,26 @@ export default function CourseCreditUsageTab({
   const pageCount = Math.max(data.page_count || 0, 1);
   const keywordPlaceholder = useMemo(
     () =>
-      preferredLoginIdentifierType === 'email'
+      accountColumnType === 'email'
         ? tOperations('detail.creditUsage.filters.userKeywordPlaceholderEmail')
         : tOperations('detail.creditUsage.filters.userKeywordPlaceholderPhone'),
-    [preferredLoginIdentifierType, tOperations],
+    [accountColumnType, tOperations],
   );
   const accountLabel = useMemo(
     () =>
-      preferredLoginIdentifierType === 'email'
+      accountColumnType === 'email'
         ? tOperations('detail.usersTable.accountEmail')
         : tOperations('detail.usersTable.accountPhone'),
-    [preferredLoginIdentifierType, tOperations],
+    [accountColumnType, tOperations],
   );
 
   const resolveAccount = useCallback(
     (row: AdminOperationCourseCreditUsageItem) => {
-      const preferred =
-        preferredLoginIdentifierType === 'email' ? row.email : row.mobile;
-      return preferred || emptyValue;
+      const primaryIdentifier =
+        accountColumnType === 'email' ? row.email : row.mobile;
+      return primaryIdentifier || emptyValue;
     },
-    [preferredLoginIdentifierType, emptyValue],
+    [accountColumnType, emptyValue],
   );
 
   const resolveSceneLabel = useCallback(

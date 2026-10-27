@@ -1,6 +1,6 @@
 'use client';
 
-import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 
 import {
   useEffect,
@@ -30,7 +30,7 @@ type FollowUpDetailSheetProps = {
   loading: boolean;
   error: ErrorState | null;
   emptyValue: string;
-  preferredLoginIdentifierType: LoginIdentifierType;
+  displayIdentifierType: LoginIdentifierType;
   defaultUserName: string;
   resolveLessonDisplay: (values: {
     lessonTitle?: string;
@@ -57,18 +57,22 @@ const resolvePrimaryAccount = ({
   mobile,
   email,
   userBid,
-  preferredLoginIdentifierType,
+  displayIdentifierType,
   emptyValue,
 }: {
   mobile?: string;
   email?: string;
   userBid?: string;
-  preferredLoginIdentifierType: LoginIdentifierType;
+  displayIdentifierType: LoginIdentifierType;
   emptyValue: string;
 }) => {
-  const preferred = preferredLoginIdentifierType === 'email' ? email : mobile;
-  const alternate = preferredLoginIdentifierType === 'email' ? mobile : email;
-  return formatValue(preferred || alternate || userBid, emptyValue);
+  const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
+  const alternateIdentifier =
+    displayIdentifierType === 'email' ? mobile : email;
+  return formatValue(
+    primaryIdentifier || alternateIdentifier || userBid,
+    emptyValue,
+  );
 };
 
 const DetailRow = ({ label, value }: { label: string; value: string }) => (
@@ -162,7 +166,7 @@ export default function FollowUpDetailSheet({
   loading,
   error,
   emptyValue,
-  preferredLoginIdentifierType,
+  displayIdentifierType,
   defaultUserName,
   resolveLessonDisplay,
   onRetry,
@@ -180,14 +184,14 @@ export default function FollowUpDetailSheet({
         mobile: basicInfo?.mobile,
         email: basicInfo?.email,
         userBid: basicInfo?.user_bid,
-        preferredLoginIdentifierType,
+        displayIdentifierType,
         emptyValue,
       }),
     [
       basicInfo?.email,
       basicInfo?.mobile,
       basicInfo?.user_bid,
-      preferredLoginIdentifierType,
+      displayIdentifierType,
       emptyValue,
     ],
   );

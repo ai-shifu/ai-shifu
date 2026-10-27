@@ -38,9 +38,10 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import {
-  resolvePreferredLoginIdentifierType,
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
   type LoginIdentifierType,
-} from '@/lib/resolve-preferred-login-identifier-type';
+} from '@/lib/login-identifiers';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
@@ -194,16 +195,16 @@ const resolvePrimaryLessonDisplay = ({
 const resolvePrimaryAccount = ({
   mobile,
   email,
-  preferredLoginIdentifierType,
+  displayIdentifierType,
   emptyValue,
 }: {
   mobile?: string;
   email?: string;
-  preferredLoginIdentifierType: LoginIdentifierType;
+  displayIdentifierType: LoginIdentifierType;
   emptyValue: string;
 }) => {
-  const preferred = preferredLoginIdentifierType === 'email' ? email : mobile;
-  return formatValue(preferred, emptyValue);
+  const primaryIdentifier = displayIdentifierType === 'email' ? email : mobile;
+  return formatValue(primaryIdentifier, emptyValue);
 };
 
 /*
@@ -272,10 +273,10 @@ export default function AdminOperationCourseRatingsPage() {
   const defaultUserName = t('module.user.defaultUserName');
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const preferredLoginIdentifierType = useMemo<LoginIdentifierType>(
+  const displayIdentifierType = useMemo<LoginIdentifierType>(
     () =>
-      resolvePreferredLoginIdentifierType(
-        loginMethodsEnabled,
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
         defaultLoginMethod,
       ),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -418,7 +419,7 @@ export default function AdminOperationCourseRatingsPage() {
     'detail.ratings.filters.ratingTime',
   );
   const userKeywordPlaceholder =
-    preferredLoginIdentifierType === 'email'
+    displayIdentifierType === 'email'
       ? tOperations('detail.ratings.filters.userKeywordPlaceholderEmail')
       : tOperations('detail.ratings.filters.userKeywordPlaceholderPhone');
 
@@ -967,7 +968,7 @@ export default function AdminOperationCourseRatingsPage() {
                                 const primaryAccount = resolvePrimaryAccount({
                                   mobile: item.mobile,
                                   email: item.email,
-                                  preferredLoginIdentifierType,
+                                  displayIdentifierType,
                                   emptyValue,
                                 });
                                 const isGuestAccount =
