@@ -58,7 +58,7 @@
 | `docs/exec-plans/active/docker-build-stability.md` | Docker build stability with native platform runners | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/docker-web-dependency-reuse.md` | Reuse production Web Docker dependencies | `exec-plan-active` | `active` | `web` | `2026-10-06` | `true` |
 | `docs/exec-plans/active/emudhra-build-trust.md` | Repair independent Docker trust stores | `exec-plan-active` | `active` | `cross-surface` | `2026-10-21` | `true` |
-| `docs/exec-plans/active/environment-wide-markdownflow-v2.md` | Environment-wide MarkdownFlow 2.0 | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
+| `docs/exec-plans/active/environment-wide-markdownflow-v2.md` | Environment-wide MarkdownFlow 2.0 | `exec-plan-active` | `active` | `learner` | `2026-10-27` | `true` |
 | `docs/exec-plans/active/gemini-live-configurable-capacity.md` | Configurable Gemini Live admission capacity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live follow-up acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/german-de-de-localization.md` | German (Germany) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -66,6 +66,7 @@
 | `docs/exec-plans/active/lesson-reset-limit.md` | Lesson reset limit backed by SQL | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/local-storage-response-safety.md` | Local storage response safety | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-authored-inputs.md` | Keep Authored Input Hints Out of Choice Buttons | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
+| `docs/exec-plans/active/markdownflow-literal-prompts.md` | MarkdownFlow Literal Prompt Sending | `exec-plan-active` | `active` | `learner` | `2026-10-27` | `true` |
 | `docs/exec-plans/active/markdownflow-total-input-budget.md` | MarkdownFlow total input budget | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/mdf2-agent-lesson-rewind.md` | MarkdownFlow 2.0: rewind a lesson to an earlier turn | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-broader-classroom-acceptance.md` | MDF 2.0 Broader Classroom Acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -313,9 +314,10 @@
 | `docs/references/markdownflow-cache-usage.md` | MarkdownFlow Cache Usage Observations | `reference` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
 | `docs/references/markdownflow-history-compaction.md` | MarkdownFlow recall history compaction | `reference` | `active` | `learner` | `2026-10-26` | `true` |
-| `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-10-07` | `true` |
+| `docs/references/markdownflow-input-budget.md` | MarkdownFlow Input Budget | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
+| `docs/references/markdownflow-literal-prompts.md` | MarkdownFlow Literal Prompts | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
 | `docs/references/markdownflow-memory-quality.md` | MarkdownFlow Memory Quality Evaluation | `reference` | `active` | `learner` | `2026-10-12` | `true` |
-| `docs/references/markdownflow-memory-recall.md` | MarkdownFlow Memory Recall | `reference` | `implemented` | `learner` | `2026-10-13` | `true` |
+| `docs/references/markdownflow-memory-recall.md` | MarkdownFlow Memory Recall | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
 | `docs/references/markdownflow-runtime-selection.md` | MarkdownFlow Runtime Selection | `reference` | `implemented` | `learner` | `2026-10-27` | `true` |
 | `docs/references/markdownflow-teaching-history.md` | MarkdownFlow teaching history projection | `reference` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/references/model-gateway-cli-integration.md` | Model Gateway CLI Integration | `reference` | `reference` | `repo` | `2026-09-27` | `true` |
@@ -354,10 +356,10 @@
 | `src/api/markdownflow/engine/prompts/memory_recall.md` | Read memory on demand | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/memory_unrestricted.md` | Memory policy | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/recall_history_compaction.md` | Recall_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
+| `src/api/markdownflow/engine/prompts/syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/system.md` | Core rules | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/teaching_history_compaction.md` | Teaching_History_Compaction | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/markdownflow/engine/prompts/teaching_summary.md` | Teaching_Summary | `reference` | `reference` | `backend` | `-` | `false` |
-| `src/api/markdownflow/engine/prompts/v1_syntax.md` | Script notation | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask.md` | 回答规则 | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask_knowledge.md` | 知识库资料 | `reference` | `reference` | `backend` | `-` | `false` |
 | `src/api/prompts/ask_knowledge_rule.md` | Ask_Knowledge_Rule | `reference` | `reference` | `backend` | `-` | `false` |

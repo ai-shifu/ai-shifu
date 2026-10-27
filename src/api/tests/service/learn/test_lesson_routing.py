@@ -33,7 +33,6 @@ def _no_real_commit(monkeypatch: pytest.MonkeyPatch) -> None:
         runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
     )
     monkeypatch.setattr(Config, "_instance", None)
-    monkeypatch.delenv("FLOW_ENGINE_V2_ENABLED", raising=False)
 
 
 def _routes_to_agent(**kwargs: object) -> bool:
@@ -51,15 +50,6 @@ def test_a_lesson_is_taught_with_the_agent_engine() -> None:
 
 
 def test_another_course_also_uses_the_agent_engine() -> None:
-    assert _routes_to_agent(shifu_bid=OTHER) is True
-
-
-@pytest.mark.parametrize("flag", ["false", "0", ""])
-def test_the_retired_flag_no_longer_keeps_a_course_on_1_0(
-    monkeypatch: pytest.MonkeyPatch, flag: str
-) -> None:
-    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", flag)
-    assert _routes_to_agent(shifu_bid=SHIFU) is True
     assert _routes_to_agent(shifu_bid=OTHER) is True
 
 

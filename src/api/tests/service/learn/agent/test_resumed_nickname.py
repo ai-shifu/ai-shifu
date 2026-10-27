@@ -15,7 +15,8 @@ from flaskr.service.learn.agent.nickname import refresh_nickname
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.user.repository import create_user_entity, get_user_entity_by_bid
 from markdownflow.engine import Engine, Session
-from markdownflow.engine.script import ScriptBundle, render_first_prompt
+from markdownflow.engine.memory_context import parse_initial_memory_prompt
+from markdownflow.engine.script import ScriptBundle
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -25,6 +26,8 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+from tests.service.learn.agent.prompt_fixtures import expanded_initial_prompt
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable, Iterator
@@ -115,7 +118,9 @@ def _seed(app: Flask, nickname: str, *, collected: bool) -> tuple[tuple, Session
         user_memory=initial,
         memory={"scratch": "keep", **({NAME: "Alex"} if collected else {})},
         messages=[
-            ModelRequest(parts=[UserPromptPart(render_first_prompt(bundle, initial))]),
+            ModelRequest(
+                parts=[UserPromptPart(expanded_initial_prompt(bundle, initial))]
+            ),
             ModelResponse(parts=[TextPart("Hello Alex. This was already displayed.")]),
         ],
         turn=1,
@@ -141,12 +146,14 @@ def test_resumed_model_uses_current_name_and_preserves_history(
         prompt = _prompt(seen[0])
         assert _memory(prompt)[NAME] == address
         assert _memory(prompt)["goal"] == GOAL
-        if not collected:
-            assert f"Hello {address}." in prompt
-            assert f"Address {address} directly." in prompt
-            assert f"Goodbye {address}." in prompt
-        else:
-            assert "Ask %{{sys_user_nickname}}." in prompt
+        original = parse_initial_memory_prompt(_prompt(before.messages))
+        refreshed = parse_initial_memory_prompt(prompt)
+        assert original is not None
+        assert refreshed is not None
+        assert (
+            prompt[refreshed.script_start :]
+            == _prompt(before.messages)[original.script_start :]
+        )
         assert "````text\n```\n{{sys_user_nickname}}\n````" in prompt
         assert '<unavailable_learner_value name="unknown" />' in prompt
         assert seen[0][1] == before.messages[1]
@@ -236,11 +243,11 @@ def test_unrecognized_prompt_keeps_its_history(content: str) -> None:
 
 
 def test_changed_brief_extras_and_initial_learner_message_survive() -> None:
-    """Repair known sections while preserving a brief that no longer matches the bundle."""
+    """Refresh memory while preserving every saved authored section and learner input."""
     initial = {NAME: "Alex", "goal": GOAL}
     old = ScriptBundle(script=SCRIPT, constraints=BRIEF, extras={"example": BRIEF})
     prompt = (
-        render_first_prompt(old, initial) + "\n\nAlex is an example in my question."
+        expanded_initial_prompt(old, initial) + "\n\nAlex is an example in my question."
     )
     session = Session(
         script=ScriptBundle(script=SCRIPT, constraints="A different brief"),
@@ -248,7 +255,8 @@ def test_changed_brief_extras_and_initial_learner_message_survive() -> None:
     )
     refresh_nickname(session, {NAME: "Sam"})
     repaired = _prompt(session.messages)
-    assert "Hello Sam." in repaired
+    assert _memory(repaired)[NAME] == "Sam"
+    assert "Hello Alex." in repaired
     assert "<constraints>\nAddress Alex directly.\n</constraints>" in repaired
     assert f'<extra name="example">\n{BRIEF}\n</extra>' in repaired
     assert repaired.endswith("\n\nAlex is an example in my question.")
@@ -306,7 +314,7 @@ def test_failed_resume_does_not_persist_prompt_repair(
 def test_bounded_prompt_refreshes_nickname_and_preserves_omitted_exact_answer(
     app: Flask, nickname: str
 ) -> None:
-    """A budget notice cannot disable name refresh or lose an omitted script substitution."""
+    """A budget notice cannot disable memory refresh or change an older expanded script."""
     from flaskr.service.learn.memory import (
         MemoryUpdate,
         VariableMemoryUpdate,
@@ -318,7 +326,7 @@ def test_bounded_prompt_refreshes_nickname_and_preserves_omitted_exact_answer(
         ids, session = _seed(app, nickname, collected=False)
         goal = GOAL + "z" * 40000
         session.user_memory = {NAME: "Alex", "goal": goal}
-        prompt = render_first_prompt(
+        prompt = expanded_initial_prompt(
             session.script, session.user_memory, memory_limit=32768
         )
         assert "Some stored values were omitted" in prompt
@@ -355,8 +363,8 @@ def test_bounded_prompt_refreshes_nickname_and_preserves_omitted_exact_answer(
             address = nickname or "Learner"
             current_prompt = _prompt(seen[-1])
             assert _memory(current_prompt)[NAME] == address
-            assert f"Hello {address}." in current_prompt
-            assert f"Address {address} directly." in current_prompt
+            assert "Hello Alex." in current_prompt
+            assert "Address Alex directly." in current_prompt
             assert goal in current_prompt
             assert "goal" not in _memory(current_prompt)
             assert "Some stored values were omitted" in current_prompt

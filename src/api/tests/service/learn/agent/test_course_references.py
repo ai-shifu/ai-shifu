@@ -103,7 +103,7 @@ def test_unrecognized_initial_prompt_is_rebuilt_without_retired_values(
     session = Session(
         script=bundle,
         user_memory={"goal": "Local goal", **({} if prompt_only else {key: old})},
-        initial_variables={"goal": "Local goal"},
+        initial_variables={"goal": "Obsolete snapshot", "deleted": "Deleted snapshot"},
         messages=[ModelRequest(parts=[UserPromptPart(content)]), later],
         answers={"answer": old},
         request_inputs=[old],
@@ -113,6 +113,8 @@ def test_unrecognized_initial_prompt_is_rebuilt_without_retired_values(
     assert old not in prompt
     assert key not in prompt
     assert "Local goal" in prompt
+    assert "Obsolete snapshot" not in prompt
+    assert "Deleted snapshot" not in prompt
     assert "Current brief." in prompt
     assert "Guide." in prompt
     assert "Previous brief." not in prompt

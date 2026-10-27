@@ -87,4 +87,4 @@ COPY --from=base /app /app
 
 EXPOSE 5800
 
-CMD gunicorn -k gevent -w 4 -b 0.0.0.0:5800 "app:app" --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
+CMD gunicorn -k gthread --threads 8 -w 4 -b 0.0.0.0:5800 "app:app" --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
