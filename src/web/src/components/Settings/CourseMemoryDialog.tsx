@@ -174,18 +174,10 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
                   className='flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40'
                 >
                   <dl className='min-w-0 flex-1 space-y-2.5 text-left'>
-                    <dt className='space-y-1'>
-                      <span className='block text-xs text-muted-foreground'>
-                        {t('module.settings.memoryQuestion')}
-                      </span>
-                      <span className='block whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-foreground'>
-                        {item.key}
-                      </span>
+                    <dt className='whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-foreground'>
+                      {item.key}
                     </dt>
-                    <dd className='space-y-1 rounded-md bg-muted/50 px-3 py-2.5'>
-                      <span className='block text-xs text-muted-foreground'>
-                        {t('module.settings.memoryAnswer')}
-                      </span>
+                    <dd className='rounded-md bg-muted/50 px-3 py-2.5'>
                       <p className='whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground'>
                         {item.value}
                       </p>
