@@ -9,6 +9,19 @@ import socket as socket_module
 
 from flask import current_app
 from flaskr.dao import db, invalidate_session
+from flaskr.service.learn.elements.element_types import (
+    _element_type_code,
+    _role_value_to_name,
+)
+from flaskr.service.learn.elements.payloads import (
+    _sanitize_audio_segments_for_storage,
+    _serialize_payload,
+)
+from flaskr.service.learn.elements.rows import _element_from_row
+from flaskr.service.learn.elements.run_state import (
+    BlockMeta,
+    BlockState,
+)
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -20,19 +33,6 @@ from flaskr.service.learn.learn_dtos import (
     OutlineItemUpdateDTO,
     RunElementSSEMessageDTO,
     VariableUpdateDTO,
-)
-from flaskr.service.learn.listen_element_payloads import (
-    _sanitize_audio_segments_for_storage,
-    _serialize_payload,
-)
-from flaskr.service.learn.listen_element_rows import _element_from_row
-from flaskr.service.learn.listen_element_run_state import (
-    BlockMeta,
-    BlockState,
-)
-from flaskr.service.learn.listen_element_types import (
-    _element_type_code,
-    _role_value_to_name,
 )
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,

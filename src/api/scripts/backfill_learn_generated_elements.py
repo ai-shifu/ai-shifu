@@ -66,7 +66,7 @@ def main() -> int:
         )
 
     app = create_app()
-    from flaskr.service.learn.listen_elements import (
+    from flaskr.service.learn.elements.run_adapter import (
         backfill_learn_generated_elements_batch,
     )
 

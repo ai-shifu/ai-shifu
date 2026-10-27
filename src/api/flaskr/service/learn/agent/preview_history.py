@@ -16,6 +16,11 @@ from flaskr.service.learn.agent.session_store import (
     preview_presentation,
     preview_presentation_from_document,
 )
+from flaskr.service.learn.elements.history import (
+    _attach_follow_up_history_to_anchor_payload,
+    _build_final_elements_from_rows,
+    _merge_follow_up_elements_after_anchor,
+)
 from flaskr.service.learn.learn_dtos import (
     ElementPayloadDTO,
     ElementType,
@@ -26,11 +31,6 @@ from flaskr.service.learn.learn_dtos import (
 )
 from flaskr.service.learn.lesson_content_updates import (
     lesson_content_state_from_session,
-)
-from flaskr.service.learn.listen_element_history import (
-    _attach_follow_up_history_to_anchor_payload,
-    _build_final_elements_from_rows,
-    _merge_follow_up_elements_after_anchor,
 )
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.shifu.models import DraftOutlineItem

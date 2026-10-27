@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from flaskr.service.learn.listen_source_span_utils import (
+from flaskr.service.learn.elements.source_spans import (
     normalize_source_span,
     slice_source_by_span,
 )

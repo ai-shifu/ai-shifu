@@ -99,7 +99,7 @@ state; verification succeeded only after both APIs and web were ready.
 
 ## Context and Orientation
 
-`listen_element_history.py` enriches persisted interaction element payloads for both
+`learn/elements/history.py` enriches persisted interaction element payloads for both
 reading and listening history. MDF 1.0 stores an answer in its interaction block.
 MDF 2.0 stores teacher text in a content block and the request values plus pending
 interaction in the following turn's `agent_turn` checkpoint, read by `agent/rewind.py`.

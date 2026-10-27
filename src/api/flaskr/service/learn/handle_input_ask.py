@@ -30,6 +30,10 @@ from flaskr.service.learn.ask_provider_adapters.consts import (
 from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
+from flaskr.service.learn.elements.queries import (
+    _load_latest_active_element_row,
+    find_follow_up_element_rows,
+)
 from flaskr.service.learn.follow_up_context import (
     build_follow_up_conversation_context,
 )
@@ -45,10 +49,6 @@ from flaskr.service.learn.langfuse_naming import (
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     RunMarkdownFlowDTO,
-)
-from flaskr.service.learn.listen_element_queries import (
-    _load_latest_active_element_row,
-    find_follow_up_element_rows,
 )
 from flaskr.service.learn.live_follow_up_config import is_live_follow_up_model
 from flaskr.service.learn.llmsetting import LLMSettings

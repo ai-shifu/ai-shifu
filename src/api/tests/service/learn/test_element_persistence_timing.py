@@ -9,7 +9,7 @@ and 35MB of retired snapshots against 4 rows the learner could see.
 from __future__ import annotations
 
 import pytest
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 
 
 def _adapter(**kwargs: object) -> ListenElementRunAdapter:

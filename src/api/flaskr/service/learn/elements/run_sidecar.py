@@ -4,6 +4,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from flaskr.service.learn.elements.element_types import (
+    _change_type_for_element,
+    _element_type_code,
+    _new_element_bid,
+)
+from flaskr.service.learn.elements.queries import (
+    _load_interaction_user_input,
+    _load_latest_active_element_row,
+)
+from flaskr.service.learn.elements.rows import _element_from_row
 from flaskr.service.learn.learn_dtos import (
     ElementChangeType,
     ElementDTO,
@@ -11,16 +21,6 @@ from flaskr.service.learn.learn_dtos import (
     ElementType,
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
-)
-from flaskr.service.learn.listen_element_queries import (
-    _load_interaction_user_input,
-    _load_latest_active_element_row,
-)
-from flaskr.service.learn.listen_element_rows import _element_from_row
-from flaskr.service.learn.listen_element_types import (
-    _change_type_for_element,
-    _element_type_code,
-    _new_element_bid,
 )
 
 if TYPE_CHECKING:

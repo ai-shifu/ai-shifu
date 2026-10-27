@@ -4,6 +4,26 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from flaskr.service.learn.elements.element_types import (
+    _default_is_speakable,
+    _element_type_code,
+    _new_element_bid,
+)
+from flaskr.service.learn.elements.factory import (
+    _build_final_elements_for_av_contract,
+    _interaction_element_from_record,
+)
+from flaskr.service.learn.elements.history import (
+    get_final_elements_for_generated_block,
+)
+from flaskr.service.learn.elements.matching import (
+    get_speakable_text_elements,
+)
+from flaskr.service.learn.elements.payloads import _make_audio_payload
+from flaskr.service.learn.elements.slide_builder import (
+    VisualSegment,
+    build_visual_segments_for_block,
+)
 from flaskr.service.learn.learn_dtos import (
     BlockType,
     ElementAudioDTO,
@@ -13,31 +33,11 @@ from flaskr.service.learn.learn_dtos import (
     ElementType,
     LearnElementRecordDTO,
 )
-from flaskr.service.learn.listen_element_factory import (
-    _build_final_elements_for_av_contract,
-    _interaction_element_from_record,
-)
-from flaskr.service.learn.listen_element_history import (
-    get_final_elements_for_generated_block,
-)
-from flaskr.service.learn.listen_element_matching import (
-    get_speakable_text_elements,
-)
-from flaskr.service.learn.listen_element_payloads import _make_audio_payload
-from flaskr.service.learn.listen_element_types import (
-    _default_is_speakable,
-    _element_type_code,
-    _new_element_bid,
-)
-from flaskr.service.learn.listen_slide_builder import (
-    VisualSegment,
-    build_visual_segments_for_block,
-)
 from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
 if TYPE_CHECKING:
     from flask import Flask
-    from flaskr.service.learn.legacy_record_builder import LegacyLearnRecord
+    from flaskr.service.learn.elements.legacy_record_builder import LegacyLearnRecord
 
 
 def build_listen_elements_from_legacy_record(

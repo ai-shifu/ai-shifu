@@ -3,9 +3,9 @@
 from collections import OrderedDict
 
 import pytest
-from flaskr.service.learn import listen_element_audio_binding as binding
+from flaskr.service.learn.elements import audio_binding as binding
+from flaskr.service.learn.elements.run_state import BlockState, StreamElementState
 from flaskr.service.learn.learn_dtos import ElementAudioDTO, ElementType
-from flaskr.service.learn.listen_element_run_state import BlockState, StreamElementState
 
 
 def _text(number: int = 1, bid: str = "text-1", **kwargs: object) -> StreamElementState:

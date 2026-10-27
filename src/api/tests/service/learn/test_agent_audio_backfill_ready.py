@@ -191,8 +191,8 @@ def test_real_adapter_finalizes_read_narration_before_advertising_backfill(
     formatted: bool,
 ) -> None:
     """Partial read text becomes ready only after DONE has staged its final snapshot."""
-    from flaskr.service.learn.listen_element_run_state import BlockMeta
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
+    from flaskr.service.learn.elements.run_state import BlockMeta
 
     adapter = ListenElementRunAdapter(
         Flask(__name__),
@@ -206,7 +206,7 @@ def test_real_adapter_finalizes_read_narration_before_advertising_backfill(
     monkeypatch.setattr(adapter, "_deactivate_active_element_rows", lambda **_kw: None)
     monkeypatch.setattr(adapter, "_insert_row", lambda **row: rows.append(row))
     monkeypatch.setattr(
-        "flaskr.service.learn.listen_element_run_sidecar._load_interaction_user_input",
+        "flaskr.service.learn.elements.run_sidecar._load_interaction_user_input",
         lambda _bid: None,
     )
     execution["adapter"] = adapter
@@ -278,8 +278,8 @@ def test_failed_turn_commits_partial_elements_without_success_or_completion(
 
     from flaskr.dao import db
     from flaskr.service.common.models import ERROR_CODE, AppError
-    from flaskr.service.learn.listen_element_run_state import BlockMeta
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
+    from flaskr.service.learn.elements.run_state import BlockMeta
     from flaskr.service.learn.models import LearnGeneratedElement
 
     identity = uuid4().hex
@@ -334,8 +334,8 @@ def test_turn_discarded_by_a_reset_writes_no_partial_elements(
 
     from flaskr.dao import db
     from flaskr.service.common.models import ERROR_CODE, AppError
-    from flaskr.service.learn.listen_element_run_state import BlockMeta
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
+    from flaskr.service.learn.elements.run_state import BlockMeta
     from flaskr.service.learn.models import LearnGeneratedElement
 
     identity = uuid4().hex

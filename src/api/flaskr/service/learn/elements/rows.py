@@ -4,6 +4,20 @@ from __future__ import annotations
 
 import json
 
+from flaskr.service.learn.elements.element_types import (
+    ELEMENT_TYPE_CODES,
+    LEGACY_ELEMENT_TYPE_MAP,
+    _default_is_marker,
+    _default_is_renderable,
+    _normalize_bool,
+    _normalized_is_speakable,
+)
+from flaskr.service.learn.elements.payloads import (
+    _deserialize_payload,
+    _prepare_audio_segments_for_element,
+    _sanitize_audio_segments_for_storage,
+    _serialize_payload,
+)
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -17,20 +31,6 @@ from flaskr.service.learn.learn_dtos import (
     OutlineItemUpdateDTO,
     RunElementSSEMessageDTO,
     VariableUpdateDTO,
-)
-from flaskr.service.learn.listen_element_payloads import (
-    _deserialize_payload,
-    _prepare_audio_segments_for_element,
-    _sanitize_audio_segments_for_storage,
-    _serialize_payload,
-)
-from flaskr.service.learn.listen_element_types import (
-    ELEMENT_TYPE_CODES,
-    LEGACY_ELEMENT_TYPE_MAP,
-    _default_is_marker,
-    _default_is_renderable,
-    _normalize_bool,
-    _normalized_is_speakable,
 )
 from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues

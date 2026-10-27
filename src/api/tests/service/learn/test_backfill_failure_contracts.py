@@ -8,8 +8,8 @@ from types import ModuleType, SimpleNamespace
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn import listen_element_mdflow_backfill as backfill
 from flaskr.service.learn.const import ROLE_TEACHER
+from flaskr.service.learn.elements import mdflow_backfill as backfill
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,

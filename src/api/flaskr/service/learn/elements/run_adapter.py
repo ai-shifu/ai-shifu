@@ -5,6 +5,27 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+from flaskr.service.learn.elements.history import (
+    get_listen_element_record as _get_listen_element_record,
+)
+from flaskr.service.learn.elements.legacy import (
+    build_listen_elements_from_legacy_record,
+)
+from flaskr.service.learn.elements.legacy_record_builder import (
+    build_legacy_record_for_progress,
+)
+from flaskr.service.learn.elements.mdflow_backfill import (
+    backfill_learn_generated_elements_batch,
+)
+from flaskr.service.learn.elements.run_persistence import (
+    ListenElementRunPersistenceMixin,
+)
+from flaskr.service.learn.elements.run_sidecar import (
+    ListenElementRunSidecarMixin,
+)
+from flaskr.service.learn.elements.run_stream import (
+    ListenElementRunStreamMixin,
+)
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnElementRecordDTO,
@@ -15,26 +36,7 @@ from flaskr.service.learn.learn_funcs import (
     get_current_lesson_outline,
     get_learn_record,
 )
-from flaskr.service.learn.legacy_record_builder import build_legacy_record_for_progress
 from flaskr.service.learn.lesson_content_updates import load_lesson_content_states
-from flaskr.service.learn.listen_element_history import (
-    get_listen_element_record as _get_listen_element_record,
-)
-from flaskr.service.learn.listen_element_legacy import (
-    build_listen_elements_from_legacy_record,
-)
-from flaskr.service.learn.listen_element_mdflow_backfill import (
-    backfill_learn_generated_elements_batch,
-)
-from flaskr.service.learn.listen_element_run_persistence import (
-    ListenElementRunPersistenceMixin,
-)
-from flaskr.service.learn.listen_element_run_sidecar import (
-    ListenElementRunSidecarMixin,
-)
-from flaskr.service.learn.listen_element_run_stream import (
-    ListenElementRunStreamMixin,
-)
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.learn.type_state_machine import (
     TypeInput,
@@ -51,7 +53,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from flask import Flask
-    from flaskr.service.learn.listen_element_run_state import (
+    from flaskr.service.learn.elements.run_state import (
         BlockMeta,
         BlockState,
     )

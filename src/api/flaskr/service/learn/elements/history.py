@@ -7,6 +7,15 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.service.learn.agent.interaction_history import project_interaction_inputs
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.elements.legacy_record_builder import (
+    LegacyLearnRecord,
+    build_legacy_record_for_progress,
+)
+from flaskr.service.learn.elements.rows import (
+    _element_from_row,
+    _event_from_row,
+    _normalize_record_element,
+)
 from flaskr.service.learn.learn_dtos import (
     BlockType,
     ElementAudioDTO,
@@ -16,15 +25,6 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnElementRecordDTO,
     RunElementSSEMessageDTO,
-)
-from flaskr.service.learn.legacy_record_builder import (
-    LegacyLearnRecord,
-    build_legacy_record_for_progress,
-)
-from flaskr.service.learn.listen_element_rows import (
-    _element_from_row,
-    _event_from_row,
-    _normalize_record_element,
 )
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,

@@ -4,18 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from flaskr.service.learn.learn_dtos import (
-    ElementAudioDTO,
-    ElementChangeType,
-    ElementDTO,
-    ElementPayloadDTO,
-    ElementType,
-    ElementVisualDTO,
-)
-from flaskr.service.learn.listen_element_payloads import (
-    _normalize_audio_segments_for_element,
-)
-from flaskr.service.learn.listen_element_types import (
+from flaskr.service.learn.elements.element_types import (
     _change_type_for_element,
     _default_is_marker,
     _default_is_renderable,
@@ -24,14 +13,25 @@ from flaskr.service.learn.listen_element_types import (
     _element_type_for_visual_kind,
     _new_element_bid,
 )
-from flaskr.service.learn.listen_source_span_utils import (
+from flaskr.service.learn.elements.payloads import (
+    _normalize_audio_segments_for_element,
+)
+from flaskr.service.learn.elements.source_spans import (
     normalize_source_span,
     slice_source_by_span,
+)
+from flaskr.service.learn.learn_dtos import (
+    ElementAudioDTO,
+    ElementChangeType,
+    ElementDTO,
+    ElementPayloadDTO,
+    ElementType,
+    ElementVisualDTO,
 )
 
 if TYPE_CHECKING:
     from flask import Flask
-    from flaskr.service.learn.listen_slide_builder import VisualSegment
+    from flaskr.service.learn.elements.slide_builder import VisualSegment
 
 
 def _visuals_from_segment(

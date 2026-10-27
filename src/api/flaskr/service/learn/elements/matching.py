@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from flaskr.service.learn.elements.element_types import _default_is_speakable
 from flaskr.service.learn.learn_dtos import ElementDTO, ElementType
-from flaskr.service.learn.listen_element_types import _default_is_speakable
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

@@ -6,17 +6,17 @@ import uuid
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.learn import listen_element_history as history
+from flaskr.service.learn.elements import history
+from flaskr.service.learn.elements.legacy_record_builder import (
+    LegacyGeneratedBlockRecord,
+    LegacyLearnRecord,
+)
 from flaskr.service.learn.learn_dtos import (
     BlockType,
     ElementDTO,
     ElementType,
     LearnElementRecordDTO,
     LikeStatus,
-)
-from flaskr.service.learn.legacy_record_builder import (
-    LegacyGeneratedBlockRecord,
-    LegacyLearnRecord,
 )
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, LEARN_STATUS_IN_PROGRESS

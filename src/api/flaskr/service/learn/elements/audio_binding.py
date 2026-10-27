@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from flaskr.service.learn.learn_dtos import ElementAudioDTO, ElementType
-from flaskr.service.learn.listen_element_payloads import (
+from flaskr.service.learn.elements.payloads import (
     _pick_default_audio_position,
 )
+from flaskr.service.learn.learn_dtos import ElementAudioDTO, ElementType
 
 
 def _stream_element_accepts_audio_target(element_type: ElementType) -> bool:

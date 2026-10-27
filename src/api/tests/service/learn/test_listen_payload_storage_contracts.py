@@ -4,8 +4,7 @@ import copy
 import json
 
 import pytest
-from flaskr.service.learn import listen_element_payloads as payloads
-from flaskr.service.learn import listen_element_rows as rows
+from flaskr.service.learn.elements import payloads, rows
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,

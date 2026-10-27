@@ -16,13 +16,13 @@ from flaskr.service.learn.agent.session_store import (
     load_agent_session,
     save_agent_session,
 )
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.learn_funcs import reset_learn_record
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from flaskr.service.learn.elements.element_types import _visual_type_for_element
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -14,7 +15,6 @@ from flaskr.service.learn.learn_dtos import (
     ElementVisualDTO,
     SubtitleCueDTO,
 )
-from flaskr.service.learn.listen_element_types import _visual_type_for_element
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
 

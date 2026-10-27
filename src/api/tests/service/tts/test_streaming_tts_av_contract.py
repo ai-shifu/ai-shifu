@@ -412,7 +412,7 @@ def test_av_streaming_tts_processor_updates_next_element_index_from_contract(
 ) -> None:
     _require_app(app)
 
-    from flaskr.service.learn.listen_slide_builder import VisualSegment
+    from flaskr.service.learn.elements.slide_builder import VisualSegment
     from flaskr.service.tts.streaming_tts import AVStreamingTTSProcessor
 
     class _NoopStreamingTTSProcessor:

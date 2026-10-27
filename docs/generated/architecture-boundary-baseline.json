@@ -186,6 +186,46 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/learn/elements/history.py|flaskr.service.tts.subtitle_utils",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/learn/elements/history.py",
+      "target": "flaskr.service.tts.subtitle_utils",
+      "message": "flaskr/service/learn/elements/history.py imports cross-service module flaskr.service.tts.subtitle_utils outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/learn/elements/legacy.py|flaskr.service.tts.pipeline",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/learn/elements/legacy.py",
+      "target": "flaskr.service.tts.pipeline",
+      "message": "flaskr/service/learn/elements/legacy.py imports cross-service module flaskr.service.tts.pipeline outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/learn/elements/legacy_record_builder.py|flaskr.service.tts.subtitle_utils",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/learn/elements/legacy_record_builder.py",
+      "target": "flaskr.service.tts.subtitle_utils",
+      "message": "flaskr/service/learn/elements/legacy_record_builder.py imports cross-service module flaskr.service.tts.subtitle_utils outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/learn/elements/payloads.py|flaskr.service.tts.subtitle_utils",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/learn/elements/payloads.py",
+      "target": "flaskr.service.tts.subtitle_utils",
+      "message": "flaskr/service/learn/elements/payloads.py imports cross-service module flaskr.service.tts.subtitle_utils outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
+      "key": "backend.cross_service_import|flaskr/service/learn/elements/rows.py|flaskr.service.tts.subtitle_utils",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/learn/elements/rows.py",
+      "target": "flaskr.service.tts.subtitle_utils",
+      "message": "flaskr/service/learn/elements/rows.py imports cross-service module flaskr.service.tts.subtitle_utils outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/learn/handle_input_ask.py|flaskr.service.metering",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/learn/handle_input_ask.py",
@@ -306,51 +346,11 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
-      "key": "backend.cross_service_import|flaskr/service/learn/legacy_record_builder.py|flaskr.service.tts.subtitle_utils",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/learn/legacy_record_builder.py",
-      "target": "flaskr.service.tts.subtitle_utils",
-      "message": "flaskr/service/learn/legacy_record_builder.py imports cross-service module flaskr.service.tts.subtitle_utils outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
       "key": "backend.cross_service_import|flaskr/service/learn/lesson_tts.py|flaskr.service.tts.validation",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/learn/lesson_tts.py",
       "target": "flaskr.service.tts.validation",
       "message": "flaskr/service/learn/lesson_tts.py imports cross-service module flaskr.service.tts.validation outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/learn/listen_element_history.py|flaskr.service.tts.subtitle_utils",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/learn/listen_element_history.py",
-      "target": "flaskr.service.tts.subtitle_utils",
-      "message": "flaskr/service/learn/listen_element_history.py imports cross-service module flaskr.service.tts.subtitle_utils outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/learn/listen_element_legacy.py|flaskr.service.tts.pipeline",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/learn/listen_element_legacy.py",
-      "target": "flaskr.service.tts.pipeline",
-      "message": "flaskr/service/learn/listen_element_legacy.py imports cross-service module flaskr.service.tts.pipeline outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/learn/listen_element_payloads.py|flaskr.service.tts.subtitle_utils",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/learn/listen_element_payloads.py",
-      "target": "flaskr.service.tts.subtitle_utils",
-      "message": "flaskr/service/learn/listen_element_payloads.py imports cross-service module flaskr.service.tts.subtitle_utils outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/learn/listen_element_rows.py|flaskr.service.tts.subtitle_utils",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/learn/listen_element_rows.py",
-      "target": "flaskr.service.tts.subtitle_utils",
-      "message": "flaskr/service/learn/listen_element_rows.py imports cross-service module flaskr.service.tts.subtitle_utils outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
@@ -586,19 +586,19 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses.py|flaskr.service.learn.elements.payloads",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/admin_operations/courses.py",
+      "target": "flaskr.service.learn.elements.payloads",
+      "message": "flaskr/service/shifu/admin_operations/courses.py imports cross-service module flaskr.service.learn.elements.payloads outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses.py|flaskr.service.learn.learn_dtos",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/shifu/admin_operations/courses.py",
       "target": "flaskr.service.learn.learn_dtos",
       "message": "flaskr/service/shifu/admin_operations/courses.py imports cross-service module flaskr.service.learn.learn_dtos outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses.py|flaskr.service.learn.listen_element_payloads",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/shifu/admin_operations/courses.py",
-      "target": "flaskr.service.learn.listen_element_payloads",
-      "message": "flaskr/service/shifu/admin_operations/courses.py imports cross-service module flaskr.service.learn.listen_element_payloads outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
@@ -650,19 +650,19 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses_follow_ups.py|flaskr.service.learn.elements.payloads",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/shifu/admin_operations/courses_follow_ups.py",
+      "target": "flaskr.service.learn.elements.payloads",
+      "message": "flaskr/service/shifu/admin_operations/courses_follow_ups.py imports cross-service module flaskr.service.learn.elements.payloads outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses_follow_ups.py|flaskr.service.learn.learn_dtos",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/shifu/admin_operations/courses_follow_ups.py",
       "target": "flaskr.service.learn.learn_dtos",
       "message": "flaskr/service/shifu/admin_operations/courses_follow_ups.py imports cross-service module flaskr.service.learn.learn_dtos outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/shifu/admin_operations/courses_follow_ups.py|flaskr.service.learn.listen_element_payloads",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/shifu/admin_operations/courses_follow_ups.py",
-      "target": "flaskr.service.learn.listen_element_payloads",
-      "message": "flaskr/service/shifu/admin_operations/courses_follow_ups.py imports cross-service module flaskr.service.learn.listen_element_payloads outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
@@ -906,19 +906,19 @@
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {
+      "key": "backend.cross_service_import|flaskr/service/tts/streaming_tts.py|flaskr.service.learn.elements.slide_builder",
+      "rule_id": "backend.cross_service_import",
+      "source": "flaskr/service/tts/streaming_tts.py",
+      "target": "flaskr.service.learn.elements.slide_builder",
+      "message": "flaskr/service/tts/streaming_tts.py imports cross-service module flaskr.service.learn.elements.slide_builder outside the shared/common stable entry points.",
+      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
+    },
+    {
       "key": "backend.cross_service_import|flaskr/service/tts/streaming_tts.py|flaskr.service.learn.learn_dtos",
       "rule_id": "backend.cross_service_import",
       "source": "flaskr/service/tts/streaming_tts.py",
       "target": "flaskr.service.learn.learn_dtos",
       "message": "flaskr/service/tts/streaming_tts.py imports cross-service module flaskr.service.learn.learn_dtos outside the shared/common stable entry points.",
-      "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
-    },
-    {
-      "key": "backend.cross_service_import|flaskr/service/tts/streaming_tts.py|flaskr.service.learn.listen_slide_builder",
-      "rule_id": "backend.cross_service_import",
-      "source": "flaskr/service/tts/streaming_tts.py",
-      "target": "flaskr.service.learn.listen_slide_builder",
-      "message": "flaskr/service/tts/streaming_tts.py imports cross-service module flaskr.service.learn.listen_slide_builder outside the shared/common stable entry points.",
       "remediation": "Prefer shared common/config utilities, stable API/DTO/model/const modules, or a deliberate service boundary."
     },
     {

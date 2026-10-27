@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from flask_sqlalchemy.query import Query
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 
 try:
     from markdown_flow import format_content
@@ -262,7 +262,7 @@ def _make_adapter(
     user_bid: str,
     run_session_bid: str,
 ) -> ListenElementRunAdapter:
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 
     return ListenElementRunAdapter(
         app,

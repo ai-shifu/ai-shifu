@@ -5,6 +5,46 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from flaskr.dao import db
+from flaskr.service.learn.elements.audio_binding import (
+    _resolve_audio_target_element_bid,
+    _resolve_audio_target_element_bid_for_stream_number,
+    _resolve_pending_audio_for_stream_element,
+    _resolve_stream_audio_for_element_bid,
+)
+from flaskr.service.learn.elements.element_types import (
+    _change_type_for_element,
+    _default_is_marker,
+    _default_is_renderable,
+    _default_is_speakable,
+    _element_type_code,
+    _new_element_bid,
+    _normalized_is_speakable,
+)
+from flaskr.service.learn.elements.factory import (
+    _build_final_elements_for_av_contract,
+)
+from flaskr.service.learn.elements.payloads import (
+    _audio_segment_payload,
+    _make_audio_payload,
+    _mark_last_audio_segment_final,
+    _payload_from_stream_element,
+    _pick_default_audio_position,
+    _prepare_audio_segments_for_element,
+    _upsert_audio_segment_payload,
+)
+from flaskr.service.learn.elements.run_state import (
+    BlockState,
+    StreamElementState,
+    _mdflow_new_stream_is_new,
+)
+from flaskr.service.learn.elements.slide_builder import (
+    VisualSegment,
+    build_visual_segments_for_block,
+)
+from flaskr.service.learn.elements.source_spans import (
+    normalize_source_span,
+    slice_source_by_span,
+)
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
@@ -16,46 +56,6 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
-)
-from flaskr.service.learn.listen_element_audio_binding import (
-    _resolve_audio_target_element_bid,
-    _resolve_audio_target_element_bid_for_stream_number,
-    _resolve_pending_audio_for_stream_element,
-    _resolve_stream_audio_for_element_bid,
-)
-from flaskr.service.learn.listen_element_factory import (
-    _build_final_elements_for_av_contract,
-)
-from flaskr.service.learn.listen_element_payloads import (
-    _audio_segment_payload,
-    _make_audio_payload,
-    _mark_last_audio_segment_final,
-    _payload_from_stream_element,
-    _pick_default_audio_position,
-    _prepare_audio_segments_for_element,
-    _upsert_audio_segment_payload,
-)
-from flaskr.service.learn.listen_element_run_state import (
-    BlockState,
-    StreamElementState,
-    _mdflow_new_stream_is_new,
-)
-from flaskr.service.learn.listen_element_types import (
-    _change_type_for_element,
-    _default_is_marker,
-    _default_is_renderable,
-    _default_is_speakable,
-    _element_type_code,
-    _new_element_bid,
-    _normalized_is_speakable,
-)
-from flaskr.service.learn.listen_slide_builder import (
-    VisualSegment,
-    build_visual_segments_for_block,
-)
-from flaskr.service.learn.listen_source_span_utils import (
-    normalize_source_span,
-    slice_source_by_span,
 )
 from flaskr.service.learn.models import LearnGeneratedElement
 from flaskr.service.learn.type_state_machine import TypeInput

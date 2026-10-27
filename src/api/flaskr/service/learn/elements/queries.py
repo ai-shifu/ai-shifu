@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from flaskr.service.learn.elements.payloads import _deserialize_payload
 from flaskr.service.learn.learn_dtos import ElementType
-from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from sqlalchemy import or_
 

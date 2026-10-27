@@ -16,8 +16,8 @@ from flaskr.service.learn.const import (
     ROLE_STUDENT,
     ROLE_TEACHER,
 )
+from flaskr.service.learn.elements.payloads import _deserialize_payload
 from flaskr.service.learn.learn_dtos import ElementType
-from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,

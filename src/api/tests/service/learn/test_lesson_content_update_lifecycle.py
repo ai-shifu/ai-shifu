@@ -7,8 +7,8 @@ from uuid import uuid4
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn import listen_elements
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
+from flaskr.service.learn.elements import run_adapter
 from flaskr.service.learn.learn_dtos import LearnElementRecordDTO, LearnStatus
 from flaskr.service.learn.learn_funcs import (
     get_current_lesson_outline,
@@ -37,7 +37,7 @@ def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     # Rendering is covered by the classroom and listen-history suites. Keep the
     # formal integration focused on routing, current physical versions and flags.
     monkeypatch.setattr(
-        listen_elements,
+        run_adapter,
         "_get_listen_element_record",
         lambda **_kw: LearnElementRecordDTO(),
     )
@@ -106,7 +106,7 @@ def lesson(app: object, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
 def _assert_flags(lesson: SimpleNamespace, preview: bool, expected: bool) -> None:
     identity, app = lesson.identity, lesson.app
     with app.app_context():
-        record = listen_elements.get_listen_element_record(
+        record = run_adapter.get_listen_element_record(
             app, identity, identity, identity, preview
         )
         assert record.has_content_update_for_current_user is expected
@@ -296,16 +296,16 @@ def test_records_query_only_the_requested_published_session(
     lesson: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls = []
-    loader = listen_elements.load_lesson_content_states
+    loader = run_adapter.load_lesson_content_states
 
     def capture(**kwargs: object) -> dict:
         calls.append(kwargs["outline_revisions"])
         return loader(**kwargs)
 
-    monkeypatch.setattr(listen_elements, "load_lesson_content_states", capture)
+    monkeypatch.setattr(run_adapter, "load_lesson_content_states", capture)
     with lesson.app.app_context():
         identity = lesson.identity
-        listen_elements.get_listen_element_record(
+        run_adapter.get_listen_element_record(
             lesson.app, identity, identity, identity, preview_mode=False
         )
     assert len(calls) == 1
@@ -326,7 +326,7 @@ def test_preview_without_its_own_session_never_borrows_published_history(
     def reject_legacy(**_kw: object) -> LearnElementRecordDTO:
         pytest.fail("Cleared 2.0 draft read formal history")
 
-    monkeypatch.setattr(listen_elements, "_get_listen_element_record", reject_legacy)
+    monkeypatch.setattr(run_adapter, "_get_listen_element_record", reject_legacy)
     _assert_flags(lesson, preview=True, expected=False)
     reset_learn_record(lesson.app, identity, identity, identity, preview_mode=True)
     with lesson.app.app_context():
@@ -350,7 +350,7 @@ def test_preview_classification_uses_the_struct_version_before_any_agent_session
     def reject_legacy(**_kw: object) -> LearnElementRecordDTO:
         pytest.fail("An orphan blank draft redirected a current 2.0 preview")
 
-    monkeypatch.setattr(listen_elements, "_get_listen_element_record", reject_legacy)
+    monkeypatch.setattr(run_adapter, "_get_listen_element_record", reject_legacy)
     _assert_flags(lesson, preview=True, expected=False)
     reset_learn_record(lesson.app, identity, identity, identity, preview_mode=True)
     with lesson.app.app_context():
@@ -382,7 +382,7 @@ def test_preview_reuses_the_decoded_document(
             .session_data
         )
         monkeypatch.setattr(preview_history.json, "loads", capture)
-        listen_elements.get_listen_element_record(
+        run_adapter.get_listen_element_record(
             lesson.app, identity, identity, identity, preview_mode=True
         )
     assert calls.count(raw) == 1
@@ -430,7 +430,7 @@ def test_current_physical_outline_must_be_visible_and_match_the_lesson(
         row = model.query.filter_by(shifu_bid=lesson.identity).one()
         setattr(row, attribute, 1 if attribute in {"deleted", "hidden"} else "other")
     with lesson.app.app_context():
-        record = listen_elements.get_listen_element_record(
+        record = run_adapter.get_listen_element_record(
             lesson.app, lesson.identity, lesson.identity, lesson.identity, preview
         )
         assert record.has_content_update_for_current_user is False
