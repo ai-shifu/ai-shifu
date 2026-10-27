@@ -6,7 +6,10 @@ import api from '@/api';
 import { useEnvStore } from '@/store';
 import { useUserStore } from '@/store';
 import { useToast } from '@/hooks/useToast';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import {
@@ -74,8 +77,12 @@ export default function ShifuPermissionDialog({
   const currentUserId = currentUser?.user_id || '';
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  const contactType = React.useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const permissionIdentifierType = React.useMemo(
+    () =>
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const canManagePermissions =
@@ -88,7 +95,7 @@ export default function ShifuPermissionDialog({
     React.useState<SharedPermission['permission']>('view');
   const [grantLoading, setGrantLoading] = React.useState(false);
   const [grantConfirmOpen, setGrantConfirmOpen] = React.useState(false);
-  const [pendingGrantContacts, setPendingGrantContacts] = React.useState<
+  const [pendingGrantIdentifiers, setPendingGrantIdentifiers] = React.useState<
     string[]
   >([]);
   const [pendingGrantPermission, setPendingGrantPermission] =
@@ -113,7 +120,7 @@ export default function ShifuPermissionDialog({
     setPermissionRemovals(new Set());
     setGrantConfirmOpen(false);
     setPermissionConfirmOpen(false);
-    setPendingGrantContacts([]);
+    setPendingGrantIdentifiers([]);
     setPendingGrantPermission('view');
     setPermissionLevel('view');
     setGrantLoading(false);
@@ -134,8 +141,8 @@ export default function ShifuPermissionDialog({
     if (!open || !shifu?.bid || !canManagePermissions) {
       return null;
     }
-    return ['shifu-permissions', shifu.bid, contactType] as const;
-  }, [canManagePermissions, contactType, open, shifu?.bid]);
+    return ['shifu-permissions', shifu.bid, permissionIdentifierType] as const;
+  }, [canManagePermissions, permissionIdentifierType, open, shifu?.bid]);
 
   const {
     data: permissionData,
@@ -144,10 +151,10 @@ export default function ShifuPermissionDialog({
     mutate: refreshPermissionList,
   } = useSWR(
     permissionKey,
-    async ([, shifuBid, contactTypeValue]) =>
+    async ([, shifuBid, identifierType]) =>
       (await api.listShifuPermissions({
         shifu_bid: shifuBid,
-        contact_type: contactTypeValue,
+        contact_type: identifierType,
       })) as { items?: SharedPermission[] },
     { revalidateOnFocus: false },
   );
@@ -168,16 +175,16 @@ export default function ShifuPermissionDialog({
     toast({ title: message, variant: 'destructive' });
   }, [open, permissionLoadError, t, toast]);
 
-  const contactLabel =
-    contactType === 'email'
+  const identifierLabel =
+    permissionIdentifierType === 'email'
       ? t('module.shifuSetting.permissionEmailLabel')
       : t('module.shifuSetting.permissionPhoneLabel');
-  const contactPlaceholder =
-    contactType === 'email'
+  const identifierPlaceholder =
+    permissionIdentifierType === 'email'
       ? t('module.shifuSetting.permissionEmailPlaceholder')
       : t('module.shifuSetting.permissionPhonePlaceholder');
-  const contactHint =
-    contactType === 'email'
+  const identifierHint =
+    permissionIdentifierType === 'email'
       ? t('module.shifuSetting.permissionEmailHint', {
           max: MAX_SHARED_PERMISSION_COUNT,
         })
@@ -214,14 +221,14 @@ export default function ShifuPermissionDialog({
     }
     const result = validatePermissionContacts({
       value: permissionInput,
-      contactType,
+      contactType: permissionIdentifierType,
       existingPermissions: permissionList,
       owner: currentUser,
     });
     switch (result.type) {
       case 'invalid':
         setPermissionError(
-          contactType === 'email'
+          permissionIdentifierType === 'email'
             ? t('module.shifuSetting.permissionEmailInvalid', {
                 values: formatPermissionContactSample(result.contacts),
               })
@@ -253,12 +260,12 @@ export default function ShifuPermissionDialog({
     }
 
     setPermissionError('');
-    setPendingGrantContacts(result.contacts);
+    setPendingGrantIdentifiers(result.contacts);
     setPendingGrantPermission(permissionLevel);
     setGrantConfirmOpen(true);
   }, [
     canManagePermissions,
-    contactType,
+    permissionIdentifierType,
     currentUser,
     permissionInput,
     permissionLevel,
@@ -271,7 +278,7 @@ export default function ShifuPermissionDialog({
     if (
       !shifu?.bid ||
       !canManagePermissions ||
-      pendingGrantContacts.length === 0
+      pendingGrantIdentifiers.length === 0
     ) {
       setGrantConfirmOpen(false);
       return;
@@ -281,8 +288,8 @@ export default function ShifuPermissionDialog({
     try {
       await api.grantShifuPermissions({
         shifu_bid: shifu.bid,
-        contact_type: contactType,
-        contacts: pendingGrantContacts,
+        contact_type: permissionIdentifierType,
+        contacts: pendingGrantIdentifiers,
         permission: pendingGrantPermission,
       });
       toast({ title: t('module.shifuSetting.permissionGrantSuccess') });
@@ -297,9 +304,9 @@ export default function ShifuPermissionDialog({
     }
   }, [
     canManagePermissions,
-    contactType,
+    permissionIdentifierType,
     onOpenChange,
-    pendingGrantContacts,
+    pendingGrantIdentifiers,
     pendingGrantPermission,
     refreshPermissionList,
     shifu?.bid,
@@ -404,7 +411,7 @@ export default function ShifuPermissionDialog({
         grants.map(operation =>
           api.grantShifuPermissions({
             shifu_bid: shifu.bid,
-            contact_type: contactType,
+            contact_type: permissionIdentifierType,
             contacts: [operation.identifier || ''],
             permission: operation.permission || 'view',
           }),
@@ -448,7 +455,7 @@ export default function ShifuPermissionDialog({
     }
   }, [
     canManagePermissions,
-    contactType,
+    permissionIdentifierType,
     onOpenChange,
     permissionEdits,
     permissionList,
@@ -568,7 +575,7 @@ export default function ShifuPermissionDialog({
               <div className='space-y-6'>
                 <div className='space-y-4'>
                   <Label className='text-sm font-medium text-foreground'>
-                    {contactLabel}
+                    {identifierLabel}
                   </Label>
                   <Textarea
                     value={permissionInput}
@@ -578,10 +585,12 @@ export default function ShifuPermissionDialog({
                         setPermissionError('');
                       }
                     }}
-                    placeholder={contactPlaceholder}
+                    placeholder={identifierPlaceholder}
                     rows={3}
                   />
-                  <p className='text-xs text-muted-foreground'>{contactHint}</p>
+                  <p className='text-xs text-muted-foreground'>
+                    {identifierHint}
+                  </p>
                   {permissionError ? (
                     <p className='text-xs text-destructive'>
                       {permissionError}
@@ -832,7 +841,7 @@ export default function ShifuPermissionDialog({
         onOpenChange={openState => {
           setGrantConfirmOpen(openState);
           if (!openState) {
-            setPendingGrantContacts([]);
+            setPendingGrantIdentifiers([]);
           }
         }}
       >
@@ -847,7 +856,7 @@ export default function ShifuPermissionDialog({
                   <Trans
                     i18nKey='module.shifuSetting.permissionGrantConfirmDesc'
                     values={{
-                      contactType: contactLabel,
+                      contactType: identifierLabel,
                       permission: pendingGrantPermissionLabel,
                     }}
                     components={{
@@ -856,8 +865,8 @@ export default function ShifuPermissionDialog({
                   />
                 </div>
                 <div className='space-y-1'>
-                  {pendingGrantContacts.map(contact => (
-                    <div key={contact}>{contact}</div>
+                  {pendingGrantIdentifiers.map(identifier => (
+                    <div key={identifier}>{identifier}</div>
                   ))}
                 </div>
               </div>

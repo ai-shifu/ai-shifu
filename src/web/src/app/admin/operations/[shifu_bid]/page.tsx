@@ -13,7 +13,10 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { fail, show } from '@/hooks/useToast';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { ErrorWithCode } from '@/lib/request';
 import {
   buildAdminOperationsCourseFollowUpsUrl,
@@ -452,24 +455,28 @@ export default function AdminOperationCourseDetailPage() {
       }
     }
   }, [searchParams]);
-  const contactMode = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const accountColumnType = useMemo(
+    () =>
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const courseUserKeywordPlaceholder = useMemo(
     () =>
-      contactMode === 'email'
+      accountColumnType === 'email'
         ? tOperations('detail.usersFilters.userKeywordPlaceholderEmail')
         : tOperations('detail.usersFilters.userKeywordPlaceholderPhone'),
-    [contactMode, tOperations],
+    [accountColumnType, tOperations],
   );
   const courseUserAccountLabel = useMemo(
     () =>
-      contactMode === 'email'
+      accountColumnType === 'email'
         ? tOperations('detail.usersTable.accountEmail')
         : tOperations('detail.usersTable.accountPhone'),
-    [contactMode, tOperations],
+    [accountColumnType, tOperations],
   );
   const fetchDetail = useCallback(async () => {
     if (!shifuBid.trim()) {
@@ -912,11 +919,11 @@ export default function AdminOperationCourseDetailPage() {
 
   const resolveCourseUserAccount = useCallback(
     (courseUser: AdminOperationCourseUserItem) => {
-      const preferred =
-        contactMode === 'email' ? courseUser.email : courseUser.mobile;
-      return preferred || emptyValue;
+      const primaryIdentifier =
+        accountColumnType === 'email' ? courseUser.email : courseUser.mobile;
+      return primaryIdentifier || emptyValue;
     },
-    [contactMode, emptyValue],
+    [accountColumnType, emptyValue],
   );
 
   const handleCourseUserSearch = useCallback(() => {
@@ -1660,7 +1667,7 @@ export default function AdminOperationCourseDetailPage() {
                   data={courseCreditUsages}
                   loading={courseCreditUsagesLoading}
                   error={courseCreditUsagesError}
-                  contactMode={contactMode}
+                  accountColumnType={accountColumnType}
                   defaultUserName={defaultUserName}
                   emptyValue={emptyValue}
                   onKeywordChange={value =>

@@ -3,8 +3,6 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import AdminRowActions from '@/app/admin/components/AdminRowActions';
 import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
-import { useEnvStore } from '@/store';
-import type { EnvStoreState } from '@/types/store';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -40,9 +38,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
 import type {
   CreditNotificationType,
+  CreditNotificationRule,
   AdminOperationCreditNotificationPolicy,
   AdminOperationCreditNotificationTemplateOption,
 } from '../operation-credit-notification-types';
@@ -128,6 +126,7 @@ const EMAIL_TEMPLATE_NOTIFICATION_TYPES: Array<{
 ];
 
 export function CreditNotificationTemplateManagementTab({
+  notificationChannel,
   templates,
   active,
   loading,
@@ -141,6 +140,7 @@ export function CreditNotificationTemplateManagementTab({
   saveEmailTemplate,
   updateEmailTemplateStatus,
 }: {
+  notificationChannel: CreditNotificationRule['channel'];
   templates: AdminOperationCreditNotificationTemplateOption[];
   active: boolean;
   loading: boolean;
@@ -161,16 +161,6 @@ export function CreditNotificationTemplateManagementTab({
   ) => Promise<void>;
 }) {
   const { t } = useTranslation();
-  const loginMethodsEnabled = useEnvStore(
-    (state: EnvStoreState) => state.loginMethodsEnabled,
-  );
-  const defaultLoginMethod = useEnvStore(
-    (state: EnvStoreState) => state.defaultLoginMethod,
-  );
-  const contactMode = resolveContactMode(
-    loginMethodsEnabled,
-    defaultLoginMethod,
-  );
   const [keyword, setKeyword] = React.useState('');
   const [status, setStatus] = React.useState('');
   const [selectedTemplate, setSelectedTemplate] =
@@ -194,11 +184,11 @@ export function CreditNotificationTemplateManagementTab({
     }
     hasTrackedViewRef.current = true;
     onViewed();
-  }, [active, contactMode, onViewed]);
+  }, [active, notificationChannel, onViewed]);
 
   const statusLabel = React.useCallback(
     (value: string) => {
-      if (contactMode === 'email') {
+      if (notificationChannel === 'email') {
         return t(
           `module.operationsCreditNotifications.templateManagement.emailStatus.${value}`,
         );
@@ -207,7 +197,7 @@ export function CreditNotificationTemplateManagementTab({
         ? t(TEMPLATE_STATUS_KEYS[value])
         : value || '--';
     },
-    [contactMode, t],
+    [notificationChannel, t],
   );
   const typeLabel = React.useCallback(
     (value: string) =>
@@ -283,7 +273,7 @@ export function CreditNotificationTemplateManagementTab({
     {
       key: 'status',
       header:
-        contactMode === 'email'
+        notificationChannel === 'email'
           ? t(
               'module.operationsCreditNotifications.templateManagement.emailFields.status',
             )
@@ -322,11 +312,11 @@ export function CreditNotificationTemplateManagementTab({
     },
   ];
   const templateTitle =
-    contactMode === 'email'
+    notificationChannel === 'email'
       ? t('module.operationsCreditNotifications.templateManagement.emailTitle')
       : t('module.operationsCreditNotifications.templateManagement.smsTitle');
   const templateDescription =
-    contactMode === 'email'
+    notificationChannel === 'email'
       ? t(
           'module.operationsCreditNotifications.templateManagement.emailDescription',
         )
@@ -334,7 +324,7 @@ export function CreditNotificationTemplateManagementTab({
           'module.operationsCreditNotifications.templateManagement.smsDescription',
         );
   const refreshLabel =
-    contactMode === 'email'
+    notificationChannel === 'email'
       ? t('module.operationsCreditNotifications.templateManagement.reload')
       : t('module.operationsCreditNotifications.templateManagement.refresh');
   const smsLoadError = t(
@@ -366,14 +356,14 @@ export function CreditNotificationTemplateManagementTab({
             onClick={() => void refresh()}
             disabled={loading}
           >
-            {contactMode !== 'email' ? (
+            {notificationChannel !== 'email' ? (
               <RefreshCw
                 className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
               />
             ) : null}
             {refreshLabel}
           </Button>
-          {contactMode === 'email' ? (
+          {notificationChannel === 'email' ? (
             <Button
               type='button'
               onClick={() =>
@@ -433,7 +423,7 @@ export function CreditNotificationTemplateManagementTab({
           <SelectTrigger
             className='h-10 min-w-48 bg-white'
             aria-label={
-              contactMode === 'email'
+              notificationChannel === 'email'
                 ? t(
                     'module.operationsCreditNotifications.templateManagement.emailStatusFilter',
                   )
@@ -446,7 +436,7 @@ export function CreditNotificationTemplateManagementTab({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='__all__'>
-              {contactMode === 'email'
+              {notificationChannel === 'email'
                 ? t(
                     'module.operationsCreditNotifications.templateManagement.allEmailStatuses',
                   )
@@ -467,7 +457,7 @@ export function CreditNotificationTemplateManagementTab({
       </div>
       {error ? (
         <p className='text-sm text-destructive'>
-          {contactMode === 'email' ? emailLoadError : smsLoadError}
+          {notificationChannel === 'email' ? emailLoadError : smsLoadError}
         </p>
       ) : null}
       {rows.length ? (
@@ -567,7 +557,7 @@ export function CreditNotificationTemplateManagementTab({
                           onDetailOpened();
                         },
                       },
-                      ...(contactMode === 'email'
+                      ...(notificationChannel === 'email'
                         ? [
                             {
                               key: 'toggle-status',

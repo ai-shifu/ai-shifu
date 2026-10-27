@@ -59,7 +59,10 @@ import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import { BILLING_OVERVIEW_SWR_KEY } from '@/hooks/useBillingData';
 import { buildBillingSwrKey } from '@/lib/billing';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { ErrorWithCode } from '@/lib/request';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
 import { buildAdminOperationsUserDetailUrl } from '../operation-user-routes';
@@ -481,36 +484,33 @@ export default function AdminOperationUsersPage() {
     [tOperationsCourse],
   );
 
-  const contactType = React.useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
-    [defaultLoginMethod, loginMethodsEnabled],
+  const loginIdentifierTypes = React.useMemo(
+    () => resolveLoginIdentifierTypes(loginMethodsEnabled),
+    [loginMethodsEnabled],
+  );
+  const accountIdentifierType = React.useMemo(
+    () =>
+      selectSingleLoginIdentifierType(loginIdentifierTypes, defaultLoginMethod),
+    [defaultLoginMethod, loginIdentifierTypes],
   );
   const userQueryPlaceholder = React.useMemo(() => {
-    const normalizedMethods = Array.isArray(loginMethodsEnabled)
-      ? loginMethodsEnabled
-      : String(loginMethodsEnabled || '').split(',');
-    const methodSet = new Set(
-      normalizedMethods
-        .map(method => method.trim().toLowerCase())
-        .filter(Boolean),
-    );
-    const hasPhone = methodSet.has('phone');
-    const hasEmail = methodSet.has('email') || methodSet.has('google');
+    const hasPhone = loginIdentifierTypes.includes('phone');
+    const hasEmail = loginIdentifierTypes.includes('email');
 
     if (hasPhone && hasEmail) {
       return tOperationsUsers('filters.userPlaceholderPhoneEmail');
     }
-    if (contactType === 'email') {
+    if (accountIdentifierType === 'email') {
       return tOperationsUsers('filters.userPlaceholderEmail');
     }
     return tOperationsUsers('filters.userPlaceholderPhone');
-  }, [contactType, loginMethodsEnabled, tOperationsUsers]);
-  const contactColumnLabel = React.useMemo(
+  }, [accountIdentifierType, loginIdentifierTypes, tOperationsUsers]);
+  const accountColumnLabel = React.useMemo(
     () =>
-      contactType === 'email'
+      accountIdentifierType === 'email'
         ? tOperationsUsers('table.email')
         : tOperationsUsers('table.mobile'),
-    [contactType, tOperationsUsers],
+    [accountIdentifierType, tOperationsUsers],
   );
   const guestUserLabel = React.useMemo(
     () => tOperationsUsers('table.guestUser'),
@@ -1179,7 +1179,7 @@ export default function AdminOperationUsersPage() {
                       className={ADMIN_TABLE_HEADER_CELL_CENTER_CLASS}
                       style={getColumnStyle('mobile')}
                     >
-                      {contactColumnLabel}
+                      {accountColumnLabel}
                       {renderResizeHandle('mobile')}
                     </TableHead>
                     <TableHead
@@ -1292,8 +1292,8 @@ export default function AdminOperationUsersPage() {
                 <TableBody>
                   {emptyRow}
                   {users.map(user => {
-                    const primaryContact =
-                      contactType === 'email'
+                    const primaryIdentifier =
+                      accountIdentifierType === 'email'
                         ? user.email?.trim() || ''
                         : user.mobile?.trim() || '';
                     const isGuestUser =
@@ -1336,17 +1336,17 @@ export default function AdminOperationUsersPage() {
                             <span className='text-sm text-muted-foreground'>
                               {guestUserLabel}
                             </span>
-                          ) : userDetailUrl && primaryContact ? (
+                          ) : userDetailUrl && primaryIdentifier ? (
                             <Link
                               href={userDetailUrl}
                               target='_blank'
                               rel='noopener noreferrer'
                               className='text-primary transition-colors hover:text-primary/80 hover:underline'
                             >
-                              {renderTooltipText(primaryContact)}
+                              {renderTooltipText(primaryIdentifier)}
                             </Link>
                           ) : (
-                            renderTooltipText(primaryContact)
+                            renderTooltipText(primaryIdentifier)
                           )}
                         </TableCell>
                         <TableCell
@@ -1511,7 +1511,7 @@ export default function AdminOperationUsersPage() {
                                 {
                                   key: 'change-contact',
                                   label: tOperationsUsers(
-                                    `contactChange.${contactType}.action`,
+                                    `contactChange.${accountIdentifierType}.action`,
                                   ),
                                   disabled: user.user_status === 'cancelled',
                                   onClick: () =>
@@ -1709,7 +1709,7 @@ export default function AdminOperationUsersPage() {
           <UserCancellationDialog
             open={Boolean(cancellationDialogUser)}
             user={cancellationDialogUser}
-            contactType={contactType}
+            contactType={accountIdentifierType}
             onOpenChange={nextOpen => {
               if (!nextOpen) setCancellationDialogUser(null);
             }}
@@ -1722,9 +1722,9 @@ export default function AdminOperationUsersPage() {
           <UserContactChangeDialog
             open={Boolean(contactChangeDialogUser)}
             userBid={contactChangeDialogUser?.user_bid || ''}
-            contactType={contactType}
+            contactType={accountIdentifierType}
             currentIdentifier={
-              contactType === 'email'
+              accountIdentifierType === 'email'
                 ? contactChangeDialogUser?.email || ''
                 : contactChangeDialogUser?.mobile || ''
             }

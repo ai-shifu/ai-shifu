@@ -150,6 +150,7 @@
 | `docs/exec-plans/completed/litellm-1-106-upgrade.md` | Upgrade LiteLLM to 1.106.2 and assess redundant compatibility code | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/llm-provider-parameter-policies.md` | LiteLLM-First Minimum-Thinking Parameters | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/lobster-course-entry-analytics.md` | Lobster Course Entry Analytics | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/login-identifier-terminology.md` | Separate deployment identifiers from interface selection and notification channels | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdown-flow-agent-memory-migration.md` | Expose Learner Memory through a Typed Host Facade | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdown-flow-scroll-controls.md` | MarkdownFlow Scroll Controls | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/markdownflow-advancement-traces.md` | MarkdownFlow Advancement Traces | `exec-plan-completed` | `completed` | `backend` | `2026-10-27` | `false` |
@@ -266,7 +267,7 @@
 | `docs/product-specs/billing-credit-notifications.md` | 积分通知中心需求文档 | `product-spec` | `needs-review` | `backend` | `-` | `true` |
 | `docs/product-specs/billing-learning-hours-estimate.md` | Billing learning-time estimates | `product-spec` | `implemented` | `shared` | `2026-09-21` | `true` |
 | `docs/product-specs/course-action-help.md` | Course action menu help | `product-spec` | `implemented` | `frontend` | `2026-10-26` | `true` |
-| `docs/product-specs/course-activation-import.md` | Course activation import | `product-spec` | `implemented` | `frontend` | `2026-10-26` | `true` |
+| `docs/product-specs/course-activation-import.md` | Course activation import | `product-spec` | `implemented` | `frontend` | `2026-10-27` | `true` |
 | `docs/product-specs/course-memory-management.md` | Course Memory Management | `product-spec` | `implemented` | `learner` | `2026-10-07` | `true` |
 | `docs/product-specs/course-temperature-settings.md` | Internal Course Temperature Settings | `product-spec` | `implemented` | `shared` | `2026-10-08` | `true` |
 | `docs/product-specs/dashboard-entry-page.md` | Dashboard Entry Page Contract | `product-spec` | `implemented` | `shared` | `2026-09-26` | `true` |

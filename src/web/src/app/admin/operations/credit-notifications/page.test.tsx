@@ -13,7 +13,11 @@ import {
 } from '@/lib/admin-date-time';
 import { toast } from '@/hooks/useToast';
 import AdminOperationCreditNotificationsPage from './page';
-import { normalizePolicy } from './creditNotificationUtils';
+import {
+  createDefaultPolicy,
+  normalizePolicy,
+} from './creditNotificationUtils';
+import { CreditNotificationConfigTab } from './CreditNotificationConfigTab';
 
 Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
   configurable: true,
@@ -1438,6 +1442,113 @@ describe('AdminOperationCreditNotificationsPage', () => {
       );
     });
   });
+
+  it.each([
+    {
+      loginMethods: ['phone', 'email'],
+      defaultMethod: 'email',
+      identifierType: 'email',
+      channel: 'email',
+    },
+    {
+      loginMethods: ['phone', 'email'],
+      defaultMethod: 'phone',
+      identifierType: 'phone',
+      channel: 'sms',
+    },
+    {
+      loginMethods: ['phone', 'google'],
+      defaultMethod: 'google',
+      identifierType: 'phone',
+      channel: 'sms',
+    },
+  ] as const)(
+    'preserves the $channel notification channel for mixed login methods with $defaultMethod as the default',
+    async ({ loginMethods, defaultMethod, identifierType, channel }) => {
+      mockLoginMethodsEnabled = [...loginMethods];
+      mockDefaultLoginMethod = defaultMethod;
+      render(<AdminOperationCreditNotificationsPage />);
+
+      expect(
+        screen.getByPlaceholderText(
+          identifierType === 'email'
+            ? 'module.operationsCreditNotifications.filters.creatorPlaceholderEmail'
+            : 'module.operationsCreditNotifications.filters.creatorPlaceholderPhone',
+        ),
+      ).toBeInTheDocument();
+
+      await openConfigTab();
+
+      expect(
+        screen.getByText(
+          channel === 'email'
+            ? 'module.operationsCreditNotifications.config.fields.enabledEmail'
+            : 'module.operationsCreditNotifications.config.fields.enabled',
+        ),
+      ).toBeInTheDocument();
+      expect(
+        channel === 'email' ? mockGetEmailTemplates : mockGetTemplates,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        channel === 'email' ? mockGetTemplates : mockGetEmailTemplates,
+      ).not.toHaveBeenCalled();
+
+      const listsDialog = await openCreatorListsEditor();
+      expect(
+        within(listsDialog).getByPlaceholderText(
+          identifierType === 'email'
+            ? 'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsEmail'
+            : 'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
+        ),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    { identifierType: 'email', notificationChannel: 'sms' },
+    { identifierType: 'phone', notificationChannel: 'email' },
+  ] as const)(
+    'keeps $identifierType account fields independent of $notificationChannel delivery controls',
+    async ({ identifierType, notificationChannel }) => {
+      render(
+        <CreditNotificationConfigTab
+          identifierType={identifierType}
+          notificationChannel={notificationChannel}
+          policy={createDefaultPolicy()}
+          configLoaded={true}
+          configLoading={false}
+          configError=''
+          dryRunResult={null}
+          dryRunError=''
+          templateOptions={[]}
+          resolvedLists={{}}
+          updatePolicy={jest.fn()}
+          dryRun={jest.fn()}
+          saveConfig={jest.fn().mockResolvedValue(true)}
+          resolveTypeLabel={value => value}
+          onRuleAction={jest.fn()}
+          onLegacyRulesMigrated={jest.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByText(
+          notificationChannel === 'email'
+            ? 'module.operationsCreditNotifications.config.fields.enabledEmail'
+            : 'module.operationsCreditNotifications.config.fields.enabled',
+        ),
+      ).toBeInTheDocument();
+
+      const listsDialog = await openCreatorListsEditor();
+      expect(
+        within(listsDialog).getByPlaceholderText(
+          identifierType === 'email'
+            ? 'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsEmail'
+            : 'module.operationsCreditNotifications.config.inputPlaceholders.blockedCreatorsPhone',
+        ),
+      ).toBeInTheDocument();
+    },
+  );
 
   it('uses email delivery controls without SMS-only budget or cost fields', async () => {
     mockLoginMethodsEnabled = ['email'];
