@@ -38,6 +38,13 @@ Outside that position, `{{ What is your gender? }}` references that same key.
 An interaction binding is preserved during substitution and grants the same
 named-answer memory permission with either spelling; previous answers are
 excluded from the new question's initial memory context.
+
+Preserved-output wrappers (`===...===`, `!===...!===`, and multiline `!===`
+blocks) keep the authored wording; interactions inside them remain active with
+either variable spelling. Use inline or fenced code to show literal interaction
+syntax without creating a control. Output preservation does not revoke a real
+question's named-answer memory permission.
+
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
 content, not trim whitespace. The exact trim set and shared conformance cases

@@ -211,6 +211,30 @@ def test_a_marker_outside_a_fence_is_still_collected_when_one_is_present() -> No
 
 @pytest.mark.parametrize("prefix", ["%", ""])
 @pytest.mark.parametrize(
+    "wrapper",
+    [
+        "===Here is {question}===",
+        "!===Here is {question}!===",
+        "!===\nHere is {question}\n!===",
+    ],
+)
+def test_preserved_output_keeps_real_interaction_bindings(
+    prefix: str, wrapper: str
+) -> None:
+    """Output wrappers preserve wording without escaping nested answer controls."""
+    question = "?[" + prefix + "{{pace}} A | B]"
+    source = wrapper.format(question=question)
+
+    assert collected_names(source) == frozenset({"pace"})
+    assert script_options(source) == {"A": "A", "B": "B"}
+    assert substitute_variables(source, {"pace": "stale"}) == source
+    prompt = render_first_prompt(ScriptBundle(script=source), {"pace": "stale"})
+    assert "stale" not in prompt
+    assert source in prompt
+
+
+@pytest.mark.parametrize("prefix", ["%", ""])
+@pytest.mark.parametrize(
     "key", ["goal", "Which [path] | level//hint...?", "outer{{inner", "a}"]
 )
 def test_interaction_binding_is_collected_and_never_substituted(
