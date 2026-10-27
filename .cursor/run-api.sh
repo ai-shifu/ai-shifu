@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Backend API dev server (gunicorn + gevent, hot reload).
+# Backend API dev server (gunicorn + gthread, hot reload).
 # Port is fixed at 5800 to stay consistent with the forwarded port in
 # .cursor/environment.json.
 set -euo pipefail
