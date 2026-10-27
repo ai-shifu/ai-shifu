@@ -25,10 +25,14 @@ _API_ROOT = Path(__file__).resolve().parents[2]
 _LEGACY_SESSION = Path(__file__).parent / "fixtures" / "legacy_session.json"
 
 
-def test_bundled_prompts_keep_the_old_engine_bytes() -> None:
+def test_bundled_prompts_only_update_unexpanded_reference_guidance() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
+    # Only native reference guidance changes; retain every other copied prompt byte.
+    hashes["v1_syntax"] = (
+        "3fd9babdffca25f3b7a60df8d0c92573bccb9541a62a977fd3b4f70185f74d4e"
+    )
     for name, expected in hashes.items():
         assert hashlib.sha256(load_prompt(name).encode("utf-8")).hexdigest() == expected
 

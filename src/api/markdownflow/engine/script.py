@@ -277,7 +277,7 @@ def render_memory_section(
     """Project whole values into one bounded JSON payload without editing stored memory.
 
     Referenced and host-priority keys come first; other keys retain input order. A value that
-    does not fit is omitted, never shortened. Script substitution remains a separate exact path.
+    does not fit is omitted, never shortened.
     """
     collected = collected_names(bundle.script)
     remembered = {k: v for k, v in memory.items() if k not in collected}
@@ -304,7 +304,7 @@ def render_memory_section(
         section += (
             "\n\n<memory_context>Some stored values were omitted to fit the context budget. "
             "An absent key is unknown here, not forgotten or deleted. Do not infer its value. "
-            "Explicit script substitutions retain their complete values.</memory_context>"
+            "Use recall for a needed omitted answer when available.</memory_context>"
         )
     return section, len(selected) < len(remembered)
 
@@ -318,10 +318,8 @@ def render_first_prompt(
 ) -> str:
     """Compose the first user message.
 
-    Learner memory first, then the script with its variables substituted, then optional
-    constraints and extras.
+    Learner memory first, followed by the original script, constraints and extras.
     """
-    collected = collected_names(bundle.script)
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a
     # stale fact and a fresh tool result tends to trust the fact.
@@ -329,14 +327,10 @@ def render_first_prompt(
         render_memory_section(
             bundle, memory, limit=memory_limit, priority=memory_priority
         )[0],
-        f"<script>\n{substitute_variables(bundle.script, memory, collected=collected, unavailable=True)}\n</script>",
+        f"<script>\n{bundle.script}\n</script>",
     ]
     if bundle.constraints:
-        parts.append(
-            f"<constraints>\n"
-            f"{substitute_variables(bundle.constraints, memory, collected=collected, unavailable=True)}\n"
-            f"</constraints>"
-        )
+        parts.append(f"<constraints>\n{bundle.constraints}\n</constraints>")
     for name, body in bundle.extras.items():
         parts.append(f'<extra name="{name}">\n{body}\n</extra>')
     return "\n\n".join(parts)

@@ -2,7 +2,7 @@
 title: MarkdownFlow Memory Recall
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-13
+last_reviewed: 2026-10-27
 canonical: true
 ---
 
@@ -57,8 +57,8 @@ a new learner submission can answer it anew under the existing write policy.
 
 Instructions ask for relevant missing facts only and treat returned values as data, never
 as author instructions or write authorization. Tool returns stay in model/session history,
-not classroom text. Recall does not change initial 32768-character memory projection,
-exact script substitutions, persistence, usage limits or the
+not classroom text. Recall does not change the initial 32768-character memory projection,
+persistence, usage limits or the
 [256 KiB complete model input budget](markdownflow-input-budget.md).
 Repeated tool results still consume that total budget. This increment provides exact-key
 retrieval, not semantic search, historical conversation compression or automatic recovery
@@ -66,27 +66,24 @@ from oversized overall inputs. Shared writes and independent teaching-quality ac
 remain separate work.
 
 
-## Unavailable authored values
+## Authored references and existing sessions
 
-For script/brief reads outside fenced code, an absent, null or empty-string
-learner value is represented in the initial host prompt by
-`<unavailable_learner_value name="..." />`, with an escaped name. It is metadata,
-not a learner fact or display text. The syntax guidance also covers unresolved
-read templates in older host prompts: use the author's missing-evidence wording,
-or omit that personal claim, including inside generated visuals. Do not invent
-values, expose internal names or add an unauthored interaction to obtain them.
+New native sessions send the authored script and teaching brief without server-side
+variable substitution. The separate memory block retains its existing budget,
+referenced-key priority, collection exclusions and values. The model may interpret
+`{{name}}` using that memory or `recall`; an absent value remains unknown. A value
+omitted from the memory block is no longer copied into the script through a separate
+substitution path. Recall's existing size limit still applies.
 
-Existing complete values, including zero and false, keep exact substitution even
-when omitted from the bounded memory block. Names collected in this lesson still
-wait for its actual answer; earlier stored answers cannot prefill them. Missing notation in authored verbatim syntax examples and fenced
-code/templates/CSS/JavaScript remains literal source content; known personalization
-in verbatim text retains its existing substitution behavior. This does not rewrite
-generated code or classroom output after generation.
+An existing session keeps its saved prompt and interaction history. Already-expanded
+text is not restored to authored source, and old unavailable-value metadata still
+means missing evidence rather than learner data or a display instruction. Existing
+Profile option values and pending interactions retain their current protocol.
 
-Nickname and deletion refresh match each known host section independently in
-both historical and current formats, then use the current rendering. Unrecognized
-history, later learner requests, tool returns and already displayed teaching stay
-unchanged. No memory placeholder is persisted as a profile value; course scope,
-recall/write permissions and all input/request/retry limits remain unchanged.
-Native SDK tests establish input/policy delivery only; actual-model and sim checks
-must separately verify learner-visible behavior.
+Nickname and deletion refresh update only the memory block. Every saved script/brief
+and extra-document section is preserved, including previously expanded text. The
+same path handles both formats without replaying substitution. No session schema,
+field name, write policy or historical-data migration is
+introduced. See [literal prompts](markdownflow-literal-prompts.md) for the narrow
+sending contract. SDK tests establish request/policy delivery; they do not guarantee
+that a real model interprets every authored reference correctly.

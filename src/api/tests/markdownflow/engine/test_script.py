@@ -55,7 +55,7 @@ def test_first_prompt_layout() -> None:
         < p.index("<constraints>")
         < p.index('<extra name="ref">')
     )
-    assert "Say hi to Lin" in p
+    assert "Say hi to {{name}}" in p
     assert '"name": "Lin"' in p
 
 

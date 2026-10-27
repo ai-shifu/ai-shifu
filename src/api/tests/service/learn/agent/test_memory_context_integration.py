@@ -23,7 +23,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from tests.service.learn.agent.test_memory_integration import _drive, _memory
 
 
-def test_oversized_defined_answer_stays_stored_and_substituted_across_lessons(
+def test_oversized_defined_answer_stays_stored_without_expanding_script(
     app: Flask,
 ) -> None:
     """A projection omission must never turn into a profile deletion or truncated answer."""
@@ -98,6 +98,7 @@ def test_oversized_defined_answer_stays_stored_and_substituted_across_lessons(
             assert len(json.dumps(values, ensure_ascii=False, indent=2)) <= 32768
             assert "goal" not in values
             assert values["pace"] == "slow"
-            assert f"Teach using {answer} at slow pace." in prompt
+            assert "Teach using {{goal}} at {{pace}} pace." in prompt
+            assert answer not in prompt
             assert "An absent key is unknown here" in prompt
         assert VariableValue.query.filter_by(user_bid=user).count() == 2
