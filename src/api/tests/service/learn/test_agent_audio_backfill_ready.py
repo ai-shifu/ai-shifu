@@ -33,6 +33,7 @@ def execution(monkeypatch: pytest.MonkeyPatch) -> dict:
     sequence = []
     staged = []
     monkeypatch.setattr(runtime, "uses_agent_engine", lambda _bid: True)
+    monkeypatch.setattr(runtime, "_ensure_healthy_db_connection", lambda _app: None)
     monkeypatch.setattr(
         runtime, "_commit_pending_step", lambda: sequence.append("commit")
     )
@@ -292,6 +293,7 @@ def test_failed_turn_commits_partial_elements_without_success_or_completion(
     )
     monkeypatch.setattr(adapter, "_load_block_meta", lambda _bid: BlockMeta())
     monkeypatch.setattr(runtime, "uses_agent_engine", lambda _bid: True)
+    monkeypatch.setattr(runtime, "_ensure_healthy_db_connection", lambda _app: None)
     failure = AppError("Turn failed", ERROR_CODE[error_key])
 
     def agent(*_args: object, **_kwargs: object) -> Iterator:
@@ -348,6 +350,7 @@ def test_turn_discarded_by_a_reset_writes_no_partial_elements(
     )
     monkeypatch.setattr(adapter, "_load_block_meta", lambda _bid: BlockMeta())
     monkeypatch.setattr(runtime, "uses_agent_engine", lambda _bid: True)
+    monkeypatch.setattr(runtime, "_ensure_healthy_db_connection", lambda _app: None)
     from flaskr.service.learn.agent.lesson_entry import DiscardedTurnError
 
     failure = DiscardedTurnError(
