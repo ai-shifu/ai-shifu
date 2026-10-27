@@ -466,16 +466,30 @@ def test_natural_questionnaire_uses_native_controls_without_a_static_question_se
     assert session.variables == {"goal": "writing"}
 
 
-def test_static_option_substitution_uses_native_memory_and_not_extra_host_state() -> (
-    None
-):
-    session = _session("?[%{{role}}Primary//{{primary}}|Other//other]")
+@pytest.mark.parametrize("historical_prompt", [False, True])
+def test_raw_prompt_keeps_native_option_values_and_saved_pending_protocol(
+    historical_prompt: bool,
+) -> None:
+    document = "?[%{{role}}Primary//{{primary}}|Other//other]"
+    session = _session(document)
     session.variables["primary"] = "teacher"
+    initial_script = f"<script>\n{document}\n</script>"
+    saved_script = initial_script
 
     async def script(messages: list[ModelMessage], _info: AgentInfo) -> Stream:
+        initial = next(
+            str(part.content)
+            for message in messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+            if isinstance(part, UserPromptPart)
+        )
+        assert saved_script in initial
+        assert '\n  "primary": "teacher"\n' in initial
         if _returns(messages, "finish"):
             yield "Thanks."
         elif _returns(messages):
+            assert _returns(messages)[0].content == "Learner chose: teacher"
             yield "Done."
             yield _finish()
         else:
@@ -492,12 +506,32 @@ def test_static_option_substitution_uses_native_memory_and_not_extra_host_state(
             }
 
     model = FunctionModel(stream_function=script)
-    run_profile_turn(session, {}, model)
+    first = run_profile_turn(session, {}, model)
+    assert "Primary//teacher" in first.chunks[-1].interaction
+    assert session.engine_session["pending"][0]["spec"]["variable"] == "role"
+    if historical_prompt:
+        # Model a pre-change session whose initial prompt was already expanded.
+        saved_script = initial_script.replace("{{primary}}", "teacher")
+        for message in session.engine_session["messages"]:
+            for part in message["parts"]:
+                if part["part_kind"] == "user-prompt":
+                    part["content"] = part["content"].replace(
+                        initial_script, saved_script
+                    )
+    session = _ProfileResearchSession.from_cache_payload(session.to_cache_payload())
+    saved_messages = copy.deepcopy(session.engine_session["messages"])
+    saved_pending = copy.deepcopy(session.engine_session["pending"])
+    rerendered = run_profile_turn(session, {}, model)
+    assert "Primary//teacher" in rerendered.chunks[-1].interaction
+    assert session.engine_session["messages"] == saved_messages
+    assert session.engine_session["pending"] == saved_pending
     session.variables["primary"] = "untrusted-host-value"
     result = run_profile_turn(session, {"role": ["teacher"]}, model)
     assert result.input_accepted
+    assert result.finished
     assert session.variables["role"] == "teacher"
     assert session.variables["primary"] == "teacher"
+    assert session.engine_session["messages"][: len(saved_messages)] == saved_messages
 
 
 def test_rich_output_keeps_structured_elements_and_no_private_summary_is_requested() -> (
