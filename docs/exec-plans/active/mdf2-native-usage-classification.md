@@ -86,8 +86,8 @@ without SSE errors, with real 2.0 session and exempt usage records.
 ## Idempotence and Recovery
 
 No database migration or data repair is required. Tests use isolated SQLite data.
-Production rollback is the versioned `FLOW_ENGINE_V2_ENABLED=false` setting in
-both regions; preserve unrelated live configuration drift when applying flags.
+The 1.0 runtime and its `FLOW_ENGINE_V2_ENABLED` switch have been removed, so
+rollback means redeploying the previous image.
 Never reset learners or fabricate engine checkpoints during rollout.
 
 ## Interfaces and Dependencies

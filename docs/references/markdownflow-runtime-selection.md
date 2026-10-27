@@ -10,9 +10,8 @@ canonical: true
 
 Every identified course is taught by MarkdownFlow 2.0. The 1.0 lesson runtime
 (`RunScriptContextV2`, its `learn/run/` collaborators and the block-oriented
-editor preview) has been removed. `FLOW_ENGINE_V2_ENABLED` is no longer read; it
-stays registered only until deployments stop setting it. The retired
-`FLOW_ENGINE_V2_SHIFU_BIDS` variable is ignored. A blank course identifier is not
+editor preview) has been removed. The retired `FLOW_ENGINE_V2_ENABLED` and
+`FLOW_ENGINE_V2_SHIFU_BIDS` variables are no longer registered or read. A blank course identifier is not
 a course and is refused.
 
 ## Request routing

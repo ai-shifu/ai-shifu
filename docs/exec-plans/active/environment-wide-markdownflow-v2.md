@@ -44,6 +44,8 @@ whole manifest could overwrite unrelated live state.
 - 2026-10-07: Configure sim on its own Deployment, without shared database writes.
 - 2026-10-07: Preserve the Ask side path and existing runtime session handling.
 - 2026-10-07: Stage the flag before the binary upgrade and remove the old list afterwards.
+- 2026-10-27: The 1.0 runtime is deleted; the flag is unset in every deployment
+  and unregistered.
 
 ## Outcomes & Retrospective
 
@@ -97,6 +99,5 @@ only when also rolling back the binary to the allowlist implementation.
 
 ## Interfaces and Dependencies
 
-Keep `uses_agent_engine(shifu_bid)` compatible with existing callers. The only
-new operator interface is the registered bool `FLOW_ENGINE_V2_ENABLED`; it
-replaces the retired list variable. No dependency versions change.
+`uses_agent_engine(shifu_bid)` and the `FLOW_ENGINE_V2_ENABLED` switch were
+removed with the 1.0 runtime on 2026-10-27. No dependency versions change.

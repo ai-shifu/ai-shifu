@@ -1934,18 +1934,6 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Default price assigned to a new shifu",
         group="shifu",
     ),
-    "FLOW_ENGINE_V2_ENABLED": EnvVar(
-        name="FLOW_ENGINE_V2_ENABLED",
-        default=False,
-        type=bool,
-        description=(
-            "Deprecated and ignored: every course is taught by the MarkdownFlow "
-            "2.0 lesson engine. Kept registered until deployments stop setting "
-            "it. The retired FLOW_ENGINE_V2_SHIFU_BIDS allowlist is ignored."
-        ),
-        group="shifu",
-        required=False,
-    ),
     "LESSON_RESET_LIMIT": EnvVar(
         name="LESSON_RESET_LIMIT",
         default=0,
