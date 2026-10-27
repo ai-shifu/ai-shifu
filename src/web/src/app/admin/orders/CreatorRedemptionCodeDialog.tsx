@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { QuestionMarkCircleIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import PromotionDateTimePicker from '@/app/admin/operations/promotions/PromotionDateTimePicker';
@@ -29,12 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
 import type { AdminPromotionCouponItem } from '@/app/admin/operations/operation-promotion-types';
 import {
@@ -42,6 +35,7 @@ import {
   validateCreatorCouponForm,
 } from './creatorRedemptionCodeDialogShared';
 import { useCreatorPublishedCourseOptions } from './useCreatorPublishedCourseOptions';
+import { useEnvStore } from '@/store/envStore';
 
 const SELECT_ITEM_CLASS =
   'pl-3 pr-8 data-[state=checked]:bg-muted data-[state=checked]:text-foreground';
@@ -63,6 +57,7 @@ const CreatorRedemptionCodeDialog = ({
 }) => {
   const { t } = useTranslation();
   const { t: tPromotion } = useTranslation('module.operationsPromotion');
+  const currencySymbol = useEnvStore(state => state.currencySymbol);
   const [form, setForm] = useState<CouponFormState>(() =>
     createCreatorCouponFormState(),
   );
@@ -97,11 +92,13 @@ const CreatorRedemptionCodeDialog = ({
   const isGenericCoupon = form.usage_type === '801';
   const isPercentDiscount = form.discount_type === '702';
   const valueLabel = isPercentDiscount
-    ? tPromotion('coupon.valuePercent')
-    : tPromotion('coupon.valueAmount');
+    ? t('module.order.redemptionCodes.valuePercentLabel')
+    : t('module.order.redemptionCodes.valueAmountLabel', {
+        currency: currencySymbol,
+      });
   const valuePlaceholder = isPercentDiscount
-    ? tPromotion('coupon.valuePercentPlaceholder')
-    : tPromotion('coupon.valueAmountPlaceholder');
+    ? t('module.order.redemptionCodes.valuePercentPlaceholder')
+    : t('module.order.redemptionCodes.valueAmountPlaceholder');
 
   const handleSubmit = async () => {
     const { errorKey, payload, submitSuccessKey } = validateCreatorCouponForm({
@@ -143,66 +140,31 @@ const CreatorRedemptionCodeDialog = ({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className='sm:max-w-[680px]'>
+      <DialogContent className='max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[680px]'>
         <DialogHeader>
           <DialogTitle>
             {isEditing
               ? t('module.order.redemptionCodes.editDialogTitle')
               : t('module.order.redemptionCodes.dialogTitle')}
           </DialogTitle>
-          <DialogDescription className='sr-only'>
+          <DialogDescription className='leading-6'>
             {isEditing
-              ? t('module.order.redemptionCodes.editDialogTitle')
-              : t('module.order.redemptionCodes.dialogTitle')}
+              ? t('module.order.redemptionCodes.editDescription')
+              : t('module.order.redemptionCodes.description')}
           </DialogDescription>
         </DialogHeader>
         <div className='grid gap-4 md:grid-cols-2'>
-          <FormField label={tPromotion('table.name')}>
+          <FormField label={t('module.order.redemptionCodes.nameLabel')}>
             <Input
               className='h-9'
               value={form.name}
-              placeholder={tPromotion('filters.namePlaceholder')}
+              placeholder={t('module.order.redemptionCodes.namePlaceholder')}
               onChange={event =>
                 setForm(current => ({ ...current, name: event.target.value }))
               }
             />
           </FormField>
-          <FormField
-            label={
-              <span className='inline-flex items-center gap-1.5'>
-                {tPromotion('table.usageType')}
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type='button'
-                        className='inline-flex h-4 w-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:ring-offset-2'
-                        aria-label={t(
-                          'module.order.redemptionCodes.usageTypeHelp',
-                        )}
-                      >
-                        <QuestionMarkCircleIcon className='h-4 w-4' />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent className='z-[113] max-w-72 text-left text-xs leading-5'>
-                      <div className='space-y-1'>
-                        <div>
-                          {t(
-                            'module.order.redemptionCodes.usageTypeHelpGeneric',
-                          )}
-                        </div>
-                        <div>
-                          {t(
-                            'module.order.redemptionCodes.usageTypeHelpSingleUse',
-                          )}
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </span>
-            }
-          >
+          <FormField label={t('module.order.redemptionCodes.usageTypeLabel')}>
             <Select
               value={form.usage_type}
               onValueChange={value =>
@@ -215,25 +177,35 @@ const CreatorRedemptionCodeDialog = ({
               disabled={isEditing}
             >
               <SelectTrigger className='h-9'>
-                <SelectValue placeholder={tPromotion('filters.usageType')} />
+                <SelectValue
+                  placeholder={t(
+                    'module.order.redemptionCodes.usageTypePlaceholder',
+                  )}
+                />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem
                   value='801'
                   className={SELECT_ITEM_CLASS}
                 >
-                  {tPromotion('usageType.generic')}
+                  {t('module.order.redemptionCodes.genericLabel')}
                 </SelectItem>
                 <SelectItem
                   value='802'
                   className={SELECT_ITEM_CLASS}
                 >
-                  {tPromotion('usageType.singleUse')}
+                  {t('module.order.redemptionCodes.singleUseLabel')}
                 </SelectItem>
               </SelectContent>
             </Select>
+            <div className='space-y-1 text-xs leading-5 text-muted-foreground'>
+              <p>{t('module.order.redemptionCodes.genericHint')}</p>
+              <p>{t('module.order.redemptionCodes.singleUseHint')}</p>
+            </div>
           </FormField>
-          <FormField label={tPromotion('filters.discountType')}>
+          <FormField
+            label={t('module.order.redemptionCodes.discountTypeLabel')}
+          >
             <Select
               value={form.discount_type}
               onValueChange={value =>
@@ -242,20 +214,24 @@ const CreatorRedemptionCodeDialog = ({
               disabled={isEditing}
             >
               <SelectTrigger className='h-9'>
-                <SelectValue placeholder={tPromotion('filters.discountType')} />
+                <SelectValue
+                  placeholder={t(
+                    'module.order.redemptionCodes.discountTypePlaceholder',
+                  )}
+                />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem
                   value='701'
                   className={SELECT_ITEM_CLASS}
                 >
-                  {tPromotion('discountType.fixed')}
+                  {t('module.order.redemptionCodes.discountTypeFixed')}
                 </SelectItem>
                 <SelectItem
                   value='702'
                   className={SELECT_ITEM_CLASS}
                 >
-                  {tPromotion('discountType.percent')}
+                  {t('module.order.redemptionCodes.discountTypePercent')}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -270,13 +246,18 @@ const CreatorRedemptionCodeDialog = ({
               }
               disabled={isEditing}
             />
+            {isPercentDiscount ? (
+              <p className='text-xs leading-5 text-muted-foreground'>
+                {t('module.order.redemptionCodes.valuePercentHint')}
+              </p>
+            ) : null}
           </FormField>
           {isGenericCoupon ? (
-            <FormField label={tPromotion('coupon.code')}>
+            <FormField label={t('module.order.redemptionCodes.codeLabel')}>
               <Input
                 className='h-9'
                 value={form.code}
-                placeholder={tPromotion('coupon.codePlaceholder')}
+                placeholder={t('module.order.redemptionCodes.codePlaceholder')}
                 onChange={event =>
                   setForm(current => ({ ...current, code: event.target.value }))
                 }
@@ -284,11 +265,19 @@ const CreatorRedemptionCodeDialog = ({
               />
             </FormField>
           ) : null}
-          <FormField label={tPromotion('coupon.quantity')}>
+          <FormField
+            label={t(
+              isGenericCoupon
+                ? 'module.order.redemptionCodes.quantityLabelGeneric'
+                : 'module.order.redemptionCodes.quantityLabelSingleUse',
+            )}
+          >
             <Input
               className='h-9'
               value={form.total_count}
-              placeholder={tPromotion('coupon.quantityPlaceholder')}
+              placeholder={t(
+                'module.order.redemptionCodes.quantityPlaceholder',
+              )}
               onChange={event =>
                 setForm(current => ({
                   ...current,
@@ -296,6 +285,15 @@ const CreatorRedemptionCodeDialog = ({
                 }))
               }
             />
+            {form.usage_type ? (
+              <p className='text-xs leading-5 text-muted-foreground'>
+                {t(
+                  isGenericCoupon
+                    ? 'module.order.redemptionCodes.quantityHintGeneric'
+                    : 'module.order.redemptionCodes.quantityHintSingleUse',
+                )}
+              </p>
+            ) : null}
           </FormField>
           <FormField label={t('module.order.redemptionCodes.courseLabel')}>
             {initialShifuBid && !isEditing ? (
@@ -357,13 +355,13 @@ const CreatorRedemptionCodeDialog = ({
               </Select>
             )}
           </FormField>
-          <FormField label={tPromotion('coupon.startAt')}>
+          <FormField label={t('module.order.redemptionCodes.startAtLabel')}>
             <PromotionDateTimePicker
               value={form.start_at}
-              placeholder={tPromotion('coupon.startAt')}
+              placeholder={t('module.order.redemptionCodes.startAtLabel')}
               resetLabel={t('module.order.filters.reset')}
               clearLabel={t('common.core.close')}
-              timeLabel={tPromotion('coupon.startAt')}
+              timeLabel={t('module.order.redemptionCodes.startAtLabel')}
               defaultTime={DEFAULT_START_TIME}
               maxDateTime={form.end_at}
               onChange={nextValue =>
@@ -374,13 +372,13 @@ const CreatorRedemptionCodeDialog = ({
               }
             />
           </FormField>
-          <FormField label={tPromotion('coupon.endAt')}>
+          <FormField label={t('module.order.redemptionCodes.endAtLabel')}>
             <PromotionDateTimePicker
               value={form.end_at}
-              placeholder={tPromotion('coupon.endAt')}
+              placeholder={t('module.order.redemptionCodes.endAtLabel')}
               resetLabel={t('module.order.filters.reset')}
               clearLabel={t('common.core.close')}
-              timeLabel={tPromotion('coupon.endAt')}
+              timeLabel={t('module.order.redemptionCodes.endAtLabel')}
               defaultTime={DEFAULT_END_TIME}
               minDateTime={form.start_at}
               onChange={nextValue =>
@@ -392,6 +390,9 @@ const CreatorRedemptionCodeDialog = ({
             />
           </FormField>
         </div>
+        <p className='text-xs leading-5 text-muted-foreground'>
+          {t('module.order.redemptionCodes.dateRangeHint')}
+        </p>
         <DialogFooter>
           <Button
             type='button'
@@ -406,10 +407,12 @@ const CreatorRedemptionCodeDialog = ({
             disabled={submitting}
           >
             {submitting
-              ? t('module.order.redemptionCodes.submitting')
+              ? isEditing
+                ? t('common.core.submitting')
+                : t('module.order.redemptionCodes.submitting')
               : isEditing
                 ? tPromotion('actions.confirmUpdate')
-                : tPromotion('actions.confirmCreate')}
+                : t('module.order.redemptionCodes.submit')}
           </Button>
         </DialogFooter>
       </DialogContent>
