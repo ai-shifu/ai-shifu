@@ -46,7 +46,10 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import { ErrorWithCode } from '@/lib/request';
-import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { cn } from '@/lib/utils';
 import { getOperationOrderSourceLabel } from '../operation-order-source';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
@@ -221,10 +224,10 @@ export default function LearnOrdersTab() {
   const currencySymbol = useEnvStore(
     (state: EnvStoreState) => state.currencySymbol || '',
   );
-  const preferredLoginIdentifierType = useMemo(
+  const displayIdentifierType = useMemo(
     () =>
-      resolvePreferredLoginIdentifierType(
-        loginMethodsEnabled,
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
         defaultLoginMethod,
       ),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -277,11 +280,11 @@ export default function LearnOrdersTab() {
     });
 
   const userKeywordPlaceholder = useMemo(() => {
-    if (preferredLoginIdentifierType === 'email') {
+    if (displayIdentifierType === 'email') {
       return tOperationsOrder('filters.userKeywordPlaceholderEmail');
     }
     return tOperationsOrder('filters.userKeywordPlaceholderPhone');
-  }, [preferredLoginIdentifierType, tOperationsOrder]);
+  }, [displayIdentifierType, tOperationsOrder]);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -817,8 +820,8 @@ export default function LearnOrdersTab() {
                     const courseDetailUrl = buildAdminOperationsCourseDetailUrl(
                       order.shifu_bid,
                     );
-                    const primaryContact =
-                      preferredLoginIdentifierType === 'email'
+                    const primaryIdentifier =
+                      displayIdentifierType === 'email'
                         ? order.user_email ||
                           order.user_mobile ||
                           order.user_bid
@@ -863,11 +866,11 @@ export default function LearnOrdersTab() {
                                 href={userDetailUrl}
                                 className='block truncate text-sm font-medium text-primary transition-colors hover:text-primary/80 hover:underline'
                               >
-                                {primaryContact || EMPTY_STATE_LABEL}
+                                {primaryIdentifier || EMPTY_STATE_LABEL}
                               </Link>
                             ) : (
                               <div className='truncate text-sm font-medium text-foreground'>
-                                {primaryContact || EMPTY_STATE_LABEL}
+                                {primaryIdentifier || EMPTY_STATE_LABEL}
                               </div>
                             )}
                             <div className='truncate text-xs text-muted-foreground'>

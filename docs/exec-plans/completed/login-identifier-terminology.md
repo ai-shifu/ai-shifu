@@ -1,107 +1,131 @@
-# Clarify login identifier terminology
+# Separate deployment identifiers from interface selection and notification channels
 
 ## Purpose / Big Picture
 
-Phone and email describe login identifier types, while Google and password
-describe login methods. The shared type is used for authentication, account
-lookup, input validation and API requests as well as presentation. Rename the
-module, exported type, resolver and consumers to describe identifiers and the
-policy that chooses one preferred type.
-Deliver this foundation separately from the learner activation prompt change.
+Make login-related code readable without implying that deployment configuration
+describes a user's actual login or chooses a universal preferred account type.
+The foundation PR separates the configured identifier collection from existing
+single-field UI policy. Each consumer names its value for its own responsibility,
+including account lookup, table display and notification delivery. The dependent
+learner activation PR consumes this interface under its own product contract;
+this plan covers the shared foundation and its consumers. Neither PR is merged
+into `main` as part of this task.
 
 ## Progress
 
-- [x] 2026-10-27 05:36 UTC: Audited the resolver, its callers and forwarded props.
-- [x] 2026-10-27 05:43 UTC: Completed the shared naming migration and dependent props.
-- [x] 2026-10-27 05:45 UTC: Verified unchanged resolver behavior and consumer regressions;
-  17 app suites, six helper/auth/permission suites and three billing/permission
-  suite runs passed. Frontend lint passed with existing repository warnings.
-- [x] 2026-10-27 05:47 UTC: Independent scope review found no blockers; TypeScript,
-  architecture and repository checks passed. Reviewed acceptance and archived
-  this execution plan before preparing the standalone PR.
-
-- [x] 2026-10-27 07:02 UTC: Migrated to identifier types and preferred selection;
-  all 25 affected suites (382 tests), TypeScript and lint passed. Verified the
-  resolver body is unchanged after export-name substitution and reviewed the
-  scope before archiving the revised foundation plan.
+- [x] 2026-10-27 09:34 UTC: Audited configuration provenance and all consumers;
+  classified account identifiers separately from notification channels.
+- [x] 2026-10-27 09:40 UTC: Implemented the collection and single-field policy,
+  updated all consumers and preserved the existing delivery and account behavior.
+- [x] 2026-10-27 09:42 UTC: Verified 26 suites / 435 tests, TypeScript, lint,
+  architecture, repository harness and all-file pre-commit checks.
+- [x] 2026-10-27 09:42 UTC: Independent scope review found no blockers; reviewed
+  foundation acceptance and handed feature integration to dependent PR #3211.
 
 ## Surprises & Discoveries
 
-Google login corresponds to an email identifier. With both identifier types
-enabled, the shared resolver selects one preferred type according to the
-existing default rule.
-Some notification components use `contactMode` for SMS/email delivery rather
-than login display; those channel values retain their separate meaning.
-Duplicate local display-mode type declarations were removed in favor of the
-shared exported type, avoiding conflicting declarations after migration.
+The old resolver reads deployment configuration, not authentication history.
+Google maps to an email identifier, but the historical single-field policy uses
+phone for a mixed configuration whose default is Google. Empty or unrecognized
+configurations also use the historical default-based fallback. These are existing
+UI policies, not statements about every identifier the backend can accept.
 
-The former display-mode terminology proved too narrow for validation and
-authentication consumers. The shared model now represents identifier types;
-selection of a preferred type and presentation of a type collection are
-separate responsibilities.
+Credit notifications previously propagated the same identifier-typed value into
+account filters, managed lists, delivery controls and template API selection.
+These uses need separate props even when today's deployment policy derives them
+from the same configuration. Some account displays fall back to another stored
+identifier and others do not; this refactor preserves those product policies.
 
 ## Decision Log
 
-- Use `resolve-preferred-login-identifier-type.ts`,
-  `resolvePreferredLoginIdentifierType` and `LoginIdentifierType`.
-- Keep the shared type as `phone | email` and preserve every decision branch.
-  The dependent learner activation PR uses a `loginIdentifierTypes` collection;
-  a collection containing both types does not introduce a third identifier type.
-- Update selected-identifier variables and forwarded props together. Preserve
-  backend fields, notification channel values, independent contact-management
-  APIs, translations and analytics contracts.
-- Remove the old module and exports after migrating all repository consumers;
-  this internal frontend module is not an independently published package.
+- `login-identifiers.ts` owns `LoginIdentifierType`,
+  `resolveLoginIdentifierTypes` and `selectSingleLoginIdentifierType`.
+- The collection resolver accepts deployment methods as an array, CSV, null or
+  undefined; it normalizes case and whitespace, maps Google to email, deduplicates
+  in phone/email order and returns an empty collection for unrecognized methods.
+  It neither reads user state nor silently supplies a default identifier type.
+- The single-field selector accepts the collection and default login method.
+  It preserves the old policy: a sole configured type wins; otherwise explicit
+  email selects email and every other default selects phone. Multi-type
+  interfaces use the collection instead of this compatibility policy.
+- Use local account roles such as `displayIdentifierType`, `accountColumnType`,
+  `permissionIdentifierType` and `creatorIdentifierType`. Notification sending
+  and templates use `notificationChannel` with the existing `sms | email` type.
+  The notification page composes both policies and passes only required values
+  to its children.
+- Keep backend fields, independent contact APIs, translation keys and analytics
+  event schemas unchanged. This adds no interaction path or sending capability.
+  Existing learner validation errors stay account-neutral because parsing still
+  accepts both identifier types independently of the prompt configuration.
+- Preserve the PR stack: foundation targets `main`; learner activation targets
+  the foundation branch. Update both PRs without merging either one.
 
 ## Outcomes & Retrospective
 
-The shared module, function, type and consumer names now distinguish login
-identifier types from login methods. Notification channels remain a separate
-concept. The resolver body is identical after exported-name substitution, and affected UI regressions
-pass. The learner activation prompt commit remains on its feature branch for
-the separate dependent PR.
+The foundation implementation and acceptance are complete. All 26 affected
+Jest suites (435 tests) and the required repository gates passed. Independent
+review confirmed preserved policy, payload and fallback behavior. Integration
+with learner activation remains assigned to dependent PR #3211.
+
+The earlier rename exposed a modeling issue: replacing one generic term globally cannot express different
+consumer responsibilities. The collection and explicit UI policy make that
+distinction inspectable at the shared boundary and at each call site.
 
 ## Context and Orientation
 
-The original helper is `src/web/src/lib/resolve-contact-mode.ts`. Consumers span
-admin courses, orders, dashboards, operations, billing, verification-code login,
-permission parsing and account identifier validation. Credit notification props
-form a transitive consumer chain and must be coordinated with their producers.
+Deployment methods and the default method enter `useEnvStore` through runtime
+configuration. The shared module is
+`src/web/src/lib/login-identifiers.ts`. Its consumers span
+admin courses, orders, dashboards, operations, billing and permissions.
+Authentication and contact helpers also import its identifier type.
+`src/web/src/app/admin/operations/credit-notifications/` contains both account
+management and notification delivery. The dependent
+`components/order/ImportActivationDialog.tsx` currently repeats method-to-type
+mapping locally. Its product contract and feature validation are tracked by the dependent
+learner activation PR #3211.
 
 ## Plan of Work
 
-Rename the shared boundary without changing behavior. Migrate all imports,
-exported type uses and display-related names, preserving the distinction between
-login identifiers and notification delivery. Validate the standalone foundation,
-then place the existing learner activation prompt change on top of it.
+Introduce the collection and explicit single-field selection, then migrate all
+foundation callers with context-specific names and props. Coordinate notification
+producers and consumers in one change. Add direct configuration-policy tests and
+focused notification regressions. Validate and commit the foundation, then merge
+it into the dependent feature branch and reuse the collection for prompt copy.
+Review and update each PR description to match its final diff.
 
 ## Concrete Steps
 
-Search for the old path, function, type and display props. Apply the naming
-migration, format changed frontend files, and regenerate repository knowledge
-indexes. Run affected consumer tests, TypeScript, frontend lint, architecture,
-repository harness and all-file pre-commit checks.
+Search the old module, resolver, type and props. Inspect adjacent state and API
+uses before editing. Format changed files and run affected Jest suites,
+TypeScript and lint. Stage moved source and plan files before regenerating
+knowledge indexes. Run the developer tool doctor, architecture and repository
+checks and the all-file pre-commit gate. Commit on task branches and push each
+branch normally. Confirm the child PR still targets the foundation branch.
 
 ## Validation and Acceptance
 
-No old module/function/type imports remain. The resolver body matches the
-original after substituting only the exported names. Existing phone/email,
-Google, default-selection and fallback behavior remains unchanged. Affected
-consumer regressions and repository checks pass on the foundation branch.
+The shared collection matrix covers normalization, CSV and array input, Google,
+duplicates, empty and unknown methods. The single-field matrix preserves sole,
+mixed and empty-configuration behavior across default methods. Notification
+tests prove account type and channel props remain distinct and preserve template
+APIs and delivery controls. Existing permissions, billing, display, query and
+learner activation regressions pass. No old preferred resolver imports remain;
+no API payload, analytics schema or delivery behavior changes are introduced.
 
 ## Idempotence and Recovery
 
-No database, dependency, persisted configuration or external API migration is
-required. Revert the foundation commit together with any dependent feature
-commit that imports its new module. Keep the two PRs separately reviewable.
+No database, dependency or persisted configuration migration is required. Revert
+the foundation and its dependent feature integration together if rollback is
+needed. Avoid history rewriting; retain separate reviewable PRs and preserve
+their base/head relationship. Do not merge either PR into `main`.
 
 ## Interfaces and Dependencies
 
-`LoginIdentifierType` is `email | phone`.
-Consumers that resolve one preferred type use `preferredLoginIdentifierType`;
-normalization and verification helpers accept an identifier type independently
-of that preference policy.
-`resolvePreferredLoginIdentifierType` accepts the same enabled-method array, CSV,
-null or undefined input and optional default login method. Independent contact
-identifier and permission helpers adopt the new imported type without renaming
-their own APIs. Notification delivery continues to use the same SMS/email values.
+`LoginIdentifierType` remains `email | phone`.
+`resolveLoginIdentifierTypes(methods)` returns a readonly collection of those
+types. `selectSingleLoginIdentifierType(types, defaultMethod)` returns one type
+solely for existing interfaces that require one. Notification channels keep the
+existing `CreditNotificationRule['channel']` contract. Account-related child
+props use identifier types; delivery-related props use notification channels.
+The feature PR consumes the same collection and supplies its existing explicit
+fallback only when the collection is empty.

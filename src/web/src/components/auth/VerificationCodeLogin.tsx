@@ -17,7 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCaptchaTicket } from '@/hooks/useCaptchaTicket';
 import { useToast } from '@/hooks/useToast';
 import i18n from '@/i18n';
-import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { cn } from '@/lib/utils';
 import { isValidEmail, isValidPhoneNumber } from '@/lib/validators';
 import type { ReferralLoginMetadata } from '@/types/referral';

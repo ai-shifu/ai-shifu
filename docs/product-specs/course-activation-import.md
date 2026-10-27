@@ -19,8 +19,8 @@ Dialog descriptions, account labels, examples and required-field messages follow
 the runtime login configuration. Phone-only deployments show phone prompts;
 email or Google login shows email prompts. When phone and email-based login
 are both enabled, prompts show both types regardless of the default login
-method. If no phone or email-based method is configured, the shared fallback
-chooses the login identifier type from the default login method. This guidance
+method. If no phone or email-based method is configured, the dialog explicitly
+applies the existing single-field fallback using the default login method. This guidance
 does not change account parsing, mixed-list compatibility, request grouping or
 analytics eligibility.
 
@@ -28,14 +28,17 @@ Invalid-row and duplicate-account errors use type-neutral account wording.
 The parser accepts both identifier types regardless of the configured prompt
 guidance, so an off-mode account must not be mislabeled by that guidance.
 
-The dialog derives a deduplicated `loginIdentifierTypes` collection of
-`LoginIdentifierType` values from the enabled login methods. Google and email
+The dialog uses `resolveLoginIdentifierTypes` from `lib/login-identifiers.ts`
+to derive a deduplicated `loginIdentifierTypes` collection of
+`LoginIdentifierType` values from the deployment's enabled login methods. Google and email
 both contribute the same `email` identifier type; phone contributes `phone`.
-If the collection would be empty, `resolvePreferredLoginIdentifierType`
-supplies the existing fallback. Configuration-specific translations receive
+If the collection is empty, the dialog explicitly calls
+`selectSingleLoginIdentifierType` to retain its existing prompt fallback.
+The collection itself represents configuration, not the current user's login
+method or a global preference. Configuration-specific translations receive
 `hasPhoneIdentifier` and `hasEmailIdentifier` membership flags derived from the
-collection. Showing both
-types is a presentation combination, not a third identifier type. Changes to
+collection. Showing both types is a presentation combination, not a third
+identifier type. Changes to
 runtime settings update the prompts without clearing the current input.
 
 The course-card help refers to learner accounts without listing identifier

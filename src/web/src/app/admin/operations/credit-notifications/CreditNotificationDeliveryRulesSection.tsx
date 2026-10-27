@@ -1,4 +1,3 @@
-import type { LoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/Badge';
@@ -10,7 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import type { AdminOperationCreditNotificationPolicy } from '../operation-credit-notification-types';
+import type {
+  AdminOperationCreditNotificationPolicy,
+  CreditNotificationRule,
+} from '../operation-credit-notification-types';
 import { cn } from '@/lib/utils';
 import { CreditNotificationConfigSection as ConfigSection } from './CreditNotificationFormPrimitives';
 import {
@@ -22,7 +24,7 @@ import {
 import type { UpdatePolicy } from './useCreditNotificationConfigTabState';
 
 export type CreditNotificationDeliveryRulesSectionProps = {
-  preferredLoginIdentifierType: LoginIdentifierType;
+  notificationChannel: CreditNotificationRule['channel'];
   policy: AdminOperationCreditNotificationPolicy;
   updatePolicy: UpdatePolicy;
   getIntegerInputValue: (path: string, value: number) => string;
@@ -83,7 +85,7 @@ function RuleSummaryCard({
 }
 
 export function CreditNotificationDeliveryRulesSection({
-  preferredLoginIdentifierType,
+  notificationChannel,
   policy,
   updatePolicy,
   getIntegerInputValue,
@@ -107,7 +109,7 @@ export function CreditNotificationDeliveryRulesSection({
           policy.frequency.per_mobile_per_day > 0 ||
           policy.frequency.per_creator_per_type_per_day > 0,
         summary:
-          preferredLoginIdentifierType === 'email'
+          notificationChannel === 'email'
             ? t(
                 'module.operationsCreditNotifications.config.deliveryRules.summaries.frequencyEmail',
                 {
@@ -149,7 +151,7 @@ export function CreditNotificationDeliveryRulesSection({
         ),
         active: policy.softlimit.enabled,
         summary:
-          preferredLoginIdentifierType === 'email'
+          notificationChannel === 'email'
             ? t(
                 'module.operationsCreditNotifications.config.deliveryRules.summaries.softlimitEmail',
                 {
@@ -170,7 +172,7 @@ export function CreditNotificationDeliveryRulesSection({
       },
     ];
 
-    if (preferredLoginIdentifierType === 'phone') {
+    if (notificationChannel === 'sms') {
       items.splice(2, 0, {
         key: 'budget',
         title: t('module.operationsCreditNotifications.config.sections.budget'),
@@ -188,7 +190,7 @@ export function CreditNotificationDeliveryRulesSection({
     }
 
     return items;
-  }, [preferredLoginIdentifierType, no, policy, t, yes]);
+  }, [notificationChannel, no, policy, t, yes]);
 
   return (
     <>
@@ -197,7 +199,7 @@ export function CreditNotificationDeliveryRulesSection({
           'module.operationsCreditNotifications.config.sections.deliveryPolicy',
         )}
         description={t(
-          preferredLoginIdentifierType === 'email'
+          notificationChannel === 'email'
             ? 'module.operationsCreditNotifications.config.deliveryRules.descriptionEmail'
             : 'module.operationsCreditNotifications.config.deliveryRules.description',
         )}
@@ -238,7 +240,7 @@ export function CreditNotificationDeliveryRulesSection({
             </DialogTitle>
             <DialogDescription>
               {t(
-                preferredLoginIdentifierType === 'email'
+                notificationChannel === 'email'
                   ? 'module.operationsCreditNotifications.config.deliveryRules.dialogDescriptionEmail'
                   : 'module.operationsCreditNotifications.config.deliveryRules.dialogDescription',
               )}
@@ -246,7 +248,7 @@ export function CreditNotificationDeliveryRulesSection({
           </DialogHeader>
           <div className='grid gap-4 xl:grid-cols-2'>
             <FrequencyCard
-              preferredLoginIdentifierType={preferredLoginIdentifierType}
+              notificationChannel={notificationChannel}
               policy={policy}
               updatePolicy={updatePolicy}
               getIntegerInputValue={getIntegerInputValue}
@@ -257,9 +259,9 @@ export function CreditNotificationDeliveryRulesSection({
               policy={policy}
               updatePolicy={updatePolicy}
             />
-            {preferredLoginIdentifierType === 'phone' ? (
+            {notificationChannel === 'sms' ? (
               <BudgetCard
-                preferredLoginIdentifierType={preferredLoginIdentifierType}
+                notificationChannel={notificationChannel}
                 policy={policy}
                 updatePolicy={updatePolicy}
                 getIntegerInputValue={getIntegerInputValue}
@@ -268,7 +270,7 @@ export function CreditNotificationDeliveryRulesSection({
               />
             ) : null}
             <SoftlimitCard
-              preferredLoginIdentifierType={preferredLoginIdentifierType}
+              notificationChannel={notificationChannel}
               policy={policy}
               updatePolicy={updatePolicy}
             />

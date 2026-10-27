@@ -9,7 +9,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { formatOperatorUtcDateTime } from '../dateTime';
 import type {
   AdminOperationUserCourseItem,
@@ -82,36 +85,36 @@ export default function useUserDetailViewModel({
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
 
-  const preferredLoginIdentifierType = useMemo(
+  const displayIdentifierType = useMemo(
     () =>
-      resolvePreferredLoginIdentifierType(
-        loginMethodsEnabled,
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
         defaultLoginMethod,
       ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
-  const contactLabel = useMemo(
+  const identifierLabel = useMemo(
     () =>
-      preferredLoginIdentifierType === 'email'
+      displayIdentifierType === 'email'
         ? tOperationsUsers('table.email')
         : tOperationsUsers('table.mobile'),
-    [preferredLoginIdentifierType, tOperationsUsers],
+    [displayIdentifierType, tOperationsUsers],
   );
-  const contactValue = useMemo(
+  const identifierValue = useMemo(
     () =>
-      preferredLoginIdentifierType === 'email'
+      displayIdentifierType === 'email'
         ? detail.email || detail.mobile
         : detail.mobile || detail.email,
-    [preferredLoginIdentifierType, detail.email, detail.mobile],
+    [displayIdentifierType, detail.email, detail.mobile],
   );
   const creditOwnerLabel = useMemo(() => {
     const mobile = detail.mobile || '';
-    const displayName = detail.nickname || contactValue || userBid || '';
+    const displayName = detail.nickname || identifierValue || userBid || '';
     if (mobile && displayName && displayName !== mobile) {
       return `${mobile} / ${displayName}`;
     }
     return mobile || displayName || EMPTY_VALUE;
-  }, [contactValue, detail.mobile, detail.nickname, userBid]);
+  }, [identifierValue, detail.mobile, detail.nickname, userBid]);
   const creditSummary = useMemo<AdminOperationUserCreditSummary>(
     () => ({
       available_credits:
@@ -212,8 +215,8 @@ export default function useUserDetailViewModel({
     }> = [
       {
         key: 'contact',
-        label: contactLabel,
-        value: contactValue,
+        label: identifierLabel,
+        value: identifierValue,
       },
       {
         key: 'nickname',
@@ -266,8 +269,8 @@ export default function useUserDetailViewModel({
     }
     return items;
   }, [
-    contactLabel,
-    contactValue,
+    identifierLabel,
+    identifierValue,
     defaultUserName,
     detail.cancelled_at,
     detail.cancellation_operator_user_bid,

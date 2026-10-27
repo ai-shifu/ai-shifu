@@ -9,7 +9,10 @@ import { Button } from '@/components/ui/Button';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { resolvePreferredLoginIdentifierType } from '@/lib/resolve-preferred-login-identifier-type';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import AdminOperationsBreadcrumb from '../../AdminOperationsBreadcrumb';
@@ -160,8 +163,8 @@ export default function AdminOperationUserDetailPage() {
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const preferredLoginIdentifierType = resolvePreferredLoginIdentifierType(
-    loginMethodsEnabled,
+  const editableIdentifierType = selectSingleLoginIdentifierType(
+    resolveLoginIdentifierTypes(loginMethodsEnabled),
     defaultLoginMethod,
   );
   const {
@@ -329,7 +332,7 @@ export default function AdminOperationUserDetailPage() {
                     onClick={() => setContactChangeOpen(true)}
                   >
                     {tOperationsUsers(
-                      `contactChange.${preferredLoginIdentifierType}.action`,
+                      `contactChange.${editableIdentifierType}.action`,
                     )}
                   </Button>
                 ) : null
@@ -420,11 +423,9 @@ export default function AdminOperationUserDetailPage() {
           <UserContactChangeDialog
             open={contactChangeOpen}
             userBid={userBid}
-            contactType={preferredLoginIdentifierType}
+            contactType={editableIdentifierType}
             currentIdentifier={
-              preferredLoginIdentifierType === 'email'
-                ? detail.email
-                : detail.mobile
+              editableIdentifierType === 'email' ? detail.email : detail.mobile
             }
             onOpenChange={setContactChangeOpen}
             onChanged={() => retryDetail()}

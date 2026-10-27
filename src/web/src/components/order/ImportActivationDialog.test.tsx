@@ -204,6 +204,8 @@ describe('ImportActivationDialog validation', () => {
     },
     { methods: [], defaultMethod: 'email', label: 'Email' },
     { methods: [], defaultMethod: 'phone', label: '手机号' },
+    { methods: ['password'], defaultMethod: 'email', label: 'Email' },
+    { methods: ['unknown'], defaultMethod: 'google', label: '手机号' },
     {
       methods: ['email', ' GOOGLE ', 'google'],
       defaultMethod: 'phone',

@@ -27,9 +27,10 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import {
-  resolvePreferredLoginIdentifierType,
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
   type LoginIdentifierType,
-} from '@/lib/resolve-preferred-login-identifier-type';
+} from '@/lib/login-identifiers';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   Table,
@@ -94,10 +95,10 @@ export default function ReferralCampaignRecordsDialog({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const preferredLoginIdentifierType = React.useMemo(
+  const searchIdentifierType = React.useMemo(
     () =>
-      resolvePreferredLoginIdentifierType(
-        loginMethodsEnabled,
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
         defaultLoginMethod,
       ),
     [defaultLoginMethod, loginMethodsEnabled],
@@ -172,7 +173,7 @@ export default function ReferralCampaignRecordsDialog({
               <ReferralCampaignInvitationsPanel
                 campaignBid={campaignBid}
                 enabled={open && Boolean(campaignBid)}
-                preferredLoginIdentifierType={preferredLoginIdentifierType}
+                searchIdentifierType={searchIdentifierType}
                 t={t}
                 tPromotion={tPromotion}
               />
@@ -187,13 +188,13 @@ export default function ReferralCampaignRecordsDialog({
 function ReferralCampaignInvitationsPanel({
   campaignBid,
   enabled,
-  preferredLoginIdentifierType,
+  searchIdentifierType,
   t,
   tPromotion,
 }: {
   campaignBid: string;
   enabled: boolean;
-  preferredLoginIdentifierType: LoginIdentifierType;
+  searchIdentifierType: LoginIdentifierType;
   t: (key: string, values?: Record<string, unknown>) => string;
   tPromotion: (key: string, values?: Record<string, unknown>) => string;
 }) {
@@ -212,7 +213,7 @@ function ReferralCampaignInvitationsPanel({
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const inviterPlaceholder =
-    preferredLoginIdentifierType === 'email'
+    searchIdentifierType === 'email'
       ? tPromotion('referralCampaign.records.inviterEmailPlaceholder')
       : tPromotion('referralCampaign.records.inviterMobilePlaceholder');
 

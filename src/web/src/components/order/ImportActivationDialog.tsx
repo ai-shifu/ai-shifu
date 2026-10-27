@@ -48,9 +48,10 @@ import { ChevronDown } from 'lucide-react';
 import type { Shifu } from '@/types/shifu';
 import { useEnvStore } from '@/store';
 import {
-  resolvePreferredLoginIdentifierType,
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
   type LoginIdentifierType,
-} from '@/lib/resolve-preferred-login-identifier-type';
+} from '@/lib/login-identifiers';
 
 interface ImportActivationDialogProps {
   open: boolean;
@@ -237,22 +238,12 @@ const ImportActivationDialog = ({
   const loginIdentifierTypes = React.useMemo<
     ReadonlyArray<LoginIdentifierType>
   >(() => {
-    const loginMethods = loginMethodsEnabled.map(method =>
-      method.trim().toLowerCase(),
-    );
-    const identifierTypes: LoginIdentifierType[] = [];
-    if (loginMethods.includes('phone')) identifierTypes.push('phone');
-    if (loginMethods.includes('email') || loginMethods.includes('google')) {
-      identifierTypes.push('email');
-    }
+    const identifierTypes = resolveLoginIdentifierTypes(loginMethodsEnabled);
+    // Keep the existing prompt fallback only when deployment methods provide no
+    // identifier guidance. Configured multi-type deployments retain both types.
     return identifierTypes.length > 0
       ? identifierTypes
-      : [
-          resolvePreferredLoginIdentifierType(
-            loginMethodsEnabled,
-            defaultLoginMethod,
-          ),
-        ];
+      : [selectSingleLoginIdentifierType(identifierTypes, defaultLoginMethod)];
   }, [defaultLoginMethod, loginMethodsEnabled]);
   const hasPhoneIdentifier = loginIdentifierTypes.includes('phone');
   const hasEmailIdentifier = loginIdentifierTypes.includes('email');
