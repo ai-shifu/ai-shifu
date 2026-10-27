@@ -46,6 +46,12 @@ import {
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import type { Shifu } from '@/types/shifu';
+import { useEnvStore } from '@/store';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/login-identifiers';
 
 interface ImportActivationDialogProps {
   open: boolean;
@@ -58,7 +64,7 @@ interface ImportActivationDialogProps {
 interface ImportActivationEntry {
   mobile: string;
   nickname: string;
-  contactType: 'phone' | 'email';
+  identifierType: LoginIdentifierType;
 }
 
 type ActivationFailure = { mobile: string; message: string };
@@ -173,7 +179,7 @@ const parseImportText = (
 
     const emails = findEmailMatches(line);
     const matches = [
-      ...emails.map(match => ({ ...match, contactType: 'email' as const })),
+      ...emails.map(match => ({ ...match, identifierType: 'email' as const })),
       ...findPhoneMatches(line)
         .filter(
           phone =>
@@ -184,7 +190,7 @@ const parseImportText = (
                   email.index + email.value.length,
             ),
         )
-        .map(match => ({ ...match, contactType: 'phone' as const })),
+        .map(match => ({ ...match, identifierType: 'phone' as const })),
     ];
     const match = matches[0];
     if (
@@ -198,9 +204,11 @@ const parseImportText = (
     }
     entries.push({
       mobile:
-        match.contactType === 'email' ? match.value.toLowerCase() : match.value,
+        match.identifierType === 'email'
+          ? match.value.toLowerCase()
+          : match.value,
       nickname: trimNickname(line.slice(match.value.length)),
-      contactType: match.contactType,
+      identifierType: match.identifierType,
     });
   }
 
@@ -225,6 +233,20 @@ const ImportActivationDialog = ({
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { trackEvent } = useTracking();
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
+  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
+  const loginIdentifierTypes = React.useMemo<
+    ReadonlyArray<LoginIdentifierType>
+  >(() => {
+    const identifierTypes = resolveLoginIdentifierTypes(loginMethodsEnabled);
+    // Keep the existing prompt fallback only when deployment methods provide no
+    // identifier guidance. Configured multi-type deployments retain both types.
+    return identifierTypes.length > 0
+      ? identifierTypes
+      : [selectSingleLoginIdentifierType(identifierTypes, defaultLoginMethod)];
+  }, [defaultLoginMethod, loginMethodsEnabled]);
+  const hasPhoneIdentifier = loginIdentifierTypes.includes('phone');
+  const hasEmailIdentifier = loginIdentifierTypes.includes('email');
   const [courses, setCourses] = React.useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = React.useState(false);
   const [coursesError, setCoursesError] = React.useState<string | null>(null);
@@ -254,22 +276,34 @@ const ImportActivationDialog = ({
   const joinedIdentifiers = React.useMemo(() => {
     return pendingIdentifiers.join(listSeparator);
   }, [listSeparator, pendingIdentifiers]);
-  const contactLabel = t('module.order.importActivation.mobileLabel');
-  const contactPlaceholder = t(
+  const identifierLabel = t('module.order.importActivation.mobileLabel', {
+    hasPhoneIdentifier,
+    hasEmailIdentifier,
+  });
+  const identifierPlaceholder = t(
     'module.order.importActivation.mobilePlaceholder',
+    { hasPhoneIdentifier, hasEmailIdentifier },
   );
-  const contactHint = t('module.order.importActivation.mobileHint');
-  const contactRequiredMessage = t(
+  const identifierHint = t('module.order.importActivation.mobileHint', {
+    hasPhoneIdentifier,
+    hasEmailIdentifier,
+  });
+  const identifierRequiredMessage = t(
     'module.order.importActivation.mobileRequired',
+    { hasPhoneIdentifier, hasEmailIdentifier },
   );
   const buildInvalidMessage = React.useCallback(
     (values: string) =>
-      t('module.order.importActivation.mobileInvalidLines', { values }),
+      t('module.order.importActivation.mobileInvalidLines', {
+        values,
+      }),
     [t],
   );
   const buildDuplicateMessage = React.useCallback(
     (numbers: string) =>
-      t('module.order.importActivation.mobileDuplicate', { numbers }),
+      t('module.order.importActivation.mobileDuplicate', {
+        numbers,
+      }),
     [t],
   );
   const buildLimitMessage = React.useCallback(
@@ -286,14 +320,14 @@ const ImportActivationDialog = ({
   const formSchema = React.useMemo(
     () =>
       z.object({
-        mobile: z.string().trim().min(1, contactRequiredMessage),
+        mobile: z.string().trim().min(1, identifierRequiredMessage),
         course_id: z
           .string()
           .trim()
           .min(1, t('module.order.importActivation.courseRequired')),
         user_nick_name: z.string().optional(),
       }),
-    [contactRequiredMessage, t],
+    [identifierRequiredMessage, t],
   );
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -350,7 +384,7 @@ const ImportActivationDialog = ({
     [confirmationCourseName, joinedIdentifiers, pendingIdentifiers.length, t],
   );
 
-  const normalizeContactField = React.useCallback(
+  const normalizeIdentifierField = React.useCallback(
     (value: string) => {
       const { entries, normalizedText, invalidItems } = parseImportText(value);
       if (
@@ -386,7 +420,7 @@ const ImportActivationDialog = ({
     }
     if (entries.length === 0) {
       form.setError('mobile', {
-        message: contactRequiredMessage,
+        message: identifierRequiredMessage,
       });
       return;
     }
@@ -451,14 +485,16 @@ const ImportActivationDialog = ({
     isImportingRef.current = true;
     setIsImporting(true);
     const groups = (['phone', 'email'] as const)
-      .map(contactType => ({
-        contactType,
-        entries: entries.filter(entry => entry.contactType === contactType),
+      .map(identifierType => ({
+        identifierType,
+        entries: entries.filter(
+          entry => entry.identifierType === identifierType,
+        ),
       }))
       .filter(group => group.entries.length > 0);
     const analyticsContext = {
       surface: initialCourseId ? 'admin_course_list' : 'admin_orders',
-      contact_mode: groups.length === 2 ? 'mixed' : groups[0].contactType,
+      contact_mode: groups.length === 2 ? 'mixed' : groups[0].identifierType,
       requested_count: entries.length,
     };
     sendActivationAnalytics(
@@ -479,7 +515,7 @@ const ImportActivationDialog = ({
                 : entry.mobile,
             ),
             course_id: courseId,
-            contact_type: group.contactType,
+            contact_type: group.identifierType,
             ...(defaultNickname ? { user_nick_name: defaultNickname } : {}),
           })) as ActivationResponse;
           outcomes.push({ status: 'fulfilled', value });
@@ -696,7 +732,10 @@ const ImportActivationDialog = ({
               {t('module.order.importActivation.title')}
             </DialogTitle>
             <DialogDescription>
-              {t('module.order.importActivation.description')}
+              {t('module.order.importActivation.description', {
+                hasPhoneIdentifier,
+                hasEmailIdentifier,
+              })}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -709,12 +748,12 @@ const ImportActivationDialog = ({
                 name='mobile'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{contactLabel}</FormLabel>
+                    <FormLabel>{identifierLabel}</FormLabel>
                     <FormControl>
                       <Textarea
                         autoComplete='off'
                         data-bidi='ltr'
-                        placeholder={contactPlaceholder}
+                        placeholder={identifierPlaceholder}
                         className='min-h-[80px]'
                         maxLength={MAX_IMPORT_TEXT_LENGTH}
                         {...field}
@@ -722,11 +761,11 @@ const ImportActivationDialog = ({
                         onChange={e => field.onChange(e.target.value)}
                         onBlur={event => {
                           field.onBlur();
-                          normalizeContactField(event.target.value);
+                          normalizeIdentifierField(event.target.value);
                         }}
                       />
                     </FormControl>
-                    <FormDescription>{contactHint}</FormDescription>
+                    <FormDescription>{identifierHint}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

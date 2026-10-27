@@ -2,7 +2,7 @@
 title: Course activation import
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-27
 canonical: true
 ---
 
@@ -15,8 +15,38 @@ checks ignore case. Invalid rows, duplicates and lists exceeding 50 entries
 must be corrected before confirmation. The existing nickname parsing rules
 remain unchanged; this feature makes no promise to overwrite existing nicknames.
 
-The course-card entry binds the selected course and hides the redundant course
-field. The orders-page entry retains the published-course selector. The review
+Dialog descriptions, account labels, examples and required-field messages follow
+the runtime login configuration. Phone-only deployments show phone prompts;
+email or Google login shows email prompts. When phone and email-based login
+are both enabled, prompts show both types regardless of the default login
+method. If no phone or email-based method is configured, the dialog explicitly
+applies the existing single-field selector policy: an explicit `email` default
+selects `email`; otherwise the legacy `phone` fallback applies, including for a
+`google` default. This guidance does not change account parsing, mixed-list
+compatibility, request grouping or analytics eligibility.
+
+Invalid-row and duplicate-account errors use type-neutral account wording.
+The parser accepts both identifier types regardless of the configured prompt
+guidance, so an off-mode account must not be mislabeled by that guidance.
+
+The dialog uses `resolveLoginIdentifierTypes` from `lib/login-identifiers.ts`
+to derive a deduplicated `loginIdentifierTypes` collection of
+`LoginIdentifierType` values from the deployment's enabled login methods. Google
+and email both contribute the same `email` identifier type; phone contributes
+`phone`.
+If the collection is empty, the dialog explicitly calls
+`selectSingleLoginIdentifierType` to retain its existing prompt fallback.
+The collection itself represents configuration, not the current user's login
+method or a global preference. Configuration-specific translations receive
+`hasPhoneIdentifier` and `hasEmailIdentifier` membership flags derived from the
+collection. Showing both types is a presentation combination, not a third
+identifier type. Changes to runtime settings update the prompts without clearing
+the current input.
+
+The course-card help refers to learner accounts without listing identifier
+types, so it remains accurate for every login configuration. The dialog
+provides the configuration-specific guidance. The course-card entry binds the
+selected course and hides the redundant course field. The orders-page entry retains the published-course selector. The review
 step identifies the course before the teacher confirms activation.
 
 The existing API accepts one contact type per request. The frontend groups the
