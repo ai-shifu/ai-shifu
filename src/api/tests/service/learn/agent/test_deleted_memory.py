@@ -1,4 +1,4 @@
-"""Deletion must reach resumed model inputs and defeat stale in-flight writes."""
+"""Deletion updates current memory and defeats stale in-flight writes."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from flaskr.service.profile.api import delete_course_memory, list_course_memory
 from flaskr.service.profile.models import VariableValue
 from flaskr.service.user.repository import create_user_entity
 from markdownflow.engine import Engine, Session
+from markdownflow.engine.memory_context import parse_initial_memory_prompt
 from markdownflow.engine.script import ScriptBundle
 from pydantic_ai.messages import (
     ModelMessage,
@@ -38,7 +39,7 @@ if TYPE_CHECKING:
 def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
     size: int,
 ) -> None:
-    """Remove deleted facts from host input without editing conversation evidence."""
+    """Remove current facts from memory without rewriting saved prompt text."""
     value = "</memory>" + "x" * size
     bundle = ScriptBundle(
         script="Use {{goal}} at {{pace}} pace.", constraints="Consider {{goal}}."
@@ -46,6 +47,9 @@ def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
     prompt = expanded_initial_prompt(
         bundle, {"goal": value, "pace": "slow"}, memory_limit=32768
     )
+    parsed = parse_initial_memory_prompt(prompt)
+    assert parsed is not None
+    saved_suffix = prompt[parsed.script_start :]
     later = ModelRequest(
         parts=[
             UserPromptPart("<memory>" + value),
@@ -56,17 +60,22 @@ def test_refresh_removes_deleted_inputs_but_preserves_answers_and_tool_history(
         script=bundle,
         user_memory={"goal": value, "pace": "slow"},
         memory={"goal": value},
+        answer_hashes={"goal": "old fingerprint"},
+        initial_variables={"goal": value, "pace": "slow"},
         messages=[ModelRequest(parts=[UserPromptPart(prompt)]), later],
         answers={"pending": value},
         request_inputs=[value],
     )
     refresh_deleted_memory(session, frozenset({"goal"}))
     first = session.messages[0].parts[0].content
-    assert "goal" not in json.JSONDecoder().raw_decode(first, len("<memory>\n"))[0]
-    assert 'Use <unavailable_learner_value name="goal" /> at slow pace.' in first
-    assert 'Consider <unavailable_learner_value name="goal" />.' in first
-    assert value not in first
+    current = parse_initial_memory_prompt(first)
+    assert current is not None
+    assert "goal" not in current.memory
+    assert first[current.script_start :] == saved_suffix
+    assert value in saved_suffix
     assert "goal" not in session.all_memory()
+    assert "goal" not in session.answer_hashes
+    assert session.initial_variables == {"goal": value, "pace": "slow"}
     assert session.messages[1] is later
     assert session.answers["pending"] == value
     assert session.request_inputs == [value]
@@ -184,10 +193,10 @@ def test_unknown_initial_history_remains_classroom_evidence() -> None:
 
 
 @pytest.mark.parametrize("renamed", [False, True])
-def test_omitted_initial_substitution_survives_value_changes_and_roundtrip(
+def test_saved_prompt_and_snapshot_survive_memory_changes_and_roundtrip(
     renamed: bool,
 ) -> None:
-    """Keep complete substituted facts removable after projection and reload."""
+    """Refresh current memory while retaining the old prompt and initial snapshot."""
 
     async def scenario() -> None:
         """Exercise changed session values, optional renaming and repeated deletion."""
@@ -228,24 +237,26 @@ def test_omitted_initial_substitution_survives_value_changes_and_roundtrip(
             "goal": original,
             "sys_user_nickname": "Before",
         }
+        snapshot = dict(session.initial_variables)
+        parsed = parse_initial_memory_prompt(first)
+        assert parsed is not None
+        saved_suffix = first[parsed.script_start :]
         session.memory["goal"] = "later changed value"
         session = Session.loads(session.dumps())
         if renamed:
             from flaskr.service.learn.agent.nickname import refresh_nickname
 
             refresh_nickname(session, {"sys_user_nickname": "After"})
-            assert "After" in session.messages[0].parts[0].content
         refresh_deleted_memory(session, frozenset({"goal"}))
         first = session.messages[0].parts[0].content
-        assert original not in first
-        assert (
-            f'Use <unavailable_learner_value name="goal" /> for {"After" if renamed else "Before"}.'
-            in first
-        )
-        assert 'Consider <unavailable_learner_value name="goal" />.' in first
-        assert session.initial_variables == {
-            "sys_user_nickname": "After" if renamed else "Before"
-        }
+        current = parse_initial_memory_prompt(first)
+        assert current is not None
+        assert "goal" not in current.memory
+        assert "goal" not in session.all_memory()
+        assert current.memory["sys_user_nickname"] == ("After" if renamed else "Before")
+        assert first[current.script_start :] == saved_suffix
+        assert original in saved_suffix
+        assert session.initial_variables == snapshot
         once = session.dumps()
         refresh_deleted_memory(session, frozenset({"goal"}))
         assert session.dumps() == once

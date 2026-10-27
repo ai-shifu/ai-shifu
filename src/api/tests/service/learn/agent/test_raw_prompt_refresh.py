@@ -10,9 +10,10 @@ from pydantic_ai.messages import ModelRequest, ToolReturnPart, UserPromptPart
 from tests.service.learn.agent.prompt_fixtures import expanded_initial_prompt
 
 
+@pytest.mark.parametrize("expanded", [False, True])
 @pytest.mark.parametrize("memory_limit", [None, 150])
-def test_raw_nickname_refresh_changes_only_initial_memory(
-    memory_limit: int | None,
+def test_nickname_refresh_changes_only_initial_memory(
+    memory_limit: int | None, expanded: bool
 ) -> None:
     bundle = ScriptBundle(
         script="Hello {{sys_user_nickname}}. Use {{goal}}.",
@@ -20,7 +21,8 @@ def test_raw_nickname_refresh_changes_only_initial_memory(
         extras={"example": "{{sys_user_nickname}} and {{goal}}"},
     )
     memory = {"sys_user_nickname": "Alex", "goal": "x" * 1000}
-    prompt = render_first_prompt(bundle, memory, memory_limit=memory_limit)
+    render = expanded_initial_prompt if expanded else render_first_prompt
+    prompt = render(bundle, memory, memory_limit=memory_limit)
     prompt += "\n\nMy original question contains {{goal}}."
     parsed = parse_initial_memory_prompt(prompt)
     assert parsed is not None
@@ -34,6 +36,7 @@ def test_raw_nickname_refresh_changes_only_initial_memory(
     session = Session(
         script=bundle,
         user_memory=dict(memory),
+        initial_variables=dict(memory),
         messages=[ModelRequest(parts=[UserPromptPart(prompt)]), later],
         answers={"old-answer": "Learner wrote: Alex"},
     )
@@ -46,32 +49,29 @@ def test_raw_nickname_refresh_changes_only_initial_memory(
     assert refreshed[current.script_start :] == suffix
     assert session.messages[1] is later
     assert session.answers == {"old-answer": "Learner wrote: Alex"}
+    assert session.initial_variables == memory
     once = session.dumps()
     refresh_nickname(session, {"sys_user_nickname": "Sam"})
     assert session.dumps() == once
 
 
-@pytest.mark.parametrize(
-    ("old_brief", "new_brief"),
-    [
-        ("Use {{goal}} in {{sys_user_nickname}}'s example.", None),
-        ("Use {{goal}} in {{sys_user_nickname}}'s example.", "New {{goal}} brief."),
-        ("Use {{goal}} in {{sys_user_nickname}}'s example.", ""),
-        (None, "Added {{goal}} brief."),
-    ],
-)
-def test_raw_deletion_and_brief_refresh_preserve_authored_text_and_history(
-    old_brief: str | None, new_brief: str | None
+@pytest.mark.parametrize("expanded", [False, True])
+@pytest.mark.parametrize("recreated", [False, True])
+def test_deletion_changes_only_memory_for_saved_prompt_formats(
+    expanded: bool, recreated: bool
 ) -> None:
     bundle = ScriptBundle(
         script="Hello {{sys_user_nickname}}. Use {{goal}}.",
-        constraints=old_brief,
+        constraints="Use {{goal}} in {{sys_user_nickname}}'s example.",
         extras={"example": "{{goal}} must stay verbatim."},
     )
-    prompt = render_first_prompt(
-        bundle, {"goal": "Deleted fact", "sys_user_nickname": "Alex"}
-    )
+    initial = {"goal": "Deleted fact", "sys_user_nickname": "Alex"}
+    writer = expanded_initial_prompt if expanded else render_first_prompt
+    prompt = writer(bundle, initial)
     tail = "\n\nMy syntax question contains {{goal}}."
+    parsed = parse_initial_memory_prompt(prompt)
+    assert parsed is not None
+    suffix = prompt[parsed.script_start :] + tail
     later = ModelRequest(
         parts=[
             UserPromptPart("My actual earlier answer."),
@@ -81,48 +81,22 @@ def test_raw_deletion_and_brief_refresh_preserve_authored_text_and_history(
     session = Session(
         script=bundle,
         memory={"goal": "Deleted fact"},
-        user_memory={"goal": "Deleted fact", "sys_user_nickname": "Alex"},
+        user_memory=dict(initial),
+        initial_variables=dict(initial),
         messages=[ModelRequest(parts=[UserPromptPart(prompt + tail)]), later],
         answers={"old-answer": "Learner wrote: Deleted fact"},
     )
-    refresh_deleted_memory(session, frozenset({"goal"}), constraints=new_brief)
+    current = {"goal": "Recreated fact"} if recreated else {}
+    refresh_deleted_memory(session, frozenset({"goal"}), current=current)
     refreshed = session.messages[0].parts[0].content
     parsed = parse_initial_memory_prompt(refreshed)
     assert parsed is not None
-    assert parsed.memory == {"sys_user_nickname": "Alex"}
-    assert "goal" not in session.all_memory()
-    expected_brief = old_brief if new_brief is None else new_brief
-    expected = f"<script>\n{bundle.script}\n</script>"
-    if expected_brief:
-        expected += f"\n\n<constraints>\n{expected_brief}\n</constraints>"
-    expected += f'\n\n<extra name="example">\n{bundle.extras["example"]}\n</extra>'
-    assert refreshed[parsed.script_start :] == expected + tail
+    assert parsed.memory == {"sys_user_nickname": "Alex", **current}
+    assert session.all_memory() == {"sys_user_nickname": "Alex", **current}
+    assert refreshed[parsed.script_start :] == suffix
+    assert session.initial_variables == initial
     assert session.messages[1] is later
     assert session.answers == {"old-answer": "Learner wrote: Deleted fact"}
-
-
-@pytest.mark.parametrize("operation", ["nickname", "delete"])
-def test_original_script_with_expanded_brief_retains_existing_refresh(
-    operation: str,
-) -> None:
-    bundle = ScriptBundle(
-        script="Teach the next example.",
-        constraints="Use {{goal}} with {{sys_user_nickname}}.",
-    )
-    memory = {"goal": "Old goal", "sys_user_nickname": "Alex"}
-    prompt = expanded_initial_prompt(bundle, memory)
-    session = Session(
-        script=bundle,
-        user_memory=dict(memory),
-        messages=[ModelRequest(parts=[UserPromptPart(prompt)])],
-    )
-    if operation == "nickname":
-        refresh_nickname(session, {"sys_user_nickname": "Sam"})
-        expected = "Use Old goal with Sam."
-    else:
-        refresh_deleted_memory(session, frozenset({"goal"}))
-        expected = 'Use <unavailable_learner_value name="goal" /> with Alex.'
-    refreshed = session.messages[0].parts[0].content
-    assert f"<script>\n{bundle.script}\n</script>" in refreshed
-    assert f"<constraints>\n{expected}\n</constraints>" in refreshed
-    assert "{{sys_user_nickname}}" not in refreshed
+    once = session.dumps()
+    refresh_deleted_memory(session, frozenset({"goal"}), current=current)
+    assert session.dumps() == once

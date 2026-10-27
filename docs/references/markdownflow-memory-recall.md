@@ -80,9 +80,10 @@ text is not restored to authored source, and old unavailable-value metadata stil
 means missing evidence rather than learner data or a display instruction. Existing
 Profile option values and pending interactions retain their current protocol.
 
-Nickname and deletion refresh keep new raw script/brief sections unchanged while
-updating the memory block. Previously expanded prompts retain the existing refresh
-path. No session schema, field name, write policy or historical-data migration is
+Nickname and deletion refresh update only the memory block. Every saved script/brief
+and extra-document section is preserved, including previously expanded text. The
+same path handles both formats without replaying substitution. No session schema,
+field name, write policy or historical-data migration is
 introduced. See [literal prompts](markdownflow-literal-prompts.md) for the narrow
 sending contract. SDK tests establish request/policy delivery; they do not guarantee
 that a real model interprets every authored reference correctly.

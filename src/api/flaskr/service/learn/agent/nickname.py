@@ -8,10 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from flaskr.service.profile.api import SYS_USER_NICKNAME
 from markdownflow.engine.memory_context import parse_initial_memory_prompt
-from markdownflow.engine.script import (
-    collected_names,
-    substitute_variables,
-)
+from markdownflow.engine.script import collected_names
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
 if TYPE_CHECKING:
@@ -21,8 +18,8 @@ if TYPE_CHECKING:
 def refresh_nickname(session: Session, current: dict[str, Any]) -> None:
     """Make canonical profile edits reach old sessions on their next successful turn.
 
-    Only the host-authored initial memory/script/brief is eligible for repair. Historical
-    answers, tool results, displayed assistant content and other memory keys stay intact.
+    Only the host-authored initial memory envelope is refreshed. Authored script and
+    brief content, answers, tool results and other memory keys stay intact.
     A pending nickname question still receives its fresh answer through the engine normally.
     """
     if SYS_USER_NICKNAME not in current:
@@ -48,20 +45,13 @@ def refresh_nickname(session: Session, current: dict[str, Any]) -> None:
                     parts = list(message.parts)
                     parts[part_index] = replace(part, content=content)
                     session.messages[index] = replace(message, parts=parts)
-                    if (
-                        session.initial_variables is not None
-                        and SYS_USER_NICKNAME in session.initial_variables
-                    ):
-                        session.initial_variables[SYS_USER_NICKNAME] = current[
-                            SYS_USER_NICKNAME
-                        ]
             return
 
 
 def _refresh_prompt(
     content: str, session: Session, nickname: str, *, answered: bool, pending: bool
 ) -> str:
-    """Replace known host sections only, failing closed on an unfamiliar prompt shape."""
+    """Refresh known memory JSON without changing the saved authored sections."""
     parsed = parse_initial_memory_prompt(content)
     if parsed is None:
         return content
@@ -77,75 +67,5 @@ def _refresh_prompt(
     else:
         updated.pop(SYS_USER_NICKNAME, None)
 
-    def section(tag: str, text: str, memory: dict, *, unavailable: bool = True) -> str:
-        """Reconstruct an exact host section for current or historical matching."""
-        return f"<{tag}>\n{substitute_variables(text, memory, collected=collected, unavailable=unavailable)}\n</{tag}>"
-
-    start = parsed.script_start
-    # A bounded JSON block can omit a value that the initial script substituted in full.
-    # The saved snapshot supplies those missing values; included initial values still win.
-    script_memory = {
-        **session.user_memory,
-        **session.memory,
-        **(session.initial_variables or {}),
-        **original,
-    }
-    updated_script_memory = {**script_memory, SYS_USER_NICKNAME: nickname}
-    raw_script = f"<script>\n{session.script.script}\n</script>"
-    raw_brief = f"\n\n<constraints>\n{session.script.constraints}\n</constraints>"
-    expanded_brief = bool(session.script.constraints) and any(
-        brief != raw_brief and content.startswith(brief, start + len(raw_script))
-        for brief in (
-            "\n\n"
-            + section(
-                "constraints",
-                session.script.constraints,
-                script_memory,
-                unavailable=unavailable,
-            )
-            for unavailable in (True, False)
-        )
-    )
-    if content.startswith(raw_script, start) and not expanded_brief:
-        # Keep raw authored sections raw, but retain existing expanded-brief refresh.
-        memory = json.dumps(updated, ensure_ascii=False, indent=2) if updated else "{}"
-        return prefix + memory + boundary + content[start:]
-    old_script = section("script", session.script.script, script_memory)
-    if not content.startswith(old_script, start):
-        old_script = section(
-            "script", session.script.script, script_memory, unavailable=False
-        )
-    if not content.startswith(old_script, start):
-        return content
-    suffix = content[start + len(old_script) :]
-    # The host re-reads the brief each turn. An older, different brief cannot be reconstructed
-    # safely from today's bundle, so leave that unmatched history untouched.
-    if session.script.constraints:
-        old_brief = "\n\n" + section(
-            "constraints",
-            session.script.constraints,
-            script_memory,
-        )
-        if not suffix.startswith(old_brief):
-            old_brief = "\n\n" + section(
-                "constraints",
-                session.script.constraints,
-                script_memory,
-                unavailable=False,
-            )
-        if suffix.startswith(old_brief):
-            suffix = (
-                "\n\n"
-                + section(
-                    "constraints", session.script.constraints, updated_script_memory
-                )
-                + suffix[len(old_brief) :]
-            )
     memory = json.dumps(updated, ensure_ascii=False, indent=2) if updated else "{}"
-    return (
-        prefix
-        + memory
-        + boundary
-        + section("script", session.script.script, updated_script_memory)
-        + suffix
-    )
+    return prefix + memory + boundary + content[parsed.script_start :]

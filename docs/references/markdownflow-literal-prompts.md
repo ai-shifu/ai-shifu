@@ -23,10 +23,11 @@ this change does not introduce a literal-option protocol.
 
 The initial prompt is assembled only for new sessions. Existing sessions keep saved
 prompts, pending controls, accepted answers and learner/tool history. Previously
-expanded text is not migrated back to source. Existing nickname/deletion handling
-for expanded sessions remains in place. For a prompt whose script already matches
-its authored source, those refreshes update the memory envelope without expanding
-the script or brief; a recognized explicit brief update also uses source text.
+expanded text is not migrated back to source or recomputed from newer memory.
+Nickname/deletion refreshes update the independent memory envelope and preserve
+the entire saved script/brief/extra suffix. Both old expanded and new raw prompts
+use the same memory-only path, without detecting their text format. Initial
+substitution snapshots are not replayed or rewritten by those refreshes.
 
 Stopping substitution removes the path that previously embedded a complete memory
 value in the script even if it did not fit the bounded memory block. A model may
