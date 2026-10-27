@@ -129,7 +129,7 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
       }}
     >
       <DialogContent
-        className='max-w-xl'
+        className='flex max-h-[calc(100dvh-2rem)] max-w-xl flex-col'
         showClose={!deleting}
         onEscapeKeyDown={event => {
           if (pending.current) event.preventDefault();
@@ -144,13 +144,19 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
         {error ? (
           <p
             role='alert'
-            className='rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive'
+            className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground'
           >
             {t(`module.settings.${error}`)}
           </p>
         ) : null}
         <div
-          className='-mx-1 max-h-[60vh] overflow-y-auto px-1'
+          role='status'
+          className='sr-only'
+        >
+          {loading ? t('module.settings.memoryLoading') : ''}
+        </div>
+        <div
+          className='-mx-1 min-h-0 flex-1 overflow-y-auto px-1'
           aria-busy={loading}
         >
           {!loading && !items.length && !error ? (
@@ -196,8 +202,7 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
           {loading ? (
             <div className='flex justify-center py-6'>
               <Loader2
-                role='status'
-                aria-label={t('module.settings.memoryLoading')}
+                aria-hidden='true'
                 className='h-5 w-5 animate-spin text-muted-foreground'
               />
             </div>
@@ -244,7 +249,7 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
             {error === 'memoryDeleteFailed' ? (
               <p
                 role='alert'
-                className='text-sm text-destructive'
+                className='rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-foreground'
               >
                 {t('module.settings.memoryDeleteFailed')}
               </p>
@@ -258,7 +263,6 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
                 {t('common.core.cancel')}
               </Button>
               <Button
-                variant='destructive'
                 disabled={deleting}
                 onClick={() => void remove()}
               >

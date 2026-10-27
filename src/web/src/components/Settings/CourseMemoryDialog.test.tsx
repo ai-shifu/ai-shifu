@@ -164,6 +164,15 @@ describe('CourseMemoryDialog', () => {
     expect(deleteCourseMemory).toHaveBeenCalledWith('course-id', 'private-id');
   });
 
+  it('announces loading in a persistent status region', async () => {
+    setup();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      label('memoryLoading'),
+    );
+    await screen.findByText(entry.value);
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
   it('paginates and retries load failures', async () => {
     (listCourseMemory as jest.Mock)
       .mockRejectedValueOnce(new Error('offline'))
