@@ -46,7 +46,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { cn } from '@/lib/utils';
 import { getOperationOrderSourceLabel } from '../operation-order-source';
 import { buildAdminOperationsCourseDetailUrl } from '../operation-course-routes';
@@ -221,8 +221,9 @@ export default function LearnOrdersTab() {
   const currencySymbol = useEnvStore(
     (state: EnvStoreState) => state.currencySymbol || '',
   );
-  const contactType = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
@@ -273,11 +274,11 @@ export default function LearnOrdersTab() {
     });
 
   const userKeywordPlaceholder = useMemo(() => {
-    if (contactType === 'email') {
+    if (loginMethodDisplayMode === 'email') {
       return tOperationsOrder('filters.userKeywordPlaceholderEmail');
     }
     return tOperationsOrder('filters.userKeywordPlaceholderPhone');
-  }, [contactType, tOperationsOrder]);
+  }, [loginMethodDisplayMode, tOperationsOrder]);
 
   const fetchOverview = useCallback(async () => {
     try {
@@ -814,7 +815,7 @@ export default function LearnOrdersTab() {
                       order.shifu_bid,
                     );
                     const primaryContact =
-                      contactType === 'email'
+                      loginMethodDisplayMode === 'email'
                         ? order.user_email ||
                           order.user_mobile ||
                           order.user_bid

@@ -31,7 +31,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginMethodDisplayMode,
+  type LoginMethodDisplayMode,
+} from '@/lib/resolve-login-method-display-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { useUserStore } from '@/store';
@@ -58,8 +61,6 @@ import {
 import FollowUpDetailSheet from './FollowUpDetailSheet';
 
 type ErrorState = { message: string; code?: number };
-type ContactMode = 'phone' | 'email';
-
 type FollowUpFilters = {
   userBid: string;
   keyword: string;
@@ -156,17 +157,17 @@ const resolvePrimaryAccount = ({
   mobile,
   email,
   userBid,
-  contactMode,
+  loginMethodDisplayMode,
   emptyValue,
 }: {
   mobile?: string;
   email?: string;
   userBid?: string;
-  contactMode: ContactMode;
+  loginMethodDisplayMode: LoginMethodDisplayMode;
   emptyValue: string;
 }) => {
-  const preferred = contactMode === 'email' ? email : mobile;
-  const alternate = contactMode === 'email' ? mobile : email;
+  const preferred = loginMethodDisplayMode === 'email' ? email : mobile;
+  const alternate = loginMethodDisplayMode === 'email' ? mobile : email;
   return formatValue(preferred || alternate || userBid, emptyValue);
 };
 
@@ -208,8 +209,9 @@ export default function AdminDashboardCourseFollowUpsPage() {
     'module.dashboard.messages.loadFollowUpDetailFailed',
   );
   const defaultUserName = t('module.user.defaultUserName');
-  const contactMode = useMemo<ContactMode>(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = useMemo<LoginMethodDisplayMode>(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const initialFilters = useMemo(
@@ -226,14 +228,14 @@ export default function AdminDashboardCourseFollowUpsPage() {
   );
   const userKeywordPlaceholder = useMemo(
     () =>
-      contactMode === 'email'
+      loginMethodDisplayMode === 'email'
         ? t(
             'module.dashboard.detail.followUps.filters.userKeywordPlaceholderEmail',
           )
         : t(
             'module.dashboard.detail.followUps.filters.userKeywordPlaceholderPhone',
           ),
-    [contactMode, t],
+    [loginMethodDisplayMode, t],
   );
 
   const [followUps, setFollowUps] =
@@ -822,7 +824,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
                                 mobile: item.mobile,
                                 email: item.email,
                                 userBid: item.user_bid,
-                                contactMode,
+                                loginMethodDisplayMode,
                                 emptyValue,
                               });
                               const secondaryAccount =
@@ -974,7 +976,7 @@ export default function AdminDashboardCourseFollowUpsPage() {
         loading={detailLoading}
         error={detailError}
         emptyValue={emptyValue}
-        contactMode={contactMode}
+        loginMethodDisplayMode={loginMethodDisplayMode}
         defaultUserName={defaultUserName}
         resolveLessonDisplay={resolvePrimaryLessonDisplay}
         onRetry={() => fetchFollowUpDetail({ forceRefresh: true })}

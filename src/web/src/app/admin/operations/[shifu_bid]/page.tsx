@@ -13,7 +13,7 @@ import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { fail, show } from '@/hooks/useToast';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { ErrorWithCode } from '@/lib/request';
 import {
   buildAdminOperationsCourseFollowUpsUrl,
@@ -452,24 +452,25 @@ export default function AdminOperationCourseDetailPage() {
       }
     }
   }, [searchParams]);
-  const contactMode = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const defaultUserName = useMemo(() => t('module.user.defaultUserName'), [t]);
   const courseUserKeywordPlaceholder = useMemo(
     () =>
-      contactMode === 'email'
+      loginMethodDisplayMode === 'email'
         ? tOperations('detail.usersFilters.userKeywordPlaceholderEmail')
         : tOperations('detail.usersFilters.userKeywordPlaceholderPhone'),
-    [contactMode, tOperations],
+    [loginMethodDisplayMode, tOperations],
   );
   const courseUserAccountLabel = useMemo(
     () =>
-      contactMode === 'email'
+      loginMethodDisplayMode === 'email'
         ? tOperations('detail.usersTable.accountEmail')
         : tOperations('detail.usersTable.accountPhone'),
-    [contactMode, tOperations],
+    [loginMethodDisplayMode, tOperations],
   );
   const fetchDetail = useCallback(async () => {
     if (!shifuBid.trim()) {
@@ -913,10 +914,12 @@ export default function AdminOperationCourseDetailPage() {
   const resolveCourseUserAccount = useCallback(
     (courseUser: AdminOperationCourseUserItem) => {
       const preferred =
-        contactMode === 'email' ? courseUser.email : courseUser.mobile;
+        loginMethodDisplayMode === 'email'
+          ? courseUser.email
+          : courseUser.mobile;
       return preferred || emptyValue;
     },
-    [contactMode, emptyValue],
+    [loginMethodDisplayMode, emptyValue],
   );
 
   const handleCourseUserSearch = useCallback(() => {
@@ -1660,7 +1663,7 @@ export default function AdminOperationCourseDetailPage() {
                   data={courseCreditUsages}
                   loading={courseCreditUsagesLoading}
                   error={courseCreditUsagesError}
-                  contactMode={contactMode}
+                  loginMethodDisplayMode={loginMethodDisplayMode}
                   defaultUserName={defaultUserName}
                   emptyValue={emptyValue}
                   onKeywordChange={value =>

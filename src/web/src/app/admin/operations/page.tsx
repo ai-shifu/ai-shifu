@@ -34,7 +34,7 @@ import type { EnvStoreState } from '@/types/store';
 import { useToast } from '@/hooks/useToast';
 import { copyText } from '@/lib/textutils';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { normalizeModelOptions } from '@/lib/modelOptions';
 import {
   normalizeTtsModelOptions,
@@ -201,8 +201,9 @@ const OperationsPage = () => {
     (state: EnvStoreState) => state.currencySymbol,
   );
 
-  const contactType = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const transferContactOptions = useMemo<TransferContactType[]>(() => {
@@ -221,10 +222,10 @@ const OperationsPage = () => {
       options.push('email');
     }
     if (options.length === 0) {
-      options.push(contactType);
+      options.push(loginMethodDisplayMode);
     }
     return Array.from(new Set(options));
-  }, [contactType, loginMethodsEnabled]);
+  }, [loginMethodDisplayMode, loginMethodsEnabled]);
   const defaultTransferContactType = useMemo<TransferContactType>(() => {
     if (transferContactOptions.includes('phone')) {
       return 'phone';
@@ -232,12 +233,12 @@ const OperationsPage = () => {
     if (transferContactOptions.includes('email')) {
       return 'email';
     }
-    if (transferContactOptions.includes(contactType)) {
-      return contactType;
+    if (transferContactOptions.includes(loginMethodDisplayMode)) {
+      return loginMethodDisplayMode;
     }
     return transferContactOptions[0] || 'phone';
-  }, [contactType, transferContactOptions]);
-  const isEmailMode = contactType === 'email';
+  }, [loginMethodDisplayMode, transferContactOptions]);
+  const isEmailMode = loginMethodDisplayMode === 'email';
   const creatorPlaceholder = useMemo(
     () =>
       isEmailMode

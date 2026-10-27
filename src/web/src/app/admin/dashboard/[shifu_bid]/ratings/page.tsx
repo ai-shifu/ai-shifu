@@ -30,7 +30,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginMethodDisplayMode,
+  type LoginMethodDisplayMode,
+} from '@/lib/resolve-login-method-display-mode';
 import { ErrorWithCode } from '@/lib/request';
 import { cn } from '@/lib/utils';
 import { useUserStore } from '@/store';
@@ -54,7 +57,6 @@ import {
 } from '../../dashboardFilterUiShared';
 
 type ErrorState = { message: string; code?: number };
-type ContactMode = 'phone' | 'email';
 type RatingCommentFilter = 'all' | 'commented';
 
 type RatingFilters = {
@@ -145,22 +147,22 @@ const resolvePrimaryUserDisplay = ({
   mobile,
   email,
   userBid,
-  contactMode,
+  loginMethodDisplayMode,
   guestUserLabel,
 }: {
   nickname?: string;
   mobile?: string;
   email?: string;
   userBid?: string;
-  contactMode: ContactMode;
+  loginMethodDisplayMode: LoginMethodDisplayMode;
   guestUserLabel: string;
 }) => {
   const normalizedNickname = nickname?.trim() || '';
   if (normalizedNickname) {
     return normalizedNickname;
   }
-  const preferredContact = contactMode === 'email' ? email : mobile;
-  const alternateContact = contactMode === 'email' ? mobile : email;
+  const preferredContact = loginMethodDisplayMode === 'email' ? email : mobile;
+  const alternateContact = loginMethodDisplayMode === 'email' ? mobile : email;
   return (
     preferredContact?.trim() ||
     alternateContact?.trim() ||
@@ -174,16 +176,16 @@ const resolveSecondaryUserDisplay = ({
   mobile,
   email,
   userBid,
-  contactMode,
+  loginMethodDisplayMode,
 }: {
   nickname?: string;
   mobile?: string;
   email?: string;
   userBid?: string;
-  contactMode: ContactMode;
+  loginMethodDisplayMode: LoginMethodDisplayMode;
 }) => {
-  const preferredContact = contactMode === 'email' ? email : mobile;
-  const alternateContact = contactMode === 'email' ? mobile : email;
+  const preferredContact = loginMethodDisplayMode === 'email' ? email : mobile;
+  const alternateContact = loginMethodDisplayMode === 'email' ? mobile : email;
   const contact = preferredContact?.trim() || alternateContact?.trim() || '';
   if (nickname?.trim()) {
     return contact || userBid?.trim() || '';
@@ -228,20 +230,21 @@ export default function AdminDashboardCourseRatingsPage() {
     'module.dashboard.messages.loadRatingsFailed',
   );
   const guestUserLabel = t('module.dashboard.detail.ratings.table.guestUser');
-  const contactMode = useMemo<ContactMode>(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = useMemo<LoginMethodDisplayMode>(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const userKeywordPlaceholder = useMemo(
     () =>
-      contactMode === 'email'
+      loginMethodDisplayMode === 'email'
         ? t(
             'module.dashboard.detail.ratings.filters.userKeywordPlaceholderEmail',
           )
         : t(
             'module.dashboard.detail.ratings.filters.userKeywordPlaceholderPhone',
           ),
-    [contactMode, t],
+    [loginMethodDisplayMode, t],
   );
 
   const [ratings, setRatings] = useState<DashboardCourseRatingListResponse>(
@@ -669,7 +672,7 @@ export default function AdminDashboardCourseRatingsPage() {
                                 mobile: item.mobile,
                                 email: item.email,
                                 userBid: item.user_bid,
-                                contactMode,
+                                loginMethodDisplayMode,
                                 guestUserLabel,
                               });
                               const secondaryUser = resolveSecondaryUserDisplay(
@@ -678,7 +681,7 @@ export default function AdminDashboardCourseRatingsPage() {
                                   mobile: item.mobile,
                                   email: item.email,
                                   userBid: item.user_bid,
-                                  contactMode,
+                                  loginMethodDisplayMode,
                                 },
                               );
                               const primaryLessonDisplay =

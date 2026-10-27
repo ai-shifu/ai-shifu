@@ -26,7 +26,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginMethodDisplayMode,
+  type LoginMethodDisplayMode,
+} from '@/lib/resolve-login-method-display-mode';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   Table,
@@ -91,8 +94,9 @@ export default function ReferralCampaignRecordsDialog({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const contactMode = React.useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const loginMethodDisplayMode = React.useMemo(
+    () =>
+      resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const fetchCampaignRelations = React.useCallback(
@@ -165,7 +169,7 @@ export default function ReferralCampaignRecordsDialog({
               <ReferralCampaignInvitationsPanel
                 campaignBid={campaignBid}
                 enabled={open && Boolean(campaignBid)}
-                contactMode={contactMode}
+                loginMethodDisplayMode={loginMethodDisplayMode}
                 t={t}
                 tPromotion={tPromotion}
               />
@@ -180,13 +184,13 @@ export default function ReferralCampaignRecordsDialog({
 function ReferralCampaignInvitationsPanel({
   campaignBid,
   enabled,
-  contactMode,
+  loginMethodDisplayMode,
   t,
   tPromotion,
 }: {
   campaignBid: string;
   enabled: boolean;
-  contactMode: 'email' | 'phone';
+  loginMethodDisplayMode: LoginMethodDisplayMode;
   t: (key: string, values?: Record<string, unknown>) => string;
   tPromotion: (key: string, values?: Record<string, unknown>) => string;
 }) {
@@ -205,7 +209,7 @@ function ReferralCampaignInvitationsPanel({
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
   const inviterPlaceholder =
-    contactMode === 'email'
+    loginMethodDisplayMode === 'email'
       ? tPromotion('referralCampaign.records.inviterEmailPlaceholder')
       : tPromotion('referralCampaign.records.inviterMobilePlaceholder');
 

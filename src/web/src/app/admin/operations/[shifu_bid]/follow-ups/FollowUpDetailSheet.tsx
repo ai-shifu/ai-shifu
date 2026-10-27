@@ -1,5 +1,7 @@
 'use client';
 
+import type { LoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
+
 import {
   useEffect,
   useMemo,
@@ -23,15 +25,13 @@ import type { AdminOperationCourseFollowUpDetailResponse } from '../../operation
 
 type ErrorState = { message: string; code?: number };
 
-type ContactMode = 'phone' | 'email';
-
 type FollowUpDetailSheetProps = {
   open: boolean;
   detail: AdminOperationCourseFollowUpDetailResponse | null;
   loading: boolean;
   error: ErrorState | null;
   emptyValue: string;
-  contactMode: ContactMode;
+  loginMethodDisplayMode: LoginMethodDisplayMode;
   defaultUserName: string;
   resolveLessonDisplay: (values: {
     lessonTitle?: string;
@@ -91,17 +91,17 @@ const resolvePrimaryAccount = ({
   mobile,
   email,
   userBid,
-  contactMode,
+  loginMethodDisplayMode,
   emptyValue,
 }: {
   mobile?: string;
   email?: string;
   userBid?: string;
-  contactMode: ContactMode;
+  loginMethodDisplayMode: LoginMethodDisplayMode;
   emptyValue: string;
 }) => {
-  const preferred = contactMode === 'email' ? email : mobile;
-  const alternate = contactMode === 'email' ? mobile : email;
+  const preferred = loginMethodDisplayMode === 'email' ? email : mobile;
+  const alternate = loginMethodDisplayMode === 'email' ? mobile : email;
   return formatValue(preferred || alternate || userBid, emptyValue);
 };
 
@@ -199,7 +199,7 @@ export default function FollowUpDetailSheet({
   loading,
   error,
   emptyValue,
-  contactMode,
+  loginMethodDisplayMode,
   defaultUserName,
   resolveLessonDisplay,
   resolveOutlineFieldLabel,
@@ -218,14 +218,14 @@ export default function FollowUpDetailSheet({
         mobile: basicInfo?.mobile,
         email: basicInfo?.email,
         userBid: basicInfo?.user_bid,
-        contactMode,
+        loginMethodDisplayMode,
         emptyValue,
       }),
     [
       basicInfo?.email,
       basicInfo?.mobile,
       basicInfo?.user_bid,
-      contactMode,
+      loginMethodDisplayMode,
       emptyValue,
     ],
   );

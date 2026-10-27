@@ -47,7 +47,7 @@ import {
 } from '@/components/ui/Table';
 import { toast } from '@/hooks/useToast';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import useOperatorGuard from '../useOperatorGuard';
@@ -382,14 +382,14 @@ export default function AdminOperationVoiceClonesPage() {
   );
 
   const userKeywordPlaceholder = React.useMemo(() => {
-    const contactType = resolveContactMode(
+    const loginMethodDisplayMode = resolveLoginMethodDisplayMode(
       loginMethodsEnabled,
       defaultLoginMethod,
     );
     const methods = loginMethodsEnabled || [];
     const hasPhone = methods.includes('phone');
     const hasEmail = methods.includes('email');
-    if (contactType === 'email' || (hasEmail && !hasPhone)) {
+    if (loginMethodDisplayMode === 'email' || (hasEmail && !hasPhone)) {
       return t(
         'module.operationsVoiceClone.filters.userKeywordPlaceholderEmail',
       );
