@@ -1,6 +1,6 @@
 ---
 title: Session Langfuse Traces
-status: active
+status: completed
 owner_surface: backend
 last_reviewed: 2026-10-27
 canonical: false
@@ -20,7 +20,7 @@ request's input, public output, outcome, model calls, and tool hierarchy.
 - [x] 2026-10-27 CST: Implemented deterministic session identity in shared, course, Profile, and legacy tracing.
 - [x] 2026-10-27 CST: Verified cross-request grouping, reset isolation, request metadata, parent links, and failure isolation; 3,929 tests passed, 93 skipped.
 - [x] 2026-10-27 CST: Updated the canonical contract; tool availability, full pre-commit, repository harness, and architecture checks passed.
-- [ ] Open and attach a ready PR; keep main unmerged.
+- [x] 2026-10-27 CST: Opened and attached ready PR #3196; verified it is open, mergeable, and unmerged. Reviewed scope and local acceptance before archival.
 
 ## Surprises & Discoveries
 
@@ -50,6 +50,11 @@ The learning, Profile, shared Langfuse, and payload regression suites passed
 dependencies. Tests use real Langfuse 4.14.4 in-memory exports. An independent
 review found no actionable defects. The repository harness and architecture
 ratchet passed with zero new boundary violations.
+
+Implementation is available in ready
+[PR #3196](https://github.com/ai-shifu/ai-shifu/pull/3196), with main unmerged.
+GitHub CI was in progress at publication; frontend tests and GitGuardian had
+passed. This plan's scope is the verified implementation and reviewable PR.
 
 The existing shared virtual environment has markdown-flow 0.3.4 instead of the
 required 0.4.2. Tests used an isolated `/tmp` overlay of the exact pinned package;
