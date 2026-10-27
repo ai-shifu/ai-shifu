@@ -86,8 +86,9 @@ for the learner. Inspect each request root for its public result and its child
 generations for model inputs, usage, and costs.
 
 Legacy preview already knows its session id when it starts. Legacy learning
-defers trace creation until the progress session resolves, before any model
-call. Automatic steps in the same request reuse its root; moving to another
+defers trace creation until outline synchronization selects the effective
+progress session, before any model call. Automatic steps in the same request
+reuse its root; moving to another
 progress session ends that root and starts a distinct trace. MarkdownFlow
 courses defer trace and round creation until the native session is restored or
 created; progress/block metadata received earlier is retained. Profile uses its

@@ -2148,8 +2148,8 @@ class RunScriptContextV2:
             self._current_attend.block_position,
             self._current_attend.status,
         )
-        self._bind_trace_session()
         proceed = yield from self._phase_sync_outline_progress(app)
+        self._bind_trace_session()
         if not proceed:
             return
 
