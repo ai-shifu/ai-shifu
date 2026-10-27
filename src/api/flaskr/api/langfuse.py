@@ -122,6 +122,11 @@ def get_request_trace_id() -> str:
     return coerce_langfuse_trace_id(get_request_id() or uuid.uuid4().hex)
 
 
+def create_advancement_trace_id() -> str:
+    """Allocate an identity for one admitted business operation, independent of HTTP."""
+    return uuid.uuid4().hex
+
+
 def resolve_langfuse_trace_id(observation: object, trace_id: str | None = None) -> str:
     # Only accept real string trace ids. When Langfuse is disabled the client is
     # a MockClient whose __getattr__ returns a method object for any attribute
