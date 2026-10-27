@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 from flaskr.dao import db
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
     ORDER_STATUS_REFUND,
@@ -608,13 +608,15 @@ def test_invalid_coupon_keeps_pending_attempt_active(
         )
         db.session.commit()
 
-    with pytest.raises(AppError, match="voucher code does not exist"):
+    with pytest.raises(AppError) as error:
         use_coupon_code(
             app,
             "owner-user",
             "DOES-NOT-EXIST",
             "invalid-coupon-pending-order",
         )
+    # Asserted by code: the learner-facing wording is translated copy.
+    assert error.value.code == ERROR_CODE["server.discount.discountNotFound"]
 
     assert provider_requested is False
     with app.app_context():
@@ -641,13 +643,15 @@ def test_invalid_coupon_does_not_clear_an_inherited_repricing_claim(
             status=ORDER_STATUS_REPRICING,
         )
 
-    with pytest.raises(AppError, match="voucher code does not exist"):
+    with pytest.raises(AppError) as error:
         use_coupon_code(
             app,
             "owner-user",
             "DOES-NOT-EXIST",
             "inherited-repricing-order",
         )
+    # Asserted by code: the learner-facing wording is translated copy.
+    assert error.value.code == ERROR_CODE["server.discount.discountNotFound"]
 
     with app.app_context():
         assert (
