@@ -46,7 +46,7 @@
 | `docs/exec-plans/active/api-capacity-observability.md` | API capacity observability | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/backend-external-client-journey-analytics.md` | Backend External Client Journey Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/bounded-lesson-memory-context.md` | Bound Lesson Memory Context | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/course-action-copy.md` | Review course action changes independently | `exec-plan-active` | `active` | `frontend` | `2026-10-27` | `true` |
+| `docs/exec-plans/active/course-action-copy.md` | Review the course action PR stack | `exec-plan-active` | `active` | `frontend` | `2026-10-27` | `true` |
 | `docs/exec-plans/active/course-memory-management.md` | Course Memory Management | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
 | `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/course-variable-isolation.md` | Keep custom learner variables within their course | `exec-plan-active` | `active` | `learner` | `2026-10-08` | `true` |
