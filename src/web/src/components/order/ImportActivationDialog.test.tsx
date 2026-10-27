@@ -1,3 +1,7 @@
+jest.unmock('i18next');
+
+import i18next from 'i18next';
+import ICU from 'i18next-icu';
 import {
   act,
   fireEvent,
@@ -7,6 +11,7 @@ import {
 } from '@testing-library/react';
 
 import ImportActivationDialog from './ImportActivationDialog';
+import zhOrder from '../../../../i18n/zh-CN/modules/order.json';
 
 const mockGetAdminOrderShifus = jest.fn();
 const mockImportActivationOrder = jest.fn();
@@ -16,7 +21,10 @@ const mockEnvState = {
   loginMethodsEnabled: ['phone'],
   defaultLoginMethod: 'phone',
 };
-const mockTranslate = jest.fn((key: string) => key);
+const mockTranslate = jest.fn<
+  string,
+  [key: string, options?: Record<string, unknown>]
+>(key => key);
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -100,6 +108,7 @@ describe('ImportActivationDialog validation', () => {
     jest.clearAllMocks();
     mockTrackEvent.mockReset();
     mockImportActivationOrder.mockReset();
+    mockTranslate.mockReset().mockImplementation(key => key);
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockGetAdminOrderShifus.mockResolvedValue({ items: [] });
@@ -110,6 +119,78 @@ describe('ImportActivationDialog validation', () => {
       }),
     );
   });
+
+  it.each([
+    { methods: ['phone'], defaultMethod: 'email', label: '手机号' },
+    { methods: ['email'], defaultMethod: 'phone', label: 'Email' },
+    { methods: ['google'], defaultMethod: 'phone', label: 'Email' },
+    {
+      methods: ['phone', 'email'],
+      defaultMethod: 'phone',
+      label: '手机号或 Email',
+    },
+    {
+      methods: ['phone', 'email'],
+      defaultMethod: 'email',
+      label: '手机号或 Email',
+    },
+    {
+      methods: ['phone', 'google'],
+      defaultMethod: 'google',
+      label: '手机号或 Email',
+    },
+    {
+      methods: ['phone', 'password'],
+      defaultMethod: 'password',
+      label: '手机号',
+    },
+    { methods: [], defaultMethod: 'email', label: 'Email' },
+  ])(
+    'matches prompts to $methods with default $defaultMethod',
+    async ({ methods, defaultMethod, label }) => {
+      const i18n = i18next.createInstance().use(new ICU());
+      await i18n.init({
+        lng: 'zh-CN',
+        fallbackLng: false,
+        resources: {
+          'zh-CN': { translation: { module: { order: zhOrder } } },
+        },
+      });
+      mockTranslate.mockImplementation((key, options) =>
+        String(i18n.t(key, options)),
+      );
+      mockEnvState.loginMethodsEnabled = methods;
+      mockEnvState.defaultLoginMethod = defaultMethod;
+      renderBoundDialog();
+
+      const contact = screen.getByLabelText(`学员${label}`);
+      expect(
+        screen.getByText(
+          `输入学员登录时使用的${label}，直接开通本课程，无需学员付款。未注册的学员将自动创建账号。`,
+        ),
+      ).toBeInTheDocument();
+      const placeholder = contact.getAttribute('placeholder')!;
+      expect(placeholder.includes('13800138000')).toBe(label !== 'Email');
+      expect(placeholder.includes('learner@example.com')).toBe(
+        label !== '手机号',
+      );
+      expect(Boolean(screen.queryByText(/可混合填写/))).toBe(
+        label === '手机号或 Email',
+      );
+
+      fireEvent.submit(contact.closest('form')!);
+      expect(await screen.findByText(`请输入学员${label}`)).toBeInTheDocument();
+      fireEvent.change(contact, { target: { value: 'invalid contact' } });
+      fireEvent.submit(contact.closest('form')!);
+      expect(
+        await screen.findByText(
+          `以下内容未识别到有效${label}：invalid contact`,
+        ),
+      ).toBeInTheDocument();
+      expect(mockImportActivationOrder).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
 
   it('shows both required field errors without opening import confirmation', async () => {
     render(
@@ -400,7 +481,7 @@ describe('ImportActivationDialog validation', () => {
     await screen.findByText('module.order.importActivation.mobileDuplicate');
     expect(mockTranslate).toHaveBeenCalledWith(
       'module.order.importActivation.mobileDuplicate',
-      { numbers: 'learner@example.test' },
+      { numbers: 'learner@example.test', loginMethodDisplayMode: 'phone' },
     );
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(mockImportActivationOrder).not.toHaveBeenCalled();

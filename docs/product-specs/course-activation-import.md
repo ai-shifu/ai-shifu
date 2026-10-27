@@ -2,7 +2,7 @@
 title: Course activation import
 status: implemented
 owner_surface: frontend
-last_reviewed: 2026-10-26
+last_reviewed: 2026-10-27
 canonical: true
 ---
 
@@ -14,6 +14,15 @@ account; a space separates its optional nickname. Email matching and duplicate
 checks ignore case. Invalid rows, duplicates and lists exceeding 50 entries
 must be corrected before confirmation. The existing nickname parsing rules
 remain unchanged; this feature makes no promise to overwrite existing nicknames.
+
+Dialog descriptions, account labels, examples and validation messages follow
+the runtime login configuration. Phone-only deployments show phone prompts;
+email or Google login shows email prompts. When phone and email-based login
+are both enabled, prompts show both types regardless of the default login
+method. If no phone or email-based method is configured, the shared fallback
+chooses the login identifier type from the default login method. This guidance
+does not change account parsing, mixed-list compatibility, request grouping or
+analytics eligibility.
 
 The course-card entry binds the selected course and hides the redundant course
 field. The orders-page entry retains the published-course selector. The review

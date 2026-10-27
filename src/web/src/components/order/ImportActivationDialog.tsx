@@ -46,6 +46,8 @@ import {
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import type { Shifu } from '@/types/shifu';
+import { useEnvStore } from '@/store';
+import { resolveLoginMethodDisplayMode } from '@/lib/resolve-login-method-display-mode';
 
 interface ImportActivationDialogProps {
   open: boolean;
@@ -225,6 +227,16 @@ const ImportActivationDialog = ({
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { trackEvent } = useTracking();
+  const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
+  const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
+  const loginMethods = loginMethodsEnabled.map(method =>
+    method.trim().toLowerCase(),
+  );
+  const loginMethodDisplayMode =
+    loginMethods.includes('phone') &&
+    (loginMethods.includes('email') || loginMethods.includes('google'))
+      ? 'mixed'
+      : resolveLoginMethodDisplayMode(loginMethodsEnabled, defaultLoginMethod);
   const [courses, setCourses] = React.useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = React.useState(false);
   const [coursesError, setCoursesError] = React.useState<string | null>(null);
@@ -254,23 +266,35 @@ const ImportActivationDialog = ({
   const joinedIdentifiers = React.useMemo(() => {
     return pendingIdentifiers.join(listSeparator);
   }, [listSeparator, pendingIdentifiers]);
-  const contactLabel = t('module.order.importActivation.mobileLabel');
-  const contactPlaceholder = t(
+  const identifierLabel = t('module.order.importActivation.mobileLabel', {
+    loginMethodDisplayMode,
+  });
+  const identifierPlaceholder = t(
     'module.order.importActivation.mobilePlaceholder',
+    { loginMethodDisplayMode },
   );
-  const contactHint = t('module.order.importActivation.mobileHint');
-  const contactRequiredMessage = t(
+  const identifierHint = t('module.order.importActivation.mobileHint', {
+    loginMethodDisplayMode,
+  });
+  const identifierRequiredMessage = t(
     'module.order.importActivation.mobileRequired',
+    { loginMethodDisplayMode },
   );
   const buildInvalidMessage = React.useCallback(
     (values: string) =>
-      t('module.order.importActivation.mobileInvalidLines', { values }),
-    [t],
+      t('module.order.importActivation.mobileInvalidLines', {
+        values,
+        loginMethodDisplayMode,
+      }),
+    [loginMethodDisplayMode, t],
   );
   const buildDuplicateMessage = React.useCallback(
     (numbers: string) =>
-      t('module.order.importActivation.mobileDuplicate', { numbers }),
-    [t],
+      t('module.order.importActivation.mobileDuplicate', {
+        numbers,
+        loginMethodDisplayMode,
+      }),
+    [loginMethodDisplayMode, t],
   );
   const buildLimitMessage = React.useCallback(
     (count: number) =>
@@ -286,14 +310,14 @@ const ImportActivationDialog = ({
   const formSchema = React.useMemo(
     () =>
       z.object({
-        mobile: z.string().trim().min(1, contactRequiredMessage),
+        mobile: z.string().trim().min(1, identifierRequiredMessage),
         course_id: z
           .string()
           .trim()
           .min(1, t('module.order.importActivation.courseRequired')),
         user_nick_name: z.string().optional(),
       }),
-    [contactRequiredMessage, t],
+    [identifierRequiredMessage, t],
   );
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -350,7 +374,7 @@ const ImportActivationDialog = ({
     [confirmationCourseName, joinedIdentifiers, pendingIdentifiers.length, t],
   );
 
-  const normalizeContactField = React.useCallback(
+  const normalizeIdentifierField = React.useCallback(
     (value: string) => {
       const { entries, normalizedText, invalidItems } = parseImportText(value);
       if (
@@ -386,7 +410,7 @@ const ImportActivationDialog = ({
     }
     if (entries.length === 0) {
       form.setError('mobile', {
-        message: contactRequiredMessage,
+        message: identifierRequiredMessage,
       });
       return;
     }
@@ -696,7 +720,9 @@ const ImportActivationDialog = ({
               {t('module.order.importActivation.title')}
             </DialogTitle>
             <DialogDescription>
-              {t('module.order.importActivation.description')}
+              {t('module.order.importActivation.description', {
+                loginMethodDisplayMode,
+              })}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -709,12 +735,12 @@ const ImportActivationDialog = ({
                 name='mobile'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{contactLabel}</FormLabel>
+                    <FormLabel>{identifierLabel}</FormLabel>
                     <FormControl>
                       <Textarea
                         autoComplete='off'
                         data-bidi='ltr'
-                        placeholder={contactPlaceholder}
+                        placeholder={identifierPlaceholder}
                         className='min-h-[80px]'
                         maxLength={MAX_IMPORT_TEXT_LENGTH}
                         {...field}
@@ -722,11 +748,11 @@ const ImportActivationDialog = ({
                         onChange={e => field.onChange(e.target.value)}
                         onBlur={event => {
                           field.onBlur();
-                          normalizeContactField(event.target.value);
+                          normalizeIdentifierField(event.target.value);
                         }}
                       />
                     </FormControl>
-                    <FormDescription>{contactHint}</FormDescription>
+                    <FormDescription>{identifierHint}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

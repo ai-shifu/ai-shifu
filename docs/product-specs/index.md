@@ -15,7 +15,7 @@ User-facing workflow and page behavior specifications live here.
 - [Course action menu help](../product-specs/course-action-help.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-26` | Canonical: `true`
 - [Course activation import](../product-specs/course-activation-import.md)
-  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-26` | Canonical: `true`
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-27` | Canonical: `true`
 - [Course Memory Management](../product-specs/course-memory-management.md)
   - Status: `implemented` | Owner: `learner` | Last reviewed: `2026-10-07` | Canonical: `true`
 - [Internal Course Temperature Settings](../product-specs/course-temperature-settings.md)
