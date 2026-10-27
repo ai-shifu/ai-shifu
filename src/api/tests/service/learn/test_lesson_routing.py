@@ -1,9 +1,4 @@
-"""Cover which engine a lesson request goes to.
-
-The case that matters most is the boring one: with 2.0 disabled, every request takes the 1.0 path.
-That is what every deployment except the simulation environment runs, so it is asserted from
-several directions rather than once.
-"""
+"""Cover where a lesson request goes: every lesson turn to 2.0, a follow-up to `learn.ask`."""
 
 from __future__ import annotations
 
@@ -34,14 +29,11 @@ def _no_real_commit(monkeypatch: pytest.MonkeyPatch) -> None:
     from flaskr.common.config import Config
 
     monkeypatch.setattr(runscript_v2, "_commit_pending_step", lambda: None)
+    monkeypatch.setattr(
+        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
+    )
     monkeypatch.setattr(Config, "_instance", None)
     monkeypatch.delenv("FLOW_ENGINE_V2_ENABLED", raising=False)
-
-
-@pytest.fixture
-def enabled_deployment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Enable every course through the real deployment configuration path."""
-    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", "true")
 
 
 def _routes_to_agent(**kwargs: object) -> bool:
@@ -54,35 +46,33 @@ def _routes_to_agent(**kwargs: object) -> bool:
     return runscript_v2._teaches_with_agent(**{**defaults, **kwargs})
 
 
-@pytest.mark.usefixtures("enabled_deployment")
-def test_an_enabled_deployment_teaches_with_the_agent_engine() -> None:
+def test_a_lesson_is_taught_with_the_agent_engine() -> None:
     assert _routes_to_agent() is True
 
 
-@pytest.mark.usefixtures("enabled_deployment")
 def test_another_course_also_uses_the_agent_engine() -> None:
     assert _routes_to_agent(shifu_bid=OTHER) is True
 
 
-def test_with_disabled_deployment_every_course_stays_on_the_script_engine() -> None:
-    """Production sets nothing, so this is the path production takes."""
-    assert _routes_to_agent(shifu_bid=SHIFU) is False
-    assert _routes_to_agent(shifu_bid=OTHER) is False
+@pytest.mark.parametrize("flag", ["false", "0", ""])
+def test_the_retired_flag_no_longer_keeps_a_course_on_1_0(
+    monkeypatch: pytest.MonkeyPatch, flag: str
+) -> None:
+    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", flag)
+    assert _routes_to_agent(shifu_bid=SHIFU) is True
+    assert _routes_to_agent(shifu_bid=OTHER) is True
 
 
-@pytest.mark.usefixtures("enabled_deployment")
-def test_a_follow_up_question_keeps_the_script_engine() -> None:
+def test_a_follow_up_question_is_not_a_lesson_turn() -> None:
     """Ask runs beside the lesson under its own semaphore, not through the turn loop."""
     assert _routes_to_agent(input_type=INPUT_TYPE_ASK) is False
 
 
-@pytest.mark.parametrize("enabled", [False, True], ids=["v1", "v2"])
 @pytest.mark.parametrize("listen", [False, True], ids=["read", "listen"])
 @pytest.mark.parametrize("preview", [False, True], ids=["formal", "preview"])
 @pytest.mark.parametrize("anchored", [False, True], ids=["unanchored", "anchored"])
 def test_follow_up_dispatch_preserves_the_sidecar_request(
     monkeypatch: pytest.MonkeyPatch,
-    enabled: bool,
     listen: bool,
     preview: bool,
     anchored: bool,
@@ -90,7 +80,6 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
     """Ask must bypass agent turns and retain its request and emitted events."""
     from flaskr.service.learn.agent import lesson_entry
 
-    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", str(enabled).lower())
     app = SimpleNamespace(logger=logging.getLogger(__name__))
     stop_event = threading.Event()
     adapter = SimpleNamespace(persist_only_final=False)
@@ -107,11 +96,7 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
     def refuse_agent(*_args: object, **_kwargs: object) -> NoReturn:
         pytest.fail("A follow-up must not enter the teaching agent turn loop")
 
-    def refuse_script_engine(**_kwargs: object) -> NoReturn:
-        pytest.fail("A follow-up must not build the 1.0 script run context")
-
     monkeypatch.setattr(runscript_v2, "_follow_up_events", follow_up)
-    monkeypatch.setattr(runscript_v2, "run_script_inner", refuse_script_engine)
     monkeypatch.setattr(lesson_entry, "agent_lesson_events", refuse_agent)
     commits = []
     monkeypatch.setattr(
@@ -160,19 +145,16 @@ def test_follow_up_dispatch_preserves_the_sidecar_request(
     assert commits == []
 
 
-@pytest.mark.parametrize("enabled", [False, True], ids=["v1", "v2"])
 @pytest.mark.parametrize("listen", [False, True], ids=["read", "listen"])
 @pytest.mark.parametrize("preview", [False, True], ids=["formal", "preview"])
 def test_follow_up_producer_normalizes_listen_before_sidecar_dispatch(
     monkeypatch: pytest.MonkeyPatch,
-    enabled: bool,
     listen: bool,
     preview: bool,
 ) -> None:
     """Real Ask producers suppress lesson TTS and keep their separate semaphore."""
     from flaskr.service.learn.agent import lesson_entry
 
-    monkeypatch.setenv("FLOW_ENGINE_V2_ENABLED", str(enabled).lower())
     app = stream_helpers._make_test_app()
     lock = stream_helpers.FakeLock([True])
     cache = stream_helpers.FakeCacheProvider(lock)
@@ -246,7 +228,6 @@ def test_follow_up_producer_normalizes_listen_before_sidecar_dispatch(
     remove.assert_called_once_with(app, source="run_script producer")
 
 
-@pytest.mark.usefixtures("enabled_deployment")
 @pytest.mark.parametrize("learning_mode", ["read", "listen", "classroom"])
 def test_a_listening_learner_is_also_taught_by_the_agent_engine(
     monkeypatch: pytest.MonkeyPatch,
@@ -296,7 +277,6 @@ def test_a_listening_learner_is_also_taught_by_the_agent_engine(
     assert seen["learning_mode"] == learning_mode
 
 
-@pytest.mark.usefixtures("enabled_deployment")
 @pytest.mark.parametrize(
     "reload_kwargs",
     [
@@ -315,35 +295,43 @@ def test_regenerating_past_content_stays_with_the_agent_engine(
     assert _routes_to_agent(**reload_kwargs) is True
 
 
-@pytest.mark.usefixtures("enabled_deployment")
-def test_a_lesson_with_no_script_falls_back_rather_than_failing(
+def test_a_lesson_with_no_script_is_completed_rather_than_failing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A configuration mistake should not refuse the learner: 1.0 knows what to do with it."""
+    """An empty lesson ends as 1.0 ended it: complete, with the next lesson offered."""
     from flaskr.service.learn.agent import lesson_entry
 
     def _no_script(*_args: object, **_kwargs: object) -> None:
         raise lesson_entry.LessonNotTeachable
 
     monkeypatch.setattr(lesson_entry, "agent_lesson_events", _no_script)
+    completed: list[dict] = []
+    marker = object()
 
-    fell_back: list[bool] = []
+    def _complete(_app: object, **kwargs: object) -> Iterator[object]:
+        completed.append(kwargs)
+        yield marker
 
-    def _script_engine(**_kwargs: object) -> list:
-        fell_back.append(True)
-        return []
+    monkeypatch.setattr(lesson_entry, "complete_empty_lesson", _complete)
+    steps: list[str] = []
+    monkeypatch.setattr(
+        runscript_v2,
+        "_ensure_healthy_db_connection",
+        lambda _app: steps.append("probe"),
+    )
+    monkeypatch.setattr(
+        runscript_v2, "_commit_pending_step", lambda: steps.append("commit")
+    )
 
-    monkeypatch.setattr(runscript_v2, "run_script_inner", _script_engine)
+    def _adapt(events: Iterator[object]) -> Iterator[object]:
+        for event in events:
+            steps.append("adapted")
+            yield event
 
     class _App:
-        import logging
-
         logger = logging.getLogger("test_lesson_routing")
 
-    class _Adapter:
-        persist_only_final = True
-
-    list(
+    events = list(
         runscript_v2._lesson_events(
             app=_App(),
             user_bid="user-bid",
@@ -357,18 +345,28 @@ def test_a_lesson_with_no_script_falls_back_rather_than_failing(
             learning_mode="read",
             preview_mode=False,
             stop_event=None,
-            element_adapter=_Adapter(),
+            element_adapter=SimpleNamespace(persist_only_final=True, process=_adapt),
             heartbeat_interval=0.5,
         )
     )
-    assert fell_back == [True]
+    assert events == [marker]
+    # The connection is checked before any lesson read, and what the adapter staged for the
+    # next-lesson button is committed before the stream ends.
+    assert steps == ["probe", "adapted", "commit"]
+    assert completed == [
+        {
+            "user_bid": "user-bid",
+            "shifu_bid": SHIFU,
+            "outline_bid": "outline-bid",
+            "preview_mode": False,
+        }
+    ]
 
 
-@pytest.mark.usefixtures("enabled_deployment")
-def test_going_back_in_a_lesson_with_no_script_is_refused_rather_than_sent_to_1_0(
+def test_going_back_in_a_lesson_with_no_script_is_refused(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """1.0 would rewrite history and leave the lesson's 2.0 session on its old branch."""
+    """A lesson with no script has no turn to take the learner back to."""
     from flaskr.service.common.models import AppError
     from flaskr.service.learn.agent import lesson_entry
 
@@ -376,9 +374,11 @@ def test_going_back_in_a_lesson_with_no_script_is_refused_rather_than_sent_to_1_
         raise lesson_entry.LessonNotTeachable
 
     monkeypatch.setattr(lesson_entry, "agent_lesson_events", _no_script)
-    fell_back: list[bool] = []
+    completed: list[bool] = []
     monkeypatch.setattr(
-        runscript_v2, "run_script_inner", lambda **_kw: fell_back.append(True) or []
+        lesson_entry,
+        "complete_empty_lesson",
+        lambda *_a, **_kw: completed.append(True) or iter(()),
     )
 
     class _App:
@@ -408,50 +408,7 @@ def test_going_back_in_a_lesson_with_no_script_is_refused_rather_than_sent_to_1_
                 heartbeat_interval=0.5,
             )
         )
-    assert fell_back == []
-
-
-def test_the_script_engine_is_reached_with_what_it_expects(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Routing must not quietly drop arguments the 1.0 path relies on."""
-    monkeypatch.setattr(runscript_v2, "uses_agent_engine", lambda _bid: False)
-    seen: dict = {}
-
-    def _script_engine(**kwargs: object) -> list:
-        seen.update(kwargs)
-        return []
-
-    monkeypatch.setattr(runscript_v2, "run_script_inner", _script_engine)
-
-    sentinel_adapter = object()
-    sentinel_stop = object()
-    list(
-        runscript_v2._lesson_events(
-            app=None,
-            user_bid="user-bid",
-            shifu_bid=SHIFU,
-            outline_bid="outline-bid",
-            user_input="hello",
-            input_type=None,
-            reload_generated_block_bid=None,
-            reload_element_bid=None,
-            listen=True,
-            learning_mode="listen",
-            preview_mode=True,
-            stop_event=sentinel_stop,
-            element_adapter=sentinel_adapter,
-            heartbeat_interval=0.5,
-        )
-    )
-    assert seen["listen"] is True
-    assert seen["learning_mode"] == "listen"
-    assert seen["preview_mode"] is True
-    assert seen["user_input"] == "hello"
-    assert seen["element_adapter"] is sentinel_adapter
-    assert seen["stop_event"] is sentinel_stop
-    # The producer thread owns the app context; the inner run must not take it as well.
-    assert seen["manage_app_context"] is False
+    assert completed == []
 
 
 def test_a_busy_worker_tells_the_learner_to_retry(
@@ -498,7 +455,6 @@ def test_a_busy_worker_tells_the_learner_to_retry(
         )
 
 
-@pytest.mark.usefixtures("enabled_deployment")
 def test_the_input_the_browser_sends_reaches_the_agent_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -540,55 +496,6 @@ def test_the_input_the_browser_sends_reaches_the_agent_path(
     assert seen["user_input"] == sent
 
 
-@pytest.mark.usefixtures("enabled_deployment")
-def test_falling_back_to_the_script_engine_restores_per_update_writes(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The adapter is built for the agent engine and shared with the fallback path.
-
-    1.0 relies on every update being written — a learner refreshing mid-stream reads the latest
-    row — so a fallback that kept the agent's write-once mode would change 1.0's behaviour.
-    """
-    from flaskr.service.learn.agent import lesson_entry
-
-    def _no_script(*_args: object, **_kwargs: object) -> None:
-        raise lesson_entry.LessonNotTeachable
-
-    monkeypatch.setattr(lesson_entry, "agent_lesson_events", _no_script)
-    monkeypatch.setattr(runscript_v2, "run_script_inner", lambda **_kwargs: [])
-
-    class _Adapter:
-        persist_only_final = True
-
-    class _App:
-        import logging
-
-        logger = logging.getLogger("test_lesson_routing")
-
-    adapter = _Adapter()
-    list(
-        runscript_v2._lesson_events(
-            app=_App(),
-            user_bid="user-bid",
-            shifu_bid=SHIFU,
-            outline_bid="outline-bid",
-            user_input=None,
-            input_type=None,
-            reload_generated_block_bid=None,
-            reload_element_bid=None,
-            listen=False,
-            learning_mode="read",
-            preview_mode=False,
-            stop_event=None,
-            element_adapter=adapter,
-            heartbeat_interval=0.5,
-        )
-    )
-
-    assert adapter.persist_only_final is False
-
-
-@pytest.mark.usefixtures("enabled_deployment")
 def test_the_agent_path_makes_what_the_adapter_staged_durable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

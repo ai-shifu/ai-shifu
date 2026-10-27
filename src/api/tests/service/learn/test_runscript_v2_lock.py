@@ -12,8 +12,6 @@ from flask import Flask, has_app_context
 from flaskr.service.common.models import AppError
 from flaskr.service.learn import runscript_v2
 from flaskr.service.learn.learn_dtos import (
-    ElementDTO,
-    ElementType,
     GeneratedType,
     RunElementSSEMessageDTO,
     RunMarkdownFlowDTO,
@@ -187,7 +185,7 @@ def test_run_script_retries_lock_then_streams(monkeypatch: object) -> None:
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2.time, "sleep", lambda *_args, **_kwargs: None)
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             with app.app_context():
                 yield from [
                     RunMarkdownFlowDTO(
@@ -204,7 +202,7 @@ def test_run_script_retries_lock_then_streams(monkeypatch: object) -> None:
                     ),
                 ]
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         chunks = list(
             runscript_v2.run_script(
@@ -233,11 +231,10 @@ def test_run_script_producer_owns_app_context(monkeypatch: object) -> None:
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
-        observed = {"has_app_context": None, "manage_app_context": None}
+        observed = {"has_app_context": None}
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             observed["has_app_context"] = has_app_context()
-            observed["manage_app_context"] = _kwargs.get("manage_app_context")
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
                 generated_block_bid="generated-1",
@@ -245,7 +242,7 @@ def test_run_script_producer_owns_app_context(monkeypatch: object) -> None:
                 content="hello",
             )
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         chunks = list(
             runscript_v2.run_script(
@@ -259,10 +256,7 @@ def test_run_script_producer_owns_app_context(monkeypatch: object) -> None:
         )
         events = _parse_sse_events(chunks)
 
-        assert observed == {
-            "has_app_context": True,
-            "manage_app_context": False,
-        }
+        assert observed == {"has_app_context": True}
         assert [event["type"] for event in events] == ["element", "done"]
 
 
@@ -282,7 +276,7 @@ def test_run_script_removes_producer_db_session(monkeypatch: object) -> None:
             ),
         )
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
                 generated_block_bid="generated-1",
@@ -290,7 +284,7 @@ def test_run_script_removes_producer_db_session(monkeypatch: object) -> None:
                 content="hello",
             )
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         chunks = list(
             runscript_v2.run_script(
@@ -329,7 +323,7 @@ def test_run_script_producer_done_survives_db_session_remove_failure(
             SimpleNamespace(session=SimpleNamespace(remove=_remove)),
         )
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
                 generated_block_bid="generated-1",
@@ -337,7 +331,7 @@ def test_run_script_producer_done_survives_db_session_remove_failure(
                 content="hello",
             )
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         chunks = list(
             runscript_v2.run_script(
@@ -365,7 +359,7 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             with app.app_context():
                 yield from [
                     RunMarkdownFlowDTO(
@@ -388,7 +382,7 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(
                     ),
                 ]
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         chunks = list(
             runscript_v2.run_script(
@@ -722,501 +716,6 @@ def test_log_run_script_stream_error_keeps_error_for_unexpected_exception() -> N
     assert error_calls[1][0]["description"] == "boom"
 
 
-def test_run_script_inner_rejects_missing_course_without_default(
-    monkeypatch: object,
-) -> None:
-    app = Flask(__name__)
-    rollback_calls = []
-    remove_calls = []
-
-    monkeypatch.setattr(
-        runscript_v2,
-        "db",
-        SimpleNamespace(
-            session=SimpleNamespace(
-                rollback=lambda: rollback_calls.append("rollback"),
-                remove=lambda: remove_calls.append("remove"),
-            )
-        ),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "load_user_aggregate",
-        lambda _user_bid: SimpleNamespace(user_id="user-1"),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_dto",
-        lambda *_args, **_kwargs: pytest.fail(
-            "missing course ids must not select a course"
-        ),
-    )
-
-    with pytest.raises(AppError) as exc_info:
-        list(
-            runscript_v2.run_script_inner(
-                app=app,
-                user_bid="user-1",
-                shifu_bid="",
-                outline_bid="",
-            )
-        )
-
-    assert exc_info.value.code == 4001
-    assert rollback_calls == ["rollback"]
-    assert remove_calls == ["remove"]
-
-
-def test_run_script_inner_rolls_back_on_unexpected_exception(
-    monkeypatch: object,
-) -> None:
-    app = Flask(__name__)
-    session_spy = SimpleNamespace(
-        commit=lambda: None,
-        rollback=lambda: None,
-        remove=lambda: None,
-    )
-    rollback_calls = []
-    commit_calls = []
-    remove_calls = []
-
-    def _commit() -> None:
-        commit_calls.append("commit")
-
-    def _rollback() -> None:
-        rollback_calls.append("rollback")
-
-    def _remove() -> None:
-        remove_calls.append("remove")
-        message = "remove failed"
-        raise RuntimeError(message)
-
-    session_spy.commit = _commit
-    session_spy.rollback = _rollback
-    session_spy.remove = _remove
-
-    monkeypatch.setattr(runscript_v2, "db", SimpleNamespace(session=session_spy))
-    monkeypatch.setattr(
-        runscript_v2,
-        "load_user_aggregate",
-        lambda _user_bid: SimpleNamespace(user_id="user-1"),
-    )
-
-    outline_item_info = SimpleNamespace(
-        bid="outline-1",
-        shifu_bid="shifu-1",
-        title="Lesson",
-        __json__=lambda: {"bid": "outline-1"},
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_outline_item_dto",
-        lambda *_args, **_kwargs: outline_item_info,
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_dto",
-        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_struct",
-        lambda *_args, **_kwargs: object(),
-    )
-
-    class FakeRunScriptContext:
-        def __init__(self, **_kwargs: object) -> None:
-            self._has_next = True
-
-        def set_input(self, *_args: object, **_kwargs: object) -> None:
-            return None
-
-        def reload(self, *_args: object, **_kwargs: object) -> object:
-            return []
-
-        def has_next(self) -> object:
-            if self._has_next:
-                self._has_next = False
-                return True
-            return False
-
-        def run(self, _app: object) -> None:
-            message = "boom"
-            raise RuntimeError(message)
-
-    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
-
-    with pytest.raises(RuntimeError) as exc_info:
-        list(
-            runscript_v2.run_script_inner(
-                app=app,
-                user_bid="user-1",
-                shifu_bid="shifu-1",
-                outline_bid="outline-1",
-                user_input={"input": ["x"]},
-                input_type="normal",
-            )
-        )
-
-    assert str(exc_info.value) == "boom"
-
-    assert rollback_calls == ["rollback"]
-    assert commit_calls == []
-    assert remove_calls == ["remove"]
-
-
-def test_run_script_inner_finalizes_langfuse_after_loop(monkeypatch: object) -> None:
-    app = Flask(__name__)
-    commit_calls = []
-
-    monkeypatch.setattr(
-        runscript_v2,
-        "db",
-        SimpleNamespace(
-            session=SimpleNamespace(
-                commit=lambda: commit_calls.append("commit"),
-                rollback=lambda: None,
-                remove=lambda: None,
-            )
-        ),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "load_user_aggregate",
-        lambda _user_bid: SimpleNamespace(user_id="user-1"),
-    )
-
-    outline_item_info = SimpleNamespace(
-        bid="outline-1",
-        shifu_bid="shifu-1",
-        title="Lesson",
-        __json__=lambda: {"bid": "outline-1"},
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_outline_item_dto",
-        lambda *_args, **_kwargs: outline_item_info,
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_dto",
-        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_struct",
-        lambda *_args, **_kwargs: object(),
-    )
-
-    class FakeRunScriptContext:
-        last_instance = None
-
-        def __init__(self, **_kwargs: object) -> None:
-            self._has_next = True
-            self.finalize_calls = 0
-            FakeRunScriptContext.last_instance = self
-
-        def set_input(self, *_args: object, **_kwargs: object) -> None:
-            return None
-
-        def reload(self, *_args: object, **_kwargs: object) -> object:
-            return []
-
-        def has_next(self) -> object:
-            if self._has_next:
-                self._has_next = False
-                return True
-            return False
-
-        def run(self, _app: object) -> object:
-            return [
-                RunMarkdownFlowDTO(
-                    outline_bid="outline-1",
-                    generated_block_bid="generated-1",
-                    type=GeneratedType.CONTENT,
-                    content="hello",
-                ),
-                RunMarkdownFlowDTO(
-                    outline_bid="outline-1",
-                    generated_block_bid="generated-1",
-                    type=GeneratedType.BREAK,
-                    content="",
-                ),
-            ]
-
-        def _finalize_langfuse_trace(self) -> None:
-            self.finalize_calls += 1
-
-    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
-
-    events = list(
-        runscript_v2.run_script_inner(
-            app=app,
-            user_bid="user-1",
-            shifu_bid="shifu-1",
-            outline_bid="outline-1",
-            user_input="hello",
-            input_type="text",
-        )
-    )
-
-    assert [event.type for event in events] == [
-        GeneratedType.CONTENT,
-        GeneratedType.BREAK,
-    ]
-    assert FakeRunScriptContext.last_instance is not None
-    assert FakeRunScriptContext.last_instance.finalize_calls == 1
-    assert commit_calls == ["commit"]
-
-
-def test_run_script_inner_emits_audio_backfill_ready_after_final_commit(
-    monkeypatch: object,
-) -> None:
-    app = Flask(__name__)
-    sequence = []
-
-    monkeypatch.setattr(
-        runscript_v2,
-        "db",
-        SimpleNamespace(
-            session=SimpleNamespace(
-                commit=lambda: sequence.append("commit"),
-                rollback=lambda: None,
-                remove=lambda: None,
-            )
-        ),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "load_user_aggregate",
-        lambda _user_bid: SimpleNamespace(user_id="user-1"),
-    )
-
-    outline_item_info = SimpleNamespace(
-        bid="outline-1",
-        shifu_bid="shifu-1",
-        title="Lesson",
-        __json__=lambda: {"bid": "outline-1"},
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_outline_item_dto",
-        lambda *_args, **_kwargs: outline_item_info,
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_dto",
-        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_struct",
-        lambda *_args, **_kwargs: object(),
-    )
-
-    class FakeRunScriptContext:
-        def __init__(self, **_kwargs: object) -> None:
-            self._has_next = True
-
-        def set_input(self, *_args: object, **_kwargs: object) -> None:
-            return None
-
-        def reload(self, *_args: object, **_kwargs: object) -> object:
-            return []
-
-        def has_next(self) -> object:
-            if self._has_next:
-                self._has_next = False
-                return True
-            return False
-
-        def run(self, _app: object) -> object:
-            return [
-                RunMarkdownFlowDTO(
-                    outline_bid="outline-1",
-                    generated_block_bid="generated-1",
-                    type=GeneratedType.CONTENT,
-                    content="hello",
-                ),
-                RunMarkdownFlowDTO(
-                    outline_bid="outline-1",
-                    generated_block_bid="generated-1",
-                    type=GeneratedType.BREAK,
-                    content="",
-                ),
-            ]
-
-    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
-
-    class ElementAdapter:
-        def process(self, events: object) -> object:
-            for event in events:
-                if event.type == GeneratedType.CONTENT:
-                    yield RunElementSSEMessageDTO(
-                        type="element",
-                        event_type="element",
-                        generated_block_bid="generated-1",
-                        content=ElementDTO(
-                            element_bid="element-1",
-                            generated_block_bid="generated-1",
-                            element_index=0,
-                            role="assistant",
-                            element_type=ElementType.TEXT,
-                            element_type_code=1,
-                            is_final=True,
-                            is_speakable=True,
-                            content="hello",
-                        ),
-                    )
-                elif event.type == GeneratedType.BREAK:
-                    yield RunElementSSEMessageDTO(
-                        type=GeneratedType.DONE.value,
-                        event_type=GeneratedType.DONE.value,
-                        content="",
-                        is_terminal=False,
-                    )
-
-    # Record the marker while iterating. Consuming the generator first would
-    # make the ordering assertion pass even if the ready event were yielded
-    # before the commit, which is exactly what this test needs to rule out.
-    emitted = []
-    for event in runscript_v2.run_script_inner(
-        app=app,
-        user_bid="user-1",
-        shifu_bid="shifu-1",
-        outline_bid="outline-1",
-        user_input="hello",
-        input_type="text",
-        element_adapter=ElementAdapter(),
-    ):
-        emitted.append(event)
-        if getattr(event, "type", "") == GeneratedType.AUDIO_BACKFILL_READY.value:
-            sequence.append("ready")
-
-    assert sequence == ["commit", "ready"]
-    ready_event = emitted[-1]
-    assert ready_event.type == GeneratedType.AUDIO_BACKFILL_READY.value
-    assert ready_event.generated_block_bid == "generated-1"
-    assert ready_event.content.element_bids == ["element-1"]
-
-
-def test_run_script_inner_emits_audio_backfill_ready_after_break_commit(
-    monkeypatch: object,
-) -> None:
-    app = Flask(__name__)
-    sequence = []
-
-    monkeypatch.setattr(
-        runscript_v2,
-        "db",
-        SimpleNamespace(
-            session=SimpleNamespace(
-                commit=lambda: sequence.append("commit"),
-                rollback=lambda: None,
-                remove=lambda: None,
-            )
-        ),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "load_user_aggregate",
-        lambda _user_bid: SimpleNamespace(user_id="user-1"),
-    )
-
-    outline_item_info = SimpleNamespace(
-        bid="outline-1",
-        shifu_bid="shifu-1",
-        title="Lesson",
-        __json__=lambda: {"bid": "outline-1"},
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_outline_item_dto",
-        lambda *_args, **_kwargs: outline_item_info,
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_dto",
-        lambda *_args, **_kwargs: SimpleNamespace(bid="shifu-1", price=0),
-    )
-    monkeypatch.setattr(
-        runscript_v2,
-        "get_shifu_struct",
-        lambda *_args, **_kwargs: object(),
-    )
-
-    class FakeRunScriptContext:
-        def __init__(self, **_kwargs: object) -> None:
-            self._has_next = True
-
-        def set_input(self, *_args: object, **_kwargs: object) -> None:
-            return None
-
-        def reload(self, *_args: object, **_kwargs: object) -> object:
-            return []
-
-        def has_next(self) -> object:
-            if self._has_next:
-                self._has_next = False
-                return True
-            return False
-
-        def run(self, _app: object) -> object:
-            yield RunMarkdownFlowDTO(
-                outline_bid="outline-1",
-                generated_block_bid="generated-1",
-                type=GeneratedType.CONTENT,
-                content="hello",
-            )
-            raise runscript_v2.BreakError
-
-    monkeypatch.setattr(runscript_v2, "RunScriptContextV2", FakeRunScriptContext)
-
-    class ElementAdapter:
-        def process(self, events: object) -> object:
-            for event in events:
-                if event.type == GeneratedType.CONTENT:
-                    yield RunElementSSEMessageDTO(
-                        type="element",
-                        event_type="element",
-                        generated_block_bid="generated-1",
-                        content=ElementDTO(
-                            element_bid="element-1",
-                            generated_block_bid="generated-1",
-                            element_index=0,
-                            role="assistant",
-                            element_type=ElementType.TEXT,
-                            element_type_code=1,
-                            is_final=True,
-                            is_speakable=True,
-                            content="hello",
-                        ),
-                    )
-
-    # Record the marker while iterating. Consuming the generator first would
-    # make the ordering assertion pass even if the ready event were yielded
-    # before the commit, which is exactly what this test needs to rule out.
-    emitted = []
-    for event in runscript_v2.run_script_inner(
-        app=app,
-        user_bid="user-1",
-        shifu_bid="shifu-1",
-        outline_bid="outline-1",
-        user_input="hello",
-        input_type="text",
-        element_adapter=ElementAdapter(),
-    ):
-        emitted.append(event)
-        if getattr(event, "type", "") == GeneratedType.AUDIO_BACKFILL_READY.value:
-            sequence.append("ready")
-
-    assert sequence == ["commit", "ready"]
-    ready_event = emitted[-1]
-    assert ready_event.type == GeneratedType.AUDIO_BACKFILL_READY.value
-    assert ready_event.generated_block_bid == "generated-1"
-    assert ready_event.content.element_bids == ["element-1"]
-
-
 def test_run_script_listen_keeps_interaction_after_block_done(
     monkeypatch: object,
 ) -> None:
@@ -1227,7 +726,7 @@ def test_run_script_listen_keeps_interaction_after_block_done(
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             with app.app_context():
                 element_adapter = _kwargs["element_adapter"]
                 yield from element_adapter.process(
@@ -1253,7 +752,7 @@ def test_run_script_listen_keeps_interaction_after_block_done(
                     ]
                 )
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         chunks = list(
             runscript_v2.run_script(
@@ -1349,12 +848,12 @@ def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             message = "litellm.APIConnectionError: APIConnectionError: OpenAIException - [SSL] record layer failure (_ssl.c:2590)"
             raise RuntimeError(message)
             yield  # pragma: no cover
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         chunks = list(
             runscript_v2.run_script(
@@ -1385,14 +884,14 @@ def test_run_script_maps_standard_timeout_error_to_retryable_message(
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             message = "stream failed"
             raise RuntimeError(message) from TimeoutError(
                 "The read operation timed out"
             )
             yield  # pragma: no cover
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         chunks = list(
             runscript_v2.run_script(
@@ -1420,11 +919,11 @@ def test_run_script_listen_done_uses_element_protocol(monkeypatch: object) -> No
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             if False:
                 yield None
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         chunks = list(
             runscript_v2.run_script(
@@ -1480,7 +979,7 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch: object) -
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
         monkeypatch.setattr(runscript_v2.time, "time", lambda: 120.0)
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             with app.app_context():
                 yield RunMarkdownFlowDTO(
                     outline_bid="outline-1",
@@ -1489,7 +988,7 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch: object) -
                     content="hello",
                 )
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         stream = runscript_v2.run_script(
             app=app,
@@ -1533,7 +1032,7 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(
         cache = FakeCacheProvider(lock)
         monkeypatch.setattr(runscript_v2, "cache_provider", cache)
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             yield RunMarkdownFlowDTO(
                 outline_bid="outline-1",
                 generated_block_bid="generated-1",
@@ -1541,7 +1040,7 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(
                 content="hello",
             )
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         stream = runscript_v2.run_script(
             app=app,
@@ -1581,7 +1080,7 @@ def test_run_script_propagates_explicit_language_to_producer(
 
         seen_languages: list[str] = []
 
-        def fake_run_script_inner(**_kwargs: object) -> object:
+        def fake_lesson_events(**_kwargs: object) -> object:
             with app.app_context():
                 seen_languages.append(get_current_language())
                 yield RunMarkdownFlowDTO(
@@ -1591,7 +1090,7 @@ def test_run_script_propagates_explicit_language_to_producer(
                     content="hello",
                 )
 
-        monkeypatch.setattr(runscript_v2, "run_script_inner", fake_run_script_inner)
+        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
 
         # Simulate the post-teardown state the generator actually runs in.
         clear_language()

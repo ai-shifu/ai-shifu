@@ -1,25 +1,13 @@
-"""Select the MarkdownFlow runtime for this deployment.
+"""Select the MarkdownFlow runtime for a course.
 
-Simulation and production share a database, so runtime selection must read only
-the environment registry, never the service helper that falls back to
-``sys_configs``. Enabling this flag sends every course to 2.0; unset, false or
-malformed values retain 1.0. The retired course allowlist has no effect.
+Every identified course is taught by 2.0. ``FLOW_ENGINE_V2_ENABLED`` is no longer
+read; it stays registered until deployments stop setting it and the 1.0 runtime
+is deleted.
 """
 
 from __future__ import annotations
 
-from flaskr.common.config import get_config
-
-V2_ENABLED_CONFIG_KEY = "FLOW_ENGINE_V2_ENABLED"
-
 
 def uses_agent_engine(shifu_bid: object) -> bool:
-    """Report whether an identified course uses 2.0 in this deployment."""
-    if not str(shifu_bid or "").strip():
-        return False
-    raw = get_config(V2_ENABLED_CONFIG_KEY, default=False)
-    # The registry returns raw environment strings before Config initializes
-    # and parsed booleans afterwards. In particular, bool("false") is unsafe.
-    return raw is True or (
-        isinstance(raw, str) and raw.strip().lower() in {"true", "1", "yes", "on"}
-    )
+    """Report whether a course uses 2.0: every identified course does."""
+    return bool(str(shifu_bid or "").strip())

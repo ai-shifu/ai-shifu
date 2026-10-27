@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
-from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn.context_v2 import RunScriptContextV2
-from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.learn.memory import (
     MemorySnapshot,
     MemoryUpdate,
@@ -288,52 +284,6 @@ def test_memory_patch_preserves_omitted_values_and_definition_identity(
     assert next(row for row in rows if row.key == "goal").variable_bid == definition_bid
 
 
-def test_runtime_memory_update_preserves_normalization_and_mapped_events(
-    app: Flask, scope: tuple[str, str]
-) -> None:
-    """Accepted assignments retain stored values and the mapped SSE contract."""
-    user_bid, shifu_bid = scope
-    definition = Variable.query.filter_by(shifu_bid=shifu_bid, key="base_level").one()
-    validated = {"base_level": ["a", None, "b"], "language": "en-US", "empty": None}
-    state = SimpleNamespace(
-        run_script_info=SimpleNamespace(block_position=0, outline_bid="outline-memory"),
-        mdflow_context=SimpleNamespace(
-            process=Mock(return_value=SimpleNamespace(metadata={}, variables=validated))
-        ),
-        message_list=[],
-        user_profile={},
-        variable_definition_key_id_map={"base_level": definition.variable_bid},
-    )
-    ctx = RunScriptContextV2.__new__(RunScriptContextV2)
-    ctx.app = app
-    ctx._user_info = SimpleNamespace(user_id=user_bid)
-    ctx._outline_item_info = SimpleNamespace(shifu_bid=shifu_bid)
-    ctx._current_attend = SimpleNamespace(block_position=0)
-    ctx._run_recorder = Mock()
-    block = SimpleNamespace(generated_block_bid="block-memory")
-
-    with unit_of_work():
-        events = list(ctx._phase_validate_input_and_advance(app, state, block, {}))
-
-    assert [event.type for event in events] == [GeneratedType.VARIABLE_UPDATE] * 3
-    assert [
-        (event.content.variable_name, event.content.variable_value) for event in events
-    ] == [
-        ("base_level", "a,b"),
-        ("language", get_profile_labels()["language"]["items_mapping"]["en-US"]),
-        ("empty", ""),
-    ]
-    rows = {
-        row.key: row for row in VariableValue.query.filter_by(user_bid=user_bid).all()
-    }
-    assert rows["base_level"].value == "a,b"
-    assert rows["base_level"].variable_bid == definition.variable_bid
-    assert rows["language"].value == "en-US"
-    assert rows["language"].shifu_bid == ""
-    assert rows["empty"].value == ""
-    ctx._recorder.update_progress_pointer.assert_called_once()
-
-
 def test_agent_projection_includes_only_current_course_undeclared_variables(
     app: Flask, scope: tuple[str, str]
 ) -> None:
@@ -451,92 +401,3 @@ def test_supplementary_json_budget_keeps_whole_values_and_exact_defined_answers(
         .value
         == "é" * 40_000
     )
-
-
-@pytest.mark.parametrize("fresh", [False, True])
-def test_legacy_runtime_does_not_restore_a_value_deleted_during_validation(
-    app: Flask,
-    scope: tuple[str, str],
-    fresh: bool,
-) -> None:
-    from flaskr.service.profile.api import (
-        course_memory_deletion_state,
-        delete_course_memory,
-        list_course_memory,
-    )
-
-    user, course = scope
-    with unit_of_work():
-        stage_memory(
-            app,
-            user,
-            course,
-            MemoryUpdate(variables=[VariableMemoryUpdate("base_level", "old")]),
-        )
-    generation, _ = course_memory_deletion_state(user, course)
-    selected = list_course_memory(user, course)["items"][0]
-    delete_course_memory(user, course, int(selected["value_id"]))
-    if fresh:
-        generation, _ = course_memory_deletion_state(user, course)
-    state = SimpleNamespace(
-        run_script_info=SimpleNamespace(block_position=0, outline_bid="lesson"),
-        mdflow_context=SimpleNamespace(
-            process=Mock(
-                return_value=SimpleNamespace(
-                    metadata={}, variables={"base_level": "new answer"}
-                )
-            )
-        ),
-        message_list=[],
-        user_profile={},
-        variable_definition_key_id_map={},
-        memory_generations=generation,
-    )
-    ctx = RunScriptContextV2.__new__(RunScriptContextV2)
-    ctx.app = app
-    ctx._user_info = SimpleNamespace(user_id=user)
-    ctx._outline_item_info = SimpleNamespace(shifu_bid=course)
-    ctx._current_attend = SimpleNamespace(block_position=0)
-    ctx._run_recorder = Mock()
-    block = SimpleNamespace(generated_block_bid="block")
-    events = list(ctx._phase_validate_input_and_advance(app, state, block, {}))
-    values = list_course_memory(user, course)["items"]
-    assert len(values) == int(fresh)
-    assert len(events) == int(fresh)
-    if fresh:
-        assert values[0]["value"] == "new answer"
-    ctx._recorder.update_progress_pointer.assert_called_once()
-
-
-def test_legacy_memory_and_progress_failure_roll_back_together(
-    app: Flask,
-    scope: tuple[str, str],
-) -> None:
-    user, course = scope
-    state = SimpleNamespace(
-        run_script_info=SimpleNamespace(block_position=0, outline_bid="lesson"),
-        mdflow_context=SimpleNamespace(
-            process=Mock(
-                return_value=SimpleNamespace(
-                    metadata={}, variables={"base_level": "new answer"}
-                )
-            )
-        ),
-        message_list=[],
-        user_profile={},
-        variable_definition_key_id_map={},
-        memory_generations={},
-    )
-    ctx = RunScriptContextV2.__new__(RunScriptContextV2)
-    ctx.app = app
-    ctx._user_info = SimpleNamespace(user_id=user)
-    ctx._outline_item_info = SimpleNamespace(shifu_bid=course)
-    ctx._current_attend = SimpleNamespace(block_position=0)
-    ctx._run_recorder = Mock()
-    ctx._run_recorder.update_progress_pointer.side_effect = RuntimeError(
-        "progress failure"
-    )
-    block = SimpleNamespace(generated_block_bid="block")
-    with pytest.raises(RuntimeError, match="progress failure"):
-        next(ctx._phase_validate_input_and_advance(app, state, block, {}))
-    assert not VariableValue.query.filter_by(user_bid=user, shifu_bid=course).all()

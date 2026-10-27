@@ -10,7 +10,6 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn import learn_funcs as learn
-from flaskr.service.learn.context_v2 import RunScriptPreviewContextV2
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_TRIAL
 from flaskr.service.shifu.models import (
@@ -155,31 +154,6 @@ def test_generated_content_preserves_position_when_outline_was_removed(
     assert result.position == 4
     assert result.outline_name == ""
     assert result.is_trial_lesson is False
-
-
-@pytest.mark.parametrize("has_draft", [True, False])
-def test_preview_record_lookup_prefers_draft_and_falls_back_to_published(
-    app: object, stored: str, has_draft: bool
-) -> None:
-    with app.app_context():
-        with unit_of_work():
-            db.session.add(
-                PublishedShifu(shifu_bid=stored, title="Published", deleted=0)
-            )
-            if has_draft:
-                db.session.add(DraftShifu(shifu_bid=stored, title="Draft", deleted=0))
-            else:
-                DraftOutlineItem.query.filter_by(shifu_bid=stored).delete()
-        preview = RunScriptPreviewContextV2(app)
-        outline = preview._get_outline_record(stored, stored)
-        assert outline.title == ("Draft lesson" if has_draft else "Published lesson")
-        assert preview._get_shifu_record(stored, has_draft_outline=True).title == (
-            "Draft" if has_draft else "Published"
-        )
-        assert (
-            preview._get_shifu_record(stored, has_draft_outline=False).title
-            == "Published"
-        )
 
 
 @pytest.mark.parametrize("preview", [True, False])

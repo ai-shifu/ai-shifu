@@ -11,7 +11,6 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
-from flaskr.service.learn import context_v2
 from flaskr.service.learn.ask import (
     FollowUpCancelledError,
     follow_up_events,
@@ -27,7 +26,7 @@ from flaskr.service.order.consts import (
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
 from flaskr.service.shifu.models import DraftShifu, PublishedOutlineItem, PublishedShifu
 
-from tests.service.learn import test_run_published_revision as revision
+from tests.service.learn import published_course as revision
 from tests.service.learn.test_run_published_follow_up import (
     follow_up_dependencies,  # noqa: F401 - pytest fixture
 )
@@ -54,12 +53,6 @@ def ask_runtime(
         "load_memory",
         lambda *_args, **_kwargs: SimpleNamespace(as_variables=dict),
     )
-
-    def build_context(*_args: object, **_kwargs: object) -> None:
-        message = "A follow-up must not build the 1.0 run context"
-        raise AssertionError(message)
-
-    monkeypatch.setattr(context_v2.RunScriptContextV2, "__init__", build_context)
     return SimpleNamespace(traces=traces, calls=follow_up_dependencies)
 
 
@@ -114,7 +107,7 @@ def _ask_block(course: SimpleNamespace) -> LearnGeneratedBlock:
     ).one()
 
 
-def test_answers_at_the_learners_position_without_the_script_context(
+def test_answers_at_the_learners_position(
     app: object,
     monkeypatch: pytest.MonkeyPatch,
     runtime_dependencies: object,

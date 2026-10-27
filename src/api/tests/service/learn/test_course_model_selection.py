@@ -1,18 +1,15 @@
-"""Course models are authoritative for both engines, preview, and follow-up."""
+"""Course models are authoritative for lessons, preview, and follow-up."""
 
 from __future__ import annotations
 
 import uuid
 from decimal import Decimal
-from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
-from flaskr.api.llm import model_selection
 from flaskr.dao import db
-from flaskr.service.learn import context_v2
 from flaskr.service.learn.agent import lesson_entry
-from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
+from flaskr.service.learn.follow_up_context import resolve_course_system_prompt
 from flaskr.service.learn.utils_v2 import get_follow_up_info_v2
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
@@ -23,6 +20,7 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.shifu.struct_utils import find_node_with_parents
 
 if TYPE_CHECKING:
     from flask import Flask
@@ -32,7 +30,7 @@ if TYPE_CHECKING:
 @pytest.mark.parametrize("course_model", ["course-main", "", "   ", " course-main "])
 @pytest.mark.parametrize("ask_model", ["course-ask", ""])
 @pytest.mark.parametrize("outline_ask_mode", [5101, 5102, 5103])
-def test_course_settings_drive_both_engines_and_follow_up(
+def test_course_settings_drive_lessons_and_follow_up(
     app: Flask,
     preview: bool,
     course_model: str,
@@ -102,18 +100,20 @@ def test_course_settings_drive_both_engines_and_follow_up(
             outline.llm_temperature = Decimal("1.8")
             outline.ask_llm_temperature = Decimal("1.9")
 
-        ctx = context_v2.RunScriptContextV2.__new__(context_v2.RunScriptContextV2)
-        ctx.app = app
-        ctx._struct = tree
-        ctx._shifu_model = shifu_type
-        ctx._outline_model = outline_type
-        ctx._preview_mode = preview
         expected_model = course_model
         expected_temperature = float(course.llm_temperature)
-        assert ctx.get_system_prompt(lesson_bid) == "Chapter teaching prompt"
-        settings = ctx.get_llm_settings(lesson_bid)
-        assert settings.model == expected_model
-        assert float(settings.temperature) == expected_temperature
+        assert (
+            resolve_course_system_prompt(
+                app,
+                shifu_bid=shifu_bid,
+                outline_item_bid=lesson_bid,
+                preview_mode=preview,
+                outline_path=find_node_with_parents(tree, lesson_bid),
+                outline_model=outline_type,
+                shifu_model=shifu_type,
+            )
+            == "Chapter teaching prompt"
+        )
         script, _brief, agent_settings, _revision, _language = lesson_entry._resolve(
             app,
             user_bid="teacher-1",
@@ -122,7 +122,8 @@ def test_course_settings_drive_both_engines_and_follow_up(
             preview_mode=preview,
         )
         assert script == lesson.content
-        assert agent_settings == settings
+        assert agent_settings.model == expected_model
+        assert float(agent_settings.temperature) == expected_temperature
 
         info = get_follow_up_info_v2(app, shifu_bid, lesson_bid, "", is_preview=preview)
         assert info.ask_model == ask_model
@@ -143,41 +144,3 @@ def test_course_settings_drive_both_engines_and_follow_up(
         assert disabled.ask_mode == 5102
         assert disabled.ask_model == ask_model
         db.session.rollback()
-
-
-@pytest.mark.parametrize("course_model", ["course-main", "", "   ", " course-main "])
-@pytest.mark.parametrize("course_temperature", [0.0, 0.7, None])
-def test_block_preview_uses_course_model_and_ignores_legacy_request_settings(
-    app: Flask,
-    monkeypatch: pytest.MonkeyPatch,
-    course_model: str,
-    course_temperature: float | None,
-) -> None:
-    monkeypatch.setattr(
-        model_selection,
-        "resolve_model_slot",
-        lambda selection: f"configured-{selection}",
-    )
-    monkeypatch.setitem(app.config, "DEFAULT_LLM_TEMPERATURE", 0.3)
-    request = PlaygroundPreviewRequest(
-        block_index=0,
-        model="legacy-block-model",
-        temperature=1.8,
-        document_prompt="Legacy request prompt",
-    )
-    course = SimpleNamespace(llm=course_model, llm_temperature=course_temperature)
-    ctx = context_v2.RunScriptPreviewContextV2(app)
-    with app.app_context():
-        model, temperature = ctx._resolve_llm_settings(course)
-    assert model == course_model
-    assert (
-        model_selection.resolve_selection(model, ctx._preview_model_selection_metadata)[
-            0
-        ]
-        == "configured-1"
-    )
-    assert temperature == (
-        course_temperature if course_temperature is not None else 0.3
-    )
-    assert {"model", "temperature"}.isdisjoint(request.model_dump())
-    assert request.document_prompt == "Legacy request prompt"

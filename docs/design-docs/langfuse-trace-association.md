@@ -30,7 +30,8 @@ canonical: true
 
 ## Scope
 
-- `src/api/flaskr/service/learn/context_v2.py`
+- `src/api/flaskr/service/learn/context_v2.py` (removed with the 1.0 runtime;
+  follow-up traces now open in `src/api/flaskr/service/learn/ask/follow_up_run.py`)
 - `src/api/flaskr/service/learn/handle_input_ask.py`
 - `src/api/flaskr/service/shifu/route.py`
 - `src/api/flaskr/service/shifu/shifu_publish_funcs.py`
@@ -92,20 +93,19 @@ the same helper invoked inside an existing advancement remains a child. Exact
 Profile replay and already-completed responses are rejected before tracing and
 do not create execution observations or charge another model call.
 
-Legacy preview allocates an id per preview operation. Legacy learning captures
-its id at context construction, then binds its root only after outline
-synchronization selects the effective progress record. Automatic steps with
-that record reuse the root; crossing to another document's progress Session
-closes the earlier root, clears its output, and allocates a new Trace even in
-one HTTP stream. MarkdownFlow courses bind after native session loading,
+The legacy (1.0) learning and preview runtimes that bound their roots after
+outline synchronization have been removed. MarkdownFlow courses bind after
+native session loading,
 retaining any early progress/block metadata. Profile knows its Session from
 admission. No observation remains open during learner waiting time.
 
 Early failures before a session is known retain an error Trace with the captured
 advancement id and request metadata. Finalization records the exception type
 and error outcome at most once per root. SDK failures use no-op trace and
-observation handles carrying that same advancement id, so teaching, moderation,
-follow-up questions, and usage correlation continue normally. SDK errors cannot
+observation handles carrying that same advancement id, so teaching, moderation
+and usage correlation continue normally. Follow-up questions open their own trace
+in `learn/ask/follow_up_run.py` and do not yet share this advancement-id
+isolation. SDK errors cannot
 replace original business errors or prevent database cleanup. Failed session
 rollover cannot reuse the previous execution's ended observation handles.
 
