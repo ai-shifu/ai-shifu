@@ -195,7 +195,7 @@
   "permissionLimit": "{count} تک صارفین کو شیئر کیا جا سکتا ہے۔",
   "permissionLoading": "لوڈ ہو رہا ہے…",
   "permissionManage": "معاونین کا نظم کریں",
-  "permissionManageHint": "دوسروں کو دیکھنے، ترمیم یا اشاعت کی اجازت دیں",
+  "permissionManageHint": "دوسروں کو کورس کا انتظامی صفحہ دیکھنے، کورس میں ترمیم یا اسے شائع کرنے کی اجازت دیں",
   "permissionOwnerNotAllowed": "کورس کے ذمہ دار کو خود مشترکہ رسائی نہیں دی جا سکتی۔",
   "permissionPhoneInvalid": "براہ کرم درست موبائل فون نمبر درج کریں: {values}",
   "permissionPhoneLabel": "موبائل فون نمبر",

@@ -195,7 +195,7 @@
   "permissionLimit": "Se permite compartir el acceso con un máximo de {count} usuarios",
   "permissionLoading": "Cargando...",
   "permissionManage": "Gestionar colaboradores",
-  "permissionManageHint": "Permitir que otras personas vean, editen o publiquen",
+  "permissionManageHint": "Permitir a otras personas ver la administración del curso, editarlo o publicarlo",
   "permissionOwnerNotAllowed": "No puedes conceder permisos al responsable del curso",
   "permissionPhoneInvalid": "Introduce números de teléfono válidos: {values}",
   "permissionPhoneLabel": "Números de teléfono",

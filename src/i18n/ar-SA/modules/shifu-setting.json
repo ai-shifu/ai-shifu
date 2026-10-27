@@ -195,7 +195,7 @@
   "permissionLimit": "يمكن مشاركة الدورة مع {count} مستخدمين كحد أقصى",
   "permissionLoading": "جارٍ التحميل...",
   "permissionManage": "إدارة المتعاونين",
-  "permissionManageHint": "السماح للآخرين بالعرض أو التعديل أو النشر",
+  "permissionManageHint": "السماح للآخرين بعرض لوحة إدارة الدورة أو تعديل الدورة أو نشرها",
   "permissionOwnerNotAllowed": "لا يمكن تفعيل الأذونات لمسؤول الدورة نفسه",
   "permissionPhoneInvalid": "أدخل أرقام هواتف صحيحة: {values}",
   "permissionPhoneLabel": "رقم الهاتف",

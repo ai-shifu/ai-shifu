@@ -195,7 +195,7 @@
   "permissionLimit": "Bis zu {count} freigegebene Benutzer sind erlaubt",
   "permissionLoading": "Laden...",
   "permissionManage": "Mitwirkende verwalten",
-  "permissionManageHint": "Andere ansehen, bearbeiten oder veröffentlichen lassen",
+  "permissionManageHint": "Anderen Zugriff auf die Kursverwaltung sowie das Bearbeiten oder Veröffentlichen des Kurses erlauben",
   "permissionOwnerNotAllowed": "Der Kursverantwortlichen Person kann für den eigenen Kurs keine Berechtigung erteilt werden.",
   "permissionPhoneInvalid": "Bitte geben Sie gültige Telefonnummern ein: {values}",
   "permissionPhoneLabel": "Telefonnummern",

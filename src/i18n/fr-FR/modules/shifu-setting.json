@@ -195,7 +195,7 @@
   "permissionLimit": "Jusqu’à {count} utilisateurs partagés autorisés",
   "permissionLoading": "Chargement…",
   "permissionManage": "Gérer les collaborateurs",
-  "permissionManageHint": "Autoriser à consulter, modifier ou publier",
+  "permissionManageHint": "Autoriser à consulter l’administration du cours, à le modifier ou à le publier",
   "permissionOwnerNotAllowed": "Vous ne pouvez pas accorder d’autorisations au créateur du cours",
   "permissionPhoneInvalid": "Veuillez saisir des numéros de téléphone valides : {values}",
   "permissionPhoneLabel": "Numéros de téléphone",

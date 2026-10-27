@@ -195,7 +195,7 @@
   "permissionLimit": "แชร์กับผู้ใช้ได้สูงสุด {count} คน",
   "permissionLoading": "กำลังโหลด...",
   "permissionManage": "จัดการผู้ร่วมจัดทำ",
-  "permissionManageHint": "ให้ผู้อื่นดู แก้ไข หรือเผยแพร่หลักสูตรได้",
+  "permissionManageHint": "ให้ผู้อื่นดูหน้าจัดการหลักสูตร แก้ไข หรือเผยแพร่หลักสูตรได้",
   "permissionOwnerNotAllowed": "ไม่สามารถเปิดสิทธิ์ให้ผู้รับผิดชอบหลักสูตรเองได้",
   "permissionPhoneInvalid": "โปรดกรอกหมายเลขโทรศัพท์ที่ถูกต้อง: {values}",
   "permissionPhoneLabel": "หมายเลขโทรศัพท์",
