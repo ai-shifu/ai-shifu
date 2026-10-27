@@ -420,3 +420,30 @@ def test_a_failure_before_the_session_is_known_leaves_one_error_trace(
     root = ask_runtime.finalized[0]["root_span_payload"]
     assert root["level"] == "ERROR"
     assert root["status_message"] == "PaidError"
+
+
+def test_a_failed_session_lookup_still_answers_without_a_session(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+
+    def broken_lookup(*_args: object, **_kwargs: object) -> None:
+        message = "session store unavailable"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(follow_up_run, "active_session_id", broken_lookup)
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        _progress(course, position=0)
+        events = _ask(app, course)
+
+    assert any(
+        e.type == GeneratedType.CONTENT and e.content == "Follow-up answer"
+        for e in events
+    )
+    assert "session_id" not in ask_runtime.traces[-1]["trace_payload"]
+    assert "level" not in ask_runtime.finalized[-1]["root_span_payload"]

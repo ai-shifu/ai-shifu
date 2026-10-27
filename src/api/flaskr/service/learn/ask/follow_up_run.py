@@ -197,8 +197,11 @@ def follow_up_events(
         )
         tracing.args["metadata"]["progress_record_bid"] = attend.progress_record_bid
         tracing.start(
-            session_id=active_session_id(
-                user_info.user_id, outline_item_info.bid, preview_mode=preview_mode
+            session_id=_trace_session_id(
+                app,
+                user_info.user_id,
+                outline_item_info.bid,
+                preview_mode=preview_mode,
             )
         )
         _require_live_course(context, outline_item_info.bid)
@@ -330,6 +333,20 @@ class _FollowUpTrace:
                 "Langfuse follow-up trace finalization failed (%s)",
                 type(telemetry_error).__name__,
             )
+
+
+def _trace_session_id(
+    app: Flask, user_bid: str, outline_bid: str, *, preview_mode: bool
+) -> str | None:
+    """Return the lesson's native session id for tracing; a failed lookup only loses grouping."""
+    try:
+        return active_session_id(user_bid, outline_bid, preview_mode=preview_mode)
+    except Exception as session_error:
+        app.logger.warning(
+            "Follow-up Langfuse session lookup failed (%s)",
+            type(session_error).__name__,
+        )
+        return None
 
 
 def _resolve_anchor(
