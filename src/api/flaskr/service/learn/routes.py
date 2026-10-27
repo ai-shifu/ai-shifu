@@ -91,7 +91,7 @@ def _is_generator_close_error(exc: RuntimeError) -> bool:
 
 def _release_db_session(app: Flask, *, source: str) -> None:
     # sys.exc_info in finally blocks sees propagating BaseExceptions like
-    # GreenletExit injected into IO deep inside the generator frame; discard
+    # SystemExit raised during IO deep inside the generator frame; discard
     # the connection before removal on stream-interrupting exits. Uses this
     # module's ``db`` so tests that monkeypatch routes.db keep working.
     exc = sys.exc_info()[1]
