@@ -645,6 +645,53 @@ def test_cancelled_follow_up_discards_the_connection_without_committing(
     assert discarded == ["follow-up cancelled"]
 
 
+def test_failed_follow_up_cleans_the_session_through_the_dao(
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.learn import ask
+
+    app = Flask(__name__)
+    cleaned = []
+    monkeypatch.setattr(
+        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
+    )
+    monkeypatch.setattr(
+        runscript_v2,
+        "cleanup_session_after",
+        lambda exc, *, source: cleaned.append((exc, source)),
+    )
+    monkeypatch.setattr(
+        runscript_v2, "_remove_db_session_safely", lambda _app, **_kwargs: None
+    )
+    failure = RuntimeError("provider failed")
+
+    def failing(_app: object, **_kwargs: object) -> object:
+        raise failure
+        yield  # pragma: no cover - makes this a generator
+
+    monkeypatch.setattr(ask, "follow_up_events", failing)
+
+    with pytest.raises(RuntimeError) as raised:
+        list(
+            runscript_v2._follow_up_events(
+                app=app,
+                user_bid="user-1",
+                outline_bid="outline-1",
+                user_input="question",
+                reload_generated_block_bid=None,
+                reload_element_bid=None,
+                listen=False,
+                learning_mode="read",
+                preview_mode=False,
+                stop_event=threading.Event(),
+                element_adapter=SimpleNamespace(process=lambda events: events),
+            )
+        )
+
+    assert raised.value is failure
+    assert cleaned == [(failure, "follow-up stream error")]
+
+
 def test_log_run_script_stream_error_does_not_error_for_app_exception() -> None:
     app = Flask(__name__)
     info_calls = []

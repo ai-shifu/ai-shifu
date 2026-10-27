@@ -17,6 +17,7 @@ from flaskr.service.learn.ask import (
     follow_up_events,
     follow_up_run,
 )
+from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
 from flaskr.service.order.consts import (
@@ -24,7 +25,7 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
 )
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDASK_VALUE
-from flaskr.service.shifu.models import DraftShifu, PublishedShifu
+from flaskr.service.shifu.models import DraftShifu, PublishedOutlineItem, PublishedShifu
 
 from tests.service.learn import test_run_published_revision as revision
 from tests.service.learn.test_run_published_follow_up import (
@@ -166,6 +167,88 @@ def test_an_anchored_question_is_asked_at_the_anchor_block(
         _ask(app, course, reload_generated_block_bid=anchor_bid)
 
         assert _ask_block().position == 0
+
+
+def test_an_anchor_from_another_lesson_is_ignored(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies, ask_runtime
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        progress_bid = _progress(course, position=2)
+        foreign_bid = uuid4().hex
+        with unit_of_work():
+            db.session.add(
+                LearnGeneratedBlock(
+                    generated_block_bid=foreign_bid,
+                    progress_record_bid=progress_bid,
+                    user_bid=course.user_bid,
+                    shifu_bid=course.course_bid,
+                    outline_item_bid=uuid4().hex,
+                    position=0,
+                    status=1,
+                )
+            )
+        _ask(app, course, reload_generated_block_bid=foreign_bid)
+
+        assert _ask_block().position == 2
+
+
+def _sell_lesson(course: SimpleNamespace) -> None:
+    with unit_of_work():
+        PublishedShifu.query.filter_by(shifu_bid=course.course_bid).update(
+            {"price": 10}
+        )
+        PublishedOutlineItem.query.filter_by(
+            outline_item_bid=course.outline_bid
+        ).update({"type": 402})
+
+
+def test_an_unbought_paid_lesson_is_refused_before_anything_is_written(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    _learner(monkeypatch, course.user_bid)
+    with app.app_context():
+        _sell_lesson(course)
+        with pytest.raises(PaidError):
+            _ask(app, course)
+
+        assert (
+            LearnProgressRecord.query.filter_by(user_bid=course.user_bid).count() == 0
+        )
+        assert (
+            LearnGeneratedBlock.query.filter_by(user_bid=course.user_bid).count() == 0
+        )
+        assert ask_runtime.calls.llm == []
+
+
+def test_a_guest_may_ask_in_a_trial_lesson_like_the_2_0_lesson_allows(
+    app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_dependencies: object,
+    ask_runtime: SimpleNamespace,
+) -> None:
+    _ = runtime_dependencies
+    course = revision._seed_course(app)
+    monkeypatch.setattr(
+        follow_up_run,
+        "load_user_aggregate",
+        lambda _bid: SimpleNamespace(user_id=course.user_bid, mobile="", email=""),
+    )
+    with app.app_context():
+        _ask(app, course)
+
+        assert _ask_block().user_bid == course.user_bid
+        assert ask_runtime.calls.llm
 
 
 def test_a_question_before_the_lesson_started_creates_a_placeholder(

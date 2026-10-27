@@ -20,6 +20,7 @@ from flaskr.common.shifu_context import (
     get_shifu_context_snapshot,
 )
 from flaskr.dao import (
+    cleanup_session_after,
     db,
     invalidate_session,
     is_abnormal_stream_termination,
@@ -742,10 +743,7 @@ def _follow_up_events(
         _discard_session_connection(source="follow-up cancelled")
         app.logger.info("follow-up stream closed")
     except Exception as exc:
-        if _is_protocol_desync_error(exc):
-            _discard_session_connection(source="follow-up stream error")
-        else:
-            db.session.rollback()
+        cleanup_session_after(exc, source="follow-up stream error")
         raise
     finally:
         _remove_db_session_safely(app, source="follow-up")

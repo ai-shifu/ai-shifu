@@ -45,7 +45,7 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_SUCCESS,
 )
 from flaskr.service.order.models import Order
-from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL, UNIT_TYPE_VALUE_TRIAL
+from flaskr.service.shifu.consts import UNIT_TYPE_VALUE_NORMAL
 from flaskr.service.shifu.models import (
     DraftOutlineItem,
     DraftShifu,
@@ -60,7 +60,6 @@ from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_struct,
 )
 from flaskr.service.shifu.struct_utils import find_node_with_parents
-from flaskr.service.user.exceptions import UserNotLoginError
 from flaskr.service.user.repository import UserAggregate, load_user_aggregate
 from flaskr.util import generate_id
 
@@ -182,7 +181,10 @@ def follow_up_events(
     )
     try:
         anchor_element_bid, anchor_position = _resolve_anchor(
-            reload_generated_block_bid, reload_element_bid
+            reload_generated_block_bid,
+            reload_element_bid,
+            user_bid=user_info.user_id,
+            outline_bid=outline_item_info.bid,
         )
         attend = _current_attend(
             app,
@@ -281,29 +283,40 @@ def _finalize_trace(
 
 
 def _resolve_anchor(
-    reload_generated_block_bid: str | None, reload_element_bid: str | None
+    reload_generated_block_bid: str | None,
+    reload_element_bid: str | None,
+    *,
+    user_bid: str,
+    outline_bid: str,
 ) -> tuple[str, int | None]:
     """Return the anchor element and the position the question is asked at, if anchored.
 
     The element id from the client is trusted even when its row is not visible yet: the
-    lesson stream may still hold it in an uncommitted transaction.
+    lesson stream may still hold it in an uncommitted transaction. A visible element or
+    block that belongs to another learner or lesson is not an anchor for this question.
     """
+    anchor_element_bid = reload_element_bid or ""
     anchor_element = None
     if reload_element_bid:
         anchor_element = _load_latest_active_element_row(reload_element_bid)
+        if anchor_element and (
+            anchor_element.user_bid != user_bid
+            or anchor_element.outline_item_bid != outline_bid
+        ):
+            return "", None
         if anchor_element and anchor_element.generated_block_bid:
             reload_generated_block_bid = anchor_element.generated_block_bid
     if reload_generated_block_bid:
         block = LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid
+            LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
+            LearnGeneratedBlock.user_bid == user_bid,
+            LearnGeneratedBlock.outline_item_bid == outline_bid,
         ).first()
         if block:
-            return reload_element_bid or "", block.position
+            return anchor_element_bid, block.position
     if anchor_element:
-        return reload_element_bid or "", int(
-            getattr(anchor_element, "element_index", 0) or 0
-        )
-    return reload_element_bid or "", None
+        return anchor_element_bid, int(getattr(anchor_element, "element_index", 0) or 0)
+    return anchor_element_bid, None
 
 
 def _is_paid(user_bid: str, shifu_info: ShifuInfoDto) -> bool:
@@ -371,13 +384,13 @@ def _current_attend(
     )
     if not outline_row:
         raise_error("server.shifu.lessonNotFoundInCourse")
-    if outline_row.type == UNIT_TYPE_VALUE_NORMAL:
-        if not is_paid and not context._preview_mode:
-            raise PaidError
-    elif outline_row.type == UNIT_TYPE_VALUE_TRIAL and (
-        not context._preview_mode and not user_info.mobile and not user_info.email
+    # Same access rule as the 2.0 lesson: only a full lesson of a paid course is gated.
+    if (
+        outline_row.type == UNIT_TYPE_VALUE_NORMAL
+        and not is_paid
+        and not context._preview_mode
     ):
-        raise UserNotLoginError
+        raise PaidError
 
     new_records: list[LearnProgressRecord] = []
     for item in context.outline_path(outline_bid):
