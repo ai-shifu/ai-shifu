@@ -164,19 +164,32 @@ jest.mock('@/components/ui/DropdownMenu', () => ({
   DropdownMenuContent: ({ children }: React.PropsWithChildren) => (
     <div>{children}</div>
   ),
-  DropdownMenuItem: ({
-    children,
-    onSelect,
-  }: React.PropsWithChildren<{
-    onSelect?: (event: { stopPropagation: () => void }) => void;
-  }>) => (
-    <button
-      type='button'
-      onClick={() => onSelect?.({ stopPropagation: () => undefined })}
-    >
-      {children}
-    </button>
-  ),
+  DropdownMenuSeparator: () => <hr />,
+  DropdownMenuItem: React.forwardRef<
+    HTMLButtonElement,
+    Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onSelect'> & {
+      onSelect?: (event: { stopPropagation: () => void }) => void;
+    }
+  >(function MockDropdownMenuItem(
+    { children, onSelect, onClick, ...props },
+    ref,
+  ) {
+    return (
+      <button
+        type='button'
+        ref={ref}
+        {...props}
+        onClick={event => {
+          onClick?.(event);
+          if (!event.defaultPrevented) {
+            onSelect?.(event);
+          }
+        }}
+      >
+        {children}
+      </button>
+    );
+  }),
 }));
 
 jest.mock('@/components/ui/AlertDialog', () => ({

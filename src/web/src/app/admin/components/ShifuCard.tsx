@@ -15,7 +15,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useTracking } from '@/hooks/useTracking';
 import { buildOnboardingTargetProps } from '@/lib/onboardingTargets';
+
+type CourseHelpAction =
+  | 'activate_learners'
+  | 'create_discount_code'
+  | 'manage_collaborators'
+  | 'archive'
+  | 'restore';
 
 interface ShifuCardProps {
   id: string;
@@ -62,11 +76,118 @@ const ShifuCard = ({
   onboardingTargetId,
 }: ShifuCardProps) => {
   const { t } = useTranslation();
+  const { trackEvent } = useTracking();
+  const menuOpenRef = React.useRef(false);
+  const viewedHelpActionsRef = React.useRef(new Set<CourseHelpAction>());
+  const [openHelpAction, setOpenHelpAction] =
+    React.useState<CourseHelpAction | null>(null);
+  const helpInputRef = React.useRef<'pointer' | 'keyboard'>('keyboard');
+  const hoveredHelpActionRef = React.useRef<CourseHelpAction | null>(null);
+  const pendingHelpRef = React.useRef<{
+    action: CourseHelpAction;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const clearPendingHelp = React.useCallback(() => {
+    if (pendingHelpRef.current) {
+      clearTimeout(pendingHelpRef.current.timer);
+      pendingHelpRef.current = null;
+    }
+  }, []);
+  React.useEffect(() => clearPendingHelp, [clearPendingHelp]);
+
+  const showHelp = (action: CourseHelpAction) => {
+    if (!menuOpenRef.current) return;
+    setOpenHelpAction(action);
+    if (viewedHelpActionsRef.current.has(action)) return;
+    viewedHelpActionsRef.current.add(action);
+    try {
+      void Promise.resolve(
+        trackEvent('creator_course_action_help_view', {
+          surface: 'admin_course_list',
+          action,
+        }),
+      ).catch(() => {});
+    } catch {}
+  };
+
+  const schedulePointerHelp = (action: CourseHelpAction) => {
+    if (
+      pendingHelpRef.current?.action === action ||
+      openHelpAction === action
+    ) {
+      return;
+    }
+    clearPendingHelp();
+    pendingHelpRef.current = {
+      action,
+      timer: setTimeout(() => {
+        pendingHelpRef.current = null;
+        if (hoveredHelpActionRef.current === action) showHelp(action);
+      }, 300),
+    };
+  };
   const showMenu = Boolean(
     onRedemptionCodeRequest ||
     onImportActivationRequest ||
     canManageArchive ||
     canManagePermissions,
+  );
+
+  const renderAction = (
+    action: CourseHelpAction,
+    label: string,
+    help: string,
+    onSelect?: () => void,
+  ) => (
+    <Tooltip
+      open={openHelpAction === action}
+      onOpenChange={open => {
+        if (!open) {
+          if (pendingHelpRef.current?.action === action) clearPendingHelp();
+          setOpenHelpAction(current => (current === action ? null : current));
+          return;
+        }
+        if (helpInputRef.current === 'pointer') {
+          schedulePointerHelp(action);
+        } else {
+          clearPendingHelp();
+          showHelp(action);
+        }
+      }}
+    >
+      <TooltipTrigger asChild>
+        <DropdownMenuItem
+          aria-label={label}
+          onPointerMoveCapture={event => {
+            if (event.pointerType === 'touch') return;
+            // Radix menu pointer navigation focuses the item immediately.
+            // Keep that focus from bypassing the pointer dwell requirement.
+            helpInputRef.current = 'pointer';
+            hoveredHelpActionRef.current = action;
+            schedulePointerHelp(action);
+          }}
+          onPointerLeave={() => {
+            if (hoveredHelpActionRef.current === action) {
+              hoveredHelpActionRef.current = null;
+            }
+            if (pendingHelpRef.current?.action === action) clearPendingHelp();
+            setOpenHelpAction(current => (current === action ? null : current));
+          }}
+          onSelect={event => {
+            event.stopPropagation();
+            onSelect?.();
+          }}
+        >
+          <span className='truncate'>{label}</span>
+        </DropdownMenuItem>
+      </TooltipTrigger>
+      <TooltipContent
+        side='left'
+        className='z-[113] max-w-64 break-words'
+      >
+        {help}
+      </TooltipContent>
+    </Tooltip>
   );
 
   return (
@@ -130,74 +251,82 @@ const ShifuCard = ({
         </Card>
       </Link>
       {showMenu && (
-        <DropdownMenu>
-          <div className='absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center'>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type='button'
-                variant='ghost'
-                size='icon'
-                className='h-8 w-8 bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted data-[state=open]:bg-muted data-[state=open]:text-foreground'
-                title={t('common.core.more')}
-                aria-label={t('common.core.more')}
-                onClick={event => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-              >
-                <MoreHorizontal className='h-5 w-5' />
-              </Button>
-            </DropdownMenuTrigger>
-          </div>
-          <DropdownMenuContent
-            align='end'
-            sideOffset={4}
-            className='min-w-[9rem]'
+        <TooltipProvider delayDuration={300}>
+          <DropdownMenu
+            onOpenChange={open => {
+              menuOpenRef.current = open;
+              clearPendingHelp();
+              setOpenHelpAction(null);
+              hoveredHelpActionRef.current = null;
+              helpInputRef.current = 'keyboard';
+              if (open) {
+                viewedHelpActionsRef.current.clear();
+              }
+            }}
           >
-            {onImportActivationRequest && (
-              <DropdownMenuItem
-                onSelect={event => {
-                  event.stopPropagation();
-                  onImportActivationRequest();
-                }}
-              >
-                {t('module.order.importActivation.action')}
-              </DropdownMenuItem>
-            )}
-            {onRedemptionCodeRequest && (
-              <DropdownMenuItem
-                onSelect={event => {
-                  event.stopPropagation();
-                  onRedemptionCodeRequest();
-                }}
-              >
-                {t('module.order.redemptionCodes.action')}
-              </DropdownMenuItem>
-            )}
-            {canManagePermissions && (
-              <DropdownMenuItem
-                onSelect={event => {
-                  event.stopPropagation();
-                  onPermissionRequest?.();
-                }}
-              >
-                {t('module.shifuSetting.permissionManage')}
-              </DropdownMenuItem>
-            )}
-            {canManageArchive && (
-              <DropdownMenuItem
-                onSelect={event => {
-                  event.stopPropagation();
-                  onArchiveRequest?.();
-                }}
-              >
-                {archived
-                  ? t('module.shifuSetting.unarchive')
-                  : t('module.shifuSetting.archive')}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <div className='absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center'>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon'
+                  className='h-8 w-8 bg-transparent text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted data-[state=open]:bg-muted data-[state=open]:text-foreground'
+                  title={t('common.core.more')}
+                  aria-label={t('common.core.more')}
+                  onClick={event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                >
+                  <MoreHorizontal className='h-5 w-5' />
+                </Button>
+              </DropdownMenuTrigger>
+            </div>
+            <DropdownMenuContent
+              align='end'
+              sideOffset={4}
+              onKeyDownCapture={() => {
+                helpInputRef.current = 'keyboard';
+                hoveredHelpActionRef.current = null;
+                clearPendingHelp();
+              }}
+              className='min-w-[10rem] max-w-[calc(100vw-2rem)] max-h-[var(--radix-dropdown-menu-content-available-height)] overflow-y-auto'
+            >
+              {onImportActivationRequest &&
+                renderAction(
+                  'activate_learners',
+                  t('module.order.importActivation.action'),
+                  t('module.order.importActivation.actionDescription'),
+                  onImportActivationRequest,
+                )}
+              {onRedemptionCodeRequest &&
+                renderAction(
+                  'create_discount_code',
+                  t('module.order.redemptionCodes.action'),
+                  t('module.order.redemptionCodes.actionDescription'),
+                  onRedemptionCodeRequest,
+                )}
+              {canManagePermissions &&
+                renderAction(
+                  'manage_collaborators',
+                  t('module.shifuSetting.permissionManage'),
+                  t('module.shifuSetting.permissionManageHint'),
+                  onPermissionRequest,
+                )}
+              {canManageArchive &&
+                renderAction(
+                  archived ? 'restore' : 'archive',
+                  archived
+                    ? t('module.shifuSetting.unarchive')
+                    : t('module.shifuSetting.archive'),
+                  archived
+                    ? t('module.shifuSetting.unarchiveHint')
+                    : t('module.shifuSetting.archiveHint'),
+                  onArchiveRequest,
+                )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TooltipProvider>
       )}
     </div>
   );

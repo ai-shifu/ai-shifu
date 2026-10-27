@@ -7,8 +7,7 @@ import { useForm } from 'react-hook-form';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/useToast';
-import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import { useTracking } from '@/hooks/useTracking';
 import Loading from '@/components/loading';
 import {
   Dialog,
@@ -20,6 +19,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -46,8 +46,6 @@ import {
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import type { Shifu } from '@/types/shifu';
-import { useEnvStore } from '@/store';
-import type { EnvStoreState } from '@/types/store';
 
 interface ImportActivationDialogProps {
   open: boolean;
@@ -60,14 +58,20 @@ interface ImportActivationDialogProps {
 interface ImportActivationEntry {
   mobile: string;
   nickname: string;
+  contactType: 'phone' | 'email';
 }
+
+type ActivationFailure = { mobile: string; message: string };
+type ActivationResponse = {
+  success?: { mobile: string; order_bid?: string }[];
+  failed?: { mobile: string; message?: string }[];
+};
 
 const MAX_BULK_MOBILE_COUNT = 50;
 const MOBILE_SAMPLE_LIMIT = 5;
 const MAX_IMPORT_TEXT_LENGTH = 10000;
 const TEXT_CHAR_PATTERN = /[A-Za-z\u4E00-\u9FFF]/;
 const PHONE_MATCH_PATTERN = /(?:^|\D)(\d{11})(?!\d)/g;
-const PHONE_TEST_PATTERN = /(?:^|\D)\d{11}(?!\d)/;
 const EMAIL_TEST_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 const EMAIL_ALLOWED_CHARS = new Set(
   'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._%+-'.split(
@@ -153,63 +157,60 @@ const findEmailMatches = (
   return matches;
 };
 
-const hasValidIdentifier = (
-  line: string,
-  contactType: 'phone' | 'email',
-): boolean => {
-  if (!line) {
-    return false;
-  }
-  if (contactType === 'email') {
-    return findEmailMatches(line).length > 0;
-  }
-  return PHONE_TEST_PATTERN.test(line);
-};
-
 const parseImportText = (
   value: string,
-  contactType: 'phone' | 'email',
 ): {
   entries: ImportActivationEntry[];
   normalizedText: string;
   invalidItems: string[];
 } => {
   const safeValue = value.slice(0, MAX_IMPORT_TEXT_LENGTH);
-  const invalidItems = safeValue
-    .split(/\r?\n/)
-    .map(line => trimDisplayLine(line))
-    .filter(item => item.length > 0 && !hasValidIdentifier(item, contactType));
-  const matches =
-    contactType === 'email'
-      ? findEmailMatches(safeValue)
-      : findPhoneMatches(safeValue);
-  if (matches.length === 0) {
-    return { entries: [], normalizedText: safeValue, invalidItems };
+  const entries: ImportActivationEntry[] = [];
+  const invalidItems: string[] = [];
+  for (const rawLine of safeValue.split(/\r?\n/)) {
+    const line = trimDisplayLine(rawLine);
+    if (!line) continue;
+
+    const emails = findEmailMatches(line);
+    const matches = [
+      ...emails.map(match => ({ ...match, contactType: 'email' as const })),
+      ...findPhoneMatches(line)
+        .filter(
+          phone =>
+            !emails.some(
+              email =>
+                phone.index >= email.index &&
+                phone.index + phone.value.length <=
+                  email.index + email.value.length,
+            ),
+        )
+        .map(match => ({ ...match, contactType: 'phone' as const })),
+    ];
+    const match = matches[0];
+    if (
+      matches.length !== 1 ||
+      !match ||
+      match.index !== 0 ||
+      (line.length > match.value.length && !/\s/.test(line[match.value.length]))
+    ) {
+      invalidItems.push(line);
+      continue;
+    }
+    entries.push({
+      mobile:
+        match.contactType === 'email' ? match.value.toLowerCase() : match.value,
+      nickname: trimNickname(line.slice(match.value.length)),
+      contactType: match.contactType,
+    });
   }
-
-  const entries = matches.map((match, index) => {
-    const start = match.index;
-    const end =
-      index + 1 < matches.length ? matches[index + 1].index : safeValue.length;
-    const segment = safeValue.slice(start, end);
-    const identifier =
-      contactType === 'email' ? match.value.toLowerCase() : match.value;
-    const nicknameSource = segment.replace(match.value, '');
-    const nickname = trimNickname(nicknameSource);
-    return { mobile: identifier, nickname };
-  });
-
-  const displayLines = matches.map((match, index) => {
-    const start = match.index;
-    const end =
-      index + 1 < matches.length ? matches[index + 1].index : safeValue.length;
-    const segment = safeValue.slice(start, end);
-    return trimDisplayLine(segment);
-  });
 
   return {
     entries,
-    normalizedText: displayLines.join('\n'),
+    normalizedText: entries
+      .map(entry =>
+        entry.nickname ? `${entry.mobile} ${entry.nickname}` : entry.mobile,
+      )
+      .join('\n'),
     invalidItems,
   };
 };
@@ -223,23 +224,13 @@ const ImportActivationDialog = ({
 }: ImportActivationDialogProps) => {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const loginMethodsEnabled = useEnvStore(
-    (state: EnvStoreState) => state.loginMethodsEnabled,
-  );
-  const defaultLoginMethod = useEnvStore(
-    (state: EnvStoreState) => state.defaultLoginMethod,
-  );
+  const { trackEvent } = useTracking();
   const [courses, setCourses] = React.useState<Shifu[]>([]);
   const [coursesLoading, setCoursesLoading] = React.useState(false);
   const [coursesError, setCoursesError] = React.useState<string | null>(null);
   const [courseSearch, setCourseSearch] = React.useState('');
   const [courseOpen, setCourseOpen] = React.useState(false);
   const dialogContentRef = React.useRef<HTMLDivElement | null>(null);
-  const contactType = React.useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
-    [defaultLoginMethod, loginMethodsEnabled],
-  );
-  const isEmailMode = contactType === 'email';
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [pendingIdentifiers, setPendingIdentifiers] = React.useState<string[]>(
     [],
@@ -249,6 +240,13 @@ const ImportActivationDialog = ({
   >([]);
   const [isImporting, setIsImporting] = React.useState(false);
   const isImportingRef = React.useRef(false);
+  const [pendingCourseId, setPendingCourseId] = React.useState('');
+  const [pendingDefaultNickname, setPendingDefaultNickname] =
+    React.useState('');
+  const [importResult, setImportResult] = React.useState<{
+    successCount: number;
+    failures: ActivationFailure[];
+  } | null>(null);
   const listSeparator = React.useMemo(
     () => (i18n.language?.startsWith('zh') ? '，' : ', '),
     [i18n.language],
@@ -256,45 +254,33 @@ const ImportActivationDialog = ({
   const joinedIdentifiers = React.useMemo(() => {
     return pendingIdentifiers.join(listSeparator);
   }, [listSeparator, pendingIdentifiers]);
-  const contactLabel = isEmailMode
-    ? t('module.order.importActivation.emailLabel')
-    : t('module.order.importActivation.mobileLabel');
-  const contactPlaceholder = isEmailMode
-    ? t('module.order.importActivation.emailPlaceholder')
-    : t('module.order.importActivation.mobilePlaceholder');
-  const contactRequiredMessage = isEmailMode
-    ? t('module.order.importActivation.emailRequired')
-    : t('module.order.importActivation.mobileRequired');
-  const contactConfirmTitle = isEmailMode
-    ? t('module.order.importActivation.emailConfirmTitle')
-    : t('module.order.importActivation.confirmTitle');
+  const contactLabel = t('module.order.importActivation.mobileLabel');
+  const contactPlaceholder = t(
+    'module.order.importActivation.mobilePlaceholder',
+  );
+  const contactHint = t('module.order.importActivation.mobileHint');
+  const contactRequiredMessage = t(
+    'module.order.importActivation.mobileRequired',
+  );
   const buildInvalidMessage = React.useCallback(
     (values: string) =>
-      isEmailMode
-        ? t('module.order.importActivation.emailInvalidLines', { values })
-        : t('module.order.importActivation.mobileInvalidLines', { values }),
-    [isEmailMode, t],
+      t('module.order.importActivation.mobileInvalidLines', { values }),
+    [t],
   );
   const buildDuplicateMessage = React.useCallback(
     (numbers: string) =>
-      isEmailMode
-        ? t('module.order.importActivation.emailDuplicate', { numbers })
-        : t('module.order.importActivation.mobileDuplicate', { numbers }),
-    [isEmailMode, t],
+      t('module.order.importActivation.mobileDuplicate', { numbers }),
+    [t],
   );
   const buildLimitMessage = React.useCallback(
     (count: number) =>
-      isEmailMode
-        ? t('module.order.importActivation.emailLimit', { count })
-        : t('module.order.importActivation.mobileLimit', { count }),
-    [isEmailMode, t],
+      t('module.order.importActivation.mobileLimit', { count }),
+    [t],
   );
   const buildSuccessSummary = React.useCallback(
     (count: number) =>
-      isEmailMode
-        ? t('module.order.importActivation.emailSuccessSummary', { count })
-        : t('module.order.importActivation.successSummary', { count }),
-    [isEmailMode, t],
+      t('module.order.importActivation.successSummary', { count }),
+    [t],
   );
 
   const formSchema = React.useMemo(
@@ -330,20 +316,6 @@ const ImportActivationDialog = ({
     return map;
   }, [courses]);
 
-  const confirmText = React.useMemo(
-    () =>
-      isEmailMode
-        ? t('module.order.importActivation.emailConfirmDescription', {
-            mobiles: joinedIdentifiers,
-            count: pendingIdentifiers.length,
-          })
-        : t('module.order.importActivation.confirmDescription', {
-            mobiles: joinedIdentifiers,
-            count: pendingIdentifiers.length,
-          }),
-    [isEmailMode, joinedIdentifiers, pendingIdentifiers.length, t],
-  );
-
   const filteredCourses = React.useMemo(() => {
     const keyword = courseSearch.trim().toLowerCase();
     if (!keyword) {
@@ -365,13 +337,22 @@ const ImportActivationDialog = ({
       initialCourseName || courseNameMap.get(initialCourseId) || initialCourseId
     );
   }, [courseNameMap, initialCourseId, initialCourseName]);
+  const confirmationCourseName = initialCourseId
+    ? lockedCourseName
+    : courseNameMap.get(pendingCourseId) || pendingCourseId;
+  const confirmText = React.useMemo(
+    () =>
+      t('module.order.importActivation.confirmDescription', {
+        mobiles: joinedIdentifiers,
+        count: pendingIdentifiers.length,
+        courseName: confirmationCourseName,
+      }),
+    [confirmationCourseName, joinedIdentifiers, pendingIdentifiers.length, t],
+  );
 
   const normalizeContactField = React.useCallback(
     (value: string) => {
-      const { entries, normalizedText, invalidItems } = parseImportText(
-        value,
-        contactType,
-      );
+      const { entries, normalizedText, invalidItems } = parseImportText(value);
       if (
         invalidItems.length === 0 &&
         entries.length > 0 &&
@@ -384,15 +365,14 @@ const ImportActivationDialog = ({
         });
       }
     },
-    [contactType, form],
+    [form],
   );
 
   const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (isImportingRef.current) return;
     const mobileInput = values.mobile || '';
-    const { entries, normalizedText, invalidItems } = parseImportText(
-      mobileInput,
-      contactType,
-    );
+    const { entries, normalizedText, invalidItems } =
+      parseImportText(mobileInput);
     if (invalidItems.length > 0) {
       const sample = invalidItems
         .slice(0, MOBILE_SAMPLE_LIMIT)
@@ -424,23 +404,8 @@ const ImportActivationDialog = ({
       });
     }
 
-    const fallbackNickname = values.user_nick_name?.trim() || '';
-    const entriesForPayload = entries.map(entry => {
-      if (!fallbackNickname) {
-        return entry;
-      }
-      const hasNickname =
-        typeof entry.nickname === 'string' && entry.nickname.trim().length > 0;
-      if (hasNickname) {
-        return entry;
-      }
-      return { ...entry, nickname: fallbackNickname };
-    });
-
-    const mobiles = entriesForPayload.map(entry => entry.mobile);
-    const uniqueKeys = mobiles.map(mobile =>
-      contactType === 'email' ? mobile.toLowerCase() : mobile,
-    );
+    const mobiles = entries.map(entry => entry.mobile);
+    const uniqueKeys = mobiles.map(mobile => mobile.toLowerCase());
     const duplicateMobiles = Array.from(
       new Set(
         uniqueKeys.filter((mobile, idx) => uniqueKeys.indexOf(mobile) !== idx),
@@ -458,38 +423,151 @@ const ImportActivationDialog = ({
       return;
     }
 
-    setPendingEntries(entriesForPayload);
+    setPendingEntries(entries);
+    setPendingDefaultNickname(values.user_nick_name?.trim() || '');
     setPendingIdentifiers(mobiles);
+    setPendingCourseId(initialCourseId || values.course_id.trim());
+    setImportResult(null);
     setConfirmOpen(true);
   };
 
+  const sendActivationAnalytics = React.useCallback(
+    (eventName: string, payload: Record<string, unknown>) => {
+      try {
+        void Promise.resolve(trackEvent(eventName, payload)).catch(() => {});
+      } catch {}
+    },
+    [trackEvent],
+  );
+
   const handleConfirmImport = async (
     entries: ImportActivationEntry[],
-    values: z.infer<typeof formSchema>,
+    courseId: string,
+    defaultNickname: string,
   ) => {
-    if (isImportingRef.current) {
+    if (isImportingRef.current || entries.length === 0 || !courseId) {
       return;
     }
     isImportingRef.current = true;
     setIsImporting(true);
-    const lines = entries.map(entry =>
-      entry.nickname ? `${entry.mobile} ${entry.nickname}` : entry.mobile,
-    );
-    const payload = {
-      lines,
-      course_id: values.course_id.trim(),
-      contact_type: contactType,
+    const groups = (['phone', 'email'] as const)
+      .map(contactType => ({
+        contactType,
+        entries: entries.filter(entry => entry.contactType === contactType),
+      }))
+      .filter(group => group.entries.length > 0);
+    const analyticsContext = {
+      surface: initialCourseId ? 'admin_course_list' : 'admin_orders',
+      contact_mode: groups.length === 2 ? 'mixed' : groups[0].contactType,
+      requested_count: entries.length,
     };
+    sendActivationAnalytics(
+      'creator_course_activation_attempt',
+      analyticsContext,
+    );
 
     try {
-      const response = (await api.importActivationOrder(payload)) as {
-        success?: { mobile: string; order_bid?: string }[];
-        failed?: { mobile: string; message?: string }[];
-      };
-      const successCount = response?.success?.length ?? 0;
-      const failedCount = response?.failed?.length ?? 0;
-      const failedEntries = response?.failed ?? [];
-      const totalCount = entries.length;
+      const outcomes: PromiseSettledResult<ActivationResponse>[] = [];
+      // Linked phone and email credentials can identify the same learner.
+      // Let each request settle before the next checks existing activation.
+      for (const group of groups) {
+        try {
+          const value = (await api.importActivationOrder({
+            lines: group.entries.map(entry =>
+              entry.nickname
+                ? `${entry.mobile} ${entry.nickname}`
+                : entry.mobile,
+            ),
+            course_id: courseId,
+            contact_type: group.contactType,
+            ...(defaultNickname ? { user_nick_name: defaultNickname } : {}),
+          })) as ActivationResponse;
+          outcomes.push({ status: 'fulfilled', value });
+        } catch (reason) {
+          outcomes.push({ status: 'rejected', reason });
+        }
+      }
+      const successes = new Set<string>();
+      const failures = new Map<string, ActivationFailure>();
+      let failureCategory:
+        | 'none'
+        | 'item_failed'
+        | 'request_failed'
+        | 'incomplete_response' = 'none';
+      const fallbackMessage = t('module.order.importActivation.failed');
+
+      outcomes.forEach((outcome, index) => {
+        const group = groups[index];
+        if (outcome.status === 'rejected') {
+          failureCategory = 'request_failed';
+          const message =
+            outcome.reason instanceof Error
+              ? outcome.reason.message || fallbackMessage
+              : fallbackMessage;
+          group.entries.forEach(entry => {
+            failures.set(entry.mobile, { mobile: entry.mobile, message });
+          });
+          return;
+        }
+
+        const response = outcome.value;
+        const responseSuccesses = new Set(
+          (Array.isArray(response?.success) ? response.success : [])
+            .filter(item => typeof item?.mobile === 'string')
+            .map(item => item.mobile.toLowerCase()),
+        );
+        const responseFailures = new Map(
+          (Array.isArray(response?.failed) ? response.failed : [])
+            .filter(item => typeof item?.mobile === 'string')
+            .map(item => [
+              item.mobile.toLowerCase(),
+              item.message || fallbackMessage,
+            ]),
+        );
+        group.entries.forEach(entry => {
+          const key = entry.mobile.toLowerCase();
+          if (responseFailures.has(key)) {
+            failures.set(key, {
+              mobile: entry.mobile,
+              message: responseFailures.get(key)!,
+            });
+            if (failureCategory === 'none') failureCategory = 'item_failed';
+          } else if (responseSuccesses.has(key)) {
+            successes.add(key);
+          } else {
+            failures.set(key, {
+              mobile: entry.mobile,
+              message: fallbackMessage,
+            });
+            if (failureCategory !== 'request_failed')
+              failureCategory = 'incomplete_response';
+          }
+        });
+      });
+
+      const failedEntries = entries.flatMap(entry => {
+        const failure = failures.get(entry.mobile.toLowerCase());
+        return failure ? [failure] : [];
+      });
+      const successCount = successes.size;
+      const failedCount = failedEntries.length;
+      sendActivationAnalytics('creator_course_activation_result', {
+        surface: analyticsContext.surface,
+        contact_mode: analyticsContext.contact_mode,
+        requested_count: entries.length,
+        outcome:
+          failedCount === 0
+            ? 'success'
+            : successCount > 0
+              ? 'partial'
+              : 'failed',
+        success_count: successCount,
+        failed_count: failedCount,
+        failure_category: failureCategory,
+      });
+      setImportResult(
+        failedCount > 0 ? { successCount, failures: failedEntries } : null,
+      );
 
       if (failedCount === 0) {
         toast({
@@ -501,61 +579,18 @@ const ImportActivationDialog = ({
         return;
       }
 
-      const courseNotFoundMessage = t(
-        'server.shifu.courseNotFound',
-        'Course not found',
-      )
-        .trim()
-        .toLowerCase();
-      const isCourseError =
-        successCount === 0 &&
-        failedCount === totalCount &&
-        failedEntries.length > 0 &&
-        failedEntries.every(entry => {
-          const msg = entry.message?.toLowerCase() || '';
-          return courseNotFoundMessage
-            ? msg.includes(courseNotFoundMessage)
-            : false;
-        });
-      if (isCourseError) {
-        toast({
-          title:
-            failedEntries[0]?.message ||
-            t('module.order.importActivation.failed'),
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const failedMessage = response?.failed
-        ?.slice(0, 5)
-        .map(item =>
-          item.message ? `${item.mobile}: ${item.message}` : item.mobile,
-        )
-        .join('\n');
-
       toast({
         title: t('module.order.importActivation.partialSummary', {
           successCount,
           failedCount,
         }),
-        description: failedMessage,
+        description: failedEntries
+          .slice(0, 5)
+          .map(item => `${item.mobile}: ${item.message}`)
+          .join('\n'),
         variant: successCount > 0 ? 'default' : 'destructive',
       });
-      if (successCount > 0) {
-        onSuccess?.('');
-      }
-    } catch (error) {
-      let message = t('module.order.importActivation.failed');
-      if (error instanceof ErrorWithCode) {
-        message = error.message;
-      } else if (error instanceof Error) {
-        message = error.message;
-      }
-      toast({
-        title: message,
-        variant: 'destructive',
-      });
+      if (successCount > 0) onSuccess?.('');
     } finally {
       setIsImporting(false);
       isImportingRef.current = false;
@@ -565,6 +600,7 @@ const ImportActivationDialog = ({
   React.useEffect(() => {
     if (open) {
       form.reset();
+      setImportResult(null);
       form.clearErrors();
       if (initialCourseId) {
         form.setValue('course_id', initialCourseId);
@@ -574,8 +610,9 @@ const ImportActivationDialog = ({
     setConfirmOpen(false);
     setPendingIdentifiers(current => (current.length > 0 ? [] : current));
     setPendingEntries(current => (current.length > 0 ? [] : current));
-    setIsImporting(false);
-    isImportingRef.current = false;
+    setPendingCourseId('');
+    setPendingDefaultNickname('');
+    setImportResult(null);
   }, [open, form, initialCourseId]);
 
   React.useEffect(() => {
@@ -585,7 +622,7 @@ const ImportActivationDialog = ({
   }, [courseOpen]);
 
   React.useEffect(() => {
-    if (!open) {
+    if (!open || initialCourseId) {
       setCourseSearch('');
       setCourseOpen(false);
       return;
@@ -640,15 +677,20 @@ const ImportActivationDialog = ({
     return () => {
       canceled = true;
     };
-  }, [open, t]);
+  }, [initialCourseId, open, t]);
 
   return (
     <>
       <Dialog
         open={open}
-        onOpenChange={onOpenChange}
+        onOpenChange={nextOpen => {
+          if (!isImportingRef.current) onOpenChange(nextOpen);
+        }}
       >
-        <DialogContent ref={dialogContentRef}>
+        <DialogContent
+          ref={dialogContentRef}
+          className='max-h-[calc(100dvh-2rem)] overflow-y-auto'
+        >
           <DialogHeader>
             <DialogTitle>
               {t('module.order.importActivation.title')}
@@ -676,6 +718,7 @@ const ImportActivationDialog = ({
                         className='min-h-[80px]'
                         maxLength={MAX_IMPORT_TEXT_LENGTH}
                         {...field}
+                        disabled={isImporting}
                         onChange={e => field.onChange(e.target.value)}
                         onBlur={event => {
                           field.onBlur();
@@ -683,27 +726,20 @@ const ImportActivationDialog = ({
                         }}
                       />
                     </FormControl>
+                    <FormDescription>{contactHint}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name='course_id'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t('module.order.importActivation.courseLabel')}
-                    </FormLabel>
-                    {initialCourseId ? (
-                      <FormControl>
-                        <Input
-                          value={lockedCourseName}
-                          readOnly
-                          disabled
-                        />
-                      </FormControl>
-                    ) : (
+              {!initialCourseId && (
+                <FormField
+                  control={form.control}
+                  name='course_id'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('module.order.importActivation.courseLabel')}
+                      </FormLabel>
                       <Popover
                         modal={false}
                         open={courseOpen}
@@ -714,6 +750,7 @@ const ImportActivationDialog = ({
                             <Button
                               type='button'
                               variant='outline'
+                              disabled={isImporting}
                               className='w-full justify-between font-normal'
                               title={
                                 field.value
@@ -803,11 +840,11 @@ const ImportActivationDialog = ({
                           </div>
                         </PopoverContent>
                       </Popover>
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name='user_nick_name'
@@ -823,16 +860,44 @@ const ImportActivationDialog = ({
                           'module.order.importActivation.nicknamePlaceholder',
                         )}
                         {...field}
+                        disabled={isImporting}
                       />
                     </FormControl>
+                    <FormDescription>
+                      {t('module.order.importActivation.nicknameHint')}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              {importResult && (
+                <div className='space-y-2 rounded-md border p-3 text-sm'>
+                  <p role='status'>
+                    {t('module.order.importActivation.partialSummary', {
+                      successCount: importResult.successCount,
+                      failedCount: importResult.failures.length,
+                    })}
+                  </p>
+                  <ul className='max-h-48 space-y-1 overflow-y-auto break-words'>
+                    {importResult.failures.map(failure => (
+                      <li
+                        key={failure.mobile}
+                        className='flex flex-col'
+                      >
+                        <span data-bidi='ltr'>{failure.mobile}</span>
+                        <span className='text-muted-foreground'>
+                          {failure.message}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <div className='flex justify-end gap-2'>
                 <Button
                   type='button'
                   variant='outline'
+                  disabled={isImporting}
                   onClick={() => onOpenChange(false)}
                 >
                   {t('common.core.cancel')}
@@ -841,7 +906,7 @@ const ImportActivationDialog = ({
                   type='submit'
                   disabled={form.formState.isSubmitting || isImporting}
                 >
-                  {form.formState.isSubmitting || isImporting
+                  {isImporting
                     ? t('module.order.importActivation.submitting')
                     : t('module.order.importActivation.submit')}
                 </Button>
@@ -857,7 +922,9 @@ const ImportActivationDialog = ({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{contactConfirmTitle}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('module.order.importActivation.confirmTitle')}
+            </AlertDialogTitle>
             <AlertDialogDescription className='text-muted-foreground'>
               {confirmText}
             </AlertDialogDescription>
@@ -867,17 +934,20 @@ const ImportActivationDialog = ({
               onClick={() => setConfirmOpen(false)}
               disabled={isImporting}
             >
-              {t('common.core.cancel')}
+              {t('module.order.importActivation.backToEdit')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                const currentValues = form.getValues();
                 setConfirmOpen(false);
-                void handleConfirmImport(pendingEntries, currentValues);
+                void handleConfirmImport(
+                  pendingEntries,
+                  pendingCourseId,
+                  pendingDefaultNickname,
+                );
               }}
               disabled={isImporting}
             >
-              {t('common.core.confirm')}
+              {t('module.order.importActivation.confirmSubmit')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

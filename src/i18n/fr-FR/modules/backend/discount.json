@@ -1,13 +1,13 @@
 {
   "__namespace__": "server.discount",
   "__flat__": {
-    "couponCodeGenerationFailed": "Échec de la génération des codes promotionnels. Veuillez réessayer plus tard.",
-    "discountAlreadyExpired": "Le code d’échange a expiré.",
-    "discountAlreadyUsed": "Le code d’échange a déjà été utilisé.",
-    "discountLimitExceeded": "La limite d’utilisation du code d’échange est atteinte.",
-    "discountNotApply": "Le code d’échange ne s’applique pas à ce cours.",
-    "discountNotFound": "Le code d’échange n’existe pas.",
-    "discountNotStart": "Le code d’échange n’est pas encore actif.",
-    "orderDiscountAlreadyUsed": "Un code d’échange a déjà été utilisé pour cette commande."
+    "couponCodeGenerationFailed": "Échec de la génération des codes de réduction. Veuillez réessayer plus tard.",
+    "discountAlreadyExpired": "Le code de réduction a expiré.",
+    "discountAlreadyUsed": "Le code de réduction a déjà été utilisé.",
+    "discountLimitExceeded": "La limite d’utilisation du code de réduction est atteinte.",
+    "discountNotApply": "Le code de réduction ne s’applique pas à ce cours.",
+    "discountNotFound": "Le code de réduction n’existe pas.",
+    "discountNotStart": "Le code de réduction n’est pas encore actif.",
+    "orderDiscountAlreadyUsed": "Un code de réduction a déjà été utilisé pour cette commande."
   }
 }
