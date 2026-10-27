@@ -26,7 +26,6 @@ _SESSION_RECORD_VERSION = 2
 _ERROR_INVALID_SESSION = "invalid_session"
 _ERROR_REDIS_UNAVAILABLE = "redis_unavailable"
 _ERROR_SESSION_EXPIRED = "session_expired"
-_ERROR_SESSION_NOT_STORED = "session_not_stored"
 _ERROR_TURN_REJECTED = "turn_rejected"
 
 _TOUCH_SESSION_SCRIPT = """
@@ -325,42 +324,6 @@ def _decode_session(raw: bytes | str) -> StoredLiveFollowUpSession:
 def serialize_live_follow_up_session(session: StoredLiveFollowUpSession) -> str:
     """Reuse the binding format for atomic admission-and-binding publication."""
     return _serialize_session(session)
-
-
-def store_live_follow_up_session(
-    app: Flask,
-    *,
-    session: StoredLiveFollowUpSession,
-) -> None:
-    """Retain a binding through its fixed credential and finalization deadline.
-
-    Browser timer throttling must not destroy an otherwise valid paused session.
-    Capacity is reserved independently for the credential lifetime, and every
-    request still validates identity, Origin, and the hard admission deadline.
-    """
-    payload = _serialize_session(session)
-    retention_deadline_ms = math.ceil(
-        (
-            session.binding.expires_at_epoch
-            + LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS
-        )
-        * 1000
-    )
-    try:
-        stored = _require_redis().set(
-            _session_key(app, session.binding.session_bid),
-            payload,
-            pxat=retention_deadline_ms,
-            nx=True,
-        )
-    except LiveFollowUpSessionStoreError:
-        raise
-    except Exception as exc:
-        raise LiveFollowUpSessionStoreUnavailableError(
-            _ERROR_REDIS_UNAVAILABLE
-        ) from exc
-    if not stored:
-        raise LiveFollowUpSessionStoreUnavailableError(_ERROR_SESSION_NOT_STORED)
 
 
 def load_live_follow_up_session(

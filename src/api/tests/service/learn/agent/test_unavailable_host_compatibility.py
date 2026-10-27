@@ -1,28 +1,28 @@
-"""Keep nickname/deletion refresh compatible with both initial prompt formats."""
+"""Memory refresh preserves both old expanded and new unexpanded prompt bodies."""
 
 import pytest
 from flaskr.service.learn.agent.deleted_memory import refresh_deleted_memory
 from flaskr.service.learn.agent.nickname import refresh_nickname
 from markdownflow.engine import ScriptBundle, Session, render_first_prompt
+from markdownflow.engine.memory_context import parse_initial_memory_prompt
 from pydantic_ai.messages import ModelRequest, ToolReturnPart, UserPromptPart
 
+from tests.service.learn.agent.prompt_fixtures import expanded_initial_prompt
 
-@pytest.mark.parametrize("legacy", [False, True])
-@pytest.mark.parametrize("where", ["script", "constraints", "both"])
-def test_refresh_matches_each_host_section_independently(
-    legacy: bool, where: str
-) -> None:
-    """A known script must not hide a legacy unknown in its separate teaching brief."""
+
+@pytest.mark.parametrize("expanded", [False, True])
+def test_memory_refresh_preserves_saved_authored_sections(expanded: bool) -> None:
+    """Recreation and deletion affect current memory, never the saved prompt body."""
     bundle = ScriptBundle(
-        script="Hello {{sys_user_nickname}}."
-        + (" Goal: {{goal}}." if where in ("script", "both") else ""),
-        constraints="Address {{sys_user_nickname}}."
-        + (" Goal: {{goal}}." if where in ("constraints", "both") else ""),
+        script="Hello {{sys_user_nickname}}. Goal: {{goal}}.",
+        constraints="Address {{sys_user_nickname}}. Goal: {{goal}}.",
     )
     memory = {"sys_user_nickname": "Alex"}
-    prompt = render_first_prompt(bundle, memory)
-    if legacy:
-        prompt = prompt.replace('<unavailable_learner_value name="goal" />', "{{goal}}")
+    render = expanded_initial_prompt if expanded else render_first_prompt
+    prompt = render(bundle, memory)
+    parsed = parse_initial_memory_prompt(prompt)
+    assert parsed is not None
+    saved_suffix = prompt[parsed.script_start :]
     evidence = ModelRequest(
         parts=[
             UserPromptPart("Keep literal {{goal}} in my syntax question."),
@@ -37,20 +37,25 @@ def test_refresh_matches_each_host_section_independently(
     )
     refresh_nickname(session, {"sys_user_nickname": "Sam"})
     first = session.messages[0].parts[0].content
-    assert "Hello Sam." in first
-    assert "Address Sam." in first
-    assert "{{goal}}" not in first
-    assert '<unavailable_learner_value name="goal" />' in first
-    assert session.messages[1] is evidence
+    current = parse_initial_memory_prompt(first)
+    assert current is not None
+    assert current.memory == {"sys_user_nickname": "Sam"}
+    assert first[current.script_start :] == saved_suffix
 
     refresh_deleted_memory(session, frozenset({"goal"}), current={"goal": "New goal"})
     first = session.messages[0].parts[0].content
-    assert "New goal" in first
-    assert "unavailable_learner_value" not in first
+    current = parse_initial_memory_prompt(first)
+    assert current is not None
+    assert current.memory == {"sys_user_nickname": "Sam", "goal": "New goal"}
+    assert first[current.script_start :] == saved_suffix
     refresh_deleted_memory(session, frozenset({"goal"}))
     first = session.messages[0].parts[0].content
-    assert "New goal" not in first
-    assert '<unavailable_learner_value name="goal" />' in first
+    current = parse_initial_memory_prompt(first)
+    assert current is not None
+    assert current.memory == {"sys_user_nickname": "Sam"}
+    assert first[current.script_start :] == saved_suffix
+    assert "goal" not in session.all_memory()
+    assert session.initial_variables == memory
     once = session.dumps()
     refresh_deleted_memory(session, frozenset({"goal"}))
     assert session.dumps() == once

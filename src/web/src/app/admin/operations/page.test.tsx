@@ -987,78 +987,88 @@ describe('OperationsPage', () => {
     });
   });
 
-  test('supports switching copy contact type when phone and email are both enabled', async () => {
-    mockEnvState.loginMethodsEnabled = ['phone', 'email'];
-    mockEnvState.defaultLoginMethod = 'phone';
+  test.each([
+    { methods: ['phone', 'email'], defaultMethod: 'phone' },
+    { methods: ['phone', 'google'], defaultMethod: 'google' },
+    {
+      methods: [' EMAIL ', 'PHONE', 'google', 'phone'],
+      defaultMethod: 'email',
+    },
+  ])(
+    'supports switching copy identifier type with $methods and default $defaultMethod',
+    async ({ methods, defaultMethod }) => {
+      mockEnvState.loginMethodsEnabled = methods;
+      mockEnvState.defaultLoginMethod = defaultMethod;
 
-    await renderAndWaitForLoadedPage();
+      await renderAndWaitForLoadedPage();
 
-    const firstRow = screen.getByText('Course 1').closest('tr');
-    expect(firstRow).not.toBeNull();
+      const firstRow = screen.getByText('Course 1').closest('tr');
+      expect(firstRow).not.toBeNull();
 
-    fireEvent.click(
-      within(firstRow as HTMLElement).getByRole('button', {
-        name: 'common.core.more',
-      }),
-    );
-    fireEvent.click(
-      await screen.findByRole('menuitem', {
-        name: 'module.operationsCourse.actions.copyCourse',
-      }),
-    );
+      fireEvent.click(
+        within(firstRow as HTMLElement).getByRole('button', {
+          name: 'common.core.more',
+        }),
+      );
+      fireEvent.click(
+        await screen.findByRole('menuitem', {
+          name: 'module.operationsCourse.actions.copyCourse',
+        }),
+      );
 
-    const copyDialog = screen.getByRole('dialog');
-    expect(within(copyDialog).getByText('15811112222')).toBeInTheDocument();
+      const copyDialog = screen.getByRole('dialog');
+      expect(within(copyDialog).getByText('15811112222')).toBeInTheDocument();
 
-    expect(
-      screen.getByPlaceholderText(
-        'module.operationsCourse.copyCourseDialog.contactPlaceholderPhone',
-      ),
-    ).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCourse.copyCourseDialog.contactTypeEmail',
-      }),
-    );
-
-    await waitFor(() => {
       expect(
-        within(copyDialog).getByText('creator@example.com'),
+        screen.getByPlaceholderText(
+          'module.operationsCourse.copyCourseDialog.contactPlaceholderPhone',
+        ),
       ).toBeInTheDocument();
-    });
 
-    fireEvent.change(
-      screen.getByPlaceholderText(
-        'module.operationsCourse.copyCourseDialog.contactPlaceholderEmail',
-      ),
-      {
-        target: { value: 'copy-via-email@example.com' },
-      },
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'module.operationsCourse.copyCourseDialog.confirm',
-      }),
-    );
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.operationsCourse.copyCourseDialog.contactTypeEmail',
+        }),
+      );
 
-    const confirmDialog = screen.getByRole('alertdialog');
-    fireEvent.click(
-      within(confirmDialog).getByRole('button', {
-        name: 'module.operationsCourse.copyCourseDialog.confirm',
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockCopyAdminOperationCourse).toHaveBeenCalledWith({
-        shifu_bid: 'course-1',
-        contact_type: 'email',
-        identifier: 'copy-via-email@example.com',
-        new_course_name:
-          'Course 1module.operationsCourse.copyCourseDialog.courseNameSuffix',
+      await waitFor(() => {
+        expect(
+          within(copyDialog).getByText('creator@example.com'),
+        ).toBeInTheDocument();
       });
-    });
-  });
+
+      fireEvent.change(
+        screen.getByPlaceholderText(
+          'module.operationsCourse.copyCourseDialog.contactPlaceholderEmail',
+        ),
+        {
+          target: { value: 'copy-via-email@example.com' },
+        },
+      );
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: 'module.operationsCourse.copyCourseDialog.confirm',
+        }),
+      );
+
+      const confirmDialog = screen.getByRole('alertdialog');
+      fireEvent.click(
+        within(confirmDialog).getByRole('button', {
+          name: 'module.operationsCourse.copyCourseDialog.confirm',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(mockCopyAdminOperationCourse).toHaveBeenCalledWith({
+          shifu_bid: 'course-1',
+          contact_type: 'email',
+          identifier: 'copy-via-email@example.com',
+          new_course_name:
+            'Course 1module.operationsCourse.copyCourseDialog.courseNameSuffix',
+        });
+      });
+    },
+  );
 
   test('keeps system creator label in transfer and copy dialogs', async () => {
     await renderAndWaitForLoadedPage();

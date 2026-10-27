@@ -283,7 +283,7 @@ These tests run on `pydantic-ai`'s `FunctionModel`, so they need no network and
 cost nothing. **They must be green for any change under `markdownflow/`.** They cover
 what the surrounding service tests cannot: pausing and resuming on an
 interaction, several interactions raised in one turn, answers surviving a store
-round trip, variables reaching memory, listen-mode segmentation, 1.0 syntax
+round trip, variables reaching memory, listen-mode segmentation, script syntax
 detection, and the confirm guardrails.
 
 ## Tests

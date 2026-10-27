@@ -12,7 +12,10 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ErrorWithCode } from '@/lib/request';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { useUserStore } from '@/store';
 import type {
   DashboardCourseDetailLearnerItem,
@@ -123,18 +126,20 @@ export default function AdminDashboardCourseDetailPage() {
   const orderListUrl = buildAdminOrdersUrl(shifuBid);
   const followUpListUrl = buildAdminDashboardCourseFollowUpsUrl(shifuBid);
   const ratingsPageUrl = buildAdminDashboardCourseRatingsUrl(shifuBid);
-  const learnerSearchPlaceholder = useMemo(() => {
-    const contactMode = resolveContactMode(
-      loginMethodsEnabled,
-      defaultLoginMethod,
-    );
-    return contactMode === 'email'
-      ? t('module.dashboard.detail.learners.searchPlaceholderEmail')
-      : t('module.dashboard.detail.learners.searchPlaceholderPhone');
-  }, [defaultLoginMethod, loginMethodsEnabled, t]);
-  const learnerContactMode = useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const displayIdentifierType = useMemo(
+    () =>
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
+  );
+  const learnerSearchPlaceholder = useMemo(
+    () =>
+      displayIdentifierType === 'email'
+        ? t('module.dashboard.detail.learners.searchPlaceholderEmail')
+        : t('module.dashboard.detail.learners.searchPlaceholderPhone'),
+    [displayIdentifierType, t],
   );
   const courseStatusLabel = useMemo(() => {
     if (detail.basic_info.course_status === 'published') {
@@ -341,8 +346,8 @@ export default function AdminDashboardCourseDetailPage() {
 
   const handleLearnerFollowUpClick = useCallback(
     (learner: DashboardCourseDetailLearnerItem) => {
-      const preferredKeyword =
-        learnerContactMode === 'email'
+      const followUpKeyword =
+        displayIdentifierType === 'email'
           ? learner.email ||
             learner.mobile ||
             learner.nickname ||
@@ -353,14 +358,14 @@ export default function AdminDashboardCourseDetailPage() {
             learner.user_bid;
       const targetUrl = buildAdminDashboardCourseFollowUpsUrl(shifuBid, {
         userBid: learner.user_bid,
-        keyword: preferredKeyword,
+        keyword: followUpKeyword,
       });
       if (!targetUrl) {
         return;
       }
       router.push(targetUrl);
     },
-    [learnerContactMode, router, shifuBid],
+    [displayIdentifierType, router, shifuBid],
   );
 
   const coreDataItems = useMemo(

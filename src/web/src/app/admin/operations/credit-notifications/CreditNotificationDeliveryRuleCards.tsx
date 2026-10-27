@@ -49,12 +49,12 @@ function ConfigCard({
 }
 
 export function SoftlimitCard({
-  contactMode,
+  notificationChannel,
   policy,
   updatePolicy,
 }: Pick<
   CreditNotificationDeliveryRulesSectionProps,
-  'contactMode' | 'policy' | 'updatePolicy'
+  'notificationChannel' | 'policy' | 'updatePolicy'
 >) {
   const { t } = useTranslation();
   return (
@@ -132,7 +132,7 @@ export function SoftlimitCard({
               });
             },
           },
-          ...(contactMode === 'phone'
+          ...(notificationChannel === 'sms'
             ? [
                 {
                   id: 'credit-notification-softlimit-sms',
@@ -171,7 +171,7 @@ export function SoftlimitCard({
 }
 
 export function FrequencyCard({
-  contactMode,
+  notificationChannel,
   policy,
   updatePolicy,
   getIntegerInputValue,
@@ -185,7 +185,7 @@ export function FrequencyCard({
         'module.operationsCreditNotifications.config.sections.frequency',
       )}
       description={t(
-        contactMode === 'email'
+        notificationChannel === 'email'
           ? 'module.operationsCreditNotifications.config.sectionDescriptions.frequencyEmail'
           : 'module.operationsCreditNotifications.config.sectionDescriptions.frequency',
       )}
@@ -194,12 +194,12 @@ export function FrequencyCard({
         <FormField
           htmlFor='credit-notification-per-mobile'
           label={t(
-            contactMode === 'email'
+            notificationChannel === 'email'
               ? 'module.operationsCreditNotifications.config.fields.perRecipientPerDay'
               : 'module.operationsCreditNotifications.config.fields.perMobilePerDay',
           )}
           tooltip={t(
-            contactMode === 'email'
+            notificationChannel === 'email'
               ? 'module.operationsCreditNotifications.config.fieldTips.perRecipientPerDay'
               : 'module.operationsCreditNotifications.config.fieldTips.perMobilePerDay',
           )}

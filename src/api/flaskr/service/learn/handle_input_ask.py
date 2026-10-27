@@ -10,23 +10,28 @@ from flaskr.api.langfuse import (
     update_langfuse_observation,
     update_langfuse_trace,
 )
+from flaskr.api.llm import chat_llm
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.i18n import _, get_current_language
 from flaskr.service.common.models import raise_param_error
+from flaskr.service.learn.ask_provider_adapters import (
+    AskProviderError,
+    AskProviderRuntime,
+    AskProviderTimeoutError,
+    stream_ask_provider_response,
+)
 from flaskr.service.learn.ask_provider_adapters.consts import (
     ASK_PROVIDER_LLM,
     ASK_PROVIDER_MODE_PROVIDER_ONLY,
     ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
 )
 from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
+from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.follow_up_context import (
     build_follow_up_conversation_context,
-    build_follow_up_element_history,
-    build_legacy_follow_up_history,
-    is_complete_follow_up_asks,
 )
 from flaskr.service.learn.follow_up_memory_writer import (
     FollowUpMemoryPatch,
@@ -46,6 +51,7 @@ from flaskr.service.learn.listen_element_queries import (
     find_follow_up_element_rows,
 )
 from flaskr.service.learn.live_follow_up_config import is_live_follow_up_model
+from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.service.learn.utils_v2 import (
     get_fmt_prompt,
@@ -64,47 +70,6 @@ from flaskr.service.shifu.consts import (
 )
 from flaskr.service.shifu.shifu_struct_manager import HistoryItem, ShifuOutlineItemDto
 from flaskr.service.user.repository import UserAggregate
-
-check_text_with_llm_response = None
-LLMSettings = None
-AskProviderError = None
-AskProviderRuntime = None
-AskProviderTimeoutError = None
-stream_ask_provider_response = None
-chat_llm = None
-
-
-def _is_valid_asks(asks: object) -> bool:
-    """Compatibility wrapper for legacy follow-up history tests and callers."""
-    return is_complete_follow_up_asks(asks)
-
-
-def _load_legacy_ask_context(
-    anchor_element: object,
-    ask_element: object,
-    ask_max_history_len: int,
-) -> list[dict[str, str]] | None:
-    """Compatibility wrapper around the shared legacy-history builder."""
-    if anchor_element is None or ask_element is None:
-        return None
-    return build_legacy_follow_up_history(
-        anchor_element,
-        ask_element,
-        max(0, int(ask_max_history_len)),
-    )
-
-
-def _load_ask_context(
-    anchor_element: object,
-    follow_up_elements: object,
-    ask_max_history_len: int,
-) -> list[dict[str, str]] | None:
-    """Compatibility wrapper around the shared sidecar-history builder."""
-    return build_follow_up_element_history(
-        anchor_element,
-        follow_up_elements,
-        max(0, int(ask_max_history_len)),
-    )
 
 
 def _create_ask_block(
@@ -173,19 +138,7 @@ def _run_guardrail(
     chapter_title: object,
     ask_scene: object,
 ) -> list[str]:
-    check_text_func = globals().get("check_text_with_llm_response")
-    llm_settings_cls = globals().get("LLMSettings")
-    if check_text_func is None or llm_settings_cls is None:
-        # Lowercase aliases keep the lazily imported names consistent with the
-        # module-level lookups above.
-        from flaskr.service.learn.check_text import (
-            check_text_with_llm_response as check_text_func,
-        )
-        from flaskr.service.learn.llmsetting import (  # noqa: N813
-            LLMSettings as llm_settings_cls,
-        )
-
-    res = check_text_func(
+    res = check_text_with_llm_response(
         app,
         user_info=user_info,
         log_script=ask_block,
@@ -194,7 +147,7 @@ def _run_guardrail(
         outline_item_bid=outline_item_info.bid,
         shifu_bid=outline_item_info.shifu_bid,
         block_position=last_position,
-        llm_settings=llm_settings_cls(
+        llm_settings=LLMSettings(
             model=follow_up_model,
             usage_metadata=getattr(follow_up_info, "usage_metadata", {}),
             temperature=follow_up_info.model_args["temperature"],
@@ -497,38 +450,6 @@ def handle_input_ask(
 
     response_text = ""  # Store complete response text
     provider_error: Exception | None = None
-    stream_provider_response_func = globals().get("stream_ask_provider_response")
-    ask_provider_runtime_cls = globals().get("AskProviderRuntime")
-    ask_provider_error_cls = globals().get("AskProviderError")
-    ask_provider_timeout_error_cls = globals().get("AskProviderTimeoutError")
-    if (
-        stream_provider_response_func is None
-        or ask_provider_runtime_cls is None
-        or ask_provider_error_cls is None
-        or ask_provider_timeout_error_cls is None
-    ):
-        # Lowercase aliases keep the lazily imported names consistent with the
-        # module-level lookups above.
-        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
-            AskProviderError as ask_provider_error_cls,
-        )
-        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
-            AskProviderRuntime as ask_provider_runtime_cls,
-        )
-        from flaskr.service.learn.ask_provider_adapters import (  # noqa: N813
-            AskProviderTimeoutError as ask_provider_timeout_error_cls,
-        )
-        from flaskr.service.learn.ask_provider_adapters import (
-            stream_ask_provider_response as stream_provider_response_func,
-        )
-
-    chat_llm_func = globals().get("chat_llm")
-    if chat_llm_func is None:
-        chat_llm_func = __import__(
-            "flaskr.api.llm",
-            fromlist=["chat_llm"],
-        ).chat_llm
-
     from flaskr.service.learn.ask_provider_adapters.common import (
         apply_knowledge_to_messages,
     )
@@ -545,7 +466,7 @@ def handle_input_ask(
             plain_messages: list[dict[str, Any]] | None = None,
         ) -> Generator[Any, None, None]:
             """Answer without memory tools."""
-            return chat_llm_func(
+            return chat_llm(
                 app,
                 user_info.user_id,
                 span,
@@ -612,7 +533,7 @@ def handle_input_ask(
             return run.stream(stream_messages)
         return plain_stream()
 
-    llm_runtime = ask_provider_runtime_cls(
+    llm_runtime = AskProviderRuntime(
         # Pass complete conversation history; an empty knowledge context
         # clears the ask-template {knowledge} placeholder.
         llm_stream_factory=lambda: _chat_llm_stream(
@@ -632,7 +553,7 @@ def handle_input_ask(
         provider_input_messages = (
             llm_messages if provider_name == ASK_PROVIDER_LLM else provider_messages
         )
-        provider_resp = stream_provider_response_func(
+        provider_resp = stream_ask_provider_response(
             app=app,
             provider=provider_name,
             user_id=user_info.user_id,
@@ -672,7 +593,7 @@ def handle_input_ask(
     else:
         try:
             yield from _emit_provider_stream(ask_provider)
-        except ask_provider_timeout_error_cls as exc:
+        except AskProviderTimeoutError as exc:
             provider_error = exc
             app.logger.warning(
                 "ask provider timeout, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
@@ -681,7 +602,7 @@ def handle_input_ask(
                 outline_item_info.shifu_bid,
                 outline_item_info.bid,
             )
-        except ask_provider_error_cls as exc:
+        except AskProviderError as exc:
             provider_error = exc
             app.logger.warning(
                 "ask provider failed, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s, error=%s",
@@ -695,7 +616,7 @@ def handle_input_ask(
     use_llm_fallback = False
     if ask_provider != ASK_PROVIDER_LLM and not response_text:
         if ask_provider_mode == ASK_PROVIDER_MODE_PROVIDER_ONLY:
-            if isinstance(provider_error, ask_provider_timeout_error_cls):
+            if isinstance(provider_error, AskProviderTimeoutError):
                 response_text = str(_("server.learn.askProviderTimeout"))
             else:
                 response_text = str(_("server.learn.askProviderUnavailable"))

@@ -10,7 +10,7 @@
   "memoryConfirmTitle": "¿Eliminar esta memoria del curso?",
   "memoryDelete": "Eliminar",
   "memoryDeleteFailed": "No se pudo eliminar esta memoria. Reinténtalo.",
-  "memoryDescription": "Información persistente guardada para este curso. Gestiona los datos de la cuenta en los ajustes personales.",
+  "memoryDescription": "Estos recuerdos solo se aplican a este curso. Gestiona los recuerdos que se aplican a todo el sitio en «{entry}».",
   "memoryEmpty": "No hay memoria del curso guardada.",
   "memoryLoadFailed": "No se pudo cargar la memoria del curso. Reinténtalo.",
   "memoryLoading": "Cargando la memoria del curso",

@@ -30,6 +30,6 @@ cd src/api && python -m pytest tests/markdownflow/ -q
 ```
 
 Use FunctionModel to verify native execution without network access. Retain
-thread/gevent cancellation, backpressure and shared-capacity coverage when
-changing the synchronous bridge. Run affected course and Profile host tests
+thread cancellation, backpressure and shared-capacity coverage when changing
+the synchronous bridge. Run affected course and Profile host tests
 when a public contract changes.

@@ -1,3 +1,7 @@
+jest.unmock('i18next');
+
+import i18next from 'i18next';
+import ICU from 'i18next-icu';
 import {
   act,
   fireEvent,
@@ -7,6 +11,65 @@ import {
 } from '@testing-library/react';
 
 import ImportActivationDialog from './ImportActivationDialog';
+import arOrder from '../../../../i18n/ar-SA/modules/order.json';
+import deOrder from '../../../../i18n/de-DE/modules/order.json';
+import enOrder from '../../../../i18n/en-US/modules/order.json';
+import esOrder from '../../../../i18n/es-ES/modules/order.json';
+import frOrder from '../../../../i18n/fr-FR/modules/order.json';
+import thOrder from '../../../../i18n/th-TH/modules/order.json';
+import urOrder from '../../../../i18n/ur-PK/modules/order.json';
+import zhOrder from '../../../../i18n/zh-CN/modules/order.json';
+
+const validationLocales = [
+  {
+    language: 'ar-SA',
+    order: arOrder,
+    accountTerm: /حسابات/,
+    identifierTerms: /هاتف|هواتف|بريد/,
+  },
+  {
+    language: 'de-DE',
+    order: deOrder,
+    accountTerm: /Konto|Konten/,
+    identifierTerms: /Telefon|E-Mail/i,
+  },
+  {
+    language: 'en-US',
+    order: enOrder,
+    accountTerm: /accounts/,
+    identifierTerms: /phone|email/i,
+  },
+  {
+    language: 'es-ES',
+    order: esOrder,
+    accountTerm: /cuentas/i,
+    identifierTerms: /móvil|correo/i,
+  },
+  {
+    language: 'fr-FR',
+    order: frOrder,
+    accountTerm: /comptes/i,
+    identifierTerms: /téléphone|e-mail/i,
+  },
+  {
+    language: 'th-TH',
+    order: thOrder,
+    accountTerm: /บัญชี/,
+    identifierTerms: /โทรศัพท์|อีเมล/,
+  },
+  {
+    language: 'ur-PK',
+    order: urOrder,
+    accountTerm: /اکاؤنٹس/,
+    identifierTerms: /فون|ای میل/,
+  },
+  {
+    language: 'zh-CN',
+    order: zhOrder,
+    accountTerm: /账号/,
+    identifierTerms: /手机号|Email/i,
+  },
+];
 
 const mockGetAdminOrderShifus = jest.fn();
 const mockImportActivationOrder = jest.fn();
@@ -16,7 +79,10 @@ const mockEnvState = {
   loginMethodsEnabled: ['phone'],
   defaultLoginMethod: 'phone',
 };
-const mockTranslate = jest.fn((key: string) => key);
+const mockTranslate = jest.fn<
+  string,
+  [key: string, options?: Record<string, unknown>]
+>(key => key);
 
 jest.mock('@/api', () => ({
   __esModule: true,
@@ -53,7 +119,7 @@ const renderBoundDialog = (
 ) => {
   const onOpenChange = jest.fn();
   const onSuccess = jest.fn();
-  render(
+  const { rerender } = render(
     <ImportActivationDialog
       open
       onOpenChange={onOpenChange}
@@ -63,7 +129,7 @@ const renderBoundDialog = (
       {...props}
     />,
   );
-  return { onOpenChange, onSuccess };
+  return { onOpenChange, onSuccess, rerender };
 };
 
 const reviewList = async (value: string) => {
@@ -100,6 +166,7 @@ describe('ImportActivationDialog validation', () => {
     jest.clearAllMocks();
     mockTrackEvent.mockReset();
     mockImportActivationOrder.mockReset();
+    mockTranslate.mockReset().mockImplementation(key => key);
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockGetAdminOrderShifus.mockResolvedValue({ items: [] });
@@ -109,6 +176,207 @@ describe('ImportActivationDialog validation', () => {
         failed: [],
       }),
     );
+  });
+
+  it.each([
+    { methods: ['phone'], defaultMethod: 'email', label: '手机号' },
+    { methods: ['email'], defaultMethod: 'phone', label: 'Email' },
+    { methods: ['google'], defaultMethod: 'phone', label: 'Email' },
+    {
+      methods: ['phone', 'email'],
+      defaultMethod: 'phone',
+      label: '手机号或 Email',
+    },
+    {
+      methods: ['phone', 'email'],
+      defaultMethod: 'email',
+      label: '手机号或 Email',
+    },
+    {
+      methods: ['phone', 'google'],
+      defaultMethod: 'google',
+      label: '手机号或 Email',
+    },
+    {
+      methods: ['phone', 'password'],
+      defaultMethod: 'password',
+      label: '手机号',
+    },
+    { methods: [], defaultMethod: 'email', label: 'Email' },
+    { methods: [], defaultMethod: 'phone', label: '手机号' },
+    { methods: ['password'], defaultMethod: 'email', label: 'Email' },
+    { methods: ['unknown'], defaultMethod: 'google', label: '手机号' },
+    {
+      methods: ['email', ' GOOGLE ', 'google'],
+      defaultMethod: 'phone',
+      label: 'Email',
+    },
+    {
+      methods: ['email', ' PHONE ', 'google', 'email', 'phone'],
+      defaultMethod: 'email',
+      label: '手机号或 Email',
+    },
+  ])(
+    'matches prompts to $methods with default $defaultMethod',
+    async ({ methods, defaultMethod, label }) => {
+      const i18n = i18next.createInstance().use(new ICU());
+      await i18n.init({
+        lng: 'zh-CN',
+        fallbackLng: false,
+        resources: {
+          'zh-CN': { translation: { module: { order: zhOrder } } },
+        },
+      });
+      mockTranslate.mockImplementation((key, options) =>
+        String(i18n.t(key, options)),
+      );
+      mockEnvState.loginMethodsEnabled = methods;
+      mockEnvState.defaultLoginMethod = defaultMethod;
+      renderBoundDialog();
+
+      const contact = screen.getByLabelText(`学员${label}`);
+      expect(mockTranslate).toHaveBeenCalledWith(
+        'module.order.importActivation.mobileLabel',
+        {
+          hasPhoneIdentifier: label !== 'Email',
+          hasEmailIdentifier: label !== '手机号',
+        },
+      );
+      expect(
+        screen.getByText(
+          `输入学员登录时使用的${label}，直接开通本课程，无需学员付款。未注册的学员将自动创建账号。`,
+        ),
+      ).toBeInTheDocument();
+      const placeholder = contact.getAttribute('placeholder')!;
+      expect(placeholder.includes('13800138000')).toBe(label !== 'Email');
+      expect(placeholder.includes('learner@example.com')).toBe(
+        label !== '手机号',
+      );
+      expect(Boolean(screen.queryByText(/可混合填写/))).toBe(
+        label === '手机号或 Email',
+      );
+
+      fireEvent.submit(contact.closest('form')!);
+      expect(await screen.findByText(`请输入学员${label}`)).toBeInTheDocument();
+      fireEvent.change(contact, { target: { value: 'invalid contact' } });
+      fireEvent.submit(contact.closest('form')!);
+      expect(
+        await screen.findByText('以下内容未识别到有效账号：invalid contact'),
+      ).toBeInTheDocument();
+      expect(mockImportActivationOrder).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(
+    validationLocales.flatMap(locale =>
+      ['phone', 'email'].map(mode => ({ ...locale, mode })),
+    ),
+  )(
+    'uses account-neutral errors for off-mode rows in $language with $mode login',
+    async ({ language, order, accountTerm, identifierTerms, mode }) => {
+      const i18n = i18next.createInstance().use(new ICU());
+      await i18n.init({
+        lng: language,
+        fallbackLng: false,
+        resources: {
+          [language]: { translation: { module: { order } } },
+        },
+      });
+      mockTranslate.mockImplementation((key, options) =>
+        String(i18n.t(key, options)),
+      );
+      mockEnvState.loginMethodsEnabled = [mode];
+      mockEnvState.defaultLoginMethod = mode;
+      renderBoundDialog();
+      const contact = screen.getByLabelText(
+        String(
+          i18n.t('module.order.importActivation.mobileLabel', {
+            hasPhoneIdentifier: mode === 'phone',
+            hasEmailIdentifier: mode === 'email',
+          }),
+        ),
+      );
+      const invalid = mode === 'phone' ? 'invalid@example' : '12345';
+      fireEvent.change(contact, { target: { value: invalid } });
+      fireEvent.submit(contact.closest('form')!);
+      const invalidMessage = await screen.findByText(
+        String(
+          i18n.t('module.order.importActivation.mobileInvalidLines', {
+            values: invalid,
+          }),
+        ),
+      );
+      expect(invalidMessage).toHaveTextContent(accountTerm);
+      expect(invalidMessage.textContent).not.toMatch(identifierTerms);
+
+      const duplicate =
+        mode === 'phone' ? 'learner@example.test' : '13800138000';
+      fireEvent.change(contact, {
+        target: { value: `${duplicate} Ada\n${duplicate} Sam` },
+      });
+      fireEvent.submit(contact.closest('form')!);
+      const duplicateMessage = await screen.findByText(
+        String(
+          i18n.t('module.order.importActivation.mobileDuplicate', {
+            numbers: duplicate,
+          }),
+        ),
+      );
+      expect(duplicateMessage).toHaveTextContent(accountTerm);
+      expect(duplicateMessage.textContent).not.toMatch(identifierTerms);
+      expect(mockTranslate).toHaveBeenCalledWith(
+        'module.order.importActivation.mobileDuplicate',
+        { numbers: duplicate },
+      );
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(mockImportActivationOrder).not.toHaveBeenCalled();
+      expect(mockTrackEvent).not.toHaveBeenCalled();
+    },
+  );
+
+  it('updates identifier membership prompts without clearing input when login settings change', async () => {
+    const i18n = i18next.createInstance().use(new ICU());
+    await i18n.init({
+      lng: 'zh-CN',
+      fallbackLng: false,
+      resources: {
+        'zh-CN': { translation: { module: { order: zhOrder } } },
+      },
+    });
+    mockTranslate.mockImplementation((key, options) =>
+      String(i18n.t(key, options)),
+    );
+    const { rerender, onOpenChange, onSuccess } = renderBoundDialog();
+    const rerenderDialog = () =>
+      rerender(
+        <ImportActivationDialog
+          open
+          onOpenChange={onOpenChange}
+          onSuccess={onSuccess}
+          initialCourseId='private-course'
+          initialCourseName='Private course name'
+        />,
+      );
+    fireEvent.change(screen.getByLabelText('学员手机号'), {
+      target: { value: 'learner@example.test' },
+    });
+
+    mockEnvState.loginMethodsEnabled = ['google', 'email', ' GOOGLE '];
+    rerenderDialog();
+    expect(screen.getByLabelText('学员Email')).toHaveValue(
+      'learner@example.test',
+    );
+    expect(screen.queryByText(/可混合填写/)).not.toBeInTheDocument();
+
+    mockEnvState.loginMethodsEnabled = ['google', 'phone', 'email'];
+    rerenderDialog();
+    expect(screen.getByLabelText('学员手机号或 Email')).toHaveValue(
+      'learner@example.test',
+    );
+    expect(screen.getByText(/可混合填写/)).toBeInTheDocument();
+    expect(mockImportActivationOrder).not.toHaveBeenCalled();
+    expect(mockTrackEvent).not.toHaveBeenCalled();
   });
 
   it('shows both required field errors without opening import confirmation', async () => {
@@ -400,7 +668,9 @@ describe('ImportActivationDialog validation', () => {
     await screen.findByText('module.order.importActivation.mobileDuplicate');
     expect(mockTranslate).toHaveBeenCalledWith(
       'module.order.importActivation.mobileDuplicate',
-      { numbers: 'learner@example.test' },
+      {
+        numbers: 'learner@example.test',
+      },
     );
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(mockImportActivationOrder).not.toHaveBeenCalled();

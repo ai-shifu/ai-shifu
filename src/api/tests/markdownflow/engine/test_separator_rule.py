@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from markdownflow.engine.engine import PROMPTS_DIR
 
-_PROMPT = PROMPTS_DIR / "v1_syntax.md"
+_PROMPT = PROMPTS_DIR / "syntax.md"
 
 
 def _separator_rule() -> str:
@@ -14,7 +14,7 @@ def _separator_rule() -> str:
 
 
 def test_a_separator_is_a_section_boundary_and_never_a_pause() -> None:
-    """In a 1.0 lesson `---` divides blocks and the lesson runs on; no button appears.
+    """In a scripted lesson `---` divides blocks and the lesson runs on; no button appears.
 
     The rule used to allow a "continue"-style `interact` at a separator, and the model took it:
     every `---` in a script became a Continue button the author never wrote.

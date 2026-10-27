@@ -43,9 +43,9 @@ logger = logging.getLogger(__name__)
 # high-frequency context churn (streaming requests plus nested app contexts
 # in hot paths), a new context can be allocated at the address of a dead one;
 # if the dead context's session ever escaped teardown (an interrupted
-# cleanup under gevent), the new context SILENTLY ADOPTS the leftover session
-# and its checked-out connection. Two greenlets then interleave commands on
-# one MySQL connection - observed in production as paired failures in the
+# cleanup), the new context SILENTLY ADOPTS the leftover session and its
+# checked-out connection. Two requests then interleave commands on one
+# MySQL connection - observed in production as paired failures in the
 # same second: an INSERT losing its OK packet (FlushError: NULL identity
 # key) while another context's SELECT consumed it (ResourceClosedError),
 # followed by 2014 Command Out of Sync. A monotonically increasing token
@@ -204,7 +204,7 @@ def _reject_desynced_connection_on_checkout(
         raise DisconnectionError(message)
     # Protected liveness ping, replacing pool_pre_ping. The stock pre_ping
     # path is the one wire operation with NO BaseException protection: a
-    # GreenletExit landing in COM_PING's recv escapes every layer, leaks the
+    # BaseException landing in COM_PING's recv escapes every layer, leaks the
     # checkout, and the leaked fairy's GC finalizer later emits a ROLLBACK
     # that consumes the stale PING OK - leaving the connection permanently
     # off by one response. Pinging here keeps dead-connection detection while
@@ -225,7 +225,7 @@ def _reject_desynced_connection_on_checkout(
             # Dead connection: let the pool retry with a fresh one.
             message = "pooled connection failed the checkout liveness ping"
             raise DisconnectionError(message) from ping_exc
-        # GreenletExit and friends propagate; the record is already
+        # SystemExit and friends propagate; the record is already
         # invalidated so nothing dirty can reach the pool.
         raise
     _mark_checkout_boundary(connection_record)
@@ -369,7 +369,7 @@ def is_protocol_interrupt_error(exc: BaseException) -> bool:
         # An INSERT that flushed "successfully" but yielded no autoincrement
         # id read some other statement's response: the stream is off by one.
         return True
-    # gevent interruptions frequently surface as driver interface or raw
+    # Interrupted exchanges frequently surface as driver interface or raw
     # socket errors rather than clean MySQL errnos; all of them mean the
     # exchange on this connection did not complete.
     for candidate in (exc, getattr(exc, "orig", None)):
@@ -390,10 +390,10 @@ def is_abnormal_stream_termination(exc: BaseException | None) -> bool:
     """Return True for terminations that may have interrupted a DB exchange.
 
     GeneratorExit (client walked away from a streaming generator) and
-    non-Exception BaseExceptions (GreenletExit from a rolling deploy,
-    SystemExit, KeyboardInterrupt) can be injected at any gevent IO switch
-    point - including mid-exchange, leaving an unread response owed on the
-    wire. Protocol-interrupt errors are the same condition already observed.
+    non-Exception BaseExceptions (SystemExit or KeyboardInterrupt from a
+    worker shutdown during a rolling deploy) can be raised while a query is
+    in flight - including mid-exchange, leaving an unread response owed on
+    the wire. Protocol-interrupt errors are the same condition already observed.
     Server-delivered errors (IntegrityError, deadlocks, business exceptions)
     are NOT abnormal: the response arrived intact and rollback stays safe.
     """
@@ -411,7 +411,7 @@ def invalidate_session(*, source: str, session: object = None) -> bool:
 
     ``Session.invalidate()`` rolls back the session state WITHOUT emitting
     anything on the wire and marks the raw DBAPI connection as discarded -
-    the documented remedy for gevent-style interruptions. The scoped_session
+    the documented remedy for interrupted exchanges. The scoped_session
     proxy does NOT forward ``invalidate`` (SQLAlchemy 2.0.x), so the real
     Session must be resolved by calling the registry first; a plain
     ``db.session.invalidate()`` raises AttributeError and silently does
@@ -471,9 +471,9 @@ def release_session_classified(*, source: str) -> None:
     """Remove the scoped session, discarding the connection first when a stream-interrupting exception is propagating.
 
     Designed for ``finally`` blocks: ``sys.exc_info()`` still sees the
-    in-flight exception there - including BaseExceptions like GreenletExit
+    in-flight exception there - including BaseExceptions like SystemExit
     that never hit an ``except GeneratorExit`` handler because they were
-    injected into IO deep inside the generator's own frame. Without this,
+    raised during IO deep inside the generator's own frame. Without this,
     the closing ``remove()`` emits a ROLLBACK on a possibly desynced
     connection (and runs BEFORE the app-context teardown guard could act).
     """
@@ -610,7 +610,7 @@ def init_db(app: Flask) -> None:
                 existing_options[opt] = _coerce_int(cfg, default)
 
     # pool_pre_ping is OFF by default: the stock pre-ping runs before the
-    # checkout event with no BaseException protection, so a gevent
+    # checkout event with no BaseException protection, so an
     # interruption inside COM_PING leaks a permanently desynced connection
     # back to the pool (see _reject_desynced_connection_on_checkout, which
     # performs a protected ping instead). Callers can still opt back in by

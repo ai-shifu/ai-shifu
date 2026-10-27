@@ -1,10 +1,9 @@
 """The TTS thread pool must never be shared across a process fork.
 
 An executor created at import time in the gunicorn master (preload) is
-inherited by every forked worker; its gevent-patched internals then carry
-wakeup links bound to the parent's hub, which can crash in
-AbstractLinkable._notify_links and interrupt unrelated greenlets. The lazy
-accessor with a pid guard gives each process its own executor.
+inherited by every forked worker, but its worker threads exist only in the
+process that started them. The lazy accessor with a pid guard gives each
+process its own executor.
 """
 
 import ast

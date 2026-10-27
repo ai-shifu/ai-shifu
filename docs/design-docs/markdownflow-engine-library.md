@@ -103,7 +103,7 @@ available for specialized course policies and internal tests.
 ## Verification
 
 Run `cd src/api && python -m pytest tests/markdownflow/ -q` for portable engine,
-formatter, bridge, gevent, renderer and package-boundary coverage. Also run
+formatter, bridge, renderer and package-boundary coverage. Also run
 affected course, Profile and gateway tests when shared contracts change. Run
 `python scripts/check_architecture_boundaries.py --run-fixture-tests` and the
 normal boundary checker when changing this structure. The extraction

@@ -91,7 +91,7 @@ def _is_generator_close_error(exc: RuntimeError) -> bool:
 
 def _release_db_session(app: Flask, *, source: str) -> None:
     # sys.exc_info in finally blocks sees propagating BaseExceptions like
-    # GreenletExit injected into IO deep inside the generator frame; discard
+    # SystemExit raised during IO deep inside the generator frame; discard
     # the connection before removal on stream-interrupting exits. Uses this
     # module's ``db`` so tests that monkeypatch routes.db keep working.
     exc = sys.exc_info()[1]
@@ -558,10 +558,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                         type: string
                         required: false
                         description: override interaction error prompt
-                    visual_mode:
-                        type: boolean
-                        required: false
-                        description: Whether to enable MarkdownFlow visual mode for preview (default: false)
         responses:
             200:
                 description: stream preview block success
@@ -575,13 +571,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         normalized_user_input = payload.get("user_input")
         if normalized_user_input is None and "input" in payload:
             normalized_user_input = _normalize_user_input(payload.get("input"))
-        visual_mode_raw = payload.get("visual_mode", False)
-        if isinstance(visual_mode_raw, str):
-            visual_mode = visual_mode_raw.strip().lower() == "true"
-        elif visual_mode_raw is None:
-            visual_mode = False
-        else:
-            visual_mode = bool(visual_mode_raw)
         block_index = payload.get("block_index")
         if block_index is None:
             block_index = payload.get("blockIndex")
@@ -594,7 +583,6 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             "document_prompt": payload.get("document_prompt"),
             "interaction_prompt": payload.get("interaction_prompt"),
             "interaction_error_prompt": payload.get("interaction_error_prompt"),
-            "visual_mode": visual_mode,
         }
         try:
             preview_request = PlaygroundPreviewRequest(**preview_payload)
@@ -603,12 +591,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
         user_bid = request.user.user_id
         app.logger.info(
-            "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s, visual_mode: %s",
+            "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s",
             shifu_bid,
             outline_bid,
             user_bid,
             preview_request.block_index,
-            visual_mode,
         )
         require_shifu_preview_permission(app, user_bid, shifu_bid)
         _admit_creator_usage_for_shifu(

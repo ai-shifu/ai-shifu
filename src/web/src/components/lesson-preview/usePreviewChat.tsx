@@ -75,7 +75,6 @@ interface StartPreviewParams {
   block_index?: number;
   max_block_count?: number;
   systemVariableKeys?: string[];
-  visual_mode?: boolean;
 }
 
 type PreviewSseSource = InstanceType<typeof SSE>;
@@ -1286,7 +1285,6 @@ export function usePreviewChat({
       variables,
       max_block_count,
       systemVariableKeys,
-      visual_mode = false,
     }: StartPreviewParams) => {
       if (creditInsufficientAudience === null) {
         return;
@@ -1323,7 +1321,6 @@ export function usePreviewChat({
         variables,
         max_block_count,
         systemVariableKeys,
-        visual_mode,
       };
       const {
         shifuBid: finalShifuBid,
@@ -1332,7 +1329,6 @@ export function usePreviewChat({
         block_index: finalBlockIndex = 0,
         variables: finalVariables = {},
         max_block_count: finalMaxBlockCount,
-        visual_mode: finalVisualMode = false,
       } = mergedParams;
       previewFailedRef.current = false;
       sseParams.current = mergedParams;
@@ -1392,7 +1388,6 @@ export function usePreviewChat({
           block_index: finalBlockIndex,
           content: finalMdflow,
           variables: finalVariables,
-          visual_mode: finalVisualMode,
           ...(debugSessionIdRef.current
             ? { debug_session_id: debugSessionIdRef.current }
             : {}),

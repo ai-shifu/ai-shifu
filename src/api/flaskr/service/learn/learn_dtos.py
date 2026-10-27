@@ -1035,10 +1035,6 @@ class PlaygroundPreviewRequest(BaseModel):
     interaction_error_prompt: str | None = Field(
         default=None, description="Interaction error prompt override"
     )
-    visual_mode: bool = Field(
-        default=False,
-        description="Whether to enable MarkdownFlow visual mode for preview",
-    )
 
     def get_document(self) -> str:
         """Return the requested playground document."""

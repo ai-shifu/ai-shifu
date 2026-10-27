@@ -66,7 +66,7 @@ notation. The renderer needs the authored hint in that notation to show an input
 
 ## Plan of Work
 
-Extend the existing source-backed normalizer, clarify the v1 syntax prompt, and
+Extend the existing source-backed normalizer, clarify the syntax prompt, and
 verify new and old pending interactions with the real engine/session/protocol.
 Run the mandatory offline engine suite within all learning tests, then deploy
 the reviewed source to sim and replay private production examples in isolation.

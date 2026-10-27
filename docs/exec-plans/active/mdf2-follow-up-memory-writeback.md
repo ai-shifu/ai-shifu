@@ -48,8 +48,8 @@ semantic admission, gateway, native-thread bridge and scoped profile facade.
 
 Follow-up history flushes during streaming, then its host commits after the stream
 fully drains. The native engine bridge already owns asynchronous model execution
-and cancellation under gevent. Reusing it avoids running an event loop on request
-greenlets. External provider-only answers must remain independent of LLM setup.
+and cancellation on its own producer thread. Reusing it avoids running an event
+loop on request threads. External provider-only answers must remain independent of LLM setup.
 
 ## Decision Log
 

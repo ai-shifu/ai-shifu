@@ -186,7 +186,7 @@ async def test_wrong_turn_kinds_yield_errors() -> None:
     assert isinstance(events[0], ErrorEvent)
 
 
-async def test_instructions_include_syntax_note_only_for_v1_scripts() -> None:
+async def test_instructions_include_syntax_note_only_for_marked_scripts() -> None:
     seen: list[str] = []
 
     async def spy(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:

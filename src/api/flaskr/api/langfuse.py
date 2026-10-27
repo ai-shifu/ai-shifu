@@ -171,11 +171,10 @@ def init_langfuse(app: Flask) -> None:
         # Running inside the gunicorn preload master. Creating a real client
         # here starts the Langfuse/OTel BatchProcessor worker thread in the
         # master and registers an os.register_at_fork hook; after fork every
-        # worker restarts that orphaned processor's thread, whose gevent
-        # threading bookkeeping then crashes the hub (KeyError on the stopped
-        # Thread in AbstractLinkable._notify_links) and can interrupt
-        # unrelated in-flight DB exchanges. post_fork clears the flag and
-        # calls init_langfuse again to build the real client per worker.
+        # worker restarts that orphaned processor's thread and would share the
+        # master's exporter state and connections with every other worker.
+        # post_fork clears the flag and calls init_langfuse again to build
+        # the real client per worker.
         app.logger.info("Deferring Langfuse init out of the preload master")
         _langfuse_state.client = MockClient()
         return

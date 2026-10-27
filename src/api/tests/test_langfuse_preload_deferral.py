@@ -2,9 +2,8 @@
 
 A real client starts the Langfuse/OTel BatchProcessor worker thread in the
 master and registers an at-fork restart hook; after fork every worker
-revives the orphaned processor's thread, whose gevent threading bookkeeping
-crashes the hub (KeyError in AbstractLinkable._notify_links) and can
-interrupt unrelated in-flight DB exchanges.
+revives the orphaned processor's thread and would share the master's exporter
+state and connections with every other worker.
 """
 
 from typing import ClassVar

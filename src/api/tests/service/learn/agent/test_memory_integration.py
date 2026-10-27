@@ -154,7 +154,7 @@ def _teach_first(app: Flask, user: str, course: str) -> str:
 
 
 def _memory(prompt: str) -> dict:
-    """Read the injected memory section separately from the substituted script."""
+    """Read the injected memory section separately from the authored script."""
     return json.loads(prompt.split("<memory>\n", 1)[1].split("\n</memory>", 1)[0])
 
 
@@ -175,10 +175,9 @@ def test_answer_and_durable_note_reach_the_next_lesson_but_working_notes_do_not(
     assert memory["pace"] == "slow"
     assert "scratch" not in memory
     script = seen[0].split("<script>\n", 1)[1]
-    assert ANSWER in script
-    assert "slow" in script
-    assert "{{goal}}" not in script
-    assert "{{pace}}" not in script
+    assert "Use {{goal}} and the learner's {{pace}} pace." in script
+    assert ANSWER not in script
+    assert "slow" not in script
 
 
 @pytest.mark.parametrize("other", ["learner", "course"])
