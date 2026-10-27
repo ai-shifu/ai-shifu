@@ -54,7 +54,8 @@
     "userBidPhone": "Móvil"
   },
   "importActivation": {
-    "action": "Importar y activar",
+    "action": "Añadir alumnos",
+    "actionDescription": "Introduce números de móvil o correos para activar el curso sin coste para los alumnos",
     "confirmDescription": "{mobiles}: se importarán {count} números de móvil. ¿Quieres continuar?",
     "confirmTitle": "Confirmar importación de móviles",
     "courseLabel": "Curso",
@@ -113,7 +114,8 @@
     "unknown": "Desconocido"
   },
   "redemptionCodes": {
-    "action": "Crear código de canje",
+    "action": "Generar códigos de descuento",
+    "actionDescription": "Los alumnos pueden usar un código para reducir el precio del curso",
     "courseLabel": "Curso",
     "coursePlaceholder": "Selecciona un curso publicado",
     "courseRequired": "Selecciona un curso",

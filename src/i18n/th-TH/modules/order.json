@@ -54,7 +54,8 @@
     "userBidPhone": "หมายเลขโทรศัพท์"
   },
   "importActivation": {
-    "action": "นำเข้าและเปิดใช้งาน",
+    "action": "เพิ่มผู้เรียน",
+    "actionDescription": "กรอกหมายเลขโทรศัพท์หรืออีเมลเพื่อเปิดสิทธิ์เรียนหลักสูตรนี้ฟรี",
     "confirmDescription": "{mobiles} มีหมายเลขโทรศัพท์ทั้งหมด {count} รายการ ยืนยันการนำเข้าหรือไม่",
     "confirmTitle": "ยืนยันการนำเข้าหมายเลขโทรศัพท์",
     "courseLabel": "หลักสูตร",
@@ -113,7 +114,8 @@
     "unknown": "ไม่ทราบ"
   },
   "redemptionCodes": {
-    "action": "สร้างรหัสแลกรับ",
+    "action": "สร้างรหัสส่วนลด",
+    "actionDescription": "ผู้เรียนใช้รหัสเพื่อลดค่าเรียน",
     "courseLabel": "หลักสูตร",
     "coursePlaceholder": "เลือกหลักสูตรที่เผยแพร่แล้ว",
     "courseRequired": "โปรดเลือกหลักสูตร",

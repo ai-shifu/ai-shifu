@@ -54,7 +54,8 @@
     "userBidPhone": "手机号码"
   },
   "importActivation": {
-    "action": "导入开通",
+    "action": "添加学员",
+    "actionDescription": "输入学员账号，免费开通本课程",
     "confirmDescription": "{mobiles}，共导入 {count} 个手机号，确认导入？",
     "confirmTitle": "确认导入手机号",
     "courseLabel": "课程",
@@ -113,7 +114,8 @@
     "unknown": "未知"
   },
   "redemptionCodes": {
-    "action": "创建兑换码",
+    "action": "生成优惠码",
+    "actionDescription": "学员凭码减免课程费用",
     "courseLabel": "课程",
     "coursePlaceholder": "请选择已发布课程",
     "courseRequired": "请选择课程",
