@@ -83,7 +83,7 @@ fi
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 python -m pip install --upgrade "pip<25" setuptools wheel
-pip install -r "$REPO_ROOT/src/api/requirements.txt"
+pip install -r "$REPO_ROOT/src/api/requirements-ci.txt"
 
 # 6) Backend .env for local native services. Only created when missing so that
 #    real secrets (e.g. a working LLM key) added later are preserved. Written

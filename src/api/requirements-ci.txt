@@ -2,6 +2,7 @@
 -r requirements.txt
 coverage==7.15.4
 pip==26.2.2
+pytest==9.0.3
 pytest-cov==7.1.0
 pytest-testmon==2.2.0
 pytest-xdist==3.8.0
