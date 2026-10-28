@@ -18,6 +18,15 @@ streams SSE, `lesson.py` picks the lesson turn or follow-up for a request,
 terminal events. `host/` must not import `routes.py`; `runscript_v2` is a
 one-release alias of `host/run.py`.
 
+Follow-up questions live in `ask/`: `follow_up_run.py` resolves the lesson,
+progress record and trace before `handler.py` answers through `providers/`;
+`context.py` builds the conversation history and `memory_writer.py` stages
+course-memory updates. The host calls in with an `AskContext`; `ask/` must not
+import the host or `routes.py`. `ask/__init__.py` stays import-free so provider
+constants can be imported without the follow-up runtime. The old
+`handle_input_ask`, `follow_up_*`, `ask_provider_langfuse` and
+`ask_provider_adapters` paths are one-release aliases.
+
 ## Do
 
 - Preserve the SSE event flow and element-oriented runtime state used by

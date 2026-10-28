@@ -358,6 +358,44 @@ def collect_learn_host_violations(backend_root: Path) -> list[Violation]:
     return violations
 
 
+LEARN_ASK_PACKAGE = "flaskr.service.learn.ask"
+# The lesson host calls into learn/ask; follow-up code must not call back up
+# into the host or the learn routes.
+LEARN_ASK_FORBIDDEN_PREFIXES = (
+    "flaskr.service.learn.routes",
+    "flaskr.service.learn.host",
+    "flaskr.service.learn.runscript_v2",
+)
+
+
+def collect_learn_ask_violations(backend_root: Path) -> list[Violation]:
+    """Keep learn/ask below the lesson host and the learn routes."""
+    violations: list[Violation] = []
+    ask_root = backend_root / Path(*LEARN_ASK_PACKAGE.split("."))
+    if not ask_root.is_dir():
+        return violations
+    for path in sorted(ask_root.rglob("*.py")):
+        source = normalize_posix(path.relative_to(backend_root))
+        for module in iter_python_imports(path, backend_root):
+            if not module.startswith(LEARN_ASK_FORBIDDEN_PREFIXES):
+                continue
+            rule_id = "backend.learn_ask_imports_host"
+            violations.append(
+                Violation(
+                    key=make_key(rule_id, source, module),
+                    rule_id=rule_id,
+                    source=source,
+                    target=module,
+                    message=f"{source} imports lesson host or route module {module}.",
+                    remediation=(
+                        "Have the host pass what a follow-up needs through "
+                        "AskContext; keep learn/ask free of host and route modules."
+                    ),
+                )
+            )
+    return violations
+
+
 def collect_learn_elements_violations(backend_root: Path) -> list[Violation]:
     """Keep learn/elements below the lesson host and the follow-up path."""
     violations: list[Violation] = []
@@ -391,6 +429,7 @@ def collect_backend_violations(backend_root: Path) -> list[Violation]:
     violations = collect_engine_library_violations(backend_root)
     violations += collect_learn_elements_violations(backend_root)
     violations += collect_learn_host_violations(backend_root)
+    violations += collect_learn_ask_violations(backend_root)
     service_root = backend_root / "flaskr" / "service"
 
     for path in sorted(service_root.rglob("*.py")):
