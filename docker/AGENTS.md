@@ -83,8 +83,7 @@ environment examples.
   Override ports with `AI_SHIFU_WEB_PORT`, `AI_SHIFU_API_PORT`,
   `AI_SHIFU_MYSQL_PORT`, `AI_SHIFU_REDIS_PORT`, `AI_SHIFU_GRAFANA_PORT`,
   `AI_SHIFU_LOKI_PORT`, `AI_SHIFU_TEMPO_PORT`,
-  `AI_SHIFU_TEMPO_OTLP_HTTP_PORT`, `AI_SHIFU_OTEL_GRPC_PORT`, and
-  `AI_SHIFU_PROMETHEUS_PORT`.
+  `AI_SHIFU_TEMPO_OTLP_HTTP_PORT`, and `AI_SHIFU_OTEL_GRPC_PORT`.
 
 - `cd docker && docker compose -f docker-compose.latest.yml config` validates
   the freshest-published-image compose file after edits.
@@ -107,8 +106,8 @@ environment examples.
 - When startup commands, entrypoints, or mounts change, review the affected
   backend and frontend boot assumptions and note any runtime smoke checks that
   were not exercised locally.
-- When observability services change, verify Grafana, Loki, Tempo, Prometheus,
-  and the OTEL collector all stay internally reachable from the dev stack.
+- When observability services change, verify Grafana, Loki, Tempo, and the
+  OTEL collector all stay internally reachable from the dev stack.
 
 - When only Docker-side docs or AI instructions change, run
   `python scripts/check_repo_harness.py` and note that containers were not

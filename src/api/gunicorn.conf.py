@@ -8,12 +8,6 @@ import ctypes
 import gc
 import os
 
-from flaskr.metrics_runtime import (
-    cleanup_metrics_directory,
-    mark_worker_exit,
-    prepare_metrics_directory,
-)
-
 # glibc gives each thread that allocates its own malloc arena (up to 8 per CPU), and
 # freed memory stays in those arenas. Each gthread worker accumulates arenas as request,
 # engine-bridge and SDK threads come and go, so a worker's memory only grows. Two arenas
@@ -34,9 +28,6 @@ def _limit_malloc_arenas() -> bool:
 
 
 _limit_malloc_arenas()
-
-# Bootstrap before preload imports prometheus_client and fixes its writer class.
-prepare_metrics_directory()
 
 # Mark the preload master so import-time initializers skip anything that
 # would start background threads here (e.g. the Langfuse/OTel batch
@@ -119,19 +110,3 @@ def post_fork(server: object, worker: object) -> None:
         init_live_follow_up_readiness(flask_app)
     except Exception:  # pragma: no cover - defensive: never kill a booting worker
         worker.log.warning("post_fork Live readiness initialization unavailable")
-
-
-def child_exit(server: object, worker: object) -> None:
-    """Remove a reaped worker's live capacity gauges in the master."""
-    try:
-        mark_worker_exit(worker.pid)
-    except Exception:
-        server.log.exception("Prometheus worker cleanup failed")
-
-
-def on_exit(server: object) -> None:
-    """Release only this master's private metrics storage after workers exit."""
-    try:
-        cleanup_metrics_directory()
-    except Exception:
-        server.log.exception("Prometheus master cleanup failed")

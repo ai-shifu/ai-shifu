@@ -19,7 +19,6 @@ services:
       - ./.env
     environment:
       OBSERVABILITY_TRACES_ENABLED: "false"
-      INTERNAL_METRICS_PATH: /internal/metrics
       INTERNAL_OBSERVABILITY_HEALTH_PATH: /internal/observability/health
       LOGIN_METHODS_ENABLED: phone
       DEFAULT_LOGIN_METHOD: phone

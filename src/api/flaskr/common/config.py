@@ -1758,18 +1758,6 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Sampling rate for runtime HTTP traces (0.0 to 1.0).",
         group="monitoring",
     ),
-    "PROMETHEUS_MULTIPROC_DIR": EnvVar(
-        name="PROMETHEUS_MULTIPROC_DIR",
-        default="",
-        description="Optional fresh dedicated Gunicorn metrics directory. Leave unset for private per-master storage; do not export an empty value in single-process development.",
-        group="monitoring",
-    ),
-    "INTERNAL_METRICS_PATH": EnvVar(
-        name="INTERNAL_METRICS_PATH",
-        default="/internal/metrics",
-        description="Local metrics endpoint path scraped by Prometheus in the dev harness.",
-        group="monitoring",
-    ),
     "INTERNAL_OBSERVABILITY_HEALTH_PATH": EnvVar(
         name="INTERNAL_OBSERVABILITY_HEALTH_PATH",
         default="/internal/observability/health",
@@ -2582,12 +2570,7 @@ class EnhancedConfig:
                         value = ""
 
                 value_str = format_value(env_var, value)
-                assignment = f'{env_var.name}="{value_str}"'
-                # prometheus_client tests key presence at import time: an empty
-                # assignment still enables mmap writers in single-process dev.
-                if env_var.name == "PROMETHEUS_MULTIPROC_DIR" and not value_str:
-                    assignment = "# " + assignment
-                lines.append(assignment)
+                lines.append(f'{env_var.name}="{value_str}"')
                 lines.append("")
 
         # Add footer

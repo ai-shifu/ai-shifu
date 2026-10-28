@@ -11,7 +11,7 @@ Measure complete SSE lifetimes and aggregate all Gunicorn workers before testing
 - [x] 2026-10-13 17:08 CST: Verify fork aggregation, cleanup, cancellation, and existing runtime contracts.
 - [x] 2026-10-13 17:15 CST: Published ready PR #3129 and recorded production acceptance separately.
 - [x] 2026-10-13 17:19 CST: Removed route-parameter reflection from a test-only route after CodeQL review.
-- [ ] 2026-10-13 17:02 CST: After merge, verify production metrics and connect continuous collection before replica changes.
+- [x] 2026-10-27: Retired. A check on 2026-10-27 found no collector targeting the API in either region (no ServiceMonitor, PodMonitor, or scrape annotation), so the Prometheus metrics, multiprocess bootstrap, and `/internal/metrics` endpoint were removed instead of being collected.
 
 ## Surprises & Discoveries
 
@@ -43,7 +43,7 @@ In the conda `ai-shifu` environment, run targeted pytest for lifecycle, multipro
 
 ## Validation and Acceptance
 
-Two worker processes must contribute counters and histograms to the same scrape. A dead worker's live gauges must disappear without deleting historical counters. A fresh master must not reuse old counters. SSE success, close before first iteration, partial close, generator error, and repeated close must account once, retain original chunks/exceptions, and close the original iterable and response callbacks. Scraping and health checks must not inflate the new capacity gauges. Existing Gunicorn resource resets and HTTP span behavior must still pass. Production acceptance remains open until all worker metrics and active SSE can be scraped safely and collected across peak periods; tests do not certify four replicas.
+Two worker processes must contribute counters and histograms to the same scrape. A dead worker's live gauges must disappear without deleting historical counters. A fresh master must not reuse old counters. SSE success, close before first iteration, partial close, generator error, and repeated close must account once, retain original chunks/exceptions, and close the original iterable and response callbacks. Scraping and health checks must not inflate the new capacity gauges. Existing Gunicorn resource resets and HTTP span behavior must still pass. Historical: production acceptance was to follow continuous collection across peak periods. It was never reached; the plan was retired on 2026-10-27 because no collector was connected, and replica decisions need another measurement source.
 
 ## Idempotence and Recovery
 
@@ -51,4 +51,4 @@ The default directory is unique per master and cleaned only by that master after
 
 ## Interfaces and Dependencies
 
-The measurement contract is maintained in [API capacity metrics](../../references/api-capacity-metrics.md). Use existing `prometheus_client`, Flask, and Gunicorn dependencies; no new package or network service. The standard `PROMETHEUS_MULTIPROC_DIR` applies to Gunicorn workers in one Pod, not across Pods. A collector must scrape each Pod independently and sum replicas. Existing internal metrics access controls must be verified before exposing a scrape endpoint; this change creates no new public route.
+The measurement contract lived in `docs/references/api-capacity-metrics.md`, removed with the metrics on 2026-10-27. Historical: it used the `prometheus_client`, Flask, and Gunicorn dependencies (`prometheus-client` was removed on 2026-10-27); no new package or network service. The standard `PROMETHEUS_MULTIPROC_DIR` applies to Gunicorn workers in one Pod, not across Pods. A collector must scrape each Pod independently and sum replicas. Existing internal metrics access controls must be verified before exposing a scrape endpoint; this change creates no new public route.
