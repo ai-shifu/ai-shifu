@@ -52,7 +52,6 @@ REVIEWED_RETURN_CONTRACTS = {
         "preview_shifu_draft": "str",
         "publish_shifu_draft": "str",
     },
-    "src/api/flaskr/util/datetime.py": {"get_now_time": "datetime"},
     "src/api/migrations/env.py": {"include_object": "bool"},
     "src/api/scripts/inventory/match_routes.py": {"grep_paths": "set[tuple[str, ...]]"},
 }

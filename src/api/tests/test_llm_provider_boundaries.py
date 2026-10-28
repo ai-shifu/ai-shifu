@@ -8,7 +8,12 @@ from unittest.mock import Mock, patch
 import pytest
 from flaskr.api import llm
 from flaskr.api.llm import model_selection
-from flaskr.common.config import ENV_VARS, EnhancedConfig, EnvironmentConfigError
+from flaskr.common.config import (
+    ENV_VARS,
+    LLM_PROVIDER_API_KEY_ENVS,
+    EnhancedConfig,
+    EnvironmentConfigError,
+)
 from flaskr.service.common.models import ERROR_CODE, AppError
 
 pytestmark = pytest.mark.no_mock_llm
@@ -536,3 +541,10 @@ def test_async_logging_scheduler_failure_does_not_break_user_operation(
     monkeypatch.setattr(llm.asyncio, "get_running_loop", lambda: loop)
     assert llm._safe_asyncio_run(object()) is None
     loop.create_task.assert_called_once()
+
+
+def test_startup_llm_check_covers_every_provider_api_key() -> None:
+    provider_keys = {config.api_key_env for config in llm.LITELLM_PROVIDER_CONFIGS}
+
+    assert set(LLM_PROVIDER_API_KEY_ENVS) == provider_keys
+    assert provider_keys <= set(ENV_VARS)
