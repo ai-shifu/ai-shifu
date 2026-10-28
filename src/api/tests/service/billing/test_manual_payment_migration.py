@@ -538,6 +538,7 @@ def test_replacement_requires_confirmed_closure_and_preserves_paid_orders(
         else:
             trade = {"out_trade_no": "old-attempt"}
             if provider == "alipay":
+                trade["total_amount"] = "9.90"
                 trade["trade_status"] = (
                     "TRADE_SUCCESS"
                     if paid
@@ -546,6 +547,7 @@ def test_replacement_requires_confirmed_closure_and_preserves_paid_orders(
                     else "WAIT_BUYER_PAY"
                 )
             else:
+                trade["amount"] = {"total": 990}
                 trade["trade_state"] = (
                     "SUCCESS" if paid else "CLOSED" if confirmed else "NOTPAY"
                 )

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 NATIVE_PAYMENT_STATE_PAID = "paid"
 NATIVE_PAYMENT_STATE_CANCELED = "canceled"
 NATIVE_PAYMENT_STATE_FAILED = "failed"
@@ -18,6 +20,29 @@ def extract_native_trade_payload(payload: dict[str, object]) -> dict[str, object
     if isinstance(resource, dict) and resource:
         return resource
     return payload
+
+
+def extract_native_paid_amount(provider: str, payload: dict[str, object]) -> int | None:
+    """Return the paid amount in minor units, or None when the payload has none.
+
+    Alipay reports ``total_amount`` in yuan; WeChat Pay reports ``amount`` in fen
+    and prefers ``payer_total`` over ``total``.
+    """
+    trade_payload = extract_native_trade_payload(payload)
+    if provider == "alipay":
+        value = trade_payload.get("total_amount")
+        if value in (None, ""):
+            return None
+        return int((Decimal(str(value)) * 100).to_integral_value())
+    if provider == "wechatpay":
+        amount = trade_payload.get("amount", {})
+        if not isinstance(amount, dict):
+            return None
+        value = amount.get("payer_total", amount.get("total"))
+        if value in (None, ""):
+            return None
+        return int(value)
+    return None
 
 
 def extract_native_trade_status(provider: str, payload: dict[str, object]) -> str:
