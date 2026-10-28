@@ -50,21 +50,18 @@ def validate_user(app: Flask, token: str) -> UserInfo:
         if not token:
             raise_error("server.user.userNotLogin")
         try:
-            if app.config.get("ENVERIMENT", "prod") == "dev":
-                user = _load_user_info(token)
-            else:
-                user_id = _decode_token_user_id(app, token)
-                app.logger.info("user_id: %s", user_id)
-                ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)
-                lookup = token_store.get_and_refresh(
-                    app,
-                    token=token,
-                    expected_user_id=user_id,
-                    ttl_seconds=ttl_seconds,
-                )
-                if lookup is None:
-                    raise_error("server.user.userTokenExpired")
-                user = _load_user_info(lookup.user_id)
+            user_id = _decode_token_user_id(app, token)
+            app.logger.info("user_id: %s", user_id)
+            ttl_seconds = app.config.get("TOKEN_EXPIRE_TIME", 60 * 60 * 24 * 7)
+            lookup = token_store.get_and_refresh(
+                app,
+                token=token,
+                expected_user_id=user_id,
+                ttl_seconds=ttl_seconds,
+            )
+            if lookup is None:
+                raise_error("server.user.userTokenExpired")
+            user = _load_user_info(lookup.user_id)
         except jwt.exceptions.ExpiredSignatureError:
             raise_error("server.user.userTokenExpired")
         except jwt.exceptions.InvalidTokenError:
