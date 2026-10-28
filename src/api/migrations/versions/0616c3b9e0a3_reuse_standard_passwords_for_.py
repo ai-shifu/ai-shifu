@@ -156,11 +156,20 @@ def _preflight(bind):
         if other_password is not None:
             _fail()
         if kind != "legacy_username":
+            # Match the historical phone aliases accepted by password lookup.
+            # Keep this data revision independent of mutable application helpers.
+            lookup_identifiers = (
+                (identifier, f"+86{identifier}", f"+86 {identifier}")
+                if kind == "phone"
+                else (identifier,)
+            )
             user_conflict = bind.execute(
                 sa.select(users.c.id)
                 .where(
                     users.c.user_bid != account["user_bid"],
-                    sa.func.lower(sa.func.trim(users.c.user_identify)) == identifier,
+                    sa.func.lower(sa.func.trim(users.c.user_identify)).in_(
+                        lookup_identifiers
+                    ),
                 )
                 .with_for_update()
             ).first()
@@ -171,7 +180,9 @@ def _preflight(bind):
                     credentials.c.provider_name.in_(
                         ["phone", "email", "password", "local_password"]
                     ),
-                    sa.func.lower(sa.func.trim(credentials.c.identifier)) == identifier,
+                    sa.func.lower(sa.func.trim(credentials.c.identifier)).in_(
+                        lookup_identifiers
+                    ),
                 )
                 .with_for_update()
             ).first()

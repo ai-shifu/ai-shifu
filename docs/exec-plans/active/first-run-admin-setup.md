@@ -523,3 +523,20 @@ all cases reused the same second email, while successful OTP consumption retains
 a cache tombstone outside SQL cleanup. Give each case a unique email; retain
 real OTP consumption, password conflict assertions and production safeguards.
 Local and new-head CI results are recorded in the PR and delivery artifacts.
+
+### 2026-10-28 23:01 UTC: normalized phone collision review
+
+The current PR review reproduced a preview-phone conversion whose bare number
+collided with another account's supported +86 alias. Both canonical-user and
+credential preflight queries now match the same three historical phone forms
+as password identity resolution. This is confined to the new, unmerged data
+revision 0616c3b9e0a3; earlier revisions and runtime identity rules are unchanged.
+The alias set stays local so migration replay does not import mutable services.
+
+Before the correction, twelve canonical/verified-phone/password collision cases
+failed to reject the conversion; two same-account alias controls passed. The
+regressions require a late second-account conflict to produce zero UPDATEs and
+an unchanged snapshot, while own aliases, repeat conversion and existing state
+remain supported. Both email and phone paths retain the MySQL SQL-compilation
+gate. Current local and new-head CI results are recorded in the PR and delivery
+artifacts. Existing-row MySQL/concurrency acceptance remains unrun.

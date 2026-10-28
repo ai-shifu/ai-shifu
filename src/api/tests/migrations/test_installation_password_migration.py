@@ -278,6 +278,100 @@ def test_all_accounts_are_checked_before_any_identity_is_changed(
     assert _snapshot(connection, tables) == before
 
 
+@pytest.mark.parametrize("source", ["canonical", "phone", "password"])
+@pytest.mark.parametrize("prefix", ["+86", "+86 "])
+@pytest.mark.parametrize("outer_whitespace", [False, True])
+def test_phone_alias_conflicts_abort_before_converting_any_account(
+    migration_database: tuple, source: str, prefix: str, outer_whitespace: bool
+) -> None:
+    connection, migration, tables = migration_database
+    _account(connection, tables)
+    account = _account(connection, tables, index=2, kind="phone")
+    alias = f"{prefix}{account['identifier']}"
+    if outer_whitespace:
+        alias = f" {alias} "
+    connection.execute(
+        tables["users"]
+        .insert()
+        .values(
+            id=3,
+            user_bid="other-phone-owner",
+            user_identify=alias if source == "canonical" else "other@example.test",
+        )
+    )
+    if source != "canonical":
+        connection.execute(
+            tables["credentials"]
+            .insert()
+            .values(
+                id=3,
+                credential_bid="other-phone-credential",
+                user_bid="other-phone-owner",
+                provider_name=source,
+                subject_id=alias,
+                subject_format="phone",
+                identifier=alias,
+                state=1202,
+                raw_profile=json.dumps({"password_hash": "public-collision-fixture"}),
+            )
+        )
+    before = _snapshot(connection, tables)
+    statements = []
+
+    def capture(
+        _connection: Connection,
+        _cursor: object,
+        statement: str,
+        _parameters: object,
+        _context: object,
+        _executemany: bool,
+    ) -> None:
+        statements.append(statement)
+
+    event.listen(connection, "before_cursor_execute", capture)
+    try:
+        with pytest.raises(RuntimeError, match="conflicting or incomplete") as error:
+            migration.upgrade()
+    finally:
+        event.remove(connection, "before_cursor_execute", capture)
+    assert account["identifier"] not in str(error.value)
+    assert not any(s.lstrip().upper().startswith("UPDATE") for s in statements)
+    assert _snapshot(connection, tables) == before
+
+
+@pytest.mark.parametrize("prefix", ["+86", "+86 "])
+def test_same_account_phone_alias_survives_conversion(
+    migration_database: tuple, prefix: str
+) -> None:
+    connection, migration, tables = migration_database
+    account = _account(connection, tables, kind="phone")
+    alias = f"{prefix}{account['identifier']}"
+    connection.execute(
+        tables["credentials"]
+        .insert()
+        .values(
+            id=2,
+            credential_bid="same-user-phone-alias",
+            user_bid=account["user_bid"],
+            provider_name="phone",
+            subject_id=alias,
+            subject_format="phone",
+            identifier=alias,
+            state=1202,
+        )
+    )
+    before = _snapshot(connection, tables)
+    migration.upgrade()
+    after = _snapshot(connection, tables)
+    assert after["users"][0]["user_identify"] == account["identifier"]
+    assert after["credentials"][0]["provider_name"] == "password"
+    assert after["credentials"][1] == before["credentials"][1]
+    assert after["bindings"] == before["bindings"]
+    assert after["sessions"] == before["sessions"]
+    migration.upgrade()
+    assert _snapshot(connection, tables) == after
+
+
 @pytest.mark.parametrize(
     "damage",
     [
@@ -445,11 +539,12 @@ def test_empty_installation_upgrade_and_downgrade_leave_ordinary_accounts_intact
     assert _snapshot(connection, tables) == before
 
 
+@pytest.mark.parametrize("kind", ["email", "phone"])
 def test_mysql_statements_are_only_locked_reads_and_data_updates(
-    migration_database: tuple,
+    migration_database: tuple, kind: str
 ) -> None:
     connection, migration, tables = migration_database
-    _account(connection, tables)
+    _account(connection, tables, kind=kind)
     statements = []
 
     def capture(
