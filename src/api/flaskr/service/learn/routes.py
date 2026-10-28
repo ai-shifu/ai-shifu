@@ -22,6 +22,7 @@ from flaskr.service.billing.api import admit_creator_preview_usage
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import AppError, raise_param_error
 from flaskr.service.learn.elements.run_adapter import get_listen_element_record
+from flaskr.service.learn.host.run import get_run_status, run_script
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
     RunElementSSEMessageDTO,
@@ -46,7 +47,6 @@ from flaskr.service.learn.preview_permissions import (
     resolve_preview_request_user,
 )
 from flaskr.service.learn.request_stream import RequestCompletion
-from flaskr.service.learn.runscript_v2 import get_run_status, run_script
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,

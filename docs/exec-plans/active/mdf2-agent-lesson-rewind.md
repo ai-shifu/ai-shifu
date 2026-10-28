@@ -10,7 +10,7 @@ regenerate a piece of content. The request carries `reload_generated_block_bid` 
 `reload_element_bid`, and the 1.0 run deactivates the superseded rows and continues from there.
 
 On a course taught by the 2.0 engine the same request is routed back to **1.0**
-(`runscript_v2._teaches_with_agent` returns False whenever a reload is present). 1.0 then
+(`host.lesson._teaches_with_agent` returns False whenever a reload is present). 1.0 then
 regenerates from rows the 2.0 engine wrote while the 2.0 session is left untouched, still waiting
 on the question it last asked; the next ordinary request goes back to 2.0 and the page and the
 engine disagree. Observed on sim, boundary lesson 6-1, 2026-09-24: re-answering the first
@@ -81,7 +81,7 @@ that turn originally had). A lesson whose turns predate this change cannot be re
 
 ## Context and Orientation
 
-- `src/api/flaskr/service/learn/runscript_v2.py` — `_teaches_with_agent` decides the engine per
+- `src/api/flaskr/service/learn/host/lesson.py` — `_teaches_with_agent` decides the engine per
   request; `run_script_inner` / `context_v2.MdflowContextV2.reload` is the 1.0 reload.
 - `src/api/flaskr/service/learn/agent/lesson_entry.py` — `agent_lesson_events`, the 2.0 entry.
 - `src/api/flaskr/service/learn/agent/run_agent.py` — `run_agent_lesson`, `_load_or_start`,
@@ -102,7 +102,7 @@ that turn originally had). A lesson whose turns predate this change cannot be re
    rewind plan in `_load_or_start`; stage the retirement and record status in `_persist`.
 4. `lesson_entry.agent_lesson_events` accepts the reload identifiers, plans the rewind before the
    turn starts, and raises `server.learn.agentRewindUnavailable` when it cannot.
-5. `runscript_v2._teaches_with_agent` routes reloads to 2.0 (follow-up questions stay on 1.0).
+5. `host.lesson._teaches_with_agent` routes reloads to 2.0 (follow-up questions stay on 1.0).
 6. i18n: `server.learn.agentRewindUnavailable` in every locale.
 
 ## Concrete Steps

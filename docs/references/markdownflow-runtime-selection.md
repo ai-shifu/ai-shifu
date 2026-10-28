@@ -16,7 +16,7 @@ a course and is refused.
 
 ## Request routing
 
-`runscript_v2._lesson_events` sends each request one of two ways:
+`host.lesson._lesson_events` sends each request one of two ways:
 
 - A follow-up question (`input_type == "ask"`) is answered by `learn.ask`
   beside the lesson, under its own semaphore. It never enters a lesson turn.
@@ -48,7 +48,7 @@ learner to Reset the lesson first.
 ## Verification
 
 `tests/service/learn/test_lesson_routing.py` drives the actual
-`runscript_v2._lesson_events` and `run_script` callers: lesson turns reach the
+`host.lesson._lesson_events` and `run_script` callers: lesson turns reach the
 agent whatever the retired flag says, Ask reaches `learn.ask` with its request,
 anchors, delivery flags, cancellation event and element adapter unchanged, and
 a lesson with no script is completed. `tests/service/learn/agent/test_complete_empty_lesson.py`
