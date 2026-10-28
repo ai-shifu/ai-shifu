@@ -108,6 +108,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Keep harness health reports out of pull request conflicts](./completed/harness-health-local-report.md)
 - [Hide `sys_user_style` From Course Authoring UI](./completed/hide-sys-user-style-from-authoring-ui.md)
 - [Keep common payment synchronization idempotent](./completed/idempotent-payment-sync.md)
+- [Consume the compatible interaction parser in rendered UI](./completed/interaction-ui-parser-consumption.md)
 - [Compatible interaction variable markers](./completed/interaction-variable-syntax.md)
 - [Keep course temperatures internal](./completed/internal-course-temperature.md)
 - [ExecPlan: Learn /run Chain Decomposition (B6)](./completed/learn-run-decomposition.md)
