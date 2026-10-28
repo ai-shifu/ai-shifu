@@ -356,9 +356,6 @@ const Header = ({
       shifu_bid: currentShifu.bid,
       learning_mode: mode || 'default',
     });
-    // TODO: publish
-    // actions.publishScenario();
-    // await actions.saveBlocks(currentShifu?.bid || '');
     const pendingWindow = mode ? window.open('about:blank', '_blank') : null;
     setPublishing(true);
     let failureStage: 'save' | 'publish' = 'save';

@@ -146,18 +146,8 @@ export interface ShifuState {
   lastSaveTime: Date | null;
   error: string | null;
   focusId: string | null;
-  focusValue: string | null;
   cataData: { [x: string]: Outline };
-  blockTypes: { [x: string]: BlockType };
   blocks: Block[];
-  // blockUIProperties: { [x: string]: any };
-  blockUITypes: { [x: string]: string };
-  blockContentProperties: { [x: string]: any };
-  blockContentTypes: { [x: string]: string };
-  blockContentState: { [x: string]: 'edit' | 'preview' };
-  blockProperties: { [x: string]: any };
-  blockErrors: { [x: string]: string | null };
-  profileItemDefinations: ProfileItem[];
   currentNode: Outline | null;
   models: ModelOption[];
   mdflow: string;
@@ -201,7 +191,6 @@ export interface LoadMdflowOptions {
 }
 
 export interface ShifuActions {
-  addChapter: (chapter: Outline) => void;
   addRootOutline: (settings: LessonCreationSettings) => Promise<void>;
   loadShifu: (shifuId: string, options?: { silent?: boolean }) => Promise<void>;
   loadChapters: (
@@ -214,7 +203,6 @@ export interface ShifuActions {
   createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;
   setChapters: (chapters: Outline[]) => void;
   setFocusId: (id: string) => void;
-  setFocusValue: (value: string) => void;
   updateOutline: (id: string, chapter: Outline) => Promise<void>;
   addSubOutline: (
     parent: Outline,
@@ -225,49 +213,22 @@ export interface ShifuActions {
     settings: LessonCreationSettings,
   ) => Promise<void>;
   removeOutline: (item: Outline) => Promise<void>;
-  replaceOutline: (id: string, outline: Outline) => Promise<void>;
   createOutline: (outline: Outline) => Promise<void>;
   createSiblingUnit: (chapter: Outline) => Promise<void>;
-  loadBlocks: (outlineId: string, shifuId: string) => void;
-  setBlockContentPropertiesById: (
-    id: string,
-    properties: AIBlockProperties | SolidContentBlockProperties,
-    reset?: boolean,
-  ) => void;
-  setBlockContentTypesById: (id: string, type: BlockType) => void;
-  setBlockUIPropertiesById: (
-    id: string,
-    properties: any,
-    reset?: boolean,
-  ) => void;
-  setBlockUITypesById: (id: string, type: BlockType) => void;
   updateChapterOrder: (
     move_chapter_id: string,
     move_to_parent_id?: string,
     chapterIds?: string[],
   ) => Promise<void>;
-  setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
   setBlocks: (blocks: Block[]) => void;
-  saveBlocks: (shifuId: string) => Promise<void>;
   autoSaveBlocks: (
     payload?: SaveMdflowPayload,
   ) => Promise<ApiResponse<SaveBlockListResult> | null>;
   flushAutoSaveBlocks: (payload?: SaveMdflowPayload) => void;
   cancelAutoSaveBlocks: () => void;
-  saveCurrentBlocks: (
-    outline: string,
-    blocks: Block[],
-    blockTypes: Record<string, any>,
-    blockProperties: Record<string, any>,
-    shifuId: string,
-  ) => Promise<ApiResponse<SaveBlockListResult> | null>;
-  removeBlock: (id: string, shifuId: string) => Promise<void>;
   setCurrentNode: (node: Outline) => void;
   loadModels: () => Promise<void>;
-  setBlockError: (blockId: string, error: string | null) => void;
-  clearBlockErrors: () => void;
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
-  updateBlockProperties: (bid: string, properties: any) => Promise<void>;
   loadMdflow: (
     outlineId: string,
     shifuId: string,

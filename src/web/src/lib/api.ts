@@ -1,9 +1,4 @@
-import http, {
-  RequestConfig,
-  StreamCallback,
-  StreamRequestConfig,
-} from './request';
-import { buildTraceHeaders } from './request-trace';
+import http, { RequestConfig } from './request';
 const apiPrefix = '/api';
 
 const objectToQueryString = (obj: any) => {
@@ -29,8 +24,7 @@ export const gen = (option: string) => {
 
   return async function (
     params: { [x: string]: any },
-    config: RequestConfig | StreamRequestConfig = {},
-    callback?: StreamCallback,
+    config: RequestConfig = {},
   ) {
     let tarUrl = url;
     let body: string | undefined;
@@ -54,37 +48,6 @@ export const gen = (option: string) => {
       if (urlParamsMap && Object.keys(urlParamsMap).length > 0) {
         body = JSON.stringify(urlParamsMap);
       }
-    }
-
-    if (method === 'STREAM') {
-      return http.stream(
-        tarUrl,
-        body,
-        {
-          ...config,
-        },
-        callback,
-      );
-    }
-    if (method === 'STREAMLINE') {
-      return http.streamLine(
-        tarUrl,
-        body,
-        {
-          ...config,
-        },
-        callback,
-      );
-    }
-    if (method === 'PROXY') {
-      // PROXY method - use direct fetch
-      const traceHeaders = buildTraceHeaders(config.headers);
-      return fetch(tarUrl, {
-        ...config,
-        headers: traceHeaders.headers,
-        body,
-        method: 'GET',
-      }).then(res => res.json());
     }
 
     // Use appropriate HTTP method

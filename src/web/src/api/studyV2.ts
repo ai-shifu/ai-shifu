@@ -91,9 +91,6 @@ export const SYS_INTERACTION_TYPE = {
   LOGIN: '_sys_login',
   NEXT_CHAPTER: '_sys_next_chapter',
 } as const;
-export type SysInteractionType =
-  (typeof SYS_INTERACTION_TYPE)[keyof typeof SYS_INTERACTION_TYPE];
-
 export const LESSON_FEEDBACK_VARIABLE_NAME =
   'sys_lesson_feedback_score' as const;
 export const LESSON_FEEDBACK_INTERACTION_MARKER =
@@ -154,22 +151,10 @@ export interface GetLessonStudyRecordParams {
   preview_mode?: boolean;
 }
 
-export interface PostGeneratedContentActionParams {
-  shifu_bid: string;
-  generated_block_bid: string;
-  action: LikeStatus;
-}
-
 export interface ApiResponse<T> {
   code: number;
   message: string;
   data: T;
-}
-
-export interface PostGeneratedContentActionData {
-  shifu_bid: string;
-  generated_block_bid: string;
-  action: LikeStatus;
 }
 
 export interface RunningResult {
@@ -494,23 +479,6 @@ export const getLessonStudyRecord = async ({
       };
     });
 };
-
-/**
- * Like or dislike generated content
- * shifu_bid: shifu bid
- * generated_block_bid: generated content bid
- * action: action like | dislike | none
- * @param params
- * @returns
- */
-export async function postGeneratedContentAction(
-  params: PostGeneratedContentActionParams,
-): Promise<PostGeneratedContentActionData> {
-  const { shifu_bid, generated_block_bid, action } = params;
-  const url = `/api/learn/shifu/${shifu_bid}/generated-contents/${generated_block_bid}/${action}`;
-  // Use standard request wrapper; it will return response.data when code===0
-  return request.post(url, params);
-}
 
 export const checkIsRunning = async (
   shifu_bid: string,
