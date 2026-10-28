@@ -10,7 +10,7 @@ canonical: true
 
 Text and Live follow-up questions remain separate conversations anchored to a
 selected classroom element. LLM and external-provider prompts use the shared
-`learn/follow_up_context.py` builder. Live keeps its independent voice instructions;
+`learn/ask/context.py` builder. Live keeps its independent voice instructions;
 it does not inherit text Course Prompts. Explicit memory authorization remains
 [the course-reference contract](course-memory-references.md).
 

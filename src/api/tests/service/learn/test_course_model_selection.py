@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 from flaskr.dao import db
 from flaskr.service.learn.agent import lesson_entry
-from flaskr.service.learn.follow_up_context import resolve_course_system_prompt
+from flaskr.service.learn.ask.context import resolve_course_system_prompt
 from flaskr.service.learn.utils_v2 import get_follow_up_info_v2
 from flaskr.service.shifu.models import (
     DraftOutlineItem,

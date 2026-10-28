@@ -1,0 +1,665 @@
+"""Handle learner follow-up questions and streamed answers."""
+
+from collections.abc import Generator
+from typing import Any
+
+from flask import Flask
+from flaskr.api.langfuse import (
+    LangfuseTraceHandle,
+    normalize_langfuse_input_value,
+    update_langfuse_observation,
+    update_langfuse_trace,
+)
+from flaskr.api.llm import chat_llm
+from flaskr.common.i18n_utils import get_markdownflow_output_language
+from flaskr.dao import db
+from flaskr.framework.plugin.plugin_manager import extensible_generic
+from flaskr.i18n import _, get_current_language
+from flaskr.service.common.models import raise_param_error
+from flaskr.service.learn.ask.context import (
+    build_follow_up_conversation_context,
+)
+from flaskr.service.learn.ask.memory_writer import (
+    FollowUpMemoryPatch,
+    FollowUpMemoryRun,
+    load_follow_up_memory_policy,
+)
+from flaskr.service.learn.ask.provider_langfuse import stream_provider_with_langfuse
+from flaskr.service.learn.ask.providers import (
+    AskProviderError,
+    AskProviderRuntime,
+    AskProviderTimeoutError,
+    stream_ask_provider_response,
+)
+from flaskr.service.learn.ask.providers.consts import (
+    ASK_PROVIDER_LLM,
+    ASK_PROVIDER_MODE_PROVIDER_ONLY,
+    ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
+)
+from flaskr.service.learn.check_text import check_text_with_llm_response
+from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
+from flaskr.service.learn.elements.queries import (
+    _load_latest_active_element_row,
+    find_follow_up_element_rows,
+)
+from flaskr.service.learn.langfuse_naming import (
+    build_langfuse_generation_name,
+    build_langfuse_span_name,
+)
+from flaskr.service.learn.learn_dtos import (
+    GeneratedType,
+    RunMarkdownFlowDTO,
+)
+from flaskr.service.learn.live_follow_up_config import is_live_follow_up_model
+from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.models import LearnGeneratedBlock
+from flaskr.service.learn.utils_v2 import (
+    get_fmt_prompt,
+    get_follow_up_info_v2,
+    init_generated_block,
+)
+from flaskr.service.metering import UsageContext
+from flaskr.service.metering.consts import (
+    BILL_USAGE_SCENE_PREVIEW,
+    BILL_USAGE_SCENE_PROD,
+)
+from flaskr.service.shifu.ask_provider_registry import get_effective_ask_provider_config
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDANSWER_VALUE,
+    BLOCK_TYPE_MDASK_VALUE,
+)
+from flaskr.service.shifu.shifu_struct_manager import HistoryItem, ShifuOutlineItemDto
+from flaskr.service.user.repository import UserAggregate
+
+
+def _create_ask_block(
+    app: object,
+    outline_item_info: object,
+    attend_id: object,
+    user_bid: object,
+    input_text: object,
+    last_position: object,
+) -> LearnGeneratedBlock:
+    ask_block = init_generated_block(
+        app,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        user_bid=user_bid,
+        block_type=BLOCK_TYPE_MDASK_VALUE,
+        mdflow=input_text,
+        block_index=outline_item_info.position,
+    )
+    ask_block.generated_content = input_text
+    ask_block.role = ROLE_STUDENT
+    ask_block.type = BLOCK_TYPE_MDASK_VALUE
+    ask_block.position = last_position
+    db.session.add(ask_block)
+    return ask_block
+
+
+def _create_answer_block(
+    app: object,
+    outline_item_info: object,
+    attend_id: object,
+    user_bid: object,
+    response_text: object,
+    last_position: object,
+) -> LearnGeneratedBlock:
+    answer_block = init_generated_block(
+        app,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        user_bid=user_bid,
+        block_type=BLOCK_TYPE_MDANSWER_VALUE,
+        mdflow=response_text,
+        block_index=last_position,
+    )
+    answer_block.generated_content = response_text
+    answer_block.role = ROLE_TEACHER
+    answer_block.position = last_position
+    db.session.add(answer_block)
+    return answer_block
+
+
+def _run_guardrail(
+    app: object,
+    user_info: object,
+    ask_block: object,
+    input_text: object,
+    span: object,
+    outline_item_info: object,
+    last_position: object,
+    follow_up_model: object,
+    follow_up_info: object,
+    attend_id: object,
+    usage_context: object,
+    chapter_title: object,
+    ask_scene: object,
+) -> list[str]:
+    res = check_text_with_llm_response(
+        app,
+        user_info=user_info,
+        log_script=ask_block,
+        user_input=input_text,
+        span=span,
+        outline_item_bid=outline_item_info.bid,
+        shifu_bid=outline_item_info.shifu_bid,
+        block_position=last_position,
+        llm_settings=LLMSettings(
+            model=follow_up_model,
+            usage_metadata=getattr(follow_up_info, "usage_metadata", {}),
+            temperature=follow_up_info.model_args["temperature"],
+        ),
+        attend_id=attend_id,
+        fmt_prompt=follow_up_info.ask_prompt,
+        usage_context=usage_context,
+        chapter_title=chapter_title,
+        scene=ask_scene,
+    )
+    chunks = []
+    for i in res:
+        if i is not None and i != "":
+            app.logger.info("check_text_with_llm_response: %s", i)
+            chunks.append(i)
+    return chunks
+
+
+def _append_context_langfuse_output(context: object, value: str) -> None:
+    append_output = getattr(context, "append_langfuse_output", None)
+    if callable(append_output) and value:
+        append_output(value)
+
+
+def _finalize_ask_trace(
+    *,
+    context: object,
+    trace: LangfuseTraceHandle,
+    parent_observation: object | None,
+    span: object,
+    trace_args: dict,
+    response_text: str,
+) -> None:
+    output = response_text or None
+    _append_context_langfuse_output(context, response_text)
+    span.end(output=output)
+    if parent_observation is not None and parent_observation is not trace:
+        update_langfuse_observation(parent_observation, output=output)
+    update_langfuse_trace(
+        trace,
+        payload={
+            **trace_args,
+            "output": output,
+        },
+    )
+
+
+@extensible_generic
+def handle_input_ask(
+    app: Flask,
+    context: object,
+    user_info: UserAggregate,
+    attend_id: str,
+    user_input: str,
+    outline_item_info: ShifuOutlineItemDto,
+    trace_args: dict,
+    trace: LangfuseTraceHandle,
+    is_preview: bool = False,
+    last_position: int = -1,
+    anchor_element_bid: str = "",
+    parent_observation: object | None = None,
+    runtime_profiles: dict | None = None,
+    memory_patch: FollowUpMemoryPatch | None = None,
+) -> Generator[str, None, None]:
+    """Handle user Q&A input.
+
+    Process user questions in the shifu and return AI tutor responses.
+    """
+    # Get follow-up information (including Q&A prompts and model configuration)
+    retained_struct = getattr(context, "_struct", None)
+    struct_options = (
+        {"struct": retained_struct} if isinstance(retained_struct, HistoryItem) else {}
+    )
+    follow_up_info = get_follow_up_info_v2(
+        app,
+        outline_item_info.shifu_bid,
+        outline_item_info.bid,
+        attend_id,
+        is_preview,
+        **struct_options,
+    )
+    if is_live_follow_up_model(follow_up_info.ask_model):
+        # Live voice has a dedicated authenticated WebSocket transport. The
+        # legacy text/SSE path must never invoke it through LiteLLM or create a
+        # text fallback history turn.
+        raise_param_error("follow_up_model")
+
+    usage_scene = BILL_USAGE_SCENE_PREVIEW if is_preview else BILL_USAGE_SCENE_PROD
+    learning_mode = getattr(context, "_learning_mode", None)
+    if learning_mode not in {"read", "listen", "classroom"}:
+        learning_mode = "listen" if getattr(context, "_listen", False) else "read"
+    app.logger.info("follow_up_info:%s", follow_up_info.__json__())
+    chapter_title = outline_item_info.title
+    ask_scene = "lesson_preview_ask" if is_preview else "lesson_ask"
+
+    raw_ask_max_history_len = app.config.get("ASK_MAX_HISTORY_LEN", 10)
+    try:
+        ask_max_history_len = int(raw_ask_max_history_len)
+    except ValueError:
+        ask_max_history_len = 10
+
+    raw_input = user_input
+    normalized_trace_input = normalize_langfuse_input_value(raw_input)
+    if normalized_trace_input and not trace_args.get("input"):
+        trace_args["input"] = normalized_trace_input
+    escaped_input = raw_input.replace("{", "{{").replace(
+        "}", "}}"
+    )  # Escape braces to avoid formatting conflicts
+    use_learner_language = bool(getattr(context._shifu_info, "use_learner_language", 0))
+    runtime_language = str(get_current_language() or "").strip()
+    conversation_context = build_follow_up_conversation_context(
+        app,
+        user_info=user_info,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        follow_up_info=follow_up_info,
+        course_system_prompt=context.get_system_prompt(outline_item_info.bid),
+        use_learner_language=use_learner_language,
+        runtime_language=runtime_language,
+        runtime_profiles=dict(runtime_profiles or {}),
+        anchor_element_bid=anchor_element_bid,
+        max_history_messages=ask_max_history_len,
+        latest_element_loader=_load_latest_active_element_row,
+        element_rows_loader=find_follow_up_element_rows,
+        generated_block_model=LearnGeneratedBlock,
+        format_prompt=get_fmt_prompt,
+        output_language=(
+            get_markdownflow_output_language() if use_learner_language else None
+        ),
+    )
+    llm_messages = list(conversation_context.llm_messages)
+    provider_messages = list(conversation_context.provider_messages)
+
+    # RAG retrieval has been removed from this system
+
+    # Prepend a format constraint so the model replies in plain text / Markdown
+    # and does not mimic HTML or MarkdownFlow interactive syntax that appears
+    # in earlier lesson content / conversation history.
+    format_constraint = (
+        "IMPORTANT — Reply ONLY in plain text or standard Markdown. "
+        "Do NOT emit HTML tags (<button>, <input>, <select>, <form>, <div>, etc.). "
+        "Do NOT emit MarkdownFlow interactive syntax such as `?[%... | ...]`, "
+        "`?[%... || ...]`, `===...===` or `!===...!===` fences. "
+        "Do NOT emit double-brace template placeholders. "
+        "Earlier lesson content in this conversation may contain such syntax — "
+        "DO NOT mimic its format.\n\n"
+        "User question:\n"
+    )
+    # Append language instruction to user input if use_learner_language is enabled
+    user_content = format_constraint + escaped_input
+    if use_learner_language:
+        output_language = conversation_context.output_language
+        user_content += f"\n\n(IMPORTANT: You MUST respond in {output_language}.)"
+    user_message = {
+        "role": "user",
+        "content": user_content,
+    }
+    llm_messages.append(user_message)
+    provider_messages.append(user_message)
+    app.logger.info(
+        "Follow-up context built: llm_message_count=%s provider_message_count=%s",
+        len(llm_messages),
+        len(provider_messages),
+    )
+
+    # Get model for follow-up Q&A
+    follow_up_model = follow_up_info.ask_model
+    from flaskr.api.llm.model_selection import resolve_selection
+
+    follow_up_usage_metadata = dict(getattr(follow_up_info, "usage_metadata", {}))
+
+    memory_policy = None
+    if memory_patch is not None:
+        row_loader = getattr(context, "_get_outline_row_id", None)
+        memory_policy = load_follow_up_memory_policy(
+            user_bid=user_info.user_id,
+            shifu_bid=outline_item_info.shifu_bid,
+            outline_bid=outline_item_info.bid,
+            outline_row_id=row_loader(outline_item_info.bid)
+            if callable(row_loader)
+            else None,
+            preview=is_preview,
+        )
+
+    # Create ask block
+    ask_block = _create_ask_block(
+        app,
+        outline_item_info,
+        attend_id,
+        user_info.user_id,
+        raw_input,
+        last_position,
+    )
+
+    # Create answer block early (empty placeholder) so all teacher-side
+    # events can reference the answer block's generated_block_bid.
+    answer_block = _create_answer_block(
+        app, outline_item_info, attend_id, user_info.user_id, "", last_position
+    )
+    db.session.flush()
+
+    # Bind the new reply before guardrail or provider calls. The question's
+    # historical anchor belongs to an earlier block, not this answer's usage.
+    usage_context = UsageContext(
+        user_bid=user_info.user_id,
+        shifu_bid=outline_item_info.shifu_bid,
+        outline_item_bid=outline_item_info.bid,
+        progress_record_bid=attend_id,
+        generated_block_bid=answer_block.generated_block_bid,
+        usage_scene=usage_scene,
+        learning_mode=learning_mode,
+    )
+
+    # Emit internal ASK event for listen adapter
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_item_info.bid,
+        generated_block_bid=answer_block.generated_block_bid,
+        type=GeneratedType.ASK,
+        content=raw_input,
+        anchor_element_bid=anchor_element_bid,
+    )
+
+    # Create trace span
+    span_parent = parent_observation or trace
+    span = span_parent.span(
+        name=build_langfuse_span_name(chapter_title, ask_scene, "user_follow_up"),
+        input=escaped_input,
+    )
+
+    # Run guardrail check
+    guardrail_chunks = _run_guardrail(
+        app,
+        user_info,
+        ask_block,
+        escaped_input,
+        span,
+        outline_item_info,
+        last_position,
+        follow_up_model,
+        follow_up_info,
+        attend_id,
+        usage_context,
+        chapter_title,
+        ask_scene,
+    )
+
+    if guardrail_chunks:
+        guardrail_text = "".join(guardrail_chunks)
+        for chunk in guardrail_chunks:
+            yield RunMarkdownFlowDTO(
+                outline_bid=outline_item_info.bid,
+                generated_block_bid=answer_block.generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content=chunk,
+            )
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_item_info.bid,
+            generated_block_bid=answer_block.generated_block_bid,
+            type=GeneratedType.BREAK,
+            content="",
+        )
+        yield RunMarkdownFlowDTO(
+            outline_bid=outline_item_info.bid,
+            generated_block_bid=answer_block.generated_block_bid,
+            type=GeneratedType.INTERACTION,
+            content=raw_input,
+        )
+        answer_block.generated_content = guardrail_text
+        _finalize_ask_trace(
+            context=context,
+            trace=trace,
+            parent_observation=parent_observation,
+            span=span,
+            trace_args=trace_args,
+            response_text=guardrail_text,
+        )
+        db.session.flush()
+        return
+
+    # Call LLM to generate response
+    generation_name = build_langfuse_generation_name(
+        chapter_title,
+        ask_scene,
+        "user_follow_ask",
+    )
+    ask_provider_config = get_effective_ask_provider_config(
+        getattr(follow_up_info, "ask_provider_config", {})
+    )
+    ask_provider = ask_provider_config.get("provider", ASK_PROVIDER_LLM)
+    ask_provider_mode = ask_provider_config.get(
+        "mode",
+        ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
+    )
+    app.logger.info(
+        "ask provider routing: provider=%s mode=%s",
+        ask_provider,
+        ask_provider_mode,
+    )
+
+    response_text = ""  # Store complete response text
+    provider_error: Exception | None = None
+    from flaskr.service.learn.ask.providers.common import (
+        apply_knowledge_to_messages,
+    )
+
+    def _chat_llm_stream(
+        stream_messages: list[dict[str, Any]],
+    ) -> Generator[Any, None, None]:
+        """Resolve the contextual model only when a provider invokes its factory."""
+        # External provider-only answers do not depend on LLM configuration.
+        # Guardrail rejections resolve through invoke_llm in check_text instead.
+        model, metadata = resolve_selection(follow_up_model, follow_up_usage_metadata)
+
+        def plain_stream(
+            plain_messages: list[dict[str, Any]] | None = None,
+        ) -> Generator[Any, None, None]:
+            """Answer without memory tools."""
+            return chat_llm(
+                app,
+                user_info.user_id,
+                span,
+                model=model,
+                usage_metadata=metadata,
+                json=True,
+                stream=True,  # Enable streaming output
+                temperature=follow_up_info.model_args[
+                    "temperature"
+                ],  # Use configured temperature parameter
+                generation_name=generation_name,
+                messages=stream_messages if plain_messages is None else plain_messages,
+                usage_context=usage_context,
+                usage_scene=usage_scene,
+            )
+
+        if memory_policy is not None and memory_patch is not None:
+            from flaskr.api.markdownflow import GatewayModel
+            from flaskr.service.learn.agent.memory_admission import make_request_check
+
+            shared = {
+                "user_id": user_info.user_id,
+                "span": span,
+                "usage_context": usage_context,
+                "usage_scene": usage_scene,
+                "usage_metadata": metadata,
+            }
+            answer_model = GatewayModel(
+                app,
+                model,
+                generation_name=generation_name,
+                **shared,
+            )
+            admission_model = GatewayModel(
+                app,
+                model,
+                generation_name="follow_up_memory_admission",
+                retry_deadline_seconds=8,
+                timeout=8,
+                num_retries=0,
+                **shared,
+            )
+            run = FollowUpMemoryRun(
+                answer_model,
+                patch=memory_patch,
+                current_input=raw_input,
+                quotation_messages=conversation_context.quotation_messages,
+                declared_keys=memory_policy.declared_keys,
+                snapshot=dict(runtime_profiles or {}),
+                deleted_keys=memory_policy.deleted_keys,
+                generations=memory_policy.generations,
+                value_versions=memory_policy.value_versions,
+                reserved_keys=memory_policy.reserved_keys,
+                request_check=make_request_check(admission_model),
+                preview=is_preview,
+                temperature=float(follow_up_info.model_args["temperature"]),
+                cancelled=(
+                    context._stop_event.is_set
+                    if getattr(context, "_stop_event", None) is not None
+                    else None
+                ),
+                fallback=plain_stream,
+            )
+            return run.stream(stream_messages)
+        return plain_stream()
+
+    llm_runtime = AskProviderRuntime(
+        # Pass complete conversation history; an empty knowledge context
+        # clears the ask-template {knowledge} placeholder.
+        llm_stream_factory=lambda: _chat_llm_stream(
+            apply_knowledge_to_messages(llm_messages, "")
+        ),
+        # Fill the ask-template knowledge section with retrieval output.
+        llm_context_stream_factory=lambda knowledge_context: _chat_llm_stream(
+            apply_knowledge_to_messages(llm_messages, knowledge_context)
+        ),
+    )
+
+    def _emit_provider_stream(
+        provider_name: str,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """Normalize visible provider text into the existing answer SSE stream."""
+        nonlocal response_text
+        provider_input_messages = (
+            llm_messages if provider_name == ASK_PROVIDER_LLM else provider_messages
+        )
+        provider_resp = stream_ask_provider_response(
+            app=app,
+            provider=provider_name,
+            user_id=user_info.user_id,
+            user_query=user_content,
+            messages=provider_input_messages,
+            provider_config=ask_provider_config,
+            runtime=llm_runtime,
+        )
+        if provider_name != ASK_PROVIDER_LLM:
+            provider_resp = stream_provider_with_langfuse(
+                provider_stream=provider_resp,
+                span=span,
+                app=app,
+                provider_name=provider_name,
+                generation_name=build_langfuse_generation_name(
+                    chapter_title,
+                    ask_scene,
+                    f"user_follow_ask_{provider_name}",
+                ),
+                user_query=user_content,
+                messages=provider_input_messages,
+                provider_config=ask_provider_config,
+            )
+        for chunk in provider_resp:
+            current_content = chunk.content
+            if isinstance(current_content, str) and current_content:
+                response_text += current_content
+                yield RunMarkdownFlowDTO(
+                    outline_bid=outline_item_info.bid,
+                    generated_block_bid=answer_block.generated_block_bid,
+                    type=GeneratedType.CONTENT,
+                    content=current_content,
+                )
+
+    if ask_provider == ASK_PROVIDER_LLM:
+        yield from _emit_provider_stream(ASK_PROVIDER_LLM)
+    else:
+        try:
+            yield from _emit_provider_stream(ask_provider)
+        except AskProviderTimeoutError as exc:
+            provider_error = exc
+            app.logger.warning(
+                "ask provider timeout, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
+                ask_provider,
+                ask_provider_mode,
+                outline_item_info.shifu_bid,
+                outline_item_info.bid,
+            )
+        except AskProviderError as exc:
+            provider_error = exc
+            app.logger.warning(
+                "ask provider failed, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s, error=%s",
+                ask_provider,
+                ask_provider_mode,
+                outline_item_info.shifu_bid,
+                outline_item_info.bid,
+                exc,
+            )
+
+    use_llm_fallback = False
+    if ask_provider != ASK_PROVIDER_LLM and not response_text:
+        if ask_provider_mode == ASK_PROVIDER_MODE_PROVIDER_ONLY:
+            if isinstance(provider_error, AskProviderTimeoutError):
+                response_text = str(_("server.learn.askProviderTimeout"))
+            else:
+                response_text = str(_("server.learn.askProviderUnavailable"))
+            yield RunMarkdownFlowDTO(
+                outline_bid=outline_item_info.bid,
+                generated_block_bid=answer_block.generated_block_bid,
+                type=GeneratedType.CONTENT,
+                content=response_text,
+            )
+        else:
+            use_llm_fallback = True
+            app.logger.info(
+                "ask provider fallback to llm, provider=%s, mode=%s, shifu_bid=%s, outline_bid=%s",
+                ask_provider,
+                ask_provider_mode,
+                outline_item_info.shifu_bid,
+                outline_item_info.bid,
+            )
+
+    if use_llm_fallback:
+        yield from _emit_provider_stream(ASK_PROVIDER_LLM)
+
+    if provider_error is not None and not use_llm_fallback and memory_patch is not None:
+        memory_patch.variables.clear()
+
+    # Backfill answer block content
+    answer_block.generated_content = response_text
+
+    # End trace span
+    _finalize_ask_trace(
+        context=context,
+        trace=trace,
+        parent_observation=parent_observation,
+        span=span,
+        trace_args=trace_args,
+        response_text=response_text,
+    )
+    db.session.flush()
+
+    # Return end marker
+    yield RunMarkdownFlowDTO(
+        outline_bid=outline_item_info.bid,
+        generated_block_bid=answer_block.generated_block_bid,
+        type=GeneratedType.BREAK,
+        content="",
+    )

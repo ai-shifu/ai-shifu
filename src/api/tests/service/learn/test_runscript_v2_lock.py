@@ -505,7 +505,7 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
 def test_follow_up_events_route_through_element_adapter_and_commit(
     monkeypatch: object,
 ) -> None:
-    from flaskr.service.learn import ask
+    from flaskr.service.learn.ask import follow_up_run as ask
 
     app = Flask(__name__)
     commits = []
@@ -588,7 +588,7 @@ def test_follow_up_events_route_through_element_adapter_and_commit(
 def test_cancelled_follow_up_discards_the_connection_without_committing(
     monkeypatch: object,
 ) -> None:
-    from flaskr.service.learn import ask
+    from flaskr.service.learn.ask import follow_up_run as ask
 
     app = Flask(__name__)
     commits = []
@@ -637,7 +637,7 @@ def test_cancelled_follow_up_discards_the_connection_without_committing(
 def test_failed_follow_up_cleans_the_session_through_the_dao(
     monkeypatch: object,
 ) -> None:
-    from flaskr.service.learn import ask
+    from flaskr.service.learn.ask import follow_up_run as ask
 
     app = Flask(__name__)
     cleaned = []

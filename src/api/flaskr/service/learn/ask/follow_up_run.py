@@ -26,15 +26,15 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common import raise_error
 from flaskr.service.learn.agent.session_store import active_session_id
-from flaskr.service.learn.const import INPUT_TYPE_ASK
-from flaskr.service.learn.elements.queries import _load_latest_active_element_row
-from flaskr.service.learn.exceptions import PaidError
-from flaskr.service.learn.follow_up_context import resolve_course_system_prompt
-from flaskr.service.learn.follow_up_memory_writer import (
+from flaskr.service.learn.ask.context import resolve_course_system_prompt
+from flaskr.service.learn.ask.handler import handle_input_ask
+from flaskr.service.learn.ask.memory_writer import (
     FollowUpMemoryPatch,
     stage_follow_up_memory,
 )
-from flaskr.service.learn.handle_input_ask import handle_input_ask
+from flaskr.service.learn.const import INPUT_TYPE_ASK
+from flaskr.service.learn.elements.queries import _load_latest_active_element_row
+from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_span_name,
     build_langfuse_trace_name,

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from flask import Flask
-from flaskr.service.learn import follow_up_context
+from flaskr.service.learn.ask import context as follow_up_context
 
 
 @pytest.mark.parametrize("preview_mode", [False, True])

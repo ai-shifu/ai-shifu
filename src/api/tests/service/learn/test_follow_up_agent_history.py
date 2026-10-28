@@ -13,7 +13,7 @@ from flaskr.api.langfuse import MockClient
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.agent import lesson_entry
-from flaskr.service.learn.follow_up_context import load_follow_up_history
+from flaskr.service.learn.ask.context import load_follow_up_history
 from flaskr.service.learn.learn_dtos import GeneratedType
 from flaskr.service.learn.learn_funcs import reset_learn_record
 from flaskr.service.learn.llmsetting import LLMSettings

@@ -6,8 +6,8 @@ from typing import Self
 
 import pytest
 import requests
-from flaskr.service.learn import ask_provider_adapters as module
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask import providers as module
+from flaskr.service.learn.ask.providers import (
     common,
     coze_adapter,
     dify_adapter,
@@ -1609,7 +1609,7 @@ def test_dify_transports_shared_course_memory_to_outbound_query(
     dify_app: object, monkeypatch: object
 ) -> None:
     """Verify the actual adapter serializes the shared context, beyond builder-only claims."""
-    from flaskr.service.learn import follow_up_context
+    from flaskr.service.learn.ask import context as follow_up_context
 
     monkeypatch.setattr(
         follow_up_context, "load_follow_up_history", lambda **_kwargs: []

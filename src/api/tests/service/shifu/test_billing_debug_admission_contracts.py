@@ -143,7 +143,7 @@ def test_external_previews_reject_unavailable_billing_before_provider_calls(
 
     for target in (
         "flaskr.api.llm.chat_llm",
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         "flaskr.service.shifu.route.get_langfuse_client",
         "flaskr.service.shifu.tts_preview.synthesize_text",
         "flaskr.service.shifu.tts_preview.build_tts_preview_response",

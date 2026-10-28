@@ -25,7 +25,7 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.ownership import resolve_usage_creator_bid
 from flaskr.service.billing.settlement import settle_bill_usage
 from flaskr.service.common.models import ERROR_CODE
-from flaskr.service.learn.ask_provider_adapters import AskProviderError
+from flaskr.service.learn.ask.providers import AskProviderError
 from flaskr.service.metering import record_llm_usage
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_DEBUG, BILL_USAGE_TYPE_LLM
 from flaskr.service.metering.models import BillUsageRecord
@@ -151,7 +151,7 @@ def test_ask_preview_route_success_with_provider(
         yield SimpleNamespace(content="provider result")
 
     monkeypatch.setattr(
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         fake_stream_ask_provider_response,
         raising=False,
     )
@@ -216,7 +216,7 @@ def test_ask_preview_route_fallbacks_to_llm(
         yield SimpleNamespace(content="llm fallback")
 
     monkeypatch.setattr(
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         fake_stream_ask_provider_response,
         raising=False,
     )
@@ -290,7 +290,7 @@ def test_ask_preview_route_provider_only_does_not_require_ask_model(
         yield SimpleNamespace(content="coze result")
 
     monkeypatch.setattr(
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         fake_stream_ask_provider_response,
         raising=False,
     )
@@ -334,7 +334,7 @@ def test_ask_preview_route_provider_only_accepts_coze_workflow(
         yield SimpleNamespace(content="workflow result")
 
     monkeypatch.setattr(
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         fake_stream_ask_provider_response,
         raising=False,
     )
@@ -380,7 +380,7 @@ def test_ask_preview_route_provider_only_accepts_get_biji_knowledge(
         yield SimpleNamespace(content="get biji synthesized result")
 
     monkeypatch.setattr(
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         fake_stream_ask_provider_response,
         raising=False,
     )
@@ -436,7 +436,7 @@ def test_ask_preview_route_surfaces_friendly_provider_error(
         yield  # pragma: no cover
 
     monkeypatch.setattr(
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         fake_stream_ask_provider_response,
         raising=False,
     )
@@ -479,7 +479,7 @@ def test_ask_preview_route_falls_back_to_generic_provider_error(
         yield  # pragma: no cover
 
     monkeypatch.setattr(
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         fake_stream_ask_provider_response,
         raising=False,
     )
@@ -626,7 +626,7 @@ def test_ask_preview_route_bills_course_owner(
         raising=False,
     )
     monkeypatch.setattr(
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         fake_stream_ask_provider_response,
         raising=False,
     )
@@ -749,7 +749,7 @@ def test_ask_preview_route_passes_debug_usage_context_for_creator(
         raising=False,
     )
     monkeypatch.setattr(
-        "flaskr.service.learn.ask_provider_adapters.stream_ask_provider_response",
+        "flaskr.service.learn.ask.providers.stream_ask_provider_response",
         fake_stream_ask_provider_response,
         raising=False,
     )

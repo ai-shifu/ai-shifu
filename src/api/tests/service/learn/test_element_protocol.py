@@ -123,7 +123,7 @@ def _setup_handle_input_ask_test_doubles(
     *,
     patch_generated_blocks: bool = True,
 ) -> None:
-    from flaskr.service.learn.ask_provider_adapters import AskProviderError
+    from flaskr.service.learn.ask.providers import AskProviderError
 
     class _DummyLLMSettings:
         def __init__(
@@ -1596,7 +1596,7 @@ class TestAskContextLoading:
     """Tests for the shared follow-up ask validation and history helpers."""
 
     def test_is_valid_asks_true(self) -> None:
-        from flaskr.service.learn.follow_up_context import (
+        from flaskr.service.learn.ask.context import (
             is_complete_follow_up_asks as _is_valid_asks,
         )
 
@@ -1607,7 +1607,7 @@ class TestAskContextLoading:
         assert _is_valid_asks(asks) is True
 
     def test_is_valid_asks_empty(self) -> None:
-        from flaskr.service.learn.follow_up_context import (
+        from flaskr.service.learn.ask.context import (
             is_complete_follow_up_asks as _is_valid_asks,
         )
 
@@ -1615,7 +1615,7 @@ class TestAskContextLoading:
         assert _is_valid_asks(None) is False
 
     def test_is_valid_asks_student_only(self) -> None:
-        from flaskr.service.learn.follow_up_context import (
+        from flaskr.service.learn.ask.context import (
             is_complete_follow_up_asks as _is_valid_asks,
         )
 
@@ -1625,10 +1625,10 @@ class TestAskContextLoading:
     def test_load_context_from_follow_up_elements(self) -> None:
         import types
 
-        from flaskr.service.learn.elements.payloads import _serialize_payload
-        from flaskr.service.learn.follow_up_context import (
+        from flaskr.service.learn.ask.context import (
             build_follow_up_element_history as _load_ask_context,
         )
+        from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
         payload = ElementPayloadDTO()
@@ -1664,10 +1664,10 @@ class TestAskContextLoading:
     def test_load_context_fallback_to_legacy_payload_asks(self) -> None:
         import types
 
-        from flaskr.service.learn.elements.payloads import _serialize_payload
-        from flaskr.service.learn.follow_up_context import (
+        from flaskr.service.learn.ask.context import (
             build_follow_up_element_history as _load_ask_context,
         )
+        from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
         asks = [
@@ -1695,10 +1695,10 @@ class TestAskContextLoading:
     def test_load_context_fallback_to_none(self) -> None:
         import types
 
-        from flaskr.service.learn.elements.payloads import _serialize_payload
-        from flaskr.service.learn.follow_up_context import (
+        from flaskr.service.learn.ask.context import (
             build_follow_up_element_history as _load_ask_context,
         )
+        from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
         payload = ElementPayloadDTO()
@@ -1710,7 +1710,7 @@ class TestAskContextLoading:
         assert result is None
 
     def test_load_context_none_element(self) -> None:
-        from flaskr.service.learn.follow_up_context import (
+        from flaskr.service.learn.ask.context import (
             build_follow_up_element_history as _load_ask_context,
         )
 
@@ -1719,10 +1719,10 @@ class TestAskContextLoading:
     def test_load_context_truncation(self) -> None:
         import types
 
-        from flaskr.service.learn.elements.payloads import _serialize_payload
-        from flaskr.service.learn.follow_up_context import (
+        from flaskr.service.learn.ask.context import (
             build_follow_up_element_history as _load_ask_context,
         )
+        from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.learn_dtos import ElementPayloadDTO
 
         follow_up_elements = [
@@ -2386,7 +2386,7 @@ class TestHandleAskAdapter:
         self, adapter_app: object, monkeypatch: object
     ) -> None:
         from flaskr.dao import db
-        from flaskr.service.learn import handle_input_ask as module
+        from flaskr.service.learn.ask import handler as module
         from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
@@ -2502,8 +2502,8 @@ class TestHandleAskAdapter:
         self, adapter_app: object, monkeypatch: object
     ) -> None:
         from flaskr.dao import db
-        from flaskr.service.learn import handle_input_ask as module
-        from flaskr.service.learn.ask_provider_adapters import AskProviderError
+        from flaskr.service.learn.ask import handler as module
+        from flaskr.service.learn.ask.providers import AskProviderError
         from flaskr.service.learn.elements.payloads import _serialize_payload
         from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
         from flaskr.service.learn.learn_dtos import (
