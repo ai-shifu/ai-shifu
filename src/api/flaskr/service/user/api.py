@@ -8,6 +8,7 @@ from flaskr.service.user.account_cancellation import (
     request_user_account_cancellation,
 )
 from flaskr.service.user.auth.oauth_origins import is_allowed_oauth_origin
+from flaskr.service.user.common import validate_user
 from flaskr.service.user.operator_contact_change import change_operator_user_contact
 from flaskr.service.user.repository import (
     UserAggregate,
@@ -42,4 +43,5 @@ __all__ = [
     "run_creator_granted_post_auth",
     "set_user_state",
     "upsert_credential",
+    "validate_user",
 ]
