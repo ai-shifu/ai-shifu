@@ -62,7 +62,6 @@
 | `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live follow-up acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/german-de-de-localization.md` | German (Germany) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/ghcr-image-publication.md` | Publish repository Docker images to GHCR | `exec-plan-active` | `active` | `repository` | `2026-10-08` | `true` |
-| `docs/exec-plans/active/interaction-indented-reference-continuations.md` | Preserve indented consecutive image definitions | `exec-plan-active` | `active` | `backend` | `2026-10-28` | `true` |
 | `docs/exec-plans/active/lesson-reset-limit.md` | Lesson reset limit backed by SQL | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/local-storage-response-safety.md` | Local storage response safety | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-authored-inputs.md` | Keep Authored Input Hints Out of Choice Buttons | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
@@ -143,6 +142,7 @@
 | `docs/exec-plans/completed/idempotent-payment-sync.md` | Keep common payment synchronization idempotent | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/interaction-image-reference-conformance.md` | Match rendered reference-label budgets and triage HTML ownership | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
 | `docs/exec-plans/completed/interaction-image-url-classification.md` | Preserve image labels when the renderer filters their URL | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
+| `docs/exec-plans/completed/interaction-indented-reference-continuations.md` | Preserve indented consecutive image definitions | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
 | `docs/exec-plans/completed/interaction-reference-label-newlines.md` | Preserve backslashes before reference-label line endings | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
 | `docs/exec-plans/completed/interaction-rendered-image-contract.md` | Match image questions to rendered titles and reference runs | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
 | `docs/exec-plans/completed/interaction-ui-parser-consumption.md` | Consume the compatible interaction parser in rendered UI | `exec-plan-completed` | `completed` | `frontend` | `2026-10-28` | `false` |

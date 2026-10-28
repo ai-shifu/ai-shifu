@@ -1,6 +1,6 @@
 ---
 title: Preserve indented consecutive image definitions
-status: active
+status: completed
 owner_surface: backend
 last_reviewed: 2026-10-28
 ---
@@ -32,8 +32,14 @@ code and paragraph boundaries while supporting both variable marker spellings.
   native checks passed 5,753 tests; the frontend binding file passed all 3,299
   tests including 12 new cases, plus type checking and lint. Source is frozen
   before repository hooks and complete consumer gates.
-- [ ] Complete focused, full consumer and independent review gates.
-- [ ] Publish and verify one component release, then update the application.
+- [x] 2026-10-28 19:22 UTC: Full engine passed 14,887 tests and Profile passed
+  17; all ten frozen hashes and the committed tree stayed unchanged. Frontend
+  passed all 6,847 tests in 279 suites. Production component passed 13,762,
+  source/build/type/repository gates and independent source/fixture review.
+- [x] 2026-10-28 19:27 UTC: Published and consumed markdown-flow 0.4.15.
+  Official wheel passed all 13,762 tests with strict installed-module guards;
+  normal PyPI installation and all 33 source-file bytes matched. Installed
+  application acceptance passed 108 cases, and Profile passed 17 again.
 
 ## Surprises & Discoveries
 
@@ -60,7 +66,16 @@ declaration compatibility while correcting the new bare-memory regression.
 
 ## Outcomes & Retrospective
 
-Implementation and verification are in progress.
+Renderer-admitted indented definitions now retain the validated logical
+reference owner across consecutive and lazy continuations. New list items
+remain separate, and generic code-block admission stays unchanged. Both
+variable spellings keep their contracts; bare memory remains available when
+the rendered page has no question to collect a replacement.
+
+Native, frontend, production component, official-wheel and installed-application
+gates passed with independent review. Local implementation acceptance is
+complete; exact-head CI and live feedback continue on
+[PR #3221](https://github.com/ai-shifu/ai-shifu/pull/3221), without a main merge.
 
 ## Context and Orientation
 
