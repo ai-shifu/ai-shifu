@@ -112,4 +112,4 @@ websocket-client==1.8.0
 wrapt==1.16.0
 bcrypt==4.2.1
 --extra-index-url https://pypi.org/simple/
-markdown-flow==0.4.13
+markdown-flow==0.4.14

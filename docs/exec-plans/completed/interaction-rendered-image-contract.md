@@ -1,6 +1,6 @@
 ---
 title: Match image questions to rendered titles and reference runs
-status: active
+status: completed
 owner_surface: backend
 last_reviewed: 2026-10-28
 ---
@@ -33,8 +33,14 @@ of reference lookups across rendered runs.
   observations agree with ContentRender. Frontend passed 226 scoped cases and
   all 6,835 tests, plus type checking and lint. Independent review cleared
   applied code, 3,081 cache semantic comparisons and eight pressure families.
-- [ ] Complete observed-corpus, full consumer and independent review gates.
-- [ ] Publish one coordinated component build, verify it and update the pin.
+- [x] 2026-10-28 18:34 UTC: Full engine passed 14,324 tests and Profile passed
+  17 on a clean committed snapshot with eight unchanged source hashes. The
+  remaining 70-case whole-document reference oracle now uses captured renderer
+  outcomes. Frontend and independent implementation gates are green.
+- [x] 2026-10-28 18:39 UTC: Published and consumed markdown-flow 0.4.14.
+  Official wheel passed all 13,206 tests with strict installed-module guards;
+  normal PyPI resolution and all 33 source-file bytes matched. Installed
+  application acceptance passed 68 cases, and Profile passed 17 again.
 
 ## Surprises & Discoveries
 
@@ -60,7 +66,17 @@ and richer native-HTML runs need actual observations rather than assumptions.
 
 ## Outcomes & Retrospective
 
-Implementation and renderer-grounded verification are in progress.
+Both marker spellings now preserve visible named questions across rendered-run
+boundaries while genuine image labels and resource titles stay inactive.
+Production consumes the same verified rules in markdown-flow 0.4.14. The
+component also independently fixed its remaining cross-heading image-alt span
+and classified-content replacement feedback; the native engine already bounded
+that alt span correctly. Source, official package and installed consumer gates
+passed without changing sandbox rendering or generic unfinished-HTML fallback.
+
+Local implementation acceptance is complete. Exact-head CI and live review
+follow-up continue on [PR #3221](https://github.com/ai-shifu/ai-shifu/pull/3221);
+no main-branch merge is authorized.
 
 ## Context and Orientation
 
@@ -76,8 +92,11 @@ run. Child image analysis disables further segmentation and maps its image
 ranges back to the original source, preserving marker and substitution offsets.
 Pending sandbox suppression is limited to image-label controls; generic
 unfinished-HTML fallback and explicit-percent declarations remain compatible.
-Element bounds and sole-active-root suffix states are cached per document to
-avoid repeated scans through unclosed or ancestor-popped custom-button tags.
+Element bounds and sole-active-root suffix states are cached per document.
+Validated structural-token summaries prove absent or unclosed roots without
+treating raw-text or quoted strings as closing tags. Foreign closing tags
+disable the root-prefix shortcut. Eight reported pressure families retain
+deterministic work bounds alongside finite malformed-transfer comparisons.
 
 ## Plan of Work
 
