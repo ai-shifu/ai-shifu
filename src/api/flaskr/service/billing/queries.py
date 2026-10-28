@@ -154,13 +154,6 @@ def extract_order_metadata_datetime(metadata: object, key: str) -> datetime | No
     return coerce_datetime(metadata.get(key))
 
 
-def serialize_order_metadata_datetime(value: datetime | None) -> str | None:
-    """Serialize order metadata datetime."""
-    if value is None:
-        return None
-    return value.isoformat()
-
-
 def extract_resolved_order_cycle_start_at(metadata: object) -> datetime | None:
     """Extract resolved order cycle start at."""
     return extract_order_metadata_datetime(
@@ -539,16 +532,6 @@ def resolve_order_status_filter(value: str) -> int | None:
     if normalized_value not in _ORDER_STATUS_CODES_BY_LABEL:
         raise_param_error("status")
     return _ORDER_STATUS_CODES_BY_LABEL[normalized_value]
-
-
-def resolve_domain_binding_status_filter(value: str) -> int | None:
-    """Resolve domain binding status filter."""
-    normalized_value = normalize_bid(value)
-    if not normalized_value:
-        return None
-    if normalized_value not in _DOMAIN_BINDING_STATUS_CODES_BY_LABEL:
-        raise_param_error("status")
-    return _DOMAIN_BINDING_STATUS_CODES_BY_LABEL[normalized_value]
 
 
 def build_page_payload(

@@ -283,25 +283,6 @@ def aggregate_daily_usage_metrics(
         )
 
 
-def finalize_daily_usage_metrics(
-    app: Flask,
-    *,
-    stat_date: str = "",
-    creator_bid: str = "",
-    shifu_bid: str = "",
-    now: datetime | None = None,
-) -> DailyAggregateJobResult:
-    """Close one day's usage aggregate window by recomputing the full day."""
-    return aggregate_daily_usage_metrics(
-        app,
-        stat_date=stat_date,
-        creator_bid=creator_bid,
-        shifu_bid=shifu_bid,
-        finalize=True,
-        now=now,
-    )
-
-
 def aggregate_daily_ledger_summary(
     app: Flask,
     *,

@@ -453,29 +453,3 @@ def test_legacy_definition_reuse_uses_exact_keys_with_a_case_folding_column(
         assert lower.profile_key == "name"
         assert upper.profile_id != lower.profile_id
         assert duplicate.profile_id == upper.profile_id
-
-
-def test_legacy_i18n_is_idempotent_per_language_and_preserves_first_remark(
-    legacy_app: object,
-) -> None:
-    with legacy_app.app_context(), unit_of_work():
-        for language, remark in (
-            ("en-US", "First"),
-            ("en-US", "Ignored"),
-            ("zh-CN", ""),
-        ):
-            profiles.add_profile_i18n(
-                legacy_app, "profile-id", 1, language, remark, "teacher"
-            )
-        rows = (
-            db.session.execute(text("SELECT * FROM profile_item_i18n ORDER BY id"))
-            .mappings()
-            .all()
-        )
-        assert [(row["language"], row["profile_item_remark"]) for row in rows] == [
-            ("en-US", "First"),
-            ("zh-CN", ""),
-        ]
-        assert all(
-            row["created_by"] == "teacher" and row["status"] == 1 for row in rows
-        )

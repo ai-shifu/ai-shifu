@@ -19,7 +19,6 @@ from flaskr.service.billing.consts import (
 )
 from flaskr.service.billing.daily_aggregates import (
     aggregate_daily_usage_metrics,
-    finalize_daily_usage_metrics,
 )
 from flaskr.service.billing.models import (
     BillingDailyUsageMetric,
@@ -200,111 +199,6 @@ def test_aggregate_daily_usage_metrics_respects_incremental_window_and_creator_s
         assert (
             other_creator_rows[0].daily_usage_metric_bid == "existing-other-creator-row"
         )
-
-
-def test_finalize_daily_usage_metrics_recomputes_full_day(
-    billing_daily_usage_app: Flask,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        "flaskr.service.billing.daily_aggregates.resolve_usage_creator_bid",
-        lambda _app, _usage: "creator-agg-1",
-    )
-
-    with billing_daily_usage_app.app_context():
-        _add_llm_rates()
-        _add_usage(
-            usage_bid="usage-finalize-a",
-            shifu_bid="shifu-agg-1",
-            created_at=datetime(2026, 4, 8, 6, 0, 0),
-            input_tokens=25,
-            output_tokens=5,
-        )
-        _add_usage(
-            usage_bid="usage-finalize-b",
-            shifu_bid="shifu-agg-1",
-            created_at=datetime(2026, 4, 8, 21, 0, 0),
-            input_tokens=75,
-            output_tokens=15,
-        )
-        _add_usage_ledger(
-            creator_bid="creator-agg-1",
-            usage_bid="usage-finalize-a",
-            metric_code=BILLING_METRIC_LLM_INPUT_TOKENS,
-            amount=Decimal("-0.2500000000"),
-            created_at=datetime(2026, 4, 8, 6, 1, 0),
-        )
-        _add_usage_ledger(
-            creator_bid="creator-agg-1",
-            usage_bid="usage-finalize-a",
-            metric_code=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-            amount=Decimal("-0.0500000000"),
-            created_at=datetime(2026, 4, 8, 6, 1, 30),
-        )
-        _add_usage_ledger(
-            creator_bid="creator-agg-1",
-            usage_bid="usage-finalize-b",
-            metric_code=BILLING_METRIC_LLM_INPUT_TOKENS,
-            amount=Decimal("-0.7500000000"),
-            created_at=datetime(2026, 4, 8, 21, 1, 0),
-        )
-        _add_usage_ledger(
-            creator_bid="creator-agg-1",
-            usage_bid="usage-finalize-b",
-            metric_code=BILLING_METRIC_LLM_OUTPUT_TOKENS,
-            amount=Decimal("-0.1500000000"),
-            created_at=datetime(2026, 4, 8, 21, 1, 30),
-        )
-        dao.db.session.commit()
-
-        payload = finalize_daily_usage_metrics(
-            billing_daily_usage_app,
-            stat_date="2026-04-08",
-            creator_bid="creator-agg-1",
-            now=datetime(2026, 4, 9, 1, 0, 0),
-        )
-
-        assert payload["status"] == "finalized"
-        assert payload["finalize"] is True
-        assert payload["usage_count"] == 2
-        assert payload["row_count"] == 2
-        assert payload["window_started_at"] == "2026-04-08T00:00:00"
-        assert payload["window_ended_at"] == "2026-04-09T00:00:00"
-
-        creator_rows = (
-            BillingDailyUsageMetric.query.filter(
-                BillingDailyUsageMetric.stat_date == "2026-04-08",
-                BillingDailyUsageMetric.creator_bid == "creator-agg-1",
-            )
-            .order_by(BillingDailyUsageMetric.billing_metric.asc())
-            .all()
-        )
-        assert len(creator_rows) == 2
-        assert [
-            (
-                row.billing_metric,
-                int(row.raw_amount or 0),
-                int(row.record_count or 0),
-                str(row.consumed_credits),
-                row.window_ended_at.isoformat(),
-            )
-            for row in creator_rows
-        ] == [
-            (
-                BILLING_METRIC_LLM_INPUT_TOKENS,
-                100,
-                2,
-                "1.0000000000",
-                "2026-04-09T00:00:00",
-            ),
-            (
-                BILLING_METRIC_LLM_OUTPUT_TOKENS,
-                20,
-                2,
-                "0.2000000000",
-                "2026-04-09T00:00:00",
-            ),
-        ]
 
 
 def test_aggregate_daily_usage_metrics_supports_single_usage_ledger_with_multi_metric_metadata(

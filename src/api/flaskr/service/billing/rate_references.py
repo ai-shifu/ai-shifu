@@ -2,22 +2,7 @@
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from flaskr.service.billing.models import CreditUsageRate
-
-
-def rate_unit_cost(rate: CreditUsageRate | None) -> Decimal | None:
-    """Return rate unit cost."""
-    if rate is None:
-        return None
-    try:
-        unit_size = max(int(rate.unit_size or 1), 1)
-        return Decimal(str(rate.credits_per_unit or 0)) / Decimal(str(unit_size))
-    except (InvalidOperation, TypeError, ValueError, ZeroDivisionError):
-        return None
+from decimal import Decimal
 
 
 def format_credit_multiplier(value: Decimal | None) -> str | None:
