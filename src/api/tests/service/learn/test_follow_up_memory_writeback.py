@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from flaskr.api.llm import LLMStreamResponse
-from flaskr.service.learn.follow_up_memory_writer import (
+from flaskr.service.learn.ask.memory_writer import (
     FollowUpMemoryPatch,
     FollowUpMemoryRun,
 )
@@ -615,7 +615,7 @@ def test_policy_uses_retained_course_bound_main_script(
     """A later publication or another course cannot silently grant write permission."""
     from flaskr.dao import db
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.follow_up_memory_writer import (
+    from flaskr.service.learn.ask.memory_writer import (
         load_follow_up_memory_policy,
     )
     from flaskr.service.shifu.models import PublishedOutlineItem
@@ -654,7 +654,7 @@ def test_completed_memory_patch_is_course_scoped_and_atomic_with_history(
     """The host transaction owns both notes and answer rows, with real rollback coverage."""
     from flaskr.dao import db
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.follow_up_memory_writer import stage_follow_up_memory
+    from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
     from flaskr.service.learn.memory import VariableMemoryUpdate, load_memory
     from flaskr.service.learn.models import LearnGeneratedBlock
 
@@ -730,7 +730,7 @@ def test_completed_patch_cannot_restore_a_reset_attempt_or_concurrent_deletion(
 ) -> None:
     """Check the live attempt and deletion generation inside the same final write transaction."""
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.follow_up_memory_writer import stage_follow_up_memory
+    from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
     from flaskr.service.learn.memory import (
         MemoryUpdate,
         VariableMemoryUpdate,
@@ -828,7 +828,7 @@ def test_declared_system_field_uses_existing_global_profile_storage(
 ) -> None:
     """Author-declared registered fields remain global; explicit undeclared requests cannot edit them."""
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.follow_up_memory_writer import stage_follow_up_memory
+    from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
     from flaskr.service.learn.memory import load_memory
     from flaskr.service.profile.api import global_profile_value_versions
 
@@ -874,7 +874,7 @@ def test_retired_published_script_keeps_its_own_memory_permission(
     """Republishing retires old rows without revoking the retained attempt's declarations."""
     from flaskr.dao import db
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.follow_up_memory_writer import (
+    from flaskr.service.learn.ask.memory_writer import (
         load_follow_up_memory_policy,
     )
     from flaskr.service.shifu.models import PublishedOutlineItem
@@ -909,7 +909,7 @@ def test_late_follow_up_cannot_overwrite_a_newer_course_value(
 ) -> None:
     """Compare row versions, including unseen keys and value changes returning to the old text."""
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.follow_up_memory_writer import stage_follow_up_memory
+    from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
     from flaskr.service.learn.memory import (
         MemoryUpdate,
         VariableMemoryUpdate,
@@ -972,7 +972,7 @@ def test_late_follow_up_keeps_newer_global_profile_corrections(
     from types import SimpleNamespace
 
     from flaskr.dao.uow import unit_of_work
-    from flaskr.service.learn.follow_up_memory_writer import stage_follow_up_memory
+    from flaskr.service.learn.ask.memory_writer import stage_follow_up_memory
     from flaskr.service.learn.memory import VariableMemoryUpdate, load_memory
     from flaskr.service.profile.api import global_profile_value_versions
     from flaskr.service.user.common import update_user_info
@@ -1215,7 +1215,7 @@ def test_busy_worker_answers_follow_ups_without_memory_tools(
 ) -> None:
     """A full turn pool degrades to a plain answer instead of an unknown error."""
     from flaskr.api.markdownflow import TurnCapacityError
-    from flaskr.service.learn import follow_up_memory_writer
+    from flaskr.service.learn.ask import memory_writer as follow_up_memory_writer
 
     def full(*_args: object, **_kwargs: object) -> None:
         raise TurnCapacityError

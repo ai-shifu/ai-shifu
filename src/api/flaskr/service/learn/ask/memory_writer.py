@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from flaskr.api.llm import LLMStreamResponse
 from flaskr.api.markdownflow import TurnCapacityError, iter_turn
 from flaskr.service.learn.agent.lesson_record import claim_for_writing
-from flaskr.service.learn.follow_up_quotations import LearnerQuotationSource
+from flaskr.service.learn.ask.quotations import LearnerQuotationSource
 from flaskr.service.learn.memory import MemoryUpdate, VariableMemoryUpdate, stage_memory
 from flaskr.service.profile.api import (
     COURSE_REFERENCE_PREFIX,

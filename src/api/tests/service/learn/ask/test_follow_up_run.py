@@ -13,10 +13,10 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.learn.agent.models import LearnAgentSession, active_key_for
-from flaskr.service.learn.ask import (
+from flaskr.service.learn.ask import follow_up_run
+from flaskr.service.learn.ask.follow_up_run import (
     FollowUpCancelledError,
     follow_up_events,
-    follow_up_run,
 )
 from flaskr.service.learn.exceptions import PaidError
 from flaskr.service.learn.learn_dtos import GeneratedType

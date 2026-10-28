@@ -4,7 +4,7 @@ These constants identify the external providers that can answer learner
 follow-up questions and the modes controlling how provider answers combine
 with the LLM. They are keyed off by both registry halves:
 
-- runtime dispatch: ``flaskr/service/learn/ask_provider_adapters/registry.py``
+- runtime dispatch: ``flaskr/service/learn/ask/providers/registry.py``
 - config/schema: ``flaskr/service/shifu/ask_provider_registry.py``
 
 ``flaskr/service/shifu/shifu_draft_funcs.py`` (their historical home)

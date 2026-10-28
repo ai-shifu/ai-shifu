@@ -5,7 +5,7 @@ adapters, listen-mode assembly, and runtime conversation state.
 
 Entry files in this directory: `routes.py`, `learn_funcs.py`,
 `host/run.py`, `elements/run_stream.py`,
-`ask_provider_adapters/registry.py`.
+`ask/providers/registry.py`.
 
 Element building, streaming, persistence and history readers live in
 `elements/`, which must not import routes, the run host or follow-up modules

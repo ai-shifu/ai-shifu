@@ -9,13 +9,13 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 import pytest
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask.providers import (
     common,
 )
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask.providers import (
     volc_knowledge_adapter as volc,
 )
-from flaskr.service.learn.ask_provider_adapters.base import AskProviderError
+from flaskr.service.learn.ask.providers.base import AskProviderError
 
 if TYPE_CHECKING:
     from flask import Flask

@@ -50,7 +50,7 @@ This is the **source of truth** for what learners can study in production mode.
 ### Follow-up Q/A logs (追问)
 
 - `learn_generated_blocks` (`LearnGeneratedBlock`)
-  - Follow-up handler: `flaskr.service.learn.handle_input_ask.handle_input_ask`
+  - Follow-up handler: `flaskr.service.learn.ask.handler.handle_input_ask`
   - For follow-ups:
     - Student question: `type = BLOCK_TYPE_MDASK_VALUE`, `role = ROLE_STUDENT`
     - Teacher answer: `type = BLOCK_TYPE_MDANSWER_VALUE`, `role = ROLE_TEACHER`

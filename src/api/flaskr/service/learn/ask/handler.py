@@ -16,31 +16,31 @@ from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.i18n import _, get_current_language
 from flaskr.service.common.models import raise_param_error
-from flaskr.service.learn.ask_provider_adapters import (
+from flaskr.service.learn.ask.context import (
+    build_follow_up_conversation_context,
+)
+from flaskr.service.learn.ask.memory_writer import (
+    FollowUpMemoryPatch,
+    FollowUpMemoryRun,
+    load_follow_up_memory_policy,
+)
+from flaskr.service.learn.ask.provider_langfuse import stream_provider_with_langfuse
+from flaskr.service.learn.ask.providers import (
     AskProviderError,
     AskProviderRuntime,
     AskProviderTimeoutError,
     stream_ask_provider_response,
 )
-from flaskr.service.learn.ask_provider_adapters.consts import (
+from flaskr.service.learn.ask.providers.consts import (
     ASK_PROVIDER_LLM,
     ASK_PROVIDER_MODE_PROVIDER_ONLY,
     ASK_PROVIDER_MODE_PROVIDER_THEN_LLM,
 )
-from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.learn.elements.queries import (
     _load_latest_active_element_row,
     find_follow_up_element_rows,
-)
-from flaskr.service.learn.follow_up_context import (
-    build_follow_up_conversation_context,
-)
-from flaskr.service.learn.follow_up_memory_writer import (
-    FollowUpMemoryPatch,
-    FollowUpMemoryRun,
-    load_follow_up_memory_policy,
 )
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
@@ -450,7 +450,7 @@ def handle_input_ask(
 
     response_text = ""  # Store complete response text
     provider_error: Exception | None = None
-    from flaskr.service.learn.ask_provider_adapters.common import (
+    from flaskr.service.learn.ask.providers.common import (
         apply_knowledge_to_messages,
     )
 

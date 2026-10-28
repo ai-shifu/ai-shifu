@@ -4,7 +4,7 @@ import types
 from unittest.mock import patch
 
 from flask import Flask
-from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
+from flaskr.service.learn.ask.provider_langfuse import stream_provider_with_langfuse
 
 
 class _DummyGeneration:

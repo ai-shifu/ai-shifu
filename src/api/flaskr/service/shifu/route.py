@@ -79,7 +79,7 @@ from flaskr.service.common.session_attribution import (
     get_session_skill_attribution_by_reference,
 )
 from flaskr.service.common.skill_request_analytics import has_skill_request_analytics
-from flaskr.service.learn.ask_provider_langfuse import stream_provider_with_langfuse
+from flaskr.service.learn.ask.provider_langfuse import stream_provider_with_langfuse
 from flaskr.service.learn.langfuse_naming import (
     build_langfuse_generation_name,
     build_langfuse_span_name,
@@ -2184,14 +2184,14 @@ def register_shifu_routes(app: Flask, path_prefix: str = "/api/shifu") -> Flask:
                                     description: Provider error before fallback
         """
         from flaskr.api.llm import chat_llm
-        from flaskr.service.learn.ask_provider_adapters import (
+        from flaskr.service.learn.ask.providers import (
             AskProviderError,
             AskProviderRuntime,
             AskProviderTimeoutError,
             apply_knowledge_to_messages,
             stream_ask_provider_response,
         )
-        from flaskr.service.learn.ask_provider_adapters.consts import (
+        from flaskr.service.learn.ask.providers.consts import (
             ASK_PROVIDERS_WITH_LLM_SYNTHESIS,
         )
         from flaskr.service.metering import UsageContext

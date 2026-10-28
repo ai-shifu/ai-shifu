@@ -41,7 +41,10 @@ def _follow_up_events(
     element_adapter: ListenElementRunAdapter,
 ) -> Generator[RunMarkdownFlowDTO | RunElementSSEMessageDTO, None, None]:
     """Answer a follow-up question, owning its database session like a lesson step."""
-    from flaskr.service.learn.ask import FollowUpCancelledError, follow_up_events
+    from flaskr.service.learn.ask.follow_up_run import (
+        FollowUpCancelledError,
+        follow_up_events,
+    )
 
     try:
         _ensure_healthy_db_connection(app)

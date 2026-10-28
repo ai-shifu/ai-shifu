@@ -6,9 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 from flask import Flask
-from flaskr.service.learn import follow_up_context as context
 from flaskr.service.learn import live_follow_up_routes as routes
 from flaskr.service.learn import utils_v2
+from flaskr.service.learn.ask import context
 from flaskr.service.learn.gemini_live_token import GeminiLiveHistoryTurn
 from flaskr.service.learn.live_follow_up_session_store import LiveFollowUpSessionBinding
 from flaskr.service.learn.memory import MemorySnapshot

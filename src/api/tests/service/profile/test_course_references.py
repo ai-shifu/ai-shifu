@@ -121,7 +121,7 @@ def _published_text(context: SimpleNamespace, content: str, **fields: object) ->
 
 def _follow_up(context: SimpleNamespace, **kwargs: object) -> object:
     """Build real follow-up prompts while isolating unrelated conversation queries."""
-    from flaskr.service.learn.follow_up_context import (
+    from flaskr.service.learn.ask.context import (
         build_follow_up_conversation_context,
     )
 
