@@ -1,5 +1,9 @@
 """Script bundling: variable substitution, script syntax detection, prompt assembly."""
 
+import hashlib
+import json
+from pathlib import Path
+
 import pytest
 from markdown_it import MarkdownIt
 from markdownflow.engine import (
@@ -9,8 +13,20 @@ from markdownflow.engine import (
     render_first_prompt,
     substitute_variables,
 )
+from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.script import substitution_names
 from markdownflow.engine.tools import script_options
+
+_REFERENCE_BOUNDARY_OBSERVATIONS = {
+    case["sha256"]: case
+    for case in json.loads(
+        (
+            Path(__file__).parents[1]
+            / "fixtures"
+            / "script_reference_boundaries_browser.json"
+        ).read_text()
+    )["cases"]
+}
 
 
 def test_detects_each_syntax_marker() -> None:
@@ -441,14 +457,17 @@ def test_continuation_indentation_spends_the_reference_label_budget(
 def test_reference_definitions_start_only_at_native_block_boundaries(
     prefix: str, container: str, multiline: bool
 ) -> None:
-    """Only renderer-admitted definitions can turn an alt control into a real image."""
+    """Renderer scopes and native block boundaries determine visible questions."""
     definition = container + (
         "[course\n" + container + "image]: /x" if multiline else "[course image]: /x"
     )
     source = "![?[{{goal}} A | B]][course image]\n\n" + prefix + definition
-    image = "<img " in MarkdownIt().render(source)
-    assert collected_names(source) == (frozenset() if image else frozenset({"goal"}))
-    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
+    observed = _REFERENCE_BOUNDARY_OBSERVATIONS[
+        hashlib.sha256(source.encode()).hexdigest()
+    ]
+    assert len(analyze_marker_context(source).image_labels) == observed["images"]
+    assert collected_names(source) == ({"goal"} if observed["buttons"] else set())
+    assert script_options(source) == {button: button for button in observed["buttons"]}
 
 
 @pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
