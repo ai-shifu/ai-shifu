@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from re import Pattern
 
 COMPILED_PHYSICAL_LINE_END_REGEX = re.compile(r"\r\n|\r|\n")
-COMPILED_CONTAINER_LIST_REGEX = re.compile(r"(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t])")
+COMPILED_CONTAINER_LIST_REGEX = re.compile(r"(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t]|$)")
 COMPILED_DOCUMENT_FENCE_REGEX = re.compile(r"(`{3,})([^`]*$)|(~{3,})(.*$)")
 COMPILED_DOCUMENT_TAG_REGEX = re.compile(
     r" {0,3}</?([A-Za-z][A-Za-z0-9-]*)(?=[ \t/>]|$)"
@@ -287,7 +287,9 @@ def container_opening_info(
         while at < len(line) and line[at] in " \t":
             column += 4 - column % 4 if line[at] == "\t" else 1
             at += 1
-        if column - padding_column > 4:
+        if at == len(line):
+            required = padding_column - before_column + before_virtual + 1
+        elif column - padding_column > 4:
             width = 4 - padding_column % 4 if line[padding_start] == "\t" else 1
             at = padding_start + 1
             column = padding_column + width
@@ -781,7 +783,11 @@ class DocumentBlocks:
                 content = container_content_start(
                     self.text[line.start : line.content_end], steps
                 )
-                at = line.start + (content if content is not None else 0)
+                at = (
+                    line.start + content
+                    if content is not None
+                    else self.content_starts[index]
+                )
                 while at < line.content_end and self.text[at] in " \t":
                     at += 1
                 label_parts.append("\n")
@@ -814,7 +820,8 @@ class DocumentBlocks:
                         or COMPILED_ATX_START_REGEX.match(value) is not None
                     ):
                         return None
-                    content = 0  # A definition permits a lazy paragraph continuation.
+                    # Lazy continuation may still carry a matching outer quote.
+                    content = self.content_starts[index] - at
                 at += content
             if at >= len(self.text) or self.text[at] not in " \t\r\n":
                 break
@@ -870,9 +877,13 @@ class DocumentBlocks:
         boundaries: set[int] = set()
         active: tuple[int, ...] = ()
         paragraph = False
+        empty_list_base: tuple[int, ...] | None = None
         for index, line in enumerate(self.lines):
             value = self.text[line.start : line.content_end]
             if not value.strip(" \t"):
+                if empty_list_base is not None:
+                    active = empty_list_base
+                    empty_list_base = None
                 paragraph = False
                 continue
             info = container_content_info(value, active) if active else (0, 0)
@@ -882,18 +893,37 @@ class DocumentBlocks:
                     self.content_starts[index] = line.content_end
                     self.container_steps[index] = active
                     self.virtual_padding[index] = blank_info[1]
+                    if empty_list_base is not None:
+                        active = empty_list_base
+                        empty_list_base = None
                     paragraph = False
                     continue
+            empty_list_base = None
             if info is None and not paragraph:
                 active = ()
+            base = active if info is not None else ()
+            exited = False
+            if info is None and paragraph:
+                # A sibling item can start at any matched ancestor. Plain text
+                # instead continues lazily without restarting that paragraph.
+                matched, unmatched = 0, len(active)
+                info = (0, 0)
+                while matched + 1 < unmatched:
+                    depth = (matched + unmatched) // 2
+                    candidate = container_content_info(value, active[:depth])
+                    if candidate is None:
+                        unmatched = depth
+                    else:
+                        matched, info = depth, candidate
+                base = active[:matched]
+                exited = base != active
             content, virtual = info if info is not None else (0, 0)
             remaining = value[content:]
-            base = active if info is not None else ()
             after, steps, opening_virtual = container_opening_info(
                 remaining, column=column_at(value, content), virtual=virtual
             )
             entered = bool(steps) and (
-                not paragraph or self._explicit_interrupt(remaining)
+                not paragraph or exited or self._explicit_interrupt(remaining)
             )
             if entered:
                 boundaries.add(index)
@@ -903,10 +933,13 @@ class DocumentBlocks:
                 line.start + content + (after if entered else 0)
             )
             self.virtual_padding[index] = opening_virtual if entered else virtual
-            self.container_steps[index] = active if info is not None or entered else ()
+            # Bounds belong to physical prefixes, including lazy outer quotes.
+            self.container_steps[index] = active if entered else base
             if not remaining.strip(" \t"):
                 boundaries.add(index)
                 paragraph = False
+                if entered and active[-1] > 0:
+                    empty_list_base = active[:-1]
             else:
                 paragraph = True
             if (

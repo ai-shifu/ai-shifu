@@ -442,6 +442,70 @@ def test_reference_definitions_start_only_at_native_block_boundaries(
     assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
 
 
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "text",
+        "1. text",
+        "8. text",
+        "- text",
+        "> text",
+        "> 1. text",
+        "- 1. text",
+        "1.\n   text",
+    ],
+)
+@pytest.mark.parametrize("outer", ["", "> ", "  ", "   ", "    "])
+@pytest.mark.parametrize("marker", ["", "1. ", "2. ", "9. ", "- ", "* ", "2) "])
+def test_reference_definitions_follow_native_sibling_and_lazy_boundaries(
+    prefix: str, outer: str, marker: str, spelling: str
+) -> None:
+    """An ordered sibling can start at any number, unlike a paragraph interruption."""
+    source = f"![?[{spelling} A | B]][image]\n\n{prefix}\n{outer}{marker}[image]: /x"
+    image = "<img " in MarkdownIt().render(source)
+    # Legacy percent markers remain global declarations, even inside image alt.
+    expected_names = (
+        frozenset({"goal"}) if spelling.startswith("%") or not image else frozenset()
+    )
+    assert collected_names(source) == expected_names
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+@pytest.mark.parametrize(
+    ("definition", "image"),
+    [
+        ("1. text\n2. [course\nimage]: /x", True),
+        ("> 1. text\n> 2. [course\n> image]: /x", True),
+        ("- > 1. text\n  > 2. [course\n  > image]: /x", True),
+        ("1. text\n   1. nested\n   2. [course\n   image]: /x", True),
+        ("> 1. text\n> 2. [course image]:\n> /x", True),
+        ("> 1. text\n> [course\n> image]: /x", False),
+        ("1. text\n   paragraph\n   2. [course\n   image]: /x", False),
+        ("paragraph\n2. [course\nimage]: /x", False),
+        ("1.\n   text\n2. [course image]: /x", True),
+        ("1.   \n   text\n2. [course image]: /x", True),
+        ("1.\n\n   text\n2. [course image]: /x", False),
+        ("> 1.\n>\n> text\n> 2. [course image]: /x", False),
+    ],
+)
+def test_multiline_references_preserve_lazy_container_projection(
+    definition: str, image: bool, spelling: str, newline: str
+) -> None:
+    """Partial outer prefixes and empty list boundaries match native rendering."""
+    source = (f"![?[{spelling} A | B]][course image]\n\n{definition}").replace(
+        "\n", newline
+    )
+    assert ("<img " in MarkdownIt().render(source)) is image
+    expected_names = (
+        frozenset({"goal"}) if spelling.startswith("%") or not image else frozenset()
+    )
+    assert collected_names(source) == expected_names
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
+
+
 @pytest.mark.parametrize(
     "source",
     [

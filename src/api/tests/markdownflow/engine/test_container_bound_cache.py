@@ -38,6 +38,32 @@ def test_flat_quoted_html_collection_scans_container_lines_once(
     assert size <= calls <= 4 * size
 
 
+@pytest.mark.parametrize("depth", [256, 1024, 4096])
+def test_partial_ancestor_recovery_bounds_repeated_prefix_scans(
+    monkeypatch: pytest.MonkeyPatch, depth: int
+) -> None:
+    """A dedent must not retry every ancestor of deeply nested authored content."""
+    calls = work = 0
+    original = document_blocks.container_content_info
+
+    def counted(
+        line: str, steps: tuple[int, ...], *, partial: bool = False
+    ) -> tuple[int, int] | None:
+        nonlocal calls, work
+        calls += 1
+        work += len(steps)
+        return original(line, steps, partial=partial)
+
+    monkeypatch.setattr(document_blocks, "container_content_info", counted)
+    remaining = depth // 2
+    source = "> " * depth + "paragraph\n" + "> " * remaining + "continuation\n"
+    blocks = DocumentBlocks(source, HTML_PATTERN)
+    assert blocks.projected_line(1) == "continuation"
+    assert blocks.container_steps[1] == (0,) * remaining
+    assert calls <= 2 * depth.bit_length()
+    assert work <= depth * (depth.bit_length() + 4)
+
+
 @pytest.mark.parametrize("reverse", [False, True])
 def test_container_queries_reuse_safe_suffixes_in_either_order(
     monkeypatch: pytest.MonkeyPatch, reverse: bool
