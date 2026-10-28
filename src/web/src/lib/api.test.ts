@@ -1,3 +1,4 @@
+import api from '@/api';
 import { gen } from './api';
 import http from './request';
 
@@ -17,6 +18,22 @@ const mockHttp = http as jest.Mocked<typeof http>;
 describe('api generator', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  test('posts current-password changes through the registered API client', async () => {
+    const payload = {
+      old_password: 'current-password-value',
+      new_password: 'replacement-password-value',
+    };
+
+    await api.changePassword(payload);
+
+    expect(mockHttp.post).toHaveBeenCalledTimes(1);
+    expect(mockHttp.post).toHaveBeenCalledWith(
+      '/api/user/change_password',
+      payload,
+      {},
+    );
   });
 
   test('serializes DELETE params as query string', async () => {
