@@ -68,7 +68,6 @@ oss2==2.18.6
 packaging==24.0
 pillow==13.0.0
 pingpp==2.7.2
-prometheus-client==0.22.1
 pydantic-graph==2.53.0
 pydub>=0.25.1
 pluggy==1.5.0

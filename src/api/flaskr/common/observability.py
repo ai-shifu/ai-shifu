@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+import logging
 import time
 
 from flask import Flask, Response, g, jsonify, request
@@ -12,38 +12,10 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.trace import SpanKind, Status, StatusCode
-from prometheus_client import (
-    CONTENT_TYPE_LATEST,
-    CollectorRegistry,
-    Counter,
-    Histogram,
-    generate_latest,
-    multiprocess,
-)
 
-from .capacity_metrics import (
-    finalize_capacity_response,
-    start_capacity_request,
-    teardown_capacity_request,
-)
 from .request_context import thread_local
 
-HTTP_REQUEST_COUNT = Counter(
-    "ai_shifu_http_requests_total",
-    "Total HTTP requests handled by the backend.",
-    ("method", "path", "status"),
-)
-HTTP_REQUEST_DURATION = Histogram(
-    "ai_shifu_http_request_duration_seconds",
-    "HTTP request duration in seconds.",
-    ("method", "path", "status"),
-    buckets=(0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30),
-)
-CREDIT_NOTIFICATION_EVENTS = Counter(
-    "ai_shifu_credit_notification_events_total",
-    "Credit notification lifecycle events.",
-    ("event", "notification_type", "channel", "status"),
-)
+logger = logging.getLogger(__name__)
 
 
 def _bool_config(app: Flask, key: str, default: bool = False) -> bool:
@@ -61,11 +33,10 @@ def _float_config(app: Flask, key: str, default: float) -> float:
 
 
 def init_observability(app: Flask) -> Flask:
-    """Register metrics, health checks, and request tracing."""
+    """Register health checks, request timing, and request tracing."""
     if getattr(app, "_ai_shifu_observability_initialized", False):
         return app
 
-    metrics_path = app.config.get("INTERNAL_METRICS_PATH", "/internal/metrics")
     health_path = app.config.get(
         "INTERNAL_OBSERVABILITY_HEALTH_PATH", "/internal/observability/health"
     )
@@ -98,7 +69,6 @@ def init_observability(app: Flask) -> Flask:
 
     @app.before_request
     def _start_request_observability() -> None:
-        start_capacity_request({metrics_path, health_path, "/ping", "/health"})
         request_id = request.headers.get("X-Request-ID", "") or getattr(
             thread_local, "request_id", ""
         )
@@ -129,8 +99,7 @@ def init_observability(app: Flask) -> Flask:
 
     @app.after_request
     def _finalize_request_observability(response: Response) -> Response:
-        finalize_capacity_response(response)
-        duration_ms = _record_request_metrics(response.status_code)
+        duration_ms = _record_request_timing(response.status_code)
         span = getattr(g, "_ai_shifu_observability_span", None)
         if span is not None:
             span.set_attribute("http.status_code", response.status_code)
@@ -152,7 +121,6 @@ def init_observability(app: Flask) -> Flask:
 
     @app.teardown_request
     def _teardown_request_observability(error: Exception | None) -> None:
-        teardown_capacity_request()
         if error is None:
             return
         span = getattr(g, "_ai_shifu_observability_span", None)
@@ -160,23 +128,12 @@ def init_observability(app: Flask) -> Flask:
             span.record_exception(error)
             span.set_status(Status(StatusCode.ERROR, str(error)))
 
-    @app.route(metrics_path, methods=["GET"])
-    def metrics_handler() -> Response:
-        if os.environ.get("PROMETHEUS_MULTIPROC_DIR"):
-            registry = CollectorRegistry()
-            multiprocess.MultiProcessCollector(registry)
-            payload = generate_latest(registry)
-        else:
-            payload = generate_latest()
-        return Response(payload, mimetype=CONTENT_TYPE_LATEST)
-
     @app.route(health_path, methods=["GET"])
     def observability_health_handler() -> Response:
         return jsonify(
             {
                 "ok": True,
                 "traces_enabled": traces_enabled,
-                "metrics_path": metrics_path,
                 "otlp_endpoint": app.config.get("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
                 "request_id_header": "X-Request-ID",
             }
@@ -194,36 +151,28 @@ def record_credit_notification_event(
     status: str = "",
     count: int = 1,
 ) -> None:
-    """Record credit notification event."""
+    """Log a credit notification lifecycle event; never raises."""
     try:
-        CREDIT_NOTIFICATION_EVENTS.labels(
+        logger.info(
+            "credit_notification_event event=%s notification_type=%s "
+            "channel=%s status=%s count=%s",
             str(event or "unknown"),
             str(notification_type or "unknown"),
             str(channel or "unknown"),
             str(status or "unknown"),
-        ).inc(max(0, int(count or 0)))
+            max(0, int(count or 0)),
+        )
     except Exception:
         return
 
 
-def _request_path_label() -> str:
-    if request.url_rule is not None and request.url_rule.rule:
-        return request.url_rule.rule
-    return "<unmatched>"
-
-
-def _record_request_metrics(status_code: int) -> float:
+def _record_request_timing(status_code: int) -> float:
     started_at = getattr(thread_local, "request_started_at", None)
     duration_seconds = 0.0
     if started_at is not None:
         duration_seconds = max(time.perf_counter() - started_at, 0.0)
     duration_ms = round(duration_seconds * 1000, 3)
-    path_label = _request_path_label()
     status_label = str(status_code)
-    HTTP_REQUEST_COUNT.labels(request.method, path_label, status_label).inc()
-    HTTP_REQUEST_DURATION.labels(request.method, path_label, status_label).observe(
-        duration_seconds
-    )
     thread_local.status_code = status_label
     thread_local.duration_ms = str(duration_ms)
     return duration_ms

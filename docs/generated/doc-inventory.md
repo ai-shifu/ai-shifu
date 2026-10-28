@@ -43,7 +43,6 @@
 | `docs/engineering-baseline.md` | Engineering Baseline | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/accurate-lesson-content-updates.md` | Lesson content revision tracking with one nullable column | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/admin-mdf2-preview.md` | Use the 2.0 lesson runtime in teacher debug preview | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/api-capacity-observability.md` | API capacity observability | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/backend-external-client-journey-analytics.md` | Backend External Client Journey Analytics | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/bounded-lesson-memory-context.md` | Bound Lesson Memory Context | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/course-action-copy.md` | Review the course action PR stack | `exec-plan-active` | `active` | `frontend` | `2026-10-27` | `true` |
@@ -106,6 +105,7 @@
 | `docs/exec-plans/completed/admin-rate-management-create.md` | Add arbitrary rate entries to Rate Management | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/agent-first-harness-migration.md` | Agent-First Harness Migration | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/agent-first-harness-phase-2.md` | Agent-First Harness Phase 2 | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/api-capacity-observability.md` | API capacity observability | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/arabic-thai-i18n.md` | Arabic and Thai Product i18n | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/atomic-sibling-reorder.md` | Atomic Sibling Reorder | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/backend-overhaul-master.md` | Backend Overhaul Master Plan: Inventory and Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -297,7 +297,6 @@
 | `docs/product-specs/teacher-analytics-dashboard.md` | Teacher Analytics Dashboard (v1) | `product-spec` | `implemented` | `shared` | `2026-08-16` | `true` |
 | `docs/product-specs/transfer-course-creator.md` | Operator Course Creator Transfer | `product-spec` | `implemented` | `shared` | `2026-05-12` | `true` |
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-23` | `true` |
-| `docs/references/api-capacity-metrics.md` | API capacity metrics | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
 | `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-23` | `true` |

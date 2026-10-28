@@ -15,7 +15,6 @@ CONFIG = Path(__file__).resolve().parents[1] / "gunicorn.conf.py"
 def _load(monkeypatch: pytest.MonkeyPatch, cdll: object) -> dict:
     monkeypatch.setattr(sys, "argv", ["gunicorn", "-k", "gthread", "app:app"])
     monkeypatch.setenv("AI_SHIFU_PRELOAD_MASTER", "0")
-    monkeypatch.setattr("flaskr.metrics_runtime.prepare_metrics_directory", Mock())
     monkeypatch.setattr("ctypes.CDLL", cdll)
     return runpy.run_path(str(CONFIG))
 
@@ -47,8 +46,8 @@ def test_explicit_arena_setting_and_non_glibc_hosts_are_left_alone(
 def test_workers_inherit_frozen_objects(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MALLOC_ARENA_MAX", "2")
     config = _load(monkeypatch, Mock())
-    # Recycling would strand gthread workers behind open lesson streams and leave
-    # a Prometheus counter file per retired worker; the causes are bounded instead.
+    # Recycling would strand gthread workers behind open lesson streams; the
+    # causes of memory growth are bounded instead.
     assert "max_requests" not in config
     freeze = Mock()
     monkeypatch.setattr(gc, "freeze", freeze)

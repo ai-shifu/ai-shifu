@@ -1,4 +1,4 @@
-"""Verify request spans, metrics and failure-tolerant instrumentation."""
+"""Verify request spans, timing and failure-tolerant instrumentation."""
 
 import threading
 from collections.abc import Iterator
@@ -12,37 +12,11 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import StatusCode
-from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest
 
 
 @pytest.fixture(autouse=True)
-def isolated_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
-    registry = CollectorRegistry()
-    labels = ("method", "path", "status")
+def isolated_thread_local(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(observability, "thread_local", threading.local())
-    monkeypatch.setattr(
-        observability,
-        "HTTP_REQUEST_COUNT",
-        Counter(
-            "ai_shifu_http_requests_total",
-            "Test request count",
-            labels,
-            registry=registry,
-        ),
-    )
-    monkeypatch.setattr(
-        observability,
-        "HTTP_REQUEST_DURATION",
-        Histogram(
-            "ai_shifu_http_request_duration_seconds",
-            "Test request duration",
-            labels,
-            registry=registry,
-        ),
-    )
-    monkeypatch.setattr(
-        observability, "generate_latest", lambda: generate_latest(registry)
-    )
 
 
 @pytest.fixture
@@ -146,55 +120,55 @@ def test_teardown_records_unhandled_exception_on_active_span(
     assert span.events[0].attributes["exception.message"] == str(error)
 
 
-def test_metrics_and_health_are_available_without_tracing() -> None:
+def test_health_is_available_without_tracing_and_metrics_are_not_served() -> None:
     app = Flask(__name__)
-    app.config.update(
-        INTERNAL_METRICS_PATH="/private/metrics",
-        INTERNAL_OBSERVABILITY_HEALTH_PATH="/private/health",
-    )
+    app.config.update(INTERNAL_OBSERVABILITY_HEALTH_PATH="/private/health")
     observability.init_observability(app)
     client = app.test_client()
-    response = client.get("/private/metrics")
-    assert response.status_code == 200
-    assert b"ai_shifu_http_requests_total" in response.data
+    assert client.get("/internal/metrics").status_code == 404
     health = client.get("/private/health").get_json()
     assert health == {
         "ok": True,
         "traces_enabled": False,
-        "metrics_path": "/private/metrics",
         "otlp_endpoint": "",
         "request_id_header": "X-Request-ID",
     }
 
 
-@pytest.mark.parametrize("count", [None, -1, 3, "bad"])
-def test_notification_metric_is_best_effort_and_never_increments_negative(
+@pytest.mark.parametrize(
+    ("count", "logged_count"), [(None, 0), (-1, 0), (3, 3), ("bad", None)]
+)
+def test_notification_event_is_logged_best_effort_and_never_negative(
     monkeypatch: pytest.MonkeyPatch,
     count: object,
+    logged_count: int | None,
 ) -> None:
-    counter = Mock()
-    monkeypatch.setattr(observability, "CREDIT_NOTIFICATION_EVENTS", counter)
+    logger = Mock()
+    monkeypatch.setattr(observability, "logger", logger)
     observability.record_credit_notification_event("", count=count)
-    counter.labels.assert_called_once_with("unknown", "unknown", "unknown", "unknown")
-    if count == "bad":
-        counter.labels.return_value.inc.assert_not_called()
+    if logged_count is None:
+        logger.info.assert_not_called()
     else:
-        counter.labels.return_value.inc.assert_called_once_with(max(0, count or 0))
-    counter.labels.side_effect = RuntimeError("metrics unavailable")
+        logger.info.assert_called_once()
+        assert logger.info.call_args.args[1:] == (
+            "unknown",
+            "unknown",
+            "unknown",
+            "unknown",
+            logged_count,
+        )
+    logger.info.side_effect = RuntimeError("logging unavailable")
     observability.record_credit_notification_event("delivery")
 
 
-def test_metrics_without_start_timestamp_use_zero_duration_and_unmatched_path(
+def test_timing_without_start_timestamp_uses_zero_duration(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delattr(observability.thread_local, "request_started_at", raising=False)
-    counts, durations = Mock(), Mock()
-    monkeypatch.setattr(observability, "HTTP_REQUEST_COUNT", counts)
-    monkeypatch.setattr(observability, "HTTP_REQUEST_DURATION", durations)
     with Flask(__name__).test_request_context("/unknown"):
-        assert observability._record_request_metrics(404) == 0
-    counts.labels.assert_called_once_with("GET", "<unmatched>", "404")
-    durations.labels.return_value.observe.assert_called_once_with(0)
+        assert observability._record_request_timing(404) == 0
+    assert observability.thread_local.status_code == "404"
+    assert observability.thread_local.duration_ms == "0.0"
 
 
 def test_absent_or_invalid_span_has_no_trace_identity(

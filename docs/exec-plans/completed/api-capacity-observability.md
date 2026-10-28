@@ -11,7 +11,7 @@ Measure complete SSE lifetimes and aggregate all Gunicorn workers before testing
 - [x] 2026-10-13 17:08 CST: Verify fork aggregation, cleanup, cancellation, and existing runtime contracts.
 - [x] 2026-10-13 17:15 CST: Published ready PR #3129 and recorded production acceptance separately.
 - [x] 2026-10-13 17:19 CST: Removed route-parameter reflection from a test-only route after CodeQL review.
-- [ ] 2026-10-13 17:02 CST: After merge, verify production metrics and connect continuous collection before replica changes.
+- [x] 2026-10-27: Retired. No collector was ever connected in either region (no ServiceMonitor, PodMonitor, or scrape annotation targets the API), so the Prometheus metrics, multiprocess bootstrap, and `/internal/metrics` endpoint were removed instead of being collected.
 
 ## Surprises & Discoveries
 
@@ -51,4 +51,4 @@ The default directory is unique per master and cleaned only by that master after
 
 ## Interfaces and Dependencies
 
-The measurement contract is maintained in [API capacity metrics](../../references/api-capacity-metrics.md). Use existing `prometheus_client`, Flask, and Gunicorn dependencies; no new package or network service. The standard `PROMETHEUS_MULTIPROC_DIR` applies to Gunicorn workers in one Pod, not across Pods. A collector must scrape each Pod independently and sum replicas. Existing internal metrics access controls must be verified before exposing a scrape endpoint; this change creates no new public route.
+The measurement contract lived in `docs/references/api-capacity-metrics.md`, removed with the metrics on 2026-10-27. Use existing `prometheus_client`, Flask, and Gunicorn dependencies; no new package or network service. The standard `PROMETHEUS_MULTIPROC_DIR` applies to Gunicorn workers in one Pod, not across Pods. A collector must scrape each Pod independently and sum replicas. Existing internal metrics access controls must be verified before exposing a scrape endpoint; this change creates no new public route.

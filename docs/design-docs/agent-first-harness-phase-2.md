@@ -60,12 +60,10 @@ observability, and recurring harness gardening are all versioned and enforced.
 
 ### Runtime observability
 
-- Default local dev includes Grafana, Loki, Tempo, Prometheus, an OTEL
+- Default local dev includes Grafana, Loki, Tempo, an OTEL
   collector, and a log shipper.
 - Backend runtime traces are request-scoped and carry `X-Request-ID` as a
   stable attribute.
-- HTTP metrics are exported from the backend via a local metrics endpoint
-  scraped by Prometheus.
 - Existing file logs stay in place and gain stable request/trace/status/duration
   fields so Promtail can ship them without changing local workflows.
 - The default dev compose must pin phone login for deterministic smoke runs,
