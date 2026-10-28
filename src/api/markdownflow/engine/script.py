@@ -160,18 +160,25 @@ def collected_names(text: str) -> frozenset[str]:
     would drop a real memory value that nothing in the lesson is going to ask for again --
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
-    source = _strip_fences(text)
-    context = analyze_marker_context(source)
-    bindings = _interaction_bindings(source, context)
-    return frozenset(
+    context = analyze_marker_context(text)
+    bindings = _interaction_bindings(text, context)
+    names = {
         marker.name
         for marker in context.markers
-        if marker.name is not None
-        and (
-            marker.start in bindings
-            or (marker.start and source[marker.start - 1] == "%")
+        if marker.name is not None and marker.start in bindings
+    }
+    if "%{{" in text:
+        # Keep the historical explicit-declaration projection. Bare bindings need
+        # the original source so fences retain their renderer ownership boundaries.
+        source = _strip_fences(text)
+        names.update(
+            marker.name
+            for marker in analyze_marker_context(source).markers
+            if marker.name is not None
+            and marker.start
+            and source[marker.start - 1] == "%"
         )
-    )
+    return frozenset(names)
 
 
 def substitution_names(bundle: ScriptBundle) -> frozenset[str]:

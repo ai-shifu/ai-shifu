@@ -22,6 +22,7 @@ from .document_blocks import (
     read_angle_autolink,
     read_reference_resource_end,
 )
+from .rendered_reference_runs import build_ownership, normalize_markdown_run
 from .variable_names import normalize_variable_name, read_variable_marker
 
 _BACKTICK_RUN = re.compile(r"`+")
@@ -325,6 +326,14 @@ def _image_reference_label(
     text: str, start: int, blocks: DocumentBlocks, limit: int
 ) -> str | None:
     """Read a bounded explicit label after projecting its physical prefixes."""
+    label = _image_reference_span(text, start, blocks, limit)
+    return label[0] if label is not None else None
+
+
+def _image_reference_span(
+    text: str, start: int, blocks: DocumentBlocks, limit: int
+) -> tuple[str, int] | None:
+    """Retain the reference tail's original end for renderer metadata protection."""
     if text[start : start + 1] != "[":
         return None
     at = start + 1
@@ -339,7 +348,7 @@ def _image_reference_label(
             return None
         character = text[at]
         if character == "]":
-            return "".join(parts)
+            return "".join(parts), at + 1
         if character == "[":
             return None
         if character == "\\" and at + 1 < limit and text[at + 1] in punctuation:
@@ -444,6 +453,7 @@ def analyze_marker_context(
     final: bool = True,
     fence_indent: int | None = None,
     label_counts: dict[int, int] | None = None,
+    _render_runs: bool = True,
 ) -> MarkerContext:
     """Recognize outer literals before markers; a real marker's body stays opaque.
 
@@ -536,6 +546,13 @@ def analyze_marker_context(
     labels: list[tuple[bool, bool, int, int]] = []
     image_candidates: list[tuple[int, int]] = []
     reference_labels: set[str] = set()
+    render_protected: list[tuple[int, int]] = []
+    render_metadata: list[tuple[int, int]] = []
+    render_variables: list[tuple[int, int]] = []
+    render_controls: list[tuple[int, int]] = []
+    render_html_bounds: dict[int, int] = {}
+    render_code_starts: list[int] = []
+    render_code_ranges: list[tuple[int, int]] = []
     interaction_openings: list[int] = []
     active_links: set[int] = set()
     resource_start = -1
@@ -549,11 +566,13 @@ def analyze_marker_context(
         if at <= interaction_until:
             close = text.find("}}", at + 2)
             if close < 0:
+                render_variables.append((at, len(text)))
                 context.markers.append(
                     ContextMarker(at, len(text), text[at + 2 :], None, complete=False)
                 )
                 break
             raw = text[at + 2 : close]
+            render_variables.append((at, close + 2))
             context.markers.append(
                 ContextMarker(at, close + 2, raw, normalize_variable_name(raw))
             )
@@ -582,6 +601,8 @@ def analyze_marker_context(
                     reference_labels.add(normalizeReference(reference_label))
                 blocks.closed_reference_lines.add(blocks.line_at(reference_end).start)
                 context.literals.append((at, reference_end))
+                render_protected.append((at, reference_end))
+                render_metadata.append((at, reference_end))
                 context.inactive_document_controls.extend(
                     match.start()
                     for match in _INTERACTION_OPENING.finditer(text, at, reference_end)
@@ -597,12 +618,27 @@ def analyze_marker_context(
             if legacy is not None:
                 end, closing_start = legacy
                 context.fences.append((at, end))
+                render_protected.append((at, end))
+                if (index := blocks.by_start.get(at)) is not None:
+                    content = blocks.block_content_start(index)
+                    if content is not None:
+                        render_code_starts.append(content)
+                        render_code_ranges.append((content, end))
                 if closing_start is not None and closing_start in blocks.by_start:
                     blocks.closed_fence_lines.add(closing_start)
                 at = end
                 continue
         fenced = blocks.fence(at, final=final)
         if fenced is not None:
+            render_protected.append((at, fenced.end))
+            context.inactive_document_controls.extend(
+                match.start()
+                for match in _INTERACTION_OPENING.finditer(text, at, fenced.end)
+            )
+            content = blocks.block_content_start(blocks.by_start[at])
+            if content is not None:
+                render_code_starts.append(content)
+                render_code_ranges.append((content, fenced.end))
             if fenced.steps:
                 context.container_fences.append((at, fenced.end))
             line = blocks.line_at(at)
@@ -626,6 +662,8 @@ def analyze_marker_context(
             continue
         indented_end = _indented_code_end(text, at, blocks)
         if indented_end is not None:
+            render_protected.append((at, indented_end))
+            render_code_ranges.append((at, indented_end))
             blocks.closed_indented_lines.add(blocks.line_at(indented_end).start)
             context.literals.append((at, indented_end))
             context.markers.extend(_literal_markers(text, at, indented_end))
@@ -653,6 +691,9 @@ def analyze_marker_context(
         raw_html = _raw_html_bounds(text, at, last_html_ends, blocks, final=final)
         if raw_html is not None:
             opening_end, end, complete = raw_html
+            content = blocks.block_content_start(blocks.by_start[at])
+            if content is not None:
+                render_html_bounds[content] = end
             context.literals.append((at, end))
             context.markers.extend(_literal_markers(text, at, opening_end))
             context.markers.extend(_literal_markers(text, opening_end, end))
@@ -671,6 +712,12 @@ def analyze_marker_context(
             continue
         special_html = blocks.terminated_html(at, final=final)
         if special_html is not None:
+            content = blocks.block_content_start(blocks.by_start[at])
+            if content is not None:
+                if text.startswith("<!--", content):
+                    render_protected.append((at, special_html.end))
+                else:
+                    render_html_bounds[content] = special_html.end
             blocks.closed_html_lines.add(
                 blocks.line_at(max(at, special_html.end - 1)).start
             )
@@ -689,6 +736,9 @@ def analyze_marker_context(
             continue
         ordinary = blocks.ordinary_html(at, final=final)
         if ordinary is not None:
+            content = blocks.block_content_start(blocks.by_start[at])
+            if content is not None:
+                render_html_bounds[content] = ordinary.end
             context.literals.append((at, ordinary.end))
             context.markers.extend(_literal_markers(text, at, ordinary.opening_end))
             context.markers.extend(
@@ -706,6 +756,7 @@ def analyze_marker_context(
             continue
         if text[at] == "$" and not _escaped(text, at) and at in math_closing:
             _, end = math_closing[at]
+            render_protected.append((at, end))
             context.literals.append((at, end))
             context.markers.extend(_literal_markers(text, at, end))
             at = end
@@ -719,6 +770,8 @@ def analyze_marker_context(
                         labels[index] = (image, False, start, count)
                     active_links.clear()
                 context.literals.append((at, resource_end))
+                render_protected.append((at, resource_end))
+                render_metadata.append((at, resource_end))
                 context.inactive_document_controls.extend(
                     match.start()
                     for match in _INTERACTION_OPENING.finditer(text, at, resource_end)
@@ -771,6 +824,7 @@ def analyze_marker_context(
             if not closed and limit < len(text):
                 context.inactive_document_controls.append(at)
             if not (closed and text[limit + 1 : limit + 2] == "("):
+                render_controls.append((at, limit + 1 if closed else limit))
                 interaction_until = limit if closed else limit - 1
         if text.startswith("{{", at):
             if _escaped(text, at):
@@ -779,11 +833,13 @@ def analyze_marker_context(
                 continue
             close = text.find("}}", at + 2)
             if close < 0:
+                render_variables.append((at, len(text)))
                 context.markers.append(
                     ContextMarker(at, len(text), text[at + 2 :], None, complete=False)
                 )
                 break
             raw = text[at + 2 : close]
+            render_variables.append((at, close + 2))
             context.markers.append(
                 ContextMarker(at, close + 2, raw, normalize_variable_name(raw))
             )
@@ -794,6 +850,8 @@ def analyze_marker_context(
                 continue
             if at in closing:
                 content_end, end = closing[at]
+                render_protected.append((at, end))
+                render_code_ranges.append((at, end))
                 context.literals.append((at, end))
                 context.markers.extend(_literal_markers(text, run.end(), content_end))
                 at = end
@@ -803,6 +861,8 @@ def analyze_marker_context(
         elif text[at] == "<" and not _escaped(text, at):
             autolink_end = read_angle_autolink(text, at)
             if autolink_end is not None:
+                render_protected.append((at, autolink_end))
+                render_metadata.append((at, autolink_end))
                 context.literals.append((at, autolink_end))
                 context.markers.extend(_literal_markers(text, at, autolink_end))
                 at = autolink_end
@@ -840,10 +900,13 @@ def analyze_marker_context(
             continue
         after = closing + 1
         if text[after : after + 1] == "(":
-            if link_resource_end(after) is not None:
+            end = link_resource_end(after)
+            if end is not None:
                 context.image_labels.append((opening, closing + 1))
+                render_metadata.append((opening + 1, end))
             continue
-        label = _image_reference_label(text, after, blocks, inline_limit(after))
+        reference = _image_reference_span(text, after, blocks, inline_limit(after))
+        label = reference[0] if reference is not None else None
         if not label:
             if closing >= inline_limit(opening):
                 continue
@@ -853,12 +916,107 @@ def analyze_marker_context(
             and normalizeReference(label) in reference_labels
         ):
             context.image_labels.append((opening, closing + 1))
+            render_metadata.append(
+                (opening + 1, reference[1] if reference is not None else closing + 1)
+            )
+    if image_candidates and _render_runs:
+        # Source analysis protects metadata before the UI separates its parsers.
+        # Each resulting Markdown run then owns only its local definitions.
+        full_source_images = sorted(context.image_labels)
+        image_index = 0
+        visible_controls: list[int] = []
+        for start, _ in render_controls:
+            while (
+                image_index < len(full_source_images)
+                and full_source_images[image_index][1] <= start
+            ):
+                image_index += 1
+            if (
+                image_index >= len(full_source_images)
+                or full_source_images[image_index][0] > start
+            ):
+                visible_controls.append(start)
+        owners = build_ownership(
+            text,
+            protected=(
+                *render_protected,
+                *render_metadata,
+                *render_variables,
+                *render_controls,
+            ),
+            metadata=render_metadata,
+            variables=render_variables,
+            html_bounds=render_html_bounds,
+            controls=visible_controls,
+            code_starts=render_code_starts,
+            code_ranges=render_code_ranges,
+        )
+        scoped_images: list[tuple[int, int]] = []
+        code_index = 0
+        for run in owners.runs:
+            if run.kind not in {"markdown", "stable"}:
+                continue
+            while (
+                code_index < len(render_code_ranges)
+                and render_code_ranges[code_index][1] <= run.start
+            ):
+                code_index += 1
+            following = code_index
+            code_ranges: list[tuple[int, int]] = []
+            while (
+                following < len(render_code_ranges)
+                and render_code_ranges[following][0] < run.end
+            ):
+                start, end = render_code_ranges[following]
+                code_ranges.append(
+                    (max(start, run.start) - run.start, min(end, run.end) - run.start)
+                )
+                following += 1
+            raw = text[run.start : run.end]
+            projection = normalize_markdown_run(raw, code_ranges)
+            if run.start == 0 and run.end == len(text) and projection.text == text:
+                scoped_images.extend(context.image_labels)
+                continue
+            child = analyze_marker_context(
+                projection.text,
+                final=final,
+                fence_indent=fence_indent,
+                _render_runs=False,
+            )
+            scoped_images.extend(
+                (
+                    run.start + projection.raw_offset(start),
+                    run.start + projection.raw_offset(end),
+                )
+                for start, end in child.image_labels
+            )
+        context.image_labels = scoped_images
+        candidate_spans = sorted((start, end + 1) for start, end in image_candidates)
+        candidate_index = 0
+        image_controls: list[int] = []
+        for start in interaction_openings:
+            while (
+                candidate_index < len(candidate_spans)
+                and candidate_spans[candidate_index][1] <= start
+            ):
+                candidate_index += 1
+            if (
+                candidate_index < len(candidate_spans)
+                and candidate_spans[candidate_index][0] <= start
+            ):
+                image_controls.append(start)
+        context.inactive_document_controls.extend(
+            start
+            for start in image_controls
+            if (owner := owners.owner(start)) >= 0
+            and owners.runs[owner].kind not in {"markdown", "stable"}
+        )
     context.inactive_document_controls = sorted(
         set(context.inactive_document_controls)
         | {
-            at
-            for at in interaction_openings
-            if any(start <= at < end for start, end in context.image_labels)
+            match.start()
+            for start, end in context.image_labels
+            for match in _INTERACTION_OPENING.finditer(text, start, end)
         }
     )
     context.indent_restart_after = [

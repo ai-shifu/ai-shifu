@@ -600,7 +600,7 @@ class DocumentBlocks:
             column=column_at(self.text[start : first.content_end], content - start),
             virtual=self.virtual_padding[index],
         )
-        if opening is None:
+        if opening is None or opening[2]:
             return None
         marker, size, nested = opening
         steps = self.container_steps[index] + nested
@@ -732,6 +732,8 @@ class DocumentBlocks:
             r"</" + tag.group(1) + r"[ \t\r\n]*>", re.IGNORECASE
         ).search(self.text, opening_end, limit)
         end = self.line_at(closing.end()).content_end if closing is not None else limit
+        if closing is None and limit < len(self.text):
+            self.closed_html_lines.add(self.line_at(max(start, limit - 1)).start)
         return BlockSpan(end, opening_end, end, closed=closing is not None)
 
     def ordinary_html(
@@ -752,7 +754,7 @@ class DocumentBlocks:
             return None
         tag_start = self.text.find("<", content_start, first.content_end)
         block_tag = opening.group(1).lower() in HTML_BLOCK_TAGS
-        if not block_tag and index and not self.blank(index - 1):
+        if not block_tag and index and not self.indented_may_start(index):
             return None
         token = self.html_token_end(index, tag_start, final=final)
         token_end = token if token is not None else start
@@ -787,6 +789,8 @@ class DocumentBlocks:
                 else not value[content if content is not None else 0 :].strip(" \t")
             )
             if line.start >= token_end and (blank or outside):
+                if outside:
+                    self.closed_html_lines.add(previous.start)
                 return BlockSpan(
                     previous.content_end,
                     token_end,
@@ -1029,6 +1033,7 @@ class DocumentBlocks:
         # The component's no-title definition probe stays concrete until another
         # nonblank line resolves it; new quote/list containers cannot pierce it.
         pending_reference: Literal["definition", "destination"] | None = None
+        pending_indented: int | None = None
         for index, line in enumerate(self.lines):
             value = self.text[line.start : line.content_end]
             if line.start < literal_end:
@@ -1061,6 +1066,8 @@ class DocumentBlocks:
             empty_list_base = None
             definition_continuation = pending_reference
             pending_reference = None
+            indented_continuation = pending_indented
+            pending_indented = None
             base = active if info is not None else ()
             exited = False
             if info is None:
@@ -1071,18 +1078,25 @@ class DocumentBlocks:
                 exited = base != active
                 if exited:
                     definition_continuation = None
+                    indented_continuation = None
                 if not paragraph:
                     active = base
             content, virtual = info if info is not None else (0, 0)
             remaining = value[content:]
             continuing_paragraph = paragraph
+            if indented_continuation is not None:
+                self.closed_indented_lines.add(indented_continuation)
             after, steps, opening_virtual = container_opening_info(
                 remaining, column=column_at(value, content), virtual=virtual
             )
             entered = (
                 bool(steps)
                 and not definition_continuation
-                and (not paragraph or exited or self._explicit_interrupt(remaining))
+                and (
+                    (not paragraph and indented_continuation is None)
+                    or exited
+                    or self._explicit_interrupt(remaining)
+                )
             )
             if entered:
                 boundaries.add(index)
@@ -1099,14 +1113,16 @@ class DocumentBlocks:
                 boundaries.add(index)
                 paragraph = False
                 pending_reference = definition_continuation
+                pending_indented = indented_continuation
                 if entered and active[-1] > 0:
                     empty_list_base = active[:-1]
             else:
                 paragraph = True
             projected = self.projected_line(index)
             heading = COMPILED_ATX_START_REGEX.match(projected) is not None
+            paragraph_fence = fence_opening(remaining)
             if (
-                fence_opening(remaining) is not None
+                (paragraph_fence is not None and not paragraph_fence[2])
                 or heading
                 or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(remaining) is not None
             ):
@@ -1123,17 +1139,16 @@ class DocumentBlocks:
                 self.closed_heading_lines.add(line.start)
             if setext and definition_continuation == "destination":
                 pending_reference = "destination"
-            if setext or (
-                (not continuing_paragraph or entered)
-                and indentation(
-                    value,
-                    self.content_starts[index] - line.start,
-                    self.virtual_padding[index],
-                )[1]
-                >= 4
-            ):
+            indented = (not continuing_paragraph or entered) and indentation(
+                value,
+                self.content_starts[index] - line.start,
+                self.virtual_padding[index],
+            )[1] >= 4
+            if setext or indented:
                 paragraph = False
                 active = self.container_steps[index]
+            if indented:
+                pending_indented = line.start
             literal = (
                 self.fence(line.start)
                 or self.raw_html(line.start)

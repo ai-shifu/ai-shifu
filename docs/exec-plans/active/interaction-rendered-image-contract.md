@@ -27,7 +27,12 @@ of reference lookups across rendered runs.
   continuation. Focused native gate passed 7,957; frontend passed 392 plus
   type/lint/format. Replaced the old 1,428-case MarkdownIt label oracle with
   actual renderer outcomes. Complete-fence compositions remain in the next fix.
-- [ ] Resolve references in their actual rendered run and commit independently.
+- [x] 2026-10-28 18:16 UTC: Implemented rendered-run reference ownership and
+  offset-mapped HTML normalization. Focused native checks passed 11,307 tests;
+  4,144 segmentation, 328 HTML, 364 prior block and 216 indented-boundary
+  observations agree with ContentRender. Frontend passed 226 scoped cases and
+  all 6,835 tests, plus type checking and lint. Independent review cleared
+  applied code, 3,081 cache semantic comparisons and eight pressure families.
 - [ ] Complete observed-corpus, full consumer and independent review gates.
 - [ ] Publish one coordinated component build, verify it and update the pin.
 
@@ -65,6 +70,14 @@ The production Python component has corresponding readers. The installed UI's
 ContentRender selects Markdown rendering paths after splitting content, so its
 actual output defines reference ownership. Frontend regressions use
 `src/web/src/__tests__/markdown-flow-variable-bindings.test.tsx`.
+
+The pinned renderer normalizes HTML indentation before parsing each Markdown
+run. Child image analysis disables further segmentation and maps its image
+ranges back to the original source, preserving marker and substitution offsets.
+Pending sandbox suppression is limited to image-label controls; generic
+unfinished-HTML fallback and explicit-percent declarations remain compatible.
+Element bounds and sole-active-root suffix states are cached per document to
+avoid repeated scans through unclosed or ancestor-popped custom-button tags.
 
 ## Plan of Work
 

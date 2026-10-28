@@ -655,6 +655,206 @@ const freshReferenceDefinitionCases = ['{{goal}}', '%{{goal}}'].flatMap(
     ),
 );
 
+// These render-run outcomes come from the published host, not a whole-document AST.
+const referenceRunBarriers = [
+  ['prose', 'ordinary prose'],
+  ['backticks', '```\ncode\n```'],
+  ['backticks js', '```js\ncode\n```'],
+  ['four backticks', '````\ncode\n````'],
+  ['one-space backticks', ' ```\n code\n ```'],
+  ['three-space backticks', '   ```\n   code\n   ```'],
+  ['four-space backticks', '    ```\n    code\n    ```'],
+  ['tildes', '~~~\ncode\n~~~'],
+  ['four tildes', '~~~~\ncode\n~~~~'],
+  ['mermaid backticks', '```mermaid\ngraph TD; A-->B\n```'],
+  ['mermaid tildes', '~~~mermaid\ngraph TD; A-->B\n~~~'],
+  ['quoted backticks', '> ```\n> code\n> ```'],
+  ['list backticks', '- ```\n  code\n  ```'],
+  ['quote-list backticks', '> - ```\n>   code\n>   ```'],
+  ['list-quote backticks', '- > ```\n  > code\n  > ```'],
+  ['indented code', '    code'],
+  ['inline code', '`code`'],
+  ['svg', '<svg xmlns="http://www.w3.org/2000/svg"></svg>'],
+  ['sandbox div', '<div>widget</div>'],
+  ['sandbox section', '<section>widget</section>'],
+  ['native details', '<details>native</details>'],
+  ['native pre', '<pre>native</pre>'],
+  ['native table', '<table><tr><td>native</td></tr></table>'],
+  ['native details widget', '<details><script>0</script></details>'],
+  ['ordinary span', '<span>native</span>'],
+  ['unclosed backticks', '```\ncode'],
+  ['unclosed tildes', '~~~\ncode'],
+  ['title metadata rewind', '[Read](/x "```")\n\n```js\ncode\n```'],
+] as const;
+const referenceRunContainers = [
+  ['plain', '', ''],
+  ['quote', '> ', '> '],
+  ['list', '- ', '  '],
+  ['list quote', '- > ', '  > '],
+] as const;
+const referenceRunOutcomes: Record<string, [string | null, boolean, number]> = {
+  '0|0|cross forward|none|LF': ['/x', false, 0],
+  '0|0|cross backward|none|LF': ['/x', false, 0],
+  '0|0|duplicate local|none|LF': ['/remote', false, 0],
+  '0|0|invalid local|none|LF': ['/remote', false, 0],
+  '1|0|cross forward|none|LF': [null, true, 0],
+  '1|0|cross forward|before|LF': ['/x', false, 0],
+  '1|0|cross forward|after|LF': ['/x', false, 0],
+  '1|0|cross backward|none|LF': [null, true, 0],
+  '1|0|cross backward|before|LF': ['/x', false, 0],
+  '1|0|cross backward|after|LF': ['/x', false, 0],
+  '1|0|same before|none|LF': ['/x', false, 0],
+  '1|0|same after|none|LF': ['/x', false, 0],
+  '1|0|duplicate local|none|LF': ['/local', false, 0],
+  '1|0|invalid local|none|LF': [null, true, 0],
+  '1|1|cross forward|none|LF': ['/x', false, 0],
+  '1|2|cross forward|none|LF': [null, true, 0],
+  '1|3|cross forward|none|LF': ['/x', false, 0],
+  '2|0|cross forward|none|LF': [null, true, 0],
+  '2|0|cross backward|none|LF': [null, true, 0],
+  '3|0|cross forward|none|LF': [null, true, 0],
+  '3|0|cross backward|none|LF': [null, true, 0],
+  '4|0|cross forward|none|LF': [null, true, 0],
+  '4|0|cross backward|none|LF': [null, true, 0],
+  '5|0|cross forward|none|LF': [null, true, 0],
+  '5|0|cross backward|none|LF': [null, true, 0],
+  '5|1|cross forward|none|LF': ['/x', false, 0],
+  '5|2|cross forward|none|LF': ['/x', false, 0],
+  '5|3|cross forward|none|LF': ['/x', false, 0],
+  '6|0|cross forward|none|LF': ['/x', false, 0],
+  '6|0|cross backward|none|LF': ['/x', false, 0],
+  '7|0|cross forward|none|LF': ['/x', false, 0],
+  '7|0|cross backward|none|LF': ['/x', false, 0],
+  '7|0|same before|none|LF': ['/x', false, 0],
+  '7|0|same after|none|LF': ['/x', false, 0],
+  '7|0|duplicate local|none|LF': ['/remote', false, 0],
+  '7|0|invalid local|none|LF': ['/remote', false, 0],
+  '7|1|cross forward|none|LF': ['/x', false, 0],
+  '7|2|cross forward|none|LF': ['/x', false, 0],
+  '7|3|cross forward|none|LF': ['/x', false, 0],
+  '8|0|cross forward|none|LF': ['/x', false, 0],
+  '8|0|cross backward|none|LF': ['/x', false, 0],
+  '9|0|cross forward|none|LF': [null, true, 0],
+  '9|0|cross backward|none|LF': [null, true, 0],
+  '10|0|cross forward|none|LF': ['/x', false, 0],
+  '10|0|cross backward|none|LF': ['/x', false, 0],
+  '11|0|cross forward|none|LF': ['/x', false, 0],
+  '11|0|cross backward|none|LF': ['/x', false, 0],
+  '12|0|cross forward|none|LF': ['/x', false, 0],
+  '12|0|cross backward|none|LF': [null, false, 0],
+  '13|0|cross forward|none|LF': ['/x', false, 0],
+  '13|0|cross backward|none|LF': ['/x', false, 0],
+  '14|0|cross forward|none|LF': ['/x', false, 0],
+  '14|0|cross backward|none|LF': ['/x', false, 0],
+  '15|0|cross forward|none|LF': ['/x', false, 0],
+  '15|0|cross backward|none|LF': ['/x', false, 0],
+  '16|0|cross forward|none|LF': ['/x', false, 0],
+  '16|0|cross backward|none|LF': ['/x', false, 0],
+  '17|0|cross forward|none|LF': [null, true, 0],
+  '17|0|cross forward|before|LF': ['/x', false, 0],
+  '17|0|cross forward|after|LF': ['/x', false, 0],
+  '17|0|cross backward|none|LF': [null, true, 0],
+  '17|0|cross backward|before|LF': ['/x', false, 0],
+  '17|0|cross backward|after|LF': ['/x', false, 0],
+  '17|0|same before|none|LF': ['/x', false, 0],
+  '17|0|same after|none|LF': ['/x', false, 0],
+  '17|1|cross forward|none|LF': [null, true, 0],
+  '17|2|cross forward|none|LF': [null, true, 0],
+  '17|3|cross forward|none|LF': [null, true, 0],
+  '18|0|cross forward|none|LF': [null, true, 1],
+  '18|0|cross forward|before|LF': [null, true, 1],
+  '18|0|cross forward|after|LF': [null, true, 1],
+  '18|0|cross backward|none|LF': [null, true, 1],
+  '18|0|cross backward|before|LF': [null, true, 1],
+  '18|0|cross backward|after|LF': [null, true, 1],
+  '18|0|same before|none|LF': ['/x', false, 1],
+  '18|0|same after|none|LF': ['/x', false, 1],
+  '18|0|duplicate local|none|LF': ['/local', false, 1],
+  '18|0|invalid local|none|LF': [null, true, 1],
+  '18|1|cross forward|none|LF': [null, true, 1],
+  '18|2|cross forward|none|LF': [null, true, 1],
+  '18|3|cross forward|none|LF': [null, true, 1],
+  '19|0|cross forward|none|LF': [null, true, 1],
+  '19|0|cross backward|none|LF': [null, true, 1],
+  '20|0|cross forward|none|LF': ['/x', false, 0],
+  '20|0|cross backward|none|LF': ['/x', false, 0],
+  '20|0|same before|none|LF': ['/x', false, 0],
+  '20|0|same after|none|LF': ['/x', false, 0],
+  '20|0|duplicate local|none|LF': ['/remote', false, 0],
+  '20|0|invalid local|none|LF': ['/remote', false, 0],
+  '20|1|cross forward|none|LF': ['/x', false, 0],
+  '20|2|cross forward|none|LF': ['/x', false, 0],
+  '20|3|cross forward|none|LF': ['/x', false, 0],
+  '21|0|cross forward|none|LF': ['/x', false, 0],
+  '21|0|cross backward|none|LF': ['/x', false, 0],
+  '22|0|cross forward|none|LF': ['/x', false, 0],
+  '22|0|cross backward|none|LF': ['/x', false, 0],
+  '23|0|cross forward|none|LF': [null, true, 1],
+  '23|0|cross forward|before|LF': [null, true, 1],
+  '23|0|cross forward|after|LF': [null, true, 1],
+  '23|0|cross backward|none|LF': [null, true, 1],
+  '23|0|cross backward|before|LF': [null, true, 1],
+  '23|0|cross backward|after|LF': [null, true, 1],
+  '24|0|cross forward|none|LF': ['/x', false, 0],
+  '24|0|cross backward|none|LF': ['/x', false, 0],
+  '25|0|cross forward|none|LF': [null, true, 0],
+  '25|0|cross backward|none|LF': [null, false, 0],
+  '26|0|cross forward|none|LF': [null, true, 0],
+  '26|0|cross backward|none|LF': [null, false, 0],
+  '1|0|cross forward|none|CRLF': [null, true, 0],
+  '1|0|cross forward|none|CR': ['/x', false, 0],
+  '1|0|cross backward|none|CRLF': [null, true, 0],
+  '1|0|cross backward|none|CR': ['/x', false, 0],
+  '27|0|cross forward|none|LF': [null, true, 0],
+};
+const referenceRunCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
+  Object.entries(referenceRunOutcomes).map(
+    ([key, [expectedSrc, expectedQuestion, expectedIframes]]) => {
+      const [barrierIndex, containerIndex, layout, activation, lineEnding] =
+        key.split('|');
+      const [barrier, block] = referenceRunBarriers[Number(barrierIndex)];
+      const [container, opening, continuation] =
+        referenceRunContainers[Number(containerIndex)];
+      const image = `![?[${marker} A | B]][image]`;
+      let document: string;
+      if (layout === 'cross forward')
+        document = `${image}\n\n${block}\n\n[image]: /x`;
+      else if (layout === 'cross backward')
+        document = `[image]: /x\n\n${block}\n\n${image}`;
+      else if (layout === 'same before')
+        document = `${image}\n\n[image]: /x\n\n${block}`;
+      else if (layout === 'same after')
+        document = `${block}\n\n${image}\n\n[image]: /x`;
+      else if (layout === 'duplicate local')
+        document = `[image]: /remote\n\n${block}\n\n${image}\n\n[image]: /local`;
+      else
+        document = `[image]: /remote\n\n${block}\n\n${image}\n\n[image]: /local invalid`;
+      if (activation === 'before')
+        document = `<details>activate</details>\n\n${document}`;
+      else if (activation === 'after')
+        document += '\n\n<details>activate</details>';
+      const newline =
+        lineEnding === 'CR' ? '\r' : lineEnding === 'CRLF' ? '\r\n' : '\n';
+      const content = document
+        .split('\n')
+        .map((line, index) => (index === 0 ? opening : continuation) + line)
+        .join(newline);
+      return {
+        marker,
+        barrier,
+        container,
+        layout,
+        activation,
+        lineEnding,
+        content,
+        expectedSrc,
+        expectedQuestion,
+        expectedIframes,
+      };
+    },
+  ),
+);
+
 describe('installed MarkdownFlow named-answer bindings', () => {
   const originalStructuredClone = globalThis.structuredClone;
 
@@ -785,6 +985,67 @@ describe('installed MarkdownFlow named-answer bindings', () => {
       expect(onSend).not.toHaveBeenCalled();
       if (!expectedImage) {
         fireEvent.click(view.getByRole('button', { name: 'B' }));
+        expect(onSend).toHaveBeenCalledTimes(1);
+        expect(onSend).toHaveBeenCalledWith({
+          variableName: 'goal',
+          buttonText: 'B',
+        });
+      }
+    },
+  );
+
+  it.each(referenceRunCases)(
+    'uses the observed reference render run for $marker: $barrier ($container, $layout, native $activation, $lineEnding)',
+    ({
+      marker,
+      content,
+      barrier,
+      container,
+      layout,
+      activation,
+      lineEnding,
+      expectedSrc,
+      expectedQuestion,
+      expectedIframes,
+    }) => {
+      // SSR keeps widget scripts inert while exercising the real host's run selection.
+      const { renderToStaticMarkup } = jest.requireActual(
+        'react-dom/server.node',
+      ) as typeof import('react-dom/server');
+      const onSend = jest.fn();
+      const view = document.createElement('div');
+      view.innerHTML = renderToStaticMarkup(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+      const image = view.querySelector('img');
+      if (expectedSrc === null) expect(image).toBeNull();
+      else {
+        expect(image).toHaveAttribute('src', expectedSrc);
+        expect(image).toHaveAttribute('alt', `?[${marker} A | B]`);
+      }
+      expect(view.querySelectorAll('iframe')).toHaveLength(expectedIframes);
+      const answerButtons = Array.from(view.querySelectorAll('button'))
+        .map(button => button.textContent)
+        .filter(text => text === 'A' || text === 'B');
+      expect(answerButtons).toEqual(expectedQuestion ? ['A', 'B'] : []);
+      expect(onSend).not.toHaveBeenCalled();
+      if (
+        (barrier === 'backticks' || barrier === 'title metadata rewind') &&
+        container === 'plain' &&
+        layout === 'cross forward' &&
+        activation === 'none' &&
+        lineEnding === 'LF'
+      ) {
+        const live = render(
+          <ContentRender
+            content={content}
+            onSend={onSend}
+          />,
+        );
+        fireEvent.click(live.getByRole('button', { name: 'B' }));
         expect(onSend).toHaveBeenCalledTimes(1);
         expect(onSend).toHaveBeenCalledWith({
           variableName: 'goal',

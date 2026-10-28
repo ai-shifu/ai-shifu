@@ -2,7 +2,7 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-27
+last_reviewed: 2026-10-28
 canonical: true
 ---
 
@@ -63,6 +63,13 @@ inside the title text.
 Reference definitions retain the renderer's paragraph lookahead state. A list
 marker or blank line after a definition does not by itself establish another
 definition; only definitions accepted in that context can bind an image.
+References resolve within the Markdown run that the UI renders together.
+Separately rendered backtick code or sandbox HTML can separate an image use
+from a later definition; a native HTML run can retain both. The backend uses
+the same run boundaries and HTML indentation normalization when deciding
+whether image-label text is an active question. Image labels inside pending
+sandbox content stay inactive while ordinary unfinished HTML retains its
+existing text fallback.
 
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
