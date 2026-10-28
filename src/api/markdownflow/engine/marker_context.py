@@ -25,7 +25,6 @@ from .document_blocks import (
 from .variable_names import normalize_variable_name, read_variable_marker
 
 _BACKTICK_RUN = re.compile(r"`+")
-_REFERENCE_LABEL = re.compile(r"\[((?:\\[^\r\n]|[^\[\]\\]){0,999})\]")
 _DOLLAR_RUN = re.compile(r"\$+")
 _BLANK_LINE = re.compile(
     r"(?:\r\n|\r(?!\n)|(?<!\r)\n)[ \t]*(?:\r\n|\r(?!\n)|(?<!\r)\n)"
@@ -318,6 +317,60 @@ def _link_resource_end(
     return None
 
 
+def _image_reference_label(
+    text: str, start: int, blocks: DocumentBlocks, limit: int
+) -> str | None:
+    """Read a bounded explicit label after projecting its physical prefixes."""
+    if text[start : start + 1] != "[":
+        return None
+    at = start + 1
+    parts: list[str] = []
+    size = 0
+    while at < limit and size <= 999:
+        index = blocks.by_start.get(at)
+        if index is not None and at > start:
+            at = blocks.content_starts[index]
+        if at >= limit:
+            return None
+        character = text[at]
+        if character == "]":
+            return "".join(parts)
+        if character == "[":
+            return None
+        if character == "\\":
+            if at + 1 >= limit or text[at + 1] in "\r\n":
+                return None
+            parts.append(text[at : at + 2])
+            at += 2
+        elif character in "\r\n":
+            parts.append("\n")
+            at = blocks.line_at(at).end
+        else:
+            parts.append(character)
+            at += 1
+        size += 1
+    return None
+
+
+def _image_alt_label(text: str, start: int, end: int, blocks: DocumentBlocks) -> str:
+    """Project a known alt-text span for collapsed and shortcut label lookup."""
+    parts: list[str] = []
+    index = blocks.by_start[blocks.line_at(start).start]
+    at = start
+    while at < end:
+        line = blocks.lines[index]
+        if at == line.start and at > start:
+            at = blocks.content_starts[index]
+        content_end = min(end, line.content_end)
+        parts.append(text[at:content_end])
+        if content_end == end or line.end == line.content_end:
+            break
+        parts.append("\n")
+        at = line.end
+        index += 1
+    return "".join(parts)
+
+
 def _legacy_plain_fence(
     text: str, start: int, pattern: re.Pattern[str]
 ) -> tuple[int, int | None] | None:
@@ -432,7 +485,7 @@ def analyze_marker_context(
     # Shared tuple identity avoids rehashing deep container stacks for each link.
     resource_limits: dict[tuple[int, int], int] = {}
 
-    def link_resource_end(start: int) -> int | None:
+    def inline_limit(start: int) -> int:
         following = bisect_right(resource_breaks, start)
         origin = blocks.paragraph_steps[blocks.by_start[blocks.line_at(start).start]]
         skipped: list[tuple[int, int]] = []
@@ -462,7 +515,10 @@ def analyze_marker_context(
             break
         for key in skipped:
             resource_limits[key] = limit
-        return _link_resource_end(text, start, blocks, limit)
+        return limit
+
+    def link_resource_end(start: int) -> int | None:
+        return _link_resource_end(text, start, blocks, inline_limit(start))
 
     closing = _inline_closers(text, _BACKTICK_RUN, breaks, final=final)
     math_closing = _inline_closers(text, _DOLLAR_RUN, breaks, final=final)
@@ -774,9 +830,11 @@ def analyze_marker_context(
             if link_resource_end(after) is not None:
                 context.image_labels.append((opening, closing + 1))
             continue
-        reference = _REFERENCE_LABEL.match(text, after)
-        label = reference.group(1) if reference is not None else ""
-        label = label or text[opening + 1 : closing]
+        label = _image_reference_label(text, after, blocks, inline_limit(after))
+        if not label:
+            if closing >= inline_limit(opening):
+                continue
+            label = _image_alt_label(text, opening + 1, closing, blocks)
         if (
             _BLANK_LINE.search(label) is None
             and normalizeReference(label) in reference_labels
