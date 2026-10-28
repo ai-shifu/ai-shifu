@@ -347,7 +347,9 @@ def _image_reference_label(
         if character == "\\" and at + 1 < limit and text[at + 1] in punctuation:
             parts.append(text[at : at + 2])
             at += 2
-        elif character in "\r\n":
+            size += 2
+            continue
+        if character in "\r\n":
             parts.append("\n")
             at = blocks.line_at(at).end
         else:
