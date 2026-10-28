@@ -1220,6 +1220,8 @@ def read_reference_resource_end(
             at = content
         if text[at] == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
             at += 2
+        elif closing == ")" and text[at] == "(":
+            return fallback if title_next_line else None
         elif text[at] == closing:
             line_end = blocks.line_at(at).content_end
             if blocks.reference_has_blank(title_start, at, origin=origin) or text[

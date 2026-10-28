@@ -320,6 +320,8 @@ def _link_resource_end(
             return None
         if text[at] == "\\" and at + 1 < limit and text[at + 1] in punctuation:
             at += 2
+        elif image and closing == ")" and text[at] == "(":
+            return None
         elif text[at] == closing:
             if _BLANK_LINE.search(text, title_start, at):
                 return None
