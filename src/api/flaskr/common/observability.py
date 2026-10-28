@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 
-from flask import Flask, Response, g, jsonify, request
+from flask import Flask, Response, current_app, g, jsonify, request
 from opentelemetry import context, trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
@@ -153,7 +153,7 @@ def record_credit_notification_event(
 ) -> None:
     """Log a credit notification lifecycle event; never raises."""
     try:
-        logger.info(
+        _app_logger().info(
             "credit_notification_event event=%s notification_type=%s "
             "channel=%s status=%s count=%s",
             str(event or "unknown"),
@@ -164,6 +164,15 @@ def record_credit_notification_event(
         )
     except Exception:
         return
+
+
+def _app_logger() -> logging.Logger:
+    # init_log configures only app.logger; a module logger would drop INFO.
+    # flaskr.common.log imports this module, so AppLoggerProxy is unavailable.
+    try:
+        return current_app.logger
+    except RuntimeError:
+        return logger
 
 
 def _record_request_timing(status_code: int) -> float:

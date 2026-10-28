@@ -1,5 +1,6 @@
 """Verify request spans, timing and failure-tolerant instrumentation."""
 
+import logging
 import threading
 from collections.abc import Iterator
 from types import SimpleNamespace
@@ -159,6 +160,25 @@ def test_notification_event_is_logged_best_effort_and_never_negative(
         )
     logger.info.side_effect = RuntimeError("logging unavailable")
     observability.record_credit_notification_event("delivery")
+
+
+def test_notification_event_reaches_the_configured_application_log() -> None:
+    app = Flask(__name__)
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    # Mirror init_log: handlers live on app.logger, which does not propagate.
+    app.logger.handlers = [handler]
+    app.logger.setLevel(logging.INFO)
+    app.logger.propagate = False
+    with app.app_context():
+        observability.record_credit_notification_event(
+            "deliver", notification_type="low_balance", channel="sms", status="sent"
+        )
+    assert [record.getMessage() for record in records] == [
+        "credit_notification_event event=deliver notification_type=low_balance "
+        "channel=sms status=sent count=1"
+    ]
 
 
 def test_timing_without_start_timestamp_uses_zero_duration(
