@@ -994,6 +994,60 @@ describe('installed MarkdownFlow named-answer bindings', () => {
     },
   );
 
+  it.each(
+    ['{{goal}}', '%{{goal}}'].flatMap(marker =>
+      [
+        ['four spaces', '    '],
+        ['tab', '\t'],
+      ].flatMap(([indentation, prefix]) =>
+        [
+          ['LF', '\n'],
+          ['CRLF', '\r\n'],
+          ['CR', '\r'],
+        ].map(([lineEnding, newline]) => ({
+          marker,
+          indentation,
+          lineEnding,
+          content: [
+            `![?[${marker} A | B]][image]`,
+            '',
+            '[one]: /one',
+            `${prefix}[image]: /x`,
+          ].join(newline),
+        })),
+      ),
+    ),
+  )(
+    'keeps $marker image questions inactive after $indentation reference definitions ($lineEnding)',
+    ({ marker, content }) => {
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+      expect(view.getByAltText(`?[${marker} A | B]`)).toHaveAttribute(
+        'src',
+        '/x',
+      );
+      expect(view.queryByRole('button', { name: 'A' })).toBeNull();
+      expect(view.queryByRole('button', { name: 'B' })).toBeNull();
+      view.rerender(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+          readonly
+        />,
+      );
+      expect(view.getByAltText(`?[${marker} A | B]`)).toHaveAttribute(
+        'src',
+        '/x',
+      );
+      expect(onSend).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(referenceRunCases)(
     'uses the observed reference render run for $marker: $barrier ($container, $layout, native $activation, $lineEnding)',
     ({

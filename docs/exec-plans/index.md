@@ -27,6 +27,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Gemini Live follow-up acceptance](./active/gemini-live-voice-follow-up.md)
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)
 - [Publish repository Docker images to GHCR](./active/ghcr-image-publication.md)
+- [Preserve indented consecutive image definitions](./active/interaction-indented-reference-continuations.md)
 - [Lesson reset limit backed by SQL](./active/lesson-reset-limit.md)
 - [Local storage response safety](./active/local-storage-response-safety.md)
 - [Keep Authored Input Hints Out of Choice Buttons](./active/markdownflow-authored-inputs.md)

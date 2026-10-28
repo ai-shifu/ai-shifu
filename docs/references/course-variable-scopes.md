@@ -63,6 +63,9 @@ inside the title text.
 Reference definitions retain the renderer's paragraph lookahead state. A list
 marker or blank line after a definition does not by itself establish another
 definition; only definitions accepted in that context can bind an image.
+Consecutive definitions may retain continuation indentation beyond three columns
+when they share the same logical paragraph. A newly started list item has its
+own boundary even when its indentation width matches the previous item.
 References resolve within the Markdown run that the UI renders together.
 Separately rendered backtick code or sandbox HTML can separate an image use
 from a later definition; a native HTML run can retain both. The backend uses
