@@ -39,6 +39,9 @@ from flaskr.service.learn.request_stream import RequestCompletion
 
 RUN_SCRIPT_TIMEOUT_SECONDS = 5 * 60
 RUN_SCRIPT_STATUS_REFRESH_SECONDS = 30
+# Upper bound on one blocking queue read when SSE heartbeats are disabled, so
+# the run status keeps being refreshed while the producer is quiet.
+RUN_SCRIPT_IDLE_WAIT_SECONDS = 1.0
 
 # Default max parallel ask (follow-up) requests per (user, outline).
 # Actual value is read from Flask config (see MAX_PARALLEL_ASK_COUNT in config.py).
@@ -419,6 +422,10 @@ def run_script(
                     and not bool(getattr(payload_obj, "is_terminal", False))
                 )
 
+            # The heartbeat deadline is tracked separately from queue reads, so a
+            # queued event is forwarded as soon as it arrives instead of waiting
+            # out the rest of a heartbeat interval.
+            next_heartbeat_at = time.monotonic() + heartbeat_interval
             while True:
                 kind: str
                 payload: object
@@ -429,15 +436,15 @@ def run_script(
                         break
                     _refresh_run_script_status()
                     if heartbeat_interval > 0:
-                        # Poll the thread-safe queue at the heartbeat interval.
-                        time.sleep(heartbeat_interval)
+                        wait_seconds = max(0.0, next_heartbeat_at - time.monotonic())
                     else:
-                        time.sleep(0.01)
+                        wait_seconds = RUN_SCRIPT_IDLE_WAIT_SECONDS
                     try:
-                        kind, payload = output_queue.get_nowait()
+                        kind, payload = output_queue.get(timeout=wait_seconds)
                     except queue.Empty:
                         if heartbeat_interval <= 0:
                             continue
+                        next_heartbeat_at = time.monotonic() + heartbeat_interval
                         try:
                             heartbeat_payload = (
                                 stream_element_adapter.make_ephemeral_message(
@@ -479,6 +486,7 @@ def run_script(
                         )
                         completion.record_serialized(payload)
                         yield chunk
+                        next_heartbeat_at = time.monotonic() + heartbeat_interval
                         if completion.terminal_sent:
                             break
                     except GeneratorExit:
