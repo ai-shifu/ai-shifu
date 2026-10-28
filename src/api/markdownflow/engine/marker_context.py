@@ -519,7 +519,11 @@ def analyze_marker_context(
                     blocks.by_start[blocks.line_at(at).start]
                 ]
             if reference_end is not None:
-                reference_labels.add(normalizeReference(reference_label))
+                if (
+                    blocks.unclosed_html_start is None
+                    or at < blocks.unclosed_html_start
+                ):
+                    reference_labels.add(normalizeReference(reference_label))
                 blocks.closed_reference_lines.add(blocks.line_at(reference_end).start)
                 context.literals.append((at, reference_end))
                 context.markers.extend(_literal_markers(text, at, reference_start))
@@ -765,6 +769,11 @@ def analyze_marker_context(
         else:
             at += 1
     for opening, closing in image_candidates:
+        if (
+            blocks.unclosed_html_start is not None
+            and opening >= blocks.unclosed_html_start
+        ):
+            continue
         after = closing + 1
         if text[after : after + 1] == "(":
             if _link_resource_end(text, after) is not None:

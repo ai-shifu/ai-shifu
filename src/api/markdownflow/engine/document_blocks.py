@@ -417,19 +417,22 @@ class DocumentBlocks:
         self.text = text
         self.html_pattern = html
         self._html_token_ends: dict[tuple[int, bool], int | None] = {}
-        self._container_ends: dict[tuple[int, bool], int] = {}
+        self._container_ends: dict[tuple[int, tuple[int, ...], bool], int] = {}
         self._html_last_ends: dict[str, int] | None = None
         self.lines = physical_lines(text)
         self.closed_fence_lines: set[int] = set()
         self.closed_html_lines: set[int] = set()
         self.closed_reference_lines: set[int] = set()
         self.closed_indented_lines: set[int] = set()
+        self.closed_heading_lines: set[int] = set()
+        self.unclosed_html_start: int | None = None
         self.content_starts = [line.start for line in self.lines]
         self.container_steps: list[tuple[int, ...]] = [() for _ in self.lines]
         self.virtual_padding = [0 for _ in self.lines]
-        self.container_paragraphs = self._container_paragraphs()
         self.starts = [line.start for line in self.lines]
         self.by_start = {line.start: index for index, line in enumerate(self.lines)}
+        self.container_paragraphs = self._container_paragraphs()
+        self._container_ends.clear()
 
     def line_at(self, offset: int) -> PhysicalLine:
         """Return the original physical line containing an offset."""
@@ -510,7 +513,7 @@ class DocumentBlocks:
         steps = self.container_steps[index]
         if not steps:
             return len(self.text)
-        key = (index, final)
+        key = (index, steps, final)
         if key in self._container_ends:
             return self._container_ends[key]
         covered = [index]
@@ -530,15 +533,14 @@ class DocumentBlocks:
                 ):
                     end = line.start
                     break
-            if self.container_steps[following] == steps:
-                following_key = (following, final)
-                if following_key in self._container_ends:
-                    # The cached query excludes its own line, which was checked above.
-                    end = self._container_ends[following_key]
-                    break
-                covered.append(following)
+            following_key = (following, steps, final)
+            if following_key in self._container_ends:
+                # The cached query excludes its own line, which was checked above.
+                end = self._container_ends[following_key]
+                break
+            covered.append(following)
         for following in covered:
-            self._container_ends[(following, final)] = end
+            self._container_ends[(following, steps, final)] = end
         return end
 
     def fence(self, start: int, *, final: bool = True) -> BlockSpan | None:
@@ -644,9 +646,48 @@ class DocumentBlocks:
             # Plain EOF retains the historical incomplete-token fallback.
             if self.container_steps[index] and limit < len(self.text):
                 return BlockSpan(limit, at, limit, closed=True)
+            if self.unclosed_html_start is None and (
+                special or "A" <= self.text[at + 2] <= "Z"
+            ):
+                self.unclosed_html_start = start
             return None
         end = self.line_at(token_end).content_end
         return BlockSpan(end, token_end, end, closed=True)
+
+    def raw_html(self, start: int) -> BlockSpan | None:
+        """Keep raw-text HTML paragraph state through its closing physical line."""
+        index = self.by_start.get(start)
+        if index is None:
+            return None
+        content = self.block_content_start(index)
+        if content is None or self.text.startswith("</", content):
+            return None
+        tag = COMPILED_DOCUMENT_TAG_REGEX.match(
+            self.text, content, self.lines[index].content_end
+        )
+        if tag is None or tag.group(1).lower() not in (
+            "script",
+            "style",
+            "pre",
+            "textarea",
+        ):
+            return None
+        if self.text[tag.end() : tag.end() + 1] not in (
+            " ",
+            "\t",
+            "\r",
+            "\n",
+            "\f",
+            ">",
+        ):
+            return None
+        opening_end = self.html_token_end(index, content) or tag.end()
+        limit = self.container_end(index)
+        closing = re.compile(
+            r"</" + tag.group(1) + r"[ \t\r\n]*>", re.IGNORECASE
+        ).search(self.text, opening_end, limit)
+        end = self.line_at(closing.end()).content_end if closing is not None else limit
+        return BlockSpan(end, opening_end, end, closed=closing is not None)
 
     def ordinary_html(self, start: int, *, final: bool = True) -> BlockSpan | None:
         """Bound native type-six/seven HTML blocks at the first blank line."""
@@ -724,13 +765,8 @@ class DocumentBlocks:
             or previous.start in self.closed_html_lines
             or previous.start in self.closed_reference_lines
             or previous.start in self.closed_indented_lines
-            or COMPILED_ATX_START_REGEX.match(value) is not None
+            or previous.start in self.closed_heading_lines
             or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value) is not None
-            or (
-                index > 1
-                and not self.blank(index - 2)
-                and COMPILED_SETEXT_REGEX.fullmatch(value) is not None
-            )
             or (value.startswith("__MDFLOW_CODE_BLOCK_") and value.endswith("__"))
         )
 
@@ -897,8 +933,19 @@ class DocumentBlocks:
         active: tuple[int, ...] = ()
         paragraph = False
         empty_list_base: tuple[int, ...] | None = None
+        literal_end = 0
+        literal_steps: tuple[int, ...] = ()
         for index, line in enumerate(self.lines):
             value = self.text[line.start : line.content_end]
+            if line.start < literal_end:
+                info = container_content_info(value, literal_steps, partial=True)
+                content, virtual = info if info is not None else (0, 0)
+                self.content_starts[index] = line.start + content
+                self.virtual_padding[index] = virtual
+                self.container_steps[index] = literal_steps if info is not None else ()
+                active = literal_steps
+                paragraph = False
+                continue
             if not value.strip(" \t"):
                 if empty_list_base is not None:
                     active = empty_list_base
@@ -938,6 +985,7 @@ class DocumentBlocks:
                     active = base
             content, virtual = info if info is not None else (0, 0)
             remaining = value[content:]
+            continuing_paragraph = paragraph
             after, steps, opening_virtual = container_opening_info(
                 remaining, column=column_at(value, content), virtual=virtual
             )
@@ -961,14 +1009,44 @@ class DocumentBlocks:
                     empty_list_base = active[:-1]
             else:
                 paragraph = True
+            projected = self.projected_line(index)
+            heading = COMPILED_ATX_START_REGEX.match(projected) is not None
             if (
                 fence_opening(remaining) is not None
-                or COMPILED_ATX_START_REGEX.match(remaining) is not None
+                or heading
                 or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(remaining) is not None
             ):
                 paragraph = False
-            if COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(remaining) is not None:
                 active = self.container_steps[index]
+            setext = (
+                continuing_paragraph
+                and not exited
+                and not entered
+                and COMPILED_SETEXT_REGEX.fullmatch(projected) is not None
+            )
+            if heading or setext:
+                self.closed_heading_lines.add(line.start)
+            if setext or (
+                (not continuing_paragraph or entered)
+                and indentation(
+                    value,
+                    self.content_starts[index] - line.start,
+                    self.virtual_padding[index],
+                )[1]
+                >= 4
+            ):
+                paragraph = False
+                active = self.container_steps[index]
+            literal = (
+                self.fence(line.start)
+                or self.raw_html(line.start)
+                or self.terminated_html(line.start)
+            )
+            if literal is not None:
+                literal_end = literal.end
+                literal_steps = self.container_steps[index]
+                paragraph = False
+                active = literal_steps
         return boundaries
 
     @staticmethod
