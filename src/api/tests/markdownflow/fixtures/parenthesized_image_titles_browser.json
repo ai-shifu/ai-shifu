@@ -1,0 +1,3641 @@
+{
+  "provenance": "Actual published markdown-flow-ui 0.3.3 ContentRender through the application bridge to remark-flow 1.4.2, observed on Node 22.23.4. This bounded subset retains every title/form/destination shape, all exact-review variants and every title-literal/following-question row from the complete 2466-case observation corpus.",
+  "cases": [
+    {
+      "id": 0,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 3,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 4,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 5,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 6,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 7,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 8,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 9,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 10,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 11,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 12,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 13,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 14,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\r[image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 15,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 16,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\n[image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 17,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\r[image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 18,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 19,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 20,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\r[image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 21,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 22,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\n[image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 23,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\r[image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 24,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 25,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[image]: /x\r\n(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 26,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\r[image]: /x\r(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 27,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 28,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\n[image]: /x\r\n(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 29,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\r[image]: /x\r(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 30,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 31,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[image]: </x>\r\n(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 32,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\r[image]: </x>\r(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 33,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 34,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\n[image]: </x>\r\n(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 35,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\r[image]: </x>\r(Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 36,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 37,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 38,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 39,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 40,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 41,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 42,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 43,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 44,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 45,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 46,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 47,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 48,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 49,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\r\n> \r\n> [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 50,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\r> \r> [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 51,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 52,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\r\n> \r\n> [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 53,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\r> \r> [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 54,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 55,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\r\n> \r\n> [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 56,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\r> \r> [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 57,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 58,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\r\n> \r\n> [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 59,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\r> \r> [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 60,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> [image]: /x\n> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 61,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\r\n> \r\n> [image]: /x\r\n> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 62,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\r> \r> [image]: /x\r> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 63,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> [image]: /x\n> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 64,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\r\n> \r\n> [image]: /x\r\n> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 65,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\r> \r> [image]: /x\r> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 66,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> [image]: </x>\n> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 67,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\r\n> \r\n> [image]: </x>\r\n> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 68,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> ![?[{{goal}} A | B]][image]\r> \r> [image]: </x>\r> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 69,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> [image]: </x>\n> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 70,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\r\n> \r\n> [image]: </x>\r\n> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 71,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> ![?[%{{goal}} A | B]][image]\r> \r> [image]: </x>\r> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 72,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 73,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 74,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 75,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 76,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 77,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 78,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 79,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 80,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 81,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 82,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 83,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 84,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\n>   \n>   [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 85,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\r\n>   \r\n>   [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 86,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\r>   \r>   [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 87,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\n>   \n>   [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 88,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\r\n>   \r\n>   [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 89,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\r>   \r>   [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 90,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\n>   \n>   [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 91,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\r\n>   \r\n>   [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 92,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\r>   \r>   [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 93,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\n>   \n>   [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 94,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\r\n>   \r\n>   [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 95,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\r>   \r>   [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 96,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\n>   \n>   [image]: /x\n>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 97,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\r\n>   \r\n>   [image]: /x\r\n>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 98,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\r>   \r>   [image]: /x\r>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 99,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\n>   \n>   [image]: /x\n>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 100,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\r\n>   \r\n>   [image]: /x\r\n>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 101,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\r>   \r>   [image]: /x\r>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 102,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\n>   \n>   [image]: </x>\n>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 103,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\r\n>   \r\n>   [image]: </x>\r\n>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 104,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "> - ![?[{{goal}} A | B]][image]\r>   \r>   [image]: </x>\r>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 105,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\n>   \n>   [image]: </x>\n>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 106,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\r\n>   \r\n>   [image]: </x>\r\n>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 107,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "> - ![?[%{{goal}} A | B]][image]\r>   \r>   [image]: </x>\r>   (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 108,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 109,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 110,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 111,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 112,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 113,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]](/x (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 114,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 115,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 116,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 117,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 118,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 119,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]](</x> (Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 120,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\n  > \n  > [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 121,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\r\n  > \r\n  > [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 122,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\r  > \r  > [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 123,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\n  > \n  > [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 124,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\r\n  > \r\n  > [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 125,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\r  > \r  > [image]: /x (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 126,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\n  > \n  > [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 127,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\r\n  > \r\n  > [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 128,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\r  > \r  > [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 129,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\n  > \n  > [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 130,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\r\n  > \r\n  > [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 131,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\r  > \r  > [image]: </x> (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 132,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\n  > \n  > [image]: /x\n  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 133,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\r\n  > \r\n  > [image]: /x\r\n  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 134,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\r  > \r  > [image]: /x\r  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 135,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\n  > \n  > [image]: /x\n  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 136,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\r\n  > \r\n  > [image]: /x\r\n  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 137,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\r  > \r  > [image]: /x\r  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 138,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\n  > \n  > [image]: </x>\n  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 139,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\r\n  > \r\n  > [image]: </x>\r\n  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 140,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "- > ![?[{{goal}} A | B]][image]\r  > \r  > [image]: </x>\r  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 141,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\n  > \n  > [image]: </x>\n  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 142,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\r\n  > \r\n  > [image]: </x>\r\n  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 143,
+      "group": "title",
+      "marker": "%{{goal}}",
+      "source": "- > ![?[%{{goal}} A | B]][image]\r  > \r  > [image]: </x>\r  > (Diagram (draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 144,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram (draft)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 150,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram (draft)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 156,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram (draft))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 162,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram (draft))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 168,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": null
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 174,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram (draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": null
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 288,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram (draft))))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 294,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram (draft))))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 300,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram (draft)))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 306,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram (draft)))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 312,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram (draft)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": null
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 318,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram (draft)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": null
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 432,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram \\(draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 438,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram \\(draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 444,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram \\(draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 450,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram \\(draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 456,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram \\(draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 462,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram \\(draft)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 576,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram \\(draft\\)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 582,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram \\(draft\\)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 588,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram \\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 594,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram \\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 600,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram \\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 606,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram \\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 720,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram \\\\(draft)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram \\(draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 726,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram \\\\(draft)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram \\(draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 732,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram \\\\(draft))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 738,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram \\\\(draft))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 744,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram \\\\(draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": null
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 750,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram \\\\(draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": null
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 864,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram \\\\\\(draft\\)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram \\(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 870,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram \\\\\\(draft\\)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram \\(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 876,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram \\\\\\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram \\(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 882,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram \\\\\\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram \\(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 888,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram \\\\\\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram \\(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 894,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram \\\\\\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram \\(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1008,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x \"Diagram (draft)\")",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1014,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> \"Diagram (draft)\")",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1020,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x \"Diagram (draft)\"",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1026,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> \"Diagram (draft)\"",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1032,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\"Diagram (draft)\"",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1038,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n\"Diagram (draft)\"",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1152,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x 'Diagram (draft)')",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1158,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> 'Diagram (draft)')",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1164,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x 'Diagram (draft)'",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1170,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> 'Diagram (draft)'",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1176,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n'Diagram (draft)'",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1182,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n'Diagram (draft)'",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1296,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram &lpar;draft&rpar;))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1302,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram &lpar;draft&rpar;))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1308,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram &lpar;draft&rpar;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1314,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram &lpar;draft&rpar;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1320,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram &lpar;draft&rpar;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1326,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram &lpar;draft&rpar;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1440,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram &#40;draft&#41;))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1446,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram &#40;draft&#41;))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1452,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram &#40;draft&#41;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1458,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram &#40;draft&#41;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1464,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram &#40;draft&#41;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1470,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram &#40;draft&#41;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1584,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram &#x28;draft&#x29;))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1590,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram &#x28;draft&#x29;))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1596,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram &#x28;draft&#x29;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1602,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram &#x28;draft&#x29;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1608,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram &#x28;draft&#x29;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1614,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram &#x28;draft&#x29;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1728,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram\n(draft)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1734,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram\n(draft)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1740,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram\n(draft))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 1746,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram\n(draft))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 1752,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram\n(draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": null
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1758,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram\n(draft))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": null
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1872,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram\n\\(draft\\)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1878,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram\n\\(draft\\)))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1884,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram\n\\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1890,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram\n\\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1896,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram\n\\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 1902,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram\n\\(draft\\))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2016,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x \"Diagram\n(draft)\")",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2022,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> \"Diagram\n(draft)\")",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2028,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x \"Diagram\n(draft)\"",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2034,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> \"Diagram\n(draft)\"",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2040,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\"Diagram\n(draft)\"",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2046,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n\"Diagram\n(draft)\"",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2160,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram (draft)\ntext))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 2166,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram (draft)\ntext))",
+      "images": [],
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": 2172,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram (draft)\ntext)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2178,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram (draft)\ntext)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2184,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram (draft)\ntext)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2190,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram (draft)\ntext)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2304,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram\n&lpar;draft&rpar;))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2310,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](</x> (Diagram\n&lpar;draft&rpar;))",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2316,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram\n&lpar;draft&rpar;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2322,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x> (Diagram\n&lpar;draft&rpar;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2328,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram\n&lpar;draft&rpar;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2334,
+      "group": "title",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: </x>\n(Diagram\n&lpar;draft&rpar;)",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram\n(draft)"
+        }
+      ],
+      "buttons": []
+    },
+    {
+      "id": 2448,
+      "group": "title-literal",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram (draft ?[{{inside}} X | Y]))\n\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2449,
+      "group": "title-literal",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x (Diagram (draft ?[{{inside}} X | Y])\n\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2450,
+      "group": "title-literal",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram (draft ?[{{inside}} X | Y])\n\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2451,
+      "group": "title-literal",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram (draft ?[{{inside}} X | Y]))\r\n\r\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2452,
+      "group": "title-literal",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[image]: /x (Diagram (draft ?[{{inside}} X | Y])\r\n\r\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2453,
+      "group": "title-literal",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[image]: /x\r\n(Diagram (draft ?[{{inside}} X | Y])\r\n\r\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2454,
+      "group": "title-literal",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]](/x (Diagram (draft ?[{{inside}} X | Y]))\r\r?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2455,
+      "group": "title-literal",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\r[image]: /x (Diagram (draft ?[{{inside}} X | Y])\r\r?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2456,
+      "group": "title-literal",
+      "marker": "{{goal}}",
+      "source": "![?[{{goal}} A | B]][image]\r\r[image]: /x\r(Diagram (draft ?[{{inside}} X | Y])\r\r?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2457,
+      "group": "title-literal",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]](/x (Diagram (draft ?[{{inside}} X | Y]))\n\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2458,
+      "group": "title-literal",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[image]: /x (Diagram (draft ?[{{inside}} X | Y])\n\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2459,
+      "group": "title-literal",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[image]: /x\n(Diagram (draft ?[{{inside}} X | Y])\n\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2460,
+      "group": "title-literal",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]](/x (Diagram (draft ?[{{inside}} X | Y]))\r\n\r\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2461,
+      "group": "title-literal",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\n[image]: /x (Diagram (draft ?[{{inside}} X | Y])\r\n\r\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2462,
+      "group": "title-literal",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\n[image]: /x\r\n(Diagram (draft ?[{{inside}} X | Y])\r\n\r\n?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2463,
+      "group": "title-literal",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]](/x (Diagram (draft ?[{{inside}} X | Y]))\r\r?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2464,
+      "group": "title-literal",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\r[image]: /x (Diagram (draft ?[{{inside}} X | Y])\r\r?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    },
+    {
+      "id": 2465,
+      "group": "title-literal",
+      "marker": "%{{goal}}",
+      "source": "![?[%{{goal}} A | B]][image]\r\r[image]: /x\r(Diagram (draft ?[{{inside}} X | Y])\r\r?[{{visible}} C | D]",
+      "images": [
+        {
+          "src": "/x",
+          "alt": "?[%{{goal}} A | B]",
+          "title": "Diagram (draft ?[{{inside}} X | Y]"
+        }
+      ],
+      "buttons": [
+        "C",
+        "D"
+      ]
+    }
+  ]
+}

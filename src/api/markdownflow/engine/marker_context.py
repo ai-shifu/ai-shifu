@@ -26,6 +26,7 @@ from .variable_names import normalize_variable_name, read_variable_marker
 
 _BACKTICK_RUN = re.compile(r"`+")
 _DOLLAR_RUN = re.compile(r"\$+")
+_INTERACTION_OPENING = re.compile(r"\?\[")
 _BLANK_LINE = re.compile(
     r"(?:\r\n|\r(?!\n)|(?<!\r)\n)[ \t]*(?:\r\n|\r(?!\n)|(?<!\r)\n)"
 )
@@ -235,8 +236,6 @@ def _link_resource_end(
     start: int,
     blocks: DocumentBlocks,
     limit: int,
-    *,
-    image: bool = False,
 ) -> int | None:
     """Read a complete inline-link resource, without claiming an unfinished one."""
     at = start + 1
@@ -312,8 +311,6 @@ def _link_resource_end(
             return None
         if text[at] == "\\" and at + 1 < limit and text[at + 1] in punctuation:
             at += 2
-        elif image and closing == ")" and text[at] == "(":
-            return None
         elif text[at] == closing:
             if _BLANK_LINE.search(text, title_start, at):
                 return None
@@ -525,8 +522,8 @@ def analyze_marker_context(
             resource_limits[key] = limit
         return limit
 
-    def link_resource_end(start: int, *, image: bool = False) -> int | None:
-        return _link_resource_end(text, start, blocks, inline_limit(start), image=image)
+    def link_resource_end(start: int) -> int | None:
+        return _link_resource_end(text, start, blocks, inline_limit(start))
 
     closing = _inline_closers(text, _BACKTICK_RUN, breaks, final=final)
     math_closing = _inline_closers(text, _DOLLAR_RUN, breaks, final=final)
@@ -585,6 +582,10 @@ def analyze_marker_context(
                     reference_labels.add(normalizeReference(reference_label))
                 blocks.closed_reference_lines.add(blocks.line_at(reference_end).start)
                 context.literals.append((at, reference_end))
+                context.inactive_document_controls.extend(
+                    match.start()
+                    for match in _INTERACTION_OPENING.finditer(text, at, reference_end)
+                )
                 context.markers.extend(_literal_markers(text, at, reference_start))
                 context.markers.extend(
                     _literal_markers(text, reference_start, reference_end)
@@ -718,6 +719,10 @@ def analyze_marker_context(
                         labels[index] = (image, False, start, count)
                     active_links.clear()
                 context.literals.append((at, resource_end))
+                context.inactive_document_controls.extend(
+                    match.start()
+                    for match in _INTERACTION_OPENING.finditer(text, at, resource_end)
+                )
                 context.markers.extend(_literal_markers(text, at, resource_end))
                 at = resource_end
                 continue
@@ -835,7 +840,7 @@ def analyze_marker_context(
             continue
         after = closing + 1
         if text[after : after + 1] == "(":
-            if link_resource_end(after, image=True) is not None:
+            if link_resource_end(after) is not None:
                 context.image_labels.append((opening, closing + 1))
             continue
         label = _image_reference_label(text, after, blocks, inline_limit(after))

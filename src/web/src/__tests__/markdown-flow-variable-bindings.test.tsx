@@ -407,6 +407,160 @@ const exactContinuationIndentCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
   ),
 );
 
+// Each form's outcome is recorded from the installed renderer's title grammar.
+const imageTitleFixtures = [
+  ['(Diagram (draft)', 'Diagram (draft', 'Diagram (draft', 'Diagram (draft'],
+  ['(Diagram (draft))', 'Diagram (draft', false, null],
+  ['(Diagram (draft)))', 'Diagram (draft', false, null],
+  ['(Diagram \\(draft)', 'Diagram (draft', 'Diagram (draft', 'Diagram (draft'],
+  [
+    '(Diagram \\(draft\\))',
+    'Diagram (draft)',
+    'Diagram (draft)',
+    'Diagram (draft)',
+  ],
+  ['(Diagram \\\\(draft))', 'Diagram \\(draft', false, null],
+  [
+    '(Diagram \\\\\\(draft\\))',
+    'Diagram \\(draft)',
+    'Diagram \\(draft)',
+    'Diagram \\(draft)',
+  ],
+  [
+    '"Diagram (draft)"',
+    'Diagram (draft)',
+    'Diagram (draft)',
+    'Diagram (draft)',
+  ],
+  [
+    "'Diagram (draft)'",
+    'Diagram (draft)',
+    'Diagram (draft)',
+    'Diagram (draft)',
+  ],
+  [
+    '(Diagram &lpar;draft&rpar;)',
+    'Diagram (draft)',
+    'Diagram (draft)',
+    'Diagram (draft)',
+  ],
+  [
+    '(Diagram &#40;draft&#41;)',
+    'Diagram (draft)',
+    'Diagram (draft)',
+    'Diagram (draft)',
+  ],
+  [
+    '(Diagram &#x28;draft&#x29;)',
+    'Diagram (draft)',
+    'Diagram (draft)',
+    'Diagram (draft)',
+  ],
+  ['(Diagram\n(draft))', 'Diagram\n(draft', false, null],
+  [
+    '(Diagram\n\\(draft\\))',
+    'Diagram\n(draft)',
+    'Diagram\n(draft)',
+    'Diagram\n(draft)',
+  ],
+  [
+    '"Diagram\n(draft)"',
+    'Diagram\n(draft)',
+    'Diagram\n(draft)',
+    'Diagram\n(draft)',
+  ],
+  ['(Diagram (draft)\ntext)', false, 'Diagram (draft', 'Diagram (draft'],
+  [
+    '(Diagram\n&lpar;draft&rpar;)',
+    'Diagram\n(draft)',
+    'Diagram\n(draft)',
+    'Diagram\n(draft)',
+  ],
+] as const;
+const imageTitleCases = ['{{goal}}', '%{{goal}}']
+  .flatMap(marker =>
+    imageTitleFixtures.flatMap((fixture, titleIndex) =>
+      (['inline', 'reference', 'reference-next-line'] as const).flatMap(
+        (form, formIndex) =>
+          [false, true].flatMap(angle =>
+            [
+              ['plain', '', ''],
+              ['quote', '> ', '> '],
+              ['quote list', '> - ', '>   '],
+              ['list quote', '- > ', '  > '],
+            ].flatMap(([container, opening, continuation]) =>
+              [
+                ['LF', '\n'],
+                ['CRLF', '\r\n'],
+                ['CR', '\r'],
+              ].map(([lineEnding, newline]) => {
+                const destination = angle ? '</x>' : '/x';
+                const title = fixture[0].replaceAll('\n', `\n${continuation}`);
+                const source =
+                  form === 'inline'
+                    ? `${opening}![?[${marker} A | B]](${destination} ${title})`
+                    : `${opening}![?[${marker} A | B]][image]\n${continuation}\n${continuation}[image]: ${destination}${form === 'reference-next-line' ? `\n${continuation}` : ' '}${title}`;
+                const observed = fixture[formIndex + 1];
+                return {
+                  marker,
+                  titleIndex,
+                  form,
+                  angle,
+                  container,
+                  lineEnding,
+                  content: source.replaceAll('\n', newline),
+                  expectedImage: observed !== false,
+                  expectedTitle: observed === false ? null : observed,
+                  expectedButtons: observed === false ? ['A', 'B'] : [],
+                  variableName: 'goal',
+                };
+              }),
+            ),
+          ),
+      ),
+    ),
+  )
+  .filter(
+    fixture =>
+      (fixture.container === 'plain' && fixture.lineEnding === 'LF') ||
+      (fixture.container !== 'plain' &&
+        fixture.lineEnding !== 'LF' &&
+        fixture.titleIndex === 1 &&
+        !fixture.angle) ||
+      (['quote', 'list quote'].includes(fixture.container) &&
+        fixture.titleIndex === 12 &&
+        fixture.form === 'reference-next-line' &&
+        fixture.angle),
+  );
+const imageTitleLiteralCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
+  ['inline', 'reference', 'reference-next-line'].flatMap(form =>
+    [
+      ['LF', '\n'],
+      ['CRLF', '\r\n'],
+      ['CR', '\r'],
+    ].map(([lineEnding, newline]) => {
+      const title = '(Diagram (draft ?[{{inside}} X | Y])';
+      const image =
+        form === 'inline'
+          ? `![?[${marker} A | B]](/x ${title})`
+          : `![?[${marker} A | B]][image]\n\n[image]: /x${form === 'reference-next-line' ? '\n' : ' '}${title}`;
+      return {
+        marker,
+        titleIndex: 'literal marker',
+        form,
+        angle: false,
+        container: 'plain',
+        lineEnding,
+        content: `${image}\n\n?[{{visible}} C | D]`.replaceAll('\n', newline),
+        expectedImage: true,
+        expectedTitle: 'Diagram (draft ?[{{inside}} X | Y]',
+        expectedButtons: ['C', 'D'],
+        variableName: 'visible',
+      };
+    }),
+  ),
+);
+
 describe('installed MarkdownFlow named-answer bindings', () => {
   const originalStructuredClone = globalThis.structuredClone;
 
@@ -470,6 +624,44 @@ describe('installed MarkdownFlow named-answer bindings', () => {
       expect(restored.getByText('B')).toHaveClass('select');
       expect(restored.getByText('A')).toBeInTheDocument();
       expect(onSend).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([...imageTitleCases, ...imageTitleLiteralCases])(
+    'uses the observed image title grammar for $marker: $titleIndex ($form, $angle, $container, $lineEnding)',
+    ({
+      marker,
+      content,
+      expectedImage,
+      expectedTitle,
+      expectedButtons,
+      variableName,
+    }) => {
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+      if (expectedImage) {
+        const image = view.getByAltText(`?[${marker} A | B]`);
+        expect(image).toHaveAttribute('src', '/x');
+        if (expectedTitle === null) expect(image).not.toHaveAttribute('title');
+        else expect(image).toHaveAttribute('title', expectedTitle);
+      } else {
+        expect(view.container.querySelector('img')).toBeNull();
+      }
+      expect(
+        view.queryAllByRole('button').map(button => button.textContent),
+      ).toEqual(expectedButtons);
+      expect(onSend).not.toHaveBeenCalled();
+      if (expectedButtons.length) {
+        const buttonText = expectedButtons[1];
+        fireEvent.click(view.getByText(buttonText));
+        expect(onSend).toHaveBeenCalledTimes(1);
+        expect(onSend).toHaveBeenCalledWith({ variableName, buttonText });
+      }
     },
   );
 

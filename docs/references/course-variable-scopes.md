@@ -57,6 +57,9 @@ This does not permit physical line endings inside image destinations.
 The renderer's reference-label budget counts UTF-16 units, both characters of
 a preserved escape and tabs expanded at their original source-column stops.
 Physical line endings are excluded from that budget.
+Image title text does not create questions. Parenthesized titles follow the
+renderer's first unescaped closing delimiter, including an opening parenthesis
+inside the title text.
 
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
