@@ -13,7 +13,6 @@
 
 const api = {
   // config
-  getRuntimeConfig: 'GET /config',
 
   // auth
   getCaptcha: 'GET /user/captcha',
@@ -37,8 +36,6 @@ const api = {
   completeCreatorOnboarding: 'POST /user/onboarding/complete',
   loginPassword: 'POST /user/login_password',
   setPassword: 'POST /user/set_password',
-  changePassword: 'POST /user/change_password',
-  resetPassword: 'POST /user/reset_password',
   // referral api
   getReferralInviteProfile: 'GET /referral/invite-profile',
   getReferralInvitePreview: 'GET /referral/invite-preview',
@@ -57,7 +54,6 @@ const api = {
   listShifuPermissions: 'GET /shifu/shifus/{shifu_bid}/permissions',
   grantShifuPermissions: 'POST /shifu/shifus/{shifu_bid}/permissions/grant',
   removeShifuPermission: 'POST /shifu/shifus/{shifu_bid}/permissions/remove',
-  previewOutlineBlock: 'POST /learn/shifu/{shifu_bid}/preview/{outline_bid}',
   // shifu api end
 
   // outline api start
@@ -78,16 +74,9 @@ const api = {
     'GET /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/history/{version_id}',
   restoreMdflowHistory:
     'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/history/restore',
-  runMdflow: 'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/mdflow/run',
   // outline api end
 
-  // blocks api
-  getBlocks: 'GET /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/blocks',
-  saveBlocks: 'POST /shifu/shifus/{shifu_bid}/outlines/{outline_bid}/blocks',
-  // block api end
-
   getProfileItemDefinitions: 'GET /profiles/get-profile-item-definitions',
-  addProfileItem: 'POST /profiles/add-profile-item-quick',
   getUserInfo: 'GET /user/info',
   updateUserInfo: 'POST /user/update_info',
   updateChapterOrder: 'POST /shifu/update-chapter-order',
@@ -101,7 +90,6 @@ const api = {
   ttsPreview: 'POST /shifu/tts/preview',
   ttsConfig: 'GET /shifu/tts/config',
   listMinimaxTtsVoices: 'GET /shifu/tts/minimax/voices',
-  validateMinimaxTtsVoiceId: 'POST /shifu/tts/minimax/voices/validate-id',
   // admin order api
   getAdminOrders: 'GET /order/admin/orders',
   getAdminOrderDetail: 'GET /order/admin/orders/{order_bid}',
@@ -274,7 +262,6 @@ const api = {
   // profile
 
   saveProfile: 'POST /profiles/save-profile-item',
-  deleteProfile: 'POST /profiles/delete-profile-item',
   hideUnusedProfileItems: 'POST /profiles/hide-unused-profile-items',
   getProfileVariableUsage: 'GET /profiles/profile-variable-usage',
   updateProfileHiddenState: 'POST /profiles/update-profile-hidden-state',
@@ -289,7 +276,6 @@ const api = {
     'GET /dashboard/shifus/{shifu_bid}/follow-ups/{generated_block_bid}/detail',
 
   // billing creator api
-  getBillingBootstrap: 'GET /billing',
   getBillingCatalog: 'GET /billing/catalog',
   getBillingOverview: 'GET /billing/overview',
   acknowledgeBillingTrialWelcome: 'POST /billing/trial-offer/welcome/ack',
@@ -301,14 +287,10 @@ const api = {
   cancelBillingSubscription: 'POST /billing/subscriptions/cancel',
   resumeBillingSubscription: 'POST /billing/subscriptions/resume',
   checkoutBillingTopup: 'POST /billing/topups/checkout',
-  getBillingCustomization: 'GET /billing/customization',
-  updateBillingBranding: 'PUT /billing/customization/branding',
-  createBillingDomain: 'POST /billing/customization/domains',
   verifyBillingDomain:
     'POST /billing/customization/domains/{domain_binding_bid}/verify',
   disableBillingDomain:
     'DELETE /billing/customization/domains/{domain_binding_bid}',
-  saveBillingIntegration: 'PUT /billing/customization/integrations/{provider}',
   verifyBillingIntegration:
     'POST /billing/customization/integrations/{provider}/verify',
   disableBillingIntegration:
@@ -370,8 +352,6 @@ const api = {
   disableAdminBillingCustomizationIntegration:
     'DELETE /admin/billing/customization/{creator_bid}/integrations/{provider}',
   getAdminBillingFocusTeachers: 'GET /admin/billing/reports/focus-teachers',
-  getAdminBillingDailyUsageMetrics: 'GET /admin/billing/reports/usage-daily',
-  getAdminBillingDailyLedgerSummary: 'GET /admin/billing/reports/ledger-daily',
 };
 
 export default api;
