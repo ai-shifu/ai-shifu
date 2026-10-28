@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 from string import punctuation
 
 from markdown_it.common.html_re import HTML_TAG_RE
-from markdown_it.common.utils import normalizeReference
+from markdown_it.common.normalize_url import normalizeLink, validateLink
+from markdown_it.common.utils import normalizeReference, unescapeAll
 
 from .document_blocks import (
     COMPILED_REFERENCE_HTML_BREAK_REGEX as _RESOURCE_HTML_BREAK,
@@ -231,7 +232,12 @@ def _raw_html_bounds(
 
 
 def _link_resource_end(
-    text: str, start: int, blocks: DocumentBlocks, limit: int
+    text: str,
+    start: int,
+    blocks: DocumentBlocks,
+    limit: int,
+    *,
+    image: bool = False,
 ) -> int | None:
     """Read a complete inline-link resource, without claiming an unfinished one."""
     at = start + 1
@@ -256,6 +262,7 @@ def _link_resource_end(
     at = skip_space(at)
     if at is None or at >= limit:
         return None
+    destination_start = at
     if text[at] == "<":
         at += 1
         while at < limit:
@@ -291,6 +298,12 @@ def _link_resource_end(
         if depth:
             return None
     destination_end = at
+    if image:
+        destination = text[destination_start:destination_end]
+        if destination.startswith("<"):
+            destination = destination[1:-1]
+        if not validateLink(normalizeLink(unescapeAll(destination))):
+            return None
     at = skip_space(at)
     if at is None or at >= limit:
         return None
@@ -517,8 +530,8 @@ def analyze_marker_context(
             resource_limits[key] = limit
         return limit
 
-    def link_resource_end(start: int) -> int | None:
-        return _link_resource_end(text, start, blocks, inline_limit(start))
+    def link_resource_end(start: int, *, image: bool = False) -> int | None:
+        return _link_resource_end(text, start, blocks, inline_limit(start), image=image)
 
     closing = _inline_closers(text, _BACKTICK_RUN, breaks, final=final)
     math_closing = _inline_closers(text, _DOLLAR_RUN, breaks, final=final)
@@ -827,7 +840,7 @@ def analyze_marker_context(
             continue
         after = closing + 1
         if text[after : after + 1] == "(":
-            if link_resource_end(after) is not None:
+            if link_resource_end(after, image=True) is not None:
                 context.image_labels.append((opening, closing + 1))
             continue
         label = _image_reference_label(text, after, blocks, inline_limit(after))
