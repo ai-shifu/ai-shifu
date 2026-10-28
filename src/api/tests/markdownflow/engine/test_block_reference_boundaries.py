@@ -1,8 +1,11 @@
 """Native block precedence keeps image references outside interaction parsing."""
 
+import re
+from types import SimpleNamespace
+
 import pytest
 from markdown_it import MarkdownIt
-from markdownflow.engine import collected_names
+from markdownflow.engine import collected_names, document_blocks
 from markdownflow.engine.tools import script_options
 
 
@@ -83,3 +86,28 @@ def test_thematic_quote_exit_preserves_its_outer_list(
     assert "<img " in MarkdownIt().render(source)
     assert collected_names(source) == frozenset()
     assert script_options(source) == {}
+
+
+@pytest.mark.parametrize("depth", [256, 1024, 4096])
+def test_thematic_precedence_does_not_rescan_each_nested_list_tail(
+    monkeypatch: pytest.MonkeyPatch, depth: int
+) -> None:
+    """Long non-thematic lists must retain a bounded amount of suffix matching."""
+    work = 0
+    original = document_blocks.COMPILED_DOCUMENT_BREAK_REGEX
+
+    def counted(value: str) -> re.Match[str] | None:
+        nonlocal work
+        work += len(value)
+        return original.fullmatch(value)
+
+    monkeypatch.setattr(
+        document_blocks,
+        "COMPILED_DOCUMENT_BREAK_REGEX",
+        SimpleNamespace(fullmatch=counted),
+    )
+    source = "- " * depth + "paragraph"
+    content, steps, _ = document_blocks.container_opening_info(source)
+    assert source[content:] == "paragraph"
+    assert steps == (2,) * depth
+    assert work <= 4 * len(source)

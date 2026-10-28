@@ -257,6 +257,23 @@ def container_opening_info(
     """Read explicit containers without consuming their following code indentation."""
     at = 0
     steps: list[int] = []
+    # Index the eligible suffix once instead of rescanning it at every list level.
+    thematic_start = thematic_limit = -1
+    thematic_marker = ""
+    thematic_size = 0
+    for offset in range(len(line) - 1, -1, -1):
+        character = line[offset]
+        if character in " \t":
+            continue
+        if not thematic_marker and character in "*-_":
+            thematic_marker = character
+        if character != thematic_marker:
+            break
+        thematic_size += 1
+        if thematic_size == 3:
+            thematic_limit = offset
+        if thematic_size >= 3:
+            thematic_start = offset
     while at < len(line):
         before, before_column, before_virtual = at, column, virtual
         spaces = virtual
@@ -278,7 +295,7 @@ def container_opening_info(
                 virtual = width - 1
                 at += 1
             continue
-        if COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(line[at:]) is not None:
+        if thematic_start >= 0 and thematic_start <= at <= thematic_limit:
             return before, tuple(steps), before_virtual
         marker = COMPILED_CONTAINER_LIST_REGEX.match(line, at)
         if marker is None or spaces > 3:
