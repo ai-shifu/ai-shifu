@@ -141,6 +141,7 @@
 | `docs/exec-plans/completed/hide-sys-user-style-from-authoring-ui.md` | Hide `sys_user_style` From Course Authoring UI | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/idempotent-payment-sync.md` | Keep common payment synchronization idempotent | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/interaction-image-url-classification.md` | Preserve image labels when the renderer filters their URL | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
+| `docs/exec-plans/completed/interaction-reference-label-newlines.md` | Preserve backslashes before reference-label line endings | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
 | `docs/exec-plans/completed/interaction-ui-parser-consumption.md` | Consume the compatible interaction parser in rendered UI | `exec-plan-completed` | `completed` | `frontend` | `2026-10-28` | `false` |
 | `docs/exec-plans/completed/interaction-variable-syntax.md` | Compatible interaction variable markers | `exec-plan-completed` | `completed` | `backend` | `2026-10-27` | `false` |
 | `docs/exec-plans/completed/internal-course-temperature.md` | Keep course temperatures internal | `exec-plan-completed` | `completed` | `shared` | `2026-10-08` | `false` |

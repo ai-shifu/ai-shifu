@@ -1,5 +1,7 @@
 """Reference image labels compare projected paragraph text at original offsets."""
 
+from string import punctuation
+
 import pytest
 from markdown_it import MarkdownIt
 from markdownflow.engine import (
@@ -162,3 +164,94 @@ def test_reference_label_cursor_does_not_rescan_physical_quote_prefixes(
     work = 0
     assert _image_reference_label(text, start, blocks, len(text)) == "a\nb"
     assert work <= 12
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+@pytest.mark.parametrize("definition_first", [False, True])
+@pytest.mark.parametrize(
+    ("opening", "continuation"),
+    [
+        ("", ""),
+        ("> ", "> "),
+        ("> ", ""),
+        ("> - ", ">   "),
+        ("> - ", "> "),
+        ("- > ", "  > "),
+        ("1. ", "   "),
+    ],
+)
+@pytest.mark.parametrize(
+    ("label", "definition"),
+    [
+        ("course\\\nimage", "course\\ image"),
+        ("course\\ image", "course\\\nimage"),
+        ("course\\\nimage", "course\\\nimage"),
+        ("course\\\\\nimage", "course\\\\ image"),
+        ("course\\\\\\\nimage", "course\\\\\\ image"),
+        ("course\\\\\\\\\nimage", "course\\\\\\\\ image"),
+        ("course\\\n  image", "course\\ image"),
+        ("course\\\timage", "course\\ image"),
+        ("course\\ image", "course\\ image"),
+        ("course\\\nimage", "course image"),
+        ("course\\\nimage", "undefined"),
+        ("course\\\n\nimage", "course\\ image"),
+        ("course[image", "course[image"),
+        ("course\\", "course\\"),
+        ("course\\\\", "course\\\\"),
+        ("course\\\\\\", "course\\\\\\"),
+        ("course\\\\\\\\", "course\\\\\\\\"),
+    ],
+)
+def test_reference_label_backslashes_preserve_projected_physical_endings(
+    label: str,
+    definition: str,
+    opening: str,
+    continuation: str,
+    definition_first: bool,
+    spelling: str,
+    newline: str,
+) -> None:
+    """Reference identifiers keep literal slashes while folding label whitespace."""
+    image_use = (
+        f"{opening}![?[{spelling} A | B]]["
+        + label.replace("\n", "\n" + continuation)
+        + "]"
+    )
+    definition_text = f"[{definition}]: /x"
+    source = (
+        f"{definition_text}\n\n{image_use}"
+        if definition_first
+        else f"{image_use}\n\n{definition_text}"
+    ).replace("\n", newline)
+    image = "<img " in MarkdownIt().render(source)
+    source += newline * 2 + "?[{{visible}} C | D]"
+    expected_names = {"visible"} | (
+        {"goal"} if spelling.startswith("%") or not image else set()
+    )
+    assert collected_names(source) == frozenset(expected_names)
+    expected_options = {"C": "C", "D": "D"} | ({} if image else {"A": "A", "B": "B"})
+    assert script_options(source) == expected_options
+    if image and not spelling.startswith("%"):
+        assert '"current"' in render_first_prompt(
+            ScriptBundle(script=source), {"goal": "current"}
+        )
+        assert "{{goal}}" not in substitute_variables(source, {"goal": "current"})
+
+
+@pytest.mark.parametrize("character", [*punctuation, "q", " ", "\t", "é"])
+@pytest.mark.parametrize("matches", [False, True])
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+def test_reference_label_escapes_retain_the_raw_identifier(
+    character: str, matches: bool, spelling: str
+) -> None:
+    """Escaped punctuation and literal nonpunctuation never lose their slash."""
+    label = f"course\\{character}image"
+    definition = label if matches else f"course{character}image"
+    source = f"![?[{spelling} A | B]][{label}]\n\n[{definition}]: /x"
+    image = "<img " in MarkdownIt().render(source)
+    expected_names = (
+        frozenset({"goal"}) if spelling.startswith("%") or not image else frozenset()
+    )
+    assert collected_names(source) == expected_names
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})

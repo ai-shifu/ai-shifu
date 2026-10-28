@@ -38,6 +38,97 @@ const imageCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
   ),
 );
 
+const referenceLabelFixtures = [
+  ['escaped newline', 'course\\\nimage', 'course\\ image', true],
+  ['escaped punctuation', 'course\\:image', 'course\\:image', true],
+  ['different punctuation escape', 'course\\:image', 'course:image', false],
+  ['nonpunctuation escape', 'course\\ximage', 'course\\ximage', true],
+  ['odd trailing backslash', 'course\\', 'course\\', false],
+  ['even trailing backslashes', 'course\\\\', 'course\\\\', true],
+  ['backslash space', 'course\\ image', 'course\\ image', true],
+  ['backslash tab', 'course\\\timage', 'course\\ image', true],
+  ['backslash padded newline', 'course\\  \n\timage', 'course\\ image', true],
+  ['escaped opening bracket', 'course\\[image', 'course\\[image', true],
+  ['escaped closing bracket', 'course\\]image', 'course\\]image', true],
+  ['unescaped opening bracket', 'course[image', 'course[image', false],
+  ['whitespace only', ' \t\n ', 'unused', false],
+  ['undefined label', 'course\\\nimage', 'other', false],
+] as const;
+
+const referenceLabelCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
+  referenceLabelFixtures.flatMap(
+    ([label, use, definitionLabel, expectedImage]) =>
+      [
+        ['LF', '\n'],
+        ['CRLF', '\r\n'],
+        ['CR', '\r'],
+      ].flatMap(([lineEnding, newline]) =>
+        ['plain', 'quote', 'list'].flatMap(container =>
+          ['before', 'after'].map(order => {
+            const image = `![?[${marker} A | B]][${use}]`;
+            const definition = `[${definitionLabel}]: /x`;
+            const document =
+              order === 'before'
+                ? `${definition}\n\n${image}`
+                : `${image}\n\n${definition}`;
+            const content = document
+              .split('\n')
+              .map((line, index) =>
+                container === 'quote'
+                  ? `> ${line}`
+                  : container === 'list'
+                    ? `${index === 0 ? '- ' : '  '}${line}`
+                    : line,
+              )
+              .join(newline);
+            return {
+              marker,
+              label,
+              expectedImage,
+              lineEnding,
+              container,
+              order,
+              content,
+            };
+          }),
+        ),
+      ),
+  ),
+);
+
+const referenceLabelLengthCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
+  [999, 1000].flatMap(size => {
+    const labels = [
+      ['ordinary characters', 'a'.repeat(size), 'a'.repeat(size)],
+      ...[
+        ['escaped punctuation', '\\:'],
+        ['nonpunctuation escapes', '\\x'],
+      ].map(([name, pair]) => {
+        const label = pair.repeat(Math.floor(size / 2)) + 'a'.repeat(size % 2);
+        return [name, label, label];
+      }),
+      ...[
+        ['LF', '\n'],
+        ['CRLF', '\r\n'],
+        ['CR', '\r'],
+      ].map(([name, newline]) => [
+        `${name} after backslash`,
+        `${'a'.repeat(size - 502)}\\${newline}${'b'.repeat(500)}`,
+        `${'a'.repeat(size - 502)}\\ ${'b'.repeat(500)}`,
+      ]),
+    ];
+    return labels.map(([label, use, definition]) => ({
+      marker,
+      label: `${label} at normalized source length ${size}`,
+      expectedImage: size === 999,
+      lineEnding: 'label boundary',
+      container: 'plain',
+      order: 'after',
+      content: `![?[${marker} A | B]][${use}]\n\n[${definition}]: /x`,
+    }));
+  }),
+);
+
 describe('installed MarkdownFlow named-answer bindings', () => {
   const originalStructuredClone = globalThis.structuredClone;
 
@@ -139,6 +230,82 @@ describe('installed MarkdownFlow named-answer bindings', () => {
       expect(onSend).toHaveBeenCalledWith({
         variableName: 'visible',
         buttonText: 'D',
+      });
+    },
+  );
+
+  it.each([...referenceLabelCases, ...referenceLabelLengthCases])(
+    'preserves reference-label grammar for $marker: $label ($lineEnding, $container, definition $order)',
+    ({ marker, content, expectedImage }) => {
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+
+      expect(onSend).not.toHaveBeenCalled();
+      if (expectedImage) {
+        expect(view.getByAltText(`?[${marker} A | B]`)).toHaveAttribute(
+          'src',
+          '/x',
+        );
+        expect(view.queryAllByRole('button')).toEqual([]);
+
+        view.rerender(
+          <ContentRender
+            content={`${content}\n\n?[{{visible}} C | D]`}
+            onSend={onSend}
+          />,
+        );
+        expect(
+          view.getAllByRole('button').map(button => button.textContent),
+        ).toEqual(['C', 'D']);
+        fireEvent.click(view.getByText('D'));
+        expect(onSend).toHaveBeenCalledWith({
+          variableName: 'visible',
+          buttonText: 'D',
+        });
+      } else {
+        expect(view.container.querySelector('img')).toBeNull();
+        expect(
+          view.getAllByRole('button').map(button => button.textContent),
+        ).toEqual(['A', 'B']);
+        fireEvent.click(view.getByText('B'));
+        expect(onSend).toHaveBeenCalledWith({
+          variableName: 'goal',
+          buttonText: 'B',
+        });
+      }
+      expect(onSend).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['{{goal}}', '%{{goal}}'])(
+    'keeps %s visible when an overlong label case-folds to a valid definition',
+    marker => {
+      const use = `${'\\:'.repeat(499)}SS`;
+      const definition = `${'\\:'.repeat(499)}ß`;
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={`![?[${marker} A | B]][${use}]\n\n[${definition}]: /x`}
+          onSend={onSend}
+        />,
+      );
+
+      // Matching normalized identifiers cannot admit a 1,000-character label.
+      expect(view.container.querySelector('img')).toBeNull();
+      expect(
+        view.getAllByRole('button').map(button => button.textContent),
+      ).toEqual(['A', 'B']);
+      expect(onSend).not.toHaveBeenCalled();
+      fireEvent.click(view.getByText('B'));
+      expect(onSend).toHaveBeenCalledTimes(1);
+      expect(onSend).toHaveBeenCalledWith({
+        variableName: 'goal',
+        buttonText: 'B',
       });
     },
   );

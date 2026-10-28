@@ -109,6 +109,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Hide `sys_user_style` From Course Authoring UI](./completed/hide-sys-user-style-from-authoring-ui.md)
 - [Keep common payment synchronization idempotent](./completed/idempotent-payment-sync.md)
 - [Preserve image labels when the renderer filters their URL](./completed/interaction-image-url-classification.md)
+- [Preserve backslashes before reference-label line endings](./completed/interaction-reference-label-newlines.md)
 - [Consume the compatible interaction parser in rendered UI](./completed/interaction-ui-parser-consumption.md)
 - [Compatible interaction variable markers](./completed/interaction-variable-syntax.md)
 - [Keep course temperatures internal](./completed/internal-course-temperature.md)

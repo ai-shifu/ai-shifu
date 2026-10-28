@@ -344,9 +344,7 @@ def _image_reference_label(
             return "".join(parts)
         if character == "[":
             return None
-        if character == "\\":
-            if at + 1 >= limit or text[at + 1] in "\r\n":
-                return None
+        if character == "\\" and at + 1 < limit and text[at + 1] in punctuation:
             parts.append(text[at : at + 2])
             at += 2
         elif character in "\r\n":

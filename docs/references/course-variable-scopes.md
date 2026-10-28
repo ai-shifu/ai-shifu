@@ -51,6 +51,9 @@ permission. This remains true when the renderer clears the image URL: URL
 filtering does not turn its label into answer buttons. Incomplete image
 notation retains its ordinary text and interaction fallback. Explicit percent
 declarations retain their existing declaration semantics.
+Reference labels may span physical lines: a backslash before a label's line
+ending remains literal while the line ending participates in label matching.
+This does not permit physical line endings inside image destinations.
 
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
