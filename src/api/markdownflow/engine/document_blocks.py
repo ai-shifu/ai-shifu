@@ -278,6 +278,8 @@ def container_opening_info(
                 virtual = width - 1
                 at += 1
             continue
+        if COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(line[at:]) is not None:
+            return before, tuple(steps), before_virtual
         marker = COMPILED_CONTAINER_LIST_REGEX.match(line, at)
         if marker is None or spaces > 3:
             return before, tuple(steps), before_virtual
@@ -899,11 +901,9 @@ class DocumentBlocks:
                     paragraph = False
                     continue
             empty_list_base = None
-            if info is None and not paragraph:
-                active = ()
             base = active if info is not None else ()
             exited = False
-            if info is None and paragraph:
+            if info is None:
                 # A sibling item can start at any matched ancestor. Plain text
                 # instead continues lazily without restarting that paragraph.
                 matched, unmatched = 0, len(active)
@@ -917,6 +917,8 @@ class DocumentBlocks:
                         matched, info = depth, candidate
                 base = active[:matched]
                 exited = base != active
+                if not paragraph:
+                    active = base
             content, virtual = info if info is not None else (0, 0)
             remaining = value[content:]
             after, steps, opening_virtual = container_opening_info(
@@ -948,6 +950,8 @@ class DocumentBlocks:
                 or COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(remaining) is not None
             ):
                 paragraph = False
+            if COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(remaining) is not None:
+                active = self.container_steps[index]
         return boundaries
 
     @staticmethod
