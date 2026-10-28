@@ -60,6 +60,9 @@ Physical line endings are excluded from that budget.
 Image title text does not create questions. Parenthesized titles follow the
 renderer's first unescaped closing delimiter, including an opening parenthesis
 inside the title text.
+Reference definitions retain the renderer's paragraph lookahead state. A list
+marker or blank line after a definition does not by itself establish another
+definition; only definitions accepted in that context can bind an image.
 
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key

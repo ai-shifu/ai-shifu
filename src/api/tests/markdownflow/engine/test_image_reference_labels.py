@@ -1,5 +1,8 @@
 """Reference image labels compare projected paragraph text at original offsets."""
 
+import hashlib
+import json
+from pathlib import Path
 from string import punctuation
 
 import pytest
@@ -17,6 +20,16 @@ from markdownflow.engine.marker_context import (
     analyze_marker_context,
 )
 from markdownflow.engine.tools import script_options
+
+_AFTER_DEFINITION_FIXTURE = (
+    Path(__file__).parents[1]
+    / "fixtures"
+    / "reference_label_after_definition_browser.json"
+)
+_AFTER_DEFINITION_OBSERVATIONS = {
+    case["sha256"]: case
+    for case in json.loads(_AFTER_DEFINITION_FIXTURE.read_text())["cases"]
+}
 
 
 @pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
@@ -224,13 +237,18 @@ def test_reference_label_backslashes_preserve_projected_physical_endings(
         if definition_first
         else f"{image_use}\n\n{definition_text}"
     ).replace("\n", newline)
-    image = "<img " in MarkdownIt().render(source)
     source += newline * 2 + "?[{{visible}} C | D]"
+    normalized = source.replace("\r\n", "\n").replace("\r", "\n")
+    observed = _AFTER_DEFINITION_OBSERVATIONS[
+        hashlib.sha256(normalized.encode()).hexdigest()
+    ]
+    image = bool(observed["images"])
     expected_names = {"visible"} | (
         {"goal"} if spelling.startswith("%") or not image else set()
     )
     assert collected_names(source) == frozenset(expected_names)
     expected_options = {"C": "C", "D": "D"} | ({} if image else {"A": "A", "B": "B"})
+    assert expected_options == {button: button for button in observed["buttons"]}
     assert script_options(source) == expected_options
     if image and not spelling.startswith("%"):
         assert '"current"' in render_first_prompt(

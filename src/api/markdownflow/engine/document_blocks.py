@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from re import Pattern
 from string import punctuation
+from typing import Literal
 
 COMPILED_PHYSICAL_LINE_END_REGEX = re.compile(r"\r\n|\r|\n")
 COMPILED_CONTAINER_LIST_REGEX = re.compile(r"(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t]|$)")
@@ -889,12 +890,10 @@ class DocumentBlocks:
                 if index >= len(self.lines):
                     return None
                 line = self.lines[index]
-                content, value, interrupt, virtual = self.reference_projection(
-                    index, steps
-                )
+                content, value, _, virtual = self.reference_projection(index, steps)
                 if not value.strip(" \t"):
                     return None
-                if interrupt or self.reference_block_interrupts(value):
+                if self.reference_block_interrupts(value):
                     return None
                 size += virtual
                 at = content
@@ -969,6 +968,7 @@ class DocumentBlocks:
         tag = COMPILED_DOCUMENT_TAG_REGEX.match(value)
         return (
             COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value) is not None
+            or COMPILED_SETEXT_REGEX.fullmatch(value) is not None
             or COMPILED_REFERENCE_HTML_BREAK_REGEX.match(value) is not None
             or (
                 tag is not None
@@ -1025,6 +1025,10 @@ class DocumentBlocks:
         empty_list_base: tuple[int, ...] | None = None
         literal_end = 0
         literal_steps: tuple[int, ...] = ()
+        literal_paragraph = False
+        # The component's no-title definition probe stays concrete until another
+        # nonblank line resolves it; new quote/list containers cannot pierce it.
+        pending_reference: Literal["definition", "destination"] | None = None
         for index, line in enumerate(self.lines):
             value = self.text[line.start : line.content_end]
             if line.start < literal_end:
@@ -1034,7 +1038,7 @@ class DocumentBlocks:
                 self.virtual_padding[index] = virtual
                 self.container_steps[index] = literal_steps if info is not None else ()
                 active = literal_steps
-                paragraph = False
+                paragraph = literal_paragraph
                 continue
             if not value.strip(" \t"):
                 if empty_list_base is not None:
@@ -1055,6 +1059,8 @@ class DocumentBlocks:
                     paragraph = False
                     continue
             empty_list_base = None
+            definition_continuation = pending_reference
+            pending_reference = None
             base = active if info is not None else ()
             exited = False
             if info is None:
@@ -1063,6 +1069,8 @@ class DocumentBlocks:
                 offset, padding, base = container_ancestor_info(value, active)
                 info = offset, padding
                 exited = base != active
+                if exited:
+                    definition_continuation = None
                 if not paragraph:
                     active = base
             content, virtual = info if info is not None else (0, 0)
@@ -1071,8 +1079,10 @@ class DocumentBlocks:
             after, steps, opening_virtual = container_opening_info(
                 remaining, column=column_at(value, content), virtual=virtual
             )
-            entered = bool(steps) and (
-                not paragraph or exited or self._explicit_interrupt(remaining)
+            entered = (
+                bool(steps)
+                and not definition_continuation
+                and (not paragraph or exited or self._explicit_interrupt(remaining))
             )
             if entered:
                 boundaries.add(index)
@@ -1088,6 +1098,7 @@ class DocumentBlocks:
             if not remaining.strip(" \t"):
                 boundaries.add(index)
                 paragraph = False
+                pending_reference = definition_continuation
                 if entered and active[-1] > 0:
                     empty_list_base = active[:-1]
             else:
@@ -1105,10 +1116,13 @@ class DocumentBlocks:
                 continuing_paragraph
                 and not exited
                 and not entered
+                and self.lines[index - 1].start not in self.closed_reference_lines
                 and COMPILED_SETEXT_REGEX.fullmatch(projected) is not None
             )
             if heading or setext:
                 self.closed_heading_lines.add(line.start)
+            if setext and definition_continuation == "destination":
+                pending_reference = "destination"
             if setext or (
                 (not continuing_paragraph or entered)
                 and indentation(
@@ -1128,21 +1142,36 @@ class DocumentBlocks:
             )
             if literal is not None:
                 literal_end = literal.end
+                literal_paragraph = False
+                if definition_continuation == "destination" and not literal.marker:
+                    pending_reference = "destination"
                 literal_steps = self.container_steps[index]
                 paragraph = False
                 active = literal_steps
                 continue
             reference = self.reference_label_prefix(line.start)
             if reference is not None:
-                end = read_reference_resource_end(
+                resource = _read_reference_resource(
                     self.text, reference[0], self, origin=line.start
                 )
-                if end is not None:
-                    self.closed_reference_lines.add(self.line_at(end).start)
-                    literal_end = end
+                if resource is not None:
+                    self.closed_reference_lines.add(self.line_at(resource.end).start)
+                    literal_end = resource.end
+                    literal_paragraph = True
+                    pending_reference = (
+                        "definition"
+                        if (
+                            not resource.titled
+                            and (not continuing_paragraph or entered)
+                            and not definition_continuation
+                        )
+                        else None
+                    )
                     literal_steps = self.container_steps[index]
-                    paragraph = False
+                    paragraph = True
                     active = literal_steps
+                elif reference[0] >= line.content_end:
+                    pending_reference = "destination"
         return boundaries
 
     @staticmethod
@@ -1174,10 +1203,26 @@ class DocumentBlocks:
         )
 
 
+@dataclass(frozen=True)
+class _ReferenceResource:
+    """Validated definition syntax and its completed-title lookahead state."""
+
+    end: int
+    titled: bool = False
+
+
 def read_reference_resource_end(
     text: str, start: int, blocks: DocumentBlocks, *, origin: int | None = None
 ) -> int | None:
     """Read definition syntax before a renderer applies its URL cleanup policy."""
+    resource = _read_reference_resource(text, start, blocks, origin=origin)
+    return resource.end if resource is not None else None
+
+
+def _read_reference_resource(
+    text: str, start: int, blocks: DocumentBlocks, *, origin: int | None = None
+) -> _ReferenceResource | None:
+    """Retain whether a completed title resolved the definition lookahead."""
     origin = start if origin is None else origin
     at = blocks.reference_space(start, origin)
     if at is None or at >= len(text):
@@ -1222,7 +1267,7 @@ def read_reference_resource_end(
     destination_end = at
     destination_line = blocks.line_at(destination_end)
     fallback = (
-        destination_line.content_end
+        _ReferenceResource(destination_line.content_end)
         if not text[destination_end : destination_line.content_end].strip(" \t")
         else None
     )
@@ -1241,12 +1286,8 @@ def read_reference_resource_end(
             steps = blocks.container_steps[
                 blocks.by_start[blocks.line_at(origin).start]
             ]
-            content, value, interrupt, _ = blocks.reference_projection(index, steps)
-            if (
-                not value.strip(" \t")
-                or interrupt
-                or blocks.reference_block_interrupts(value)
-            ):
+            content, value, _, _ = blocks.reference_projection(index, steps)
+            if not value.strip(" \t") or blocks.reference_block_interrupts(value):
                 return fallback if title_next_line else None
             at = content
         if text[at] == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
@@ -1257,7 +1298,7 @@ def read_reference_resource_end(
                 at + 1 : line_end
             ].strip(" \t"):
                 return fallback if title_next_line else None
-            return line_end
+            return _ReferenceResource(line_end, titled=True)
         else:
             at += 1
     return fallback if title_next_line else None

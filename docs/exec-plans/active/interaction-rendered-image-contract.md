@@ -22,7 +22,11 @@ of reference lookups across rendered runs.
 - [x] 2026-10-28 16:29 UTC: Corrected the two title readers and protected
   question-like title text. All 2,466 observed title sources agree; focused
   native gate passed 4,387 tests and frontend passed 270 plus type/lint/format.
-- [ ] Correct definition/paragraph continuation and commit it independently.
+- [x] 2026-10-28 16:53 UTC: Corrected definition/paragraph lookahead, including
+  no-title and unresolved-destination probes and concrete label/title
+  continuation. Focused native gate passed 7,957; frontend passed 392 plus
+  type/lint/format. Replaced the old 1,428-case MarkdownIt label oracle with
+  actual renderer outcomes. Complete-fence compositions remain in the next fix.
 - [ ] Resolve references in their actual rendered run and commit independently.
 - [ ] Complete observed-corpus, full consumer and independent review gates.
 - [ ] Publish one coordinated component build, verify it and update the pin.

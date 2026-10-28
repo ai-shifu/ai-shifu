@@ -561,6 +561,100 @@ const imageTitleLiteralCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
   ),
 );
 
+// Recorded host outcomes distinguish an initial definition from later paragraph flow.
+const referenceParagraphFixtures = [
+  ['[one]: /one', [], []],
+  [
+    '[one]: /one (title)',
+    ['1. ', '- ', '> '],
+    ['1. ', '2. ', '9) ', '- ', '> '],
+  ],
+  [
+    '[one]: /one\n "title"',
+    ['1. ', '- ', '> '],
+    ['1. ', '2. ', '9) ', '- ', '> '],
+  ],
+  [
+    '[one]: /one trailing',
+    ['1. ', '- ', '> '],
+    ['1. ', '2. ', '9) ', '- ', '> '],
+  ],
+  [
+    '[one]: /one\n[two]: /two',
+    ['1. ', '- ', '> '],
+    ['1. ', '2. ', '9) ', '- ', '> '],
+  ],
+  [
+    '[one]: /one\nparagraph',
+    ['1. ', '- ', '> '],
+    ['1. ', '2. ', '9) ', '- ', '> '],
+  ],
+] as const;
+const referenceParagraphContainers = [
+  ['', ''],
+  ['> ', '> '],
+  ['- ', '  '],
+  ['1. ', '   '],
+  ['> - ', '>   '],
+  ['- > ', '  > '],
+] as const;
+const referenceParagraphCases = ['{{goal}}', '%{{goal}}']
+  .flatMap(marker =>
+    referenceParagraphFixtures.flatMap(
+      ([body, adjacentImages, blankImages], bodyIndex) =>
+        referenceParagraphContainers.flatMap(
+          ([opening, continuation], containerIndex) =>
+            [0, 1, 2, 3].flatMap(gap =>
+              ['1. ', '2. ', '9) ', '- ', '> '].map(following => {
+                const context =
+                  opening + body.replaceAll('\n', `\n${continuation}`);
+                const separator = `\n${`${continuation}\n`.repeat(gap)}${continuation}`;
+                const content = `![?[${marker} A | B]][image]\n\n${context}${separator}${following}[image]: /x`;
+                const accepted: readonly string[] =
+                  gap === 0 ? adjacentImages : blankImages;
+                return {
+                  marker,
+                  bodyIndex,
+                  containerIndex,
+                  gap,
+                  following,
+                  content,
+                  expectedImage: accepted.includes(following),
+                };
+              }),
+            ),
+        ),
+    ),
+  )
+  .filter(
+    fixture =>
+      fixture.containerIndex === 0 ||
+      ([0, 1].includes(fixture.bodyIndex) &&
+        fixture.gap <= 1 &&
+        ['1. ', '2. ', '- '].includes(fixture.following)),
+  );
+const freshReferenceDefinitionCases = ['{{goal}}', '%{{goal}}'].flatMap(
+  marker =>
+    ['1. ', '2. ', '- ', '+ '].flatMap(following =>
+      (
+        [
+          [0, true],
+          [1, true],
+          [3, true],
+          [4, false],
+        ] as const
+      ).map(([indentation, expectedImage]) => ({
+        marker,
+        bodyIndex: 'fresh definition',
+        containerIndex: 'plain',
+        gap: 0,
+        following: `${indentation} spaces ${following}`,
+        expectedImage,
+        content: `![?[${marker} A | B]][image]\n\n${' '.repeat(indentation)}${following}[image]: /x`,
+      })),
+    ),
+);
+
 describe('installed MarkdownFlow named-answer bindings', () => {
   const originalStructuredClone = globalThis.structuredClone;
 
@@ -661,6 +755,41 @@ describe('installed MarkdownFlow named-answer bindings', () => {
         fireEvent.click(view.getByText(buttonText));
         expect(onSend).toHaveBeenCalledTimes(1);
         expect(onSend).toHaveBeenCalledWith({ variableName, buttonText });
+      }
+    },
+  );
+
+  it.each([...referenceParagraphCases, ...freshReferenceDefinitionCases])(
+    'uses the observed reference paragraph context for $marker: $bodyIndex ($containerIndex, $gap blanks, $following)',
+    ({ marker, content, expectedImage }) => {
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+      if (expectedImage) {
+        expect(view.getByAltText(`?[${marker} A | B]`)).toHaveAttribute(
+          'src',
+          '/x',
+        );
+      } else {
+        expect(view.container.querySelector('img')).toBeNull();
+      }
+      const answerButtons = view
+        .queryAllByRole('button')
+        .map(button => button.textContent)
+        .filter(text => text === 'A' || text === 'B');
+      expect(answerButtons).toEqual(expectedImage ? [] : ['A', 'B']);
+      expect(onSend).not.toHaveBeenCalled();
+      if (!expectedImage) {
+        fireEvent.click(view.getByRole('button', { name: 'B' }));
+        expect(onSend).toHaveBeenCalledTimes(1);
+        expect(onSend).toHaveBeenCalledWith({
+          variableName: 'goal',
+          buttonText: 'B',
+        });
       }
     },
   );
