@@ -1,8 +1,14 @@
-"""Forward queued events immediately and time heartbeats from the last chunk."""
+"""Forward queued events immediately and time heartbeats from the last chunk.
 
-import itertools
+The consumer's clock and queue are replaced so every timing state is set up
+explicitly: a queue read only times out while the producer is parked on a gate,
+and a timeout advances the fake clock by exactly the requested wait.
+"""
+
+import queue
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
 from flaskr.service.learn.host import run as host_run
@@ -11,8 +17,88 @@ from flaskr.service.learn.learn_dtos import GeneratedType, RunMarkdownFlowDTO
 from . import test_runscript_v2_lock as existing
 
 
+class FakeTime:
+    """Stand-in for the ``time`` module whose monotonic clock the test moves."""
+
+    def __init__(self) -> None:
+        """Start the monotonic clock at zero."""
+        self.now = 0.0
+        self.time = time.time
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        message = f"the consumer loop must not sleep ({seconds}s)"
+        raise AssertionError(message)
+
+
+class GatedProducer:
+    """Yields chunks, parking on a gate between them until the test opens it."""
+
+    def __init__(self, *texts: str) -> None:
+        """Create one gate between each pair of consecutive chunks."""
+        self.texts = texts
+        self.gates = [threading.Event() for _ in texts[1:]]
+        # Set only while every yielded chunk is queued and the producer waits.
+        self.parked = threading.Event()
+
+    def release(self, index: int) -> None:
+        self.parked.clear()
+        self.gates[index].set()
+
+    def __call__(self, **_kwargs: object) -> object:
+        for index, text in enumerate(self.texts):
+            if index:
+                # Code after a yield runs only once the host has queued that item.
+                self.parked.set()
+                assert self.gates[index - 1].wait(5)
+            yield RunMarkdownFlowDTO(
+                outline_bid="lesson",
+                generated_block_bid="block",
+                type=GeneratedType.CONTENT,
+                content=text,
+            )
+
+
+class ControlledQueue(queue.SimpleQueue):
+    """Queue whose blocking reads time out only while the producer is parked."""
+
+    def __init__(self, clock: FakeTime, producer: GatedProducer) -> None:
+        """Bind the fake clock and the producer whose parking state is checked."""
+        self.clock = clock
+        self.producer = producer
+        self.simulated_waits: list[float] = []
+        self.woken_waits: list[float] = []
+        self.on_wait = None
+        self.on_timeout = None
+
+    def get(self, block: bool = True, timeout: float | None = None) -> object:
+        try:
+            return super().get(block=False)
+        except queue.Empty:
+            if not block:
+                raise
+        if self.on_wait is not None:
+            on_wait, self.on_wait = self.on_wait, None
+            on_wait()
+        while True:
+            try:
+                item = super().get(timeout=0.01)
+            except queue.Empty:
+                if self.producer.parked.is_set() and self.empty():
+                    self.simulated_waits.append(timeout)
+                    self.clock.now += timeout
+                    if self.on_timeout is not None:
+                        self.on_timeout()
+                    raise
+                continue
+            self.woken_waits.append(timeout)
+            return item
+
+
 @pytest.fixture
-def stream_app(monkeypatch: pytest.MonkeyPatch) -> object:
+def harness(monkeypatch: pytest.MonkeyPatch) -> object:
     app = existing._make_test_app()
     lock = existing.FakeLock([True])
     monkeypatch.setattr(host_run, "cache_provider", existing.FakeCacheProvider(lock))
@@ -20,104 +106,89 @@ def stream_app(monkeypatch: pytest.MonkeyPatch) -> object:
         host_run, "ListenElementRunAdapter", existing.FakeListenElementAdapter
     )
     monkeypatch.setattr(host_run, "_teaches_with_agent", lambda **_kwargs: False)
-    return app
+    clock = FakeTime()
+    monkeypatch.setattr(host_run, "time", clock)
 
+    def start(producer: GatedProducer, heartbeat_interval: float) -> object:
+        app.config["SSE_HEARTBEAT_INTERVAL"] = heartbeat_interval
+        state = SimpleNamespace(clock=clock, queue=None)
 
-def _content(text: str) -> RunMarkdownFlowDTO:
-    return RunMarkdownFlowDTO(
-        outline_bid="lesson",
-        generated_block_bid="block",
-        type=GeneratedType.CONTENT,
-        content=text,
-    )
+        def make_queue() -> ControlledQueue:
+            state.queue = ControlledQueue(clock, producer)
+            return state.queue
 
-
-def _timed_events(stream: object) -> list[tuple[float, dict]]:
-    started = time.monotonic()
-    timed = []
-    for chunk in stream:
-        received_at = time.monotonic() - started
-        timed.extend(
-            (received_at, event) for event in existing._parse_sse_events([chunk])
+        monkeypatch.setattr(
+            host_run,
+            "queue",
+            SimpleNamespace(SimpleQueue=make_queue, Empty=queue.Empty),
         )
-    return timed
+        monkeypatch.setattr(host_run, "_lesson_events", producer)
+        state.stream = host_run.run_script(app, "course", "lesson", "learner")
+        return state
+
+    return start
 
 
-def test_events_are_forwarded_without_waiting_for_the_heartbeat_interval(
-    stream_app: object, monkeypatch: pytest.MonkeyPatch
+def _next_event(stream: object) -> dict:
+    return existing._parse_sse_events([next(stream)])[0]
+
+
+def _event_kinds(chunks: list) -> list[str]:
+    return [event["type"] for event in existing._parse_sse_events(chunks)]
+
+
+def test_event_wakes_the_waiting_consumer_without_a_heartbeat_sleep(
+    harness: object,
 ) -> None:
-    stream_app.config["SSE_HEARTBEAT_INTERVAL"] = 0.5
-    released = threading.Event()
+    producer = GatedProducer("first", "second")
+    run = harness(producer, heartbeat_interval=10)
 
-    def produce(**_kwargs: object) -> object:
-        yield _content("first")
-        # Let the consumer find the queue empty and start waiting first.
-        assert released.wait(2)
-        yield _content("second")
+    assert _next_event(run.stream)["type"] == "element"
+    # Open the gate only once the consumer is blocked on an empty queue.
+    run.queue.on_wait = lambda: producer.release(0)
 
-    monkeypatch.setattr(host_run, "_lesson_events", produce)
-    stream = host_run.run_script(stream_app, "course", "lesson", "learner")
-
-    first = existing._parse_sse_events([next(stream)])[0]
-    assert first["type"] == "element"
-    timer = threading.Timer(0.05, released.set)
-    timer.start()
-    started = time.monotonic()
-    second = existing._parse_sse_events([next(stream)])[0]
-    elapsed = time.monotonic() - started
-    timer.join()
-    rest = existing._parse_sse_events(list(stream))
-
-    assert second["type"] == "element"
-    # The old loop slept a whole heartbeat interval (0.5s) before re-reading.
-    assert elapsed < 0.3
-    assert [event["type"] for event in rest] == ["done"]
+    assert _next_event(run.stream)["type"] == "element"
+    assert run.queue.woken_waits == [10]
+    assert run.queue.simulated_waits == []
+    assert _event_kinds(list(run.stream)) == ["done"]
 
 
-def test_heartbeats_fire_only_after_an_idle_interval(
-    stream_app: object, monkeypatch: pytest.MonkeyPatch
+def test_heartbeat_deadline_restarts_after_each_chunk(harness: object) -> None:
+    producer = GatedProducer("first", "second", "third")
+    run = harness(producer, heartbeat_interval=10)
+
+    assert _next_event(run.stream)["type"] == "element"
+    run.clock.now = 4.0
+    # Sent at t=4, so the next heartbeat is due at t=14, not at t=10.
+    assert _next_event(run.stream)["type"] == "heartbeat"
+    assert run.queue.simulated_waits == [10.0]
+    assert run.clock.now == 14.0
+    assert _next_event(run.stream)["type"] == "heartbeat"
+    assert run.queue.simulated_waits == [10.0, 10.0]
+
+    producer.release(0)
+    assert _next_event(run.stream)["type"] == "element"
+    run.clock.now = 30.0
+    assert _next_event(run.stream)["type"] == "heartbeat"
+    assert run.queue.simulated_waits[-1] == 10.0
+
+    producer.release(1)
+    assert _event_kinds(list(run.stream)) == ["element", "done"]
+
+
+def test_disabled_heartbeat_waits_in_bounded_reads_without_heartbeats(
+    harness: object,
 ) -> None:
-    interval = 0.1
-    stream_app.config["SSE_HEARTBEAT_INTERVAL"] = interval
+    producer = GatedProducer("first", "second")
+    run = harness(producer, heartbeat_interval=0)
 
-    def produce(**_kwargs: object) -> object:
-        # Steady output faster than the interval never needs a heartbeat.
-        for index in range(5):
-            yield _content(f"chunk-{index}")
-            time.sleep(interval / 4)
-        # A quiet stretch of a few intervals is covered by heartbeats.
-        time.sleep(interval * 3.5)
-        yield _content("after-idle")
+    assert _next_event(run.stream)["type"] == "element"
+    waits = run.queue.simulated_waits
 
-    monkeypatch.setattr(host_run, "_lesson_events", produce)
-    timed = _timed_events(
-        host_run.run_script(stream_app, "course", "lesson", "learner")
-    )
-    types = [event["type"] for _, event in timed]
+    def release_after_three_waits() -> None:
+        if len(waits) == 3:
+            producer.release(0)
 
-    first_heartbeat = types.index("heartbeat")
-    assert types[:first_heartbeat] == ["element"] * 5
-    heartbeat_times = [at for at, event in timed if event["type"] == "heartbeat"]
-    assert 2 <= len(heartbeat_times) <= 4
-    last_chunk_at = timed[first_heartbeat - 1][0]
-    assert heartbeat_times[0] - last_chunk_at >= interval * 0.9
-    gaps = [later - earlier for earlier, later in itertools.pairwise(heartbeat_times)]
-    assert all(gap >= interval * 0.9 for gap in gaps)
-    assert types[-2:] == ["element", "done"]
-
-
-def test_disabled_heartbeat_still_streams_without_heartbeat_events(
-    stream_app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def produce(**_kwargs: object) -> object:
-        yield _content("first")
-        time.sleep(0.05)
-        yield _content("second")
-
-    monkeypatch.setattr(host_run, "_lesson_events", produce)
-    timed = _timed_events(
-        host_run.run_script(stream_app, "course", "lesson", "learner")
-    )
-
-    assert [event["type"] for _, event in timed] == ["element", "element", "done"]
-    assert timed[-1][0] < 0.5
+    run.queue.on_timeout = release_after_three_waits
+    assert _event_kinds(list(run.stream)) == ["element", "done"]
+    assert waits == [host_run.RUN_SCRIPT_IDLE_WAIT_SECONDS] * 3
