@@ -25,8 +25,9 @@ def extract_native_trade_payload(payload: dict[str, object]) -> dict[str, object
 def extract_native_paid_amount(provider: str, payload: dict[str, object]) -> int | None:
     """Return the paid amount in minor units, or None when the payload has none.
 
-    Alipay reports ``total_amount`` in yuan; WeChat Pay reports ``amount`` in fen
-    and prefers ``payer_total`` over ``total``.
+    Alipay reports ``total_amount`` in yuan. WeChat Pay reports ``amount`` in fen;
+    ``total`` is the order amount and ``payer_total`` excludes WeChat-funded
+    coupons, so ``total`` is what must match the merchant order.
     """
     trade_payload = extract_native_trade_payload(payload)
     if provider == "alipay":
@@ -38,7 +39,7 @@ def extract_native_paid_amount(provider: str, payload: dict[str, object]) -> int
         amount = trade_payload.get("amount", {})
         if not isinstance(amount, dict):
             return None
-        value = amount.get("payer_total", amount.get("total"))
+        value = amount.get("total", amount.get("payer_total"))
         if value in (None, ""):
             return None
         return int(value)

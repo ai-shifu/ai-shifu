@@ -1011,8 +1011,14 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
             "provider_amount_mismatch",
         ),
         (
+            # A WeChat-funded coupon lowers payer_total, not the order total.
             "wechatpay",
             {"trade_state": "SUCCESS", "amount": {"total": 9900, "payer_total": 9800}},
+            "",
+        ),
+        (
+            "wechatpay",
+            {"trade_state": "SUCCESS", "amount": {"total": 9800, "payer_total": 9800}},
             "provider_amount_mismatch",
         ),
         (
