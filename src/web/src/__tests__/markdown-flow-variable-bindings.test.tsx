@@ -97,36 +97,314 @@ const referenceLabelCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
 );
 
 const referenceLabelLengthCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
-  [999, 1000].flatMap(size => {
+  [
+    [999, true],
+    [1000, false],
+  ].flatMap(([size, expectedImage]) => {
+    const length = Number(size);
     const labels = [
-      ['ordinary characters', 'a'.repeat(size), 'a'.repeat(size)],
+      ['ordinary characters', 'a'.repeat(length)],
       ...[
         ['escaped punctuation', '\\:'],
         ['nonpunctuation escapes', '\\x'],
-      ].map(([name, pair]) => {
-        const label = pair.repeat(Math.floor(size / 2)) + 'a'.repeat(size % 2);
-        return [name, label, label];
-      }),
-      ...[
-        ['LF', '\n'],
-        ['CRLF', '\r\n'],
-        ['CR', '\r'],
-      ].map(([name, newline]) => [
-        `${name} after backslash`,
-        `${'a'.repeat(size - 502)}\\${newline}${'b'.repeat(500)}`,
-        `${'a'.repeat(size - 502)}\\ ${'b'.repeat(500)}`,
+      ].map(([name, pair]) => [
+        name,
+        pair.repeat(Math.floor(length / 2)) + 'a'.repeat(length % 2),
       ]),
     ];
-    return labels.map(([label, use, definition]) => ({
+    return labels.map(([label, value]) => ({
       marker,
-      label: `${label} at normalized source length ${size}`,
-      expectedImage: size === 999,
-      lineEnding: 'label boundary',
+      label: `${label} at single-line source length ${length}`,
+      expectedImage: Boolean(expectedImage),
+      lineEnding: 'single-line label boundary',
       container: 'plain',
       order: 'after',
-      content: `![?[${marker} A | B]][${use}]\n\n[${definition}]: /x`,
+      content: `![?[${marker} A | B]][${value}]\n\n[${value}]: /x`,
     }));
   }),
+);
+
+const referenceBudgetPrefix = '\\:'.repeat(498);
+const referenceBudgetSeeds = [
+  [
+    'multiline use SSS',
+    `${referenceBudgetPrefix}\nSSS`,
+    `${referenceBudgetPrefix} Sß`,
+  ],
+  [
+    'multiline use SSSS',
+    `${referenceBudgetPrefix}\nSSSS`,
+    `${referenceBudgetPrefix} ßß`,
+  ],
+  [
+    'multiline definition SSS',
+    `${referenceBudgetPrefix} Sß`,
+    `${referenceBudgetPrefix}\nSSS`,
+  ],
+  [
+    'multiline definition SSSS',
+    `${referenceBudgetPrefix} ßß`,
+    `${referenceBudgetPrefix}\nSSSS`,
+  ],
+  [
+    'both multiline SSS',
+    `${referenceBudgetPrefix}\nSSS`,
+    `${referenceBudgetPrefix}\nSSS`,
+  ],
+  [
+    'both multiline SSSS',
+    `${referenceBudgetPrefix}\nSSSS`,
+    `${referenceBudgetPrefix}\nSSSS`,
+  ],
+  [
+    'use continuation space',
+    `${referenceBudgetPrefix}\n SSS`,
+    `${referenceBudgetPrefix} Sß`,
+  ],
+  [
+    'definition continuation space',
+    `${referenceBudgetPrefix} Sß`,
+    `${referenceBudgetPrefix}\n SSS`,
+  ],
+  [
+    'use continuation tab',
+    `${referenceBudgetPrefix}\n\tSS`,
+    `${referenceBudgetPrefix} ß`,
+  ],
+  [
+    'definition continuation tab',
+    `${referenceBudgetPrefix} ß`,
+    `${referenceBudgetPrefix}\n\tSS`,
+  ],
+  [
+    'both multiple line endings',
+    `${referenceBudgetPrefix}\nS\nSS`,
+    `${referenceBudgetPrefix}\nS\nSS`,
+  ],
+  [
+    'blank line in use',
+    `${referenceBudgetPrefix}\n\nSSS`,
+    `${referenceBudgetPrefix} Sß`,
+  ],
+  [
+    'blank line in definition',
+    `${referenceBudgetPrefix} Sß`,
+    `${referenceBudgetPrefix}\n\nSSS`,
+  ],
+  ['leading newline in use', `\n${'a'.repeat(999)}`, 'a'.repeat(999)],
+  ['trailing newline in use', `${'a'.repeat(999)}\n`, 'a'.repeat(999)],
+  ['leading newline in definition', 'a'.repeat(999), `\n${'a'.repeat(999)}`],
+  ['trailing newline in definition', 'a'.repeat(999), `${'a'.repeat(999)}\n`],
+  ['leading space in use', ` ${'a'.repeat(999)}`, 'a'.repeat(999)],
+  ['trailing space in use', `${'a'.repeat(999)} `, 'a'.repeat(999)],
+  ['leading space in definition', 'a'.repeat(999), ` ${'a'.repeat(999)}`],
+  ['trailing space in definition', 'a'.repeat(999), `${'a'.repeat(999)} `],
+  ['astral 499', '😀'.repeat(499), '😀'.repeat(499)],
+  ['astral 499 plus ASCII', `${'😀'.repeat(499)}a`, `${'😀'.repeat(499)}a`],
+  ['astral 500', '😀'.repeat(500), '😀'.repeat(500)],
+];
+for (const length of [995, 996, 997, 998, 999]) {
+  const text = 'a'.repeat(length);
+  referenceBudgetSeeds.push([
+    `use trailing tab after ${length}`,
+    `${text}\t`,
+    text,
+  ]);
+  referenceBudgetSeeds.push([
+    `definition trailing tab after ${length}`,
+    text,
+    `${text}\t`,
+  ]);
+}
+
+// These outcomes come from the installed renderer, including column-sensitive tabs.
+const referenceBudgetImageOwners: Record<string, boolean | string[]> = {
+  'multiline use SSS': true,
+  'multiline use SSSS': false,
+  'multiline definition SSS': true,
+  'multiline definition SSSS': false,
+  'both multiline SSS': true,
+  'both multiline SSSS': false,
+  'use continuation space': false,
+  'definition continuation space': false,
+  'use continuation tab': false,
+  'definition continuation tab': false,
+  'both multiple line endings': true,
+  'blank line in use': false,
+  'blank line in definition': false,
+  'leading newline in use': true,
+  'trailing newline in use': true,
+  'leading newline in definition': true,
+  'trailing newline in definition': true,
+  'leading space in use': false,
+  'trailing space in use': false,
+  'leading space in definition': false,
+  'trailing space in definition': false,
+  'astral 499': true,
+  'astral 499 plus ASCII': true,
+  'astral 500': false,
+  'use trailing tab after 995': true,
+  'definition trailing tab after 995': true,
+  'use trailing tab after 996': [
+    '{{goal}}/plain',
+    '{{goal}}/quote',
+    '{{goal}}/list',
+    '%{{goal}}/plain',
+  ],
+  'definition trailing tab after 996': true,
+  'use trailing tab after 997': ['{{goal}}/plain', '%{{goal}}/plain'],
+  'definition trailing tab after 997': ['{{goal}}/plain', '%{{goal}}/plain'],
+  'use trailing tab after 998': ['{{goal}}/plain'],
+  'definition trailing tab after 998': ['{{goal}}/plain', '%{{goal}}/plain'],
+  'use trailing tab after 999': false,
+  'definition trailing tab after 999': false,
+};
+const referenceBudgetCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
+  referenceBudgetSeeds.flatMap(([label, use, definitionLabel]) =>
+    [
+      ['LF', '\n'],
+      ['CRLF', '\r\n'],
+      ['CR', '\r'],
+    ].flatMap(([lineEnding, newline]) =>
+      ['plain', 'quote', 'list'].flatMap(container =>
+        ['before', 'after'].map(order => {
+          const image = `![?[${marker} A | B]][${use}]`;
+          const definition = `[${definitionLabel}]: /x`;
+          const document =
+            order === 'before'
+              ? `${definition}\n\n${image}`
+              : `${image}\n\n${definition}`;
+          const content = document
+            .split('\n')
+            .map((line, index) =>
+              container === 'quote'
+                ? `> ${line}`
+                : container === 'list'
+                  ? `${index === 0 ? '- ' : '  '}${line}`
+                  : line,
+            )
+            .join(newline);
+          const observedOwners = referenceBudgetImageOwners[label];
+          const expectedImage =
+            typeof observedOwners === 'boolean'
+              ? observedOwners
+              : observedOwners.includes(`${marker}/${container}`);
+          return {
+            marker,
+            label,
+            lineEnding,
+            container,
+            order,
+            content,
+            expectedImage,
+          };
+        }),
+      ),
+    ),
+  ),
+);
+
+// Observed projection pairs include both zero-residue and partial-TAB prefixes.
+const tabProjectionFixtures = [
+  ['quote TAB', '> ', '> ', '>\t', '>', false],
+  ['quote space TAB', '> ', '> ', '> \t', '>', false],
+  ['dash space TAB', '- ', '  ', '\t', '', false],
+  ['dash TAB TAB', '-\t', '    ', '\t', '', true],
+  ['ordered space TAB', '1. ', '   ', '\t', '', false],
+  ['ordered TAB TAB', '1.\t', '    ', '\t', '', true],
+  ['nested quote TAB', '> > ', '> > ', '> >\t', '> >', true],
+  ['compact nested quote TAB', '>> ', '>> ', '>>\t', '>>', false],
+  ['nested dash space TAB', '- - ', '    ', '\t', '', true],
+  ['nested dash TAB double TAB', '-\t- ', '      ', '\t\t', '', false],
+  ['ordered nested dash double TAB', '1. - ', '     ', '\t\t', '', false],
+  ['quote dash TAB', '> - ', '>   ', '>\t', '>', true],
+  ['dash quote TAB', '- > ', '  > ', '\t>\t', '  >', false],
+  ['dash TAB quote TAB', '-\t> ', '    > ', '\t>\t', '    >', false],
+  ['quote nested dash double TAB', '> - - ', '>     ', '> \t\t', '>', false],
+] as const;
+const tabProjectionCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
+  tabProjectionFixtures.flatMap(
+    ([
+      label,
+      firstPrefix,
+      normalPrefix,
+      tabPrefix,
+      blankPrefix,
+      expectedImage,
+    ]) =>
+      ['text', 'closing'].flatMap(profile =>
+        ['use', 'definition', 'both'].flatMap(role =>
+          [
+            ['LF', '\n'],
+            ['CRLF', '\r\n'],
+            ['CR', '\r'],
+          ].map(([lineEnding, newline]) => {
+            const start =
+              profile === 'text' ? '\\:'.repeat(498) : 'a'.repeat(999);
+            const tail = profile === 'text' ? 'SSS' : '';
+            const single = profile === 'text' ? `${start} Sß` : start;
+            const image =
+              role === 'use' || role === 'both'
+                ? [
+                    { kind: 'normal', value: `![?[${marker} A | B]][${start}` },
+                    { kind: 'label', value: `${tail}]` },
+                  ]
+                : [
+                    {
+                      kind: 'normal',
+                      value: `![?[${marker} A | B]][${single}]`,
+                    },
+                  ];
+            const definition =
+              role === 'definition' || role === 'both'
+                ? [
+                    { kind: 'normal', value: `[${start}` },
+                    { kind: 'label', value: `${tail}]: /x` },
+                  ]
+                : [{ kind: 'normal', value: `[${single}]: /x` }];
+            const rows = [
+              ...image,
+              { kind: 'blank', value: '' },
+              ...definition,
+            ];
+            const content = rows
+              .map(
+                (row, index) =>
+                  (index === 0
+                    ? firstPrefix
+                    : row.kind === 'blank'
+                      ? blankPrefix
+                      : row.kind === 'label'
+                        ? tabPrefix
+                        : normalPrefix) + row.value,
+              )
+              .join(newline);
+            return {
+              marker,
+              label,
+              profile,
+              role,
+              lineEnding,
+              content,
+              expectedImage,
+            };
+          }),
+        ),
+      ),
+  ),
+);
+const exactContinuationIndentCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
+  [
+    ['LF', '\n'],
+    ['CRLF', '\r\n'],
+    ['CR', '\r'],
+  ].flatMap(([lineEnding, newline]) =>
+    ([1, 4] as const).map(indentation => {
+      const first = 'a'.repeat(993);
+      const content = `![?[${marker} A | B]][${first} image]${newline}${newline}[${first}${newline}${' '.repeat(indentation)}image]: /x`;
+      return { marker, lineEnding, indentation, content };
+    }),
+  ),
 );
 
 describe('installed MarkdownFlow named-answer bindings', () => {
@@ -282,6 +560,102 @@ describe('installed MarkdownFlow named-answer bindings', () => {
     },
   );
 
+  it.each(referenceBudgetCases)(
+    'matches the observed reference budget for $marker: $label ($lineEnding, $container, definition $order)',
+    ({ marker, content, expectedImage }) => {
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+      expect(onSend).not.toHaveBeenCalled();
+      if (expectedImage) {
+        expect(view.getByAltText(`?[${marker} A | B]`)).toHaveAttribute(
+          'src',
+          '/x',
+        );
+        expect(view.queryAllByRole('button')).toEqual([]);
+      } else {
+        expect(view.container.querySelector('img')).toBeNull();
+        expect(
+          view.getAllByRole('button').map(button => button.textContent),
+        ).toEqual(['A', 'B']);
+        fireEvent.click(view.getByText('B'));
+        expect(onSend).toHaveBeenCalledTimes(1);
+        expect(onSend).toHaveBeenCalledWith({
+          variableName: 'goal',
+          buttonText: 'B',
+        });
+      }
+    },
+  );
+
+  it.each(tabProjectionCases)(
+    'preserves projected TAB padding for $marker: $label ($profile, $role, $lineEnding)',
+    ({ marker, content, expectedImage }) => {
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+      expect(onSend).not.toHaveBeenCalled();
+      if (expectedImage) {
+        expect(view.getByAltText(`?[${marker} A | B]`)).toHaveAttribute(
+          'src',
+          '/x',
+        );
+        expect(view.queryAllByRole('button')).toEqual([]);
+      } else {
+        expect(view.container.querySelector('img')).toBeNull();
+        expect(
+          view.getAllByRole('button').map(button => button.textContent),
+        ).toEqual(['A', 'B']);
+        fireEvent.click(view.getByText('B'));
+        expect(onSend).toHaveBeenCalledTimes(1);
+        expect(onSend).toHaveBeenCalledWith({
+          variableName: 'goal',
+          buttonText: 'B',
+        });
+      }
+    },
+  );
+
+  it.each(exactContinuationIndentCases)(
+    'preserves the observed definition indentation for $marker ($indentation spaces, $lineEnding)',
+    ({ marker, content, indentation }) => {
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+      expect(onSend).not.toHaveBeenCalled();
+      if (indentation === 1) {
+        expect(view.getByAltText(`?[${marker} A | B]`)).toHaveAttribute(
+          'src',
+          '/x',
+        );
+        expect(view.queryAllByRole('button')).toEqual([]);
+      } else {
+        expect(view.container.querySelector('img')).toBeNull();
+        expect(
+          view.getAllByRole('button').map(button => button.textContent),
+        ).toEqual(['A', 'B']);
+        fireEvent.click(view.getByText('B'));
+        expect(onSend).toHaveBeenCalledTimes(1);
+        expect(onSend).toHaveBeenCalledWith({
+          variableName: 'goal',
+          buttonText: 'B',
+        });
+      }
+    },
+  );
+
   it.each(['{{goal}}', '%{{goal}}'])(
     'keeps %s visible when an overlong label case-folds to a valid definition',
     marker => {
@@ -307,6 +681,32 @@ describe('installed MarkdownFlow named-answer bindings', () => {
         variableName: 'goal',
         buttonText: 'B',
       });
+    },
+  );
+
+  it.each(['{{goal}}', '%{{goal}}'])(
+    'preserves the visible %s question before an HTML sandbox',
+    marker => {
+      // The host splits sandbox HTML before resolving Markdown references.
+      const { renderToStaticMarkup } = jest.requireActual(
+        'react-dom/server.node',
+      ) as typeof import('react-dom/server');
+      const onSend = jest.fn();
+      const view = document.createElement('div');
+      view.innerHTML = renderToStaticMarkup(
+        <ContentRender
+          content={`![?[${marker} A | B]][image]\n\n> <div>\n[image]: /x`}
+          onSend={onSend}
+        />,
+      );
+      expect(view.querySelector('img')).toBeNull();
+      expect(view.querySelector('iframe')).not.toBeNull();
+      expect(
+        Array.from(view.querySelectorAll('button')).map(
+          button => button.textContent,
+        ),
+      ).toEqual(['A', 'B']);
+      expect(onSend).not.toHaveBeenCalled();
     },
   );
 

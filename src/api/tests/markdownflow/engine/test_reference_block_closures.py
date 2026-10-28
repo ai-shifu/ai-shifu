@@ -125,7 +125,7 @@ def test_reference_closure_lookahead_has_bounded_work(
 
     def counted(
         self: DocumentBlocks, index: int, steps: tuple[int, ...]
-    ) -> tuple[int, str, bool]:
+    ) -> tuple[int, str, bool, int]:
         nonlocal calls
         calls += 1
         return original(self, index, steps)

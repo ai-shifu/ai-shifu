@@ -336,8 +336,9 @@ def _image_reference_label(
     while at < limit and size <= 999:
         index = blocks.by_start.get(at)
         if index is not None and at > start:
+            size += blocks.virtual_padding[index]
             at = blocks.content_starts[index]
-        if at >= limit:
+        if at >= limit or size > 999:
             return None
         character = text[at]
         if character == "]":
@@ -352,10 +353,10 @@ def _image_reference_label(
         if character in "\r\n":
             parts.append("\n")
             at = blocks.line_at(at).end
-        else:
-            parts.append(character)
-            at += 1
-        size += 1
+            continue
+        parts.append(character)
+        size += blocks.label_character_size(at)
+        at += 1
     return None
 
 

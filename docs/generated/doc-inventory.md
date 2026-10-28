@@ -140,6 +140,7 @@
 | `docs/exec-plans/completed/harness-health-local-report.md` | Keep harness health reports out of pull request conflicts | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/hide-sys-user-style-from-authoring-ui.md` | Hide `sys_user_style` From Course Authoring UI | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/idempotent-payment-sync.md` | Keep common payment synchronization idempotent | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/interaction-image-reference-conformance.md` | Match rendered reference-label budgets and triage HTML ownership | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
 | `docs/exec-plans/completed/interaction-image-url-classification.md` | Preserve image labels when the renderer filters their URL | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
 | `docs/exec-plans/completed/interaction-reference-label-newlines.md` | Preserve backslashes before reference-label line endings | `exec-plan-completed` | `completed` | `backend` | `2026-10-28` | `false` |
 | `docs/exec-plans/completed/interaction-ui-parser-consumption.md` | Consume the compatible interaction parser in rendered UI | `exec-plan-completed` | `completed` | `frontend` | `2026-10-28` | `false` |

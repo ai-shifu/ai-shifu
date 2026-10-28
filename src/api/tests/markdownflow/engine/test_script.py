@@ -377,15 +377,24 @@ def test_multiline_reference_continuations_match_native_rendering(
     assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
 
 
-def test_continuation_indentation_does_not_spend_the_reference_label_limit() -> None:
-    """Native continuation indentation is outside the bounded reference label."""
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+@pytest.mark.parametrize(("padding", "image"), [(" ", True), ("    ", False)])
+def test_continuation_indentation_spends_the_reference_label_budget(
+    padding: str, image: bool, spelling: str, newline: str
+) -> None:
+    """Actual ContentRender keeps one padding space but rejects the four-space case."""
     first = "a" * 993
     label = first + " image"
-    source = "![?[{{goal}} A | B]][" + label + "]\n\n[" + first + "\n    image]: /x"
+    source = (
+        f"![?[{spelling} A | B]][{label}]\n\n[{first}\n{padding}image]: /x"
+    ).replace("\n", newline)
     assert len(label) == 999
-    assert "<img " in MarkdownIt().render(source)
-    assert collected_names(source) == frozenset()
-    assert script_options(source) == {}
+    expected_names = (
+        frozenset({"goal"}) if spelling.startswith("%") or not image else frozenset()
+    )
+    assert collected_names(source) == expected_names
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
 
 
 @pytest.mark.parametrize("multiline", [False, True])

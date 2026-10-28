@@ -54,8 +54,9 @@ declarations retain their existing declaration semantics.
 Reference labels may span physical lines: a backslash before a label's line
 ending remains literal while the line ending participates in label matching.
 This does not permit physical line endings inside image destinations.
-The 999-character label limit counts both characters of a preserved escape;
-CRLF contributes one normalized line ending.
+The renderer's reference-label budget counts UTF-16 units, both characters of
+a preserved escape and tabs expanded at their original source-column stops.
+Physical line endings are excluded from that budget.
 
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key

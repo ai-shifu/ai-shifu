@@ -35,24 +35,3 @@ def test_casefold_equivalence_does_not_bypass_the_public_label_bound(
         assert "current" not in prompt
     elif not spelling.startswith("%"):
         assert '"current"' in prompt
-
-
-@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
-@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
-@pytest.mark.parametrize("oversized", [False, True])
-def test_escaped_label_bounds_count_a_physical_crlf_as_one_character(
-    oversized: bool, spelling: str, newline: str
-) -> None:
-    """Physical line-ending normalization cannot change the label character budget."""
-    prefix = r"\:" * 498
-    label = prefix + newline + ("SSS" if oversized else "SS")
-    definition = prefix + " " + ("Sß" if oversized else "SS")
-    assert len(label.replace("\r\n", "\n")) == (1000 if oversized else 999)
-    assert len(definition) == 999
-    assert normalizeReference(label) == normalizeReference(definition)
-    source = f"![?[{spelling} A | B]][{label}]\n\n[{definition}]: /x"
-    expected_names = (
-        frozenset({"goal"}) if oversized or spelling.startswith("%") else frozenset()
-    )
-    assert collected_names(source) == expected_names
-    assert script_options(source) == ({"A": "A", "B": "B"} if oversized else {})
