@@ -5,6 +5,10 @@ from bisect import bisect_right
 from collections.abc import Callable
 from dataclasses import dataclass
 from re import Pattern
+from string import punctuation
+
+from markdown_it.common.normalize_url import normalizeLink, validateLink
+from markdown_it.common.utils import unescapeAll
 
 COMPILED_PHYSICAL_LINE_END_REGEX = re.compile(r"\r\n|\r|\n")
 COMPILED_CONTAINER_LIST_REGEX = re.compile(r"(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t]|$)")
@@ -15,13 +19,16 @@ COMPILED_DOCUMENT_TAG_REGEX = re.compile(
 
 
 COMPILED_REFERENCE_PREFIX_REGEX = re.compile(
-    r" {0,3}\[((?:\\[^\r\n]|[^\]\\\r\n])+)]\:[ \t]*"
+    r" {0,3}\[((?:\\[^\r\n]|[^\[\]\\\r\n])+)]\:[ \t]*"
 )
 COMPILED_ATX_START_REGEX = re.compile(r" {0,3}#{1,6}(?=[ \t]|$)")
 COMPILED_DOCUMENT_BREAK_REGEX = re.compile(
     r" {0,3}(?:(?:\*[ \t]*){3,}|(?:_[ \t]*){3,}|(?:-[ \t]*){3,})$"
 )
 COMPILED_SETEXT_REGEX = re.compile(r" {0,3}(?:=+|-+)[ \t]*$")
+COMPILED_REFERENCE_HTML_BREAK_REGEX = re.compile(
+    r" {0,3}(?:<!--|<\?|<!\[CDATA\[|<![A-Z])"
+)
 
 HTML_BLOCK_TAGS = frozenset(
     [
@@ -377,6 +384,22 @@ def container_content_start(
     return content[0] if content is not None else None
 
 
+def container_ancestor_info(
+    line: str, steps: tuple[int, ...]
+) -> tuple[int, int, tuple[int, ...]]:
+    """Recover the longest matching ancestor after a full prefix failed."""
+    matched, unmatched = 0, len(steps)
+    info = (0, 0)
+    while matched + 1 < unmatched:
+        depth = (matched + unmatched) // 2
+        candidate = container_content_info(line, steps[:depth])
+        if candidate is None:
+            unmatched = depth
+        else:
+            matched, info = depth, candidate
+    return info[0], info[1], steps[:matched]
+
+
 def fence_opening(
     line: str, *, column: int = 0, virtual: int = 0
 ) -> tuple[str, int, tuple[int, ...]] | None:
@@ -432,6 +455,7 @@ class DocumentBlocks:
         self.virtual_padding = [0 for _ in self.lines]
         self.starts = [line.start for line in self.lines]
         self.by_start = {line.start: index for index, line in enumerate(self.lines)}
+        self.container_paragraphs: set[int] = set()
         self.container_paragraphs = self._container_paragraphs()
         self._container_ends.clear()
 
@@ -834,25 +858,15 @@ class DocumentBlocks:
                     continue
             if character in "\r\n":
                 index += 1
-                if index >= len(self.lines) or self.blank(index):
+                if index >= len(self.lines):
                     return None
                 line = self.lines[index]
-                value = self.projected_line(index)
-                if (
-                    self.paragraph_interrupts(index)
-                    or self.inline_block_interrupts(index)
-                    or fence_opening(value) is not None
-                    or COMPILED_ATX_START_REGEX.match(value) is not None
-                ):
+                content, value, interrupt = self.reference_projection(index, steps)
+                if not value.strip(" \t"):
                     return None
-                content = container_content_start(
-                    self.text[line.start : line.content_end], steps
-                )
-                at = (
-                    line.start + content
-                    if content is not None
-                    else self.content_starts[index]
-                )
+                if interrupt or self.reference_block_interrupts(value):
+                    return None
+                at = content
                 while at < line.content_end and self.text[at] in " \t":
                     at += 1
                 label_parts.append("\n")
@@ -863,6 +877,25 @@ class DocumentBlocks:
             at += 1
         return None
 
+    def reference_projection(
+        self, index: int, steps: tuple[int, ...]
+    ) -> tuple[int, str, bool]:
+        """Project reference lookahead independently of future paragraph indexing."""
+        line = self.lines[index]
+        value = self.text[line.start : line.content_end]
+        info = container_content_info(value, steps)
+        if info is None:
+            content, virtual, _ = container_ancestor_info(value, steps)
+        else:
+            content, virtual = info
+        remaining = value[content:]
+        _, opening, _ = container_opening_info(
+            remaining, column=column_at(value, content), virtual=virtual
+        )
+        interrupt = bool(opening)
+        at, width = indentation(value, content, virtual)
+        return line.start + content, " " * min(width, 4) + value[at:], interrupt
+
     def reference_space(self, start: int, origin: int) -> int | None:
         """Skip reference padding through matching container continuation prefixes."""
         steps = self.container_steps[self.by_start[self.line_at(origin).start]]
@@ -870,34 +903,45 @@ class DocumentBlocks:
         while at < len(self.text):
             index = self.by_start.get(at)
             if index is not None and at > origin:
-                line = self.lines[index]
-                content = container_content_start(
-                    self.text[at : line.content_end], steps
-                )
-                if self.blank(index):
+                content, value, interrupt = self.reference_projection(index, steps)
+                if not value.strip(" \t"):
                     return None
-                if content is None:
-                    value = self.projected_line(index)
-                    if (
-                        self.paragraph_interrupts(index)
-                        or self.inline_block_interrupts(index)
-                        or fence_opening(value) is not None
-                        or COMPILED_ATX_START_REGEX.match(value) is not None
-                    ):
-                        return None
-                    # Lazy continuation may still carry a matching outer quote.
-                    content = self.content_starts[index] - at
-                at += content
+                if interrupt or self.reference_block_interrupts(value):
+                    return None
+                at = content
             if at >= len(self.text) or self.text[at] not in " \t\r\n":
                 break
             at += 1
         return at
 
-    def reference_has_blank(self, start: int, end: int) -> bool:
+    def reference_has_blank(
+        self, start: int, end: int, *, origin: int | None = None
+    ) -> bool:
         """Test only whole intervening physical lines after container projection."""
         first = self.by_start[self.line_at(start).start]
         last = self.by_start[self.line_at(end).start]
-        return any(self.blank(index) for index in range(first + 1, last))
+        origin_line = self.line_at(start if origin is None else origin)
+        steps = self.container_steps[self.by_start[origin_line.start]]
+        return any(
+            not self.reference_projection(index, steps)[1].strip(" \t")
+            for index in range(first + 1, last)
+        )
+
+    @staticmethod
+    def reference_block_interrupts(value: str) -> bool:
+        """Recognize native non-container interruptions during reference lookahead."""
+        tag = COMPILED_DOCUMENT_TAG_REGEX.match(value)
+        return (
+            COMPILED_DOCUMENT_BREAK_REGEX.fullmatch(value) is not None
+            or COMPILED_REFERENCE_HTML_BREAK_REGEX.match(value) is not None
+            or (
+                tag is not None
+                and tag.group(1).lower()
+                in HTML_BLOCK_TAGS | {"script", "style", "pre", "textarea"}
+            )
+            or fence_opening(value) is not None
+            or COMPILED_ATX_START_REGEX.match(value) is not None
+        )
 
     def interaction_limit(
         self, start: int, marker_end: Callable[[int], int | None], *, final: bool = True
@@ -939,7 +983,7 @@ class DocumentBlocks:
 
     def _container_paragraphs(self) -> set[int]:
         """Keep same-container and lazy continuation lines in one paragraph."""
-        boundaries: set[int] = set()
+        boundaries = self.container_paragraphs
         active: tuple[int, ...] = ()
         paragraph = False
         empty_list_base: tuple[int, ...] | None = None
@@ -980,16 +1024,8 @@ class DocumentBlocks:
             if info is None:
                 # A sibling item can start at any matched ancestor. Plain text
                 # instead continues lazily without restarting that paragraph.
-                matched, unmatched = 0, len(active)
-                info = (0, 0)
-                while matched + 1 < unmatched:
-                    depth = (matched + unmatched) // 2
-                    candidate = container_content_info(value, active[:depth])
-                    if candidate is None:
-                        unmatched = depth
-                    else:
-                        matched, info = depth, candidate
-                base = active[:matched]
+                offset, padding, base = container_ancestor_info(value, active)
+                info = offset, padding
                 exited = base != active
                 if not paragraph:
                     active = base
@@ -1059,6 +1095,18 @@ class DocumentBlocks:
                 literal_steps = self.container_steps[index]
                 paragraph = False
                 active = literal_steps
+                continue
+            reference = self.reference_label_prefix(line.start)
+            if reference is not None:
+                end = read_reference_resource_end(
+                    self.text, reference[0], self, origin=line.start
+                )
+                if end is not None:
+                    self.closed_reference_lines.add(self.line_at(end).start)
+                    literal_end = end
+                    literal_steps = self.container_steps[index]
+                    paragraph = False
+                    active = literal_steps
         return boundaries
 
     @staticmethod
@@ -1088,3 +1136,97 @@ class DocumentBlocks:
             or COMPILED_SETEXT_REGEX.fullmatch(value) is not None
             or (tag is not None and tag.group(1).lower() in HTML_BLOCK_TAGS)
         )
+
+
+def read_reference_resource_end(
+    text: str, start: int, blocks: DocumentBlocks, *, origin: int | None = None
+) -> int | None:
+    """Read a complete definition resource without claiming an unfinished title."""
+    origin = start if origin is None else origin
+    at = blocks.reference_space(start, origin)
+    if at is None or at >= len(text):
+        return None
+    destination_start = at
+    if text[at] == "<":
+        at += 1
+        while at < len(text):
+            if text[at] == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
+                at += 2
+            elif text[at] == ">":
+                at += 1
+                break
+            elif text[at] in "<\r\n":
+                return None
+            else:
+                at += 1
+        else:
+            return None
+    else:
+        depth = 0
+        while at < len(text) and text[at] not in " \t\r\n":
+            character = text[at]
+            if character == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
+                at += 2
+                continue
+            if character == "(":
+                depth += 1
+                if depth > 32:
+                    return None
+            elif character == ")":
+                depth -= 1
+                if depth < 0:
+                    return None
+            elif ord(character) < 32 or character == "\x7f":
+                return None
+            at += 1
+        if depth:
+            return None
+    if at == destination_start:
+        return None
+    destination_end = at
+    destination = text[destination_start:destination_end]
+    if destination.startswith("<"):
+        destination = destination[1:-1]
+    if not validateLink(normalizeLink(unescapeAll(destination))):
+        return None
+    destination_line = blocks.line_at(destination_end)
+    fallback = (
+        destination_line.content_end
+        if not text[destination_end : destination_line.content_end].strip(" \t")
+        else None
+    )
+    at = blocks.reference_space(at, origin)
+    if at is None or at >= len(text) or text[at] not in "\"'(":
+        return fallback
+    title_next_line = at > destination_line.content_end
+    if at == destination_end:
+        return None
+    closing = ")" if text[at] == "(" else text[at]
+    at += 1
+    title_start = at
+    while at < len(text):
+        index = blocks.by_start.get(at)
+        if index is not None:
+            steps = blocks.container_steps[
+                blocks.by_start[blocks.line_at(origin).start]
+            ]
+            content, value, interrupt = blocks.reference_projection(index, steps)
+            if (
+                not value.strip(" \t")
+                or interrupt
+                or blocks.reference_block_interrupts(value)
+            ):
+                return fallback if title_next_line else None
+            at = content
+        if text[at] == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
+            at += 2
+        elif text[at] == closing:
+            line_end = blocks.line_at(at).content_end
+            if blocks.reference_has_blank(title_start, at, origin=origin) or text[
+                at + 1 : line_end
+            ].strip(" \t"):
+                return fallback if title_next_line else None
+            return line_end
+        else:
+            at += 1
+    return fallback if title_next_line else None

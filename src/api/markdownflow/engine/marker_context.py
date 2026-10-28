@@ -11,12 +11,16 @@ from markdown_it.common.html_re import HTML_TAG_RE
 from markdown_it.common.utils import normalizeReference
 
 from .document_blocks import (
+    COMPILED_REFERENCE_HTML_BREAK_REGEX as _RESOURCE_HTML_BREAK,
+)
+from .document_blocks import (
     DocumentBlocks,
     container_content_info,
     container_content_start,
     fence_opening,
     indentation,
     read_angle_autolink,
+    read_reference_resource_end,
 )
 from .variable_names import normalize_variable_name, read_variable_marker
 
@@ -28,7 +32,6 @@ _BLANK_LINE = re.compile(
 )
 _ATX_START = re.compile(r"^ {0,3}#{1,6}(?=[ \t\r\n]|$)", re.MULTILINE)
 _SETEXT_EQUALS = re.compile(r" {0,3}=+[ \t]*$")
-_RESOURCE_HTML_BREAK = re.compile(r" {0,3}(?:<!--|<\?|<!\[CDATA\[|<![A-Z])")
 # Inline code belongs to one paragraph and cannot absorb a later fenced block.
 _INLINE_CODE_BREAK = re.compile(
     r"^[ \t]*\r?$|^[ ]{0,3}(?:`{3,}[^`\r\n]*|~{3,}[^\r\n]*)\r?$", re.MULTILINE
@@ -344,77 +347,11 @@ def _legacy_plain_fence(
     return len(text), None
 
 
-def _reference_end(text: str, start: int, blocks: DocumentBlocks) -> int | None:
-    """Read a complete definition resource without claiming an unfinished title."""
-    at = blocks.reference_space(start, start)
-    if at is None or at >= len(text):
-        return None
-    destination_start = at
-    if text[at] == "<":
-        at += 1
-        while at < len(text):
-            if text[at] == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
-                at += 2
-            elif text[at] == ">":
-                at += 1
-                break
-            elif text[at] in "<\r\n":
-                return None
-            else:
-                at += 1
-        else:
-            return None
-    else:
-        depth = 0
-        while at < len(text) and text[at] not in " \t\r\n":
-            character = text[at]
-            if character == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
-                at += 2
-                continue
-            if character == "(":
-                depth += 1
-                if depth > 32:
-                    return None
-            elif character == ")":
-                depth -= 1
-                if depth < 0:
-                    return None
-            elif ord(character) < 32 or character == "\x7f":
-                return None
-            at += 1
-        if depth:
-            return None
-    if at == destination_start:
-        return None
-    destination_end = at
-    destination_line = blocks.line_at(destination_end)
-    fallback = (
-        destination_line.content_end
-        if not text[destination_end : destination_line.content_end].strip(" \t")
-        else None
-    )
-    at = blocks.reference_space(at, start)
-    if at is None or at >= len(text) or text[at] not in "\"'(":
-        return fallback
-    title_next_line = at > destination_line.content_end
-    if at == destination_end:
-        return None
-    closing = ")" if text[at] == "(" else text[at]
-    at += 1
-    title_start = at
-    while at < len(text):
-        if text[at] == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
-            at += 2
-        elif text[at] == closing:
-            line_end = blocks.line_at(at).content_end
-            if blocks.reference_has_blank(title_start, at) or text[
-                at + 1 : line_end
-            ].strip(" \t"):
-                return fallback if title_next_line else None
-            return line_end
-        else:
-            at += 1
-    return fallback if title_next_line else None
+def _reference_end(
+    text: str, start: int, blocks: DocumentBlocks, *, origin: int | None = None
+) -> int | None:
+    """Share the resource grammar with document block projection."""
+    return read_reference_resource_end(text, start, blocks, origin=origin)
 
 
 def _inline_closers(
@@ -569,7 +506,7 @@ def analyze_marker_context(
         reference_prefix = blocks.reference_label_prefix(at)
         if reference_prefix is not None:
             reference_start, reference_label = reference_prefix
-            reference_end = _reference_end(text, reference_start, blocks)
+            reference_end = _reference_end(text, reference_start, blocks, origin=at)
             if not final and not blocks.reference_has_blank(reference_start, len(text)):
                 context.pending_reference_start = at
                 context.pending_reference_body_start = reference_start
