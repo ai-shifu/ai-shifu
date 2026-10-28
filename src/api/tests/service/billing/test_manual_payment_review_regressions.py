@@ -268,6 +268,9 @@ def test_saved_native_credential_is_reconciled_before_reuse(
                     "out_trade_no": "old-attempt",
                     "trade_status": alipay_state,
                     "trade_state": wechat_state,
+                    # Matches the 990 payable amount of _create_manual_order.
+                    "total_amount": "9.90",
+                    "amount": {"total": 990},
                 }
             },
         )

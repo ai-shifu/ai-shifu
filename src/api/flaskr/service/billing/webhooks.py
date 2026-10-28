@@ -11,6 +11,7 @@ from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_CANCELED,
     NATIVE_PAYMENT_STATE_FAILED,
     NATIVE_PAYMENT_STATE_PAID,
+    extract_native_paid_amount,
     extract_native_trade_payload,
     extract_native_trade_status,
     resolve_native_payment_state,
@@ -544,7 +545,9 @@ def apply_billing_native_notification(
                 status_code=202,
             )
 
-        actual_amount = _extract_native_amount(normalized_provider, provider_payload)
+        actual_amount = extract_native_paid_amount(
+            normalized_provider, provider_payload
+        )
         if (
             actual_amount is not None
             and int(order.payable_amount or 0) != actual_amount
@@ -623,29 +626,3 @@ def _native_raw_snapshot_status(
     if status == BILLING_ORDER_STATUS_REFUNDED:
         return 2
     return 0
-
-
-def _extract_native_amount(provider: str, payload: dict[str, object]) -> int | None:
-    trade_payload = extract_native_trade_payload(payload)
-    if provider == "alipay":
-        value = (
-            trade_payload.get("total_amount")
-            if isinstance(trade_payload, dict)
-            else None
-        )
-        if value in (None, ""):
-            return None
-        from decimal import Decimal
-
-        return int((Decimal(str(value)) * 100).to_integral_value())
-    if provider == "wechatpay":
-        amount = (
-            trade_payload.get("amount", {}) if isinstance(trade_payload, dict) else {}
-        )
-        if not isinstance(amount, dict):
-            return None
-        value = amount.get("payer_total", amount.get("total"))
-        if value in (None, ""):
-            return None
-        return int(value)
-    return None

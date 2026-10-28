@@ -21,6 +21,7 @@ from flaskr.service.common.native_payment_status import (
     NATIVE_PAYMENT_STATE_CANCELED,
     NATIVE_PAYMENT_STATE_FAILED,
     NATIVE_PAYMENT_STATE_PAID,
+    extract_native_paid_amount,
     extract_native_trade_payload,
     extract_native_trade_status,
     is_native_payment_payable,
@@ -3356,6 +3357,22 @@ def _sync_native_order(
         trade_payload,
     )
     raw_status = extract_native_trade_status(provider_name, trade_payload)
+    failure_code = ""
+    failure_message = ""
+    if target_status == BILLING_ORDER_STATUS_PAID:
+        # Same contract as the Stripe sync: a paid trade only completes the
+        # order when the provider reports exactly the payable amount.
+        paid_amount = extract_native_paid_amount(
+            provider_name, sync_result.provider_payload or {}
+        )
+        if paid_amount is None:
+            target_status = BILLING_ORDER_STATUS_FAILED
+            failure_code = "provider_amount_missing"
+            failure_message = "Native payment paid amount is missing"
+        elif paid_amount != int(order.payable_amount or 0):
+            target_status = BILLING_ORDER_STATUS_FAILED
+            failure_code = "provider_amount_mismatch"
+            failure_message = "Native payment paid amount does not match billing order"
 
     order_update = _apply_billing_order_provider_update(
         order,
@@ -3367,6 +3384,8 @@ def _sync_native_order(
             trade_payload.get("out_trade_no") or order.provider_reference_id
         ),
         target_status=target_status,
+        failure_code=failure_code,
+        failure_message=failure_message,
     )
     _persist_billing_native_raw_snapshot(
         order,

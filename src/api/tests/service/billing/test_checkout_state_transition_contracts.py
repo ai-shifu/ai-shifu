@@ -336,6 +336,11 @@ def test_native_sync_persists_provider_evidence_and_expires_uncreated_orders(
             if provider_name == "alipay"
             else "transaction_id": "transaction-test",
         }
+        # Trade queries report the paid amount; it must match payable_amount.
+        if provider_name == "alipay":
+            payload["total_amount"] = "10.00"
+        else:
+            payload["amount"] = {"total": order.payable_amount}
         provider = Mock(
             sync_reference=Mock(
                 return_value=PaymentNotificationResult(
