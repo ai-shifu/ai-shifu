@@ -1,4 +1,6 @@
-"""Image eligibility uses the renderer's URL policy without changing literals."""
+"""Image syntax owns its alt text before the browser cleans the destination URL."""
+
+from unittest.mock import patch
 
 import pytest
 from markdown_it import MarkdownIt
@@ -48,7 +50,7 @@ from markdownflow.engine.tools import script_options
         "urn:asset:image",
     ],
 )
-def test_only_renderer_eligible_inline_images_hide_alt_controls(
+def test_inline_image_syntax_hides_alt_controls_before_url_cleanup(
     destination: str,
     opening: str,
     continuation: str,
@@ -56,12 +58,15 @@ def test_only_renderer_eligible_inline_images_hide_alt_controls(
     spelling: str,
     newline: str,
 ) -> None:
-    """Escape/entity normalization and allowed data images match rendering."""
+    """Cleaning an image URL must not turn its alt text into learner controls."""
     resource = f"<{destination}>" if angle else destination
     source = (
         f"{opening}![?[{spelling} A | B]](\n{continuation}{resource}\n{continuation})"
     ).replace("\n", newline)
-    image = "<img " in MarkdownIt().render(source)
+    renderer = MarkdownIt()
+    # Browser Markdown creates image nodes before ReactMarkdown cleans their src.
+    with patch.object(renderer, "validateLink", return_value=True):
+        image = "<img " in renderer.render(source)
     expected_names = (
         frozenset({"goal"}) if spelling.startswith("%") or not image else frozenset()
     )
@@ -74,17 +79,18 @@ def test_only_renderer_eligible_inline_images_hide_alt_controls(
     "destination",
     ["javascript:alert", "data:image/svg+xml;base64,abc"],
 )
-def test_rejected_images_keep_their_named_answer_fresh(
+def test_sanitized_images_keep_existing_memory_available(
     destination: str, angle: bool
 ) -> None:
     resource = f"<{destination}>" if angle else destination
     source = f"![?[{{{{goal}}}} A | B]]({resource})"
     assert "<img " not in MarkdownIt().render(source)
-    assert collected_names(source) == frozenset({"goal"})
-    assert "stale" not in render_first_prompt(
-        ScriptBundle(script=source), {"goal": "stale"}
+    assert collected_names(source) == frozenset()
+    assert "current" in render_first_prompt(
+        ScriptBundle(script=source), {"goal": "current"}
     )
-    assert "{{goal}}" in substitute_variables(source, {"goal": "stale"})
+    assert "{{goal}}" not in substitute_variables(source, {"goal": "current"})
+    assert script_options(source + "\n\n?[{{visible}} C | D]") == {"C": "C", "D": "D"}
 
 
 @pytest.mark.parametrize("image", [False, True])
@@ -97,10 +103,10 @@ def test_rejected_images_keep_their_named_answer_fresh(
         '(<javascript:alert> "{{")',
     ],
 )
-def test_image_url_policy_does_not_change_generic_resource_literal_spans(
+def test_image_url_cleanup_does_not_change_generic_resource_literal_spans(
     resource: str, image: bool
 ) -> None:
-    """Rejected destinations still shield opaque examples in completed resources."""
+    """Sanitized destinations still shield opaque examples in completed resources."""
     prefix = ("!" if image else "") + "[example]" + resource
     source = prefix + "\n\n?[{{visible}} C | D]\n\nRead {{value}}."
     context = analyze_marker_context(source)
@@ -108,3 +114,76 @@ def test_image_url_policy_does_not_change_generic_resource_literal_spans(
     assert collected_names(source) == frozenset({"visible"})
     assert script_options(source) == {"C": "C", "D": "D"}
     assert substitute_variables(source, {"value": "current"}).endswith("Read current.")
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+@pytest.mark.parametrize("angle", [False, True])
+@pytest.mark.parametrize("definition_first", [False, True])
+@pytest.mark.parametrize(
+    "destination",
+    [
+        "data:image/svg+xml;base64,PHN2Zy8+",
+        "data:image/png;base64,abc",
+        "data:text/plain,hello",
+        "javascript:alert",
+        "java&#x73;cript:alert",
+        r"javascript\:alert",
+        "vbscript:alert",
+        "file:///x",
+        "/x",
+    ],
+)
+def test_reference_images_own_alt_controls_before_url_cleanup(
+    destination: str,
+    definition_first: bool,
+    angle: bool,
+    spelling: str,
+    newline: str,
+) -> None:
+    """URL cleanup preserves the reference image and its inactive alt controls."""
+    resource = f"<{destination}>" if angle else destination
+    image = f"![?[{spelling} A | B]][image]"
+    definition = f"[image]: {resource}"
+    source = (
+        f"{definition}\n\n{image}" if definition_first else f"{image}\n\n{definition}"
+    )
+    source += "\n\nRead {{goal}}.\n\n?[{{visible}} C | D]"
+    source = source.replace("\n", newline)
+    renderer = MarkdownIt()
+    with patch.object(renderer, "validateLink", return_value=True):
+        assert "<img " in renderer.render(source)
+    expected = {"visible"} | ({"goal"} if spelling.startswith("%") else set())
+    assert collected_names(source) == frozenset(expected)
+    assert script_options(source) == {"C": "C", "D": "D"}
+    if not spelling.startswith("%"):
+        assert "current" in render_first_prompt(
+            ScriptBundle(script=source), {"goal": "current"}
+        )
+        assert "{{goal}}" not in substitute_variables(source, {"goal": "current"})
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        "(<data:image/svg+xml;\nbase64,abc>)",
+        "(data:image/svg+xml;base64,abc\ntrailing)",
+        "[image]\n\n[image]: <data:image/svg+xml;\nbase64,abc>",
+        "[image]\n\n[image]: data:image/svg+xml;base64,abc trailing",
+    ],
+)
+def test_url_policy_change_does_not_admit_invalid_multiline_destinations(
+    suffix: str, spelling: str, newline: str
+) -> None:
+    """Invalid destination syntax still exposes its visible authored controls."""
+    source = (f"![?[{spelling} A | B]]{suffix}").replace("\n", newline)
+    renderer = MarkdownIt()
+    with patch.object(renderer, "validateLink", return_value=True):
+        assert "<img " not in renderer.render(source)
+    assert collected_names(source) == frozenset({"goal"})
+    assert script_options(source) == {"A": "A", "B": "B"}
+    assert "stale" not in render_first_prompt(
+        ScriptBundle(script=source), {"goal": "stale"}
+    )

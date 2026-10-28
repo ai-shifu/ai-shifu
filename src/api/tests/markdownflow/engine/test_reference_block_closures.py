@@ -1,6 +1,7 @@
 """Validated reference resources, rather than prefixes, close a paragraph."""
 
 import re
+from unittest.mock import patch
 
 import pytest
 from markdown_it import MarkdownIt
@@ -77,7 +78,10 @@ def test_only_validated_reference_resources_admit_fresh_ordered_items(
     prefix = opening + body.replace("\n", "\n" + continuation)
     following = continuation + marker.replace("\n", "\n" + continuation)
     source = f"![?[{spelling} A | B]][image]\n\n{prefix}\n{following}[image]: /x"
-    image = "<img " in MarkdownIt().render(source)
+    renderer = MarkdownIt()
+    # Definition syntax is parsed before browser URL cleanup changes image src.
+    with patch.object(renderer, "validateLink", return_value=True):
+        image = "<img " in renderer.render(source)
     expected_names = (
         frozenset({"goal"}) if spelling.startswith("%") or not image else frozenset()
     )

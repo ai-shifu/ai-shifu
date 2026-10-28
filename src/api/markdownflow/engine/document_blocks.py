@@ -7,9 +7,6 @@ from dataclasses import dataclass
 from re import Pattern
 from string import punctuation
 
-from markdown_it.common.normalize_url import normalizeLink, validateLink
-from markdown_it.common.utils import unescapeAll
-
 COMPILED_PHYSICAL_LINE_END_REGEX = re.compile(r"\r\n|\r|\n")
 COMPILED_CONTAINER_LIST_REGEX = re.compile(r"(?:[-+*]|[0-9]{1,9}[.)])(?=[ \t]|$)")
 COMPILED_DOCUMENT_FENCE_REGEX = re.compile(r"(`{3,})([^`]*$)|(~{3,})(.*$)")
@@ -1141,7 +1138,7 @@ class DocumentBlocks:
 def read_reference_resource_end(
     text: str, start: int, blocks: DocumentBlocks, *, origin: int | None = None
 ) -> int | None:
-    """Read a complete definition resource without claiming an unfinished title."""
+    """Read definition syntax before a renderer applies its URL cleanup policy."""
     origin = start if origin is None else origin
     at = blocks.reference_space(start, origin)
     if at is None or at >= len(text):
@@ -1184,11 +1181,6 @@ def read_reference_resource_end(
     if at == destination_start:
         return None
     destination_end = at
-    destination = text[destination_start:destination_end]
-    if destination.startswith("<"):
-        destination = destination[1:-1]
-    if not validateLink(normalizeLink(unescapeAll(destination))):
-        return None
     destination_line = blocks.line_at(destination_end)
     fallback = (
         destination_line.content_end

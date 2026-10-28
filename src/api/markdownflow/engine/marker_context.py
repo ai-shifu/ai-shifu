@@ -8,8 +8,7 @@ from dataclasses import dataclass, field
 from string import punctuation
 
 from markdown_it.common.html_re import HTML_TAG_RE
-from markdown_it.common.normalize_url import normalizeLink, validateLink
-from markdown_it.common.utils import normalizeReference, unescapeAll
+from markdown_it.common.utils import normalizeReference
 
 from .document_blocks import (
     COMPILED_REFERENCE_HTML_BREAK_REGEX as _RESOURCE_HTML_BREAK,
@@ -262,7 +261,6 @@ def _link_resource_end(
     at = skip_space(at)
     if at is None or at >= limit:
         return None
-    destination_start = at
     if text[at] == "<":
         at += 1
         while at < limit:
@@ -298,12 +296,6 @@ def _link_resource_end(
         if depth:
             return None
     destination_end = at
-    if image:
-        destination = text[destination_start:destination_end]
-        if destination.startswith("<"):
-            destination = destination[1:-1]
-        if not validateLink(normalizeLink(unescapeAll(destination))):
-            return None
     at = skip_space(at)
     if at is None or at >= limit:
         return None

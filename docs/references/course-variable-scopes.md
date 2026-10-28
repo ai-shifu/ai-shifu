@@ -45,6 +45,13 @@ either variable spelling. Use inline or fenced code to show literal interaction
 syntax without creating a control. Output preservation does not revoke a real
 question's named-answer memory permission.
 
+Text inside a syntactically complete Markdown image is an image label, not an
+active interaction. A bare marker there does not grant named-answer memory
+permission. This remains true when the renderer clears the image URL: URL
+filtering does not turn its label into answer buttons. Incomplete image
+notation retains its ordinary text and interaction fallback. Explicit percent
+declarations retain their existing declaration semantics.
+
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
 content, not trim whitespace. The exact trim set and shared conformance cases

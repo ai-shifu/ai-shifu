@@ -5,6 +5,39 @@ import { ContentRender } from 'markdown-flow-ui/renderer';
 import { createInteractionParser } from 'remark-flow';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 
+const imageCases = ['{{goal}}', '%{{goal}}'].flatMap(marker =>
+  [
+    ['data URI', 'data:image/svg+xml;base64,PHN2Zy8+', ''],
+    ['JavaScript URI', 'javascript:alert(1)', ''],
+    ['VBScript URI', 'vbscript:alert(1)', ''],
+    ['file URI', 'file:///diagram.svg', ''],
+    ['escaped JavaScript colon', 'javascript\\:alert(1)', ''],
+    ['entity JavaScript colon', 'javascript&#58;alert(1)', ''],
+    [
+      'remote URL',
+      'https://example.com/diagram.svg',
+      'https://example.com/diagram.svg',
+    ],
+    ['relative URL', '/diagram.svg', '/diagram.svg'],
+  ].flatMap(([label, destination, expectedSrc]) =>
+    ['inline', 'reference before', 'reference after'].flatMap(syntax =>
+      [false, true].map(angle => {
+        const resource = angle ? `<${destination}>` : destination;
+        const image = `![?[${marker} A | B]]`;
+        const definition = `[diagram]: ${resource}`;
+        const reference = `${image}[diagram]`;
+        const content =
+          syntax === 'inline'
+            ? `${image}(${resource})`
+            : syntax === 'reference before'
+              ? `${definition}\n\n${reference}`
+              : `${reference}\n\n${definition}`;
+        return { marker, label, expectedSrc, syntax, angle, content };
+      }),
+    ),
+  ),
+);
+
 describe('installed MarkdownFlow named-answer bindings', () => {
   const originalStructuredClone = globalThis.structuredClone;
 
@@ -68,6 +101,45 @@ describe('installed MarkdownFlow named-answer bindings', () => {
       expect(restored.getByText('B')).toHaveClass('select');
       expect(restored.getByText('A')).toBeInTheDocument();
       expect(onSend).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(imageCases)(
+    'keeps $marker in a $syntax image with $label and angle destination $angle as image content',
+    ({ marker, expectedSrc, content }) => {
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+
+      // URL sanitization changes src, never ownership of the image's alt text.
+      expect(view.getByAltText(`?[${marker} A | B]`)).toHaveAttribute(
+        'src',
+        expectedSrc,
+      );
+      expect(view.queryAllByRole('button')).toEqual([]);
+      expect(onSend).not.toHaveBeenCalled();
+
+      view.rerender(
+        <ContentRender
+          content={`${content}\n\n?[{{visible}} C | D]`}
+          onSend={onSend}
+        />,
+      );
+      expect(
+        view.getAllByRole('button').map(button => button.textContent),
+      ).toEqual(['C', 'D']);
+      expect(onSend).not.toHaveBeenCalled();
+
+      fireEvent.click(view.getByText('D'));
+      expect(onSend).toHaveBeenCalledTimes(1);
+      expect(onSend).toHaveBeenCalledWith({
+        variableName: 'visible',
+        buttonText: 'D',
+      });
     },
   );
 
