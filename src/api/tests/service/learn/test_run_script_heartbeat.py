@@ -144,6 +144,8 @@ def test_event_wakes_the_waiting_consumer_without_a_heartbeat_sleep(
     run = harness(producer, heartbeat_interval=10)
 
     assert _next_event(run.stream)["type"] == "element"
+    # The first read may also have waited if the consumer started first.
+    run.queue.woken_waits.clear()
     # Open the gate only once the consumer is blocked on an empty queue.
     run.queue.on_wait = lambda: producer.release(0)
 
