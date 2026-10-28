@@ -213,9 +213,9 @@ def test_invalid_renewal_worker_config_disables_dispatch_without_broker_access(
             "billing.scan_credit_expiring_notifications",
         ),
         (
-            "send_low_balance_alert_task",
+            "scan_low_balance_notifications_task",
             "_scan_low_balance_notifications",
-            "billing.send_low_balance_alert",
+            "billing.scan_low_balance_notifications",
         ),
     ],
 )

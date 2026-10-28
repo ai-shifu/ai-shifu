@@ -543,6 +543,21 @@ def scan_credit_expiring_notifications_task(
     return payload
 
 
+@shared_task(name="billing.scan_low_balance_notifications")
+def scan_low_balance_notifications_task(
+    *,
+    creator_bid: str = "",
+) -> dict[str, object]:
+    """Scan low-balance wallets and enqueue due notifications."""
+    app = _create_task_app()
+    payload = _scan_low_balance_notifications(
+        app,
+        creator_bid=_normalize_bid(creator_bid),
+    )
+    payload["task_name"] = "billing.scan_low_balance_notifications"
+    return payload
+
+
 @shared_task(
     name="billing.send_credit_notification",
     autoretry_for=(CreditNotificationRetryableError,),
