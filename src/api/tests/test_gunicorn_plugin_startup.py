@@ -29,14 +29,13 @@ def test_post_worker_init_starts_only_development_plugin_manager(
     )
     monkeypatch.setattr(sys, "argv", ["gunicorn", "-k", "gthread", "app:app"])
     monkeypatch.setenv("AI_SHIFU_PRELOAD_MASTER", "1")
-    monkeypatch.setattr("flaskr.metrics_runtime.prepare_metrics_directory", Mock())
     config = runpy.run_path(
         str(Path(__file__).resolve().parents[1] / "gunicorn.conf.py")
     )
     factory.assert_not_called()
 
     # Gunicorn clears the preload role in post_fork, then initializes the
-    # gevent hub and WSGI app before calling post_worker_init.
+    # WSGI app before calling post_worker_init.
     monkeypatch.delenv("AI_SHIFU_PRELOAD_MASTER")
     config["post_worker_init"](Mock())
     config["post_worker_init"](Mock())

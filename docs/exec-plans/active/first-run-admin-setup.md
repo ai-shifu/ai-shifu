@@ -509,3 +509,17 @@ Initialization codes are POST body secrets, never URL/analytics fields. No new
 mandatory environment secret or runtime dependency is required. The original
 OTP fix stays intact. Installation analytics use coarse exposure/attempt/result
 events described in the product specification and remain best-effort.
+
+### 2026-10-28 integration checkpoint
+
+Rebased onto main `9d3b78d`, preserving its gthread workers, retired metrics,
+removed gevent dependency and new lesson host. Kept the explicit development
+factory and installation preparation in Compose without restoring the removed
+1.0 context/emitter or their tests. The watcher fork probe now uses real native
+threads and file events; worker-owned startup remains required during preload.
+
+The previous head failed seven parameterized Google identity regressions because
+all cases reused the same second email, while successful OTP consumption retains
+a cache tombstone outside SQL cleanup. Give each case a unique email; retain
+real OTP consumption, password conflict assertions and production safeguards.
+Local and new-head CI results are recorded in the PR and delivery artifacts.

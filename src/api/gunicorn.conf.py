@@ -120,4 +120,3 @@ def post_worker_init(worker: object) -> None:
     manager = get_plugin_manager()
     if manager is not None and manager.app.config.get("ENV") == "development":
         manager.enable_hot_reload()
-

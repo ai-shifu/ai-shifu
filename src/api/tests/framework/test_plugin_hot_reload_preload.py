@@ -1,15 +1,17 @@
-"""Exercise plugin watcher ownership across a real gevent preload fork."""
+"""Exercise plugin watcher ownership across a real threaded preload fork."""
 
 import subprocess
 import sys
 from pathlib import Path
 
 API_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = Path(__file__).parent / "gevent_scripts" / "plugin_hot_reload_under_gevent.py"
+SCRIPT = (
+    Path(__file__).parent / "preload_scripts" / "plugin_hot_reload_under_threads.py"
+)
 
 
-def test_plugin_watcher_starts_only_in_the_forked_gevent_worker() -> None:
-    """Keep process-wide monkey patches outside the pytest interpreter."""
+def test_plugin_watcher_starts_only_in_the_forked_threaded_worker() -> None:
+    """Keep the fork and file-watcher threads outside the pytest interpreter."""
     result = subprocess.run(
         [sys.executable, str(SCRIPT)],
         cwd=API_ROOT,

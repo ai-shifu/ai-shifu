@@ -11,6 +11,7 @@ from flaskr import dao
 from flaskr.dao import db
 from flaskr.service.common.dtos import has_login_identity
 from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_UNVERIFIED,
     CREDENTIAL_STATE_VERIFIED,
     USER_STATE_PAID,
     USER_STATE_REGISTERED,

@@ -145,7 +145,8 @@ def test_google_canonical_evidence_controls_retained_password_label_ownership(
     )
 
     identifier = "retained-owner@example.com"
-    second_email = "second-owner@example.com"
+    # Successful consumption leaves a cache tombstone outside SQL cleanup.
+    second_email = f"second-{uuid.uuid4().hex[:12]}@example.com"
     password = "OwnerPassword123"
     paths = ("/api/user/login_password", "/api/installation/login")
 
