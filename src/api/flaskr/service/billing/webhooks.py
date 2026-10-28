@@ -16,10 +16,6 @@ from flaskr.service.common.native_payment_status import (
     extract_native_trade_status,
     resolve_native_payment_state,
 )
-from flaskr.service.order.payment_providers import (
-    PaymentNotificationResult,
-    get_payment_provider,
-)
 
 from .checkout import (
     load_billing_order_for_native_event as _load_billing_order_for_native_event,
@@ -104,6 +100,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from flask import Flask
+    from flaskr.service.order.payment_providers import (
+        PaymentNotificationResult,
+    )
 
 _STRIPE_SUBSCRIPTION_EVENT_TYPES = {
     "customer.subscription.created",
@@ -155,30 +154,6 @@ class BillingWebhookResult:
         """Yield the response payload and status code for unpacking."""
         yield self.to_response_dict()
         yield self.status_code
-
-
-def handle_billing_stripe_webhook(
-    app: Flask,
-    raw_body: bytes,
-    sig_header: str,
-) -> BillingWebhookResult:
-    """Handle Stripe billing webhooks using the shared provider verifier."""
-    provider = get_payment_provider("stripe")
-    try:
-        notification: PaymentNotificationResult = provider.verify_webhook(
-            headers={"Stripe-Signature": sig_header},
-            raw_body=raw_body,
-            app=app,
-        )
-    except Exception as exc:  # pragma: no cover - verified via route tests
-        app.logger.exception("Stripe billing webhook verification failed")
-        return BillingWebhookResult(
-            status="error",
-            message=str(exc),
-            status_code=400,
-        )
-
-    return apply_billing_stripe_notification(app, notification)
 
 
 def is_billing_stripe_catalog_event(event_type: object) -> bool:
@@ -480,40 +455,6 @@ def handle_billing_pingxx_webhook(
             bill_order_bid=order.bill_order_bid,
             status_code=200,
         )
-
-
-def handle_billing_alipay_webhook(
-    app: Flask,
-    payload: dict[str, object],
-) -> BillingWebhookResult:
-    """Handle billing alipay webhook."""
-    provider = get_payment_provider("alipay")
-    try:
-        notification = provider.handle_notification(payload=payload, app=app)
-    except Exception as exc:  # pragma: no cover - route-level verification path
-        app.logger.exception("Alipay billing webhook verification failed")
-        return BillingWebhookResult(status="error", message=str(exc), status_code=400)
-    return apply_billing_native_notification(app, "alipay", notification)
-
-
-def handle_billing_wechatpay_webhook(
-    app: Flask,
-    *,
-    raw_body: bytes,
-    headers: dict[str, str],
-) -> BillingWebhookResult:
-    """Handle billing wechatpay webhook."""
-    provider = get_payment_provider("wechatpay")
-    try:
-        notification = provider.verify_webhook(
-            headers=headers,
-            raw_body=raw_body,
-            app=app,
-        )
-    except Exception as exc:  # pragma: no cover - route-level verification path
-        app.logger.exception("WeChat Pay billing webhook verification failed")
-        return BillingWebhookResult(status="error", message=str(exc), status_code=400)
-    return apply_billing_native_notification(app, "wechatpay", notification)
 
 
 def apply_billing_native_notification(

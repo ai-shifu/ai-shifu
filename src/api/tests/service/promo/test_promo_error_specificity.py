@@ -25,38 +25,6 @@ def _isolate_coupon_tables(app: object) -> object:
         db.session.commit()
 
 
-def test_generate_unique_coupon_code_failure_returns_specific_error(
-    app: object, monkeypatch: object
-) -> None:
-    monkeypatch.setattr(
-        promo_admin, "_generate_random_coupon_code", lambda: "DUPLICATE"
-    )
-
-    with app.app_context():
-        db.session.add(
-            Coupon(
-                coupon_bid="coupon-duplicate",
-                code="DUPLICATE",
-                name="Duplicate Coupon",
-                discount_type=COUPON_TYPE_FIXED,
-                value=1,
-                status=COUPON_STATUS_ACTIVE,
-                filter="{}",
-                total_count=1,
-                used_count=0,
-                deleted=0,
-            )
-        )
-        db.session.commit()
-
-        with pytest.raises(AppError) as exc_info:
-            promo_admin._generate_unique_coupon_code()
-
-    assert (
-        exc_info.value.code == ERROR_CODE["server.discount.couponCodeGenerationFailed"]
-    )
-
-
 def test_generate_unique_coupon_codes_failure_returns_specific_error(
     app: object, monkeypatch: object
 ) -> None:

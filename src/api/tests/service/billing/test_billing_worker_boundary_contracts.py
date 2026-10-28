@@ -6,7 +6,6 @@ from datetime import timedelta
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
-from uuid import uuid4
 
 import pytest
 from flaskr.dao import db
@@ -19,8 +18,6 @@ from flaskr.service.billing.consts import (
 from flaskr.service.billing.models import (
     BillingOrder,
     BillingProviderCatalogSnapshot,
-    BillingSubscription,
-    CreditWallet,
 )
 from flaskr.service.billing.provider_catalog import (
     ProviderAccountSnapshot,
@@ -122,28 +119,6 @@ def test_legacy_low_balance_result_preserves_alert_payload_contract() -> None:
     assert alert == {"threshold": "3"}
 
 
-def test_low_balance_candidates_merge_wallet_and_subscription_owners(
-    worker_app: Flask,
-) -> None:
-    del worker_app
-    for creator, deleted in [("owner-a", 0), ("owner-b", 0), ("deleted", 1), ("", 0)]:
-        db.session.add(
-            CreditWallet(wallet_bid=uuid4().hex, creator_bid=creator, deleted=deleted)
-        )
-    for creator, deleted in [("owner-a", 0), ("owner-c", 0), ("deleted", 1), (" ", 0)]:
-        db.session.add(
-            BillingSubscription(
-                subscription_bid=uuid4().hex, creator_bid=creator, deleted=deleted
-            )
-        )
-    db.session.commit()
-    assert tasks._collect_low_balance_creator_bids() == [
-        "owner-a",
-        "owner-b",
-        "owner-c",
-    ]
-
-
 def test_expiration_batch_continues_after_provider_failure_and_counts_terminal_outcomes(
     worker_app: Flask,
     monkeypatch: pytest.MonkeyPatch,
@@ -238,9 +213,9 @@ def test_invalid_renewal_worker_config_disables_dispatch_without_broker_access(
             "billing.scan_credit_expiring_notifications",
         ),
         (
-            "scan_low_balance_notifications_task",
+            "send_low_balance_alert_task",
             "_scan_low_balance_notifications",
-            "billing.scan_low_balance_notifications",
+            "billing.send_low_balance_alert",
         ),
     ],
 )

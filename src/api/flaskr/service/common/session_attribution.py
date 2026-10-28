@@ -67,18 +67,6 @@ def save_session_skill_attribution(
         return
 
 
-def get_session_skill_attribution(
-    app: Flask, *, token: str
-) -> SkillIdentityInput | None:
-    """Read and renew analytics context without affecting token validation."""
-    if not token:
-        return None
-    return get_session_skill_attribution_by_reference(
-        app,
-        reference=_cache_key(app, token),
-    )
-
-
 def get_session_skill_attribution_by_reference(
     app: Flask, *, reference: str
 ) -> SkillIdentityInput | None:

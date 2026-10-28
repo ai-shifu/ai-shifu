@@ -240,7 +240,7 @@ BILL_CREDIT_NOTIFICATION_SMS_CONFIG
 
 ### `low_balance`
 
-1. Celery 定时任务 `billing.scan_low_balance_notifications` 扫描老师账户，并逐条评估 `fixed` 与 `estimated_days` 阈值。
+1. Celery 定时任务 `billing.send_low_balance_alert` 扫描老师账户，并逐条评估 `fixed` 与 `estimated_days` 阈值。
 2. 固定阈值命中条件为 `available_credits <= value`，生成 `dedupe_key = low_balance:{creator_bid}:{threshold}:{date}`。
 3. 自动阈值使用 `bill_daily_ledger_summary` 中 `entry_type=consume` 的已结算日聚合，只统计扫描日期前的完整自然日，消耗额取 `amount` 绝对值。
 4. 自动阈值先按 `lookback_days` 汇总日消耗，再按有效消耗天数计算平均日消耗；没有有效日消耗汇总或平均日消耗为 `0` 时跳过该自动规则，不触发兜底发送。

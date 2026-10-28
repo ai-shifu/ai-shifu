@@ -1,6 +1,6 @@
 """Coordinate Flask plugin registration and lifecycle."""
 
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from functools import wraps
 from typing import ParamSpec, TypeVar
 
@@ -20,7 +20,6 @@ class PluginManager:
         app.logger.info("PluginManager init")
         self.app = app
         self.extension_functions = {}
-        self.extensible_generic_functions = {}
         self.hot_reloader = None
         self.plugins = {}
         self.is_enabled = True
@@ -67,40 +66,6 @@ class PluginManager:
             for func in self.extension_functions[func_name]:
                 result = func(result, *args, **kwargs)
         return result
-
-    def register_extensible_generic(self, func_name: object, func: object) -> None:
-        """Register a generic extensible function."""
-        self.app.logger.info(
-            "register_extensible_generic: %s -> %s", func_name, func.__name__
-        )
-        while hasattr(func, "__wrapped__"):
-            self.app.logger.warning("func is wrapped %s", func.__name__)
-            func = func.__wrapped__
-        if func_name not in self.extensible_generic_functions:
-            self.extensible_generic_functions[func_name] = []
-        self.extensible_generic_functions[func_name].append(func)
-
-    def execute_extensible_generic(
-        self,
-        func_name: object,
-        result: object,
-        *args: object,
-        **kwargs: object,
-    ) -> Generator[object, None, object]:
-        """Run registered generic extension callbacks for a completed generic operation."""
-        self.app.logger.info("execute_extensible_generic: %s", func_name)
-        if not self.is_enabled:
-            return result
-        if func_name in self.extensible_generic_functions:
-            for runc in self.extensible_generic_functions[func_name]:
-                func = runc
-                while hasattr(func, "__wrapped__"):
-                    self.app.logger.warning("func is wrapped %s", func.__name__)
-                    func = func.__wrapped__
-                result = func(result, *args, **kwargs)
-                if result:
-                    yield from result
-        return None
 
 
 class _PluginManagerState:
@@ -155,22 +120,6 @@ def extension(target_func_name: object) -> Callable[[Callable[P, R]], Callable[P
     return decorator
 
 
-def extensible_generic_register(
-    func_name: object,
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Register a generic extension point."""
-
-    def decorator(func: object) -> Callable[P, R]:
-        manager = get_plugin_manager()
-        if manager is None:
-            message = "Plugin manager is not enabled"
-            raise RuntimeError(message)
-        manager.register_extensible_generic(func_name, func)
-        return func
-
-    return decorator
-
-
 # extensible decorator
 def extensible(func: Callable[P, R]) -> Callable[P, R]:
     """Decorate a function as an extension point."""
@@ -182,34 +131,5 @@ def extensible(func: Callable[P, R]) -> Callable[P, R]:
         if manager is None:
             return result
         return manager.execute_extensions(func.__name__, result, *args, **kwargs)
-
-    return wrapper
-
-
-# extensible_generic decorator
-def extensible_generic(
-    func: Callable[P, object],
-) -> Callable[P, Generator[object, None, None]]:
-    """Decorate a generic function as an extension point."""
-    try:
-        from flask import current_app, has_app_context
-
-        if has_app_context():
-            current_app.logger.info("extensible_generic: %s", func.__name__)
-    except ImportError:
-        pass
-
-    @wraps(func)
-    def wrapper(*args: object, **kwargs: object) -> Generator[object, None, None]:
-        result = func(*args, **kwargs)
-        if result:
-            yield from result
-        manager = get_plugin_manager()
-        if manager is None:
-            return
-        if func.__name__ in manager.extensible_generic_functions:
-            result = manager.execute_extensible_generic(func.__name__, *args, **kwargs)
-            if result:
-                yield from result
 
     return wrapper

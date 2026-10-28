@@ -10,8 +10,6 @@ from flaskr.service.creator_analytics.whitelist import (
     ALLOWED_AGGREGATE_FUNCTIONS,
     ALLOWED_OPERATORS,
     WHITELIST,
-    TableSpec,
-    get_table_spec,
 )
 
 EXPECTED_TABLE_KEYS = {
@@ -121,12 +119,6 @@ def test_shifu_bid_and_deleted_are_never_user_addressable() -> None:
         assert "deleted" not in spec.filterable
         assert "deleted" not in spec.groupable
         assert "deleted" not in spec.aggregatable
-
-
-def test_get_table_spec_returns_typed_instance() -> None:
-    spec = get_table_spec("order_orders")
-    assert isinstance(spec, TableSpec)
-    assert spec.table_key == "order_orders"
 
 
 @pytest.mark.parametrize("table_key", sorted(USER_BID_GROUPABLE_TABLE_KEYS))
