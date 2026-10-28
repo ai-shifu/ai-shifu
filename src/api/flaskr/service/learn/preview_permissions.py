@@ -41,9 +41,9 @@ def resolve_preview_request_user(app: Flask) -> UserInfo:
     if not token:
         raise_error("server.user.userNotLogin")
 
-    from flaskr.route import user as user_route
+    from flaskr.service.user import api as user_api
 
-    user = user_route.validate_user(app, token)
+    user = user_api.validate_user(app, token)
     request.user = user
     return user
 
