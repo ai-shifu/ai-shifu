@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from bisect import bisect_right
 from dataclasses import dataclass, field
 from string import punctuation
 
@@ -26,6 +27,8 @@ _BLANK_LINE = re.compile(
     r"(?:\r\n|\r(?!\n)|(?<!\r)\n)[ \t]*(?:\r\n|\r(?!\n)|(?<!\r)\n)"
 )
 _ATX_START = re.compile(r"^ {0,3}#{1,6}(?=[ \t\r\n]|$)", re.MULTILINE)
+_SETEXT_EQUALS = re.compile(r" {0,3}=+[ \t]*$")
+_RESOURCE_HTML_BREAK = re.compile(r" {0,3}(?:<!--|<\?|<!\[CDATA\[|<![A-Z])")
 # Inline code belongs to one paragraph and cannot absorb a later fenced block.
 _INLINE_CODE_BREAK = re.compile(
     r"^[ \t]*\r?$|^[ ]{0,3}(?:`{3,}[^`\r\n]*|~{3,}[^\r\n]*)\r?$", re.MULTILINE
@@ -225,23 +228,36 @@ def _raw_html_bounds(
     return opening_end, blocks.line_at(closing.end()).content_end, True
 
 
-def _link_resource_end(text: str, start: int) -> int | None:
+def _link_resource_end(
+    text: str, start: int, blocks: DocumentBlocks, limit: int
+) -> int | None:
     """Read a complete inline-link resource, without claiming an unfinished one."""
     at = start + 1
 
+    def projected(cursor: int) -> int:
+        index = blocks.by_start.get(cursor)
+        return (
+            blocks.content_starts[index]
+            if index is not None and cursor > start
+            else cursor
+        )
+
     def skip_space(cursor: int) -> int | None:
         beginning = cursor
-        while cursor < len(text) and text[cursor] in " \t\r\n":
+        while cursor < limit:
+            cursor = projected(cursor)
+            if cursor >= limit or text[cursor] not in " \t\r\n":
+                break
             cursor += 1
         return None if _BLANK_LINE.search(text, beginning, cursor) else cursor
 
     at = skip_space(at)
-    if at is None or at >= len(text):
+    if at is None or at >= limit:
         return None
     if text[at] == "<":
         at += 1
-        while at < len(text):
-            if text[at] == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
+        while at < limit:
+            if text[at] == "\\" and at + 1 < limit and text[at + 1] in punctuation:
                 at += 2
             elif text[at] == ">":
                 at += 1
@@ -254,9 +270,9 @@ def _link_resource_end(text: str, start: int) -> int | None:
             return None
     else:
         depth = 0
-        while at < len(text):
+        while at < limit:
             character = text[at]
-            if character == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
+            if character == "\\" and at + 1 < limit and text[at + 1] in punctuation:
                 at += 2
                 continue
             if character in " \t\r\n" or (character == ")" and depth == 0):
@@ -274,7 +290,7 @@ def _link_resource_end(text: str, start: int) -> int | None:
             return None
     destination_end = at
     at = skip_space(at)
-    if at is None or at >= len(text):
+    if at is None or at >= limit:
         return None
     if text[at] == ")":
         return at + 1
@@ -283,18 +299,17 @@ def _link_resource_end(text: str, start: int) -> int | None:
     closing = ")" if text[at] == "(" else text[at]
     at += 1
     title_start = at
-    while at < len(text):
-        if text[at] == "\\" and at + 1 < len(text) and text[at + 1] in punctuation:
+    while at < limit:
+        at = projected(at)
+        if at >= limit:
+            return None
+        if text[at] == "\\" and at + 1 < limit and text[at + 1] in punctuation:
             at += 2
         elif text[at] == closing:
             if _BLANK_LINE.search(text, title_start, at):
                 return None
             at = skip_space(at + 1)
-            return (
-                at + 1
-                if at is not None and at < len(text) and text[at] == ")"
-                else None
-            )
+            return at + 1 if at is not None and at < limit and text[at] == ")" else None
         else:
             at += 1
     return None
@@ -469,6 +484,49 @@ def analyze_marker_context(
             )
     breaks.sort()
     break_starts = {start for start, _ in breaks}
+    resource_breaks = sorted(
+        break_starts
+        | {
+            line.start
+            for index, line in enumerate(blocks.lines)
+            if _RESOURCE_HTML_BREAK.match(blocks.projected_line(index)) is not None
+        }
+    )
+    # Shared tuple identity avoids rehashing deep container stacks for each link.
+    resource_limits: dict[tuple[int, int], int] = {}
+
+    def link_resource_end(start: int) -> int | None:
+        following = bisect_right(resource_breaks, start)
+        origin = blocks.paragraph_steps[blocks.by_start[blocks.line_at(start).start]]
+        skipped: list[tuple[int, int]] = []
+        limit = len(text)
+        while following < len(resource_breaks):
+            key = following, id(origin)
+            if key in resource_limits:
+                limit = resource_limits[key]
+                break
+            boundary = resource_breaks[following]
+            index = blocks.by_start.get(boundary)
+            # A lazy underline remains text without its own container prefix.
+            if (
+                origin
+                and index is not None
+                and not blocks.paragraph_interrupts(index)
+                and _SETEXT_EQUALS.fullmatch(blocks.projected_line(index)) is not None
+                and container_content_start(
+                    text[boundary : blocks.lines[index].content_end], origin
+                )
+                is None
+            ):
+                skipped.append(key)
+                following += 1
+                continue
+            limit = boundary
+            break
+        for key in skipped:
+            resource_limits[key] = limit
+        return _link_resource_end(text, start, blocks, limit)
+
     closing = _inline_closers(text, _BACKTICK_RUN, breaks, final=final)
     math_closing = _inline_closers(text, _DOLLAR_RUN, breaks, final=final)
     legacy_fence = (
@@ -651,7 +709,7 @@ def analyze_marker_context(
             at = end
             continue
         if text[at] == "(" and at == resource_start:
-            resource_end = _link_resource_end(text, at)
+            resource_end = link_resource_end(at)
             if resource_end is not None:
                 if not resource_image:
                     for index in active_links:
@@ -776,7 +834,7 @@ def analyze_marker_context(
             continue
         after = closing + 1
         if text[after : after + 1] == "(":
-            if _link_resource_end(text, after) is not None:
+            if link_resource_end(after) is not None:
                 context.image_labels.append((opening, closing + 1))
             continue
         reference = _REFERENCE_LABEL.match(text, after)

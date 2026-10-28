@@ -428,6 +428,7 @@ class DocumentBlocks:
         self.unclosed_html_start: int | None = None
         self.content_starts = [line.start for line in self.lines]
         self.container_steps: list[tuple[int, ...]] = [() for _ in self.lines]
+        self.paragraph_steps: list[tuple[int, ...]] = [() for _ in self.lines]
         self.virtual_padding = [0 for _ in self.lines]
         self.starts = [line.start for line in self.lines]
         self.by_start = {line.start: index for index, line in enumerate(self.lines)}
@@ -689,7 +690,9 @@ class DocumentBlocks:
         end = self.line_at(closing.end()).content_end if closing is not None else limit
         return BlockSpan(end, opening_end, end, closed=closing is not None)
 
-    def ordinary_html(self, start: int, *, final: bool = True) -> BlockSpan | None:
+    def ordinary_html(
+        self, start: int, *, final: bool = True, project_blank: bool = True
+    ) -> BlockSpan | None:
         """Bound native type-six/seven HTML blocks at the first blank line."""
         index = self.by_start.get(start)
         if index is None:
@@ -721,6 +724,7 @@ class DocumentBlocks:
             line = self.lines[at]
             steps = self.container_steps[index]
             value = self.text[line.start : line.content_end]
+            content = container_content_start(value, steps)
             partial = (
                 not final
                 and line.end == line.content_end == len(self.text)
@@ -730,9 +734,15 @@ class DocumentBlocks:
                 bool(steps)
                 and bool(value.strip(" \t"))
                 and not partial
-                and container_content_start(value, steps) is None
+                and content is None
             )
-            if line.start >= token_end and (self.blank(at) or outside):
+            # Future container prefixes are not indexed during the constructor pass.
+            blank = (
+                self.blank(at)
+                if project_blank
+                else not value[content if content is not None else 0 :].strip(" \t")
+            )
+            if line.start >= token_end and (blank or outside):
                 return BlockSpan(
                     previous.content_end,
                     token_end,
@@ -1002,6 +1012,7 @@ class DocumentBlocks:
             self.virtual_padding[index] = opening_virtual if entered else virtual
             # Bounds belong to physical prefixes, including lazy outer quotes.
             self.container_steps[index] = active if entered else base
+            self.paragraph_steps[index] = active
             if not remaining.strip(" \t"):
                 boundaries.add(index)
                 paragraph = False
@@ -1041,6 +1052,7 @@ class DocumentBlocks:
                 self.fence(line.start)
                 or self.raw_html(line.start)
                 or self.terminated_html(line.start)
+                or self.ordinary_html(line.start, project_blank=False)
             )
             if literal is not None:
                 literal_end = literal.end
