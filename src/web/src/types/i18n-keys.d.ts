@@ -17,7 +17,6 @@ export type I18nKey =
   | 'common.core.createSuccessDescription'
   | 'common.core.creditNotificationManagement'
   | 'common.core.default'
-  | 'common.core.errorSaveFailed'
   | 'common.core.expand'
   | 'common.core.home'
   | 'common.core.legalFallbackEnglishNotice'

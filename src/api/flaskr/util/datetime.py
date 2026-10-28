@@ -2,9 +2,6 @@
 
 from datetime import UTC, datetime
 
-import pytz
-from flask import Flask
-
 # Sentinels for ordering and comparing the naive UTC timestamps stored in the
 # database, used where a nullable column takes part in a sort key or a range
 # check. They are naive on purpose: an aware sentinel raises `TypeError` as
@@ -50,10 +47,3 @@ def to_utc_iso(value: datetime | None) -> str | None:
     if value.tzinfo is None:
         value = value.replace(tzinfo=UTC)
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
-
-
-def get_now_time(app: Flask) -> datetime:
-    """Return the current time in the application's configured timezone."""
-    timezone_str = app.config.get("DEFAULT_TIMEZONE", "Asia/Shanghai")
-    tz = pytz.timezone(timezone_str)
-    return datetime.now(tz)

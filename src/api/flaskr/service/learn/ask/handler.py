@@ -13,7 +13,6 @@ from flaskr.api.langfuse import (
 from flaskr.api.llm import chat_llm
 from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
-from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.i18n import _, get_current_language
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.ask.context import (
@@ -195,7 +194,6 @@ def _finalize_ask_trace(
     )
 
 
-@extensible_generic
 def handle_input_ask(
     app: Flask,
     context: object,

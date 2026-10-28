@@ -33,12 +33,7 @@ _RANDOM = random.SystemRandom()
 
 
 def _is_production(app: Flask) -> bool:
-    environment = (
-        app.config.get("ENV")
-        or app.config.get("MODE")
-        or app.config.get("ENVERIMENT")
-        or ""
-    )
+    environment = app.config.get("ENV") or app.config.get("MODE") or ""
     return str(environment).strip().lower() in {"prod", "production"}
 
 

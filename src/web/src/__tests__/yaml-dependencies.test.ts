@@ -5,11 +5,8 @@ type YamlLoader = {
   safeLoad?: (source: string) => unknown;
 };
 
-// Resolve from the consumers: the coverage tools must keep the 3.x API.
-const consumers = [
-  ['editor', '@mdxeditor/editor'],
-  ['coverage', '@istanbuljs/load-nyc-config'],
-] as const;
+// Resolve from the consumer: the coverage tools must keep the 3.x API.
+const consumers = [['coverage', '@istanbuljs/load-nyc-config']] as const;
 
 describe.each(consumers)('%s YAML dependency', (_name, consumer) => {
   const yaml: YamlLoader = createRequire(require.resolve(consumer))('js-yaml');

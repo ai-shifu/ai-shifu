@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
 from flaskr.service.learn.elements.element_types import (
     ELEMENT_TYPE_CODES,
@@ -15,8 +16,6 @@ from flaskr.service.learn.elements.element_types import (
 from flaskr.service.learn.elements.payloads import (
     _deserialize_payload,
     _prepare_audio_segments_for_element,
-    _sanitize_audio_segments_for_storage,
-    _serialize_payload,
 )
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
@@ -32,53 +31,10 @@ from flaskr.service.learn.learn_dtos import (
     RunElementSSEMessageDTO,
     VariableUpdateDTO,
 )
-from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
 from flaskr.service.tts.subtitle_utils import normalize_subtitle_cues
 
-
-def _serialize_element_row(
-    *,
-    progress_record: LearnProgressRecord,
-    element: ElementDTO,
-    run_session_bid: str,
-    run_event_seq: int,
-) -> LearnGeneratedElement:
-    return LearnGeneratedElement(
-        element_bid=element.element_bid or "",
-        progress_record_bid=progress_record.progress_record_bid or "",
-        user_bid=progress_record.user_bid or "",
-        generated_block_bid=element.generated_block_bid or "",
-        outline_item_bid=progress_record.outline_item_bid or "",
-        shifu_bid=progress_record.shifu_bid or "",
-        run_session_bid=run_session_bid,
-        run_event_seq=run_event_seq,
-        event_type="element",
-        role=element.role or "teacher",
-        element_index=int(element.element_index or 0),
-        element_type=element.element_type.value if element.element_type else "",
-        element_type_code=int(element.element_type_code or 0),
-        change_type=element.change_type.value if element.change_type else "",
-        target_element_bid=element.target_element_bid or "",
-        is_renderable=1 if element.is_renderable else 0,
-        is_new=1 if element.is_new else 0,
-        is_marker=1 if element.is_marker else 0,
-        sequence_number=int(element.sequence_number or 0),
-        is_speakable=1 if element.is_speakable else 0,
-        audio_url=element.audio_url or "",
-        audio_segments=json.dumps(
-            _sanitize_audio_segments_for_storage(
-                element.audio_segments,
-                is_final=bool(element.is_final),
-            ),
-            ensure_ascii=False,
-        ),
-        is_navigable=int(element.is_navigable or 0),
-        is_final=int(element.is_final or 0),
-        content_text=element.content_text or "",
-        payload=_serialize_payload(element.payload),
-        deleted=0,
-        status=1,
-    )
+if TYPE_CHECKING:
+    from flaskr.service.learn.models import LearnGeneratedElement
 
 
 def _element_from_row(

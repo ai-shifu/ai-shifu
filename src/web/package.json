@@ -16,7 +16,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "format:check:changed": "node scripts/prettier-check-changed.mjs",
-    "precommit": "lint-staged",
     "test": "jest",
     "test:ci": "jest --ci --silent --maxWorkers=2",
     "test:e2e": "npx @playwright/test test",
@@ -34,7 +33,6 @@
     "@hookform/resolvers": "^5.2.2",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.1",
-    "@mdxeditor/editor": "^3.24.0",
     "@next/mdx": "^15.5.19",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-avatar": "^1.1.2",
@@ -76,7 +74,6 @@
     "react-day-picker": "^9.13.0",
     "react-device-detect": "^2.2.3",
     "react-dom": "^18.3.1",
-    "react-easy-crop": "^5.4.2",
     "react-hook-form": "^7.54.2",
     "react-i18next": "^15.5.1",
     "react-rnd": "^10.5.2",
@@ -93,15 +90,6 @@
     "zod": "^4.6.6",
     "zustand": "^5.0.5"
   },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "next lint --fix --file",
-      "prettier --write"
-    ],
-    "*.{css,scss,md,json}": [
-      "prettier --write"
-    ]
-  },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.59.1",
@@ -116,12 +104,8 @@
     "eslint": "^9",
     "eslint-config-next": "^15.5.19",
     "eslint-config-prettier": "^10.1.8",
-    "husky": "^8.0.0",
     "jest": "^29.0.0",
     "jest-environment-jsdom": "^29.0.0",
-    "less": "^4.2.2",
-    "lint-staged": "^15.5.1",
-    "next-with-less": "^3.0.1",
     "postcss": "^8.5.27",
     "prettier": "3.7.4",
     "sass": "^1.89.2",

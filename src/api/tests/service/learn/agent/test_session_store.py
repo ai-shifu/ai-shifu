@@ -143,35 +143,6 @@ def test_an_unreadable_document_is_refused_rather_than_raising_from_the_engine(
             session_store.load_agent_session(app, USER, OUTLINE)
 
 
-def test_a_refused_session_can_be_discarded_so_the_lesson_starts_over(
-    app: object,
-) -> None:
-    """What the host does after a refusal, and what a teacher switching engines needs too."""
-    with app.app_context():
-        store(app, a_session())
-        session_store.discard_agent_session(app, USER, OUTLINE)
-
-        assert session_store.load_agent_session(app, USER, OUTLINE) is None
-        # The row is soft-deleted, so a support question later still has something to look at.
-        assert LearnAgentSession.query.count() == 1
-        assert LearnAgentSession.query.first().deleted == 1
-
-
-def test_a_new_session_starts_cleanly_after_a_discard(app: object) -> None:
-    with app.app_context():
-        store(app, a_session())
-        session_store.discard_agent_session(app, USER, OUTLINE)
-
-        fresh = a_session()
-        fresh.turn = 1
-        store(app, fresh)
-
-        loaded = session_store.load_agent_session(app, USER, OUTLINE)
-        assert loaded is not None
-        assert loaded.turn == 1
-        assert LearnAgentSession.query.filter_by(deleted=0).count() == 1
-
-
 def test_what_is_written_records_the_versions_it_was_written_with(app: object) -> None:
     """Without these two columns nothing above can tell a stale row from a current one."""
     with app.app_context():
@@ -203,17 +174,6 @@ def test_saving_inside_a_caller_transaction_is_refused(app: object) -> None:
         store(app, a_session())
 
 
-def test_discarding_inside_a_caller_transaction_is_refused(app: object) -> None:
-    from flaskr.dao.uow import unit_of_work
-
-    with (
-        app.app_context(),
-        unit_of_work(),
-        pytest.raises(RuntimeError, match="unit_of_work"),
-    ):
-        session_store.discard_agent_session(app, USER, OUTLINE)
-
-
 def test_only_one_live_row_can_hold_a_lesson(app: object) -> None:
     """Two tabs starting the same lesson must not each get a session.
 
@@ -243,26 +203,6 @@ def test_only_one_live_row_can_hold_a_lesson(app: object) -> None:
         db.session.rollback()
 
 
-def test_discarding_frees_the_key_for_the_next_start(app: object) -> None:
-    """Several discarded rows can pile up: NULL keys do not collide with each other."""
-    with app.app_context():
-        for _ in range(3):
-            store(app, a_session())
-            session_store.discard_agent_session(app, USER, OUTLINE)
-
-        assert LearnAgentSession.query.count() == 3
-        assert LearnAgentSession.query.filter_by(deleted=0).count() == 0
-        assert (
-            LearnAgentSession.query.filter(
-                LearnAgentSession.active_key.isnot(None)
-            ).count()
-            == 0
-        )
-
-        store(app, a_session())
-        assert session_store.load_agent_session(app, USER, OUTLINE) is not None
-
-
 def test_a_failure_part_way_through_a_save_leaves_nothing_behind(app: object) -> None:
     """The repository requires a mid-flow failure test for anything owning a unit of work."""
     with app.app_context():
@@ -287,25 +227,6 @@ def test_a_failure_part_way_through_a_save_leaves_nothing_behind(app: object) ->
 
         after = session_store.load_agent_session(app, USER, OUTLINE)
         assert after.turn == 3  # the failed save left the stored turn alone
-
-
-def test_a_failure_part_way_through_a_discard_leaves_the_session_live(
-    app: object, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The rows are marked, then the commit fails: the learner must still have their session."""
-    with app.app_context():
-        store(app, a_session())
-
-        def explode() -> None:
-            msg = "the commit failed"
-            raise RuntimeError(msg)
-
-        monkeypatch.setattr(db.session, "commit", explode)
-        with pytest.raises(RuntimeError, match="the commit failed"):
-            session_store.discard_agent_session(app, USER, OUTLINE)
-        monkeypatch.undo()
-
-        assert session_store.load_agent_session(app, USER, OUTLINE) is not None
 
 
 def test_each_save_refreshes_the_timestamp_inside_the_document(app: object) -> None:

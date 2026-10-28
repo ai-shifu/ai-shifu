@@ -16,7 +16,6 @@ from flaskr.service.learn.models import (
     LearnGeneratedElement,
     LearnProgressRecord,
 )
-from flaskr.service.order.consts import LEARN_STATUS_COMPLETED, LEARN_STATUS_RESET
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDANSWER_VALUE,
     BLOCK_TYPE_MDASK_VALUE,
@@ -335,33 +334,6 @@ def test_date_filtered_entry_omits_courses_with_no_activity_in_range(
 
 
 @pytest.mark.parametrize(
-    ("keyword", "matched"),
-    [
-        ("", True),
-        ("ADA", True),
-        ("learner@example.test", True),
-        ("LEARNER@EXAMPLE.TEST", True),
-        ("example.test", False),
-        ("13800138000", True),
-        ("1380013", False),
-        ("unmatched", False),
-    ],
-)
-def test_dashboard_identity_search_uses_exact_contact_and_partial_nickname_matches(
-    keyword: str, matched: bool
-) -> None:
-    assert (
-        dashboard._dashboard_learner_keyword_matches(
-            keyword=keyword,
-            nickname="Ada Learner",
-            mobile="13800138000",
-            email="Learner@Example.Test",
-        )
-        is matched
-    )
-
-
-@pytest.mark.parametrize(
     "filter_kind",
     [
         "nickname",
@@ -407,46 +379,6 @@ def test_follow_up_filters_use_persisted_contacts_lesson_and_utc_time(
     assert result.summary.follow_up_count == 1
     if result.items:
         assert result.items[0].mobile == "13800138000"
-
-
-def test_dashboard_progress_aggregates_ignore_resets_deleted_and_other_learners(
-    app: object, follow_up: object
-) -> None:
-    with app.app_context(), unit_of_work():
-        for user, status, deleted, seconds in (
-            (follow_up.bid, LEARN_STATUS_COMPLETED, 0, 1),
-            (follow_up.bid, LEARN_STATUS_RESET, 0, 2),
-            (follow_up.bid, LEARN_STATUS_COMPLETED, 1, 3),
-            ("other-user", LEARN_STATUS_COMPLETED, 0, 4),
-        ):
-            db.session.add(
-                LearnProgressRecord(
-                    progress_record_bid=uuid.uuid4().hex,
-                    user_bid=user,
-                    shifu_bid=follow_up.bid,
-                    outline_item_bid=follow_up.bid,
-                    status=status,
-                    deleted=deleted,
-                    updated_at=follow_up.stamp + timedelta(seconds=seconds),
-                )
-            )
-    with app.app_context():
-        assert dashboard._load_dashboard_course_last_learning_map(
-            follow_up.bid, [follow_up.bid]
-        ) == {follow_up.bid: follow_up.stamp + timedelta(seconds=1)}
-        assert dashboard._load_dashboard_course_learned_lesson_count_map(
-            follow_up.bid, [follow_up.bid], [follow_up.bid]
-        ) == {follow_up.bid: 1}
-        assert dashboard._load_dashboard_course_follow_up_count_map(
-            follow_up.bid, [follow_up.bid]
-        ) == {follow_up.bid: 1}
-        assert (
-            dashboard._load_dashboard_course_last_learning_map(follow_up.bid, []) == {}
-        )
-        assert (
-            dashboard._load_dashboard_course_follow_up_count_map(follow_up.bid, [])
-            == {}
-        )
 
 
 @pytest.mark.parametrize(

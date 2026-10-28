@@ -997,6 +997,119 @@ def test_sync_pingxx_order_syncs_manual_trial_subscription_provider(
         assert subscription.status == BILLING_SUBSCRIPTION_STATUS_CANCEL_SCHEDULED
 
 
+@pytest.mark.parametrize(
+    ("provider", "trade", "expected_failure_code"),
+    [
+        (
+            "alipay",
+            {"trade_status": "TRADE_SUCCESS", "total_amount": "99.00"},
+            "",
+        ),
+        (
+            "alipay",
+            {"trade_status": "TRADE_SUCCESS", "total_amount": "98.99"},
+            "provider_amount_mismatch",
+        ),
+        (
+            # A WeChat-funded coupon lowers payer_total, not the order total.
+            "wechatpay",
+            {"trade_state": "SUCCESS", "amount": {"total": 9900, "payer_total": 9800}},
+            "",
+        ),
+        (
+            "wechatpay",
+            {"trade_state": "SUCCESS", "amount": {"total": 9800, "payer_total": 9800}},
+            "provider_amount_mismatch",
+        ),
+        (
+            "wechatpay",
+            {"trade_state": "SUCCESS"},
+            "provider_amount_missing",
+        ),
+    ],
+)
+def test_sync_native_order_completes_only_on_the_payable_amount(
+    billing_subscription_sms_app: object,
+    monkeypatch: pytest.MonkeyPatch,
+    provider: str,
+    trade: dict[str, object],
+    expected_failure_code: str,
+) -> None:
+    app = billing_subscription_sms_app
+    _seed_creator(app)
+    now = datetime(2026, 7, 31, 4, 0, 53)
+    attempt_id = f"billing-native-sync-{provider}-attempt"
+
+    class FakeNativeProvider:
+        def sync_reference(
+            self, *, provider_reference: str, reference_type: str, app: object
+        ) -> object:
+            _ = app
+            assert provider_reference == attempt_id
+            assert reference_type == "payment"
+            return PaymentNotificationResult(
+                order_bid=provider_reference,
+                status="manual_sync",
+                provider_payload={
+                    "trade": {"out_trade_no": provider_reference, **trade}
+                },
+                charge_id="native-transaction-1",
+            )
+
+    monkeypatch.setattr(
+        "flaskr.service.billing.checkout.get_payment_provider",
+        lambda _channel: FakeNativeProvider(),
+    )
+
+    with app.app_context():
+        dao.db.session.add(
+            BillingSubscription(
+                subscription_bid="sub-native-sync-1",
+                creator_bid="creator-1",
+                product_bid=BILLING_TRIAL_PRODUCT_BID,
+                status=BILLING_SUBSCRIPTION_STATUS_ACTIVE,
+                billing_provider="manual",
+                current_period_start_at=now - timedelta(days=1),
+                current_period_end_at=now + timedelta(days=14),
+            )
+        )
+        dao.db.session.add(
+            BillingOrder(
+                bill_order_bid="billing-native-sync-1",
+                creator_bid="creator-1",
+                order_type=BILLING_ORDER_TYPE_SUBSCRIPTION_UPGRADE,
+                product_bid="bill-product-plan-monthly",
+                subscription_bid="sub-native-sync-1",
+                currency="CNY",
+                payable_amount=9900,
+                paid_amount=0,
+                payment_provider=provider,
+                channel=provider,
+                provider_reference_id=attempt_id,
+                status=BILLING_ORDER_STATUS_PENDING,
+                metadata_json={"checkout_type": "subscription"},
+            )
+        )
+        dao.db.session.commit()
+
+    sync_billing_order(app, "creator-1", "billing-native-sync-1", {})
+
+    with app.app_context():
+        order = BillingOrder.query.filter_by(
+            bill_order_bid="billing-native-sync-1"
+        ).one()
+        subscription = BillingSubscription.query.filter_by(
+            subscription_bid="sub-native-sync-1"
+        ).one()
+        if expected_failure_code:
+            assert order.status == BILLING_ORDER_STATUS_FAILED
+            assert order.failure_code == expected_failure_code
+            assert subscription.product_bid == BILLING_TRIAL_PRODUCT_BID
+        else:
+            assert order.status == BILLING_ORDER_STATUS_PAID
+            assert subscription.product_bid == "bill-product-plan-monthly"
+
+
 def test_send_billing_paid_feishu_task_marks_sent(
     billing_subscription_sms_app: object,
     monkeypatch: pytest.MonkeyPatch,

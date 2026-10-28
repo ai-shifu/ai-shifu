@@ -8,7 +8,6 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 - [Lesson content revision tracking with one nullable column](./active/accurate-lesson-content-updates.md)
 - [Use the 2.0 lesson runtime in teacher debug preview](./active/admin-mdf2-preview.md)
-- [API capacity observability](./active/api-capacity-observability.md)
 - [Backend External Client Journey Analytics](./active/backend-external-client-journey-analytics.md)
 - [Bound Lesson Memory Context](./active/bounded-lesson-memory-context.md)
 - [Review the course action PR stack](./active/course-action-copy.md)
@@ -74,6 +73,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Add arbitrary rate entries to Rate Management](./completed/admin-rate-management-create.md)
 - [Agent-First Harness Migration](./completed/agent-first-harness-migration.md)
 - [Agent-First Harness Phase 2](./completed/agent-first-harness-phase-2.md)
+- [API capacity observability](./completed/api-capacity-observability.md)
 - [Arabic and Thai Product i18n](./completed/arabic-thai-i18n.md)
 - [Atomic Sibling Reorder](./completed/atomic-sibling-reorder.md)
 - [Backend Overhaul Master Plan: Inventory and Optimization](./completed/backend-overhaul-master.md)

@@ -23,6 +23,15 @@ class ImmediateExecutor:
         return future
 
 
+def _load(app: object, token: str) -> SkillIdentityInput | None:
+    reference = session_attribution.session_skill_attribution_reference(
+        app, token=token
+    )
+    return session_attribution.get_session_skill_attribution_by_reference(
+        app, reference=reference
+    )
+
+
 def test_session_attribution_round_trips_and_renews_ttl(
     app: object, monkeypatch: object
 ) -> None:
@@ -38,9 +47,7 @@ def test_session_attribution_round_trips_and_renews_ttl(
     session_attribution.save_session_skill_attribution(
         app, token="secret-token", attribution=identity
     )
-    loaded = session_attribution.get_session_skill_attribution(
-        app, token="secret-token"
-    )
+    loaded = _load(app, "secret-token")
 
     assert loaded == identity
     key = session_attribution._cache_key(app, "secret-token")
@@ -56,10 +63,7 @@ def test_corrupt_or_unavailable_attribution_never_blocks_business_flow(
     key = session_attribution._cache_key(app, "secret-token")
     fake_cache.set(key, "not-json", ex=60)
 
-    assert (
-        session_attribution.get_session_skill_attribution(app, token="secret-token")
-        is None
-    )
+    assert _load(app, "secret-token") is None
     assert fake_cache.get(key) is None
 
     class BrokenCache:
@@ -70,10 +74,7 @@ def test_corrupt_or_unavailable_attribution_never_blocks_business_flow(
             raise TimeoutError
 
     monkeypatch.setattr(session_attribution, "cache", BrokenCache())
-    assert (
-        session_attribution.get_session_skill_attribution(app, token="secret-token")
-        is None
-    )
+    assert _load(app, "secret-token") is None
 
 
 def test_active_session_refresh_renews_attribution_ttl(

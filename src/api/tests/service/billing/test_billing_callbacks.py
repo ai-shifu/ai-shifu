@@ -29,7 +29,6 @@ from flaskr.service.billing.models import (
 from flaskr.service.billing.provider_state import _apply_billing_order_provider_update
 from flaskr.service.billing.webhooks import (
     apply_billing_native_notification,
-    handle_billing_alipay_webhook,
     handle_billing_pingxx_webhook,
 )
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS, ORDER_STATUS_TO_BE_PAID
@@ -603,18 +602,8 @@ class TestBillingNativeCallbacks:
     """Verify billing native callbacks behavior."""
 
     def test_alipay_billing_callback_duplicate_paid_is_idempotent(
-        self, billing_callback_app: object, monkeypatch: object
+        self, billing_callback_app: object
     ) -> None:
-        class FakeAlipayProvider:
-            def handle_notification(self, *, payload: object, app: object) -> object:
-                _ = (payload, app)
-                return _alipay_notification("bill-native-alipay-1", "TRADE_SUCCESS")
-
-        monkeypatch.setattr(
-            "flaskr.service.billing.webhooks.get_payment_provider",
-            lambda _provider_name: FakeAlipayProvider(),
-        )
-
         with billing_callback_app.app_context():
             dao.db.session.add(
                 _create_native_billing_order(
@@ -632,13 +621,15 @@ class TestBillingNativeCallbacks:
             )
             dao.db.session.commit()
 
-        first_payload, first_status = handle_billing_alipay_webhook(
+        first_payload, first_status = apply_billing_native_notification(
             billing_callback_app,
-            {},
+            "alipay",
+            _alipay_notification("bill-native-alipay-1", "TRADE_SUCCESS"),
         )
-        second_payload, second_status = handle_billing_alipay_webhook(
+        second_payload, second_status = apply_billing_native_notification(
             billing_callback_app,
-            {},
+            "alipay",
+            _alipay_notification("bill-native-alipay-1", "TRADE_SUCCESS"),
         )
 
         assert first_status == 200

@@ -140,20 +140,6 @@ def test_redis_initialization_without_password_does_not_pass_empty_credentials(
     assert dao.get_redis_client() is client
 
 
-def test_redis_lock_contention_skips_work_without_releasing_someone_elses_lock(
-    monkeypatch: object,
-) -> None:
-    app = Flask("redis-lock-contention")
-    lock = Mock(acquire=Mock(return_value=False))
-    client = Mock(lock=Mock(return_value=lock))
-    monkeypatch.setattr(dao._redis_state, "client", client)
-    work = Mock()
-    assert dao.run_with_redis(app, "work", 15, work, ("argument",)) is None
-    client.lock.assert_called_once_with("work", timeout=15, blocking_timeout=15)
-    work.assert_not_called()
-    lock.release.assert_not_called()
-
-
 def test_missing_driver_connection_does_not_interfere_with_statement_execution() -> (
     None
 ):

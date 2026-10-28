@@ -1,10 +1,11 @@
 # Backend Service: metering
 
-This module owns usage recording, usage reporting routes, and normalization
-constants for billable LLM and TTS activity.
+This module owns usage recording and normalization constants for billable LLM
+and TTS activity. It exposes no HTTP routes; usage rows are read by billing,
+the dashboard and creator analytics, each behind its own permission checks.
 
-Entry files in this directory: `routes.py`, `recorder.py`, `consts.py`,
-`models.py`.
+Entry files in this directory: `recorder.py`, `consts.py`, `models.py`,
+`api.py`.
 
 ## Do
 
@@ -12,8 +13,8 @@ Entry files in this directory: `routes.py`, `recorder.py`, `consts.py`,
   recorder helpers before persisting records.
 - Keep recorder helpers as the single place that translates runtime events
   into persisted metering rows.
-- Preserve reporting filters and date parsing behavior exposed through the
-  metering routes.
+- Add any new HTTP reporting route behind an explicit operator or course
+  permission check; usage rows span every learner and course.
 
 ## Avoid
 

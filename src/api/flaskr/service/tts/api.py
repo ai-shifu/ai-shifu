@@ -25,7 +25,6 @@ from flaskr.service.tts.volcengine_voice_clone import (
     is_valid_volcengine_custom_voice_id,
     verify_volcengine_voice_id,
 )
-from flaskr.util.deprecation import deprecated_alias_getattr
 
 if TYPE_CHECKING:
     from flaskr.service.tts.streaming_tts import StreamingTTSProcessor
@@ -67,8 +66,3 @@ __all__ = [
     "supports_cloned_voices",
     "verify_volcengine_voice_id",
 ]
-
-
-__getattr__ = deprecated_alias_getattr(
-    __name__, {"TTSRpmQueueTimeout": "TTSRpmQueueTimeoutError"}, globals()
-)

@@ -42,7 +42,6 @@ jest.mock('@/lib/browser-timezone', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
-    getBillingBootstrap: jest.fn(),
     getBillingCatalog: jest.fn(),
     getBillingLedger: jest.fn(),
     getBillingWalletBuckets: jest.fn(),
@@ -82,7 +81,6 @@ jest.mock('@/components/ui/Sheet', () => ({
   ),
 }));
 
-const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
 const mockGetBillingCatalog = api.getBillingCatalog as jest.Mock;
 const mockGetBillingLedger = api.getBillingLedger as jest.Mock;
 const mockGetBillingWalletBuckets = api.getBillingWalletBuckets as jest.Mock;
@@ -111,7 +109,6 @@ describe('AdminBillingPage', () => {
     mockEnvState.runtimeConfigLoaded = true;
     mockEnvState.stripeEnabled = 'true';
 
-    mockGetBillingBootstrap.mockReset();
     mockGetBillingCatalog.mockReset();
     mockGetBillingLedger.mockReset();
     mockGetBillingWalletBuckets.mockReset();
@@ -199,7 +196,6 @@ describe('AdminBillingPage', () => {
         },
       ],
     });
-    mockGetBillingBootstrap.mockResolvedValue(bootstrapPayload);
     mockGetBillingWalletBuckets.mockResolvedValue({
       items: [
         {
@@ -338,7 +334,6 @@ describe('AdminBillingPage', () => {
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith('/admin');
     });
-    expect(mockGetBillingBootstrap).not.toHaveBeenCalled();
     expect(mockGetBillingCatalog).not.toHaveBeenCalled();
     expect(screen.queryByTestId('admin-billing-page')).not.toBeInTheDocument();
   });

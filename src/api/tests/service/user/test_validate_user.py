@@ -14,7 +14,6 @@ def test_validate_user_maps_invalid_algorithm_token_to_user_not_found(
 ) -> None:
     app = Flask("validate-user-invalid-algorithm-tests")
     app.config["SECRET_KEY"] = "test-secret"
-    app.config["ENVERIMENT"] = "prod"
 
     def _raise_invalid_algorithm(*_args: object, **_kwargs: object) -> None:
         message = "The specified alg value is not allowed"
@@ -34,7 +33,6 @@ def test_validate_user_maps_invalid_user_id_claim_to_user_not_found(
 ) -> None:
     app = Flask("validate-user-claim-tests")
     app.config["SECRET_KEY"] = "test-secret"
-    app.config["ENVERIMENT"] = "prod"
     claims = {"exp": int(time.time()) + 60}
     if user_id is not None:
         claims["user_id"] = user_id
@@ -42,5 +40,27 @@ def test_validate_user_maps_invalid_user_id_claim_to_user_not_found(
 
     with pytest.raises(AppError) as exc_info:
         validate_user(app, token)
+
+    assert exc_info.value.code == ERROR_CODE["server.user.userNotFound"]
+
+
+def test_validate_user_never_treats_a_raw_user_id_as_a_session_token(
+    monkeypatch: object,
+) -> None:
+    from flaskr.service.user import common
+
+    app = Flask("validate-user-no-dev-bypass-tests")
+    app.config["SECRET_KEY"] = "test-secret"
+    # The retired dev branch loaded the token itself as a user id.
+    app.config["ENVERIMENT"] = "dev"
+
+    def _fail_load(user_id: str) -> None:
+        message = f"user {user_id!r} must not be loaded from an unsigned token"
+        raise AssertionError(message)
+
+    monkeypatch.setattr(common, "_load_user_info", _fail_load)
+
+    with pytest.raises(AppError) as exc_info:
+        validate_user(app, "existing-user-bid")
 
     assert exc_info.value.code == ERROR_CODE["server.user.userNotFound"]
