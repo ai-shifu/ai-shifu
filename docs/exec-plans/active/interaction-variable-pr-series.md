@@ -39,11 +39,11 @@ work and the old oversized application #3221 are not reconstruction bases.
   generated options after enabling multiline authored binding parsing. All
   380 targeted package, learning and Profile failure regressions pass.
 - [x] 2026-10-29: Toolchain doctor and all-file hooks pass. The dependency-pinned
-  backend gates pass: 2,746 native library tests and 1,910 learning/Profile tests.
+  backend gates pass: 2,758 native library tests and 1,910 learning/Profile tests.
 - [x] 2026-10-29: Independent frontend and backend review completed. The fenced
   example regression is fixed and reverified; no actionable finding remains.
 - [x] 2026-10-29: Created focused application PR #3238 against main.
-- [ ] Finish the current-head CI/review after the literal-opener correction.
+- [ ] Finish the current-head CI/review after the binding boundary corrections.
 - [ ] Wait for the user's review; do not merge, deploy or start further work.
 
 ## Surprises & Discoveries
@@ -72,6 +72,13 @@ scan. The regressions fail before the fix (9 failures) and pass afterward (38
 tests), including accepted answers, save/restore and memory isolation.
 The full native and learning/Profile gates and all-file hooks pass after this
 correction; independent review confirms offsets and original boundaries remain.
+
+The next review found that a newline after a leading binding hid a text hint
+from the native question helper. Strip only the recognized binding's following
+whitespace, matching the parser. Twelve newline regressions fail before this
+one-line fix; both binding forms preserve the restored hint and option values.
+The complete native and affected host gates and all-file hooks pass; independent
+review also verifies text-only hints and unchanged unbound control behavior.
 
 ## Decision Log
 

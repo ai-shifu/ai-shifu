@@ -9,7 +9,9 @@ from markdownflow.engine import (
     ErrorEvent,
     InteractionRequest,
     InteractionResponseTurn,
+    InteractionSpec,
     MemoryUpdated,
+    Option,
     ScriptBundle,
     Session,
     ToolResult,
@@ -18,7 +20,12 @@ from markdownflow.engine import (
     substitute_variables,
 )
 from markdownflow.engine.script import substitution_names
-from markdownflow.engine.tools import script_options, script_pauses, script_text_inputs
+from markdownflow.engine.tools import (
+    normalize_script_text_input,
+    script_options,
+    script_pauses,
+    script_text_inputs,
+)
 from markdownflow.interaction_rendering import QuestionLabels, QuestionRenderer
 from markdownflow.syntax import InteractionParser
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
@@ -34,17 +41,35 @@ _LITERAL_EXAMPLES = [
 
 @pytest.mark.parametrize("prefix", ["", "%"])
 @pytest.mark.parametrize("separator", [" | ", " || "])
+@pytest.mark.parametrize("padding", [" ", "\n", "\r\n", "\r"])
 def test_leading_binding_is_not_an_option_or_input_hint(
-    prefix: str, separator: str
+    prefix: str, separator: str, padding: str
 ) -> None:
-    source = (
-        "?[ " + prefix + "{{goal}} A//a" + separator + "B//b" + separator + "...Other]"
-    )
+    binding = prefix + "{{goal}}"
+    source = f"?[ {binding}{padding}A//a{separator}B//b{separator}...Other]"
     assert script_options(source) == {"A": "A", "a": "a", "B": "B", "b": "b"}
     (question,) = script_text_inputs(source)
     assert question.variable == "goal"
     assert question.placeholder == "Other"
     assert question.multi is (separator == " || ")
+    spec = InteractionSpec(
+        type="multi" if question.multi else "single",
+        prompt="Your goal?",
+        variable="goal",
+        options=[
+            Option(display="A", value="a"),
+            Option(display="B", value="b"),
+            Option(display="...Other"),
+        ],
+    )
+    normalized = normalize_script_text_input(spec, (question,))
+    assert normalized.type == ("multi_or_text" if question.multi else "single_or_text")
+    assert normalized.variable == "goal"
+    assert normalized.placeholder == "Other"
+    assert [(option.display, option.stored) for option in normalized.options] == [
+        ("A", "a"),
+        ("B", "b"),
+    ]
     assert script_pauses("?[" + prefix + "{{goal}} Ready]") == 0
     assert script_options("?[" + prefix + "{{goal}} ...Your goal?]") == {}
 

@@ -284,7 +284,7 @@ def _script_questions(script_text: str) -> list[_Question]:
         end = end_exclusive - 1
         raw = text[start + 2 : end]
         variable = read_interaction_variable(raw)
-        body = raw[variable.end :] if variable is not None else raw
+        body = raw[variable.end :].lstrip() if variable is not None else raw
         newline = min(
             (
                 at
