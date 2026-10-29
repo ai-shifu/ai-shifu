@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import decimal
 import json
 from functools import wraps
@@ -105,15 +105,15 @@ def bypass_token_validation(func: Callable[P, R]) -> Callable[P, R]:
 
 def fmt(o: object) -> object:
     """Serialize a value for the shared API response envelope."""
-    if isinstance(o, datetime.datetime):
+    if isinstance(o, dt.datetime):
         # Single serialization choke point for datetimes returned by APIs.
         # Stored values are UTC (see now_utc()); treat naive values as UTC and
         # convert aware values to UTC, always emitting ISO 8601 with a 'Z'
         # suffix. Display-time timezone conversion is a pure frontend concern.
         if o.tzinfo is None:
-            o = o.replace(tzinfo=datetime.UTC)
-        return o.astimezone(datetime.UTC).isoformat().replace("+00:00", "Z")
-    if isinstance(o, datetime.date):
+            o = o.replace(tzinfo=dt.UTC)
+        return o.astimezone(dt.UTC).isoformat().replace("+00:00", "Z")
+    if isinstance(o, dt.date):
         return o.isoformat()
     if isinstance(o, decimal.Decimal):
         return str(o)

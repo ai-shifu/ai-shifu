@@ -1,7 +1,7 @@
 """Implement business operations for legacy orders."""
 
 import ast
-import datetime
+import datetime as dt
 import decimal
 import json
 import re
@@ -313,8 +313,8 @@ def is_order_has_timeout(app: Flask, origin_record: Order) -> bool:
     else:
         created_at = created_at.astimezone(pytz.UTC)
 
-    current_time = datetime.datetime.now(pytz.UTC)
-    return current_time > created_at + datetime.timedelta(seconds=pay_order_expire_time)
+    current_time = dt.datetime.now(pytz.UTC)
+    return current_time > created_at + dt.timedelta(seconds=pay_order_expire_time)
 
 
 @contextmanager

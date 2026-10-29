@@ -194,6 +194,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Restrict learner order actions to their owner](./completed/restrict-learner-order-actions.md)
 - [Retire the AI Instruction Generator](./completed/retire-ai-instruction-generator.md)
 - [Reuse production images in PR runtime checks](./completed/reuse-production-runtime-images.md)
+- [Upgrade Ruff to 0.17.3](./completed/ruff-0-17-upgrade.md)
 - [Display the running frontend version](./completed/running-version-display.md)
 - [Runtime Harness Fast Value Gate](./completed/runtime-harness-fast-value-gate.md)
 - [Safe Frontend Dead Code Cleanup](./completed/safe-frontend-dead-code-cleanup.md)
