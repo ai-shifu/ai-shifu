@@ -22,6 +22,9 @@ backend and frontend pull requests. Merging and deployment remain manual.
   Python or KaTeX bypass or compatibility regression.
 - [x] 2026-10-29 UTC: Triaged two additional npm audit findings in Ajv and
   minimatch; no unverified version-only fix was included.
+- [x] 2026-10-29 UTC: Triaged four newly opened filelock alerts #814-817.
+  Confirmed that the patched version conflicts with both pinned and latest
+  stable LiteLLM dependency requirements; no unresolvable pin was committed.
 - [x] 2026-10-29 UTC: Published ready-for-review backend PR #3232 and frontend
   [PR #3239](https://github.com/ai-shifu/ai-shifu/pull/3239). Final CI acceptance
   remains part of the external gate below.
@@ -29,6 +32,9 @@ backend and frontend pull requests. Merging and deployment remain manual.
   Dependabot's default-branch readback and the deployed application.
 - [ ] 2026-10-29 UTC: Upstream follow-up: remediate deepmerge alert #813 once a trustworthy
   release or compatible replacement is available.
+- [ ] 2026-10-29 UTC: Upstream follow-up: remediate filelock #814-817 when a
+  supported LiteLLM release accepts the patched filelock version, or a verified
+  compatible backport becomes available.
 
 ## Surprises & Discoveries
 
@@ -52,6 +58,13 @@ backend and frontend pull requests. Merging and deployment remain manual.
   bounded subprocess probes. The application does not directly use these APIs;
   current consumers are build/lint/configuration tools. ESLint does not enable
   Ajv's $data option and repository glob patterns are fixed configuration.
+- GitHub's inventory grew from 20 to 24 alerts during execution. New filelock
+  advisories GHSA-69hj-f68j-2879 and GHSA-8mx5-7m5m-r77g are fixed in 4.2.1.
+  Both pinned LiteLLM 1.106.2 and latest stable 1.106.6 require
+  `filelock>=3.16.1,<4.0`; uv rejects the latter together with filelock 4.2.1.
+  Hugging Face Hub also uses filelock for cache locking, including an explicit
+  mode of 0o664. The local-user/shared-directory preconditions must not be
+  dismissed merely because the application has no direct filelock import.
 
 ## Decision Log
 
@@ -69,6 +82,9 @@ backend and frontend pull requests. Merging and deployment remain manual.
   verification. Adding an optional regular-expression engine or changing a
   version number does not demonstrate that the reported default-API trigger
   stops reproducing. Do not claim universal ReDoS prevention from these fixes.
+- Leave filelock at its existing pin until the declared LiteLLM compatibility
+  constraint can be satisfied. Do not bypass package metadata, downgrade the
+  LLM gateway, or replace it with an unverified fork to clear an alert.
 
 ## Outcomes & Retrospective
 
@@ -79,10 +95,14 @@ original Authlib 1.6.12 / dnspython 2.7.0. The larger backend selection passes
 98 tests. The final frontend graph passes 3,520 tests, including the KaTeX trust
 regression and existing Mermaid/YAML dependency regression.
 
-Initial repository gates passed and both PRs are published. The latest-main
-toolchain and final remote CI are being verified. A candidate or successful
-check does not close a default-branch alert. No alert has been dismissed, no
-code has been merged and no deployment has been requested.
+Both PRs are published and refreshed onto main 685dffe52. The latest-main
+Ruff 0.17.3 toolchain, complete repository gates and focused regressions pass;
+final remote CI is being verified. These candidates cover 19 of the now 24
+GitHub alerts. One deepmerge alert has no patched release; four filelock alerts
+are blocked by the LiteLLM version constraint. The two additional npm audit
+findings remain separately documented. A candidate or successful check does
+not close a default-branch alert. No alert has been dismissed, no code has been
+merged and no deployment has been requested.
 
 ## Context and Orientation
 
