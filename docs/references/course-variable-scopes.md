@@ -2,7 +2,7 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-29
 canonical: true
 ---
 
@@ -31,7 +31,7 @@ exactly. There is no expression evaluation, quote decoding, backslash decoding
 or recursive recognition of markers inside a key. A literal `}}` remains a
 reserved sequence and cannot be part of a name.
 
-For example, `?[%{{ What is your gender? }} Male | Female | Private]` stores the selected
+For example, `?[{{ What is your gender? }} Male | Female | Private]` stores the selected
 answer under `What is your gender?`. `{{ What is your gender? }}` references that same key.
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key

@@ -17,6 +17,75 @@ describe('installed MarkdownFlow mixed interaction replay', () => {
 
   afterEach(cleanup);
 
+  describe.each(['%{{answer}}', '{{answer}}'])('%s binding', binding => {
+    it.each(['single', 'text', 'mixed-choice', 'mixed-text'] as const)(
+      'submits and restores a named %s interaction',
+      kind => {
+        const hasChoices = kind !== 'text';
+        const hasText = kind !== 'single';
+        const usesText = kind === 'text' || kind === 'mixed-text';
+        const options = [
+          ...(hasChoices ? ['Visible A//a', 'Visible B//b'] : []),
+          ...(hasText ? ['...Explain'] : []),
+        ];
+        const content = `?[${binding} ${options.join(' | ')}]`;
+        const answer = usesText ? 'My answer, including a comma' : 'b';
+        const onSend = jest.fn();
+        const view = render(
+          <ContentRender
+            content={content}
+            onSend={onSend}
+          />,
+        );
+
+        if (usesText) {
+          fireEvent.change(view.getByRole('textbox'), {
+            target: { value: answer },
+          });
+          fireEvent.click(view.getByRole('button', { name: 'Send' }));
+        } else {
+          fireEvent.click(view.getByText('Visible B'));
+        }
+        expect(onSend).toHaveBeenCalledTimes(1);
+        expect(onSend).toHaveBeenCalledWith(
+          expect.objectContaining({
+            variableName: 'answer',
+            [usesText ? 'inputText' : 'buttonText']: answer,
+          }),
+        );
+        const submission = resolveInteractionSubmission(
+          onSend.mock.calls[0][0],
+        );
+        expect(submission).toEqual({ values: [answer], userInput: answer });
+
+        const props = {
+          content,
+          userInput: submission.userInput,
+          readonly: true,
+          onSend,
+        };
+        view.rerender(<ContentRender {...props} />);
+        view.unmount();
+        const restored = render(<ContentRender {...props} />);
+        if (hasText) {
+          expect(restored.getByRole('textbox')).toHaveValue(
+            usesText ? answer : '',
+          );
+          expect(restored.getByRole('textbox')).toBeDisabled();
+        }
+        if (hasChoices) {
+          if (usesText) {
+            expect(restored.getByText('Visible B')).not.toHaveClass('select');
+          } else {
+            expect(restored.getByText('Visible B')).toHaveClass('select');
+          }
+          fireEvent.click(restored.getByText('Visible A'));
+        }
+        expect(onSend).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
+
   it.each([
     ['Ready, I can paste an answer', 'ready'],
     ['Written, I can copy it', 'written'],

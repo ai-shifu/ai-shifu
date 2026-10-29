@@ -66,7 +66,7 @@
     "js-yaml": "4.3.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
-    "markdown-flow-ui": "0.3.3",
+    "markdown-flow-ui": "0.3.4",
     "mermaid": "11.16.1",
     "next": "15.5.28",
     "qrcode.react": "^4.2.0",
@@ -78,7 +78,7 @@
     "react-i18next": "^15.5.1",
     "react-rnd": "^10.5.2",
     "react-use": "^17.6.0",
-    "remark-flow": "1.4.1",
+    "remark-flow": "1.4.2",
     "reveal.js": "^5.2.1",
     "sharp": "^0.35.5",
     "sse.js": "^2.6.0",
@@ -116,7 +116,7 @@
     "lodash-es": "4.18.1",
     "js-cookie": "3.0.7",
     "mermaid": "$mermaid",
-    "remark-flow": "1.4.1",
+    "remark-flow": "1.4.2",
     "next": {
       "postcss": "8.5.27"
     },

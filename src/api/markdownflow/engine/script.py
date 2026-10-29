@@ -9,7 +9,12 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
-from .marker_context import analyze_marker_context
+from markdownflow.syntax.variable_names import (
+    find_interaction_spans,
+    read_interaction_variable,
+)
+
+from .marker_context import MarkerContext, analyze_marker_context, marker_syntax_source
 
 # Anything that only makes sense with the MarkdownFlow syntax note.
 SYNTAX_RE = re.compile(
@@ -100,12 +105,15 @@ def _project_variable_markers(
     markers = {}
     masked: list[str] = []
     at = 0
-    for marker in analyze_marker_context(text, fence_indent=0).markers:
+    context = analyze_marker_context(text, fence_indent=0)
+    bindings = _interaction_bindings(text, context)
+    for marker in context.markers:
         token = f"{marker_prefix}{len(markers)}\x00"
         markers[token] = (
             text[marker.start : marker.end],
             marker.name,
-            bool(marker.start and text[marker.start - 1] == "%"),
+            marker.start in bindings
+            or bool(marker.start and text[marker.start - 1] == "%"),
         )
         masked.extend((text[at : marker.start], token))
         at = marker.end
@@ -130,16 +138,41 @@ def _strip_fences(text: str) -> str:
     return tokens.sub(lambda match: markers[match.group(0)][0], "\n".join(out))
 
 
+def _interaction_bindings(text: str, context: MarkerContext) -> set[int]:
+    """Locate leading bindings within the existing document control boundaries."""
+    bindings: set[int] = set()
+    literal = 0
+    for start, end in find_interaction_spans(
+        text, syntax_source=marker_syntax_source(text, context)
+    ):
+        while literal < len(context.literals) and context.literals[literal][1] <= start:
+            literal += 1
+        if literal < len(context.literals) and context.literals[literal][0] <= start:
+            continue
+        marker = read_interaction_variable(text[start + 2 : end - 1])
+        if marker is not None and marker.name is not None:
+            bindings.add(start + 2 + marker.start)
+    return bindings
+
+
 def collected_names(text: str) -> frozenset[str]:
-    """Return the variables this script fills in during the lesson, named by `%{{name}}`.
+    """Return explicit percent declarations and leading interaction bindings.
 
     Fenced blocks are content the lesson shows, not instructions it follows, so a `%{{name}}`
     inside one is an example of the notation rather than a question. Counted as collected, it
     would drop a real memory value that nothing in the lesson is going to ask for again --
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
+    # Removing fenced examples must not join surrounding text into a new binding.
+    context = analyze_marker_context(text)
+    bindings = _interaction_bindings(text, context)
+    collected = {
+        marker.name
+        for marker in context.markers
+        if marker.name is not None and marker.start in bindings
+    }
     source = _strip_fences(text)
-    return frozenset(
+    return frozenset(collected) | frozenset(
         marker.name
         for marker in analyze_marker_context(source).markers
         if marker.name is not None and marker.start and source[marker.start - 1] == "%"
