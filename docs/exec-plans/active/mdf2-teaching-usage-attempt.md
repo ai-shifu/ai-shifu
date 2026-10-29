@@ -18,7 +18,7 @@ lesson IDs but no attempt ID, while follow-up usage was already complete.
 - [x] 2026-10-09T06:21:00Z: Related learning, profile, user, shared API,
   metering, billing and demo suites pass 5,498 tests with 11 skips and four
   subtests. Full repository pre-commit gates pass.
-- [x] Open a focused PR, deploy its exact tree to sim and verify fresh learner Closed at archival on 2026-10-29: #3059 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [ ] Open a focused PR, deploy its exact tree to sim and verify fresh learner
   usage against actual progress and generated-block records. Reply to AI reviews.
 
 ## Surprises & Discoveries
@@ -50,8 +50,6 @@ answers and resets; all 208 focused cases then pass.
 Implementation and focused regressions are complete. Fresh sim baseline
 reproduces the missing attribution; corrected-image acceptance is pending.
 Production remains on its previously verified 2.0 image.
-
-Archival note (2026-10-29): #3059 ships with main, which has since been deployed to China and US production, so production no longer runs the earlier image.
 
 ## Context and Orientation
 

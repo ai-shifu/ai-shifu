@@ -34,7 +34,7 @@ history. This is a focused next step in the workspace's MDF 2.0 memory milestone
       observing that an unclosed script fence suppressed brief reference priority.
       The regression fails before the fix. Final engine: 293 passed; learning/profile:
       2410 passed, one skipped, four subtests. Final all-files gates passed.
-- [x] Push the final reference-boundary fix after complete validation, Closed at archival on 2026-10-29: #3029 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [ ] Push the final reference-boundary fix after complete validation,
       and validate final sim / CI.
       Main merge remains user-owned.
 

@@ -24,8 +24,8 @@ TTS recording without changing request-owned transactions.
   dependency on other collected modules. Isolated execution reproduces it;
   register the course model before fixture schema creation.
 - [x] Re-run isolated recording tests and final CI after the test-only correction. Closed at archival on 2026-10-29: #3058 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
-- [x] Open the source PR, inspect CI and respond to every AI review opinion. Closed at archival on 2026-10-29: #3058 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
-  A human merges the PR before production image rollout and re-enablement.
+- [x] Open the source PR, inspect CI and respond to every AI review opinion.
+  A human merges the PR before production image rollout and re-enablement. Closed at archival on 2026-10-29: #3058 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

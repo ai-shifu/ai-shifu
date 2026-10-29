@@ -32,8 +32,8 @@ learner facts in teaching prose and generated visuals.
       metadata. Four generations settle 6.33 credits to the isolated test attempt
       and block. Persisted sessions/progress/variables and authored sources remain
       unchanged. These are in-memory diagnostics, not ordinary-HTTP full lessons.
-- [x] 2026-10-13: Verify final receipt-head CI and current review status before Closed at archival on 2026-10-29: #3124 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
-      recommending merge; no automatic merge.
+- [x] 2026-10-13: Verify final receipt-head CI and current review status before
+      recommending merge; no automatic merge. Closed at archival on 2026-10-29: #3124 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

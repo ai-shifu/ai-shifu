@@ -34,7 +34,7 @@ auto-merge, deployment or repository settings change is not.
   for zero-directory glob and ordered-exclusion semantics. Added real Next
   configuration and test-file exclusion cases without changing production
   triggers; all 314 top-level script tests and 179 subtests passed.
-- [x] 2026-10-22 11:38 UTC: External acceptance: a human reviews and manually merges the PR, then Closed at archival on 2026-10-29: #3155 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [ ] 2026-10-22 11:38 UTC: External acceptance: a human reviews and manually merges the PR, then
   separately verifies the actual release draft and publication. Those operations
   remain outside this task; current CI/review evidence is maintained on PR #3155.
 

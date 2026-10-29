@@ -35,7 +35,7 @@ interaction and analytics contracts in
   stop/reset calls begin. Verified callback order, duplicate protection, and
   retake completion even when tracking delivery never settles; clarified the
   timing and JavaScript-thread limits in the product contract.
-- [x] 2026-10-12 CST: Verify migration/deployment order and formal/preview Closed at archival on 2026-10-29: #3112 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [ ] 2026-10-12 CST: Verify migration/deployment order and formal/preview
   behavior after release.
 
 ## Surprises & Discoveries

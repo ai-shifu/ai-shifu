@@ -46,8 +46,8 @@ blocks correctly remain excluded: their generated text is teacher prose.
       restores three submitted text controls, preserves the fourth pending control
       and every other history field, matches original checkpoint inputs, and is
       stable across repeated reads. No teaching request or database write occurs.
-- [x] 2026-10-12: Complete final-head CI; runtime is still pending on functional Closed at archival on 2026-10-29: #3119 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
-      commit e98e98ead while backend/frontend/static/security checks pass.
+- [x] 2026-10-12: Complete final-head CI; runtime is still pending on functional
+      commit e98e98ead while backend/frontend/static/security checks pass. Closed at archival on 2026-10-29: #3119 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 - [x] 2026-10-12: Open Ready for Review #3119 and reply to all four inline findings
       in their original threads, plus each of three CodeRabbit review-summary
       suggestions in the original PR conversation with a link to that review.

@@ -42,7 +42,7 @@ semantic admission, gateway, native-thread bridge and scoped profile facade.
   duplicating settings labels. Real settings/direct-canonical corrections and
   normal nickname/language writes pass 32 focused tests. Final extended suite,
   repository gates, deployment and the new original-thread reply are pending.
-- [x] Verify the final global-profile protection on sim and finish AI replies. Closed at archival on 2026-10-29: #3057 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [ ] Verify the final global-profile protection on sim and finish AI replies.
 
 ## Surprises & Discoveries
 

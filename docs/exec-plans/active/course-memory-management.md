@@ -21,7 +21,7 @@ analytics contract live in [the product spec](../../product-specs/course-memory-
 - [x] 2026-10-07 CST: Run local gates and open PR #3030.
 - [x] 2026-10-07 CST: Fix review findings: URL serialization, replayed consent,
   legacy in-flight writes and omitted original script substitutions.
-- [x] 2026-10-07 CST: Validate the final sim revision and reply to AI reviews. Closed at archival on 2026-10-29: #3030 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [ ] 2026-10-07 CST: Validate the final sim revision and reply to AI reviews.
 
 ## Surprises & Discoveries
 
@@ -55,8 +55,6 @@ A combined nickname-edit / omitted-variable deletion regression also passed;
 both host refreshers now share the original substitution snapshot correctly.
 Initial sim HTTP acceptance passed isolation, deletion, history/profile preservation,
 idempotence and fresh explicit recreation. Final deployed revision acceptance is pending.
-
-Archival note (2026-10-29): the merged revision ships with main, which deploys automatically to China and US production; course memory has since been extended there (for example the memory dialog redesign in #3195), so this acceptance is superseded by production use.
 
 ## Context and Orientation
 
