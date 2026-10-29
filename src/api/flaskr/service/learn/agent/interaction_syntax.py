@@ -38,7 +38,6 @@ from __future__ import annotations
 import re
 
 from markdown_it.common.html_re import HTML_TAG_RE
-from markdownflow.engine.document_blocks import DocumentBlocks
 from markdownflow.engine.marker_context import (
     analyze_marker_context,
     marker_syntax_source,
@@ -48,7 +47,8 @@ from markdownflow.engine.stream_marker_context import (
     pending_autolink_is_primary,
     pending_literal_context,
 )
-from markdownflow.engine.variable_names import (
+from markdownflow.syntax.parser.document_blocks import DocumentBlocks
+from markdownflow.syntax.variable_names import (
     find_interaction_end,
     read_variable_marker,
 )
