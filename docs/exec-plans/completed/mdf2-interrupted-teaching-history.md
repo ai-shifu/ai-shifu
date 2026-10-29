@@ -18,7 +18,7 @@ results, without treating a repeat of the partial response as lesson completion.
 - [x] 2026-10-09T07:02:40Z: Broader related regression passes 5,513 tests (11 skips, four subtests).
   After adding last-turn retry and memory-request boundaries, all learning tests
   pass again: 2,839 tests, one skip and four subtests.
-- [ ] Open a focused PR, deploy the exact feature tree to sim and reply to AI opinions.
+- [x] Open a focused PR, deploy the exact feature tree to sim and reply to AI opinions. Closed at archival on 2026-10-29: #3060 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

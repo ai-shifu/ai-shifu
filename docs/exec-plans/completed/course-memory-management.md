@@ -21,7 +21,7 @@ analytics contract live in [the product spec](../../product-specs/course-memory-
 - [x] 2026-10-07 CST: Run local gates and open PR #3030.
 - [x] 2026-10-07 CST: Fix review findings: URL serialization, replayed consent,
   legacy in-flight writes and omitted original script substitutions.
-- [ ] 2026-10-07 CST: Validate the final sim revision and reply to AI reviews.
+- [x] 2026-10-07 CST: Validate the final sim revision and reply to AI reviews. Closed at archival on 2026-10-29: #3030 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

@@ -22,7 +22,7 @@ This scope supersedes the broader historical-normalization implementation.
 - [x] 2026-10-27 CST: Head `6032c2aba` passed all applicable CI and final live review readback with no open findings.
 - [x] 2026-10-27 CST: Clarify that saved prompts remain as-is. Remove raw/expanded format detection and all script/brief rebuilding from nickname/deletion refresh.
 - [x] 2026-10-27 CST: Verify the single memory-only refresh path: 7,514 related backend cases pass with 96 existing skips, including all offline engine cases. Full pre-commit passes.
-- [ ] 2026-10-27 CST: Push the simplification and follow the new head through CI and review.
+- [x] 2026-10-27 CST: Push the simplification and follow the new head through CI and review. Closed at archival on 2026-10-29: #3188 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

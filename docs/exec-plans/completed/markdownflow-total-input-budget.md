@@ -27,8 +27,8 @@ The durable contract is [MarkdownFlow Input Budget](../../references/markdownflo
 - [x] 2026-10-07 CST: Deploy initial sim-52ef353; both replicas match 15 files
   and pass 32 isolated checks. Fresh-guest reading, 2.09-second backfill and
   listen completion pass; canonical profile unchanged, production stays 1.0.
-- [ ] 2026-10-07 CST: Deploy and verify the review failure-boundary fixes.
-- [ ] 2026-10-07 CST: Reply to every AI opinion and complete external checks.
+- [x] 2026-10-07 CST: Deploy and verify the review failure-boundary fixes. Closed at archival on 2026-10-29: #3032 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [x] 2026-10-07 CST: Reply to every AI opinion and complete external checks. Closed at archival on 2026-10-29: #3032 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

@@ -24,8 +24,8 @@ an author-created profile definition.
 - [x] 2026-10-07 09:53 UTC: Preserved portable prompt/tool behavior and bounded
       the supplementary projection. Added four regressions; learning/profile: 2391
       passed, one skipped, four subtests. All-files gates passed.
-- [ ] Rerun normal HTTP admission/persistence on the revised deployment.
-- [ ] Integrate and validate sim, handle every independent AI finding, and
+- [x] Rerun normal HTTP admission/persistence on the revised deployment. Closed at archival on 2026-10-29: #3028 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [x] Integrate and validate sim, handle every independent AI finding, and Closed at archival on 2026-10-29: #3028 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
       verify final CI. Main merge remains user-owned.
 
 ## Surprises & Discoveries

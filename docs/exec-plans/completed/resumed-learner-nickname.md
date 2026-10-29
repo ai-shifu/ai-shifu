@@ -18,7 +18,7 @@ the two compatibility findings deferred from PR #3024 without restarting lessons
       actionable code findings. Sim `12ee27bf7` is deployed with API 2/2 and web
       1/1 Ready. Forty-eight deployed host probes and a new temporary learner's
       read/audio/listen completion passed, with the canonical profile unchanged.
-- [ ] 2026-10-07 08:29 UTC: User-owned main merge and post-merge source check;
+- [x] 2026-10-07 08:29 UTC: User-owned main merge and post-merge source check; Closed at archival on 2026-10-29: #3025 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
       keep this plan active until that external acceptance is complete. Final CI
       and review replies are tracked on PR #3025 and in the workspace record.
 

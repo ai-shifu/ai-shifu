@@ -32,7 +32,7 @@ The durable contract is [Authored Input Hints](../../references/markdownflow-aut
 - [x] 2026-10-07 16:36 UTC: Learning/profile 2,521 passed (1 skip, 4 subtests),
   including all 38 focused regressions and the full engine. Expanded deployment
   probes passed 55 checks locally without provider calls or database writes.
-- [ ] Verify the review fixes locally and on sim, reply to both inline findings
+- [x] Verify the review fixes locally and on sim, reply to both inline findings Closed at archival on 2026-10-29: #3033 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
   and the independent docstring warning, and check final CI.
 
 ## Surprises & Discoveries

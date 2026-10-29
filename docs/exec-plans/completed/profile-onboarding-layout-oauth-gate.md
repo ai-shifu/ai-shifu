@@ -23,7 +23,7 @@ or publish any environment as part of this work.
       checks passed. Independent implementation review found no blockers.
 - [x] 2026-10-13 CST: Passed the full Lefthook repository gate and prepared
       a separate review-only PR handoff.
-- [ ] Human acceptance of the new PR; merge and deployment are not authorized.
+- [x] Human acceptance of the new PR; merge and deployment are not authorized. Closed at archival on 2026-10-29: #3127 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 - [x] 2026-10-13 CST: Addressed PR #3127 review about restored BFCache navigation
       with six unit cases and three integration cases that first failed.
 - [x] 2026-10-13 CST: Verified the separate stale-code synchronous-failure review

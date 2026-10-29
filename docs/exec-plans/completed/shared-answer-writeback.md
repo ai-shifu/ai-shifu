@@ -57,7 +57,7 @@ separate work.
   CN/US API replicas are 6/6 and 2/2 updated/Ready. One new replica in each region
   passes 135 isolated checks / 26 hashes; both production regions remain 1.0.
 - [x] 2026-10-08: User subsequently cancelled cross-course custom-variable sharing.
-  The [course isolation plan](../active/course-variable-isolation.md) owns removal
+  The [course isolation plan](./course-variable-isolation.md) owns removal
   of both explicit reads and answer writeback. Do not extend shared model notes.
 
 ## Surprises & Discoveries

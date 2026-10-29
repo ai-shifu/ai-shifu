@@ -30,7 +30,7 @@ named-answer exceptions introduced by #3034 and #3042. The durable contract is
   fallback, skipping saved-snapshot cleanup and allowing alias profile writes fail
   3 / 8 / 5 cases; original source bytes restored. Developer tools, architecture,
   transaction sites and every repository pre-commit gate pass.
-- [ ] 2026-10-08: Publish one non-draft PR, synchronize exact source tree to sim,
+- [x] 2026-10-08: Publish one non-draft PR, synchronize exact source tree to sim, Closed at archival on 2026-10-29: #3043 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
   verify replicas/live classroom, reply to every AI opinion and verify final CI.
 
 ## Surprises & Discoveries

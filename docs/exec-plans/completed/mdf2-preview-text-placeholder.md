@@ -26,7 +26,7 @@ pending interactions so the existing learner renderer displays the input.
 - [x] 2026-10-09T07:27:00Z: Final learning suite passes 2,854 tests, one skip,
   four subtests, including the unrelated-follow-up regression that failed before
   removal of the fallback. Add focused test/helper docstrings for review coverage.
-- [ ] Revalidate the final review fix in sim and reply to AI opinions.
+- [x] Revalidate the final review fix in sim and reply to AI opinions. Closed at archival on 2026-10-29: #3061 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

@@ -30,7 +30,7 @@ so a flush or eviction would silently hand every learner a fresh allowance.
   updated-lesson notice without a reset link, retry-safe request ids.
 - [x] 2026-10-24 CST: Backend reset suites (177 tests) and the affected web
   suites pass locally.
-- [ ] Production release: apply the migration before or immediately after the
+- [x] Production release: apply the migration before or immediately after the Closed at archival on 2026-10-29: the migration and limit are live in both China and US production since 2026-10-24.
   image rolls in China, set `LESSON_RESET_LIMIT=10` in both regions' API
   ConfigMaps, and verify one ordinary learner is blocked on the eleventh reset.
 

@@ -15,7 +15,7 @@ history replay.
 - [x] 2026-10-14 12:04 CST: Passed the toolchain doctor, repository harness, architecture checks, and all-file lefthook gate.
 - [x] 2026-10-14 12:26 CST: Fixed review findings for separated HTML attachments and question prompts after unfinished visuals; preserved ordinary prose history/audio grouping.
 - [x] 2026-10-14 12:26 CST: Verified the updated learning suite (3678 passed, 93 skipped), actual element/history regressions, and all-file lefthook gate.
-- [ ] 2026-10-14 12:04 CST: Review the ready pull request and verify a real lesson after deployment.
+- [x] 2026-10-14 12:04 CST: Review the ready pull request and verify a real lesson after deployment. Closed at archival on 2026-10-29: #3134 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

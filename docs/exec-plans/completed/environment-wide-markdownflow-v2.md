@@ -29,7 +29,7 @@ The user requested this insertion after PR #3030 merged.
   explicit-Reset transition contract; retain deployment-wide routing.
 - [x] 2026-10-07 CST: Accept the CodeRabbit stale-comment correction, update
   adjacent runtime documentation and reply after pushing validation.
-- [ ] 2026-10-07 CST: Complete external CI checks and human main merges.
+- [x] 2026-10-07 CST: Complete external CI checks and human main merges. Closed at archival on 2026-10-29: #3031 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

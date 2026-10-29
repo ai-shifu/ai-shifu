@@ -26,7 +26,7 @@ Authored course content keeps its own language.
 - [x] 2026-09-27 UTC: Review Chinese-source accuracy and correct 382 strings across 35 files.
 - [x] 2026-09-27 UTC: Extend the arena renderer, RTL propagation and locale regression checks to Urdu.
 - [x] 2026-09-27 UTC: Synchronize PR #2989's 376 retired keys and two empty namespaces to Urdu after the remote branch rebase.
-- [ ] 2026-09-27 UTC: Complete review feedback and verify hosted CI acceptance.
+- [x] 2026-09-27 UTC: Complete review feedback and verify hosted CI acceptance. Closed at archival on 2026-10-29: #2988 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

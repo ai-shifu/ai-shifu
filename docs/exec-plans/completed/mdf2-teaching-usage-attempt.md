@@ -18,7 +18,7 @@ lesson IDs but no attempt ID, while follow-up usage was already complete.
 - [x] 2026-10-09T06:21:00Z: Related learning, profile, user, shared API,
   metering, billing and demo suites pass 5,498 tests with 11 skips and four
   subtests. Full repository pre-commit gates pass.
-- [ ] Open a focused PR, deploy its exact tree to sim and verify fresh learner
+- [x] Open a focused PR, deploy its exact tree to sim and verify fresh learner Closed at archival on 2026-10-29: #3059 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
   usage against actual progress and generated-block records. Reply to AI reviews.
 
 ## Surprises & Discoveries

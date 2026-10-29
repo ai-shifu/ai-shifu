@@ -30,8 +30,8 @@ in [Docker image publication](../../references/docker-image-publication.md).
 - [x] 2026-10-08: Publish PR #3046; candidate run 37752346532 passes all four native
   image builds/production smoke, three-registry digest pushes/config verification
   and both manifest publications. Final-head run 37752737804 is executing.
-- [ ] Verify candidate manifests and anonymous GHCR access; reply to AI reviews.
-- [ ] User manually merges; verify main automatically publishes all three registries.
+- [x] Verify candidate manifests and anonymous GHCR access; reply to AI reviews. Closed at archival on 2026-10-29: #3046 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [x] User manually merges; verify main automatically publishes all three registries. Closed at archival on 2026-10-29: #3046 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

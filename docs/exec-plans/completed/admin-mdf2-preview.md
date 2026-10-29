@@ -10,7 +10,7 @@ Teachers debugging an allowlisted course on the simulation deployment should see
 - [x] 2026-09-30 16:00 CST: Reused the 2.0 lesson runner with an isolated, expiring debug session.
 - [x] 2026-09-30 16:00 CST: Stopped the editor's 1.0 block continuation for a 2.0 response.
 - [x] 2026-09-30 16:00 CST: Covered routing, isolation, input continuation, session expiry, analytics, and existing preview compatibility.
-- [ ] 2026-09-30 16:00 CST: Review the pull request and verify a real allowlisted lesson in sim after deployment.
+- [x] 2026-09-30 16:00 CST: Review the pull request and verify a real allowlisted lesson in sim after deployment. Closed at archival on 2026-10-29: #3004 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 

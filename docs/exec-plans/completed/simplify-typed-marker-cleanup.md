@@ -23,12 +23,12 @@ merging.
 - [x] 2026-10-21 22:36 UTC: Addressed the review finding that complete links held the
   remaining stream. Native analysis now distinguishes completed inline syntax, unresolved
   references and incomplete paragraphs; empty checkboxes cannot become references.
-- [ ] 2026-10-21 22:36 UTC: Verify and push the separate review-fix commit, then follow
+- [x] 2026-10-21 22:36 UTC: Verify and push the separate review-fix commit, then follow Closed at archival on 2026-10-29: #3150 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
   its latest-head CI and review. Do not merge.
 
 - [x] 2026-10-21 23:28 UTC: Rebased the independent invalid-fence follow-up (#3151)
   onto parent head `f1c9a431c5e5`, retaining the typed implementation and migrating regressions.
-- [ ] 2026-10-21 23:28 UTC: Finish follow-up validation, push with an explicit lease,
+- [x] 2026-10-21 23:28 UTC: Finish follow-up validation, push with an explicit lease, Closed at archival on 2026-10-29: #3150 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
   and converge its current-head CI and review without merging.
 
 ## Surprises & Discoveries

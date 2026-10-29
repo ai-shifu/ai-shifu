@@ -30,7 +30,7 @@ the mutable Sharp installation fallback.
 - [x] 2026-10-06 22:37 UTC: Remove the mutable Sharp fallback and compare installation/pruning with the original copied lockfile.
 - [x] 2026-10-06 22:49 UTC: Pass native Linux AMD64/ARM64 Web dependency probes and API/Web production runner smoke checks for head 596a26e16 in packaging run 37542040314.
 - [x] 2026-10-06 23:00 UTC: Rebase only the two dependency commits onto main after the Docker stability foundation merged; preserve its Markdown packaging triggers.
-- [ ] 2026-10-06 23:00 UTC: Complete the final main-based PR head CI and live review checks before merge.
+- [x] 2026-10-06 23:00 UTC: Complete the final main-based PR head CI and live review checks before merge. Closed at archival on 2026-10-29: #3018 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 
