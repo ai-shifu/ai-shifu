@@ -53,7 +53,14 @@ user's request. The old oversized application #3221 is not a reconstruction base
   typecheck pass; remaining dependency safeguards stay in place.
 - [x] 2026-10-30: Rebased onto #3244-#3246. Parser baseline tests use the
   unadapted local syntax parser after main retired the external Python package.
-- [ ] Finish the current-head CI/review after the binding boundary corrections.
+- [x] 2026-10-30: Committed regression matrices now cover five controls through
+  Session storage and replay (80 combinations), plus the installed renderer's
+  multi-select choice, text and combined answers with readonly restoration.
+- [x] 2026-10-30: Added a browser regression from author editing and saving a
+  standard binding through publishing, a separate learner's exact named
+  submission, persisted memory and selected-answer restoration after reload.
+  The local real-API run passes; CI runs the same test with MySQL and Redis.
+- [ ] Finish the current-head CI/review after the persistent regression updates.
 - [ ] Wait for the user's review; do not merge, deploy or start further work.
 
 ## Surprises & Discoveries
@@ -159,10 +166,22 @@ learning/preview/Profile payloads and navigation. Historical prompt fixtures sta
 unchanged; the prompt hash guard explicitly permits only the three changed
 binding/reference instruction resources.
 
-The current suites do not yet exercise a standard binding from author editing
-through saved course content, browser answer submission and a fresh-session
-reload. The additional five-control engine and multi-select renderer probes
-are temporary validation, not committed end-to-end regression gates.
+The five-control Session matrix runs in Backend Tests. The installed renderer
+matrix runs in Frontend Checks and covers both binding spellings, exact option
+values, comma-containing text, mixed submissions and readonly restoration.
+The Runtime Harness smoke project includes the author-to-learner regression:
+edit the actual code editor, read saved content after reload, publish, submit
+from a separate learner context, read the exact persisted variable and reload
+the history and selected answer. Existing historical answers remain editable.
+
+Only the external OpenAI-compatible model transport is replaced by a finite,
+deterministic HTTP sidecar; the browser, application APIs, engine, MySQL and
+Redis remain real in CI. Its HTTP/SSE protocol and answer lifecycle also run in
+the existing harness-script unit gate. Local browser validation uses the real
+Flask application with SQLite and the existing fake Redis transport; the CI
+runtime stack is the acceptance gate for the production storage services.
+Profile/preview consumer tests still isolate their renderer/parser boundaries;
+this browser regression specifically verifies the formal course-learning path.
 
 After each push, wait five minutes before refreshing feedback. End only when
 all applicable exact-head checks are terminal and no new valid feedback is

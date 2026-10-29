@@ -1,7 +1,9 @@
 """Standard bindings share the existing named-answer and legacy wire contracts."""
 
+from __future__ import annotations
+
 import json
-from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
 import pytest
 from markdownflow.engine import (
@@ -30,6 +32,11 @@ from markdownflow.interaction_rendering import QuestionLabels, QuestionRenderer
 from markdownflow.syntax import InteractionParser
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from markdownflow.engine.interaction import InteractionType
 
 _LITERAL_EXAMPLES = [
     "",
@@ -127,11 +134,60 @@ def test_old_memory_cannot_replace_a_binding_or_its_later_read(
 @pytest.mark.parametrize("prefix", ["", "%"])
 @pytest.mark.parametrize("replaying", [False, True])
 @pytest.mark.parametrize("example", _LITERAL_EXAMPLES)
+@pytest.mark.parametrize(
+    ("kind", "body", "values", "text", "expected"),
+    [
+        pytest.param("single", "A//a | B//b", ("b",), None, "b", id="single"),
+        pytest.param("multi", "A//a || B//b", ("a", "b"), None, "a, b", id="multi"),
+        pytest.param(
+            "text",
+            "...Explain",
+            (),
+            "New, exact\nanswer",
+            "New, exact\nanswer",
+            id="text",
+        ),
+        pytest.param(
+            "single_or_text",
+            "A//a | B//b | ...Explain",
+            (),
+            "New, exact\nanswer",
+            "New, exact\nanswer",
+            id="single-or-text",
+        ),
+        pytest.param(
+            "multi_or_text",
+            "A//a || B//b || ...Explain",
+            ("a",),
+            "New, exact\nanswer",
+            "a; New, exact\nanswer",
+            id="multi-or-text",
+        ),
+    ],
+)
 async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
-    prefix: str, replaying: bool, example: str
+    prefix: str,
+    replaying: bool,
+    example: str,
+    kind: InteractionType,
+    body: str,
+    values: tuple[str, ...],
+    text: str | None,
+    expected: str,
 ) -> None:
     calls = 0
     prompts: list[str] = []
+    spec = InteractionSpec(
+        type=kind,
+        prompt="Your goal?",
+        variable="goal",
+        options=(
+            [Option(display="A", value="a"), Option(display="B", value="b")]
+            if kind != "text"
+            else []
+        ),
+        placeholder="Explain" if kind.endswith("text") else None,
+    )
 
     async def model(
         messages: list[ModelMessage], _info: AgentInfo
@@ -151,12 +207,7 @@ async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
         elif calls == 2:
             name, arguments = (
                 "interact",
-                {
-                    "type": "single",
-                    "prompt": "Your goal?",
-                    "variable": "goal",
-                    "options": [{"display": "A"}, {"display": "B"}],
-                },
+                spec.model_dump(exclude={"labelled_by_engine"}, exclude_none=True),
             )
         else:
             yield "Continue with the learner's answer."
@@ -175,7 +226,7 @@ async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
         memory_recall=True,
         render="none",
     )
-    source = example + "?[" + prefix + "{{goal}} A | B]"
+    source = example + "?[" + prefix + "{{goal}} " + body + "]"
     session = await engine.new_session(source, memory={"goal": "OLD_ANSWER"})
     first = [event async for event in engine.run_turn(session)]
     assert "OLD_ANSWER" not in "\n".join(prompts)
@@ -186,7 +237,7 @@ async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
         if isinstance(event, ToolResult) and event.name == "recall"
     ] == [{"status": "unavailable"}]
     (question,) = [event for event in first if isinstance(event, InteractionRequest)]
-    assert question.spec.variable == "goal"
+    assert question.spec == spec
     renderer = QuestionRenderer(QuestionLabels("Continue", "Your answer"))
     wire = renderer.render_interaction(question.spec)
     assert "%{{ goal }}" in wire
@@ -195,22 +246,26 @@ async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
     session = Session.loads(session.dumps())
     assert session.script.script == source
     assert session.memory == {"goal": "OLD_ANSWER"}
+    assert [pending.spec for pending in session.pending] == [spec]
     assert not session.answered_memory_keys()
     second = [
         event
         async for event in engine.run_turn(
-            session, InteractionResponseTurn(values=["B"]), replaying_input=replaying
+            session,
+            InteractionResponseTurn(values=list(values), text=text),
+            replaying_input=replaying,
         )
     ]
     assert not any(isinstance(event, ErrorEvent) for event in second)
     assert [
         (event.key, event.value) for event in second if isinstance(event, MemoryUpdated)
-    ] == [("goal", "B")]
+    ] == [("goal", expected)]
     assert [
         json.loads(event.content)
         for event in second
         if isinstance(event, ToolResult) and event.name == "recall"
-    ] == [{"status": "found", "value": "B"}]
+    ] == [{"status": "found", "value": expected}]
     restored = Session.loads(session.dumps())
-    assert restored.memory == {"goal": "B"}
+    assert restored.memory == {"goal": expected}
     assert restored.answered_memory_keys() == {"goal"}
+    assert not restored.pending
