@@ -11,12 +11,14 @@ from flaskr.service.profile_research.session import ProfileResearchValidationErr
 from flaskr.util.prompt_loader import load_prompt_template
 
 if TYPE_CHECKING:
+    from flaskr.service.profile_research.provider import ProfileResearchCompletion
     from flaskr.service.profile_research.session import _ProfileResearchSession
-    from markdown_flow import LLMProvider
 
 
 def parse_assistant_answers(
-    provider: LLMProvider, session: _ProfileResearchSession, raw_text: str
+    provider: ProfileResearchCompletion,
+    session: _ProfileResearchSession,
+    raw_text: str,
 ) -> tuple[str, str]:
     """Return supplemental evidence and a separately stated nickname."""
     result = provider.complete(

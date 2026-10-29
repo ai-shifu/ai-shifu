@@ -9,8 +9,7 @@ from flaskr.api.markdownflow import (
     substitute_variables,
     unrenderable_reason,
 )
-from markdown_flow import InteractionParser
-from markdown_flow.escaping import find_unescaped
+from markdownflow import InteractionParser, find_unescaped
 
 if TYPE_CHECKING:
     from collections.abc import Mapping

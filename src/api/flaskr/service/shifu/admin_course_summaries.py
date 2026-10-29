@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.i18n import _
 from flaskr.service.common.models import (
@@ -41,7 +40,7 @@ from flaskr.service.shifu.models import (
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.util.datetime import NAIVE_DATETIME_MIN, now_utc
-from markdown_flow import MarkdownFlow
+from markdownflow import MarkdownFlowDocument
 from sqlalchemy import and_, case, literal, not_
 from sqlalchemy.orm import defer
 
@@ -827,9 +826,7 @@ def _build_outline_history_tree(
     def _count_blocks(content: str) -> int:
         if not content:
             return 0
-        mdflow = MarkdownFlow(content).set_output_language(
-            get_markdownflow_output_language()
-        )
+        mdflow = MarkdownFlowDocument(content)
         return len(mdflow.get_all_blocks())
 
     def _build(parent_bid: str) -> list[HistoryItem]:

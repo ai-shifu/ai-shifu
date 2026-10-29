@@ -3,7 +3,6 @@
 import hashlib
 
 from flask import Flask
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.i18n import _
@@ -11,8 +10,7 @@ from flaskr.service.common import raise_error
 from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.util.datetime import now_utc
 from flaskr.util.uuid import generate_id
-from markdown_flow import MarkdownFlow
-from markdown_flow.variable_names import normalize_variable_name
+from markdownflow import MarkdownFlowDocument, normalize_variable_name
 from sqlalchemy import func, inspect, text
 
 from .dtos import (
@@ -61,9 +59,7 @@ def _collect_used_variables(app: Flask, shifu_bid: str) -> set[str]:
             if not item.content:
                 continue
             try:
-                markdown_flow = MarkdownFlow(item.content).set_output_language(
-                    get_markdownflow_output_language()
-                )
+                markdown_flow = MarkdownFlowDocument(item.content)
                 for var in markdown_flow.extract_variables() or []:
                     if var:
                         used_variables.add(var)

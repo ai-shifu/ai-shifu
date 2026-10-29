@@ -34,7 +34,7 @@ from flaskr.service.shifu.models import (
     PublishedOutlineItem,
     PublishedShifu,
 )
-from markdown_flow import replace_variables_in_text
+from markdownflow import replace_variables_in_text
 
 if TYPE_CHECKING:
     from collections.abc import Callable

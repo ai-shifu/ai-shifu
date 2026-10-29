@@ -395,7 +395,7 @@ from flaskr.service.user.utils import (
 )
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
-from markdown_flow import MarkdownFlow
+from markdownflow import MarkdownFlowDocument
 from sqlalchemy import and_, case, false, literal, not_, or_
 from sqlalchemy.orm import defer
 

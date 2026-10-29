@@ -4,7 +4,6 @@ from datetime import timedelta
 from typing import TypedDict
 
 from flask import Flask
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db, retry_on_deadlock, uow
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
@@ -28,7 +27,7 @@ from flaskr.service.shifu.shifu_history_manager import (
 )
 from flaskr.service.user.models import UserInfo
 from flaskr.util.datetime import now_utc
-from markdown_flow import MarkdownFlow
+from markdownflow import MarkdownFlowDocument
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
@@ -255,9 +254,7 @@ def save_shifu_mdflow(
                 new_outline.updated_at = now_utc()
                 db.session.add(new_outline)
                 db.session.flush()
-                markdown_flow = MarkdownFlow(content).set_output_language(
-                    get_markdownflow_output_language()
-                )
+                markdown_flow = MarkdownFlowDocument(content)
                 blocks = markdown_flow.get_all_blocks()
                 variable_definitions = get_profile_item_definition_list(app, shifu_bid)
 
@@ -317,9 +314,7 @@ def parse_shifu_mdflow(
         mdflow = outline_item.content
         if data:
             mdflow = data
-        markdown_flow = MarkdownFlow(mdflow).set_output_language(
-            get_markdownflow_output_language()
-        )
+        markdown_flow = MarkdownFlowDocument(mdflow)
         blocks = markdown_flow.get_all_blocks()
 
         raw_variables = markdown_flow.extract_variables() or []

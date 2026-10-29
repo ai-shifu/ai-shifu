@@ -355,7 +355,7 @@ from flaskr.service.user.utils import (
     run_creator_granted_post_auth,
 )
 from flaskr.util.datetime import now_utc
-from markdown_flow import MarkdownFlow
+from markdownflow import MarkdownFlowDocument
 from sqlalchemy import and_, case, literal, not_, or_
 from sqlalchemy.orm import defer
 

@@ -21,7 +21,6 @@ from flaskr.api.llm.model_selection import (
     selection_metadata,
     selection_model,
 )
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,
     get_shifu_context_snapshot,
@@ -68,9 +67,9 @@ from flaskr.service.shifu.shifu_struct_manager import (
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 from flaskr.util.prompt_loader import load_prompt_template
-from markdown_flow import (
+from markdownflow import (
     BlockType,
-    MarkdownFlow,
+    MarkdownFlowDocument,
 )
 
 
@@ -230,9 +229,7 @@ def publish_shifu_draft(
             outline_item.content = draft_outline_item.content
             db.session.add(outline_item)
             db.session.flush()
-            markdown_flow = MarkdownFlow(
-                draft_outline_item.content
-            ).set_output_language(get_markdownflow_output_language())
+            markdown_flow = MarkdownFlowDocument(draft_outline_item.content)
             blocks = markdown_flow.get_all_blocks()
             outline_item_history_item = HistoryItem(
                 bid=node.outline_id,
@@ -587,9 +584,7 @@ def _generate_summaries(
                     "outline_item: %s has mdflow content,make summary from mdflow",
                     section.bid,
                 )
-                mdflow = MarkdownFlow(content).set_output_language(
-                    get_markdownflow_output_language()
-                )
+                mdflow = MarkdownFlowDocument(content)
                 blocks = mdflow.get_all_blocks()
                 for block in blocks:
                     if block.block_type == BlockType.CONTENT:

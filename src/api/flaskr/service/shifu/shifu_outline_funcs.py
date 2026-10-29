@@ -6,14 +6,13 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.common.models import raise_error, raise_param_error
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
-from markdown_flow import MarkdownFlow
+from markdownflow import MarkdownFlowDocument
 from sqlalchemy.orm import load_only
 
 from .consts import (
@@ -529,12 +528,10 @@ def build_outline_history_tree_from_outlines(
         parent_bid = str(outline.parent_bid or "").strip()
         outline_children_map.setdefault(parent_bid, []).append(outline)
 
-    output_lang = get_markdownflow_output_language()
-
     def _count_blocks(content: str) -> int:
         if not content:
             return 0
-        mdflow = MarkdownFlow(content).set_output_language(output_lang)
+        mdflow = MarkdownFlowDocument(content)
         return len(mdflow.get_all_blocks())
 
     def _build(parent_bid: str) -> list[HistoryItem]:
@@ -828,9 +825,7 @@ def _persist_outline_order(
                     bid=outline_dto.bid, id=item.id, type="outline", children=[]
                 )
             if history_info.child_count == 0 and bool(item.content):
-                mdflow = MarkdownFlow(item.content).set_output_language(
-                    get_markdownflow_output_language()
-                )
+                mdflow = MarkdownFlowDocument(item.content)
                 history_info.child_count = len(mdflow.get_all_blocks())
             history_infos.append(history_info)
             if outline_dto.children:

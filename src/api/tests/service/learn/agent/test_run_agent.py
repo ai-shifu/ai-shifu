@@ -3472,7 +3472,7 @@ def test_blank_browser_text_cannot_select_an_empty_valued_option(
 )
 def test_narrated_text_question_without_a_hint_remains_writable(span: str) -> None:
     from flaskr.i18n import _
-    from markdown_flow import InteractionParser
+    from markdownflow import InteractionParser
 
     events = _run(
         _Engine(
