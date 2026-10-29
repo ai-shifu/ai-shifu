@@ -134,9 +134,9 @@ official packages without a remark override.
 
 ## Plan of Work
 
-Finish the current integration only. Validate all changed producer/consumer
-contracts together, open a non-draft PR against main, handle worthwhile in-scope
-review feedback and leave the merge/deployment decision to the user.
+Continue #3238 with exact-head CI validation and worthwhile in-scope review
+follow-up. Keep PR metadata current, then wait for the user's review without
+merging or deploying.
 
 ## Concrete Steps
 
