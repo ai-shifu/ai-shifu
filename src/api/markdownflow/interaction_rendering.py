@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from markdown_flow.escaping import escape_interaction_text
-
 from .engine.interaction import InteractionSpec, Option
-from .engine.variable_names import format_variable_assignment
+from .syntax.escaping import escape_interaction_text
+from .syntax.variable_names import format_variable_assignment
 
 
 @dataclass(frozen=True)
@@ -91,7 +90,7 @@ def _verify_round_trip(spec: InteractionSpec, rendered: str) -> None:
     catches the delimiters, the whitespace the grammar drops, and whatever else the grammar does
     that this module does not know about.
     """
-    from markdown_flow import InteractionParser
+    from .syntax.parser.interaction import InteractionParser
 
     parsed = InteractionParser().parse(rendered)
     if not parsed or parsed.get("type") is None:
@@ -171,7 +170,7 @@ def _in_the_learner_s_language(
 
 def render_narrated_interaction(span: str, *, labels: QuestionLabels) -> str:
     """Supply an input hint for a narrated text control, preserving its original syntax."""
-    from markdown_flow import InteractionParser
+    from .syntax.parser.interaction import InteractionParser
 
     parser = InteractionParser()
     parsed = parser.parse(span)

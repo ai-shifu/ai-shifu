@@ -33,7 +33,7 @@ from flaskr.service.profile_research.session import (
     _ProfileResearchSession,
 )
 from markdown_flow import BlockType, MarkdownFlow
-from markdownflow.engine.variable_names import normalize_variable_name
+from markdownflow.syntax.variable_names import normalize_variable_name
 from pydantic_ai.messages import (
     ModelRequest,
     ModelResponse,

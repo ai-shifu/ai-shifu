@@ -18,6 +18,13 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from markdownflow.syntax.variable_names import (
+    VARIABLE_ASSIGNMENT_SOURCE,
+    find_interaction_spans,
+    normalize_variable_name,
+    read_variable_marker,
+)
+
 from .direction import (
     DirectionFeedback,
     FeedbackReview,
@@ -28,12 +35,6 @@ from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .marker_context import analyze_marker_context, marker_syntax_source
 from .session import answer_fingerprint
-from .variable_names import (
-    VARIABLE_ASSIGNMENT_SOURCE,
-    find_interaction_spans,
-    normalize_variable_name,
-    read_variable_marker,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable

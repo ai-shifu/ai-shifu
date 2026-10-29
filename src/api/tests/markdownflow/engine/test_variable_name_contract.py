@@ -25,7 +25,7 @@ from markdownflow.engine.interaction import InteractionSpec, Option
 from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.script import final_preserved_line
 from markdownflow.engine.tools import _script_questions
-from markdownflow.engine.variable_names import (
+from markdownflow.syntax.variable_names import (
     find_variable_markers,
     format_variable_assignment,
     format_variable_reference,

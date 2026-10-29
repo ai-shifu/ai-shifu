@@ -4,9 +4,9 @@ import re
 
 import pytest
 from markdown_it.common.html_re import HTML_TAG_RE
-from markdownflow.engine import document_blocks
-from markdownflow.engine.document_blocks import DocumentBlocks
 from markdownflow.engine.marker_context import analyze_marker_context
+from markdownflow.syntax.parser import document_blocks
+from markdownflow.syntax.parser.document_blocks import DocumentBlocks
 
 HTML_PATTERN = re.compile(HTML_TAG_RE.pattern.removeprefix("^"))
 
