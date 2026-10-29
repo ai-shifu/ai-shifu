@@ -92,12 +92,10 @@ review also verifies text-only hints and unchanged unbound control behavior.
 - Use current main, not #3221, as the application base.
 - Preserve the current name grammar and native Markdown question boundaries.
   Do not add image/reference/resource parsing changes or captured fixture grids.
-- Only an existing parsed question's leading standard binding declares a new
-  answer key. Ordinary and nonleading references grant no new write permission.
-  Legacy explicit percent declarations retain their established behavior.
-- Collected answers remain excluded from old memory and recall until genuinely
-  answered; pending answers, save/resume, replay and named writes share the
-  existing contracts. No DTO, schema, key migration or new event is introduced.
+- Reuse the canonical [memory admission](../../product-specs/learner-memory-admission.md),
+  [variable scope](../../references/course-variable-scopes.md) and
+  [Session compatibility](../../design-docs/markdownflow-engine-library.md#compatibility-and-delivery)
+  contracts so this syntax update needs no DTO, schema or key migration.
 - Keep the current serialized control representation for existing clients.
   New author examples and templates use the standard notation.
 - Keep markdown-flow==0.4.2 unchanged. One subclass in interaction_rendering.py
