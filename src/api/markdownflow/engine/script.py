@@ -141,10 +141,15 @@ def _strip_fences(text: str) -> str:
 def _interaction_bindings(text: str, context: MarkerContext) -> set[int]:
     """Locate leading bindings within the existing document control boundaries."""
     bindings: set[int] = set()
+    syntax = list(marker_syntax_source(text, context))
+    # An unfinished literal example must not consume a later real control's end.
+    for opening, closing in context.literals:
+        at = text.find("?[", opening, closing)
+        while at >= 0:
+            syntax[at] = "\x00"
+            at = text.find("?[", at + 2, closing)
     literal = 0
-    for start, end in find_interaction_spans(
-        text, syntax_source=marker_syntax_source(text, context)
-    ):
+    for start, end in find_interaction_spans(text, syntax_source="".join(syntax)):
         while literal < len(context.literals) and context.literals[literal][1] <= start:
             literal += 1
         if literal < len(context.literals) and context.literals[literal][0] <= start:

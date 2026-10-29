@@ -39,10 +39,11 @@ work and the old oversized application #3221 are not reconstruction bases.
   generated options after enabling multiline authored binding parsing. All
   380 targeted package, learning and Profile failure regressions pass.
 - [x] 2026-10-29: Toolchain doctor and all-file hooks pass. The dependency-pinned
-  backend gates pass: 2,728 native library tests and 1,910 learning/Profile tests.
+  backend gates pass: 2,746 native library tests and 1,910 learning/Profile tests.
 - [x] 2026-10-29: Independent frontend and backend review completed. The fenced
   example regression is fixed and reverified; no actionable finding remains.
-- [ ] Create the focused application PR and follow its exact-head CI/review.
+- [x] 2026-10-29: Created focused application PR #3238 against main.
+- [ ] Finish the current-head CI/review after the literal-opener correction.
 - [ ] Wait for the user's review; do not merge, deploy or start further work.
 
 ## Surprises & Discoveries
@@ -64,6 +65,13 @@ with the pinned version rather than weakening historical session assertions.
 Independent review found that removing a fenced example could join surrounding
 text into an apparent standard binding. Recognize these bindings in the original
 source instead; retain the legacy declaration path and cover old-memory access.
+
+PR review identified that a literal unfinished `?[` could swallow a later real
+binding during scanning. Mask only those literal openers before the new binding
+scan. The regressions fail before the fix (9 failures) and pass afterward (38
+tests), including accepted answers, save/restore and memory isolation.
+The full native and learning/Profile gates and all-file hooks pass after this
+correction; independent review confirms offsets and original boundaries remain.
 
 ## Decision Log
 

@@ -24,6 +24,13 @@ from markdownflow.syntax import InteractionParser
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, FunctionModel
 
+_LITERAL_EXAMPLES = [
+    "",
+    "Show `?[` then ",
+    "<!-- ?[ -->\n\n",
+    "```md\n?[\n```\n\n",
+]
+
 
 @pytest.mark.parametrize("prefix", ["", "%"])
 @pytest.mark.parametrize("separator", [" | ", " || "])
@@ -72,11 +79,15 @@ def test_removing_a_fenced_example_cannot_create_a_binding() -> None:
 
 
 @pytest.mark.parametrize("prefix", ["", "%"])
-def test_old_memory_cannot_replace_a_binding_or_its_later_read(prefix: str) -> None:
+@pytest.mark.parametrize("example", _LITERAL_EXAMPLES)
+def test_old_memory_cannot_replace_a_binding_or_its_later_read(
+    prefix: str, example: str
+) -> None:
     binding = prefix + "{{goal}}"
-    source = "?[" + binding + " A | B]\nGoal: {{goal}}; name: {{nickname}}."
+    source = example + "?[" + binding + " A | B]\nGoal: {{goal}}; name: {{nickname}}."
     memory = {"goal": "OLD_ANSWER", "nickname": "Lin"}
-    assert substitute_variables(source, memory).startswith("?[" + binding)
+    assert collected_names(source) == {"goal"}
+    assert substitute_variables(source, memory).startswith(example + "?[" + binding)
     assert substitute_variables(
         source, memory, collected=collected_names(source)
     ).endswith("Goal: {{goal}}; name: Lin.")
@@ -90,8 +101,9 @@ def test_old_memory_cannot_replace_a_binding_or_its_later_read(prefix: str) -> N
 @pytest.mark.anyio
 @pytest.mark.parametrize("prefix", ["", "%"])
 @pytest.mark.parametrize("replaying", [False, True])
+@pytest.mark.parametrize("example", _LITERAL_EXAMPLES)
 async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
-    prefix: str, replaying: bool
+    prefix: str, replaying: bool, example: str
 ) -> None:
     calls = 0
     prompts: list[str] = []
@@ -138,7 +150,7 @@ async def test_fresh_named_answer_survives_storage_and_legacy_wire_round_trip(
         memory_recall=True,
         render="none",
     )
-    source = "?[" + prefix + "{{goal}} A | B]"
+    source = example + "?[" + prefix + "{{goal}} A | B]"
     session = await engine.new_session(source, memory={"goal": "OLD_ANSWER"})
     first = [event async for event in engine.run_turn(session)]
     assert "OLD_ANSWER" not in "\n".join(prompts)
