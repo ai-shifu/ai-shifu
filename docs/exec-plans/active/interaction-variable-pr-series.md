@@ -15,8 +15,8 @@ current question, storage, callback and analytics contracts, and make one small
 integration PR for human review. Agents never merge into main.
 
 The user approved and merged remark-flow #43, markdown-flow-ui #291 and Python
-#82. Python #80 was closed without merging; its additional name/document parser
-work and the old oversized application #3221 are not reconstruction bases.
+#82. Python #80 was initially closed, then merged and released separately at the
+user's request. The old oversized application #3221 is not a reconstruction base.
 
 ## Progress
 
@@ -43,17 +43,24 @@ work and the old oversized application #3221 are not reconstruction bases.
 - [x] 2026-10-29: Independent frontend and backend review completed. The fenced
   example regression is fixed and reverified; no actionable finding remains.
 - [x] 2026-10-29: Created focused application PR #3238 against main.
+- [x] 2026-10-29: Rebased onto the local syntax layer and public entry point from
+  #3241/#3242. The public parser exports the shared compatibility adapter;
+  2,772 native tests and 1,910 learning/Profile tests pass after rebase.
+- [x] 2026-10-29: Upgraded to the latest stable UI 0.3.5 and remark 1.4.3, as
+  requested. Removed redundant remark-flow, mermaid and global js-yaml overrides
+  and the unused diff override; all other dependency versions remain unchanged.
+  Official-registry clean installation, renderer/dependency regressions and
+  typecheck pass; remaining dependency safeguards stay in place.
 - [ ] Finish the current-head CI/review after the binding boundary corrections.
 - [ ] Wait for the user's review; do not merge, deploy or start further work.
 
 ## Surprises & Discoveries
 
-Both course and Profile execution use the native MarkdownFlow engine. The
-external Python 0.4.2 package still supplies required normalization and parsing
-APIs. The reviewed Python #82 source lacks some of those already-used modules,
-so swapping the package would introduce an unrelated compatibility rollback.
-Keep the pin and adapt only its leading-binding detector at the existing
-interaction-rendering owner; reuse the rest of the package's parser.
+Both course and Profile execution use the native MarkdownFlow engine. Main's
+#3241/#3242 moved syntax parsing and host imports into the repository-owned
+library. The shared interaction-rendering adapter now uses that syntax parser,
+and the public entry point exposes the adapter to hosts. The external Python
+pin remains unchanged in this PR; it is still the legacy test reference.
 
 The existing lockfile generator also recalculates 25 dev/devOptional flags.
 A second generation with no installed dependency tree produces the same bytes;
@@ -93,11 +100,11 @@ review also verifies text-only hints and unchanged unbound control behavior.
   existing contracts. No DTO, schema, key migration or new event is introduced.
 - Keep the current serialized control representation for existing clients.
   New author examples and templates use the standard notation.
-- Keep markdown-flow==0.4.2. One subclass in interaction_rendering.py overrides
-  only its leading detector, using the native marker reader; all consumers use
-  that owner. Newline-safe source parsing must not admit multiline typed option
-  displays/values that the renderer cannot carry.
-- Use only the officially published UI 0.3.4 and remark 1.4.2. No Webpack,
+- Keep markdown-flow==0.4.2 unchanged. One subclass in interaction_rendering.py
+  overrides the local syntax parser's leading detector; the public entry point
+  exposes that owner. Newline-safe source parsing must not admit multiline typed
+  option displays/values that the renderer cannot carry.
+- Use only the officially published UI 0.3.5 and remark 1.4.3. No Webpack,
   Turbopack, Jest resolver or parser alias bridge is needed.
 - Profile validation and historical matching compare equivalent parsed bindings;
   different keys and option contracts must still be rejected.
@@ -105,8 +112,9 @@ review also verifies text-only hints and unchanged unbound control behavior.
   questionnaires or historical compatibility fixtures.
 - Existing interaction analytics remain on the same action and payload paths.
   No new tracking data is collected for the source spelling.
-- The UI release was explicitly approved; no Python release, application merge
-  or deployment is authorized by this work.
+- UI 0.3.4 publication was explicitly approved separately. This dependency
+  update consumes already published UI 0.3.5 and remark 1.4.3; no publication,
+  application merge or deployment is part of this step.
 
 ## Outcomes & Retrospective
 
@@ -117,13 +125,14 @@ stops at a reviewable application PR.
 ## Context and Orientation
 
 The native declaration and substitution code is in engine/script.py; tool hint
-parsing is in engine/tools.py. Both reuse engine/variable_names.py. The existing
-portable interaction_rendering.py owns the pinned-parser adaptation. Course and
+parsing is in engine/tools.py. Both reuse syntax/variable_names.py. The existing
+portable interaction_rendering.py owns the local parser adaptation. Course and
 Profile hosts consume the same native engine and normalized answer key.
 
 Frontend consumers already forward the renderer's canonical variableName. The
 integration changes dependencies and regression tests rather than their request
-mapping. The official UI source is b04b26a; its registry version is 0.3.4.
+mapping. UI 0.3.5 directly pins remark 1.4.3, so the application can use both
+official packages without a remark override.
 
 ## Plan of Work
 
@@ -155,16 +164,17 @@ unclassified. Quota-limited AI checks are not approvals.
 
 ## Idempotence and Recovery
 
-Package versions are immutable; reuse the approved UI release and never republish
-it. Keep the Python pin unchanged. A future deployment must ready every compatible
-API instance before enabling the new authoring UI. The API preserves old wire
-controls for existing clients. Do not treat a source PR as a completed rollout.
+Package versions are immutable; consume the official published packages without
+republishing them. Keep the Python pin unchanged. A future deployment must ready
+every compatible API instance before enabling the new authoring UI. The API
+preserves old wire controls for existing clients. Do not treat a source PR as a
+completed rollout.
 After standard authored content is used, rollback must retain syntax support.
 
 ## Interfaces and Dependencies
 
-Application dependencies: markdown-flow 0.4.2, markdown-flow-ui 0.3.4 and
-remark-flow 1.4.2. New syntax uses the same native named-answer and memory policy
+Application dependencies: markdown-flow 0.4.2, markdown-flow-ui 0.3.5 and
+remark-flow 1.4.3. New syntax uses the same native named-answer and memory policy
 interfaces. There are no new service boundaries, storage fields or event payloads.
 
 Approved UI publication evidence:
