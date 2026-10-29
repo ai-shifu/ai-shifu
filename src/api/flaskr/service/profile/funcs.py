@@ -1,6 +1,6 @@
 """Implement business operations for learner profiles."""
 
-import datetime
+import datetime as dt
 import logging
 
 from flask import Flask
@@ -89,14 +89,14 @@ def _update_aggregate_field(
 
 
 def _normalize_core_value(
-    mapping: str, value: str | datetime.date | None
-) -> str | datetime.date | None:
+    mapping: str, value: str | dt.date | None
+) -> str | dt.date | None:
     if mapping == "user_birth":
-        if isinstance(value, datetime.date):
+        if isinstance(value, dt.date):
             return value
         if isinstance(value, str) and value:
             try:
-                return datetime.date.fromisoformat(value)
+                return dt.date.fromisoformat(value)
             except ValueError:
                 return None
         return None
@@ -106,8 +106,8 @@ def _normalize_core_value(
 def _apply_core_mapping(
     user_id: str,
     mapping: str,
-    value: str | datetime.date | None,
-) -> str | datetime.date | None:
+    value: str | dt.date | None,
+) -> str | dt.date | None:
     if mapping == "learner_profile":
         return apply_learner_profile_system_value(
             user_id=user_id,
@@ -128,7 +128,7 @@ def _apply_core_mapping(
 
 def _current_core_value(
     aggregate: UserAggregate | None, mapping: str
-) -> str | datetime.date | None:
+) -> str | dt.date | None:
     if not aggregate:
         return None
     if mapping == "name":
@@ -194,7 +194,7 @@ def get_profile_labels() -> dict[str, dict[str, object]]:
             "label": _("server.profile.birth"),
             "mapping": "user_birth",
             "type": "date",
-            "default": datetime.date(2003, 1, 1),
+            "default": dt.date(2003, 1, 1),
         },
         "avatar": {
             "label": _("server.profile.avatar"),
@@ -429,7 +429,7 @@ def get_user_profiles(
             raw_value = _current_core_value(aggregate, mapping)
             if raw_value is None:
                 continue
-            if isinstance(raw_value, datetime.date):
+            if isinstance(raw_value, dt.date):
                 result[key] = raw_value.isoformat()
             else:
                 result[key] = str(raw_value)

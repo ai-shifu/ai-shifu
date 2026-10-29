@@ -8,7 +8,7 @@ failure rolls back everything written inside it.
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
@@ -199,9 +199,9 @@ def test_init_buy_record_timeout_flip_persists_with_replacement_order(
     """(b) Clean run: the timeout flip, the promo release, and the new order commit together."""
     _ = stub_shifu
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
-    stale_created_at = datetime.datetime.now(datetime.UTC).replace(
-        tzinfo=None
-    ) - datetime.timedelta(hours=2)
+    stale_created_at = dt.datetime.now(dt.UTC).replace(tzinfo=None) - dt.timedelta(
+        hours=2
+    )
     origin_bid = _seed_order(created_at=stale_created_at)
     _seed_promo_state(origin_bid)
 
@@ -234,9 +234,9 @@ def test_init_buy_record_timeout_flip_rolls_back_on_late_failure(
     """
     _ = stub_shifu
     monkeypatch.setattr(order_funs, "apply_promo_campaigns", lambda *_a, **_k: [])
-    stale_created_at = datetime.datetime.now(datetime.UTC).replace(
-        tzinfo=None
-    ) - datetime.timedelta(hours=2)
+    stale_created_at = dt.datetime.now(dt.UTC).replace(tzinfo=None) - dt.timedelta(
+        hours=2
+    )
     origin_bid = _seed_order(created_at=stale_created_at)
     _seed_promo_state(origin_bid)
     _fail_after_pricing_sync(monkeypatch)

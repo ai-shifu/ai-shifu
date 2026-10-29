@@ -1,6 +1,6 @@
 """Keep profile-label writes aligned with canonical user fields and scoped values."""
 
-import datetime
+import datetime as dt
 import uuid
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -42,7 +42,7 @@ def _label(key: str, value: object) -> UserProfileLabelItemDTO:
 
 @pytest.mark.parametrize(
     "raw",
-    ["2020-02-29", datetime.date(2020, 2, 29), "2021-02-29", "not-a-date", None, ""],
+    ["2020-02-29", dt.date(2020, 2, 29), "2021-02-29", "not-a-date", None, ""],
 )
 def test_birth_label_normalizes_date_without_invalid_canonical_value(
     user: object, raw: object
@@ -53,9 +53,7 @@ def test_birth_label_normalizes_date_without_invalid_canonical_value(
         )
     db.session.expire_all()
     expected = (
-        datetime.date(2020, 2, 29)
-        if raw in ("2020-02-29", datetime.date(2020, 2, 29))
-        else None
+        dt.date(2020, 2, 29) if raw in ("2020-02-29", dt.date(2020, 2, 29)) else None
     )
     assert load_user_aggregate(user.bid).birthday == expected
     runtime = funcs.get_user_profiles(user.app, user.bid, "course")

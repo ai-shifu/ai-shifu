@@ -245,14 +245,14 @@ def test_an_unknown_session_is_rejected(app: object, user_id: str) -> None:
 
 
 def test_expired_sessions_are_not_listed(app: object, user_id: str) -> None:
-    import datetime
+    import datetime as dt
 
     from flaskr.util.datetime import now_utc
 
     with app.test_request_context():
         _sign_in(app, user_id)
         record = UserToken.query.filter(UserToken.user_id == user_id).first()
-        record.token_expired_at = now_utc() - datetime.timedelta(days=1)
+        record.token_expired_at = now_utc() - dt.timedelta(days=1)
         db.session.commit()
 
         assert list_user_sessions(user_id=user_id) == []
@@ -294,7 +294,7 @@ def test_a_session_served_from_cache_keeps_its_row_alive(
     A cache hit renews only the cache entry, so without this the row ages out
     and the session vanishes from the list while still perfectly usable.
     """
-    import datetime
+    import datetime as dt
 
     from flaskr.util.datetime import now_utc
 
@@ -302,7 +302,7 @@ def test_a_session_served_from_cache_keeps_its_row_alive(
         token = _sign_in(app, user_id)
         record = UserToken.query.filter(UserToken.token == token).first()
         # Simulate a row that has aged while the cache kept being renewed.
-        record.token_expired_at = now_utc() + datetime.timedelta(minutes=1)
+        record.token_expired_at = now_utc() + dt.timedelta(minutes=1)
         db.session.commit()
 
     # Authentication happens in a later read-only request. Nothing outside the
@@ -317,7 +317,7 @@ def test_a_session_served_from_cache_keeps_its_row_alive(
     # A fresh request proves teardown did not roll the sliding renewal back.
     with app.test_request_context():
         refreshed = UserToken.query.filter(UserToken.token == token).first()
-        assert refreshed.token_expired_at > now_utc() + datetime.timedelta(days=1)
+        assert refreshed.token_expired_at > now_utc() + dt.timedelta(days=1)
         # And it is therefore still listed.
         assert len(list_user_sessions(user_id=user_id)) == 1
 

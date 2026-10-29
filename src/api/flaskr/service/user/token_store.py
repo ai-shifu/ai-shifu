@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import contextlib
-import datetime
+import datetime as dt
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -75,7 +75,7 @@ class TokenStoreProvider:
 
         ttl_seconds = int(ttl_seconds)
         now = now_utc()
-        expires_at = now + datetime.timedelta(seconds=ttl_seconds)
+        expires_at = now + dt.timedelta(seconds=ttl_seconds)
 
         record = (
             UserTokenModel.query.filter(UserTokenModel.token == token)
@@ -134,7 +134,7 @@ class TokenStoreProvider:
             if self._cache.get(marker):
                 return True
 
-        expires_at = now_utc() + datetime.timedelta(seconds=ttl_seconds)
+        expires_at = now_utc() + dt.timedelta(seconds=ttl_seconds)
         try:
             # Authentication runs before the request handler and read-only
             # requests do not commit the scoped ORM session. Persist the sliding
@@ -232,7 +232,7 @@ class TokenStoreProvider:
         if expires_at is None or expires_at <= now:
             return None
 
-        new_expires_at = now + datetime.timedelta(seconds=ttl_seconds)
+        new_expires_at = now + dt.timedelta(seconds=ttl_seconds)
         with db.session.begin_nested():
             record.token_expired_at = new_expires_at
 

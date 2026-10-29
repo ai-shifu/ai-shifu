@@ -177,7 +177,7 @@ versioned product contract, mixed-history SQL and synthetic regression fixtures.
 
 ## Concrete Steps
 
-Use the backend development environment on PATH, including pinned Ruff 0.16.5.
+Use the backend development environment on PATH, including pinned Ruff 0.17.3.
 Run `python scripts/check_dev_tools.py` and `lefthook run pre-commit --all-files`
 before committing. Backend validation: `cd src/api && python -m pytest
 tests/service/common/ -q`. Run architecture, unit-of-work, and doc-harness gates;
