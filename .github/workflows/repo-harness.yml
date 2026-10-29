@@ -5,10 +5,8 @@ on:
   push:
     branches:
       - main
-      - develop
-      - refactor_i18n
   schedule:
-    # Twice a week at 03:00 UTC to catch drift in long-lived branches
+    # Twice a week at 03:00 UTC to catch drift on main between merges
     - cron: '0 3 * * 1,4'
   workflow_dispatch:
 
@@ -87,6 +85,12 @@ jobs:
           python -m unittest discover -s scripts -p 'test_repo_knowledge_index.py'
           python scripts/check_repo_harness.py
           python scripts/check_architecture_boundaries.py
+
+      - name: Run script and harness regression tests
+        run: |
+          python -m pip install pytest==9.0.3
+          python -m unittest discover -s scripts -p 'test_prettier_check_changed.py'
+          python -m pytest -q scripts/harness/tests
 
       - name: Run release workflow regression tests
         run: |
