@@ -67,16 +67,14 @@ class InteractionParser:
                     f"Invalid interaction format: {content}"
                 )
 
-            # Layer 2: Variable detection and pattern classification
-            has_variable, variable_name, remaining_content = (
-                self._layer2_detect_variable(inner_content)
+            # Layer 2: Variable detection. It returns a name exactly when it found a
+            # variable; an invalid name raises instead.
+            _, variable_name, remaining_content = self._layer2_detect_variable(
+                inner_content
             )
 
             # Layer 3: Specific content parsing
-            if has_variable:
-                assert variable_name is not None, (  # noqa: S101
-                    "variable_name should not be None when has_variable is True"
-                )
+            if variable_name is not None:
                 return self._layer3_parse_variable_interaction(
                     variable_name, remaining_content
                 )
@@ -121,7 +119,8 @@ class InteractionParser:
 
         variable_name = normalize_variable_name(match.group(1))
         if variable_name is None:
-            raise ValueError("Invalid variable name")  # noqa: TRY003, EM101
+            msg = "Invalid variable name"
+            raise ValueError(msg)
         remaining_content = match.group(2).strip()
 
         return True, variable_name, remaining_content
