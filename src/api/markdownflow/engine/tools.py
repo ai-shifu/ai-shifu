@@ -29,9 +29,9 @@ from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_m
 from .marker_context import analyze_marker_context, marker_syntax_source
 from .session import answer_fingerprint
 from .variable_names import (
-    VARIABLE_ASSIGNMENT_SOURCE,
     find_interaction_spans,
     normalize_variable_name,
+    read_interaction_variable,
     read_variable_marker,
 )
 
@@ -144,9 +144,6 @@ def recall_exclusions(deps: Deps) -> frozenset[str]:
     )
 
 
-_VARIABLE = re.compile(r"^\s*" + VARIABLE_ASSIGNMENT_SOURCE)
-
-
 def _is_escape(text: str, index: int) -> bool:
     return (
         index + 1 < len(text) and text[index] == "\\" and text[index + 1] in _ESCAPABLE
@@ -231,8 +228,8 @@ def _unescape(text: str) -> str:
 def script_options(script_text: str) -> dict[str, str]:
     """Map every option of the script's `?[...]` questions, as written, to what it means.
 
-    Split the way MarkdownFlow splits them: a leading `%{{variable}}` and a trailing `...`
-    placeholder are not options, `||` separates the choices of a multiple choice and `|` those of
+    Split the way MarkdownFlow splits them: a leading `%{{variable}}` / `{{variable}}`
+    and a trailing `...` placeholder are not options, `||` separates the choices of a multiple choice and `|` those of
     a single one, and `//` separates what is shown from what is stored. Questions shown inside a
     code fence are examples, not questions. Both halves of `display//value` are entries of their
     own, since the model passes them separately.
@@ -285,7 +282,11 @@ def _script_questions(script_text: str) -> list[_Question]:
     ):
         end = end_exclusive - 1
         raw = text[start + 2 : end]
-        body = _VARIABLE.sub("", raw)
+        variable = read_interaction_variable(raw)
+        if variable is not None and variable.name is None:
+            # Both component parsers reject an invalid leading binding as a whole control.
+            continue
+        body = raw[variable.end :] if variable is not None else raw
         newline = min(
             (
                 at
@@ -306,9 +307,7 @@ def _script_questions(script_text: str) -> list[_Question]:
             choices = _split_unescaped(body, "||")
         questions.append(
             _Question(
-                variable=normalize_variable_name(match.group(1))
-                if (match := _VARIABLE.match(raw))
-                else None,
+                variable=variable.name if variable is not None else None,
                 text=ellipsis >= 0,
                 choices=choices,
                 placeholder=_unescape(first_line[ellipsis + 3 :].strip())

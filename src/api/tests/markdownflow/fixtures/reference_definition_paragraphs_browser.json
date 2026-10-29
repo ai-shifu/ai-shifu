@@ -1,0 +1,3219 @@
+{
+  "provenance": {
+    "renderer": "markdown-flow-ui@0.3.3 ContentRender and remark-flow@1.4.2",
+    "runtime": "Node.js 22.23.4",
+    "method": "Captured installed ContentRender output; selected from 4,470 source observations. Fence run ownership is verified separately."
+  },
+  "cases": [
+    {
+      "id": "native-reference-paragraph:0",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]: /one\n2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:2",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:3",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]: /one\n9) [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:4",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n2. [other]: /other\n3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:5",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]: /one\n2. [other]: /other\n3. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:6",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:7",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> [one]: /one\n> 2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:8",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> 9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:9",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> [one]: /one\n> 9) [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:10",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> 2. [other]: /other\n> 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:11",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> [one]: /one\n> 2. [other]: /other\n> 3. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:12",
+      "source": "![?[{{goal}} A | B]][image]\n\n- [one]: /one\n  2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:13",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- [one]: /one\n  2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:14",
+      "source": "![?[{{goal}} A | B]][image]\n\n- [one]: /one\n  9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:15",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- [one]: /one\n  9) [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:16",
+      "source": "![?[{{goal}} A | B]][image]\n\n- [one]: /one\n  2. [other]: /other\n  3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:17",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- [one]: /one\n  2. [other]: /other\n  3. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:18",
+      "source": "![?[{{goal}} A | B]][image]\n\n1. [one]: /one\n   2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:19",
+      "source": "![?[%{{goal}} A | B]][image]\n\n1. [one]: /one\n   2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:20",
+      "source": "![?[{{goal}} A | B]][image]\n\n1. [one]: /one\n   9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:21",
+      "source": "![?[%{{goal}} A | B]][image]\n\n1. [one]: /one\n   9) [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:22",
+      "source": "![?[{{goal}} A | B]][image]\n\n1. [one]: /one\n   2. [other]: /other\n   3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:23",
+      "source": "![?[%{{goal}} A | B]][image]\n\n1. [one]: /one\n   2. [other]: /other\n   3. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:24",
+      "source": "![?[{{goal}} A | B]][image]\n\n> - [one]: /one\n>   2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:25",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> - [one]: /one\n>   2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:26",
+      "source": "![?[{{goal}} A | B]][image]\n\n> - [one]: /one\n>   9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:27",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> - [one]: /one\n>   9) [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:28",
+      "source": "![?[{{goal}} A | B]][image]\n\n> - [one]: /one\n>   2. [other]: /other\n>   3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:29",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> - [one]: /one\n>   2. [other]: /other\n>   3. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:30",
+      "source": "![?[{{goal}} A | B]][image]\n\n- > [one]: /one\n  > 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:31",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- > [one]: /one\n  > 2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:32",
+      "source": "![?[{{goal}} A | B]][image]\n\n- > [one]: /one\n  > 9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:33",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- > [one]: /one\n  > 9) [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:34",
+      "source": "![?[{{goal}} A | B]][image]\n\n- > [one]: /one\n  > 2. [other]: /other\n  > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:35",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- > [one]: /one\n  > 2. [other]: /other\n  > 3. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:36",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: <one>\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:72",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: <>\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:108",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:144",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:180",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one \"title\nmore\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:216",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n/one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:252",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n<one>\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:288",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:324",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\\[ne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:360",
+      "source": "![?[{{goal}} A | B]][image]\n\n [one]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:372",
+      "source": "![?[{{goal}} A | B]][image]\n\n-  [one]: /one\n  2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:373",
+      "source": "![?[%{{goal}} A | B]][image]\n\n-  [one]: /one\n  2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:374",
+      "source": "![?[{{goal}} A | B]][image]\n\n-  [one]: /one\n  9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:375",
+      "source": "![?[%{{goal}} A | B]][image]\n\n-  [one]: /one\n  9) [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:376",
+      "source": "![?[{{goal}} A | B]][image]\n\n-  [one]: /one\n  2. [other]: /other\n  3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:377",
+      "source": "![?[%{{goal}} A | B]][image]\n\n-  [one]: /one\n  2. [other]: /other\n  3. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:378",
+      "source": "![?[{{goal}} A | B]][image]\n\n1.  [one]: /one\n   2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:379",
+      "source": "![?[%{{goal}} A | B]][image]\n\n1.  [one]: /one\n   2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:380",
+      "source": "![?[{{goal}} A | B]][image]\n\n1.  [one]: /one\n   9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:381",
+      "source": "![?[%{{goal}} A | B]][image]\n\n1.  [one]: /one\n   9) [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:382",
+      "source": "![?[{{goal}} A | B]][image]\n\n1.  [one]: /one\n   2. [other]: /other\n   3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:383",
+      "source": "![?[%{{goal}} A | B]][image]\n\n1.  [one]: /one\n   2. [other]: /other\n   3. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:384",
+      "source": "![?[{{goal}} A | B]][image]\n\n> -  [one]: /one\n>   2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:385",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> -  [one]: /one\n>   2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:386",
+      "source": "![?[{{goal}} A | B]][image]\n\n> -  [one]: /one\n>   9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:387",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> -  [one]: /one\n>   9) [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:388",
+      "source": "![?[{{goal}} A | B]][image]\n\n> -  [one]: /one\n>   2. [other]: /other\n>   3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:389",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> -  [one]: /one\n>   2. [other]: /other\n>   3. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:396",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:432",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one \"unclosed\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:468",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one \"a\n\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:504",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"a\n\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:540",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:576",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one] /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:612",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o[ne]]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:648",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o[ne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:684",
+      "source": "![?[{{goal}} A | B]][image]\n\n\\[one]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:720",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: <bad\nurl>\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:756",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /bad(unclosed\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:792",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /bad)end\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:828",
+      "source": "![?[{{goal}} A | B]][image]\n\nparagraph\n[one]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:864",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:900",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:936",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two trailing\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:972",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n\n/one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1008",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one \"a\n2. item\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1044",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one \"a\n# heading\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1080",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one \"a\n===\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1116",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one \"a\n<!-- comment -->\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1152",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: javascript:alert\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1188",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: <javascript:alert>\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1224",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: javascript\\:alert\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1260",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: java&#x73;cript:alert\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1296",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: &#106;avascript:alert\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1332",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: vbscript:alert\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1368",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: file:///one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1404",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: data:text/html,x\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1440",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: data:image/svg+xml,x\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1476",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: data:image/png;base64,x\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1512",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: data:image/jpeg;base64,x\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1548",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: https://example.com/one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1584",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: <relative path>\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1622",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1624",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1626",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:1628",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1632",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1634",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1636",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1638",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:1640",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n\nparagraph\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1642",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n\n[two]: /two\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1658",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> 1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1660",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> - [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1662",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:1664",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> paragraph\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1666",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> [two]: /two\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1668",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1670",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n\n> 1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1672",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n\n> - [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1674",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:1676",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n\n> paragraph\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1678",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n\n> [two]: /two\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1680",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> \n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1682",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> \n> 1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1684",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> \n> - [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1686",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> \n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph:1688",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> \n> paragraph\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph:1690",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> \n> [two]: /two\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:8",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:14",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:18",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:48",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:58",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one\n> \n> > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:88",
+      "source": "![?[{{goal}} A | B]][image]\n\n- [one]: /one\n  > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:92",
+      "source": "![?[{{goal}} A | B]][image]\n\n- [one]: /one\n  \n  2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:98",
+      "source": "![?[{{goal}} A | B]][image]\n\n- [one]: /one\n  \n  > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:128",
+      "source": "![?[{{goal}} A | B]][image]\n\n1. [one]: /one\n   > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:132",
+      "source": "![?[{{goal}} A | B]][image]\n\n1. [one]: /one\n   \n   2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:138",
+      "source": "![?[{{goal}} A | B]][image]\n\n1. [one]: /one\n   \n   > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:168",
+      "source": "![?[{{goal}} A | B]][image]\n\n> - [one]: /one\n>   > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:172",
+      "source": "![?[{{goal}} A | B]][image]\n\n> - [one]: /one\n>   \n>   2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:178",
+      "source": "![?[{{goal}} A | B]][image]\n\n> - [one]: /one\n>   \n>   > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:208",
+      "source": "![?[{{goal}} A | B]][image]\n\n- > [one]: /one\n  > > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:212",
+      "source": "![?[{{goal}} A | B]][image]\n\n- > [one]: /one\n  > \n  > 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:218",
+      "source": "![?[{{goal}} A | B]][image]\n\n- > [one]: /one\n  > \n  > > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:240",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:244",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:246",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:248",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:250",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:252",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:254",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:256",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:258",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:480",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:484",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:486",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:488",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:490",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:492",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:494",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:496",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:498",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n \"title\"\n\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:720",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:724",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:726",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:728",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:730",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:732",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:734",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:736",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:738",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:960",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:964",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:966",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:968",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:970",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:972",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:974",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:976",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:978",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n[two]: /two\n\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:1200",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:1204",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-container-lookahead:1206",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:1208",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:1210",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:1212",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:1214",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n\n9) [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:1216",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-container-lookahead:1218",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nparagraph\n\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph-endings:0",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]:\n>\n> /one\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:1",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n> [one]:\r\n>\r\n> /one\r\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:2",
+      "source": "![?[{{goal}} A | B]][image]\r\r> [one]:\r>\r> /one\r> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:3",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [one]: /one \"a\n>\n> b\"\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:4",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n> [one]: /one \"a\r\n>\r\n> b\"\r\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:5",
+      "source": "![?[{{goal}} A | B]][image]\r\r> [one]: /one \"a\r>\r> b\"\r> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:6",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [o\n> # heading\n> ne]: /one\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:7",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n> [o\r\n> # heading\r\n> ne]: /one\r\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:8",
+      "source": "![?[{{goal}} A | B]][image]\r\r> [o\r> # heading\r> ne]: /one\r> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:9",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [o\n> - item\n> ne]: /one\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:10",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n> [o\r\n> - item\r\n> ne]: /one\r\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:11",
+      "source": "![?[{{goal}} A | B]][image]\r\r> [o\r> - item\r> ne]: /one\r> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:12",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [o\n> <!-- comment -->\n> ne]: /one\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:13",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n> [o\r\n> <!-- comment -->\r\n> ne]: /one\r\n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:14",
+      "source": "![?[{{goal}} A | B]][image]\r\r> [o\r> <!-- comment -->\r> ne]: /one\r> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:15",
+      "source": "![?[{{goal}} A | B]][image]\n\n[first]: /first\n2. > [o\n   > ne]: /one\n   > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:16",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[first]: /first\r\n2. > [o\r\n   > ne]: /one\r\n   > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:17",
+      "source": "![?[{{goal}} A | B]][image]\r\r[first]: /first\r2. > [o\r   > ne]: /one\r   > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:18",
+      "source": "![?[{{goal}} A | B]][image]\n\n[first]: /first\n2. > [one]: /one \"a\n   > line\n   > b\"\n   > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:19",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[first]: /first\r\n2. > [one]: /one \"a\r\n   > line\r\n   > b\"\r\n   > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:20",
+      "source": "![?[{{goal}} A | B]][image]\r\r[first]: /first\r2. > [one]: /one \"a\r   > line\r   > b\"\r   > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:21",
+      "source": "![?[{{goal}} A | B]][image]\n\n[first]: /first\n2. > [one]:\n   >\n   > /one\n   > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:22",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[first]: /first\r\n2. > [one]:\r\n   >\r\n   > /one\r\n   > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:23",
+      "source": "![?[{{goal}} A | B]][image]\r\r[first]: /first\r2. > [one]:\r   >\r   > /one\r   > 3. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:26",
+      "source": "![?[{{goal}} A | B]][image]\n\ntext\n> [one]: /one\n> 1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:27",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[one]: /one\r\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:28",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n[one]: /one (title)\r\n\r\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph-endings:29",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\ntext\r\n> [one]: /one\r\n> 1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:30",
+      "source": "![?[{{goal}} A | B]][image]\r\r[one]: /one\r2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:31",
+      "source": "![?[{{goal}} A | B]][image]\r\r[one]: /one (title)\r\r2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph-endings:32",
+      "source": "![?[{{goal}} A | B]][image]\r\rtext\r> [one]: /one\r> 1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:34",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]: /one (title)\n\n2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph-endings:35",
+      "source": "![?[%{{goal}} A | B]][image]\n\ntext\n> [one]: /one\n> 1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:36",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\n[one]: /one\r\n2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:37",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\n[one]: /one (title)\r\n\r\n2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph-endings:38",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\ntext\r\n> [one]: /one\r\n> 1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:39",
+      "source": "![?[%{{goal}} A | B]][image]\r\r[one]: /one\r2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-paragraph-endings:40",
+      "source": "![?[%{{goal}} A | B]][image]\r\r[one]: /one (title)\r\r2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-paragraph-endings:41",
+      "source": "![?[%{{goal}} A | B]][image]\r\rtext\r> [one]: /one\r> 1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:0",
+      "source": "![?[{{goal}} A | B]][o - item ne]\n\n[o\n- item\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:2",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n- item\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:4",
+      "source": "![?[{{goal}} A | B]][o - item ne]\n\n> [o\n> - item\n> ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:8",
+      "source": "![?[{{goal}} A | B]][o - item ne]\n\n- [o\n  - item\n  ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:12",
+      "source": "![?[{{goal}} A | B]][o - item ne]\n\n1. [o\n   - item\n   ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:16",
+      "source": "![?[{{goal}} A | B]][o - item ne]\n\n> - [o\n>   - item\n>   ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:20",
+      "source": "![?[{{goal}} A | B]][o - item ne]\n\n- > [o\n  > - item\n  > ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:24",
+      "source": "![?[{{goal}} A | B]][o 2. item ne]\n\n[o\n2. item\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:26",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n2. item\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:48",
+      "source": "![?[{{goal}} A | B]][o # heading ne]\n\n[o\n# heading\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:50",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n# heading\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:72",
+      "source": "![?[{{goal}} A | B]][o === ne]\n\n[o\n===\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:74",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n===\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:96",
+      "source": "![?[{{goal}} A | B]][o <!-- x --> ne]\n\n[o\n<!-- x -->\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:98",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n<!-- x -->\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:120",
+      "source": "![?[{{goal}} A | B]][o <div> ne]\n\n[o\n<div>\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:122",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n<div>\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:144",
+      "source": "![?[{{goal}} A | B]][o ``` ne]\n\n[o\n```\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:146",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n```\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:168",
+      "source": "![?[{{goal}} A | B]][o ~~~ ne]\n\n[o\n~~~\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:170",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n~~~\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:192",
+      "source": "![?[{{goal}} A | B]][o indent ne]\n\n[o\n    indent\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:194",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n    indent\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:216",
+      "source": "![?[{{goal}} A | B]][o ordinary ne]\n\n[o\nordinary\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:218",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\nordinary\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:240",
+      "source": "![?[{{goal}} A | B]][o  ne]\n\n[o\n\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:242",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:264",
+      "source": "![?[{{goal}} A | B]][o > quoted ne]\n\n[o\n> quoted\nne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:266",
+      "source": "![?[{{goal}} A | B]][image]\n\n[o\n> quoted\nne]: /one\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:268",
+      "source": "![?[{{goal}} A | B]][o > quoted ne]\n\n> [o\n> > quoted\n> ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:272",
+      "source": "![?[{{goal}} A | B]][o > quoted ne]\n\n- [o\n  > quoted\n  ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:276",
+      "source": "![?[{{goal}} A | B]][o > quoted ne]\n\n1. [o\n   > quoted\n   ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:280",
+      "source": "![?[{{goal}} A | B]][o > quoted ne]\n\n> - [o\n>   > quoted\n>   ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:284",
+      "source": "![?[{{goal}} A | B]][o > quoted ne]\n\n- > [o\n  > > quoted\n  > ne]: /one",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:288",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n- item",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:290",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n- item\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:312",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n2. item",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:314",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n2. item\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:336",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n# heading",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:338",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n# heading\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:360",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n===",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:362",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n===\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:384",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n<!-- x -->",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:386",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n<!-- x -->\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:408",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n<div>",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:410",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n<div>\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:432",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n```",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:434",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n```\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:456",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n~~~",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:458",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n~~~\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:480",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n    indent",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:482",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n    indent\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:504",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\nordinary",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:506",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\nordinary\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:528",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:530",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:552",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n> quoted",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:554",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]:\n> quoted\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:576",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n- item\nb\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:578",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n- item\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:580",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [image]: /one \"a\n> - item\n> b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:584",
+      "source": "![?[{{goal}} A | B]][image]\n\n- [image]: /one \"a\n  - item\n  b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:588",
+      "source": "![?[{{goal}} A | B]][image]\n\n1. [image]: /one \"a\n   - item\n   b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:592",
+      "source": "![?[{{goal}} A | B]][image]\n\n> - [image]: /one \"a\n>   - item\n>   b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:596",
+      "source": "![?[{{goal}} A | B]][image]\n\n- > [image]: /one \"a\n  > - item\n  > b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:600",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n2. item\nb\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:602",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n2. item\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:624",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n# heading\nb\"",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:626",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n# heading\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:648",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n===\nb\"",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:650",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n===\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:672",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n<!-- x -->\nb\"",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:674",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n<!-- x -->\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:696",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n<div>\nb\"",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:698",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n<div>\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:720",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n```\nb\"",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:722",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n```\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:744",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n~~~\nb\"",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:746",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n~~~\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:768",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n    indent\nb\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:770",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n    indent\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:792",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\nordinary\nb\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:794",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\nordinary\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:816",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n\nb\"",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:818",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-opaque:840",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n> quoted\nb\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:842",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /one \"a\n> quoted\nb\"\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:844",
+      "source": "![?[{{goal}} A | B]][image]\n\n> [image]: /one \"a\n> > quoted\n> b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:848",
+      "source": "![?[{{goal}} A | B]][image]\n\n- [image]: /one \"a\n  > quoted\n  b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:852",
+      "source": "![?[{{goal}} A | B]][image]\n\n1. [image]: /one \"a\n   > quoted\n   b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:856",
+      "source": "![?[{{goal}} A | B]][image]\n\n> - [image]: /one \"a\n>   > quoted\n>   b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-opaque:860",
+      "source": "![?[{{goal}} A | B]][image]\n\n- > [image]: /one \"a\n  > > quoted\n  > b\"",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:2",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n# heading\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:10",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n===\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:18",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n<!-- x -->\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:42",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\nordinary\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:50",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n> quoted\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:58",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one\n- item\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:74",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n# heading\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:80",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n===\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:81",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]:\n===\n1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:82",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n===\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:83",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]:\n===\n2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:84",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n===\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:85",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]:\n===\n- [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:86",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n===\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:87",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]:\n===\n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:88",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n<!-- x -->\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:89",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]:\n<!-- x -->\n1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:90",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n<!-- x -->\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:91",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]:\n<!-- x -->\n2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:92",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n<!-- x -->\n- [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:93",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]:\n<!-- x -->\n- [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:94",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n<!-- x -->\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:95",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[one]:\n<!-- x -->\n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:114",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\nordinary\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:122",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n> quoted\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:130",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n- item\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:138",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]:\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:146",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n# heading\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:154",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n===\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:162",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n<!-- x -->\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:186",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\nordinary\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:194",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n> quoted\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:202",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one trailing\n- item\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:218",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n# heading\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:226",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n===\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:234",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n<!-- x -->\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:258",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\nordinary\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "native-reference-resolution:266",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n> quoted\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "native-reference-resolution:274",
+      "source": "![?[{{goal}} A | B]][image]\n\n[one]: /one (title)\n- item\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": []
+    }
+  ]
+}

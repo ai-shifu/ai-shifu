@@ -1,0 +1,4847 @@
+{
+  "provenance": {
+    "renderer": "markdown-flow-ui@0.3.3 ContentRender and remark-flow@1.4.2",
+    "runtime": "Node.js 22.23.4",
+    "method": "Bounded selection of 4,144 segmentation and 328 HTML-root observations; legacyNames captured from native HEAD 4c642ec14 before this fix, preserving explicit-percent declarations. Includes actual normalized HTML/indented-code boundaries, pending DOCTYPE image alternatives and metadata cursor rewind captures."
+  },
+  "cases": [
+    {
+      "id": "segments:0",
+      "source": "![?[{{goal}} A | B]][image]\n\nordinary prose\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:6",
+      "source": "[image]: /x\n\nordinary prose\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:12",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\nordinary prose",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:18",
+      "source": "ordinary prose\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:24",
+      "source": "[image]: /remote\n\nordinary prose\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:30",
+      "source": "[image]: /remote\n\nordinary prose\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:144",
+      "source": "![?[{{goal}} A | B]][image]\n\n```\ncode\n```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:145",
+      "source": "![?[%{{goal}} A | B]][image]\n\n```\ncode\n```\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:146",
+      "source": "<details>activate</details>\n\n![?[{{goal}} A | B]][image]\n\n```\ncode\n```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:147",
+      "source": "<details>activate</details>\n\n![?[%{{goal}} A | B]][image]\n\n```\ncode\n```\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:148",
+      "source": "![?[{{goal}} A | B]][image]\n\n```\ncode\n```\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:149",
+      "source": "![?[%{{goal}} A | B]][image]\n\n```\ncode\n```\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:150",
+      "source": "[image]: /x\n\n```\ncode\n```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:151",
+      "source": "[image]: /x\n\n```\ncode\n```\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:152",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n```\ncode\n```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:153",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n```\ncode\n```\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:154",
+      "source": "[image]: /x\n\n```\ncode\n```\n\n![?[{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:155",
+      "source": "[image]: /x\n\n```\ncode\n```\n\n![?[%{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:156",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n```\ncode\n```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:162",
+      "source": "```\ncode\n```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:168",
+      "source": "[image]: /remote\n\n```\ncode\n```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:174",
+      "source": "[image]: /remote\n\n```\ncode\n```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:180",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> ```\n> code\n> ```\n> \n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:181",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> ```\n> code\n> ```\n> \n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:182",
+      "source": "> <details>activate</details>\n> \n> ![?[{{goal}} A | B]][image]\n> \n> ```\n> code\n> ```\n> \n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:183",
+      "source": "> <details>activate</details>\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> ```\n> code\n> ```\n> \n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:184",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> ```\n> code\n> ```\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:185",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> ```\n> code\n> ```\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:186",
+      "source": "> [image]: /x\n> \n> ```\n> code\n> ```\n> \n> ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:187",
+      "source": "> [image]: /x\n> \n> ```\n> code\n> ```\n> \n> ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:188",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> ```\n> code\n> ```\n> \n> ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:189",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> ```\n> code\n> ```\n> \n> ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:190",
+      "source": "> [image]: /x\n> \n> ```\n> code\n> ```\n> \n> ![?[{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:191",
+      "source": "> [image]: /x\n> \n> ```\n> code\n> ```\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:216",
+      "source": "- ![?[{{goal}} A | B]][image]\n  \n  ```\n  code\n  ```\n  \n  [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:217",
+      "source": "- ![?[%{{goal}} A | B]][image]\n  \n  ```\n  code\n  ```\n  \n  [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:222",
+      "source": "- [image]: /x\n  \n  ```\n  code\n  ```\n  \n  ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:223",
+      "source": "- [image]: /x\n  \n  ```\n  code\n  ```\n  \n  ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:252",
+      "source": "- > ![?[{{goal}} A | B]][image]\n  > \n  > ```\n  > code\n  > ```\n  > \n  > [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:253",
+      "source": "- > ![?[%{{goal}} A | B]][image]\n  > \n  > ```\n  > code\n  > ```\n  > \n  > [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:258",
+      "source": "- > [image]: /x\n  > \n  > ```\n  > code\n  > ```\n  > \n  > ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:259",
+      "source": "- > [image]: /x\n  > \n  > ```\n  > code\n  > ```\n  > \n  > ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:288",
+      "source": "![?[{{goal}} A | B]][image]\n\n```js\ncode\n```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:294",
+      "source": "[image]: /x\n\n```js\ncode\n```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:300",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n```js\ncode\n```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:306",
+      "source": "```js\ncode\n```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:312",
+      "source": "[image]: /remote\n\n```js\ncode\n```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:318",
+      "source": "[image]: /remote\n\n```js\ncode\n```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:432",
+      "source": "![?[{{goal}} A | B]][image]\n\n````\ncode\n````\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:438",
+      "source": "[image]: /x\n\n````\ncode\n````\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:444",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n````\ncode\n````",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:450",
+      "source": "````\ncode\n````\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:456",
+      "source": "[image]: /remote\n\n````\ncode\n````\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:462",
+      "source": "[image]: /remote\n\n````\ncode\n````\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:576",
+      "source": "![?[{{goal}} A | B]][image]\n\n ```\n code\n ```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:582",
+      "source": "[image]: /x\n\n ```\n code\n ```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:588",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n ```\n code\n ```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:594",
+      "source": " ```\n code\n ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:600",
+      "source": "[image]: /remote\n\n ```\n code\n ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:606",
+      "source": "[image]: /remote\n\n ```\n code\n ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:720",
+      "source": "![?[{{goal}} A | B]][image]\n\n   ```\n   code\n   ```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:726",
+      "source": "[image]: /x\n\n   ```\n   code\n   ```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:732",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n   ```\n   code\n   ```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:738",
+      "source": "   ```\n   code\n   ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:744",
+      "source": "[image]: /remote\n\n   ```\n   code\n   ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:750",
+      "source": "[image]: /remote\n\n   ```\n   code\n   ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:864",
+      "source": "![?[{{goal}} A | B]][image]\n\n    ```\n    code\n    ```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:870",
+      "source": "[image]: /x\n\n    ```\n    code\n    ```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:876",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n    ```\n    code\n    ```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:882",
+      "source": "    ```\n    code\n    ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:888",
+      "source": "[image]: /remote\n\n    ```\n    code\n    ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:894",
+      "source": "[image]: /remote\n\n    ```\n    code\n    ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1008",
+      "source": "![?[{{goal}} A | B]][image]\n\n~~~\ncode\n~~~\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1010",
+      "source": "<details>activate</details>\n\n![?[{{goal}} A | B]][image]\n\n~~~\ncode\n~~~\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1011",
+      "source": "<details>activate</details>\n\n![?[%{{goal}} A | B]][image]\n\n~~~\ncode\n~~~\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:1012",
+      "source": "![?[{{goal}} A | B]][image]\n\n~~~\ncode\n~~~\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1013",
+      "source": "![?[%{{goal}} A | B]][image]\n\n~~~\ncode\n~~~\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:1014",
+      "source": "[image]: /x\n\n~~~\ncode\n~~~\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1016",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n~~~\ncode\n~~~\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1017",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n~~~\ncode\n~~~\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:1018",
+      "source": "[image]: /x\n\n~~~\ncode\n~~~\n\n![?[{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1019",
+      "source": "[image]: /x\n\n~~~\ncode\n~~~\n\n![?[%{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:1020",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n~~~\ncode\n~~~",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1026",
+      "source": "~~~\ncode\n~~~\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1032",
+      "source": "[image]: /remote\n\n~~~\ncode\n~~~\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1038",
+      "source": "[image]: /remote\n\n~~~\ncode\n~~~\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1046",
+      "source": "> <details>activate</details>\n> \n> ![?[{{goal}} A | B]][image]\n> \n> ~~~\n> code\n> ~~~\n> \n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1047",
+      "source": "> <details>activate</details>\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> ~~~\n> code\n> ~~~\n> \n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:1048",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> ~~~\n> code\n> ~~~\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1049",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> ~~~\n> code\n> ~~~\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:1052",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> ~~~\n> code\n> ~~~\n> \n> ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1053",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> ~~~\n> code\n> ~~~\n> \n> ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:1054",
+      "source": "> [image]: /x\n> \n> ~~~\n> code\n> ~~~\n> \n> ![?[{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1055",
+      "source": "> [image]: /x\n> \n> ~~~\n> code\n> ~~~\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:1152",
+      "source": "![?[{{goal}} A | B]][image]\n\n~~~~\ncode\n~~~~\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1158",
+      "source": "[image]: /x\n\n~~~~\ncode\n~~~~\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1164",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n~~~~\ncode\n~~~~",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1170",
+      "source": "~~~~\ncode\n~~~~\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1176",
+      "source": "[image]: /remote\n\n~~~~\ncode\n~~~~\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1182",
+      "source": "[image]: /remote\n\n~~~~\ncode\n~~~~\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1296",
+      "source": "![?[{{goal}} A | B]][image]\n\n```mermaid\ngraph TD; A-->B\n```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1302",
+      "source": "[image]: /x\n\n```mermaid\ngraph TD; A-->B\n```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1308",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n```mermaid\ngraph TD; A-->B\n```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1314",
+      "source": "```mermaid\ngraph TD; A-->B\n```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1320",
+      "source": "[image]: /remote\n\n```mermaid\ngraph TD; A-->B\n```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1326",
+      "source": "[image]: /remote\n\n```mermaid\ngraph TD; A-->B\n```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1440",
+      "source": "![?[{{goal}} A | B]][image]\n\n~~~mermaid\ngraph TD; A-->B\n~~~\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1446",
+      "source": "[image]: /x\n\n~~~mermaid\ngraph TD; A-->B\n~~~\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1452",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n~~~mermaid\ngraph TD; A-->B\n~~~",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1458",
+      "source": "~~~mermaid\ngraph TD; A-->B\n~~~\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1464",
+      "source": "[image]: /remote\n\n~~~mermaid\ngraph TD; A-->B\n~~~\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1470",
+      "source": "[image]: /remote\n\n~~~mermaid\ngraph TD; A-->B\n~~~\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1584",
+      "source": "![?[{{goal}} A | B]][image]\n\n> ```\n> code\n> ```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1590",
+      "source": "[image]: /x\n\n> ```\n> code\n> ```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1596",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n> ```\n> code\n> ```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1602",
+      "source": "> ```\n> code\n> ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1608",
+      "source": "[image]: /remote\n\n> ```\n> code\n> ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1614",
+      "source": "[image]: /remote\n\n> ```\n> code\n> ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1728",
+      "source": "![?[{{goal}} A | B]][image]\n\n- ```\n  code\n  ```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1734",
+      "source": "[image]: /x\n\n- ```\n  code\n  ```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1740",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n- ```\n  code\n  ```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1746",
+      "source": "- ```\n  code\n  ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1752",
+      "source": "[image]: /remote\n\n- ```\n  code\n  ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1758",
+      "source": "[image]: /remote\n\n- ```\n  code\n  ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1872",
+      "source": "![?[{{goal}} A | B]][image]\n\n> - ```\n>   code\n>   ```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1878",
+      "source": "[image]: /x\n\n> - ```\n>   code\n>   ```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1884",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n> - ```\n>   code\n>   ```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1890",
+      "source": "> - ```\n>   code\n>   ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1896",
+      "source": "[image]: /remote\n\n> - ```\n>   code\n>   ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:1902",
+      "source": "[image]: /remote\n\n> - ```\n>   code\n>   ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2016",
+      "source": "![?[{{goal}} A | B]][image]\n\n- > ```\n  > code\n  > ```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2022",
+      "source": "[image]: /x\n\n- > ```\n  > code\n  > ```\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2028",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n- > ```\n  > code\n  > ```",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2034",
+      "source": "- > ```\n  > code\n  > ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2040",
+      "source": "[image]: /remote\n\n- > ```\n  > code\n  > ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2046",
+      "source": "[image]: /remote\n\n- > ```\n  > code\n  > ```\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2160",
+      "source": "![?[{{goal}} A | B]][image]\n\n    code\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2166",
+      "source": "[image]: /x\n\n    code\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2172",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n    code",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2178",
+      "source": "    code\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2184",
+      "source": "[image]: /remote\n\n    code\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2190",
+      "source": "[image]: /remote\n\n    code\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2304",
+      "source": "![?[{{goal}} A | B]][image]\n\n`code`\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2310",
+      "source": "[image]: /x\n\n`code`\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2316",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n`code`",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2322",
+      "source": "`code`\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2328",
+      "source": "[image]: /remote\n\n`code`\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2334",
+      "source": "[image]: /remote\n\n`code`\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2448",
+      "source": "![?[{{goal}} A | B]][image]\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2450",
+      "source": "<details>activate</details>\n\n![?[{{goal}} A | B]][image]\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2451",
+      "source": "<details>activate</details>\n\n![?[%{{goal}} A | B]][image]\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2452",
+      "source": "![?[{{goal}} A | B]][image]\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2453",
+      "source": "![?[%{{goal}} A | B]][image]\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2454",
+      "source": "[image]: /x\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2456",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2457",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2458",
+      "source": "[image]: /x\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n![?[{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2459",
+      "source": "[image]: /x\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n![?[%{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2460",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2466",
+      "source": "<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2472",
+      "source": "[image]: /remote\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2478",
+      "source": "[image]: /remote\n\n<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2486",
+      "source": "> <details>activate</details>\n> \n> ![?[{{goal}} A | B]][image]\n> \n> <svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n> \n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2487",
+      "source": "> <details>activate</details>\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> <svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n> \n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2488",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> <svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2489",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> <svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2492",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> <svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n> \n> ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2493",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> <svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n> \n> ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2494",
+      "source": "> [image]: /x\n> \n> <svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n> \n> ![?[{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2495",
+      "source": "> [image]: /x\n> \n> <svg xmlns=\"http://www.w3.org/2000/svg\"></svg>\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2592",
+      "source": "![?[{{goal}} A | B]][image]\n\n<div>widget</div>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2594",
+      "source": "<details>activate</details>\n\n![?[{{goal}} A | B]][image]\n\n<div>widget</div>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2595",
+      "source": "<details>activate</details>\n\n![?[%{{goal}} A | B]][image]\n\n<div>widget</div>\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2596",
+      "source": "![?[{{goal}} A | B]][image]\n\n<div>widget</div>\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2597",
+      "source": "![?[%{{goal}} A | B]][image]\n\n<div>widget</div>\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2598",
+      "source": "[image]: /x\n\n<div>widget</div>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2600",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n<div>widget</div>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2601",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n<div>widget</div>\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2602",
+      "source": "[image]: /x\n\n<div>widget</div>\n\n![?[{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2603",
+      "source": "[image]: /x\n\n<div>widget</div>\n\n![?[%{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2604",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n<div>widget</div>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2610",
+      "source": "<div>widget</div>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2616",
+      "source": "[image]: /remote\n\n<div>widget</div>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2622",
+      "source": "[image]: /remote\n\n<div>widget</div>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2630",
+      "source": "> <details>activate</details>\n> \n> ![?[{{goal}} A | B]][image]\n> \n> <div>widget</div>\n> \n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2631",
+      "source": "> <details>activate</details>\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> <div>widget</div>\n> \n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2632",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> <div>widget</div>\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2633",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> <div>widget</div>\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2636",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> <div>widget</div>\n> \n> ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2637",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> <div>widget</div>\n> \n> ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2638",
+      "source": "> [image]: /x\n> \n> <div>widget</div>\n> \n> ![?[{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2639",
+      "source": "> [image]: /x\n> \n> <div>widget</div>\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:2736",
+      "source": "![?[{{goal}} A | B]][image]\n\n<section>widget</section>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2742",
+      "source": "[image]: /x\n\n<section>widget</section>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2748",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n<section>widget</section>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2754",
+      "source": "<section>widget</section>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2760",
+      "source": "[image]: /remote\n\n<section>widget</section>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2766",
+      "source": "[image]: /remote\n\n<section>widget</section>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2880",
+      "source": "![?[{{goal}} A | B]][image]\n\n<details>native</details>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2886",
+      "source": "[image]: /x\n\n<details>native</details>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2892",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n<details>native</details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2898",
+      "source": "<details>native</details>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2904",
+      "source": "[image]: /remote\n\n<details>native</details>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:2910",
+      "source": "[image]: /remote\n\n<details>native</details>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3024",
+      "source": "![?[{{goal}} A | B]][image]\n\n<pre>native</pre>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3030",
+      "source": "[image]: /x\n\n<pre>native</pre>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3036",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n<pre>native</pre>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3042",
+      "source": "<pre>native</pre>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3048",
+      "source": "[image]: /remote\n\n<pre>native</pre>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3054",
+      "source": "[image]: /remote\n\n<pre>native</pre>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3168",
+      "source": "![?[{{goal}} A | B]][image]\n\n<table><tr><td>native</td></tr></table>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3174",
+      "source": "[image]: /x\n\n<table><tr><td>native</td></tr></table>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3180",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n<table><tr><td>native</td></tr></table>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3186",
+      "source": "<table><tr><td>native</td></tr></table>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3192",
+      "source": "[image]: /remote\n\n<table><tr><td>native</td></tr></table>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3198",
+      "source": "[image]: /remote\n\n<table><tr><td>native</td></tr></table>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3312",
+      "source": "![?[{{goal}} A | B]][image]\n\n<details><script>0</script></details>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3314",
+      "source": "<details>activate</details>\n\n![?[{{goal}} A | B]][image]\n\n<details><script>0</script></details>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3315",
+      "source": "<details>activate</details>\n\n![?[%{{goal}} A | B]][image]\n\n<details><script>0</script></details>\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3316",
+      "source": "![?[{{goal}} A | B]][image]\n\n<details><script>0</script></details>\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3317",
+      "source": "![?[%{{goal}} A | B]][image]\n\n<details><script>0</script></details>\n\n[image]: /x\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3318",
+      "source": "[image]: /x\n\n<details><script>0</script></details>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3320",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n<details><script>0</script></details>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3321",
+      "source": "<details>activate</details>\n\n[image]: /x\n\n<details><script>0</script></details>\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3322",
+      "source": "[image]: /x\n\n<details><script>0</script></details>\n\n![?[{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3323",
+      "source": "[image]: /x\n\n<details><script>0</script></details>\n\n![?[%{{goal}} A | B]][image]\n\n<details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3324",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n<details><script>0</script></details>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3330",
+      "source": "<details><script>0</script></details>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3336",
+      "source": "[image]: /remote\n\n<details><script>0</script></details>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3342",
+      "source": "[image]: /remote\n\n<details><script>0</script></details>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3350",
+      "source": "> <details>activate</details>\n> \n> ![?[{{goal}} A | B]][image]\n> \n> <details><script>0</script></details>\n> \n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3351",
+      "source": "> <details>activate</details>\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> <details><script>0</script></details>\n> \n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3352",
+      "source": "> ![?[{{goal}} A | B]][image]\n> \n> <details><script>0</script></details>\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3353",
+      "source": "> ![?[%{{goal}} A | B]][image]\n> \n> <details><script>0</script></details>\n> \n> [image]: /x\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3356",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> <details><script>0</script></details>\n> \n> ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3357",
+      "source": "> <details>activate</details>\n> \n> [image]: /x\n> \n> <details><script>0</script></details>\n> \n> ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3358",
+      "source": "> [image]: /x\n> \n> <details><script>0</script></details>\n> \n> ![?[{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3359",
+      "source": "> [image]: /x\n> \n> <details><script>0</script></details>\n> \n> ![?[%{{goal}} A | B]][image]\n> \n> <details>activate</details>",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3456",
+      "source": "![?[{{goal}} A | B]][image]\n\n<span>native</span>\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3462",
+      "source": "[image]: /x\n\n<span>native</span>\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3468",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n<span>native</span>",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3474",
+      "source": "<span>native</span>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3480",
+      "source": "[image]: /remote\n\n<span>native</span>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3486",
+      "source": "[image]: /remote\n\n<span>native</span>\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3600",
+      "source": "![?[{{goal}} A | B]][image]\n\n```\ncode\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3606",
+      "source": "[image]: /x\n\n```\ncode\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3612",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n```\ncode",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3618",
+      "source": "```\ncode\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3624",
+      "source": "[image]: /remote\n\n```\ncode\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3630",
+      "source": "[image]: /remote\n\n```\ncode\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3744",
+      "source": "![?[{{goal}} A | B]][image]\n\n~~~\ncode\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3750",
+      "source": "[image]: /x\n\n~~~\ncode\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3756",
+      "source": "![?[{{goal}} A | B]][image]\n\n[image]: /x\n\n~~~\ncode",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3762",
+      "source": "~~~\ncode\n\n![?[{{goal}} A | B]][image]\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3768",
+      "source": "[image]: /remote\n\n~~~\ncode\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3774",
+      "source": "[image]: /remote\n\n~~~\ncode\n\n![?[{{goal}} A | B]][image]\n\n[image]: /local invalid",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3888",
+      "source": "![?[{{goal}} A | B]][image]\r\n\r\n```\r\ncode\r\n```\r\n\r\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3889",
+      "source": "![?[{{goal}} A | B]][image]\r\r```\rcode\r```\r\r[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3890",
+      "source": "![?[%{{goal}} A | B]][image]\r\n\r\n```\r\ncode\r\n```\r\n\r\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3891",
+      "source": "![?[%{{goal}} A | B]][image]\r\r```\rcode\r```\r\r[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3896",
+      "source": "[image]: /x\r\n\r\n```\r\ncode\r\n```\r\n\r\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3897",
+      "source": "[image]: /x\r\r```\rcode\r```\r\r![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3898",
+      "source": "[image]: /x\r\n\r\n```\r\ncode\r\n```\r\n\r\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3899",
+      "source": "[image]: /x\r\r```\rcode\r```\r\r![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3920",
+      "source": "> ![?[{{goal}} A | B]][image]\r\n> \r\n> ```\r\n> code\r\n> ```\r\n> \r\n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3921",
+      "source": "> ![?[{{goal}} A | B]][image]\r> \r> ```\r> code\r> ```\r> \r> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3922",
+      "source": "> ![?[%{{goal}} A | B]][image]\r\n> \r\n> ```\r\n> code\r\n> ```\r\n> \r\n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3923",
+      "source": "> ![?[%{{goal}} A | B]][image]\r> \r> ```\r> code\r> ```\r> \r> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3928",
+      "source": "> [image]: /x\r\n> \r\n> ```\r\n> code\r\n> ```\r\n> \r\n> ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3929",
+      "source": "> [image]: /x\r> \r> ```\r> code\r> ```\r> \r> ![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "segments:3930",
+      "source": "> [image]: /x\r\n> \r\n> ```\r\n> code\r\n> ```\r\n> \r\n> ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "segments:3931",
+      "source": "> [image]: /x\r> \r> ```\r> code\r> ```\r> \r> ![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "html:0",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <div>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:1",
+      "source": "> <div>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:2",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <div>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:3",
+      "source": "- <div>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:4",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> <div>\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "html:5",
+      "source": "> <div>\n[image]: /x\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "html:8",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <style>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:9",
+      "source": "> <style>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:10",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <style>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:11",
+      "source": "- <style>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:12",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> <style>\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "html:13",
+      "source": "> <style>\n[image]: /x\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "html:16",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <script>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:17",
+      "source": "> <script>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:18",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <script>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:19",
+      "source": "- <script>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:24",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <iframe>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:25",
+      "source": "> <iframe>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:26",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <iframe>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:27",
+      "source": "- <iframe>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:32",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <section>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:33",
+      "source": "> <section>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:34",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <section>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:35",
+      "source": "- <section>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:40",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <article>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:41",
+      "source": "> <article>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:42",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <article>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:43",
+      "source": "- <article>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:48",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <header>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:49",
+      "source": "> <header>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:50",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <header>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:51",
+      "source": "- <header>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:56",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <footer>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:57",
+      "source": "> <footer>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:58",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <footer>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:59",
+      "source": "- <footer>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:64",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <nav>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:65",
+      "source": "> <nav>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:66",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <nav>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:67",
+      "source": "- <nav>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:72",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <main>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:73",
+      "source": "> <main>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:74",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <main>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:75",
+      "source": "- <main>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:80",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <aside>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:81",
+      "source": "> <aside>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:82",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <aside>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:83",
+      "source": "- <aside>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:88",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <figure>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:89",
+      "source": "> <figure>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:90",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <figure>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:91",
+      "source": "- <figure>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:96",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <details>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:97",
+      "source": "> <details>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:98",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <details>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:99",
+      "source": "- <details>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:104",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <summary>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:105",
+      "source": "> <summary>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:106",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <summary>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:107",
+      "source": "- <summary>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:112",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <form>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:113",
+      "source": "> <form>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:114",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <form>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:115",
+      "source": "- <form>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:120",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <table>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:121",
+      "source": "> <table>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:122",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <table>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:123",
+      "source": "- <table>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:128",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <canvas>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:129",
+      "source": "> <canvas>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:130",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <canvas>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:131",
+      "source": "- <canvas>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:136",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <video>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:137",
+      "source": "> <video>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:138",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <video>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:139",
+      "source": "- <video>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:144",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <audio>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:145",
+      "source": "> <audio>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:146",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <audio>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:147",
+      "source": "- <audio>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:152",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <pre>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:153",
+      "source": "> <pre>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:154",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <pre>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:155",
+      "source": "- <pre>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:156",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> <pre>\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "html:157",
+      "source": "> <pre>\n[image]: /x\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "html:160",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <blockquote>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:161",
+      "source": "> <blockquote>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:162",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <blockquote>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:163",
+      "source": "- <blockquote>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:168",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <ul>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:169",
+      "source": "> <ul>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:170",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <ul>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:171",
+      "source": "- <ul>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:176",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <ol>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:177",
+      "source": "> <ol>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:178",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <ol>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:179",
+      "source": "- <ol>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:184",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <dl>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:185",
+      "source": "> <dl>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:186",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <dl>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:187",
+      "source": "- <dl>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:192",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <fieldset>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:193",
+      "source": "> <fieldset>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:194",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <fieldset>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:195",
+      "source": "- <fieldset>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:200",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <address>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:201",
+      "source": "> <address>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:202",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <address>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:203",
+      "source": "- <address>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:208",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <hgroup>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:209",
+      "source": "> <hgroup>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:210",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <hgroup>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:211",
+      "source": "- <hgroup>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:216",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <center>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:217",
+      "source": "> <center>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:218",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <center>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:219",
+      "source": "- <center>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:224",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <link>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:225",
+      "source": "> <link>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:226",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <link>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:227",
+      "source": "- <link>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:232",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <html>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:233",
+      "source": "> <html>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:234",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <html>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:235",
+      "source": "- <html>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:240",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <head>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:241",
+      "source": "> <head>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:242",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <head>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:243",
+      "source": "- <head>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:248",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <body>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:249",
+      "source": "> <body>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:250",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <body>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:251",
+      "source": "- <body>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:256",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <meta>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:257",
+      "source": "> <meta>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:258",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <meta>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:259",
+      "source": "- <meta>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:264",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <title>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:265",
+      "source": "> <title>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:266",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <title>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:267",
+      "source": "- <title>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:272",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <base>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:273",
+      "source": "> <base>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:274",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <base>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:275",
+      "source": "- <base>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:280",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <template>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:281",
+      "source": "> <template>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:282",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <template>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "html:283",
+      "source": "- <template>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:288",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <span>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:289",
+      "source": "> <span>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:290",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <span>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:291",
+      "source": "- <span>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:296",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <a>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:297",
+      "source": "> <a>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:298",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <a>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:299",
+      "source": "- <a>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:304",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <p>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:305",
+      "source": "> <p>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:306",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <p>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:307",
+      "source": "- <p>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:312",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <strong>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:313",
+      "source": "> <strong>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:314",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <strong>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:315",
+      "source": "- <strong>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:320",
+      "source": "![?[{{goal}} A | B]][image]\n\n> <custom-widget>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:321",
+      "source": "> <custom-widget>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:322",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <custom-widget>\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:323",
+      "source": "- <custom-widget>\n[image]: /x\n\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "html:324",
+      "source": "![?[%{{goal}} A | B]][image]\n\n> <custom-widget>\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "html:325",
+      "source": "> <custom-widget>\n[image]: /x\n\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:0",
+      "source": "[image]: /x\n\n<!DOCTYPE incomplete\n![?[{{goal}} A | B]](/x)",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:1",
+      "source": "[image]: /x\r\n\r\n<!DOCTYPE incomplete\r\n![?[{{goal}} A | B]](/x)",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:2",
+      "source": "[image]: /x\r\r<!DOCTYPE incomplete\r![?[{{goal}} A | B]](/x)",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:3",
+      "source": "[image]: /x\n\n<!DOCTYPE incomplete\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:4",
+      "source": "[image]: /x\r\n\r\n<!DOCTYPE incomplete\r\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:5",
+      "source": "[image]: /x\r\r<!DOCTYPE incomplete\r![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:6",
+      "source": "[image]: /x\n\n<!DOCTYPE incomplete\n![?[%{{goal}} A | B]](/x)",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:7",
+      "source": "[image]: /x\r\n\r\n<!DOCTYPE incomplete\r\n![?[%{{goal}} A | B]](/x)",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:8",
+      "source": "[image]: /x\r\r<!DOCTYPE incomplete\r![?[%{{goal}} A | B]](/x)",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:9",
+      "source": "[image]: /x\n\n<!DOCTYPE incomplete\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:10",
+      "source": "[image]: /x\r\n\r\n<!DOCTYPE incomplete\r\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:11",
+      "source": "[image]: /x\r\r<!DOCTYPE incomplete\r![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:12",
+      "source": "[image]: /x\n\n<!doctype incomplete\n![?[{{goal}} A | B]](/x)",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:13",
+      "source": "[image]: /x\r\n\r\n<!doctype incomplete\r\n![?[{{goal}} A | B]](/x)",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:14",
+      "source": "[image]: /x\r\r<!doctype incomplete\r![?[{{goal}} A | B]](/x)",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:15",
+      "source": "[image]: /x\n\n<!doctype incomplete\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:16",
+      "source": "[image]: /x\r\n\r\n<!doctype incomplete\r\n![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:17",
+      "source": "[image]: /x\r\r<!doctype incomplete\r![?[{{goal}} A | B]][image]",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:18",
+      "source": "[image]: /x\n\n<!doctype incomplete\n![?[%{{goal}} A | B]](/x)",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:19",
+      "source": "[image]: /x\r\n\r\n<!doctype incomplete\r\n![?[%{{goal}} A | B]](/x)",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:20",
+      "source": "[image]: /x\r\r<!doctype incomplete\r![?[%{{goal}} A | B]](/x)",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:21",
+      "source": "[image]: /x\n\n<!doctype incomplete\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:22",
+      "source": "[image]: /x\r\n\r\n<!doctype incomplete\r\n![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:23",
+      "source": "[image]: /x\r\r<!doctype incomplete\r![?[%{{goal}} A | B]][image]",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:24",
+      "source": "![?[{{goal}} A | B]][image]\n\n[see](/x \"fake ```\")\n\n```\ncode\n```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:25",
+      "source": "![?[{{goal}} A | B]][image]\n\n[see](/x 'fake ```')\n\n```\ncode\n```\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-scope-compat-observed.json:26",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[see](/x \"fake ```\")\n\n```\ncode\n```\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-scope-compat-observed.json:27",
+      "source": "![?[%{{goal}} A | B]][image]\n\n[see](/x 'fake ```')\n\n```\ncode\n```\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:6",
+      "source": "![?[{{goal}} A | B]][image]\n\n    code\n\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:7",
+      "source": "![?[%{{goal}} A | B]][image]\n\n    code\n\n1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:8",
+      "source": "![?[{{goal}} A | B]][image]\n\n    code\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:9",
+      "source": "![?[%{{goal}} A | B]][image]\n\n    code\n\n2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:10",
+      "source": "![?[{{goal}} A | B]][image]\n\n    code\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:11",
+      "source": "![?[%{{goal}} A | B]][image]\n\n    code\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:12",
+      "source": "![?[{{goal}} A | B]][image]\n\n    code\n\n\n1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:13",
+      "source": "![?[%{{goal}} A | B]][image]\n\n    code\n\n\n1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:14",
+      "source": "![?[{{goal}} A | B]][image]\n\n    code\n\n\n2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:15",
+      "source": "![?[%{{goal}} A | B]][image]\n\n    code\n\n\n2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:16",
+      "source": "![?[{{goal}} A | B]][image]\n\n    code\n\n\n[image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:17",
+      "source": "![?[%{{goal}} A | B]][image]\n\n    code\n\n\n[image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:24",
+      "source": "![?[{{goal}} A | B]][image]\n\n-     code\n  \n  1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:25",
+      "source": "![?[%{{goal}} A | B]][image]\n\n-     code\n  \n  1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:26",
+      "source": "![?[{{goal}} A | B]][image]\n\n-     code\n  \n  2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:27",
+      "source": "![?[%{{goal}} A | B]][image]\n\n-     code\n  \n  2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:28",
+      "source": "![?[{{goal}} A | B]][image]\n\n-     code\n  \n  [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:29",
+      "source": "![?[%{{goal}} A | B]][image]\n\n-     code\n  \n  [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:30",
+      "source": "![?[{{goal}} A | B]][image]\n\n-     code\n  \n  \n  1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:31",
+      "source": "![?[%{{goal}} A | B]][image]\n\n-     code\n  \n  \n  1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:32",
+      "source": "![?[{{goal}} A | B]][image]\n\n-     code\n  \n  \n  2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:33",
+      "source": "![?[%{{goal}} A | B]][image]\n\n-     code\n  \n  \n  2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:34",
+      "source": "![?[{{goal}} A | B]][image]\n\n-     code\n  \n  \n  [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:35",
+      "source": "![?[%{{goal}} A | B]][image]\n\n-     code\n  \n  \n  [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:42",
+      "source": "![?[{{goal}} A | B]][image]\n\n>     code\n> \n> 1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:43",
+      "source": "![?[%{{goal}} A | B]][image]\n\n>     code\n> \n> 1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:44",
+      "source": "![?[{{goal}} A | B]][image]\n\n>     code\n> \n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:45",
+      "source": "![?[%{{goal}} A | B]][image]\n\n>     code\n> \n> 2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:46",
+      "source": "![?[{{goal}} A | B]][image]\n\n>     code\n> \n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:47",
+      "source": "![?[%{{goal}} A | B]][image]\n\n>     code\n> \n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:48",
+      "source": "![?[{{goal}} A | B]][image]\n\n>     code\n> \n> \n> 1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:49",
+      "source": "![?[%{{goal}} A | B]][image]\n\n>     code\n> \n> \n> 1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:50",
+      "source": "![?[{{goal}} A | B]][image]\n\n>     code\n> \n> \n> 2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:51",
+      "source": "![?[%{{goal}} A | B]][image]\n\n>     code\n> \n> \n> 2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:52",
+      "source": "![?[{{goal}} A | B]][image]\n\n>     code\n> \n> \n> [image]: /x",
+      "marker": "{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:53",
+      "source": "![?[%{{goal}} A | B]][image]\n\n>     code\n> \n> \n> [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 1,
+      "buttons": [],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:126",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <pre>\n  raw\n  </pre>\n  1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:127",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- <pre>\n  raw\n  </pre>\n  1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:128",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <pre>\n  raw\n  </pre>\n  2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:129",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- <pre>\n  raw\n  </pre>\n  2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:130",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <pre>\n  raw\n  </pre>\n  [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:131",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- <pre>\n  raw\n  </pre>\n  [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:180",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <textarea>\n  raw\n  </textarea>\n  1. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:181",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- <textarea>\n  raw\n  </textarea>\n  1. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:182",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <textarea>\n  raw\n  </textarea>\n  2. [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:183",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- <textarea>\n  raw\n  </textarea>\n  2. [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    },
+    {
+      "id": "native-indented-code-observed.json:184",
+      "source": "![?[{{goal}} A | B]][image]\n\n- <textarea>\n  raw\n  </textarea>\n  [image]: /x",
+      "marker": "{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": null
+    },
+    {
+      "id": "native-indented-code-observed.json:185",
+      "source": "![?[%{{goal}} A | B]][image]\n\n- <textarea>\n  raw\n  </textarea>\n  [image]: /x",
+      "marker": "%{{goal}}",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ],
+      "legacyNames": [
+        "goal"
+      ]
+    }
+  ]
+}

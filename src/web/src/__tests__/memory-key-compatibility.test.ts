@@ -8,72 +8,77 @@ jest.mock('remark-flow', () => ({
   ...jest.requireActual('remark-flow/dist/variable-name'),
 }));
 
-describe('authored memory key compatibility', () => {
-  const parser = createInteractionParser();
+describe.each(['%', ''])(
+  'authored memory key compatibility with prefix %s',
+  prefix => {
+    const parser = createInteractionParser();
 
-  it.each([
-    '你的性别是？',
-    'gender?',
-    '性别:？',
-    '名字（可选）',
-    'learner_name',
-    '性别',
-    'a|b',
-    'a...b',
-    'a//b',
-    '😀?',
-    '\ufeffkey\ufeff',
-    '\ufeff',
-    'user name',
-    'user  name',
-    'Which [path] | level//hint...?',
-    'a{b}c',
-    'a}',
-    '}',
-    'outer{{inner',
-    '"name"',
-    'path\\',
-    '<b>name</b>',
-  ])('preserves %s from parsing through named answer submission', key => {
-    const source = `?[%{{ ${key} }} 男 | 女 | 秘密]`;
-    const interaction = parser.parseToRemarkFormat(source);
+    it.each([
+      '你的性别是？',
+      'gender?',
+      '性别:？',
+      '名字（可选）',
+      'learner_name',
+      '性别',
+      'a|b',
+      'a...b',
+      'a//b',
+      '😀?',
+      '\ufeffkey\ufeff',
+      '\ufeff',
+      'user name',
+      'user  name',
+      'Which [path] | level//hint...?',
+      'a{b}c',
+      'a}',
+      '}',
+      'outer{{inner',
+      '"name"',
+      'path\\',
+      '<b>name</b>',
+    ])('preserves %s from parsing through named answer submission', key => {
+      const source = `?[${prefix}{{ ${key} }} 男 | 女 | 秘密]`;
+      const interaction = parser.parseToRemarkFormat(source);
 
-    expect(extractVariableNames(`${source}\n{{ ${key} }}`)).toEqual([key]);
-    expect(interaction).toEqual({
-      variableName: key,
-      buttonTexts: ['男', '女', '秘密'],
-      buttonValues: ['男', '女', '秘密'],
-      isMultiSelect: false,
+      expect(extractVariableNames(`${source}\n{{ ${key} }}`)).toEqual([key]);
+      expect(interaction).toEqual({
+        variableName: key,
+        buttonTexts: ['男', '女', '秘密'],
+        buttonValues: ['男', '女', '秘密'],
+        isMultiSelect: false,
+      });
+      const { values } = resolveInteractionSubmission({
+        variableName: interaction.variableName,
+        buttonText: interaction.buttonValues![1],
+      });
+
+      expect(
+        buildPreviewInteractionUserInput(interaction.variableName!, values),
+      ).toEqual({ [key]: ['女'] });
     });
-    const { values } = resolveInteractionSubmission({
-      variableName: interaction.variableName,
-      buttonText: interaction.buttonValues![1],
+
+    it('keeps existing display values and multiple selection semantics', () => {
+      expect(
+        parser.parseToRemarkFormat(
+          `?[${prefix}{{skills}} 前端//web || 后端//api]`,
+        ),
+      ).toEqual({
+        variableName: 'skills',
+        buttonTexts: ['前端', '后端'],
+        buttonValues: ['web', 'api'],
+        isMultiSelect: true,
+      });
     });
 
-    expect(
-      buildPreviewInteractionUserInput(interaction.variableName!, values),
-    ).toEqual({ [key]: ['女'] });
-  });
-
-  it('keeps existing display values and multiple selection semantics', () => {
-    expect(
-      parser.parseToRemarkFormat('?[%{{skills}} 前端//web || 后端//api]'),
-    ).toEqual({
-      variableName: 'skills',
-      buttonTexts: ['前端', '后端'],
-      buttonValues: ['web', 'api'],
-      isMultiSelect: true,
+    it.each([
+      'Show `{{` then ?[%{{ q }} A|B]',
+      'Show `{{`\n?[%{{ q }} A|B]',
+      'Text <span title="{{">\n?[%{{ q }} A|B]',
+      'Text <span title="before\n{{">\n?[%{{ q }} A|B]',
+      '\\{{ example ?[%{{ q }} A|B]',
+      'Show \\{{ not a variable }} then ?[%{{ q }} A|B]',
+    ])('extracts preview keys after a literal marker example: %s', source => {
+      expect(extractVariableNames(source)).toEqual(['q']);
     });
-  });
-
-  it.each([
-    'Show `{{` then ?[%{{ q }} A|B]',
-    'Show `{{`\n?[%{{ q }} A|B]',
-    'Text <span title="{{">\n?[%{{ q }} A|B]',
-    'Text <span title="before\n{{">\n?[%{{ q }} A|B]',
-    '\\{{ example ?[%{{ q }} A|B]',
-    'Show \\{{ not a variable }} then ?[%{{ q }} A|B]',
-  ])('extracts preview keys after a literal marker example: %s', source => {
-    expect(extractVariableNames(source)).toEqual(['q']);
-  });
-});
+  },
+);

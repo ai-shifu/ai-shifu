@@ -9,7 +9,8 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
-from .marker_context import analyze_marker_context
+from .marker_context import MarkerContext, analyze_marker_context, marker_syntax_source
+from .variable_names import find_interaction_spans, read_interaction_variable
 
 # Anything that only makes sense with the MarkdownFlow syntax note.
 SYNTAX_RE = re.compile(
@@ -100,12 +101,15 @@ def _project_variable_markers(
     markers = {}
     masked: list[str] = []
     at = 0
-    for marker in analyze_marker_context(text, fence_indent=0).markers:
+    context = analyze_marker_context(text, fence_indent=0)
+    bindings = _interaction_bindings(text, context)
+    for marker in context.markers:
         token = f"{marker_prefix}{len(markers)}\x00"
         markers[token] = (
             text[marker.start : marker.end],
             marker.name,
-            bool(marker.start and text[marker.start - 1] == "%"),
+            marker.start in bindings
+            or bool(marker.start and text[marker.start - 1] == "%"),
         )
         masked.extend((text[at : marker.start], token))
         at = marker.end
@@ -130,20 +134,51 @@ def _strip_fences(text: str) -> str:
     return tokens.sub(lambda match: markers[match.group(0)][0], "\n".join(out))
 
 
+def _interaction_bindings(text: str, context: MarkerContext) -> set[int]:
+    """Locate leading bindings in real questions without promoting literal examples."""
+    bindings: set[int] = set()
+    for start, end in find_interaction_spans(
+        text, syntax_source=marker_syntax_source(text, context)
+    ):
+        marker = read_interaction_variable(text[start + 2 : end - 1])
+        if marker is None:
+            continue
+        at = start + 2 + marker.start
+        if not any(
+            opening <= at < closing
+            for opening, closing in (*context.literals, *context.image_labels)
+        ):
+            bindings.add(at)
+    return bindings
+
+
 def collected_names(text: str) -> frozenset[str]:
-    """Return the variables this script fills in during the lesson, named by `%{{name}}`.
+    """Return explicit declarations and leading bindings in authored interactions.
 
     Fenced blocks are content the lesson shows, not instructions it follows, so a `%{{name}}`
     inside one is an example of the notation rather than a question. Counted as collected, it
     would drop a real memory value that nothing in the lesson is going to ask for again --
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
-    source = _strip_fences(text)
-    return frozenset(
+    context = analyze_marker_context(text)
+    bindings = _interaction_bindings(text, context)
+    names = {
         marker.name
-        for marker in analyze_marker_context(source).markers
-        if marker.name is not None and marker.start and source[marker.start - 1] == "%"
-    )
+        for marker in context.markers
+        if marker.name is not None and marker.start in bindings
+    }
+    if "%{{" in text:
+        # Keep the historical explicit-declaration projection. Bare bindings need
+        # the original source so fences retain their renderer ownership boundaries.
+        source = _strip_fences(text)
+        names.update(
+            marker.name
+            for marker in analyze_marker_context(source).markers
+            if marker.name is not None
+            and marker.start
+            and source[marker.start - 1] == "%"
+        )
+    return frozenset(names)
 
 
 def substitution_names(bundle: ScriptBundle) -> frozenset[str]:
@@ -197,8 +232,8 @@ def substitute_variables(
 ) -> str:
     """Replace `{{name}}` with `values[name]` outside fenced code blocks.
 
-    `%{{name}}` and unknown names are left untouched so the model can still see what the author
-    meant. Host prompt rendering opts into explicit unavailable-value metadata instead;
+    Interaction bindings, `%{{name}}` and unknown names are left untouched so the model
+    can still see what the author meant. Host prompt rendering opts into explicit unavailable-value metadata instead;
     this is request guidance, never a learner fact or a memory write.
 
     A name in `collected` is left untouched as well, whatever memory holds for it. Those are the

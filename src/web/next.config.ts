@@ -4,8 +4,10 @@ import fs from 'fs';
 import type { NextConfig } from 'next';
 import path from 'path';
 import { resolveAppBuildMetadata } from './src/config/build-metadata';
+import { createMarkdownFlowParserAliases } from './src/config/markdown-flow-parser-aliases.cjs';
 
 const appBuildMetadata = resolveAppBuildMetadata(__dirname);
+const markdownFlowParserAliases = createMarkdownFlowParserAliases(__dirname);
 
 // Resolve shared i18n directory robustly for both local and Docker builds
 const looksLikeI18nDir = (candidate: string): boolean => {
@@ -88,6 +90,13 @@ const nextConfig: NextConfig = {
   // Enable standalone output to reduce production image size
   output: 'standalone',
 
+  // The parser's ESM utilities also need compilation in the Next/Jest pipeline.
+  transpilePackages: [
+    'unist-util-visit',
+    'unist-util-visit-parents',
+    'unist-util-is',
+  ],
+
   async redirects() {
     return [{ source: '/main', destination: '/admin', permanent: true }];
   },
@@ -121,6 +130,16 @@ const nextConfig: NextConfig = {
 
   reactStrictMode: false,
 
+  turbopack: {
+    resolveAlias: markdownFlowParserAliases.turbopack,
+  },
+  webpack(config) {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      ...markdownFlowParserAliases.webpack,
+    };
+    return config;
+  },
   env: {
     NEXT_PUBLIC_I18N_META: JSON.stringify(frontendLocalesMetadata),
     NEXT_PUBLIC_APP_VERSION: appBuildMetadata.appVersion,

@@ -25,13 +25,15 @@ _API_ROOT = Path(__file__).resolve().parents[2]
 _LEGACY_SESSION = Path(__file__).parent / "fixtures" / "legacy_session.json"
 
 
-def test_bundled_prompts_only_update_unexpanded_reference_guidance() -> None:
+def test_bundled_prompts_only_update_reference_and_binding_guidance() -> None:
     fixture = Path(__file__).parent / "fixtures" / "legacy_prompt_hashes.json"
     hashes = json.loads(fixture.read_text())["sha256"]
     assert len(hashes) == 15
-    # Only native reference guidance changes; retain every other copied prompt byte.
-    hashes["v1_syntax"] = (
-        "3fd9babdffca25f3b7a60df8d0c92573bccb9541a62a977fd3b4f70185f74d4e"
+    # Expand native reference/binding guidance; retain every other copied prompt byte.
+    hashes.update(
+        v1_syntax="7a04a87b477e169ea1b34f4169e575d45105e04b798555aaaba191d0c7d13ebb",
+        memory_policy="65ee8c4e3187a1172393d631548240c03ad001ad9437c53c80506659c3309179",
+        memory_unrestricted="b62e91978ecd13dd1bc22ce7b59ac786c8497734e1962f94742e592fc1e0b0cd",
     )
     for name, expected in hashes.items():
         # Keep the historical fixture intact while loading the renamed resource.

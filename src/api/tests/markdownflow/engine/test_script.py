@@ -1,6 +1,11 @@
 """Script bundling: variable substitution, script syntax detection, prompt assembly."""
 
+import hashlib
+import json
+from pathlib import Path
+
 import pytest
+from markdown_it import MarkdownIt
 from markdownflow.engine import (
     ScriptBundle,
     collected_names,
@@ -8,7 +13,20 @@ from markdownflow.engine import (
     render_first_prompt,
     substitute_variables,
 )
+from markdownflow.engine.marker_context import analyze_marker_context
 from markdownflow.engine.script import substitution_names
+from markdownflow.engine.tools import script_options
+
+_REFERENCE_BOUNDARY_OBSERVATIONS = {
+    case["sha256"]: case
+    for case in json.loads(
+        (
+            Path(__file__).parents[1]
+            / "fixtures"
+            / "script_reference_boundaries_browser.json"
+        ).read_text()
+    )["cases"]
+}
 
 
 def test_detects_each_syntax_marker() -> None:
@@ -206,3 +224,328 @@ def test_a_marker_outside_a_fence_is_still_collected_when_one_is_present() -> No
     text = "?[%{{purpose}} A | B]\n```\n?[%{{nickname}} X]\n```\n"
 
     assert collected_names(text) == frozenset({"purpose"})
+
+
+@pytest.mark.parametrize("prefix", ["%", ""])
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "===Here is {question}===",
+        "!===Here is {question}!===",
+        "!===\nHere is {question}\n!===",
+    ],
+)
+def test_preserved_output_keeps_real_interaction_bindings(
+    prefix: str, wrapper: str
+) -> None:
+    """Output wrappers preserve wording without escaping nested answer controls."""
+    question = "?[" + prefix + "{{pace}} A | B]"
+    source = wrapper.format(question=question)
+
+    assert collected_names(source) == frozenset({"pace"})
+    assert script_options(source) == {"A": "A", "B": "B"}
+    assert substitute_variables(source, {"pace": "stale"}) == source
+    prompt = render_first_prompt(ScriptBundle(script=source), {"pace": "stale"})
+    assert "stale" not in prompt
+    assert source in prompt
+
+
+@pytest.mark.parametrize("prefix", ["%", ""])
+@pytest.mark.parametrize(
+    "key", ["goal", "Which [path] | level//hint...?", "outer{{inner", "a}"]
+)
+def test_interaction_binding_is_collected_and_never_substituted(
+    prefix: str, key: str
+) -> None:
+    marker = prefix + "{{ " + key + " }}"
+    source = "?[ " + marker + " A | ...Your goal?]\nThen discuss {{ " + key + " }}."
+    bundle = ScriptBundle(script=source)
+
+    assert collected_names(source) == frozenset({key})
+    assert substitution_names(bundle) == frozenset()
+    assert marker in substitute_variables(source, {key: "stale"})
+    assert "stale" not in render_first_prompt(bundle, {key: "stale"})
+    assert marker in substitute_variables(source, {}, unavailable=True)
+    assert (
+        substitute_variables(
+            source, {}, collected=collected_names(source), unavailable=True
+        )
+        == source
+    )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "Read {{goal}}.",
+        "?[Continue {{goal}}]",
+        "\\?[{{goal}} A | B]",
+        "`?[{{goal}} A | B]`",
+        "```md\n?[{{goal}} A | B]\n```",
+        "<!-- ?[{{goal}} A | B] -->",
+        "?[{{goal}} A | B](https://example.com)",
+        "?[{{ }} A | B]",
+        "?[{{bad\x00key}} A | B]",
+    ],
+)
+def test_only_valid_leading_interaction_bindings_grant_collection(source: str) -> None:
+    assert collected_names(source) == frozenset()
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        "![?[{{goal}} A | B]](url)",
+        "[![?[{{goal}} A | B]](url)](outer)",
+        "![?[{{goal}} A | B]][image]\n\n[image]: url",
+        "> ![?[{{goal}} A | B]][IMAGE]\n>\n> [image]: url",
+        "![?[{{goal}} A | B]][two words]\n\n[two  words]: url",
+    ],
+)
+def test_real_image_alt_controls_do_not_declare_bare_bindings(image: str) -> None:
+    source = image + "\n\nRead {{goal}}."
+    assert collected_names(source) == frozenset()
+    assert substitution_names(ScriptBundle(script=source)) == frozenset({"goal"})
+    assert "{{goal}}" not in substitute_variables(source, {"goal": "current"})
+    assert script_options(source + "\n\n?[{{visible}} C | D]") == {
+        "C": "C",
+        "D": "D",
+    }
+    assert collected_names(image.replace("{{goal}}", "%{{goal}}")) == frozenset(
+        {"goal"}
+    )
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "[course\nimage]: /diagram.png",
+        "[course\r\nimage]: /diagram.png",
+        "[course\rimage]: /diagram.png",
+        "[course\n    image]: /diagram.png",
+        "> [course\n> image]: /diagram.png",
+        "- [course\n  image]: /diagram.png",
+        "[course\nimage]:\n  /diagram.png",
+    ],
+)
+@pytest.mark.parametrize("key", ["goal", "Which [path] | level//hint...?"])
+def test_multiline_image_reference_labels_do_not_authorize_interactions(
+    definition: str, key: str
+) -> None:
+    """Renderer-confirmed reference images keep their alt controls as reference text."""
+    marker = "{{ " + key + " }}"
+    source = "![?[" + marker + " A | B]][course image]\n\n" + definition
+    assert '<img src="/diagram.png"' in MarkdownIt().render(source)
+    assert collected_names(source) == frozenset()
+    assert '"current"' in render_first_prompt(
+        ScriptBundle(script=source), {key: "current"}
+    )
+    assert script_options(source + "\n\n?[{{visible}} C | D]") == {
+        "C": "C",
+        "D": "D",
+    }
+    assert marker not in substitute_variables(source, {key: "current"})
+
+
+@pytest.mark.parametrize(
+    "definition",
+    [
+        "[course\n\nimage]: /diagram.png",
+        "[course\nimage] /diagram.png",
+        "[course\nimage]:",
+        "[course\nimage]: /diagram.png trailing",
+        "[course\n# image]: /diagram.png",
+        "```\n[course\nimage]: /diagram.png\n```",
+        "    [course\n    image]: /diagram.png",
+        "<div>\n[course\nimage]: /diagram.png\n</div>",
+        "{{\n[course\nimage]: /diagram.png\n}}",
+    ],
+)
+def test_unusable_multiline_image_definitions_keep_visible_controls(
+    definition: str,
+) -> None:
+    """Malformed, incomplete, literal, and opaque definitions cannot hide a real control."""
+    source = "![?[{{goal}} A | B]][course image]\n\n" + definition
+    assert "<img " not in MarkdownIt().render(source)
+    assert collected_names(source) == frozenset({"goal"})
+    assert script_options(source) == {"A": "A", "B": "B"}
+
+
+@pytest.mark.parametrize(
+    ("label", "definition", "image"),
+    [
+        ("course # image", "[course\n# image]: /x", False),
+        ("course ~~~", "[course\n~~~]: /x", False),
+        ("course # image", "[course\n    # image]: /x", True),
+        ("course ~~~", "[course\n    ~~~]: /x", True),
+        ("course\\ image", "[course\\\nimage]: /x", True),
+        ("course image", "> [course\nimage]: /x", True),
+        ("course image", "- [course\nimage]: /x", True),
+    ],
+)
+def test_multiline_reference_continuations_match_native_rendering(
+    label: str, definition: str, image: bool
+) -> None:
+    """Indentation, lazy container lines, and escapes retain native reference admission."""
+    source = "![?[{{goal}} A | B]][" + label + "]\n\n" + definition
+    assert ("<img " in MarkdownIt().render(source)) is image
+    assert collected_names(source) == (frozenset() if image else frozenset({"goal"}))
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+@pytest.mark.parametrize(("padding", "image"), [(" ", True), ("    ", False)])
+def test_continuation_indentation_spends_the_reference_label_budget(
+    padding: str, image: bool, spelling: str, newline: str
+) -> None:
+    """Actual ContentRender keeps one padding space but rejects the four-space case."""
+    first = "a" * 993
+    label = first + " image"
+    source = (
+        f"![?[{spelling} A | B]][{label}]\n\n[{first}\n{padding}image]: /x"
+    ).replace("\n", newline)
+    assert len(label) == 999
+    expected_names = (
+        frozenset({"goal"}) if spelling.startswith("%") or not image else frozenset()
+    )
+    assert collected_names(source) == expected_names
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
+
+
+@pytest.mark.parametrize("multiline", [False, True])
+@pytest.mark.parametrize(
+    ("prefix", "container"),
+    [
+        pytest.param("paragraph\n", "", id="paragraph"),
+        pytest.param("paragraph\n\n", "", id="blank"),
+        pytest.param("[one]: /one\n", "", id="adjacent-definition"),
+        pytest.param("[one]: /one\n[two]: /two\n", "", id="consecutive-definitions"),
+        pytest.param('[one]: /one\n "title"\n', "", id="definition-title"),
+        pytest.param("[one]: /one invalid\n", "", id="failed-definition"),
+        pytest.param("[one]: /one\nparagraph\n", "", id="paragraph-after-definition"),
+        pytest.param("# heading\n", "", id="heading"),
+        pytest.param("Heading\n===\n", "", id="setext"),
+        pytest.param("---\n", "", id="thematic"),
+        pytest.param("```\ncode\n```\n", "", id="fence"),
+        pytest.param("    code\n", "", id="indented-code"),
+        pytest.param("    code\n    more\n", "", id="multiline-indented-code"),
+        pytest.param("<script>raw</script>\n", "", id="raw-html"),
+        pytest.param("<!-- comment -->\n", "", id="comment"),
+        pytest.param("<![CDATA[raw]]>\n", "", id="cdata"),
+        pytest.param("<?instruction?>\n", "", id="processing-instruction"),
+        pytest.param("<!DOCTYPE x>\n", "", id="declaration"),
+        pytest.param("<div>\nraw\n</div>\n", "", id="ordinary-html"),
+        pytest.param("<span>\n", "", id="span-html"),
+        pytest.param("text <span>inline</span>\n", "", id="inline-html"),
+        pytest.param("> paragraph\n", "> ", id="quote-paragraph"),
+        pytest.param("- paragraph\n", "  ", id="list-paragraph"),
+        pytest.param("> # heading\n", "> ", id="quote-heading"),
+        pytest.param("- # heading\n", "  ", id="list-heading"),
+        pytest.param(">     code\n", "> ", id="quote-code"),
+        pytest.param("-     code\n", "  ", id="list-code"),
+        pytest.param("> [one]: /one\n", "> ", id="quote-definition"),
+        pytest.param("- [one]: /one\n", "  ", id="list-definition"),
+        pytest.param("> ```\n> code\n> ```\n", "> ", id="quote-fence"),
+        pytest.param("- ```\n  code\n  ```\n", "  ", id="list-fence"),
+        pytest.param("> <!-- hi -->\n", "> ", id="quote-comment"),
+        pytest.param("- <!-- hi -->\n", "  ", id="list-comment"),
+        pytest.param("> paragraph\n", "", id="quote-lazy-paragraph"),
+        pytest.param("- paragraph\n", "", id="list-lazy-paragraph"),
+    ],
+)
+def test_reference_definitions_start_only_at_native_block_boundaries(
+    prefix: str, container: str, multiline: bool
+) -> None:
+    """Renderer scopes and native block boundaries determine visible questions."""
+    definition = container + (
+        "[course\n" + container + "image]: /x" if multiline else "[course image]: /x"
+    )
+    source = "![?[{{goal}} A | B]][course image]\n\n" + prefix + definition
+    observed = _REFERENCE_BOUNDARY_OBSERVATIONS[
+        hashlib.sha256(source.encode()).hexdigest()
+    ]
+    assert len(analyze_marker_context(source).image_labels) == observed["images"]
+    assert collected_names(source) == ({"goal"} if observed["buttons"] else set())
+    assert script_options(source) == {button: button for button in observed["buttons"]}
+
+
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "text",
+        "1. text",
+        "8. text",
+        "- text",
+        "> text",
+        "> 1. text",
+        "- 1. text",
+        "1.\n   text",
+    ],
+)
+@pytest.mark.parametrize("outer", ["", "> ", "  ", "   ", "    "])
+@pytest.mark.parametrize("marker", ["", "1. ", "2. ", "9. ", "- ", "* ", "2) "])
+def test_reference_definitions_follow_native_sibling_and_lazy_boundaries(
+    prefix: str, outer: str, marker: str, spelling: str
+) -> None:
+    """An ordered sibling can start at any number, unlike a paragraph interruption."""
+    source = f"![?[{spelling} A | B]][image]\n\n{prefix}\n{outer}{marker}[image]: /x"
+    image = "<img " in MarkdownIt().render(source)
+    # Legacy percent markers remain global declarations, even inside image alt.
+    expected_names = (
+        frozenset({"goal"}) if spelling.startswith("%") or not image else frozenset()
+    )
+    assert collected_names(source) == expected_names
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n", "\r"])
+@pytest.mark.parametrize("spelling", ["{{goal}}", "%{{goal}}"])
+@pytest.mark.parametrize(
+    ("definition", "image"),
+    [
+        ("1. text\n2. [course\nimage]: /x", True),
+        ("> 1. text\n> 2. [course\n> image]: /x", True),
+        ("- > 1. text\n  > 2. [course\n  > image]: /x", True),
+        ("1. text\n   1. nested\n   2. [course\n   image]: /x", True),
+        ("> 1. text\n> 2. [course image]:\n> /x", True),
+        ("> 1. text\n> [course\n> image]: /x", False),
+        ("1. text\n   paragraph\n   2. [course\n   image]: /x", False),
+        ("paragraph\n2. [course\nimage]: /x", False),
+        ("1.\n   text\n2. [course image]: /x", True),
+        ("1.   \n   text\n2. [course image]: /x", True),
+        ("1.\n\n   text\n2. [course image]: /x", False),
+        ("> 1.\n>\n> text\n> 2. [course image]: /x", False),
+    ],
+)
+def test_multiline_references_preserve_lazy_container_projection(
+    definition: str, image: bool, spelling: str, newline: str
+) -> None:
+    """Partial outer prefixes and empty list boundaries match native rendering."""
+    source = (f"![?[{spelling} A | B]][course image]\n\n{definition}").replace(
+        "\n", newline
+    )
+    assert ("<img " in MarkdownIt().render(source)) is image
+    expected_names = (
+        frozenset({"goal"}) if spelling.startswith("%") or not image else frozenset()
+    )
+    assert collected_names(source) == expected_names
+    assert script_options(source) == ({} if image else {"A": "A", "B": "B"})
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "![ ?[{{goal}} A | B]",
+        "![?[{{goal}} A | B]][missing]",
+        "![?[{{goal}} A | B]](unfinished",
+        "[?[{{goal}} A | B]](url)",
+        "?[{{goal}} A | B] after ![image](url)",
+    ],
+)
+def test_visible_controls_in_unfinished_images_and_link_labels_still_bind(
+    source: str,
+) -> None:
+    assert collected_names(source) == frozenset({"goal"})
+    assert "{{goal}}" in substitute_variables(source, {"goal": "stale"})

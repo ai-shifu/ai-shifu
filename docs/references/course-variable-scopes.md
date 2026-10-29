@@ -2,7 +2,7 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-28
 canonical: true
 ---
 
@@ -32,7 +32,48 @@ or recursive recognition of markers inside a key. A literal `}}` remains a
 reserved sequence and cannot be part of a name.
 
 For example, `?[%{{ What is your gender? }} Male | Female | Private]` stores the selected
-answer under `What is your gender?`. `{{ What is your gender? }}` references that same key.
+answer under `What is your gender?`. `?[{{ What is your gender? }} Male | Female | Private]`
+is equivalent: the percent prefix is optional for a leading interaction binding.
+Outside that position, `{{ What is your gender? }}` references that same key.
+An interaction binding is preserved during substitution and grants the same
+named-answer memory permission with either spelling; previous answers are
+excluded from the new question's initial memory context.
+
+Preserved-output wrappers (`===...===`, `!===...!===`, and multiline `!===`
+blocks) keep the authored wording; interactions inside them remain active with
+either variable spelling. Use inline or fenced code to show literal interaction
+syntax without creating a control. Output preservation does not revoke a real
+question's named-answer memory permission.
+
+Text inside a syntactically complete Markdown image is an image label, not an
+active interaction. A bare marker there does not grant named-answer memory
+permission. This remains true when the renderer clears the image URL: URL
+filtering does not turn its label into answer buttons. Incomplete image
+notation retains its ordinary text and interaction fallback. Explicit percent
+declarations retain their existing declaration semantics.
+Reference labels may span physical lines: a backslash before a label's line
+ending remains literal while the line ending participates in label matching.
+This does not permit physical line endings inside image destinations.
+The renderer's reference-label budget counts UTF-16 units, both characters of
+a preserved escape and tabs expanded at their original source-column stops.
+Physical line endings are excluded from that budget.
+Image title text does not create questions. Parenthesized titles follow the
+renderer's first unescaped closing delimiter, including an opening parenthesis
+inside the title text.
+Reference definitions retain the renderer's paragraph lookahead state. A list
+marker or blank line after a definition does not by itself establish another
+definition; only definitions accepted in that context can bind an image.
+Consecutive definitions may retain continuation indentation beyond three columns
+when they share the same logical paragraph. A newly started list item has its
+own boundary even when its indentation width matches the previous item.
+References resolve within the Markdown run that the UI renders together.
+Separately rendered backtick code or sandbox HTML can separate an image use
+from a later definition; a native HTML run can retain both. The backend uses
+the same run boundaries and HTML indentation normalization when deciding
+whether image-label text is an active question. Image labels inside pending
+sandbox content stay inactive while ordinary unfinished HTML retains its
+existing text fallback.
+
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
 content, not trim whitespace. The exact trim set and shared conformance cases

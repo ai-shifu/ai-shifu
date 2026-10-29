@@ -38,6 +38,61 @@ def test_flat_quoted_html_collection_scans_container_lines_once(
     assert size <= calls <= 4 * size
 
 
+@pytest.mark.parametrize("depth", [256, 1024, 4096])
+def test_partial_ancestor_recovery_bounds_repeated_prefix_scans(
+    monkeypatch: pytest.MonkeyPatch, depth: int
+) -> None:
+    """A dedent must not retry every ancestor of deeply nested authored content."""
+    calls = work = 0
+    original = document_blocks.container_content_info
+
+    def counted(
+        line: str, steps: tuple[int, ...], *, partial: bool = False
+    ) -> tuple[int, int] | None:
+        nonlocal calls, work
+        calls += 1
+        work += len(steps)
+        return original(line, steps, partial=partial)
+
+    monkeypatch.setattr(document_blocks, "container_content_info", counted)
+    remaining = depth // 2
+    source = "> " * depth + "paragraph\n" + "> " * remaining + "continuation\n"
+    blocks = DocumentBlocks(source, HTML_PATTERN)
+    assert blocks.projected_line(1) == "continuation"
+    assert blocks.container_steps[1] == (0,) * remaining
+    assert calls <= 2 * depth.bit_length()
+    assert work <= depth * (depth.bit_length() + 4)
+
+
+@pytest.mark.parametrize("size", [100, 200, 400])
+@pytest.mark.parametrize(
+    "unit",
+    [
+        "> <!-- x -->\n",
+        "> <!--\n> x -->\n",
+        "> <script>x</script>\n",
+        "> <script>\n> x</script>\n",
+    ],
+)
+def test_literal_projection_reuses_bounds_before_future_context_is_known(
+    monkeypatch: pytest.MonkeyPatch, size: int, unit: str
+) -> None:
+    """Discovering successive quoted blocks must not rescan the remaining document."""
+    calls = 0
+    original = document_blocks.container_content_start
+
+    def counted(
+        line: str, steps: tuple[int, ...], *, partial: bool = False
+    ) -> int | None:
+        nonlocal calls
+        calls += 1
+        return original(line, steps, partial=partial)
+
+    monkeypatch.setattr(document_blocks, "container_content_start", counted)
+    blocks = DocumentBlocks(unit * size, HTML_PATTERN)
+    assert calls <= 8 * len(blocks.lines)
+
+
 @pytest.mark.parametrize("reverse", [False, True])
 def test_container_queries_reuse_safe_suffixes_in_either_order(
     monkeypatch: pytest.MonkeyPatch, reverse: bool

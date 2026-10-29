@@ -133,8 +133,10 @@ def _note_model(notes: list[dict], returns: list[str]) -> FunctionModel:
     ("script", "allowed"),
     [
         ("Collect %{{pace}}.", True),
+        ("?[{{pace}} ...Your pace?]", True),
         ("Read {{pace}}.", False),
         ("```md\nCollect %{{pace}}.\n```", False),
+        ("```md\n?[{{pace}} ...Your pace?]\n```", False),
         ("Teach the lesson.", False),
     ],
 )
@@ -422,14 +424,15 @@ async def test_queued_answers_retry_and_round_trip_preserve_only_pending_evidenc
     check.assert_awaited_once()
 
 
-async def test_declared_answer_keeps_its_exact_long_value() -> None:
+@pytest.mark.parametrize("prefix", ["%", ""])
+async def test_declared_answer_keeps_its_exact_long_value(prefix: str) -> None:
     """Admission restricts who may name a variable, not the answer's original length."""
     check = AsyncMock(return_value=False)
     engine, session = await _ask(
         {"type": "text", "prompt": "Your goal?", "variable": "goal"},
         check,
         [],
-        script="Collect %{{goal}}.",
+        script="?[" + prefix + "{{goal}} ...Your goal?]",
     )
     assert session.pending[0].spec.variable == "goal"
     answer = "é" * 4000

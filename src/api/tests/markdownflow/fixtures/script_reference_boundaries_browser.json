@@ -1,0 +1,507 @@
+{
+  "provenance": {
+    "renderer": "Installed markdown-flow-ui@0.3.3 ContentRender / remark-flow@1.4.2",
+    "runtime": "Node.js 22.23.4",
+    "method": "Captured every exact source in the existing 70-case native block-boundary matrix; source hashes preserve the original grammar fixtures."
+  },
+  "cases": [
+    {
+      "id": "paragraph:False",
+      "sha256": "448f7f0e11937a97075966de36ef52457308c80c46060a48bc6c7ff29b6c5263",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "paragraph:True",
+      "sha256": "612ab9c1b22f161c286f7d3e58ce1c7d37bca68f87baeed83b6f8faf7454f2ed",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "blank:False",
+      "sha256": "9f034e2a1b1a9c4a079b26d7d19c55991746e93c5fefee7ed2ac1bcc714099fb",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "blank:True",
+      "sha256": "dfbd0432f77b86ba639fab974a8134dc0d919f2590f1dd9c2cd1b38f412ef8a9",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "adjacent-definition:False",
+      "sha256": "620de6a596de44eddf5189fc7c7f770020024ab36922a0c550298a48fd116fa7",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "adjacent-definition:True",
+      "sha256": "0d9d3a1990c7bf49419957d8974f6e047d7c2eb6e92ccaa473cd2f16e3874f8f",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "consecutive-definitions:False",
+      "sha256": "5047aa6201f800859b1eb3ba7325bda9926ebd2ed442487dd38357dcb72e4da9",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "consecutive-definitions:True",
+      "sha256": "56adc018a76a6aecee6808a98fe3363ccef4245d4c4768ebc36604a392a7e086",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "definition-title:False",
+      "sha256": "4f9f112eb7c03ad5ffd0eb077c535f6945af15ae99c7168b46cd21dba944990d",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "definition-title:True",
+      "sha256": "bad28b121d572ff3eddb014835a19ad2528bd4c2fb37f2e2e0da62d04f80d8e1",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "failed-definition:False",
+      "sha256": "33624c4e6954305b0e93f4ff73321d5e70a5e7372ebbd1840d7f6e86ec1dc3f3",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "failed-definition:True",
+      "sha256": "da97a71b20c7a10aa2de4f0db33f6de123c964138f9d6e48a091cb01a08ed9dd",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "paragraph-after-definition:False",
+      "sha256": "241b938509d25ac9489460075228b8f015665cfb63985a393a6617c2924be6d5",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "paragraph-after-definition:True",
+      "sha256": "b57c63420fc354b5b0b3b6b5deb43d59b49730809697bdf751d5f0568dc7e426",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "heading:False",
+      "sha256": "cdd2b60e1bb13aaa666f72d42afd5422c243ca7d8fd1a623fb5fdb29f290c55b",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "heading:True",
+      "sha256": "ea9fa56198bb1e4975d6a5ef0141bb9712552bc07c32e542d5bfa3358a458b65",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "setext:False",
+      "sha256": "43bcd61afe2f743735209eb618f89bd2403b126ce5517a24224da6b484c7883c",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "setext:True",
+      "sha256": "02a4c2f5c16b1af42c7c524ba37624b15aff75f228bea9af295c98ad93fa0369",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "thematic:False",
+      "sha256": "af6d33bade7df91e992b7d1e11b552f2f88e98ece0239b6268eb71972fc5a065",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "thematic:True",
+      "sha256": "3fe14159f22930499cdda1795b25fae5bf8b2b676c47891a61662c45245c8315",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "fence:False",
+      "sha256": "fa3cac2016f55e5e515a78d57f2a3bf5450c52ddcf55080ba65405e4f6872995",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "fence:True",
+      "sha256": "2fee2ee2a72d3eb939a227137f24b1e570ade4bbe77db688b2582f95bfaf3b15",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "indented-code:False",
+      "sha256": "80ad6a2419aeb3976eb14c7dbc80faa8e3e2a50c985fd1408119cce13968c046",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "indented-code:True",
+      "sha256": "e756027991a94e503846fb58926caf1d680c7949a365c23dc832afe8f6fd1888",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "multiline-indented-code:False",
+      "sha256": "62d01528277adae46699f2ab09f0533ac21a56841d0b4ad4d357d34d054a6abd",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "multiline-indented-code:True",
+      "sha256": "e1444449c30f4f326ee73d727c1ed592c850e0762e8d1db432f8eccbc03fb37f",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "raw-html:False",
+      "sha256": "b27d106c690ff54f65c4e95be15fac16631f8035be090cc9e826b76a10970a6c",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "raw-html:True",
+      "sha256": "4c152ea50ab461bc749e82afbb9df71a96bc1f2df13586938e17d5a42724425d",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "comment:False",
+      "sha256": "0330615d8241fcb04a04fefb31220c1d7f706b851c41a0fc540d0eaea135441f",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "comment:True",
+      "sha256": "01b55a9530a0965c1d008f20eb9aa9fbf260bdf791cc212e4f2e1ed868df7815",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "cdata:False",
+      "sha256": "3563f2756f5454f560c9cee2a2381e02cab741a03783263f8ab59bbabc402018",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "cdata:True",
+      "sha256": "bea74387a02a0ea23d3fc69c4bc80ef836bfc61328f5941ae3fba233c315ff8e",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "processing-instruction:False",
+      "sha256": "5a40d3147016da30d67d9d2625157439932fb5da75e195b11a6a15f05e84004d",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "processing-instruction:True",
+      "sha256": "d056f593013f9ef32a519af280a7f5f85d09b163c575fe5ef03db6555347dc12",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "declaration:False",
+      "sha256": "b0ee16308426622ad5f58bae472b7c0a594525c3c316438a0b9e15c692e841b7",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "declaration:True",
+      "sha256": "a210ab99b38e965d8085ffeb7f1fa170d60aa9980446a9fad885228cc387cc69",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "ordinary-html:False",
+      "sha256": "019b9f8669d7a57f3e0156f5f7b08cca70d07a35338c14b98f365bed22a314f2",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "ordinary-html:True",
+      "sha256": "b172d5f8dbbae0351fbeab70a8a75ef7092bb92610db00e215efd22c53cbb60b",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "span-html:False",
+      "sha256": "c5f8dbc7e191530e10edb164213b5bb820c00057f315de6c1904d034c0d18430",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "span-html:True",
+      "sha256": "d9df2a292ddeeb69249ac3645904a0ae2c1195dd80bc2b971f48b59b7a7f5ead",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "inline-html:False",
+      "sha256": "3f7c63035e5d0b38ee6ebb396143ea7fe2be532e386b7f0e7a31a365fcc9229e",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "inline-html:True",
+      "sha256": "edf2119fa8c9badc60bd3e5d7a5898f6cec97186f804661242f5e2d2b635f5d7",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "quote-paragraph:False",
+      "sha256": "0d43ce62c23302db0dcdbc1b7f07a5f3114ac0f441d5ca63c8158fb4929091d1",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "quote-paragraph:True",
+      "sha256": "9f44d25d75e117aa311c86769555a27fccee06ec730c9d857713c533b265dad6",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "list-paragraph:False",
+      "sha256": "a7e8a04d29c4d5234dbf90700d75006c0ba53520be3c5daf083c97c966fd11e2",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "list-paragraph:True",
+      "sha256": "48d7d26f146f4a4f72fa0803d9ff19c38c3d76d01fd3f94901afaec1bf428a4c",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "quote-heading:False",
+      "sha256": "4ba1b5485333bf0a41e42d2594f1b459617f468a728061bd557348b67722981d",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-heading:True",
+      "sha256": "a4c3da43cd05d391041b7ac668e217fe5594c722ed9fe29092328e54d3f27917",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-heading:False",
+      "sha256": "43992da3a11bb1b57411f9808b7f2c81cb5b0b90446fe9cc2ea82aa0b756afd4",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-heading:True",
+      "sha256": "425801445c23193f4e4212cdbcba33dfe1058bb87a98fafe05e1b0786af27b6d",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-code:False",
+      "sha256": "829f80f5743bc17796a1c751e7323ce3dc9e7814fc464a71090a68fdc2bc9df4",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-code:True",
+      "sha256": "1cfddcf7ca436d40f637c58f6a507e6f39bf83b8328abae068ec3283b6d885e1",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-code:False",
+      "sha256": "833389ac4eb3d569c3cc64fd615f98005dbf324cdc1ec30a80f69d94eec69803",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-code:True",
+      "sha256": "cdfa044f7545e47cf30904dcc5304082452edc70548a8734f913ab78dfc72cad",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-definition:False",
+      "sha256": "0fcb2a655210ac32bd018538209b340bad6c29d7560bd52b93a811cb90fc7c13",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-definition:True",
+      "sha256": "fc2f43d1c2d3c75043c5576a8e1f74d2c7f60fd1648071fe24ce6e2c9ce57194",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-definition:False",
+      "sha256": "c8db14e02ab510c9cea85c7c9d21de1239bd79f5768d93efcbc7140a67ccaed9",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-definition:True",
+      "sha256": "a241156142912e73e326eaec5be1a7b7d9d69ad1949a2e102a18465594b9c23f",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-fence:False",
+      "sha256": "073c51427246115b8ecadb523ae939d762fba71152ba4e7f82d0bab7d341a7bb",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-fence:True",
+      "sha256": "7da95f6d8c6df0194f21e9c790bbb80a23e4da6c717357179cf4028de8ba9886",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-fence:False",
+      "sha256": "d27aa552b515a3555afbb712171a53676c63eded3e555b2d0a4da98a8cf01b02",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-fence:True",
+      "sha256": "6f1692f468af19fd6e1dc97717fbd2f637a03b0855a800479d7fbad97d93816c",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-comment:False",
+      "sha256": "07106e1761f5f2df2b8c8fb417c0225b2624265fe83eb879828627ac47d58f56",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-comment:True",
+      "sha256": "ff1c871cee603a09b8f36afd4ac31b4efa4cb0c4ee82cdc8f9814154b02dd894",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-comment:False",
+      "sha256": "1d6a1e4789c56493e2bc1e110b8e2004f28546a2ad15b311d576a06f43f8531e",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "list-comment:True",
+      "sha256": "9e738d3e2c2611c9b0fa169961f3605776ab1e0ae7ea3b2d8f29237eee2133a4",
+      "images": 1,
+      "buttons": []
+    },
+    {
+      "id": "quote-lazy-paragraph:False",
+      "sha256": "0ac6705fe2285928f18f27caa81d61e8f568b3ae5acaf3dfbc48ba52d9acb067",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "quote-lazy-paragraph:True",
+      "sha256": "b8c625e6da0c95300f25a58b926acfa3296a32d14d0cc525100a93b1a6b3b24a",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "list-lazy-paragraph:False",
+      "sha256": "930b0752c3dd939e919c10d88dc38415b21c37bda1f4ef17a55c1b132ad108a6",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    },
+    {
+      "id": "list-lazy-paragraph:True",
+      "sha256": "dd6552cd9da79e934945fb739bd2ec0d76be68a0c458840bbdc4f3d9534ebb19",
+      "images": 0,
+      "buttons": [
+        "A",
+        "B"
+      ]
+    }
+  ]
+}
