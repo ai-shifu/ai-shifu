@@ -143,7 +143,7 @@ from flaskr.service.tts.subtitle_utils import (
 from flaskr.service.tts.tts_handler import upload_audio_to_oss
 from flaskr.service.tts.validation import validate_tts_settings_strict
 from flaskr.util import generate_id
-from markdown_flow import (
+from markdownflow import (
     InteractionParser,
 )
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from markdown_flow import StreamFormatter
+from markdownflow import StreamFormatter
 from markdownflow.pagination import LessonPager
 from markdownflow.preserve_markers import PreserveMarkerFilter
 

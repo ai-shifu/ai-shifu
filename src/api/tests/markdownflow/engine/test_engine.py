@@ -1967,7 +1967,7 @@ async def test_an_option_the_model_made_up_keeps_what_it_wrote() -> None:
 
 def test_the_engine_reads_escapes_exactly_as_the_grammar_does() -> None:
     """The engine keeps its own copy of the rule; it must not drift from MarkdownFlow's."""
-    from markdown_flow.escaping import unescape_interaction_text
+    from markdownflow import unescape_interaction_text
     from markdownflow.engine.tools import _unescape
 
     samples = [
@@ -2026,7 +2026,7 @@ async def test_a_value_the_model_made_up_keeps_what_it_wrote() -> None:
 
 def test_the_engine_splits_a_script_s_options_as_the_grammar_does() -> None:
     """Checked against MarkdownFlow's own parser, so the two cannot drift apart."""
-    from markdown_flow import InteractionParser
+    from markdownflow import InteractionParser
     from markdownflow.engine.tools import script_options
 
     questions = [

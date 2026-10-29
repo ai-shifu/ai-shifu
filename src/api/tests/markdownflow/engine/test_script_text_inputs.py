@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 from flaskr.service.learn.agent.legacy_protocol import render_interaction
-from markdown_flow import InteractionParser
+from markdownflow import InteractionParser
 from markdownflow.engine import (
     Engine,
     InteractionRequest,

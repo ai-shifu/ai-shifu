@@ -14,6 +14,7 @@ import pytest
 from flask import Flask
 from flaskr import dao
 from flaskr.api.langfuse import MockClient
+from flaskr.api.llm import LLMStreamResponse
 from flaskr.api.llm.markdownflow_model import map_messages
 from flaskr.common.cache_provider import (
     CacheUnavailableError,
@@ -35,23 +36,22 @@ from flaskr.service.profile_research.runtime import (
     ProfileResearchValidationError,
     _compact_replay_events,
     _expand_replay_events,
-    _ProfileResearchLLMProvider,
+    _ProfileResearchGatewayCompletion,
     _ProfileResearchSessionStore,
     build_profile_research_sse_response,
     validate_profile_research_document,
 )
 from flaskr.util.prompt_loader import load_prompt_template
-from markdown_flow import (
+from markdownflow import (
     USER_ANSWER_CONTEXT_KEY,
     InteractionParser,
-    LLMProvider,
 )
 from pydantic_ai.messages import ModelRequest, ToolReturnPart
 from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from sqlalchemy.exc import ResourceClosedError
 
 
-class _FakeProvider(LLMProvider):
+class _FakeProvider:
     def __init__(self, output_chunks: list[str]) -> None:
         self.output_chunks = output_chunks
         self.messages: list[list[dict[str, str]]] = []
@@ -750,20 +750,32 @@ def test_llm_provider_uses_shared_non_billable_route_without_redaction(
         app: object, user_id: object, span: object, **kwargs: object
     ) -> object:
         calls.append((app, user_id, span, kwargs))
-        yield SimpleNamespace(result="画像结果")
+        yield LLMStreamResponse(
+            "profile",
+            is_end=True,
+            is_truncated=False,
+            result="画像结果",
+            finish_reason="stop",
+            usage=None,
+        )
 
-    monkeypatch.setattr(
-        "flaskr.service.profile_research.provider.chat_llm",
-        fake_chat_llm,
-    )
     monkeypatch.setattr(
         "flaskr.api.llm.markdownflow_model.chat_llm",
         fake_chat_llm,
     )
 
-    provider = _ProfileResearchLLMProvider(runtime.app, session, MockClient())
+    provider = _ProfileResearchGatewayCompletion(runtime.app, session, MockClient())
 
-    assert provider.complete([{"role": "user", "content": "整理画像"}]) == "画像结果"
+    assert (
+        provider.complete(
+            [
+                {"role": "system", "content": "画像规则"},
+                {"role": "user", "content": "整理画像"},
+            ],
+            temperature=0,
+        )
+        == "画像结果"
+    )
     model = create_profile_research_model(runtime.app, session, MockClient())
     assert [chunk.result for chunk in model._stream([], ModelRequestParameters())] == [
         "画像结果"
@@ -779,6 +791,13 @@ def test_llm_provider_uses_shared_non_billable_route_without_redaction(
         assert kwargs["usage_context"].billable == 0
         assert kwargs["billable"] == 0
         assert "usage_metadata" not in kwargs
+    private_call = calls[0][3]
+    assert private_call["model"] == session.model
+    assert private_call["temperature"] == 0
+    assert private_call["messages"] == [
+        {"role": "system", "content": "画像规则"},
+        {"role": "user", "content": "整理画像"},
+    ]
 
 
 def test_sse_response_emits_public_error_without_course_dtos(

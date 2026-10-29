@@ -8,8 +8,11 @@ from unittest.mock import patch
 import pytest
 from flaskr.service.learn.agent.interaction_syntax import InteractionSyntaxFilter
 from flaskr.service.learn.agent.legacy_protocol import render_interaction
-from markdown_flow import InteractionParser, MarkdownFlow
-from markdown_flow.parser.variable import replace_variables_in_text
+from markdownflow import (
+    InteractionParser,
+    MarkdownFlowDocument,
+    replace_variables_in_text,
+)
 from markdownflow.engine import (
     Engine,
     ErrorEvent,
@@ -82,7 +85,7 @@ def test_existing_question_keys_agree_across_parser_boundaries(
     assert [(button["display"], button["value"]) for button in parsed["buttons"]] == [
         (choice, choice) for choice in CHOICES
     ]
-    assert MarkdownFlow(authored).extract_variables() == [key]
+    assert MarkdownFlowDocument(authored).extract_variables() == [key]
     assert collected_names(authored) == frozenset({key})
 
     reference = format_variable_reference(key)
@@ -228,7 +231,9 @@ def test_shared_non_recursive_marker_corpus(case: dict) -> None:
         )
         == case["names"]
     )
-    assert MarkdownFlow(case["source"]).extract_variables() == sorted(case["names"])
+    assert MarkdownFlowDocument(case["source"]).extract_variables() == sorted(
+        case["names"]
+    )
 
 
 @pytest.mark.parametrize("case", CONTRACT["interactions"])
@@ -249,7 +254,7 @@ def test_assignment_extraction_trims_python_only_whitespace(padding: str) -> Non
     authored = _question(key, padding)
     assert collected_names(authored) == frozenset({key})
     assert InteractionParser().parse(authored)["variable"] == key
-    assert MarkdownFlow(authored).extract_variables() == [key]
+    assert MarkdownFlowDocument(authored).extract_variables() == [key]
 
 
 def test_marker_names_are_opaque_to_markdown_and_invalid_outer_markers_are_not_reparsed() -> (
@@ -296,8 +301,8 @@ def test_multiline_marker_padding_keeps_one_trimmed_key_across_host_boundaries()
     assert collected_names(assignment) == frozenset({"name"})
     assert substitute_variables(reference, {"name": "女"}) == "女"
     assert substitute_variables(assignment, {"name": "女"}) == assignment
-    assert MarkdownFlow(source).extract_variables() == ["name"]
-    assert len(MarkdownFlow(source).get_all_blocks()) == 1
+    assert MarkdownFlowDocument(source).extract_variables() == ["name"]
+    assert len(MarkdownFlowDocument(source).get_all_blocks()) == 1
     assert InteractionParser().parse(source)["variable"] == "name"
     assert _script_questions(source)[0].variable == "name"
     spec = InteractionSpec(

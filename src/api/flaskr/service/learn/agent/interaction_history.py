@@ -11,7 +11,7 @@ from flaskr.api.markdownflow import (
     answer_is_usable,
     normalize_answer,
 )
-from markdown_flow import InteractionParser
+from markdownflow import InteractionParser
 from pydantic import ValidationError
 
 from .legacy_protocol import render_interaction

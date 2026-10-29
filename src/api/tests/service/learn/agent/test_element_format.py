@@ -27,7 +27,7 @@ from flaskr.service.learn.models import (
     LearnProgressRecord,
 )
 from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
-from markdown_flow.formatter.stream import StreamFormatter
+from markdownflow import StreamFormatter
 from markdownflow.engine.events import (
     ContentDelta,
     InteractionRequest,

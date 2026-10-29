@@ -6,7 +6,6 @@ from pathlib import Path
 
 from flask import Flask
 from flaskr.api.llm.model_selection import course_model_selection
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
@@ -29,7 +28,7 @@ from flaskr.service.shifu.shifu_history_manager import (
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc, to_utc_iso
-from markdown_flow import MarkdownFlow
+from markdownflow import MarkdownFlowDocument
 from werkzeug.datastructures import FileStorage
 
 
@@ -437,9 +436,7 @@ def import_shifu(
                 elif item_type == "outline":
                     if old_bid in created_items:
                         item_id = created_items[old_bid].id
-                        mdflow = MarkdownFlow(
-                            created_items[old_bid].content
-                        ).set_output_language(get_markdownflow_output_language())
+                        mdflow = MarkdownFlowDocument(created_items[old_bid].content)
                         block_list = mdflow.get_all_blocks()
                         child_count = len(block_list)
                     else:
