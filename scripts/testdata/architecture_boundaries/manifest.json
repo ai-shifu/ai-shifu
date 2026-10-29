@@ -23,7 +23,10 @@
         "backend.learn_elements_imports_host",
         "backend.learn_elements_imports_host",
         "backend.learn_host_imports_routes",
-        "backend.learn_ask_imports_host"
+        "backend.learn_ask_imports_host",
+        "backend.imports_retired_package",
+        "backend.imports_retired_package",
+        "backend.imports_retired_package"
       ]
     },
     {

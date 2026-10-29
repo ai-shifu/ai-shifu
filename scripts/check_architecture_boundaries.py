@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import sys
 from dataclasses import asdict, dataclass
@@ -325,6 +326,57 @@ def collect_engine_library_violations(backend_root: Path) -> list[Violation]:
     return violations
 
 
+# The external package was retired once its syntax layer moved into markdownflow/syntax.
+RETIRED_BACKEND_PACKAGES = frozenset({"markdown_flow"})
+
+
+SKIPPED_BACKEND_DIRECTORIES = frozenset(
+    {"__pycache__", "node_modules", "site-packages"}
+)
+
+
+def iter_backend_python_files(backend_root: Path) -> list[Path]:
+    """List backend Python files, pruning caches and virtualenvs before descending."""
+    files: list[Path] = []
+    for directory, subdirectories, filenames in os.walk(backend_root):
+        current = Path(directory)
+        # Any virtualenv has pyvenv.cfg, whatever the directory is called.
+        subdirectories[:] = sorted(
+            name
+            for name in subdirectories
+            if not name.startswith(".")
+            and name not in SKIPPED_BACKEND_DIRECTORIES
+            and not (current / name / "pyvenv.cfg").exists()
+        )
+        files.extend(current / name for name in filenames if name.endswith(".py"))
+    return sorted(files)
+
+
+def collect_retired_package_violations(backend_root: Path) -> list[Violation]:
+    """Reject imports of retired packages anywhere in the backend, entry points included."""
+    violations: list[Violation] = []
+    for path in iter_backend_python_files(backend_root):
+        source = normalize_posix(path.relative_to(backend_root))
+        for module in iter_python_imports(path, backend_root):
+            if module.partition(".")[0] not in RETIRED_BACKEND_PACKAGES:
+                continue
+            rule_id = "backend.imports_retired_package"
+            violations.append(
+                Violation(
+                    key=make_key(rule_id, source, module),
+                    rule_id=rule_id,
+                    source=source,
+                    target=module,
+                    message=f"{source} imports retired package {module}.",
+                    remediation=(
+                        "Import the MarkdownFlow syntax layer from markdownflow "
+                        "instead; the markdown-flow package is not installed."
+                    ),
+                )
+            )
+    return violations
+
+
 LEARN_HOST_PACKAGE = "flaskr.service.learn.host"
 # Routes sit above the lesson host; the host must not reach up into them.
 LEARN_HOST_FORBIDDEN_PREFIXES = ("flaskr.service.learn.routes",)
@@ -427,6 +479,7 @@ def collect_learn_elements_violations(backend_root: Path) -> list[Violation]:
 def collect_backend_violations(backend_root: Path) -> list[Violation]:
     """Collect backend violations."""
     violations = collect_engine_library_violations(backend_root)
+    violations += collect_retired_package_violations(backend_root)
     violations += collect_learn_elements_violations(backend_root)
     violations += collect_learn_host_violations(backend_root)
     violations += collect_learn_ask_violations(backend_root)

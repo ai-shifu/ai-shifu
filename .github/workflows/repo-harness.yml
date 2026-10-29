@@ -34,46 +34,6 @@ jobs:
       - name: Install instruction Markdown parser
         run: python -m pip install markdown-it-py==4.0.0
 
-      - name: Install markdown-flow pin check tooling
-        if: github.event_name == 'pull_request' && github.base_ref == 'main'
-        run: pip install --upgrade packaging
-
-      - name: Check markdown-flow release pin
-        if: github.event_name == 'pull_request' && github.base_ref == 'main'
-        run: |
-          python - <<'PY'
-          import re
-          import sys
-
-          from packaging.version import InvalidVersion, Version
-
-          path = "src/api/requirements.txt"
-          with open(path, encoding="utf-8") as f:
-              text = f.read()
-
-          match = re.search(r"(?m)^markdown-flow==(.+)$", text)
-          if not match:
-              print(f"::error::No 'markdown-flow==' pin found in {path}.")
-              sys.exit(1)
-
-          raw = match.group(1).strip()
-          try:
-              version = Version(raw)
-          except InvalidVersion:
-              print(f"::error::Invalid markdown-flow version '{raw}' in {path}.")
-              sys.exit(1)
-
-          if version.is_prerelease or version.is_devrelease:
-              print(
-                  f"::error::markdown-flow=={raw} is a pre-release/dev build and cannot be "
-                  "merged into main. Pin a release version (X.Y.Z) first — publish a release "
-                  "build from markdown-flow-agent-py, then update the pin."
-              )
-              sys.exit(1)
-
-          print(f"OK: markdown-flow=={raw} is a release version.")
-          PY
-
       - name: Check markdown-flow-ui release pin
         if: github.event_name == 'pull_request' && github.base_ref == 'main'
         run: |
