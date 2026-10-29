@@ -17,6 +17,51 @@ describe('installed MarkdownFlow mixed interaction replay', () => {
 
   afterEach(cleanup);
 
+  it.each(['', '%'])(
+    'submits the exact named key with %j prefix and restores its stored answer',
+    prefix => {
+      const key = 'Which [path] | level//hint...?';
+      const content = `?[${prefix}{{ ${key} }} Ready//ready|Not yet//later|...Explain]`;
+      const onSend = jest.fn();
+      const view = render(
+        <ContentRender
+          content={content}
+          onSend={onSend}
+        />,
+      );
+
+      fireEvent.click(view.getByRole('button', { name: 'Ready' }));
+      expect(onSend).toHaveBeenCalledTimes(1);
+      const answer = onSend.mock.calls[0][0];
+      expect(answer).toEqual({ variableName: key, buttonText: 'ready' });
+      expect(resolveInteractionSubmission(answer)).toEqual({
+        values: ['ready'],
+        userInput: 'ready',
+      });
+
+      const replayProps = {
+        content,
+        onSend,
+        readonly: true,
+        userInput: JSON.stringify(answer),
+      };
+      view.rerender(<ContentRender {...replayProps} />);
+      expect(view.getByRole('button', { name: 'Ready' })).toHaveClass('select');
+      expect(view.getByRole('textbox')).toHaveValue('');
+
+      view.unmount();
+      const restored = render(<ContentRender {...replayProps} />);
+      const selected = restored.getByRole('button', {
+        name: 'Ready',
+      });
+      expect(selected).toHaveClass('select');
+      expect(selected).toBeDisabled();
+      expect(restored.getByRole('textbox')).toHaveValue('');
+      fireEvent.click(selected);
+      expect(onSend).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it.each([
     ['Ready, I can paste an answer', 'ready'],
     ['Written, I can copy it', 'written'],

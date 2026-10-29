@@ -20,7 +20,7 @@ describe('installed MarkdownFlow editor integration', () => {
             pretendToBeVisual: true,
           });
           for (const key of [
-            'document', 'window', 'navigator', 'Node', 'Element', 'HTMLElement',
+            'document', 'window', 'Window', 'navigator', 'Node', 'Element', 'HTMLElement',
             'MutationObserver', 'getComputedStyle',
           ]) {
             Object.defineProperty(globalThis, key, {
