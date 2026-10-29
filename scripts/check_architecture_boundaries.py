@@ -325,6 +325,40 @@ def collect_engine_library_violations(backend_root: Path) -> list[Violation]:
     return violations
 
 
+# The external package was retired once its syntax layer moved into markdownflow/syntax.
+RETIRED_BACKEND_PACKAGES = frozenset({"markdown_flow"})
+RETIRED_PACKAGE_SCAN_ROOTS = ("flaskr", "markdownflow", "scripts", "tests")
+
+
+def collect_retired_package_violations(backend_root: Path) -> list[Violation]:
+    """Reject imports of backend packages that the project no longer installs."""
+    violations: list[Violation] = []
+    for root_name in RETIRED_PACKAGE_SCAN_ROOTS:
+        root = backend_root / root_name
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*.py")):
+            source = normalize_posix(path.relative_to(backend_root))
+            for module in iter_python_imports(path, backend_root):
+                if module.partition(".")[0] not in RETIRED_BACKEND_PACKAGES:
+                    continue
+                rule_id = "backend.imports_retired_package"
+                violations.append(
+                    Violation(
+                        key=make_key(rule_id, source, module),
+                        rule_id=rule_id,
+                        source=source,
+                        target=module,
+                        message=f"{source} imports retired package {module}.",
+                        remediation=(
+                            "Import the MarkdownFlow syntax layer from markdownflow "
+                            "instead; the markdown-flow package is not installed."
+                        ),
+                    )
+                )
+    return violations
+
+
 LEARN_HOST_PACKAGE = "flaskr.service.learn.host"
 # Routes sit above the lesson host; the host must not reach up into them.
 LEARN_HOST_FORBIDDEN_PREFIXES = ("flaskr.service.learn.routes",)
@@ -427,6 +461,7 @@ def collect_learn_elements_violations(backend_root: Path) -> list[Violation]:
 def collect_backend_violations(backend_root: Path) -> list[Violation]:
     """Collect backend violations."""
     violations = collect_engine_library_violations(backend_root)
+    violations += collect_retired_package_violations(backend_root)
     violations += collect_learn_elements_violations(backend_root)
     violations += collect_learn_host_violations(backend_root)
     violations += collect_learn_ask_violations(backend_root)
