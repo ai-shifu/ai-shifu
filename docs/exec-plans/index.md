@@ -6,6 +6,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 
 ## Active
 
+- [Review the course action PR stack](./active/course-action-copy.md)
 - [Course Sharing](./active/course-sharing.md)
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)
 - [Credit Notification Email Delivery](./active/credit-notification-email-delivery.md)
@@ -57,7 +58,6 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Canonical Background And Onboarding Contract](./completed/canonical-background-onboarding-contract.md)
 - [Speed Up Backend Pull Request Feedback](./completed/ci-backend-speed-stack.md)
 - [Consolidate shared admin primitives](./completed/consolidate-admin-primitives.md)
-- [Review the course action PR stack](./completed/course-action-copy.md)
 - [Operator Course Copy](./completed/course-copy-operator.md)
 - [Course Memory Management](./completed/course-memory-management.md)
 - [Explicit same-owner course memory reads](./completed/course-memory-references.md)

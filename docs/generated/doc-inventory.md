@@ -41,6 +41,7 @@
 | `docs/design-docs/operator-course-user-request-optimization.md` | Operator Course/User Request Optimization | `design-doc` | `needs-review` | `frontend` | `-` | `true` |
 | `docs/design-docs/referral-invitation-rewards.md` | 老带新邀请奖励 | `design-doc` | `implemented` | `shared` | `2026-06-11` | `true` |
 | `docs/engineering-baseline.md` | Engineering Baseline | `reference` | `reference` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/course-action-copy.md` | Review the course action PR stack | `exec-plan-active` | `active` | `frontend` | `2026-10-27` | `true` |
 | `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/credit-notification-email-delivery.md` | Credit Notification Email Delivery | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -89,7 +90,6 @@
 | `docs/exec-plans/completed/canonical-background-onboarding-contract.md` | Canonical Background And Onboarding Contract | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/ci-backend-speed-stack.md` | Speed Up Backend Pull Request Feedback | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/consolidate-admin-primitives.md` | Consolidate shared admin primitives | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
-| `docs/exec-plans/completed/course-action-copy.md` | Review the course action PR stack | `exec-plan-completed` | `completed` | `frontend` | `2026-10-27` | `false` |
 | `docs/exec-plans/completed/course-copy-operator.md` | Operator Course Copy | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/course-memory-management.md` | Course Memory Management | `exec-plan-completed` | `completed` | `learner` | `2026-10-07` | `false` |
 | `docs/exec-plans/completed/course-memory-references.md` | Explicit same-owner course memory reads | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |

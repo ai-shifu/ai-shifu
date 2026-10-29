@@ -68,6 +68,8 @@ The local cross-origin API configuration prevents live authentication and email
 delivery testing; rendering and email contracts have focused regression coverage.
 Hosted CI acceptance remains open. Deployment and per-installation onboarding
 backfills are outside this task.
+
+Archival note (2026-10-29): #2988 merged only after its required checks passed, which closes hosted CI acceptance; per-installation onboarding backfills stay an operator step documented in `src/api/scripts/README.md`.
 The follow-up accuracy review corrected 382 values without changing keys or
 runtime interfaces. It combines an inventory-wide terminology, numeric and
 technical-token audit with bilingual review of key flows and production call

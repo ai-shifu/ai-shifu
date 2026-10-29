@@ -51,6 +51,8 @@ Implementation and focused regressions are complete. Fresh sim baseline
 reproduces the missing attribution; corrected-image acceptance is pending.
 Production remains on its previously verified 2.0 image.
 
+Archival note (2026-10-29): #3059 ships with main, which has since been deployed to China and US production, so production no longer runs the earlier image.
+
 ## Context and Orientation
 
 `agent/lesson_entry.py` constructs the three gateway models and repeats host

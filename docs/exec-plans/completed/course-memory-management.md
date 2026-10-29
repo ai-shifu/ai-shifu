@@ -56,6 +56,8 @@ both host refreshers now share the original substitution snapshot correctly.
 Initial sim HTTP acceptance passed isolation, deletion, history/profile preservation,
 idempotence and fresh explicit recreation. Final deployed revision acceptance is pending.
 
+Archival note (2026-10-29): the merged revision ships with main, which deploys automatically to China and US production; course memory has since been extended there (for example the memory dialog redesign in #3195), so this acceptance is superseded by production use.
+
 ## Context and Orientation
 
 `learn/memory` adapts profile variables; `agent/run_agent.py` loads and commits

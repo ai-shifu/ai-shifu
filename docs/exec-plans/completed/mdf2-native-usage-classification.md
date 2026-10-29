@@ -52,6 +52,8 @@ persistence work for ordinary, title-recognized demo and configured demo courses
 Production activation remains pending; passing health probes alone did not catch
 this error, so fresh-learner streaming acceptance is required for reactivation.
 
+Archival note (2026-10-29): MarkdownFlow 2.0 was reactivated and now serves every environment (the 1.0 runtime and its switch were removed); fresh-learner streaming was accepted on sim before that removal, and China production logs show 2.0 lessons.
+
 ## Context and Orientation
 
 `src/api/flaskr/service/metering/recorder.py` owns usage classification and

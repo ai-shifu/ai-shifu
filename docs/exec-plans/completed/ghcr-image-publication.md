@@ -30,8 +30,8 @@ in [Docker image publication](../../references/docker-image-publication.md).
 - [x] 2026-10-08: Publish PR #3046; candidate run 37752346532 passes all four native
   image builds/production smoke, three-registry digest pushes/config verification
   and both manifest publications. Final-head run 37752737804 is executing.
-- [x] Verify candidate manifests and anonymous GHCR access; reply to AI reviews. Closed at archival on 2026-10-29: #3046 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
-- [x] User manually merges; verify main automatically publishes all three registries. Closed at archival on 2026-10-29: #3046 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [x] Verify candidate manifests and anonymous GHCR access; reply to AI reviews. Verified 2026-10-29: without credentials, the GHCR token endpoint issues a pull token and `ghcr.io/v2/ai-shifu/ai-shifu-api/manifests/latest` and `ghcr.io/v2/ai-shifu/ai-shifu-web/manifests/latest` return 200, so both packages are now public; the earlier 401 below predates that visibility change.
+- [x] User manually merges; verify main automatically publishes all three registries. Verified 2026-10-29: #3046 is merged, and the `build-latest.yml` push runs on main succeed, publishing the `latest` images that GHCR serves anonymously.
 
 ## Surprises & Discoveries
 
@@ -53,6 +53,8 @@ disabled by organization administrators. The organization Packages policy has
 Public creation unchecked. Ask for explicit authority before changing that policy,
 because it affects all members; preserve the current policy while awaiting the
 user's choice. Anonymous GHCR pull authorization currently returns 401.
+
+Archival note (2026-10-29): the packages are now public; an anonymous pull token and `latest` manifests for `ai-shifu-api` and `ai-shifu-web` return 200.
 
 ## Decision Log
 
