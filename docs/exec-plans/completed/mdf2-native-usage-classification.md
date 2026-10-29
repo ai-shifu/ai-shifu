@@ -23,9 +23,9 @@ TTS recording without changing request-owned transactions.
 - [x] 2026-10-09T04:24:00Z: CI identifies a new test's model-registration
   dependency on other collected modules. Isolated execution reproduces it;
   register the course model before fixture schema creation.
-- [ ] Re-run isolated recording tests and final CI after the test-only correction.
-- [ ] Open the source PR, inspect CI and respond to every AI review opinion.
-  A human merges the PR before production image rollout and re-enablement.
+- [x] Re-run isolated recording tests and final CI after the test-only correction. Closed at archival on 2026-10-29: #3058 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
+- [x] Open the source PR, inspect CI and respond to every AI review opinion.
+  A human merges the PR before production image rollout and re-enablement. Closed at archival on 2026-10-29: #3058 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 
@@ -51,6 +51,8 @@ The focused regression establishes that cold native classification and real usag
 persistence work for ordinary, title-recognized demo and configured demo courses.
 Production activation remains pending; passing health probes alone did not catch
 this error, so fresh-learner streaming acceptance is required for reactivation.
+
+Archival note (2026-10-29): MarkdownFlow 2.0 was reactivated and now serves every environment (the 1.0 runtime and its switch were removed); fresh-learner streaming was accepted on sim before that removal, and China production logs show 2.0 lessons.
 
 ## Context and Orientation
 

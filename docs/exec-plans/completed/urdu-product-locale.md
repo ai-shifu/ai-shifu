@@ -26,7 +26,7 @@ Authored course content keeps its own language.
 - [x] 2026-09-27 UTC: Review Chinese-source accuracy and correct 382 strings across 35 files.
 - [x] 2026-09-27 UTC: Extend the arena renderer, RTL propagation and locale regression checks to Urdu.
 - [x] 2026-09-27 UTC: Synchronize PR #2989's 376 retired keys and two empty namespaces to Urdu after the remote branch rebase.
-- [ ] 2026-09-27 UTC: Complete review feedback and verify hosted CI acceptance.
+- [x] 2026-09-27 UTC: Complete review feedback and verify hosted CI acceptance. Closed at archival on 2026-10-29: #2988 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 
@@ -68,6 +68,8 @@ The local cross-origin API configuration prevents live authentication and email
 delivery testing; rendering and email contracts have focused regression coverage.
 Hosted CI acceptance remains open. Deployment and per-installation onboarding
 backfills are outside this task.
+
+Archival note (2026-10-29): #2988 merged only after its required checks passed, which closes hosted CI acceptance; per-installation onboarding backfills stay an operator step documented in `src/api/scripts/README.md`.
 The follow-up accuracy review corrected 382 values without changing keys or
 runtime interfaces. It combines an inventory-wide terminology, numeric and
 technical-token audit with bilingual review of key flows and production call

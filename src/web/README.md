@@ -114,7 +114,7 @@ conversion and native SWC transform, checks the pruned dependency roots, and
 reads every declared locale's common JSON. Start the image with its default
 command and verify `/api/config`, `/api/i18n?lng=en-US&ns=common.core`, and a
 built `/_next/static` asset before accepting a packaging change. See the
-[dependency reuse plan](../../docs/exec-plans/active/docker-web-dependency-reuse.md)
+[dependency reuse plan](../../docs/exec-plans/completed/docker-web-dependency-reuse.md)
 for validation requirements and progress.
 
 ## Contributor References

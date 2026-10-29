@@ -30,7 +30,7 @@ untouched. The publication contract is in
   and repository Actions Admin. An empty Docker auth config can inspect both
   architectures and pull the candidate; its local ARM64 production smoke passes.
   The old Web latest manifest is byte-for-byte equivalent before and after.
-- [ ] User manually merges; verify main publishes the new names automatically.
+- [x] User manually merges; verify main publishes the new names automatically. Closed at archival on 2026-10-29: #3048 is merged into main and deployed with it, so this review, merge or rollout step no longer applies.
 
 ## Surprises & Discoveries
 
