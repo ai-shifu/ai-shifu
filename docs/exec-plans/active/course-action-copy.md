@@ -30,7 +30,7 @@ The stack is main → #3198 (menu) → #3199 (learners) → #3200 (discount code
 
 ## Outcomes & Retrospective
 
-This branch contains only the menu labels, Tooltip explanations, analytics contract and relevant test adaptations. The remaining dialog changes are delivered by successive branches in the stack. No merge or deployment is part of this task.
+This branch contains only the menu labels, Tooltip explanations, analytics contract and relevant test adaptations. The remaining dialog changes are delivered by successive branches in the stack. This task did not merge or deploy anything. As of 2026-10-29, #3192 and #3198-#3202 are merged into main (#3193 was closed); user acceptance of the screenshots is the only remaining work.
 
 ## Context and Orientation
 
