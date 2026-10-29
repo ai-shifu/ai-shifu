@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import sys
 from dataclasses import asdict, dataclass
@@ -329,18 +330,33 @@ def collect_engine_library_violations(backend_root: Path) -> list[Violation]:
 RETIRED_BACKEND_PACKAGES = frozenset({"markdown_flow"})
 
 
+SKIPPED_BACKEND_DIRECTORIES = frozenset(
+    {"__pycache__", "node_modules", "site-packages"}
+)
+
+
+def iter_backend_python_files(backend_root: Path) -> list[Path]:
+    """List backend Python files, pruning caches and virtualenvs before descending."""
+    files: list[Path] = []
+    for directory, subdirectories, filenames in os.walk(backend_root):
+        current = Path(directory)
+        # Any virtualenv has pyvenv.cfg, whatever the directory is called.
+        subdirectories[:] = sorted(
+            name
+            for name in subdirectories
+            if not name.startswith(".")
+            and name not in SKIPPED_BACKEND_DIRECTORIES
+            and not (current / name / "pyvenv.cfg").exists()
+        )
+        files.extend(current / name for name in filenames if name.endswith(".py"))
+    return sorted(files)
+
+
 def collect_retired_package_violations(backend_root: Path) -> list[Violation]:
     """Reject imports of retired packages anywhere in the backend, entry points included."""
     violations: list[Violation] = []
-    for path in sorted(backend_root.rglob("*.py")):
-        relative = path.relative_to(backend_root)
-        # Local virtualenvs, tool caches and bytecode are not project code.
-        if any(
-            part.startswith(".") or part in {"__pycache__", "node_modules"}
-            for part in relative.parts[:-1]
-        ):
-            continue
-        source = normalize_posix(relative)
+    for path in iter_backend_python_files(backend_root):
+        source = normalize_posix(path.relative_to(backend_root))
         for module in iter_python_imports(path, backend_root):
             if module.partition(".")[0] not in RETIRED_BACKEND_PACKAGES:
                 continue
