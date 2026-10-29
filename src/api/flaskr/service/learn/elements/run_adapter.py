@@ -14,9 +14,6 @@ from flaskr.service.learn.elements.legacy import (
 from flaskr.service.learn.elements.legacy_record_builder import (
     build_legacy_record_for_progress,
 )
-from flaskr.service.learn.elements.mdflow_backfill import (
-    backfill_learn_generated_elements_batch,
-)
 from flaskr.service.learn.elements.run_persistence import (
     ListenElementRunPersistenceMixin,
 )
@@ -60,7 +57,6 @@ if TYPE_CHECKING:
 
 __all__ = [
     "ListenElementRunAdapter",
-    "backfill_learn_generated_elements_batch",
     "build_legacy_record_for_progress",
     "get_listen_element_record",
 ]
