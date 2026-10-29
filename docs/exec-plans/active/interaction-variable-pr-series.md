@@ -51,6 +51,8 @@ user's request. The old oversized application #3221 is not a reconstruction base
   and the unused diff override; all other dependency versions remain unchanged.
   Official-registry clean installation, renderer/dependency regressions and
   typecheck pass; remaining dependency safeguards stay in place.
+- [x] 2026-10-30: Rebased onto #3244-#3246. Parser baseline tests use the
+  unadapted local syntax parser after main retired the external Python package.
 - [ ] Finish the current-head CI/review after the binding boundary corrections.
 - [ ] Wait for the user's review; do not merge, deploy or start further work.
 
@@ -59,8 +61,9 @@ user's request. The old oversized application #3221 is not a reconstruction base
 Both course and Profile execution use the native MarkdownFlow engine. Main's
 #3241/#3242 moved syntax parsing and host imports into the repository-owned
 library. The shared interaction-rendering adapter now uses that syntax parser,
-and the public entry point exposes the adapter to hosts. The external Python
-pin remains unchanged in this PR; it is still the legacy test reference.
+and the public entry point exposes the adapter to hosts. Main's #3244 removed
+the external Python package; regression baselines now use the unadapted local
+syntax parser, and validation explicitly blocks retired-package imports.
 
 The existing lockfile generator also recalculates 25 dev/devOptional flags.
 A second generation with no installed dependency tree produces the same bytes;
@@ -98,10 +101,10 @@ review also verifies text-only hints and unchanged unbound control behavior.
   contracts so this syntax update needs no DTO, schema or key migration.
 - Keep the current serialized control representation for existing clients.
   New author examples and templates use the standard notation.
-- Keep markdown-flow==0.4.2 unchanged. One subclass in interaction_rendering.py
-  overrides the local syntax parser's leading detector; the public entry point
-  exposes that owner. Newline-safe source parsing must not admit multiline typed
-  option displays/values that the renderer cannot carry.
+- One subclass in interaction_rendering.py overrides the local syntax parser's
+  leading detector; the public entry point exposes that owner. Keep test
+  baselines on the unadapted syntax parser. Newline-safe source parsing must not
+  admit multiline typed option displays/values that the renderer cannot carry.
 - Use only the officially published UI 0.3.5 and remark 1.4.3. No Webpack,
   Turbopack, Jest resolver or parser alias bridge is needed.
 - Profile validation and historical matching compare equivalent parsed bindings;
@@ -141,8 +144,8 @@ merging or deploying.
 ## Concrete Steps
 
 Run the toolchain doctor and all-file hooks. Freeze sources, then run native
-engine, learning and Profile regressions with requirements-pinned Python 0.4.2
-and pydantic-ai-slim 2.53.0. Run clean-install frontend tests, typecheck and lint
+engine, learning and Profile regressions with pydantic-ai-slim 2.53.0 and retired
+package imports blocked. Run clean-install frontend tests, typecheck and lint
 under Node 22.23.4. Check architecture and repository documentation harnesses.
 Keep PR title/body aligned with the final implementation and verification.
 
@@ -156,6 +159,11 @@ learning/preview/Profile payloads and navigation. Historical prompt fixtures sta
 unchanged; the prompt hash guard explicitly permits only the three changed
 binding/reference instruction resources.
 
+The current suites do not yet exercise a standard binding from author editing
+through saved course content, browser answer submission and a fresh-session
+reload. The additional five-control engine and multi-select renderer probes
+are temporary validation, not committed end-to-end regression gates.
+
 After each push, wait five minutes before refreshing feedback. End only when
 all applicable exact-head checks are terminal and no new valid feedback is
 unclassified. Quota-limited AI checks are not approvals.
@@ -163,16 +171,16 @@ unclassified. Quota-limited AI checks are not approvals.
 ## Idempotence and Recovery
 
 Package versions are immutable; consume the official published packages without
-republishing them. Keep the Python pin unchanged. A future deployment must ready
-every compatible API instance before enabling the new authoring UI. The API
-preserves old wire controls for existing clients. Do not treat a source PR as a
-completed rollout.
+republishing them. The backend syntax layer stays repository-owned. A future
+deployment must ready every compatible API instance before enabling the new
+authoring UI. The API preserves old wire controls for existing clients. Do not
+treat a source PR as a completed rollout.
 After standard authored content is used, rollback must retain syntax support.
 
 ## Interfaces and Dependencies
 
-Application dependencies: markdown-flow 0.4.2, markdown-flow-ui 0.3.5 and
-remark-flow 1.4.3. New syntax uses the same native named-answer and memory policy
+Frontend dependencies: markdown-flow-ui 0.3.5 and remark-flow 1.4.3. Backend
+syntax is local. New syntax uses the same native named-answer and memory policy
 interfaces. There are no new service boundaries, storage fields or event payloads.
 
 Approved UI publication evidence:
