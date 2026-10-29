@@ -327,35 +327,37 @@ def collect_engine_library_violations(backend_root: Path) -> list[Violation]:
 
 # The external package was retired once its syntax layer moved into markdownflow/syntax.
 RETIRED_BACKEND_PACKAGES = frozenset({"markdown_flow"})
-RETIRED_PACKAGE_SCAN_ROOTS = ("flaskr", "markdownflow", "scripts", "tests")
 
 
 def collect_retired_package_violations(backend_root: Path) -> list[Violation]:
-    """Reject imports of backend packages that the project no longer installs."""
+    """Reject imports of retired packages anywhere in the backend, entry points included."""
     violations: list[Violation] = []
-    for root_name in RETIRED_PACKAGE_SCAN_ROOTS:
-        root = backend_root / root_name
-        if not root.is_dir():
+    for path in sorted(backend_root.rglob("*.py")):
+        relative = path.relative_to(backend_root)
+        # Local virtualenvs, tool caches and bytecode are not project code.
+        if any(
+            part.startswith(".") or part in {"__pycache__", "node_modules"}
+            for part in relative.parts[:-1]
+        ):
             continue
-        for path in sorted(root.rglob("*.py")):
-            source = normalize_posix(path.relative_to(backend_root))
-            for module in iter_python_imports(path, backend_root):
-                if module.partition(".")[0] not in RETIRED_BACKEND_PACKAGES:
-                    continue
-                rule_id = "backend.imports_retired_package"
-                violations.append(
-                    Violation(
-                        key=make_key(rule_id, source, module),
-                        rule_id=rule_id,
-                        source=source,
-                        target=module,
-                        message=f"{source} imports retired package {module}.",
-                        remediation=(
-                            "Import the MarkdownFlow syntax layer from markdownflow "
-                            "instead; the markdown-flow package is not installed."
-                        ),
-                    )
+        source = normalize_posix(relative)
+        for module in iter_python_imports(path, backend_root):
+            if module.partition(".")[0] not in RETIRED_BACKEND_PACKAGES:
+                continue
+            rule_id = "backend.imports_retired_package"
+            violations.append(
+                Violation(
+                    key=make_key(rule_id, source, module),
+                    rule_id=rule_id,
+                    source=source,
+                    target=module,
+                    message=f"{source} imports retired package {module}.",
+                    remediation=(
+                        "Import the MarkdownFlow syntax layer from markdownflow "
+                        "instead; the markdown-flow package is not installed."
+                    ),
                 )
+            )
     return violations
 
 

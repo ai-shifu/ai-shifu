@@ -25,6 +25,7 @@
         "backend.learn_host_imports_routes",
         "backend.learn_ask_imports_host",
         "backend.imports_retired_package",
+        "backend.imports_retired_package",
         "backend.imports_retired_package"
       ]
     },
