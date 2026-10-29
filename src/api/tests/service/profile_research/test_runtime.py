@@ -791,6 +791,12 @@ def test_llm_provider_uses_shared_non_billable_route_without_redaction(
         assert kwargs["usage_context"].billable == 0
         assert kwargs["billable"] == 0
         assert "usage_metadata" not in kwargs
+    oversized = "画像证据" * 30_000  # About 360 KB, above the agent's 256 KiB budget.
+    assert (
+        provider.complete([{"role": "user", "content": oversized}], temperature=0)
+        == "画像结果"
+    )
+    assert calls[-1][3]["messages"] == [{"role": "user", "content": oversized}]
     private_call = calls[0][3]
     assert private_call["model"] == session.model
     assert private_call["temperature"] == 0

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from typing import TYPE_CHECKING, Protocol
 
 from flaskr.api.markdownflow import GatewayModel
@@ -27,6 +28,13 @@ if TYPE_CHECKING:
     from flaskr.service.profile_research.session import _ProfileResearchSession
 
 
+# The summary carries every accepted answer of a questionnaire of up to
+# MAX_BLOCK_COUNT questions. These calls have never had a gateway-side input cap,
+# so the engine's per-turn budget is lifted and the provider's context limit
+# stays the only bound.
+_PRIVATE_COMPLETION_INPUT_BUDGET_BYTES = sys.maxsize
+
+
 class ProfileResearchCompletion(Protocol):
     """One-shot text completion used for the profile summary and answer import."""
 
@@ -47,6 +55,7 @@ def _gateway_model(
     *,
     model: str,
     generation_name: str,
+    **budget: int,
 ) -> GatewayModel:
     """Keep every profile call on the shared gateway and the free usage policy."""
     return GatewayModel(
@@ -55,6 +64,7 @@ def _gateway_model(
         user_id=session.user_bid,
         span=span,
         generation_name=generation_name,
+        **budget,
         usage_context=UsageContext(
             user_bid=session.user_bid,
             usage_scene=BILL_USAGE_SCENE_DEBUG,
@@ -113,6 +123,7 @@ class _ProfileResearchGatewayCompletion:
             self._span,
             model=model or self._session.model,
             generation_name=PROFILE_PRIVATE_GENERATION_NAME,
+            input_budget_bytes=_PRIVATE_COMPLETION_INPUT_BUDGET_BYTES,
         )
         # A loop per call, closed afterwards: request threads keep no loop between calls.
         response = asyncio.run(
