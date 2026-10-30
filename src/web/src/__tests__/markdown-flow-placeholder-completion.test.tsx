@@ -101,6 +101,24 @@ it('keeps preview completion functional without analytics', async () => {
   expect(mockTrackEvent).not.toHaveBeenCalled();
 });
 
+it('accepts hints in standalone previews without a completion observer', async () => {
+  const user = userEvent.setup();
+  const onSend = jest.fn();
+  render(
+    <ContentRender
+      content='?[...Preview hint]'
+      onSend={onSend}
+    />,
+  );
+  const textarea = screen.getByRole('textbox');
+  await user.click(textarea);
+  await user.tab();
+  expect(textarea).toHaveValue('Preview hint');
+  expect(textarea).toHaveFocus();
+  expect(onSend).not.toHaveBeenCalled();
+  expect(mockTrackEvent).not.toHaveBeenCalled();
+});
+
 it('preserves ordinary follow-up Tab navigation without enabling completion', async () => {
   const user = userEvent.setup();
   const onSend = jest.fn();

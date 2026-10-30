@@ -19,6 +19,9 @@ previews, while preserving ordinary follow-up inputs and other forms.
   installation, 13 focused Jest suites / 280 tests, types, lint and production build.
 - [x] 2026-10-30: Passed the repository-wide pre-commit gate, including source
   formatting, lint, translations, harness and architecture checks.
+- [x] 2026-10-30: Reproduced classroom completions being counted as listening
+  usage, restricted listening eligibility and added mode-switch regressions.
+  Verified standalone previews complete hints with no analytics observer.
 - [ ] Review application CI and merge the integration PR.
 
 ## Surprises & Discoveries
@@ -40,6 +43,8 @@ previews, while preserving ordinary follow-up inputs and other forms.
   requires an explicit acceptance callback, so ordinary follow-up inputs retain
   native Tab behavior. No backend, syntax or answer-schema changes are needed.
 - Observer callbacks receive no authored text and cannot prevent completion.
+- Classroom mode retains hint completion but is excluded from the listening
+  usage metric. Only `variant='listen'` outside previews emits `course_listen`.
 - Validate a local npm tarball inside AI Shifu before merging the library.
   Temporary filesystem dependency references must not enter a PR.
 
@@ -54,9 +59,9 @@ Follow [the canonical analytics rules](../../references/frontend-product-analyti
 - Event: `learner_interaction_placeholder_accepted`, emitted after accepting the
   input state update, before any later explicit answer submission.
 - Population: Eligible guests and members in published course reading/listening
-  and learner Profile onboarding. Exclude course previews, admin Profile
-  previews, print rendering, readonly/history and disabled inputs. Existing
-  centralized analytics account exclusions continue to apply.
+  and learner Profile onboarding. Exclude classroom mode, course previews, admin
+  Profile previews, print rendering, readonly/history and disabled inputs.
+  Existing centralized analytics account exclusions continue to apply.
 - Count/deduplication: One event per accepted non-repeated keydown. Renders,
   held-key repeats and Tab on nonempty input emit nothing. Clearing the input
   and deliberately accepting again is another use; no persistent deduplication.
@@ -66,6 +71,8 @@ Follow [the canonical analytics rules](../../references/frontend-product-analyti
   URLs or errors are included. Shared transport owns pseudonymous identity.
 - Consumer: Aggregate weekly usage by surface in Umami. New additive event;
   no existing checked-in dashboard or query needs migration or backfill.
+  The classroom exclusion enforces this original population before rollout;
+  event name, payload and downstream consumers are unchanged.
 - Delivery: Shared `useTracking`; absent configuration, synchronous throws and
   rejected promises never affect filling, editing or submitting an answer.
 - Verification: Assert exact event and payload, eligible and excluded hosts,
@@ -90,6 +97,9 @@ Validation on 2026-10-30:
   checks, ESM/CJS editor loading, Slide package contracts and analytics.
 - Type checking, lint, production build, touched-file formatting, repository
   harness, architecture boundaries and diff whitespace checks passed.
+- Review follow-up: classroom eligibility and mode-switch tests reproduced two
+  failures before the guard fix. Afterward, 13 focused suites / 284 tests and
+  type checking passed, including a standalone-preview case with no observer.
 
 ## Context and Orientation
 

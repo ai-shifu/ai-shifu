@@ -777,7 +777,7 @@ const ListenModeSlideRenderer = ({
   const { trackEvent } = useTracking();
   const handlePlaceholderAccepted = usePlaceholderAcceptedTracking(
     'course_listen',
-    !previewMode,
+    variant === 'listen' && !previewMode,
   );
   const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
   const markdownFlowLocale = resolveMarkdownFlowLocale(hostLanguage);

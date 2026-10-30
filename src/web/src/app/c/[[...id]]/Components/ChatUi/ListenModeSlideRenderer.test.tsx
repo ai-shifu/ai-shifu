@@ -214,15 +214,21 @@ const getMockSlideBuiltInActionClick = () =>
 const originalRequestFullscreen = HTMLElement.prototype.requestFullscreen;
 
 describe('ListenModeSlideRenderer', () => {
-  it.each([false, true])(
-    'tracks listening completion only outside preview=%s',
-    previewMode => {
+  it.each([
+    { variant: 'listen' as const, previewMode: false, shouldTrack: true },
+    { variant: 'listen' as const, previewMode: true, shouldTrack: false },
+    { variant: 'classroom' as const, previewMode: false, shouldTrack: false },
+    { variant: 'classroom' as const, previewMode: true, shouldTrack: false },
+  ])(
+    'tracks completion for variant=$variant preview=$previewMode only when eligible',
+    ({ variant, previewMode, shouldTrack }) => {
       render(
         <ListenModeSlideRenderer
           items={[]}
           mobileStyle={false}
           chatRef={createChatRef()}
           previewMode={previewMode}
+          variant={variant}
         />,
       );
       const calls = getMockSlide().mock.calls;
@@ -233,17 +239,63 @@ describe('ListenModeSlideRenderer', () => {
       mockTrackEvent.mockClear();
       act(() => props.onPlaceholderAccepted?.());
       expect(mockTrackEvent.mock.calls).toEqual(
-        previewMode
-          ? []
-          : [
+        shouldTrack
+          ? [
               [
                 'learner_interaction_placeholder_accepted',
                 { surface: 'course_listen' },
               ],
-            ],
+            ]
+          : [],
       );
     },
   );
+
+  it('updates completion tracking when switching between listening and classroom', () => {
+    const props = { items: [], mobileStyle: false, chatRef: createChatRef() };
+    const view = render(
+      <ListenModeSlideRenderer
+        {...props}
+        variant='listen'
+      />,
+    );
+    const acceptHint = () => {
+      const calls = getMockSlide().mock.calls;
+      const current = calls[calls.length - 1][0] as {
+        onPlaceholderAccepted?: () => void;
+      };
+      expect(current.onPlaceholderAccepted).toEqual(expect.any(Function));
+      act(() => current.onPlaceholderAccepted?.());
+    };
+
+    mockTrackEvent.mockClear();
+    acceptHint();
+    view.rerender(
+      <ListenModeSlideRenderer
+        {...props}
+        variant='classroom'
+      />,
+    );
+    acceptHint();
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
+    view.rerender(
+      <ListenModeSlideRenderer
+        {...props}
+        variant='listen'
+      />,
+    );
+    acceptHint();
+    expect(mockTrackEvent.mock.calls).toEqual([
+      [
+        'learner_interaction_placeholder_accepted',
+        { surface: 'course_listen' },
+      ],
+      [
+        'learner_interaction_placeholder_accepted',
+        { surface: 'course_listen' },
+      ],
+    ]);
+  });
   beforeEach(() => {
     window.localStorage.clear();
     mockSlideMountId = 0;
