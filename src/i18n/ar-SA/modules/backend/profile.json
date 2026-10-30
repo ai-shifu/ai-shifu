@@ -3,10 +3,7 @@
   "__flat__": {
     "avatar": "الصورة الشخصية",
     "birth": "تاريخ الميلاد",
-    "keyExist": "المفتاح موجود بالفعل",
     "keyInvalid": "يجب ألا يكون اسم المتغير فارغًا، وألا يحتوي على محارف تحكم أو }}.",
-    "keyRequire": "المفتاح مطلوب",
-    "keyRequired": "المفتاح مطلوب",
     "language": "اللغة",
     "learnerProfileOptimizationEmptyResponse": "لم يُعد الذكاء الاصطناعي محتوى محسنًا، يرجى المحاولة مرة أخرى",
     "learnerProfileOptimizationFailed": "حدث خطأ في خدمة تحسين الذكاء الاصطناعي، يرجى المحاولة مرة أخرى لاحقًا",
@@ -16,11 +13,7 @@
     "learnerProfileOptimizationRejected": "تحتوي هذه المقدمة على محتوى غير متوافق مع القواعد، يرجى تعديلها ثم المحاولة مرة أخرى",
     "learnerProfileOptimizationTimedOut": "انتهت مهلة طلب تحسين الذكاء الاصطناعي، يرجى المحاولة مرة أخرى",
     "nickname": "اسم الشهرة",
-    "notFound": "المتغير غير موجود",
     "parentIdRequired": "معرّف الأصل مطلوب",
-    "prarentRequired": "الأصل مطلوب",
-    "profileIdRequired": "معرّف المتغير مطلوب",
-    "profileKeyRequired": "مفتاح المتغير مطلوب",
     "profileOnboardingBusy": "يوجد طلب تخصيص آخر قيد المعالجة بالفعل. يرجى المحاولة مرة أخرى بعد قليل.",
     "profileOnboardingConfigBusy": "يجري نشر إعدادات أخرى. حاول مجددًا بعد قليل.",
     "profileOnboardingConfigConflict": "حفظ مسؤول آخر إصدارًا أحدث. أعد تحميل الإعدادات قبل تعديلها وحفظها مجددًا.",
@@ -31,9 +24,6 @@
     "sexMale": "ذكر",
     "sexSecret": "أفضل عدم الإفصاح",
     "style": "الأسلوب",
-    "systemProfileKeyExist": "مفتاح متغير النظام موجود بالفعل",
-    "systemProfileNotAllowDelete": "لا يمكن حذف متغير النظام",
-    "systemProfileNotAllowUpdate": "لا يمكن تحديث متغير النظام",
     "userBackground": "الخلفية"
   }
 }

@@ -3,10 +3,7 @@
   "__flat__": {
     "avatar": "اوتار",
     "birth": "سالگرہ",
-    "keyExist": "کلید پہلے سے موجود ہے۔",
     "keyInvalid": "متغیر کا نام خالی نہیں ہو سکتا اور اس میں کنٹرول حروف یا }} شامل نہیں ہو سکتے۔",
-    "keyRequire": "کلید کی ضرورت ہے",
-    "keyRequired": "کلید کی ضرورت ہے",
     "language": "زبان",
     "learnerProfileOptimizationEmptyResponse": "AI نے آپٹمائزڈ مواد واپس نہیں کیا، براہ کرم دوبارہ کوشش کریں۔",
     "learnerProfileOptimizationFailed": "AI آپٹیمائزیشن سروس میں ایک خرابی پیش آگئی، براہ کرم بعد میں دوبارہ کوشش کریں۔",
@@ -16,11 +13,7 @@
     "learnerProfileOptimizationRejected": "اس تعارف کا کچھ مواد قواعد کے مطابق نہیں۔ براہ کرم اسے تبدیل کر کے دوبارہ کوشش کریں۔",
     "learnerProfileOptimizationTimedOut": "AI آپٹیمائزیشن کی درخواست کا وقت ختم ہو گیا، براہ کرم دوبارہ کوشش کریں۔",
     "nickname": "عرفی نام",
-    "notFound": "متغیر موجود نہیں ہے",
     "parentIdRequired": "بالائی سطح کی ID درکار ہے۔",
-    "prarentRequired": "بالائی سطح کا انتخاب ضروری ہے۔",
-    "profileIdRequired": "متغیر ID درکار ہے۔",
-    "profileKeyRequired": "متغیر کلید درکار ہے۔",
     "profileOnboardingBusy": "آپ کی ذاتی نوعیت کی کسی اور ترتیبات پر کارروائی ہو رہی ہے، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "profileOnboardingConfigBusy": "ایک اور ترتیب شائع کی جا رہی ہے، براہ کرم بعد میں دوبارہ کوشش کریں۔",
     "profileOnboardingConfigConflict": "ایک اور منتظم نے نیا ورژن محفوظ کر لیا ہے۔ براہ کرم کنفیگریشن کو ریفریش کریں، ترمیم کریں اور دوبارہ محفوظ کریں۔",
@@ -31,9 +24,6 @@
     "sexMale": "مرد",
     "sexSecret": "ظاہر نہیں کرنا",
     "style": "انداز",
-    "systemProfileKeyExist": "سسٹم متغیر کلید پہلے سے موجود ہے۔",
-    "systemProfileNotAllowDelete": "سسٹم کے متغیرات کو حذف کرنے کی اجازت نہیں ہے۔",
-    "systemProfileNotAllowUpdate": "سسٹم متغیرات کو اپ ڈیٹ کرنے کی اجازت نہیں ہے۔",
     "userBackground": "پس منظر"
   }
 }
