@@ -8,7 +8,7 @@ import pytest
 from flask import Flask
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.common.models import AppError
+from flaskr.service.common.models import ERROR_CODE, AppError
 from flaskr.service.profile import profile_manage as profiles
 from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.shifu.models import DraftOutlineItem
@@ -257,6 +257,53 @@ def test_definition_creation_rejects_unrepresentable_keys_without_writes(
         profiles.add_profile_item_quick_internal(app, variables.course, key, "teacher")
     with app.app_context():
         assert Variable.query.filter_by(shifu_bid=variables.course).count() == before
+
+
+@pytest.mark.parametrize(
+    "key", ["sys_", "sys_custom_question", "sys_user_language", "\u00a0sys_name\u3000"]
+)
+def test_course_definition_rejects_system_prefix_without_writes(
+    app: object, variables: object, key: str
+) -> None:
+    with app.app_context():
+        before = Variable.query.filter_by(shifu_bid=variables.course).count()
+    with app.app_context(), pytest.raises(AppError) as exc, unit_of_work():
+        profiles.add_profile_item_quick_internal(app, variables.course, key, "teacher")
+    assert exc.value.code == ERROR_CODE["server.profile.keyReserved"]
+    with app.app_context():
+        assert Variable.query.filter_by(shifu_bid=variables.course).count() == before
+
+
+def test_course_definition_cannot_reuse_a_system_prefixed_definition(
+    app: object, variables: object
+) -> None:
+    key = f"sys_global_{uuid.uuid4().hex}"
+    variables.keys["reserved_system"] = key
+    with app.app_context(), unit_of_work():
+        system = profiles.add_profile_item_quick_internal(app, "", key, "system")
+    with app.app_context(), pytest.raises(AppError) as exc, unit_of_work():
+        profiles.add_profile_item_quick_internal(app, variables.course, key, "teacher")
+    assert exc.value.code == ERROR_CODE["server.profile.keyReserved"]
+    with app.app_context():
+        rows = Variable.query.filter_by(key=key).all()
+        assert [(row.variable_bid, row.shifu_bid) for row in rows] == [
+            (system.profile_id, "")
+        ]
+
+
+@pytest.mark.parametrize("prefix", ["SYS_", "course_sys_"])
+def test_course_definition_reserves_only_the_exact_leading_system_prefix(
+    app: object, variables: object, prefix: str
+) -> None:
+    key = f"{prefix}{uuid.uuid4().hex}"
+    with app.app_context(), unit_of_work():
+        result = profiles.add_profile_item_quick_internal(
+            app, variables.course, key, "teacher"
+        )
+    with app.app_context():
+        definition = Variable.query.filter_by(variable_bid=result.profile_id).one()
+        assert definition.key == key
+        assert definition.shifu_bid == variables.course
 
 
 @pytest.fixture

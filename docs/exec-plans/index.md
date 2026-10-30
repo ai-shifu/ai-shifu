@@ -192,6 +192,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Remove In-Product MiniMax Voice Cloning](./completed/remove-minimax-in-product-voice-cloning.md)
 - [Rename The Cook Web Directory](./completed/rename-cook-web-directory.md)
 - [Repository Knowledge Cleanup](./completed/repository-knowledge-cleanup.md)
+- [Reserve System Question Names](./completed/reserve-system-question-prefix.md)
 - [Restrict learner order actions to their owner](./completed/restrict-learner-order-actions.md)
 - [Refresh Nicknames in Existing Agent Lessons](./completed/resumed-learner-nickname.md)
 - [Retire the AI Instruction Generator](./completed/retire-ai-instruction-generator.md)

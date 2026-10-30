@@ -79,8 +79,19 @@ be written as questions.
 
 Names are case-sensitive and are not normalized. Changing a question or its
 punctuation creates a different key; it does not rename an existing answer.
-A question key is a course variable unless it exactly matches a registered
-system key, so this example does not update the system `sex` field.
+A course question key must not start with the case-sensitive prefix `sys_`.
+That namespace is reserved for the system, including unregistered names.
+Draft saving, parsing, history restoration, import and publication reject
+reserved question bindings in both `?[{{sys_name}} ...]` and
+`?[%{{sys_name}} ...]` syntax after trimming outer whitespace. Ordinary question
+keys remain course variables, so this example does not update the system `sex`
+field.
+
+Body references such as `{{sys_user_nickname}}` remain valid and do not create
+course-owned definitions. Code examples, comments, escaped interactions and
+other literal Markdown are not question declarations. Existing stored answers
+and published courses are not migrated or deleted; a historical draft with a
+reserved question must be corrected before it can be saved or published again.
 
 Both frontend editors use the shared `remark-flow` name helper rather than
 independent character whitelists. The Python library and vendored engine run
