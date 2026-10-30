@@ -23,6 +23,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Configurable Gemini Live admission capacity](./active/gemini-live-configurable-capacity.md)
 - [Gemini Live follow-up acceptance](./active/gemini-live-voice-follow-up.md)
 - [German (Germany) Product Localization](./active/german-de-de-localization.md)
+- [Integrate standard interaction bindings](./active/interaction-variable-pr-series.md)
 - [Lesson reset limit backed by SQL](./active/lesson-reset-limit.md)
 - [Local storage response safety](./active/local-storage-response-safety.md)
 - [Keep Authored Input Hints Out of Choice Buttons](./active/markdownflow-authored-inputs.md)
@@ -49,6 +50,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Account-linked Skill request pageviews](./active/skill-request-analytics.md)
+- [Tab hint completion in MarkdownFlow interactions](./active/tab-placeholder-completion.md)
 
 ## Completed
 
@@ -74,6 +76,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Course-only models and temperatures](./completed/course-only-llm-settings.md)
 - [Charge settings previews to the course owner](./completed/course-owner-preview-billing.md)
 - [Market-aware course prices and free-course unlock](./completed/course-price-market-rules-and-free-unlock.md)
+- [Present course memory with contextual question and answer wording](./completed/course-question-answer-copy.md)
 - [Creator Dashboard Course Ownership Optimization](./completed/creator-dashboard-course-ownership-optimization.md)
 - [Creator Dashboard Course Ratings](./completed/creator-dashboard-course-ratings.md)
 - [Creator Dashboard Learners SQL Optimization](./completed/creator-dashboard-learners-sql-optimization.md)
@@ -145,6 +148,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Responsive canvases for newly generated MarkdownFlow 2.0 visuals](./completed/mdf2-responsive-canvas.md)
 - [Semantic summaries for older MarkdownFlow teaching](./completed/mdf2-teaching-semantic-summary.md)
 - [Unavailable Learner Values](./completed/mdf2-unavailable-learner-values.md)
+- [Remove unused memory definition type configuration](./completed/memory-definition-type-cleanup.md)
 - [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
 - [Centralize model option display normalization](./completed/model-option-display-normalization.md)
 - [Respect the course output language in agent lessons](./completed/multilingual-agent-lessons.md)
@@ -183,6 +187,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Publish Web images without the Cook name](./completed/public-web-image-name.md)
 - [Remove deprecated Pydantic `Field(required=...)` metadata](./completed/pydantic-required-compatibility.md)
 - [Compact completed memory recall history](./completed/recall-history-compaction.md)
+- [Remove manual memory definition write APIs](./completed/remove-manual-memory-definition-apis.md)
 - [Remove the MarkdownFlow arena](./completed/remove-markdownflow-arena.md)
 - [Remove In-Product MiniMax Voice Cloning](./completed/remove-minimax-in-product-voice-cloning.md)
 - [Rename The Cook Web Directory](./completed/rename-cook-web-directory.md)

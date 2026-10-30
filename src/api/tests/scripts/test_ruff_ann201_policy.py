@@ -35,10 +35,6 @@ REVIEWED_RETURN_CONTRACTS = {
     "src/api/flaskr/service/profile/funcs.py": {
         "update_user_profile_with_lable": "bool"
     },
-    "src/api/flaskr/service/profile/profile_manage.py": {
-        "save_profile_item": "ProfileItemDefinition",
-        "delete_profile_item": "bool",
-    },
     "src/api/flaskr/service/shifu/funcs.py": {
         "mark_favorite_shifu": "bool",
         "unmark_favorite_shifu": "bool",

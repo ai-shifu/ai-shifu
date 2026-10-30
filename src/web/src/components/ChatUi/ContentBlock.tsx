@@ -33,6 +33,7 @@ interface ContentBlockProps {
   contentRenderKey?: string;
   onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
+  onPlaceholderAccepted?: () => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
   autoPlayAudio?: boolean;
   onAudioPlayStateChange?: (blockBid: string, isPlaying: boolean) => void;
@@ -52,6 +53,7 @@ const ContentBlock = memo(
     contentRenderKey,
     onClickCustomButtonAfterContent,
     onSend,
+    onPlaceholderAccepted,
     onLongPress,
     autoPlayAudio = false,
     onAudioPlayStateChange,
@@ -163,6 +165,9 @@ const ContentBlock = memo(
           }
           readonly={resolvedReadonly}
           onSend={_onSend}
+          onPlaceholderAccepted={
+            resolvedReadonly ? undefined : onPlaceholderAccepted
+          }
           onTypeFinished={handleTypeFinished}
         />
         {shouldRenderExternalCustomButton && externalCustomButtonInnerHtml ? (
@@ -227,6 +232,7 @@ const ContentBlock = memo(
         Boolean(nextProps.showAudioAction) &&
       Boolean(prevProps.printMode) === Boolean(nextProps.printMode) &&
       prevProps.onSend === nextProps.onSend &&
+      prevProps.onPlaceholderAccepted === nextProps.onPlaceholderAccepted &&
       prevProps.onClickCustomButtonAfterContent ===
         nextProps.onClickCustomButtonAfterContent &&
       prevProps.onLongPress === nextProps.onLongPress &&

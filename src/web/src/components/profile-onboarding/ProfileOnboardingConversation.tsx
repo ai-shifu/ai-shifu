@@ -65,6 +65,7 @@ export type ProfileOnboardingConversationProps = {
   onRetry?: () => void;
   questionScrollFooter?: React.ReactNode;
   onCollectionRouteChosen?: (route: ProfileCollectionRoute) => void;
+  onPlaceholderAccepted?: () => void;
   onAssistantOpened?: () => void;
   assistantAnalyticsScope?: string;
   onAssistantPromptCopied?: (originScope: string) => void;
@@ -98,6 +99,7 @@ export default function ProfileOnboardingConversation({
   onRetry,
   questionScrollFooter,
   onCollectionRouteChosen,
+  onPlaceholderAccepted,
   onAssistantOpened,
   assistantAnalyticsScope,
   onAssistantPromptCopied,
@@ -372,6 +374,9 @@ export default function ProfileOnboardingConversation({
                   content={item.content}
                   userInput={item.userInput}
                   readonly={item.readonly}
+                  onPlaceholderAccepted={
+                    item.readonly ? undefined : onPlaceholderAccepted
+                  }
                   onSend={
                     item.isFinished
                       ? undefined

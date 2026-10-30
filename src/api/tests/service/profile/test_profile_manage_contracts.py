@@ -1,7 +1,6 @@
 """Verify variable-definition scope, usage discovery, and persisted edits."""
 
 import uuid
-from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -11,8 +10,9 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
 from flaskr.service.profile import profile_manage as profiles
-from flaskr.service.profile.models import Variable
+from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.shifu.models import DraftOutlineItem
+from markdownflow.syntax.parser.interaction import InteractionParser, InteractionType
 from sqlalchemy import MetaData, String, event, text
 
 
@@ -48,10 +48,96 @@ def variables(app: object) -> object:
             )
     yield SimpleNamespace(course=identity, keys=keys)
     with app.app_context(), unit_of_work():
+        VariableValue.query.filter_by(shifu_bid=identity).delete(
+            synchronize_session=False
+        )
         Variable.query.filter(
             (Variable.shifu_bid == identity) | Variable.key.in_(list(keys.values()))
         ).delete(synchronize_session=False)
         DraftOutlineItem.query.filter_by(shifu_bid=identity).delete()
+
+
+def test_definition_list_preserves_fixed_text_fields_and_scope(
+    app: object, variables: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(profiles, "_", lambda key: f"label:{key}")
+    definitions = {
+        item.profile_key: item.__json__()
+        for item in profiles.get_profile_item_definition_list(app, variables.course)
+        if item.profile_key in variables.keys.values()
+    }
+
+    assert set(definitions) == set(variables.keys.values())
+    assert {item["profile_type"] for item in definitions.values()} == {"text"}
+    assert {item["profile_type_str"] for item in definitions.values()} == {
+        "label:PROFILE.PROFILE_TYPE_TEXT"
+    }
+    assert definitions[variables.keys["system"]]["profile_scope"] == "system"
+    assert definitions[variables.keys["used"]]["profile_scope"] == "user"
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_type"),
+    [
+        ("First//first | Second//second", InteractionType.BUTTONS_ONLY),
+        ("First//first || Second//second", InteractionType.BUTTONS_MULTI_SELECT),
+        ("...Write your answer", InteractionType.TEXT_ONLY),
+    ],
+)
+def test_definition_reuse_preserves_answers_and_authored_question_types(
+    app: object, variables: object, body: str, expected_type: InteractionType
+) -> None:
+    key = variables.keys["used"]
+    content = "?[%{{ " + key + " }} " + body + "]"
+    identity = uuid.uuid4().hex
+    with app.app_context(), unit_of_work():
+        definition = Variable.query.filter_by(shifu_bid=variables.course, key=key).one()
+        definition_id = definition.variable_bid
+        db.session.add(
+            VariableValue(
+                variable_value_bid=identity,
+                variable_bid=definition_id,
+                user_bid=identity,
+                shifu_bid=variables.course,
+                key=key,
+                value="Previously accepted answer",
+            )
+        )
+        outline = DraftOutlineItem(
+            shifu_bid=variables.course,
+            outline_item_bid=identity,
+            content=content,
+            position=0,
+            deleted=0,
+        )
+        db.session.add(outline)
+        db.session.flush()
+        outline_id = outline.id
+
+    parser = InteractionParser()
+    original_control = parser.parse(content)
+    assert original_control["type"] is expected_type
+    if expected_type is not InteractionType.TEXT_ONLY:
+        assert original_control["buttons"] == [
+            {"display": "First", "value": "first"},
+            {"display": "Second", "value": "second"},
+        ]
+
+    with app.app_context(), unit_of_work():
+        reused = profiles.add_profile_item_quick_internal(
+            app, variables.course, key, "teacher"
+        )
+    assert reused.profile_id == definition_id
+    assert reused.profile_type == "text"
+    with app.app_context():
+        answer = VariableValue.query.filter_by(variable_value_bid=identity).one()
+        assert answer.value == "Previously accepted answer"
+        assert answer.key == key
+        assert answer.variable_bid == definition_id
+        stored_outline = db.session.get(DraftOutlineItem, outline_id)
+        assert stored_outline is not None
+        assert stored_outline.content == content
+        assert parser.parse(stored_outline.content) == original_control
 
 
 def test_usage_scan_uses_latest_active_outline_and_hides_only_unused_custom_keys(
@@ -112,74 +198,25 @@ def test_empty_hidden_selection_is_a_read_and_missing_course_is_rejected(
         profiles.get_profile_variable_usage(app, "")
 
 
-@pytest.mark.parametrize(
-    "conflict", ["system", "course", "missing", "other-course", "empty-key"]
-)
-def test_variable_rename_rejects_collisions_and_out_of_scope_ids_without_writes(
-    app: object, variables: object, conflict: str
-) -> None:
-    with app.app_context():
-        row = Variable.query.filter_by(
-            shifu_bid=variables.course, key=variables.keys["used"]
-        ).one()
-        bid = row.variable_bid
-    key = variables.keys[conflict] if conflict == "system" else variables.keys["unused"]
-    if conflict == "empty-key":
-        key = ""
-    with pytest.raises(AppError):
-        profiles.save_profile_item(
-            app,
-            "missing" if conflict == "missing" else bid,
-            "other-course" if conflict == "other-course" else variables.course,
-            "teacher",
-            key,
-        )
-    with app.app_context():
-        assert (
-            Variable.query.filter_by(variable_bid=bid).one().key
-            == variables.keys["used"]
-        )
-
-
-def test_variable_rename_keeps_identity_and_records_editor(
+def test_definition_creation_reuses_trimmed_system_key_without_a_course_copy(
     app: object, variables: object
 ) -> None:
-    with app.app_context():
-        bid = (
-            Variable.query.filter_by(
-                shifu_bid=variables.course, key=variables.keys["used"]
-            )
-            .one()
-            .variable_bid
+    with app.app_context(), unit_of_work():
+        result = profiles.add_profile_item_quick_internal(
+            app, variables.course, f"  {variables.keys['system']}  ", "teacher"
         )
-    result = profiles.save_profile_item(app, bid, variables.course, "editor", "renamed")
-    assert result.profile_key == "renamed"
-    with app.app_context():
-        row = Variable.query.filter_by(variable_bid=bid).one()
-        assert row.key == "renamed"
-        assert row.updated_user_bid == "editor"
-
-
-def test_quick_add_reuses_system_definition_and_validates_required_fields(
-    app: object, variables: object
-) -> None:
-    result = profiles.add_profile_item_quick(
-        app, variables.course, variables.keys["system"], "teacher"
-    )
     assert result.profile_key == variables.keys["system"]
     with app.app_context():
+        system = Variable.query.filter_by(shifu_bid="", key=result.profile_key).one()
+        assert result.profile_id == system.variable_bid
         assert (
             Variable.query.filter_by(
                 shifu_bid=variables.course, key=variables.keys["system"]
             ).count()
             == 0
         )
-    for course, key in (("", "key"), (variables.course, "")):
-        with pytest.raises(AppError):
-            profiles.add_profile_item_quick(app, course, key, "teacher")
 
 
-@pytest.mark.parametrize("operation", ["quick", "save"])
 @pytest.mark.parametrize(
     "raw_key",
     [
@@ -193,14 +230,13 @@ def test_quick_add_reuses_system_definition_and_validates_required_fields(
     ],
 )
 def test_definition_creation_uses_the_script_key_after_trimming_only_its_edges(
-    app: object, variables: object, operation: str, raw_key: str
+    app: object, variables: object, raw_key: str
 ) -> None:
     expected = raw_key.strip()
-    result = (
-        profiles.add_profile_item_quick(app, variables.course, raw_key, "teacher")
-        if operation == "quick"
-        else profiles.save_profile_item(app, "", variables.course, "teacher", raw_key)
-    )
+    with app.app_context(), unit_of_work():
+        result = profiles.add_profile_item_quick_internal(
+            app, variables.course, raw_key, "teacher"
+        )
     assert result.profile_key == expected
     with app.app_context():
         assert (
@@ -209,36 +245,18 @@ def test_definition_creation_uses_the_script_key_after_trimming_only_its_edges(
         )
 
 
-@pytest.mark.parametrize("operation", ["quick", "save"])
 @pytest.mark.parametrize(
     "key", ["  ", "a}}b", "a\x00b", "a\tb", "a\nb", "a\u2028b", 42]
 )
 def test_definition_creation_rejects_unrepresentable_keys_without_writes(
-    app: object, variables: object, operation: str, key: str
+    app: object, variables: object, key: object
 ) -> None:
     with app.app_context():
         before = Variable.query.filter_by(shifu_bid=variables.course).count()
-    create = (
-        partial(profiles.add_profile_item_quick, app, variables.course, key, "teacher")
-        if operation == "quick"
-        else partial(
-            profiles.save_profile_item, app, "", variables.course, "teacher", key
-        )
-    )
-    with pytest.raises(AppError):
-        create()
+    with app.app_context(), pytest.raises(AppError), unit_of_work():
+        profiles.add_profile_item_quick_internal(app, variables.course, key, "teacher")
     with app.app_context():
         assert Variable.query.filter_by(shifu_bid=variables.course).count() == before
-
-
-def test_trimmed_definition_names_keep_system_reuse_and_collision_protection(
-    app: object, variables: object
-) -> None:
-    raw = f"  {variables.keys['system']}  "
-    result = profiles.add_profile_item_quick(app, variables.course, raw, "teacher")
-    assert result.profile_key == variables.keys["system"]
-    with pytest.raises(AppError):
-        profiles.save_profile_item(app, "", variables.course, "teacher", raw)
 
 
 @pytest.fixture
@@ -260,26 +278,28 @@ def case_folding_app(tmp_path: Path) -> object:
         db.engine.dispose()
 
 
-@pytest.mark.parametrize("operation", ["quick", "save"])
 def test_definition_identity_remains_exact_under_a_case_folding_database(
-    case_folding_app: object, operation: str
+    case_folding_app: object,
 ) -> None:
     app = case_folding_app
     with app.app_context(), unit_of_work():
         db.session.add(
             Variable(variable_bid="system-Name", shifu_bid="", key="Name", deleted=0)
         )
-    lower = (
-        profiles.add_profile_item_quick(app, "course", " name ", "teacher")
-        if operation == "quick"
-        else profiles.save_profile_item(app, "", "course", "teacher", " name ")
-    )
-    upper = profiles.add_profile_item_quick(app, "course", " Name ", "teacher")
+    with app.app_context(), unit_of_work():
+        lower = profiles.add_profile_item_quick_internal(
+            app, "course", " name ", "teacher"
+        )
+        upper = profiles.add_profile_item_quick_internal(
+            app, "course", " Name ", "teacher"
+        )
+        duplicate = profiles.add_profile_item_quick_internal(
+            app, "course", " name ", "other-editor"
+        )
+    assert duplicate.profile_id == lower.profile_id
     assert lower.profile_key == "name"
     assert upper.profile_key == "Name"
     assert lower.profile_id != upper.profile_id
-    with pytest.raises(AppError):
-        profiles.save_profile_item(app, "", "course", "teacher", " name ")
     with app.app_context():
         assert [row.key for row in Variable.query.filter_by(shifu_bid="course")] == [
             "name"
@@ -291,8 +311,9 @@ def test_hidden_updates_select_exact_keys_under_a_case_folding_database(
     case_folding_app: object, hidden: bool
 ) -> None:
     app = case_folding_app
-    for key in ("Goal?", "goal?"):
-        profiles.add_profile_item_quick(app, "course", key, "teacher")
+    with app.app_context(), unit_of_work():
+        for key in ("Goal?", "goal?"):
+            profiles.add_profile_item_quick_internal(app, "course", key, "teacher")
     with app.app_context(), unit_of_work():
         for row in Variable.query.filter_by(shifu_bid="course"):
             row.is_hidden = int(not hidden)
@@ -309,32 +330,6 @@ def test_hidden_updates_select_exact_keys_under_a_case_folding_database(
             row.key: bool(row.is_hidden)
             for row in Variable.query.filter_by(shifu_bid="course")
         } == {"Goal?": not hidden, "goal?": hidden}
-
-
-@pytest.mark.parametrize("system", [False, True])
-def test_delete_soft_deletes_custom_definitions_and_protects_system_variables(
-    app: object, variables: object, system: bool
-) -> None:
-    key = variables.keys["system" if system else "used"]
-    with app.app_context():
-        bid = Variable.query.filter_by(key=key).one().variable_bid
-    if system:
-        with pytest.raises(AppError):
-            profiles.delete_profile_item(app, "teacher", bid)
-    else:
-        assert profiles.delete_profile_item(app, "teacher", bid) is True
-        with pytest.raises(AppError):
-            profiles.delete_profile_item(app, "teacher", bid)
-    with app.app_context():
-        row = Variable.query.filter_by(variable_bid=bid).one()
-        assert row.deleted == int(not system)
-        if not system:
-            assert row.updated_user_bid == "teacher"
-
-
-def test_system_variable_cannot_be_updated_by_a_teacher(app: object) -> None:
-    with pytest.raises(AppError):
-        profiles.save_profile_item(app, "", "", "teacher", "new-system-key")
 
 
 @pytest.fixture
@@ -418,6 +413,12 @@ def test_legacy_quick_add_reuses_active_identity_and_increments_index(
         )
         assert first.profile_id == duplicate.profile_id
         assert second.profile_id != first.profile_id
+        assert (
+            first.profile_type
+            == duplicate.profile_type
+            == second.profile_type
+            == "text"
+        )
         assert first.profile_scope == (
             profiles.CONST_PROFILE_SCOPE_USER
             if parent
@@ -434,6 +435,9 @@ def test_legacy_quick_add_reuses_active_identity_and_increments_index(
         assert [row["profile_key"] for row in rows] == ["first", "second"]
         assert all(row["created_by"] == "teacher" for row in rows)
         assert all(row["status"] == 1 and row["parent_id"] == parent for row in rows)
+        assert all(
+            int(row["profile_type"]) == profiles.PROFILE_TYPE_INPUT_TEXT for row in rows
+        )
 
 
 def test_legacy_definition_reuse_uses_exact_keys_with_a_case_folding_column(

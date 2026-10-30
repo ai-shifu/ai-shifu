@@ -116,10 +116,9 @@ def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
 
 
 def get_profile_item_definition_list(
-    app: Flask, parent_id: str, definition_type: str = "all"
+    app: Flask, parent_id: str
 ) -> list[ProfileItemDefinition]:
-    """Return profile item definition list."""
-    _ = definition_type  # Kept for backward compatibility with existing callers.
+    """Return profile item definitions without a type filter."""
     normalized_parent_id = parent_id or ""
     # Join the caller's session so a read-back inside an open unit of work
     # sees that unit's own uncommitted writes.
@@ -211,19 +210,6 @@ def get_profile_variable_usage(app: Flask, parent_id: str) -> dict:
         "used_keys": used_keys,
         "unused_keys": unused_keys,
     }
-
-
-def add_profile_item_quick(
-    app: Flask, parent_id: str, key: str, user_id: str
-) -> ProfileItemDefinition:
-    """Add profile item quick."""
-    with app_context_scope(app), unit_of_work():
-        if not parent_id:
-            raise_error("server.profile.prarentRequired")
-        if not key:
-            raise_error("server.profile.keyRequire")
-        key = _normalize_definition_key(key)
-        return add_profile_item_quick_internal(app, parent_id, key, user_id)
 
 
 def _normalize_definition_key(key: str) -> str:
@@ -395,96 +381,3 @@ def add_profile_item_quick_internal(
     db.session.add(definition)
     db.session.flush()
     return convert_variable_definition_to_profile_item_definition(definition)
-
-
-def save_profile_item(
-    app: Flask,
-    profile_id: str,
-    parent_id: str,
-    user_id: str,
-    key: str,
-) -> ProfileItemDefinition:
-    """Save (create/update) a custom variable definition."""
-    with app_context_scope(app), unit_of_work():
-        normalized_parent_id = parent_id or ""
-        if normalized_parent_id == "" and user_id != "":
-            raise_error("server.profile.systemProfileNotAllowUpdate")
-        if not key:
-            raise_error("server.profile.keyRequired")
-        key = _normalize_definition_key(key)
-
-        system_conflict_query = Variable.query.filter(
-            Variable.shifu_bid == "",
-            Variable.deleted == 0,
-            Variable.key == key,
-        )
-        if profile_id:
-            system_conflict_query = system_conflict_query.filter(
-                Variable.variable_bid != profile_id
-            )
-        # The database collation must not merge distinct text keys such as Name and name.
-        if any(row.key == key for row in system_conflict_query):
-            raise_error("server.profile.systemProfileKeyExist")
-
-        if profile_id:
-            definition = Variable.query.filter(
-                Variable.variable_bid == profile_id,
-                Variable.shifu_bid == normalized_parent_id,
-                Variable.deleted == 0,
-            ).first()
-            if not definition:
-                raise_error("server.profile.notFound")
-
-            candidates = Variable.query.filter(
-                Variable.shifu_bid == normalized_parent_id,
-                Variable.deleted == 0,
-                Variable.key == key,
-                Variable.variable_bid != profile_id,
-            )
-            exist_item = next((row for row in candidates if row.key == key), None)
-            if exist_item:
-                raise_error("server.profile.keyExist")
-
-            definition.key = key
-            definition.updated_at = now_utc()
-            definition.updated_user_bid = user_id or ""
-        else:
-            candidates = Variable.query.filter(
-                Variable.shifu_bid == normalized_parent_id,
-                Variable.deleted == 0,
-                Variable.key == key,
-            )
-            exist_item = next((row for row in candidates if row.key == key), None)
-            if exist_item:
-                raise_error("server.profile.keyExist")
-
-            definition = Variable(
-                variable_bid=generate_id(app),
-                shifu_bid=normalized_parent_id,
-                key=key,
-                is_hidden=0,
-                deleted=0,
-                created_user_bid=user_id or "",
-                updated_user_bid=user_id or "",
-            )
-            db.session.add(definition)
-
-        return convert_variable_definition_to_profile_item_definition(definition)
-
-
-def delete_profile_item(app: Flask, user_id: str, profile_id: str) -> bool:
-    """Delete profile item."""
-    with app_context_scope(app), unit_of_work():
-        definition = Variable.query.filter(
-            Variable.variable_bid == profile_id,
-            Variable.deleted == 0,
-        ).first()
-        if not definition:
-            raise_error("server.profile.notFound")
-        if definition.shifu_bid == "" or definition.shifu_bid is None:
-            raise_error("server.profile.systemProfileNotAllowDelete")
-
-        definition.deleted = 1
-        definition.updated_at = now_utc()
-        definition.updated_user_bid = user_id or ""
-        return True

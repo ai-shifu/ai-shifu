@@ -261,7 +261,6 @@ const api = {
 
   // profile
 
-  saveProfile: 'POST /profiles/save-profile-item',
   hideUnusedProfileItems: 'POST /profiles/hide-unused-profile-items',
   getProfileVariableUsage: 'GET /profiles/profile-variable-usage',
   updateProfileHiddenState: 'POST /profiles/update-profile-hidden-state',

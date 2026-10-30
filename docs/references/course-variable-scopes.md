@@ -2,7 +2,7 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-30
 canonical: true
 ---
 
@@ -21,6 +21,30 @@ food or both courses have the same owner. Course B asks its own question when
 needed. A missing course variable never falls back to a global custom-variable
 row. No automatic account-wide memory is introduced.
 
+## Product wording and compatibility
+
+The overall product feature is "Memory". Its entries have a question-and-answer
+structure backed by the existing key and value. The teacher's learning simulator
+labels its panel "Memory" and distinguishes simulated answers from personal
+information such as nickname and teaching language. The learner's course-scoped
+collection remains "Course memory". This display structure does not establish an
+original interaction: saved answers and explicit requests to remember information
+do not all have evidence of an original question. Do not invent questions or
+answer provenance for those entries.
+
+System memory fields use localized labels throughout the simulator, including
+tooltips, input names and placeholders. Hovering or focusing never reveals their
+internal keys; an unknown system field uses the localized Memory label. Authored
+course questions and legacy custom keys retain their existing text and identity.
+
+This wording keeps the existing technical key/value contract. Within a course,
+entries with the same exact key share the current value across lessons. Changing
+the key creates a different entry and does not transfer an existing answer.
+Changing only the displayed question does not change the key. Existing identifiers
+are not rewritten into questions, and no new question identity or answer-history
+model is introduced. API fields, storage, cache keys, runtime prompts and analytics
+contracts retain their existing names and behavior.
+
 ## Authored memory key names
 
 MarkdownFlow variable names are opaque text keys. Read from `{{` to the first
@@ -31,12 +55,27 @@ exactly. There is no expression evaluation, quote decoding, backslash decoding
 or recursive recognition of markers inside a key. A literal `}}` remains a
 reserved sequence and cannot be part of a name.
 
-For example, `?[%{{ What is your gender? }} Male | Female | Private]` stores the selected
+For example, `?[{{ What is your gender? }} Male | Female | Private]` stores the selected
 answer under `What is your gender?`. `{{ What is your gender? }}` references that same key.
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
 content, not trim whitespace. The exact trim set and shared conformance cases
 are owned by the [coordinated MarkdownFlow specification change](https://github.com/ai-shifu/markdown-flow/pull/11).
+
+A complete question can also bind and reference a free-text answer:
+
+```md
+What would you like to learn?
+
+?[{{ What would you like to learn? }}...Share your goal]
+
+Use {{ What would you like to learn? }} to choose a relevant example.
+```
+
+The existing percent-prefixed form
+`?[%{{ What would you like to learn? }}...Share your goal]` binds the same key.
+Neither form changes the memory admission rules or requires historical keys to
+be written as questions.
 
 Names are case-sensitive and are not normalized. Changing a question or its
 punctuation creates a different key; it does not rename an existing answer.
@@ -55,9 +94,9 @@ required.
 The wider rule intentionally recognizes some markers that older parsers
 treated as plain text, including names with internal spaces. Existing ordinary
 identifiers and literal quote/backslash keys retain their identity. Invalid
-markers remain literal text and do not expose nested variables. Definition
-create/save and browser submissions trim using the same rule, while existing
-stored memory is not migrated. Machine-only format placeholders in
+markers remain literal text and do not expose nested variables. Automatic
+definition creation and browser submissions trim using the same rule, while
+existing stored memory is not migrated. Machine-only format placeholders in
 `learn/utils_v2.py` have a separate restricted contract and are not teaching
 prompt memory keys.
 
@@ -87,3 +126,29 @@ This policy supersedes [explicit references](course-memory-references.md) and
 configuration flag or frontend protocol. Sim remains 2.0; production stays 1.0.
 Semantic history summaries and full quality/cache/cost acceptance remain separate
 work. Cross-course model notes and owner-wide custom storage are cancelled.
+
+
+## Memory definition API type compatibility
+
+The definition list has no type filter. Requests use `parent_id` for course scope;
+legacy `type` query parameters are ignored. Listed definitions retain the fixed
+`profile_type: "text"` response and the existing `profile_type_str` label for
+compatibility.
+
+The manual definition endpoints are removed:
+
+- `POST /api/profiles/add-profile-item-quick`
+- `POST /api/profiles/save-profile-item`
+- `POST /api/profiles/delete-profile-item`
+
+Requests to these unregistered paths receive the standard JSON not-found response
+with `code: 404`. Saving MarkdownFlow content still automatically creates missing
+definitions through the shared internal helper, including its legacy text-table
+fallback. Definition listing, usage inspection, hiding and restoring remain
+available. Existing keys, scopes, stored answers and legacy text rows remain
+unchanged. Learner course-memory deletion and personal-profile editing use their
+own APIs and remain available.
+
+The fixed text fields describe memory definition metadata. Single-choice,
+multi-choice and free-text controls continue to follow the authored MarkdownFlow
+interaction syntax.
