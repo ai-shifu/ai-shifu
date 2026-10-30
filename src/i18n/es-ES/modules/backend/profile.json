@@ -26,8 +26,6 @@
     "profileOnboardingConfigConflict": "Otro administrador ha guardado una versión más reciente. Actualiza la configuración antes de volver a editarla y guardarla.",
     "profileOnboardingConfigNotPersistable": "Esta configuración se gestiona mediante una variable de entorno y no se puede guardar aquí. Contacta con el administrador.",
     "profileOnboardingPromptGenerationFailed": "No se ha podido generar el prompt de respuesta. La configuración no se ha publicado y tus datos siguen aquí. Inténtalo de nuevo.",
-    "profileTypeInvalid": "El tipo de variable no es válido.",
-    "profileTypeRequired": "Debes seleccionar un tipo de variable.",
     "sex": "Sexo",
     "sexFemale": "Mujer",
     "sexMale": "Hombre",

@@ -116,10 +116,9 @@ def get_unused_profile_keys(app: Flask, shifu_bid: str) -> list[str]:
 
 
 def get_profile_item_definition_list(
-    app: Flask, parent_id: str, definition_type: str = "all"
+    app: Flask, parent_id: str
 ) -> list[ProfileItemDefinition]:
-    """Return profile item definition list."""
-    _ = definition_type  # Kept for backward compatibility with existing callers.
+    """Return profile item definitions without a type filter."""
     normalized_parent_id = parent_id or ""
     # Join the caller's session so a read-back inside an open unit of work
     # sees that unit's own uncommitted writes.

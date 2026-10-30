@@ -33,12 +33,6 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
             type: string
             description: |
                 parent_id,current pass the scenario_id
-          - name: type
-            in: query
-            required: false
-            type: string
-            description: |
-                type,current pass text or all; both return the same variable list
         description: |
             Get profile item defination
         responses:
@@ -59,11 +53,8 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
                         $ref: '#/components/schemas/ProfileItemDefinition'
         """
         parent_id = request.args.get("parent_id")
-        item_type = request.args.get("type", "all")
         return make_common_response(
-            get_profile_item_definition_list(
-                app, parent_id=parent_id, definition_type=item_type
-            )
+            get_profile_item_definition_list(app, parent_id=parent_id)
         )
 
     @app.route(f"{path_prefix}/hide-unused-profile-items", methods=["POST"])
@@ -240,11 +231,6 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
                   required: true
                   description: |
                     profile_key,current pass the profile_key
-                profile_type:
-                  type: string
-                  required: true
-                  description: |
-                    profile_type,current pass 'text'
         description: |
             Save profile item
         responses:
@@ -264,11 +250,6 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
         if not profile_key:
             raise_error("server.profile.profileKeyRequired")
 
-        profile_type = request.get_json().get("profile_type", None)
-        if not profile_type:
-            raise_error("server.profile.profileTypeRequired")
-        if profile_type != "text":
-            raise_error("server.profile.profileTypeInvalid")
         return make_common_response(
             save_profile_item(
                 app,

@@ -26,8 +26,6 @@
     "profileOnboardingConfigConflict": "Un autre administrateur a enregistré une version plus récente. Rechargez la configuration avant de la modifier et de l’enregistrer à nouveau.",
     "profileOnboardingConfigNotPersistable": "Cette configuration est gérée par une variable d’environnement et ne peut pas être enregistrée ici. Contactez un administrateur.",
     "profileOnboardingPromptGenerationFailed": "La consigne pour les assistants IA n’a pas pu être générée. La configuration n’a pas été publiée et votre saisie est conservée. Réessayez.",
-    "profileTypeInvalid": "Type de variable non valide",
-    "profileTypeRequired": "Le type de variable est requis",
     "sex": "Sexe",
     "sexFemale": "Femme",
     "sexMale": "Homme",

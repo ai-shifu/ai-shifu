@@ -26,8 +26,6 @@
     "profileOnboardingConfigConflict": "Another administrator saved a newer version. Reload the configuration before editing and saving again.",
     "profileOnboardingConfigNotPersistable": "This configuration is managed by an environment variable and cannot be saved here. Contact an administrator.",
     "profileOnboardingPromptGenerationFailed": "Could not generate the assistant prompt. The configuration was not published and your input is still here. Try again.",
-    "profileTypeInvalid": "Invalid variable type",
-    "profileTypeRequired": "Variable type is required",
     "sex": "Sex",
     "sexFemale": "Female",
     "sexMale": "Male",

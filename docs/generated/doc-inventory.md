@@ -74,6 +74,7 @@
 | `docs/exec-plans/active/mdf2-teaching-usage-attempt.md` | Attribute teaching usage to the actual learning attempt | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/mdf2-volc-follow-up-context.md` | Volc Knowledge Follow-up Context | `exec-plan-active` | `active` | `learner` | `2026-10-09` | `true` |
 | `docs/exec-plans/active/mdf2-workflow-follow-up-context.md` | Coze Workflow Follow-up Context Binding | `exec-plan-active` | `active` | `learner` | `2026-10-09` | `true` |
+| `docs/exec-plans/active/memory-definition-type-cleanup.md` | Remove unused memory definition type configuration | `exec-plan-active` | `active` | `shared` | `2026-10-30` | `true` |
 | `docs/exec-plans/active/operator-user-account-cancellation.md` | Operator-Initiated User Account Cancellation | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/payment-attempt-lifecycle.md` | Make payment attempts safe across retries and coupon repricing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/persistent-secret-key.md` | Generate and persist installation secret keys | `exec-plan-active` | `active` | `cross-surface` | `2026-10-26` | `true` |
@@ -302,7 +303,7 @@
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-23` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
-| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-29` | `true` |
+| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-30` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
 | `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
 | `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |

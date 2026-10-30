@@ -2,7 +2,7 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-29
+last_reviewed: 2026-10-30
 canonical: true
 ---
 
@@ -87,3 +87,19 @@ This policy supersedes [explicit references](course-memory-references.md) and
 configuration flag or frontend protocol. Sim remains 2.0; production stays 1.0.
 Semantic history summaries and full quality/cache/cost acceptance remain separate
 work. Cross-course model notes and owner-wide custom storage are cancelled.
+
+
+## Memory definition API type compatibility
+
+The definition list has no type filter. Requests use `parent_id` for course scope;
+legacy `type` query parameters are ignored. Saving a definition no longer requires
+`profile_type`. Legacy `profile_type` request fields are ignored along with the
+other retired definition settings. Listed and saved definitions retain the fixed
+`profile_type: "text"` response and the existing `profile_type_str` label for
+compatibility. Existing keys, scopes, stored answers and legacy text rows remain
+unchanged.
+
+This contract concerns memory definition metadata, not MarkdownFlow interaction
+types. Single-choice, multi-choice and free-text controls continue to follow the
+authored interaction syntax; a legacy `profile_type: "option"` request does not
+select or change those controls.

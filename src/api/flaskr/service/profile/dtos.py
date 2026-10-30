@@ -32,7 +32,7 @@ class ProfileItemDefinition:
 
     profile_key: str  # the key of the profile item and could be used in prompt
     color_setting: ColorSetting  # the color setting of the profile item
-    profile_type: str  # the type of the profile item, could be text or option
+    profile_type: str  # legacy response field; definitions always use text
     profile_remark: str  # the remark of the profile item
     profile_scope: str  # the scope of the profile item, could be system or user
     profile_scope_str: str  # the string of the profile scope,could be in i18n

@@ -47,17 +47,22 @@ class TestProfileRoutes:
         payload = response.get_json(silent=True) or {}
         assert payload.get("code") == 404
 
-    def test_get_profile_item_definitions_passes_type_filter(
-        self, monkeypatch: object, test_client: object
+    @pytest.mark.parametrize("query", ["", "&type=all", "&type=text", "&type=option"])
+    def test_get_profile_item_definitions_has_no_type_filter(
+        self, monkeypatch: object, test_client: object, query: str
     ) -> None:
         called = {}
+        definition = {
+            "profile_key": "What would you like to learn?",
+            "profile_scope": "user",
+            "profile_type": "text",
+            "profile_type_str": "Text",
+            "profile_id": "pid",
+        }
 
-        def fake_get_definitions(
-            _app_ctx: object, parent_id: object, definition_type: object
-        ) -> object:
+        def fake_get_definitions(_app_ctx: object, parent_id: object) -> object:
             called["parent_id"] = parent_id
-            called["definition_type"] = definition_type
-            return []
+            return [definition]
 
         monkeypatch.setattr(
             "flaskr.service.profile.routes.get_profile_item_definition_list",
@@ -66,13 +71,14 @@ class TestProfileRoutes:
         self._mock_request_user(monkeypatch)
 
         resp = test_client.get(
-            "/api/profiles/get-profile-item-definitions?parent_id=shifu_1&type=text"
+            "/api/profiles/get-profile-item-definitions?parent_id=shifu_1" + query
         )
         payload = resp.get_json(force=True)
 
         assert resp.status_code == 200
         assert payload["code"] == 0
-        assert called == {"parent_id": "shifu_1", "definition_type": "text"}
+        assert called == {"parent_id": "shifu_1"}
+        assert payload["data"] == [definition]
 
     def test_hide_unused_profile_items_requires_parent(
         self, monkeypatch: object, test_client: object
@@ -171,26 +177,9 @@ class TestProfileRoutes:
         assert called["profile_keys"] == ["k1"]
         assert called["hidden"] is True
 
-    def test_save_profile_item_only_supports_text_type(
-        self, monkeypatch: object, test_client: object
-    ) -> None:
-        self._mock_request_user(monkeypatch)
-
-        resp = test_client.post(
-            "/api/profiles/save-profile-item",
-            json={
-                "parent_id": "shifu_1",
-                "profile_key": "nickname",
-                "profile_type": "option",
-            },
-        )
-        payload = resp.get_json(force=True)
-
-        assert resp.status_code == 200
-        assert payload["code"] != 0
-
-    def test_save_profile_item_passes_only_active_fields(
-        self, monkeypatch: object, test_client: object
+    @pytest.mark.parametrize("legacy_type", [None, "text", "option"])
+    def test_save_profile_item_ignores_retired_type_and_keeps_text_response(
+        self, monkeypatch: object, test_client: object, legacy_type: str | None
     ) -> None:
         called = {}
 
@@ -209,6 +198,7 @@ class TestProfileRoutes:
                 "profile_key": key,
                 "profile_scope": "user",
                 "profile_type": "text",
+                "profile_type_str": "Text",
                 "profile_id": profile_id or "pid",
             }
 
@@ -216,25 +206,50 @@ class TestProfileRoutes:
             "flaskr.service.profile.routes.save_profile_item", fake_save
         )
         self._mock_request_user(monkeypatch)
+        request_payload = {
+            "profile_id": "profile_1",
+            "parent_id": "shifu_1",
+            "profile_key": "nickname",
+            "profile_remark": "ignored",
+            "profile_items": [{"name": "A", "value": "a"}],
+        }
+        if legacy_type is not None:
+            request_payload["profile_type"] = legacy_type
 
-        resp = test_client.post(
-            "/api/profiles/save-profile-item",
-            json={
-                "profile_id": "profile_1",
-                "parent_id": "shifu_1",
-                "profile_key": "nickname",
-                "profile_type": "text",
-                "profile_remark": "ignored",
-                "profile_items": [{"name": "A", "value": "a"}],
-            },
-        )
+        resp = test_client.post("/api/profiles/save-profile-item", json=request_payload)
         payload = resp.get_json(force=True)
 
         assert resp.status_code == 200
         assert payload["code"] == 0
+        assert payload["data"]["profile_type"] == "text"
+        assert payload["data"]["profile_type_str"] == "Text"
         assert called == {
             "profile_id": "profile_1",
             "parent_id": "shifu_1",
             "user_id": "test-user",
             "key": "nickname",
         }
+
+    @pytest.mark.parametrize("request_payload", [{}, {"parent_id": "shifu_1"}])
+    def test_save_profile_item_still_requires_course_and_key(
+        self,
+        monkeypatch: object,
+        test_client: object,
+        request_payload: dict[str, str],
+    ) -> None:
+        called = []
+
+        def fake_save(*_args: object, **_kwargs: object) -> object:
+            called.append(True)
+            return {}
+
+        monkeypatch.setattr(
+            "flaskr.service.profile.routes.save_profile_item", fake_save
+        )
+        self._mock_request_user(monkeypatch)
+        resp = test_client.post("/api/profiles/save-profile-item", json=request_payload)
+        payload = resp.get_json(force=True)
+
+        assert resp.status_code == 200
+        assert payload["code"] != 0
+        assert called == []
