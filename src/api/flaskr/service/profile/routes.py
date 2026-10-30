@@ -322,8 +322,4 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
             raise_error("server.profile.profileIdRequired")
         return make_common_response(delete_profile_item(app, user_id, profile_id))
 
-    @app.route(f"{path_prefix}/get-profile-item", methods=["POST"])
-    def get_profile_item_api() -> None:
-        """Get profile item."""
-
     return app
