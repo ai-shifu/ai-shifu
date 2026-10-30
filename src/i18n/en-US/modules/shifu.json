@@ -43,7 +43,7 @@
     },
     "title": "Learning Simulation",
     "variablesCollapse": "Collapse",
-    "variablesDescription": "Memory is presented as questions and answers. Adjust learner information and simulated answers to explore different course experiences.",
+    "variablesDescription": "Adjust learner information and simulated answers to explore different course experiences.",
     "variablesEmpty": "No memory to display",
     "variablesExpand": "Expand",
     "variablesHideSingleConfirmDesc": "“{name}” will be hidden from the learning simulation. Restore it with “Show all”.",
