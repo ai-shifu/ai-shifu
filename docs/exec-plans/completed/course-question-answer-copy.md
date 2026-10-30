@@ -37,6 +37,10 @@ behavior. Do not add a question identity model or answer history.
   all eight locales and the owning documents. Revalidated 183 focused tests,
   exact translation keys and arguments, translation usage and the repository
   harness without changing code or data behavior.
+- [x] 2026-10-30 09:00 UTC: Traced the six local review comments to their
+  actual definition-management callers. Fixed misleading type-validation copy
+  independently in `e5f734fbd`, then aligned site-wide memory and memory-item
+  terminology while restoring the concise course-memory help text.
 
 ## Surprises & Discoveries
 
@@ -66,6 +70,10 @@ behavior. Do not add a question identity model or answer history.
 - Preserve API fields, database schema, local-storage keys, MarkdownFlow syntax,
   runtime prompts, component versions and analytics contracts. This copy-only
   change creates no new interaction path and needs no new analytics event.
+- Keep the original course-memory help sentences, changing only the global-scope
+  phrase to site-wide memory. Use memory item for the individual unit. Missing
+  or unsupported definition types are validation errors, not transient save
+  failures; their messages must describe the actual failure.
 
 ## Outcomes & Retrospective
 

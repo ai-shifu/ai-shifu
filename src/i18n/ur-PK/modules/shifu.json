@@ -49,14 +49,14 @@
     "variablesHideSingleConfirmDesc": "«{name}» کو سیکھنے کی آزمائش میں چھپا دیا جائے گا۔ اسے دوبارہ دکھانے کے لیے «سب دکھائیں» استعمال کریں۔",
     "variablesHideSingleConfirmTitle": "یہ اندراج چھپائیں",
     "variablesHideUnused": "غیر استعمال شدہ اندراجات چھپائیں",
-    "variablesHideUnusedConfirmDesc": "موجودہ کورس میں غیر استعمال شدہ اندراجات چھپا دیں۔ انہیں دوبارہ دکھانے کے لیے «سب دکھائیں» استعمال کریں۔",
+    "variablesHideUnusedConfirmDesc": "موجودہ کورس میں یادداشت کے غیر استعمال شدہ اندراجات چھپا دیں۔ انہیں دوبارہ دکھانے کے لیے «سب دکھائیں» استعمال کریں۔",
     "variablesHideUnusedConfirmTitle": "غیر استعمال شدہ اندراجات چھپائیں",
-    "variablesHideUnusedTooltip": "موجودہ کورس میں غیر استعمال شدہ اندراجات چھپائیں",
+    "variablesHideUnusedTooltip": "موجودہ کورس میں یادداشت کے غیر استعمال شدہ اندراجات چھپائیں",
     "variablesPlaceholder": "آزمائشی جواب درج کریں",
     "variablesRestoreHidden": "سب دکھائیں",
-    "variablesRestoreHiddenConfirmDesc": "موجودہ کورس کے چھپے ہوئے اندراجات دکھائیں۔",
+    "variablesRestoreHiddenConfirmDesc": "موجودہ کورس میں یادداشت کے چھپے ہوئے اندراجات دکھائیں۔",
     "variablesRestoreHiddenConfirmTitle": "سب دکھائیں",
-    "variablesRestoreHiddenTooltip": "موجودہ کورس کے چھپے ہوئے اندراجات دکھائیں",
+    "variablesRestoreHiddenTooltip": "موجودہ کورس میں یادداشت کے چھپے ہوئے اندراجات دکھائیں",
     "variablesTitle": "یادداشت"
   }
 }

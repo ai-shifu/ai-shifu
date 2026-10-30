@@ -10,7 +10,7 @@
   "memoryConfirmTitle": "Diese Kurserinnerung löschen?",
   "memoryDelete": "Löschen",
   "memoryDeleteFailed": "Diese Erinnerung konnte nicht gelöscht werden. Bitte erneut versuchen.",
-  "memoryDescription": "Diese Erinnerungen gelten nur für diesen Kurs und werden als Fragen und Antworten dargestellt. Sie können gespeicherte Antworten und Informationen enthalten, um deren Speicherung Sie ausdrücklich gebeten haben. Informationen, die für die gesamte Website gelten, verwalten Sie unter „{entry}“.",
+  "memoryDescription": "Diese Erinnerungen gelten nur für diesen Kurs. Verwalten Sie globale Erinnerungen unter „{entry}“.",
   "memoryEmpty": "Keine gespeicherten Kurserinnerungen.",
   "memoryLoadFailed": "Kursgedächtnis konnte nicht geladen werden. Bitte erneut versuchen.",
   "memoryLoading": "Kursgedächtnis wird geladen",

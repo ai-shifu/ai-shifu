@@ -49,14 +49,14 @@
     "variablesHideSingleConfirmDesc": "L’élément « {name} » sera masqué dans la simulation d’apprentissage. Vous pourrez le réafficher avec « Tout afficher ».",
     "variablesHideSingleConfirmTitle": "Masquer cet élément",
     "variablesHideUnused": "Masquer les éléments inutilisés",
-    "variablesHideUnusedConfirmDesc": "Masquez les éléments inutilisés dans le cours actuel. Vous pourrez les réafficher avec « Tout afficher ».",
+    "variablesHideUnusedConfirmDesc": "Masquez les éléments mémorisés inutilisés dans le cours actuel. Vous pourrez les réafficher avec « Tout afficher ».",
     "variablesHideUnusedConfirmTitle": "Masquer les éléments inutilisés",
-    "variablesHideUnusedTooltip": "Masquer les éléments inutilisés dans le cours actuel",
+    "variablesHideUnusedTooltip": "Masquer les éléments mémorisés inutilisés dans le cours actuel",
     "variablesPlaceholder": "Saisir une réponse simulée",
     "variablesRestoreHidden": "Tout afficher",
-    "variablesRestoreHiddenConfirmDesc": "Afficher les éléments masqués dans le cours actuel.",
+    "variablesRestoreHiddenConfirmDesc": "Afficher les éléments mémorisés masqués dans le cours actuel.",
     "variablesRestoreHiddenConfirmTitle": "Tout afficher",
-    "variablesRestoreHiddenTooltip": "Afficher les éléments masqués dans le cours actuel",
+    "variablesRestoreHiddenTooltip": "Afficher les éléments mémorisés masqués dans le cours actuel",
     "variablesTitle": "Mémoire"
   }
 }

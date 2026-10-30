@@ -10,7 +10,7 @@
   "memoryConfirmTitle": "删除这条课程记忆？",
   "memoryDelete": "删除",
   "memoryDeleteFailed": "记忆删除失败，请重试。",
-  "memoryDescription": "这些记忆仅在本课程内有效，以问题和回答的形式呈现，可包含已保存的回答和你主动要求记住的信息。全站有效的信息请在「{entry}」中管理。",
+  "memoryDescription": "这里的记忆仅在本课程内有效。全站记忆请在「{entry}」中管理。",
   "memoryEmpty": "暂无已保存的课程记忆。",
   "memoryLoadFailed": "课程记忆加载失败，请重试。",
   "memoryLoading": "正在加载课程记忆",

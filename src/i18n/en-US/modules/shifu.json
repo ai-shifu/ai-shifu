@@ -49,14 +49,14 @@
     "variablesHideSingleConfirmDesc": "“{name}” will be hidden from the learning simulation. Restore it with “Show all”.",
     "variablesHideSingleConfirmTitle": "Hide this item",
     "variablesHideUnused": "Hide unused items",
-    "variablesHideUnusedConfirmDesc": "Hide items not used in this course. Restore them with “Show all”.",
+    "variablesHideUnusedConfirmDesc": "Hide memory items not used in this course. Restore them with “Show all”.",
     "variablesHideUnusedConfirmTitle": "Hide unused items",
-    "variablesHideUnusedTooltip": "Hide items not used in this course",
+    "variablesHideUnusedTooltip": "Hide memory items not used in this course",
     "variablesPlaceholder": "Enter a simulated answer",
     "variablesRestoreHidden": "Show all",
-    "variablesRestoreHiddenConfirmDesc": "Show the hidden items in this course.",
+    "variablesRestoreHiddenConfirmDesc": "Show the hidden memory items in this course.",
     "variablesRestoreHiddenConfirmTitle": "Show all",
-    "variablesRestoreHiddenTooltip": "Show the hidden items in this course",
+    "variablesRestoreHiddenTooltip": "Show the hidden memory items in this course",
     "variablesTitle": "Memory"
   }
 }

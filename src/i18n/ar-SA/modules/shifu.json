@@ -49,14 +49,14 @@
     "variablesHideSingleConfirmDesc": "سيُخفى «{name}» من محاكاة التعلم. يمكنك إظهاره مجددًا عبر «عرض الكل».",
     "variablesHideSingleConfirmTitle": "إخفاء هذا العنصر",
     "variablesHideUnused": "إخفاء العناصر غير المستخدمة",
-    "variablesHideUnusedConfirmDesc": "إخفاء العناصر غير المستخدمة في الدورة الحالية. يمكنك إظهارها مجددًا عبر «عرض الكل».",
+    "variablesHideUnusedConfirmDesc": "إخفاء عناصر الذاكرة غير المستخدمة في الدورة الحالية. يمكنك إظهارها مجددًا عبر «عرض الكل».",
     "variablesHideUnusedConfirmTitle": "إخفاء العناصر غير المستخدمة",
-    "variablesHideUnusedTooltip": "إخفاء العناصر غير المستخدمة في الدورة الحالية",
+    "variablesHideUnusedTooltip": "إخفاء عناصر الذاكرة غير المستخدمة في الدورة الحالية",
     "variablesPlaceholder": "أدخل إجابة تجريبية",
     "variablesRestoreHidden": "عرض الكل",
-    "variablesRestoreHiddenConfirmDesc": "عرض العناصر المخفية في الدورة الحالية.",
+    "variablesRestoreHiddenConfirmDesc": "عرض عناصر الذاكرة المخفية في الدورة الحالية.",
     "variablesRestoreHiddenConfirmTitle": "عرض الكل",
-    "variablesRestoreHiddenTooltip": "عرض العناصر المخفية في الدورة الحالية",
+    "variablesRestoreHiddenTooltip": "عرض عناصر الذاكرة المخفية في الدورة الحالية",
     "variablesTitle": "الذاكرة"
   }
 }

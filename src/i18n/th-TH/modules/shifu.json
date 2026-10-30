@@ -49,14 +49,14 @@
     "variablesHideSingleConfirmDesc": "“{name}” จะถูกซ่อนจากการจำลองการเรียน คุณสามารถแสดงรายการนี้อีกครั้งได้ผ่าน “แสดงทั้งหมด”",
     "variablesHideSingleConfirmTitle": "ซ่อนรายการนี้",
     "variablesHideUnused": "ซ่อนรายการที่ไม่ได้ใช้",
-    "variablesHideUnusedConfirmDesc": "ซ่อนรายการที่ไม่ได้ใช้ในหลักสูตรปัจจุบัน คุณสามารถแสดงรายการเหล่านี้อีกครั้งได้ผ่าน “แสดงทั้งหมด”",
+    "variablesHideUnusedConfirmDesc": "ซ่อนรายการความจำที่ไม่ได้ใช้ในหลักสูตรปัจจุบัน คุณสามารถแสดงรายการเหล่านี้อีกครั้งได้ผ่าน “แสดงทั้งหมด”",
     "variablesHideUnusedConfirmTitle": "ซ่อนรายการที่ไม่ได้ใช้",
-    "variablesHideUnusedTooltip": "ซ่อนรายการที่ไม่ได้ใช้ในหลักสูตรปัจจุบัน",
+    "variablesHideUnusedTooltip": "ซ่อนรายการความจำที่ไม่ได้ใช้ในหลักสูตรปัจจุบัน",
     "variablesPlaceholder": "กรอกคำตอบจำลอง",
     "variablesRestoreHidden": "แสดงทั้งหมด",
-    "variablesRestoreHiddenConfirmDesc": "แสดงรายการที่ซ่อนไว้ในหลักสูตรปัจจุบัน",
+    "variablesRestoreHiddenConfirmDesc": "แสดงรายการความจำที่ซ่อนไว้ในหลักสูตรปัจจุบัน",
     "variablesRestoreHiddenConfirmTitle": "แสดงทั้งหมด",
-    "variablesRestoreHiddenTooltip": "แสดงรายการที่ซ่อนไว้ในหลักสูตรปัจจุบัน",
+    "variablesRestoreHiddenTooltip": "แสดงรายการความจำที่ซ่อนไว้ในหลักสูตรปัจจุบัน",
     "variablesTitle": "ความจำ"
   }
 }
