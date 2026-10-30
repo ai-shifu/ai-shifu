@@ -50,12 +50,10 @@
     "variablesHideUnused": "Hide unused items",
     "variablesHideUnusedConfirmDesc": "Hide memory items not used in this course. Restore them with “Show all”.",
     "variablesHideUnusedConfirmTitle": "Hide unused items",
-    "variablesHideUnusedTooltip": "Hide memory items not used in this course",
     "variablesPlaceholder": "Enter a simulated answer",
     "variablesRestoreHidden": "Show all",
     "variablesRestoreHiddenConfirmDesc": "Show the hidden memory items in this course.",
     "variablesRestoreHiddenConfirmTitle": "Show all",
-    "variablesRestoreHiddenTooltip": "Show the hidden memory items in this course",
     "variablesTitle": "Memory"
   }
 }

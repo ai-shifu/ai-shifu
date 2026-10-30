@@ -50,12 +50,10 @@
     "variablesHideUnused": "ซ่อนรายการที่ไม่ได้ใช้",
     "variablesHideUnusedConfirmDesc": "ซ่อนรายการความจำที่ไม่ได้ใช้ในหลักสูตรปัจจุบัน คุณสามารถแสดงรายการเหล่านี้อีกครั้งได้ผ่าน “แสดงทั้งหมด”",
     "variablesHideUnusedConfirmTitle": "ซ่อนรายการที่ไม่ได้ใช้",
-    "variablesHideUnusedTooltip": "ซ่อนรายการความจำที่ไม่ได้ใช้ในหลักสูตรปัจจุบัน",
     "variablesPlaceholder": "กรอกคำตอบจำลอง",
     "variablesRestoreHidden": "แสดงทั้งหมด",
     "variablesRestoreHiddenConfirmDesc": "แสดงรายการความจำที่ซ่อนไว้ในหลักสูตรปัจจุบัน",
     "variablesRestoreHiddenConfirmTitle": "แสดงทั้งหมด",
-    "variablesRestoreHiddenTooltip": "แสดงรายการความจำที่ซ่อนไว้ในหลักสูตรปัจจุบัน",
     "variablesTitle": "ความจำ"
   }
 }
