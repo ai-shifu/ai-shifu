@@ -82,7 +82,6 @@
 | `docs/exec-plans/active/progressive-html-typewriter.md` | Progressive HTML alongside typed lesson text | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/question-memory-key-compatibility.md` | Define and align MarkdownFlow text variable names | `exec-plan-active` | `active` | `learner` | `2026-10-24` | `true` |
 | `docs/exec-plans/active/referral-invitation-rewards.md` | 老带新邀请奖励实施计划 | `exec-plan-active` | `active` | `repo` | `-` | `true` |
-| `docs/exec-plans/active/remove-manual-memory-definition-apis.md` | Remove manual memory definition write APIs | `exec-plan-active` | `active` | `shared` | `2026-10-30` | `true` |
 | `docs/exec-plans/active/ruff-rule-minimization.md` | Ruff rule minimization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-platform-attribution.md` | Skill Channel Analytics Through Umami | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/skill-request-analytics.md` | Account-linked Skill request pageviews | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -219,6 +218,7 @@
 | `docs/exec-plans/completed/public-web-image-name.md` | Publish Web images without the Cook name | `exec-plan-completed` | `completed` | `repository` | `2026-10-08` | `false` |
 | `docs/exec-plans/completed/pydantic-required-compatibility.md` | Remove deprecated Pydantic `Field(required=...)` metadata | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/recall-history-compaction.md` | Compact completed memory recall history | `exec-plan-completed` | `completed` | `learner` | `2026-10-08` | `false` |
+| `docs/exec-plans/completed/remove-manual-memory-definition-apis.md` | Remove manual memory definition write APIs | `exec-plan-completed` | `completed` | `shared` | `2026-10-30` | `false` |
 | `docs/exec-plans/completed/remove-markdownflow-arena.md` | Remove the MarkdownFlow arena | `exec-plan-completed` | `completed` | `repo` | `2026-10-24` | `false` |
 | `docs/exec-plans/completed/remove-minimax-in-product-voice-cloning.md` | Remove In-Product MiniMax Voice Cloning | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/rename-cook-web-directory.md` | Rename The Cook Web Directory | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |

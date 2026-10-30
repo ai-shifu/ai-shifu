@@ -1,6 +1,6 @@
 ---
 title: Remove manual memory definition write APIs
-status: active
+status: completed
 owner_surface: shared
 last_reviewed: 2026-10-30
 canonical: false
@@ -28,7 +28,10 @@ visibility and learner memory operations. The current API contract lives in
 - [x] 2026-10-30 10:33 UTC: Passed 170 focused backend tests and 35 frontend
   tests, TypeScript checking, translation and architecture checks, the repository
   harness, developer-tool verification and all-file pre-commit checks.
-- [ ] Commit the verified change and open an independent ready PR without merging.
+- [x] 2026-10-30 10:35 UTC: Opened ready [PR #3253](https://github.com/ai-shifu/ai-shifu/pull/3253).
+  Rebased onto new main `7718f31b9f826b04be61768f4fc7cb7fa12f2199`, including
+  the independent #3252 copy update, and reran the 170 backend and 35 frontend
+  tests plus TypeScript checking. No merge or deployment was performed.
 
 ## Surprises & Discoveries
 
@@ -66,9 +69,14 @@ visibility and learner memory operations. The current API contract lives in
 
 ## Outcomes & Retrospective
 
-Implementation and validation are in progress. No merge or deployment is part
-of this task. Record final verification and the independent PR here before
-archiving this plan.
+The manual APIs and their dedicated services are removed in ready
+[PR #3253](https://github.com/ai-shifu/ai-shifu/pull/3253). The 170 focused backend
+tests, 35 frontend tests and TypeScript checking pass on current main plus this
+change. Full-file pre-commit, developer-tool, translation, architecture and
+repository-harness checks also pass. Independent review found no issue and
+confirmed the retained functions are unchanged. Hosted PR checks are separate
+from these local results. No merge, deployment or data migration is part of this
+task.
 
 ## Context and Orientation
 
