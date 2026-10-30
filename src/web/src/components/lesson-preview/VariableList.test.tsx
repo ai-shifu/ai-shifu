@@ -12,6 +12,8 @@ const variableListStylesheet = readFileSync(
 
 const mockTranslations: Record<string, Record<string, string>> = {
   'zh-CN': {
+    'module.shifu.previewArea.personalInfoPlaceholder': '填写{label}',
+    'module.shifu.previewArea.variablesPlaceholder': '填写模拟回答',
     'module.shifu.previewArea.systemVariableLabels.accessibleName':
       '{label}（{name}）',
     'module.shifu.previewArea.systemVariableLabels.nickname': '学生昵称',
@@ -20,6 +22,8 @@ const mockTranslations: Record<string, Record<string, string>> = {
     'module.shifu.previewArea.systemVariableLabels.language': '授课语言',
   },
   'en-US': {
+    'module.shifu.previewArea.personalInfoPlaceholder': 'Enter {label}',
+    'module.shifu.previewArea.variablesPlaceholder': 'Enter a simulated answer',
     'module.shifu.previewArea.systemVariableLabels.accessibleName':
       '{label} ({name})',
     'module.shifu.previewArea.systemVariableLabels.nickname':
@@ -87,6 +91,9 @@ describe('VariableList system variable labels', () => {
       expect(rawName).toHaveClass(styles.rawName);
       expect(rawName).toHaveAttribute('dir', 'ltr');
       expect(nameCell).toHaveAttribute('aria-label', `${label}（${rawKey}）`);
+      expect(screen.getByPlaceholderText(`填写${label}`)).toHaveValue(
+        variables[rawKey as keyof typeof variables],
+      );
 
       nameCell?.focus();
       expect(nameCell).toHaveFocus();
@@ -114,13 +121,16 @@ describe('VariableList system variable labels', () => {
   });
 
   test('keeps custom variables raw and falls unknown system variables back to raw', () => {
+    const onChange = jest.fn();
     render(
       <VariableList
         variables={{
           custom_topic: 'Testing',
+          'What would you like to learn?': 'AI',
           sys_user_future: 'Future',
         }}
         systemVariableKeys={['sys_user_future']}
+        onChange={onChange}
       />,
     );
 
@@ -133,6 +143,18 @@ describe('VariableList system variable labels', () => {
     expect(customNameCell).not.toHaveClass(styles.systemName);
     expect(unknownSystemNameCell).toHaveClass(styles.name);
     expect(unknownSystemNameCell).not.toHaveClass(styles.systemName);
+    expect(screen.getByPlaceholderText('填写sys_user_future')).toHaveValue(
+      'Future',
+    );
+    expect(screen.getAllByPlaceholderText('填写模拟回答')).toHaveLength(2);
+
+    fireEvent.change(screen.getByDisplayValue('AI'), {
+      target: { value: 'Practical AI skills' },
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      'What would you like to learn?',
+      'Practical AI skills',
+    );
   });
 
   test('updates every visible friendly name when the interface language changes', () => {
@@ -156,6 +178,7 @@ describe('VariableList system variable labels', () => {
     expect(screen.getByText('学生背景偏好')).toBeInTheDocument();
     expect(screen.getByText('最新输入')).toBeInTheDocument();
     expect(screen.getByText('授课语言')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('填写授课语言')).toBeInTheDocument();
 
     mockLanguage = 'en-US';
     rerender(<VariableList {...props} />);
@@ -166,6 +189,9 @@ describe('VariableList system variable labels', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Latest input')).toBeInTheDocument();
     expect(screen.getByText('Teaching language')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Enter Teaching language'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('学生昵称')).not.toBeInTheDocument();
     expect(
       screen.getByLabelText('Student nickname (sys_user_nickname)'),

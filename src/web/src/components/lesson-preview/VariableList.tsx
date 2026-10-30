@@ -216,9 +216,16 @@ const VariableList: React.FC<VariableListProps> = ({
                     <Input
                       type='text'
                       value={displayValue}
-                      placeholder={t(
-                        'module.shifu.previewArea.variablesPlaceholder',
-                      )}
+                      placeholder={
+                        systemVariableKeySet.has(name)
+                          ? t(
+                              'module.shifu.previewArea.personalInfoPlaceholder',
+                              {
+                                label: displayName,
+                              },
+                            )
+                          : t('module.shifu.previewArea.variablesPlaceholder')
+                      }
                       onChange={e => {
                         const nextValue = e.target.value;
                         onChange?.(name, nextValue);

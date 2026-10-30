@@ -21,6 +21,23 @@ food or both courses have the same owner. Course B asks its own question when
 needed. A missing course variable never falls back to a global custom-variable
 row. No automatic account-wide memory is introduced.
 
+## Product wording and compatibility
+
+Course authoring uses questions and answers as its product language. The teacher's
+learning simulator labels its panel "Questions and answers" and distinguishes
+simulated answers from personal information such as nickname and teaching language.
+The learner's mixed collection remains "Course memory": saved answers and explicit
+requests to remember information do not all have evidence of an original question.
+Do not invent questions or answer provenance for those entries.
+
+This wording keeps the existing technical key/value contract. Within a course,
+entries with the same exact key share the current value across lessons. Changing
+the key creates a different entry and does not transfer an existing answer.
+Changing only the displayed question does not change the key. Existing identifiers
+are not rewritten into questions, and no new question identity or answer-history
+model is introduced. API fields, storage, cache keys, runtime prompts and analytics
+contracts retain their existing names and behavior.
+
 ## Authored memory key names
 
 MarkdownFlow variable names are opaque text keys. Read from `{{` to the first
@@ -37,6 +54,21 @@ answer under `What is your gender?`. `{{ What is your gender? }}` references tha
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
 content, not trim whitespace. The exact trim set and shared conformance cases
 are owned by the [coordinated MarkdownFlow specification change](https://github.com/ai-shifu/markdown-flow/pull/11).
+
+A complete question can also bind and reference a free-text answer:
+
+```md
+What would you like to learn?
+
+?[{{ What would you like to learn? }}...Share your goal]
+
+Use {{ What would you like to learn? }} to choose a relevant example.
+```
+
+The existing percent-prefixed form
+`?[%{{ What would you like to learn? }}...Share your goal]` binds the same key.
+Neither form changes the memory admission rules or requires historical keys to
+be written as questions.
 
 Names are case-sensitive and are not normalized. Changing a question or its
 punctuation creates a different key; it does not rename an existing answer.

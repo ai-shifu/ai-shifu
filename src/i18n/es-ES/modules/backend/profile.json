@@ -3,7 +3,7 @@
   "__flat__": {
     "avatar": "Foto de perfil",
     "birth": "Fecha de nacimiento",
-    "keyInvalid": "Los nombres de variable no pueden estar vacíos ni contener caracteres de control o }}.",
+    "keyInvalid": "Escribe una pregunta sin caracteres de control ni «}}».",
     "language": "Idioma",
     "learnerProfileOptimizationEmptyResponse": "La IA no ha devuelto contenido optimizado. Inténtalo de nuevo.",
     "learnerProfileOptimizationFailed": "Se ha producido un error en el servicio de optimización con IA. Inténtalo más tarde.",
@@ -13,7 +13,7 @@
     "learnerProfileOptimizationRejected": "Esta presentación contiene contenido no permitido. Modifícala e inténtalo de nuevo.",
     "learnerProfileOptimizationTimedOut": "La solicitud de optimización con IA ha agotado el tiempo de espera. Inténtalo de nuevo.",
     "nickname": "Apodo",
-    "parentIdRequired": "El ID de la variable principal es obligatorio.",
+    "parentIdRequired": "No se ha podido determinar a qué curso pertenece este elemento. Actualiza la página e inténtalo de nuevo.",
     "profileOnboardingBusy": "Ya se está procesando otra configuración de personalización. Inténtalo más tarde.",
     "profileOnboardingConfigBusy": "Se está publicando otra configuración. Inténtalo más tarde.",
     "profileOnboardingConfigConflict": "Otro administrador ha guardado una versión más reciente. Actualiza la configuración antes de volver a editarla y guardarla.",

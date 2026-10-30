@@ -11,6 +11,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Bound Lesson Memory Context](./active/bounded-lesson-memory-context.md)
 - [Review the course action PR stack](./active/course-action-copy.md)
 - [Course Memory Management](./active/course-memory-management.md)
+- [Present course memory with contextual question and answer wording](./active/course-question-answer-copy.md)
 - [Course Sharing](./active/course-sharing.md)
 - [Keep custom learner variables within their course](./active/course-variable-isolation.md)
 - [Creator Brand Domain And Payments](./active/creator-brand-domain-payments.md)

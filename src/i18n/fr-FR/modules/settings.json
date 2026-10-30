@@ -10,7 +10,7 @@
   "memoryConfirmTitle": "Supprimer cette mémoire du cours ?",
   "memoryDelete": "Supprimer",
   "memoryDeleteFailed": "Impossible de supprimer cette mémoire. Réessayez.",
-  "memoryDescription": "Ces mémoires s’appliquent uniquement à ce cours. Gérez celles qui s’appliquent à l’ensemble du site dans « {entry} ».",
+  "memoryDescription": "Ces informations s’appliquent uniquement à ce cours. Elles peuvent inclure des réponses enregistrées et du contenu que vous avez explicitement demandé de mémoriser. Gérez les informations valables pour l’ensemble du site dans « {entry} ».",
   "memoryEmpty": "Aucune mémoire de cours enregistrée.",
   "memoryLoadFailed": "Impossible de charger la mémoire. Réessayez.",
   "memoryLoading": "Chargement de la mémoire du cours",

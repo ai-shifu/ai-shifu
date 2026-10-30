@@ -2,7 +2,7 @@
 title: Learner Memory Admission
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-10-29
+last_reviewed: 2026-10-30
 canonical: true
 ---
 
@@ -13,12 +13,20 @@ The portable engine retains its optional default and unrestricted recording
 instructions for other hosts; system and tool instructions select the same policy. The existing
 profile writer and the session's unit of work remain responsible for persistence.
 
+Course authoring describes declared question keys and their values as questions
+and answers. A complete question may serve as the existing key; existing keys
+are not rewritten, and the displayed question remains separate from its binding.
+This product wording does not make every interaction eligible for persistent
+memory, change same-key reuse or overwrite behavior, or introduce a per-question
+memory switch. Information saved through an explicit request remains course
+memory without a fabricated question or claim that it was an original answer.
+
 A lesson may record a key declared by a leading `?[{{key}} ...]` binding in its
 main script, outside fenced examples. Existing explicit percent-prefixed declarations
 remain compatible. Briefs, reference documents, ordinary `{{key}}` references and existing
 stored keys do not grant write permission. Named interaction answers require the
 same declaration and retain their exact original values and existing scope rules.
-An undeclared interaction variable is dropped without dropping the question.
+An undeclared answer binding is dropped without dropping the question.
 
 For an undeclared note, `remember` must quote a complete accepted free-text input
 from the current model turn as `request` (at most 4096 characters). Enabled hosts

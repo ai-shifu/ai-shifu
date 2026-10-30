@@ -10,7 +10,7 @@
   "memoryConfirmTitle": "Delete this course memory?",
   "memoryDelete": "Delete",
   "memoryDeleteFailed": "Could not delete this memory. Please retry.",
-  "memoryDescription": "These memories apply only to this course. Manage memories that apply across the site in “{entry}”.",
+  "memoryDescription": "This information applies only to this course and may include saved answers and content you explicitly asked to remember. Manage information that applies across the site in “{entry}”.",
   "memoryEmpty": "No saved course memory.",
   "memoryLoadFailed": "Could not load course memory. Please retry.",
   "memoryLoading": "Loading course memory",
