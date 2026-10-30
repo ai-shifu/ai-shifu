@@ -13,10 +13,6 @@ const mockTranslations: Record<string, Record<string, string>> = {
     'module.shifu.previewArea.systemVariableLabels.input': '最新输入',
     'module.shifu.previewArea.systemVariableLabels.language': '授课语言',
     'server.profile.style': '风格',
-    'server.profile.avatar': '头像',
-    'server.profile.birth': '生日',
-    'server.profile.sex': '性别',
-    'server.profile.language': '语言',
   },
   'en-US': {
     'module.shifu.previewArea.personalInfoPlaceholder': 'Enter {label}',
@@ -58,10 +54,6 @@ describe('VariableList system variable labels', () => {
       sys_user_input: 'Question',
       sys_user_language: 'Chinese',
       sys_user_style: 'Concise',
-      avatar: 'Portrait',
-      birth: '2000-01-01',
-      sex: 'Private',
-      language: 'zh-CN',
     };
 
     const { container } = render(
@@ -78,10 +70,6 @@ describe('VariableList system variable labels', () => {
       ['最新输入', 'sys_user_input'],
       ['授课语言', 'sys_user_language'],
       ['风格', 'sys_user_style'],
-      ['头像', 'avatar'],
-      ['生日', 'birth'],
-      ['性别', 'sex'],
-      ['语言', 'language'],
     ].forEach(([label, rawKey]) => {
       const nameCell = screen.getByText(label);
       expect(nameCell).toHaveClass(styles.name);

@@ -29,10 +29,6 @@ interface VariableListProps {
 }
 
 const SYSTEM_VARIABLE_LABEL_KEYS = {
-  avatar: 'server.profile.avatar',
-  birth: 'server.profile.birth',
-  language: 'server.profile.language',
-  sex: 'server.profile.sex',
   sys_user_nickname: 'module.shifu.previewArea.systemVariableLabels.nickname',
   sys_user_style: 'server.profile.style',
   sys_user_background:
