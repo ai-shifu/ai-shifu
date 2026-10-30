@@ -50,12 +50,10 @@
     "variablesHideUnused": "Masquer les éléments inutilisés",
     "variablesHideUnusedConfirmDesc": "Masquez les éléments mémorisés inutilisés dans le cours actuel. Vous pourrez les réafficher avec « Tout afficher ».",
     "variablesHideUnusedConfirmTitle": "Masquer les éléments inutilisés",
-    "variablesHideUnusedTooltip": "Masquer les éléments mémorisés inutilisés dans le cours actuel",
     "variablesPlaceholder": "Saisir une réponse simulée",
     "variablesRestoreHidden": "Tout afficher",
     "variablesRestoreHiddenConfirmDesc": "Afficher les éléments mémorisés masqués dans le cours actuel.",
     "variablesRestoreHiddenConfirmTitle": "Tout afficher",
-    "variablesRestoreHiddenTooltip": "Afficher les éléments mémorisés masqués dans le cours actuel",
     "variablesTitle": "Mémoire"
   }
 }

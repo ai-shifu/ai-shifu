@@ -50,12 +50,10 @@
     "variablesHideUnused": "إخفاء العناصر غير المستخدمة",
     "variablesHideUnusedConfirmDesc": "إخفاء عناصر الذاكرة غير المستخدمة في الدورة الحالية. يمكنك إظهارها مجددًا عبر «عرض الكل».",
     "variablesHideUnusedConfirmTitle": "إخفاء العناصر غير المستخدمة",
-    "variablesHideUnusedTooltip": "إخفاء عناصر الذاكرة غير المستخدمة في الدورة الحالية",
     "variablesPlaceholder": "أدخل إجابة تجريبية",
     "variablesRestoreHidden": "عرض الكل",
     "variablesRestoreHiddenConfirmDesc": "عرض عناصر الذاكرة المخفية في الدورة الحالية.",
     "variablesRestoreHiddenConfirmTitle": "عرض الكل",
-    "variablesRestoreHiddenTooltip": "عرض عناصر الذاكرة المخفية في الدورة الحالية",
     "variablesTitle": "الذاكرة"
   }
 }
