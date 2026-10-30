@@ -25,6 +25,9 @@ require a course identifier. Account avatars, language settings and canonical
 learner profiles keep their separate APIs.
 Only `sys_user_language` selects teaching language; an authored `language`
 variable is independent and is never overwritten by that selection.
+These scope rules govern current profile reads and writes and newly created
+sessions. Continued sessions may retain earlier global defaults in their saved
+prompts or snapshots.
 
 All other durable variables belong to the current course. Two courses can use
 the same key with different answers. If course A records that a learner likes
@@ -144,12 +147,15 @@ previously delivered content is historical evidence, not current shared memory.
 Preview/debug sessions also discard retired snapshots. No historical data or
 source-course values are deleted, migrated or retroactively undone.
 
-Restored database-backed lesson sessions also refresh host-injected retired
-profile defaults in current memory and initial prompt snapshots. Current-course
-values, accepted classroom answers and later history remain intact. Editor debug
-previews do not run this compatibility cleanup or persist its marker. Restarting
-a preview creates a fresh debug session; unused cache entries expire after thirty
-minutes. Continuing an existing preview retains that session's cached state.
+Default-profile retirement leaves existing formal and editor-debug sessions under
+their ordinary loading, continuation and persistence logic. It adds no dedicated
+snapshot cleanup, retirement marker or session migration. Existing generic
+session safeguards continue to apply; old saved prompts may retain retired
+profile defaults. Newly created sessions use the current course-scoped reader.
+Restarting an editor preview creates a fresh debug session ID. Cache keys and the
+thirty-minute expiry remain unchanged, with no namespace or version bump.
+Continuing an existing preview retains its cached state, and unused entries
+expire naturally.
 Legacy learning style no longer prefills the canonical learner-profile editor;
 nickname compatibility remains available.
 

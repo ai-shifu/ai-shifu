@@ -72,11 +72,8 @@ def test_debug_session_resumes_only_the_same_run_and_script(
     )
     session = Session(script=ScriptBundle(script="Current draft"))
     session.memory["answer"] = "yes"
-    session.ai_shifu_profile_memory_version = 1
 
     first.save(session)
-
-    assert set(json.loads(cache.values[first._key])) == {"script_hash", "session"}
 
     assert first.load(script="Current draft").memory["answer"] == "yes"
     assert first.load(script="Edited draft") is None

@@ -8,6 +8,9 @@ Only `sys_user_nickname`, `sys_user_language` and `sys_user_background` retain
 global profile semantics. Account settings and canonical learner-profile
 collection remain available. The durable contract is
 [System and course variable isolation](../../references/course-variable-scopes.md).
+Existing formal and editor-preview sessions continue through the ordinary
+session lifecycle. Default-profile retirement does not rewrite their saved
+prompts or snapshots.
 
 ## Progress
 
@@ -15,7 +18,7 @@ collection remain available. The durable contract is
   semantics and database-preservation boundary; created a feature branch from
   current `origin/main` (`bcf2d118c`).
 - [x] 2026-10-30 11:42 UTC: Coordinate profile definitions, canonical mappings,
-  account recovery, language selection and saved-session refresh.
+  account recovery and language selection.
 - [x] 2026-10-30 11:42 UTC: Remove frontend style prefill and retired presentation
   rules; update shared translations, fixtures and contracts.
 - [x] 2026-10-30 11:42 UTC: Complete isolated backend/frontend regression,
@@ -25,6 +28,9 @@ collection remain available. The durable contract is
   validation. Preserve its question-and-answer copy, resolve locale conflicts,
   and rerun 139 profile/golden/Swagger checks, all 193 affected frontend tests,
   type-check and the full repository pre-commit gate.
+- [x] 2026-10-30 22:55 UTC: Record the final session boundary: remove the dedicated
+  retirement cleanup and marker for both formal and debug sessions. Keep existing
+  saved sessions as-is and apply current course scope to newly created sessions.
 
 ## Surprises & Discoveries
 
@@ -36,11 +42,12 @@ collection remain available. The durable contract is
 - The old `language` name also participates in output-language selection and
   preview restart handling. Removing only its profile label leaves that behavior.
 - Saved initial prompts can retain injected values after the current profile
-  registry changes. Refresh host snapshots while retaining classroom evidence.
+  registry changes. The accepted scope leaves those historical snapshots as-is;
+  the current profile reader does not imply that old prompts have been cleaned.
 - A preview can remember a course note without persisting it or returning it to
-  the editor's variable map. Debug previews skip legacy profile cleanup so those
-  notes survive continuation, and keep no retirement metadata. Restarting a
-  preview selects a fresh session; unused cached sessions expire naturally.
+  the editor's variable map. Continuing that preview uses its existing cached
+  state. Restarting selects a fresh session; unused cached sessions expire
+  naturally.
 - Existing courses may have only a retired global definition. The first normal
   scoped assignment creates the missing course definition and uses its ID; no
   historical row is migrated and arbitrary undeclared notes gain no definition.
@@ -52,15 +59,18 @@ collection remain available. The durable contract is
 
 - Keep database models, columns, migrations and historical values unchanged.
   Tests use temporary SQLite storage and mocked providers, never business data.
-- Keep debug cache keys unchanged and remove debug-specific profile retirement
-  compatibility. A preview restart creates a new session ID; existing cached
-  state is left as-is until it expires. Database-backed lesson sessions retain
-  their one-time retirement marker.
+- Remove the entire default-profile session compatibility layer, including its
+  cleanup, version marker and serialization hooks. Formal and debug sessions
+  retain their ordinary loading, continuation and persistence behavior.
+- Keep debug cache keys and the thirty-minute expiry unchanged. A preview restart
+  creates a new session ID; existing cached state remains available for its run
+  until it expires. No namespace or cache version is introduced.
 - Keep the three active system keys in a shared exact-name allowlist. A `sys_`
   prefix alone never grants global scope; existing undeclared-memory restrictions
   still apply to `sys_user_style`.
 - Ordinary variables require a course identifier before any writes are staged.
-  Old global defaults never supply a missing course value or account field.
+  Fresh scoped reads do not use old global defaults for a missing course value
+  or account field. Existing session prompts may still contain earlier values.
 - Preserve generic profile endpoint paths and response envelopes. Their built-in
   labels contain only the active fields, including canonical language.
 - Keep the newer authoring rule that rejects all `sys_` question bindings.
@@ -78,12 +88,17 @@ collection remain available. The durable contract is
 The three canonical fields now own global profile behavior. Retired names use
 course scope, including old courses whose next answer creates a missing local
 definition. Old definitions, values, account columns and applied migrations are
-unchanged. Database-backed lesson sessions use a one-time application metadata
-marker after old host snapshots have been retired, without changing engine
-schemas. Debug previews use their ordinary cache and restart lifecycle with no
-profile retirement metadata or cache-key version branch.
+unchanged. Formal and debug sessions keep their ordinary lifecycle with no
+default-profile cleanup, retirement marker or new cache namespace. New sessions
+use the current scoped reader. Continued sessions retain their saved state under
+the existing generic session logic; old injected prompts are not guaranteed to
+be free of retired defaults.
 
-Final integrated backend validation passed 4,311 tests with 90 conditional skips.
+The final session simplification passed all 1,701 agent and route regressions,
+including ordinary continuation of saved inputs and accepted answers and preview
+notes surviving requests without an editor variable echo.
+
+Earlier integrated backend validation passed 4,311 tests with 90 conditional skips.
 The eight affected frontend suites passed all 193 tests. Type-check, lint,
 translation usage/parity, architecture boundaries, repository harness and the
 full pre-commit gate passed. Independent review found and verified fixes for
@@ -103,14 +118,16 @@ wire contracts; locale JSON and generated key types live in the shared i18n tree
 Unify active system keys, remove retired field metadata and account mappings, and
 filter global definition reads and automatic creation without changing course
 definitions. Remove legacy style prefill and account recovery. Coordinate the
-canonical language policy with frontend preview controls. Refresh old host memory
-snapshots from current course values while keeping accepted answers and later
-history. Update fixtures and source-backed documentation with focused regression.
+canonical language policy with frontend preview controls. Keep existing session
+snapshots under the ordinary lifecycle and remove the dedicated default-profile
+compatibility module, marker and storage hooks. Update fixtures and source-backed
+documentation with focused regression.
 
 ## Concrete Steps
 
 1. Implement the profile/user contract and isolated storage regressions.
-2. Implement canonical-only language selection and saved-session regressions.
+2. Implement canonical-only language selection and verify ordinary session
+   continuation, fresh scoped sessions and preview restart isolation.
 3. Remove frontend compatibility branches, unused translations and helper code;
    regenerate i18n types and run component/hook regressions.
 4. Run type/lint and repository checks, review the integrated diff, record exact
@@ -126,8 +143,13 @@ history. Update fixtures and source-backed documentation with focused regression
   sign-in merge remain covered. Mixed invalid writes fail before partial changes.
 - Empty canonical learner profiles never prefill old style. Explicit authored
   style variables remain visible through generic preview controls.
-- Ordinary `language` remains independent from output language in fresh, resumed
-  and preview sessions; host refresh preserves accepted answers and history.
+- Output-language selection uses canonical `sys_user_language` and leaves ordinary
+  course `language` values untouched.
+- Existing formal and debug sessions use the original generic lifecycle without
+  default-profile snapshot cleanup or retirement metadata. Saved prompts may
+  retain earlier values; new sessions read current course-scoped values.
+- Preview restart uses a fresh debug session ID. Cache key construction and the
+  thirty-minute expiry remain unchanged, and continuation retains cached notes.
 - Focused backend and frontend suites, type-check, lint, repo harness,
   architecture boundaries, translation checks and pre-commit gates pass.
 

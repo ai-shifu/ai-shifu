@@ -31,10 +31,6 @@ from flaskr.service.learn.agent.models import (
     LearnAgentSession,
     active_key_for,
 )
-from flaskr.service.learn.agent.retired_profile_memory import (
-    profile_memory_metadata,
-    restore_profile_memory_metadata,
-)
 from sqlalchemy.exc import IntegrityError
 
 if TYPE_CHECKING:
@@ -149,13 +145,10 @@ def _load(
         )
         raise StoredSessionUnusable(msg)
     try:
-        data = json.loads(row.session_data)
-        session = Session.from_dict(data)
-        restore_profile_memory_metadata(session, data)
+        return Session.loads(row.session_data)
     except Exception as exc:
         msg = f"session {row.agent_session_bid} could not be deserialized: {exc}"
         raise StoredSessionUnusable(msg) from exc
-    return session
 
 
 def save_agent_session(
@@ -242,7 +235,6 @@ def _apply(
         previous = {"messages": ["unknown"]}
     presentation = preview_presentation_from_document(previous)
     data = json.loads(session.dumps())
-    data.update(profile_memory_metadata(session))
     # A loader-incompatible session starts a new engine attempt on the same DB
     # row. Its baseline follows its new document ID, just like an explicit retake.
     new_attempt = previous.get("id") != data["id"]
