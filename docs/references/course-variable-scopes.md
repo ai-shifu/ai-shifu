@@ -8,11 +8,23 @@ canonical: true
 
 # System and course variable isolation
 
-System-recognized profile fields are global to the learner. For example, the
-canonical nickname and language remain consistent between courses. Registration
-in the shared profile-label mapping determines global scope; a `sys_` prefix alone
-never grants global storage or arbitrary profile editing. Existing registered
-legacy label names keep their mappings.
+Only `sys_user_nickname`, `sys_user_language` and `sys_user_background` are
+registered global profile fields. Their canonical account values remain
+consistent between courses. The shared exact-name registry determines global
+scope; a `sys_` prefix alone never grants global storage or arbitrary profile
+editing.
+
+The former built-ins `sex`, `birth`, `avatar` and `language` are ordinary course
+variables. Historical global definitions and values remain stored but are not
+advertised, read as defaults, or mapped to account fields. Their names do not
+block automatic creation of course definitions. Legacy `sys_user_style` answers
+also use course scope: existing published courses can create a missing local
+definition during normal answer persistence. This narrow runtime compatibility
+does not permit new authored `sys_` questions. All non-system variable writes
+require a course identifier. Account avatars, language settings and canonical
+learner profiles keep their separate APIs.
+Only `sys_user_language` selects teaching language; an authored `language`
+variable is independent and is never overwritten by that selection.
 
 All other durable variables belong to the current course. Two courses can use
 the same key with different answers. If course A records that a learner likes
@@ -84,8 +96,8 @@ That namespace is reserved for the system, including unregistered names.
 Draft saving, parsing, history restoration, import and publication reject
 reserved question bindings in both `?[{{sys_name}} ...]` and
 `?[%{{sys_name}} ...]` syntax after trimming outer whitespace. Ordinary question
-keys remain course variables, so this example does not update the system `sex`
-field.
+keys remain course variables. Neither this example nor a variable named `sex`
+updates an account field.
 
 Body references such as `{{sys_user_nickname}}` remain valid and do not create
 course-owned definitions. Code examples, comments, escaped interactions and
@@ -131,6 +143,12 @@ write either course. Original answers and later classroom history remain intact;
 previously delivered content is historical evidence, not current shared memory.
 Preview/debug sessions also discard retired snapshots. No historical data or
 source-course values are deleted, migrated or retroactively undone.
+
+Restored sessions also refresh host-injected retired profile defaults in current
+memory and initial prompt snapshots. Current-course values, explicitly supplied
+preview variables, accepted classroom answers and later history remain intact.
+Legacy learning style no longer prefills the canonical learner-profile editor;
+nickname compatibility remains available.
 
 This policy supersedes [explicit references](course-memory-references.md) and
 [shared named answers](shared-course-answers.md). It adds no schema, dependency,

@@ -15,7 +15,6 @@ const mockTranslations: Record<string, Record<string, string>> = {
     'module.shifu.previewArea.systemVariableLabels.background': '学生背景偏好',
     'module.shifu.previewArea.systemVariableLabels.input': '最新输入',
     'module.shifu.previewArea.systemVariableLabels.language': '授课语言',
-    'server.profile.style': '风格',
   },
   'en-US': {
     'module.shifu.previewArea.personalInfoPlaceholder': 'Enter {label}',
@@ -56,7 +55,6 @@ describe('VariableList system variable labels', () => {
       sys_user_background: 'Teacher',
       sys_user_input: 'Question',
       sys_user_language: 'Chinese',
-      sys_user_style: 'Concise',
     };
 
     const { container } = render(
@@ -72,7 +70,6 @@ describe('VariableList system variable labels', () => {
       ['学生背景偏好', 'sys_user_background'],
       ['最新输入', 'sys_user_input'],
       ['授课语言', 'sys_user_language'],
-      ['风格', 'sys_user_style'],
     ].forEach(([label, rawKey]) => {
       const nameCell = screen.getByText(label);
       expect(nameCell).toHaveClass(styles.name);
@@ -236,6 +233,38 @@ describe('VariableList system variable labels', () => {
       }
     },
   );
+
+  test('renders retired profile keys as ordinary editable course variables', () => {
+    const onChange = jest.fn();
+    const variables = {
+      sex: 'A course answer',
+      birth: 'A course date',
+      avatar: 'A course character',
+      language: 'A programming language',
+      sys_user_style: 'A writing exercise',
+    };
+
+    render(
+      <VariableList
+        variables={variables}
+        systemVariableKeys={['sys_user_language']}
+        customVariableKeys={Object.keys(variables)}
+        onChange={onChange}
+      />,
+    );
+
+    Object.entries(variables).forEach(([key, value]) => {
+      expect(screen.getByRole('textbox', { name: key })).toHaveValue(value);
+      expect(screen.getByRole('textbox', { name: key })).toHaveAttribute(
+        'placeholder',
+        '填写模拟回答',
+      );
+    });
+    fireEvent.change(screen.getByDisplayValue('A writing exercise'), {
+      target: { value: 'Revised exercise' },
+    });
+    expect(onChange).toHaveBeenCalledWith('sys_user_style', 'Revised exercise');
+  });
 
   test('updates every visible friendly name when the interface language changes', () => {
     const props = {

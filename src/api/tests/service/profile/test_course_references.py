@@ -185,7 +185,9 @@ def test_registered_system_fields_are_global_but_custom_values_have_no_global_fa
         assert data["sys_user_nickname"] == "Learner"
     data = load_memory(c.app, c.user, c.target, include_course_variables=True).variables
     assert "goal" not in data
-    assert data["sys_user_style"] == "Examples first"
+    assert "sys_user_style" not in data
+    _value(c, "Local style", shifu_bid=c.target, key="sys_user_style")
+    assert get_user_profiles(c.app, c.user, c.target)["sys_user_style"] == "Local style"
     assert "Legacy global custom" not in str(data)
     _value(c, "Local goal", shifu_bid=c.target)
     assert get_user_profiles(c.app, c.user, c.target)["goal"] == "Local goal"

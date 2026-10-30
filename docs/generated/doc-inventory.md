@@ -228,6 +228,7 @@
 | `docs/exec-plans/completed/restrict-learner-order-actions.md` | Restrict learner order actions to their owner | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/resumed-learner-nickname.md` | Refresh Nicknames in Existing Agent Lessons | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/retire-ai-instruction-generator.md` | Retire the AI Instruction Generator | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/retire-default-profiles.md` | Retire Legacy Default Profiles | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/reuse-production-runtime-images.md` | Reuse production images in PR runtime checks | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/ruff-0-17-upgrade.md` | Upgrade Ruff to 0.17.3 | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/running-version-display.md` | Display the running frontend version | `exec-plan-completed` | `completed` | `web` | `2026-10-10` | `false` |

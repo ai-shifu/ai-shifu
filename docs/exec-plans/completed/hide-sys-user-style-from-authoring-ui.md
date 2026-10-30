@@ -1,5 +1,10 @@
 # Hide `sys_user_style` From Course Authoring UI
 
+> Superseded on 2026-10-30 by the
+> [default-profile retirement](../../references/course-variable-scopes.md):
+> `sys_user_style` is now an ordinary explicitly declared course variable. Its
+> historical global definition and values remain stored but are no longer used.
+
 ## Purpose / Big Picture
 
 `sys_user_style` must no longer be presented in course-authoring variable lists,

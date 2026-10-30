@@ -20,6 +20,7 @@ from sqlalchemy import MetaData, String, event, text
 def variables(app: object) -> object:
     identity = uuid.uuid4().hex
     keys = {name: f"{name}_{identity}" for name in ("used", "unused", "old", "system")}
+    keys["system"] = "sys_user_language"
     with app.app_context(), unit_of_work():
         for name, key in keys.items():
             db.session.add(
@@ -198,17 +199,15 @@ def test_empty_hidden_selection_is_a_read_and_missing_course_is_rejected(
         profiles.get_profile_variable_usage(app, "")
 
 
-def test_definition_creation_reuses_trimmed_system_key_without_a_course_copy(
+def test_course_definition_rejects_trimmed_registered_system_key(
     app: object, variables: object
 ) -> None:
-    with app.app_context(), unit_of_work():
-        result = profiles.add_profile_item_quick_internal(
+    with app.app_context(), pytest.raises(AppError) as exc, unit_of_work():
+        profiles.add_profile_item_quick_internal(
             app, variables.course, f"  {variables.keys['system']}  ", "teacher"
         )
-    assert result.profile_key == variables.keys["system"]
+    assert exc.value.code == ERROR_CODE["server.profile.keyReserved"]
     with app.app_context():
-        system = Variable.query.filter_by(shifu_bid="", key=result.profile_key).one()
-        assert result.profile_id == system.variable_bid
         assert (
             Variable.query.filter_by(
                 shifu_bid=variables.course, key=variables.keys["system"]
@@ -260,7 +259,14 @@ def test_definition_creation_rejects_unrepresentable_keys_without_writes(
 
 
 @pytest.mark.parametrize(
-    "key", ["sys_", "sys_custom_question", "sys_user_language", "\u00a0sys_name\u3000"]
+    "key",
+    [
+        "sys_",
+        "sys_custom_question",
+        "sys_user_language",
+        "sys_user_style",
+        "\u00a0sys_name\u3000",
+    ],
 )
 def test_course_definition_rejects_system_prefix_without_writes(
     app: object, variables: object, key: str
@@ -278,17 +284,63 @@ def test_course_definition_cannot_reuse_a_system_prefixed_definition(
     app: object, variables: object
 ) -> None:
     key = f"sys_global_{uuid.uuid4().hex}"
-    variables.keys["reserved_system"] = key
+    definition_bid = uuid.uuid4().hex
     with app.app_context(), unit_of_work():
-        system = profiles.add_profile_item_quick_internal(app, "", key, "system")
+        db.session.add(Variable(variable_bid=definition_bid, shifu_bid="", key=key))
+    try:
+        with app.app_context(), pytest.raises(AppError) as exc, unit_of_work():
+            profiles.add_profile_item_quick_internal(
+                app, variables.course, key, "teacher"
+            )
+        assert exc.value.code == ERROR_CODE["server.profile.keyReserved"]
+        with app.app_context():
+            rows = Variable.query.filter_by(key=key).all()
+            assert [(row.variable_bid, row.shifu_bid) for row in rows] == [
+                (definition_bid, "")
+            ]
+    finally:
+        with app.app_context(), unit_of_work():
+            Variable.query.filter_by(variable_bid=definition_bid).delete()
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "sys_",
+        "sys_custom_question",
+        "sys_user_language",
+        "sys_user_nickname",
+        "sys_user_background",
+    ],
+)
+def test_legacy_runtime_option_never_allows_other_system_definitions(
+    app: object, variables: object, key: str
+) -> None:
     with app.app_context(), pytest.raises(AppError) as exc, unit_of_work():
-        profiles.add_profile_item_quick_internal(app, variables.course, key, "teacher")
+        profiles.add_profile_item_quick_internal(
+            app, variables.course, key, "learner", allow_legacy_runtime_profile=True
+        )
     assert exc.value.code == ERROR_CODE["server.profile.keyReserved"]
     with app.app_context():
-        rows = Variable.query.filter_by(key=key).all()
-        assert [(row.variable_bid, row.shifu_bid) for row in rows] == [
-            (system.profile_id, "")
-        ]
+        assert (
+            Variable.query.filter_by(shifu_bid=variables.course, key=key).count() == 0
+        )
+
+
+def test_legacy_runtime_option_never_creates_a_global_retired_definition(
+    app: object,
+) -> None:
+    with app.app_context():
+        before = Variable.query.filter_by(shifu_bid="", key="sys_user_style").count()
+    with app.app_context(), pytest.raises(AppError), unit_of_work():
+        profiles.add_profile_item_quick_internal(
+            app, "", "sys_user_style", "learner", allow_legacy_runtime_profile=True
+        )
+    with app.app_context():
+        assert (
+            Variable.query.filter_by(shifu_bid="", key="sys_user_style").count()
+            == before
+        )
 
 
 @pytest.mark.parametrize("prefix", ["SYS_", "course_sys_"])
@@ -349,7 +401,8 @@ def test_definition_identity_remains_exact_under_a_case_folding_database(
     assert lower.profile_id != upper.profile_id
     with app.app_context():
         assert [row.key for row in Variable.query.filter_by(shifu_bid="course")] == [
-            "name"
+            "name",
+            "Name",
         ]
 
 
@@ -448,15 +501,17 @@ def legacy_app(tmp_path: Path) -> object:
 def test_legacy_quick_add_reuses_active_identity_and_increments_index(
     legacy_app: object, parent: str
 ) -> None:
+    first_key = "first" if parent else "sys_user_nickname"
+    second_key = "second" if parent else "sys_user_language"
     with legacy_app.app_context(), unit_of_work():
         first = profiles.add_profile_item_quick_internal(
-            legacy_app, parent, "first", "teacher"
+            legacy_app, parent, first_key, "teacher"
         )
         duplicate = profiles.add_profile_item_quick_internal(
-            legacy_app, parent, "first", "other-editor"
+            legacy_app, parent, first_key, "other-editor"
         )
         second = profiles.add_profile_item_quick_internal(
-            legacy_app, parent, "second", "teacher"
+            legacy_app, parent, second_key, "teacher"
         )
         assert first.profile_id == duplicate.profile_id
         assert second.profile_id != first.profile_id
@@ -479,7 +534,7 @@ def test_legacy_quick_add_reuses_active_identity_and_increments_index(
             .all()
         )
         assert [row["profile_index"] for row in rows] == [1, 2]
-        assert [row["profile_key"] for row in rows] == ["first", "second"]
+        assert [row["profile_key"] for row in rows] == [first_key, second_key]
         assert all(row["created_by"] == "teacher" for row in rows)
         assert all(row["status"] == 1 and row["parent_id"] == parent for row in rows)
         assert all(

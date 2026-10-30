@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.profile.constants import RETIRED_PROFILE_KEYS
 from flaskr.service.profile.learner_profile import (
     PROFILE_ONBOARDING_SCENE_KEY,
     PROFILE_ONBOARDING_STATE_VERSION,
@@ -868,7 +869,7 @@ def test_legacy_profile_migration_preserves_target_nickname(
 
 
 @pytest.mark.parametrize("sign_in_method", ["phone", "email"])
-def test_sign_in_generic_label_migration_ignores_historical_background(
+def test_sign_in_label_migration_ignores_historical_background_and_retired_fields(
     app: object,
     monkeypatch: object,
     sign_in_method: object,
@@ -907,6 +908,16 @@ def test_sign_in_generic_label_migration_ignores_historical_background(
                 value="Historical guest background",
             )
         )
+        for key in RETIRED_PROFILE_KEYS:
+            db.session.add(
+                VariableValue(
+                    variable_value_bid=uuid.uuid4().hex,
+                    user_bid=source.user_bid,
+                    shifu_bid="",
+                    key=key,
+                    value="Historical retired profile",
+                )
+            )
         db.session.commit()
 
         if sign_in_method == "phone":
@@ -934,7 +945,25 @@ def test_sign_in_generic_label_migration_ignores_historical_background(
             deleted=0,
         ).all()
 
-    assert stored_target.learner_profile == ""
+        assert stored_target.learner_profile == ""
+        assert (
+            stored_target.avatar,
+            stored_target.language,
+            stored_target.birthday,
+        ) == ("", "en-US", None)
+        assert (
+            VariableValue.query.filter(
+                VariableValue.user_bid == target.user_bid,
+                VariableValue.key.in_(RETIRED_PROFILE_KEYS),
+            ).count()
+            == 0
+        )
+        assert VariableValue.query.filter(
+            VariableValue.user_bid == source.user_bid,
+            VariableValue.key.in_(RETIRED_PROFILE_KEYS),
+            VariableValue.deleted == 0,
+        ).count() == len(RETIRED_PROFILE_KEYS)
+
     assert migrated_rows == []
 
 

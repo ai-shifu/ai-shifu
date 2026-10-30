@@ -609,13 +609,13 @@ def test_preview_route_reads_only_current_fields_and_validates_before_model_call
         {"sys_user_language": "en-US", "language": "zh-CN"},
     ],
 )
-def test_editor_preview_streams_through_the_agent_with_synchronized_language(
+def test_editor_preview_keeps_course_language_separate_from_output_language(
     monkeypatch: object,
     test_client: object,
     feedback_course: object,
     variables: dict | None,
 ) -> None:
-    """Route editor sessions to the agent with synchronized language aliases."""
+    """Only the canonical setting controls the editor's teaching language."""
     from flaskr.service.learn.agent import debug_session
 
     marker = {"type": "preview_engine", "content": "2.0"}
@@ -637,10 +637,12 @@ def test_editor_preview_streams_through_the_agent_with_synchronized_language(
     assert '"preview_engine"' in response.get_data(as_text=True)
     assert agent.call_args.kwargs["preview_request"].content == "Current editor draft"
     assert agent.call_args.kwargs["run_bid"] == "editor-run-1"
-    expected_language = "en-US" if variables else "fr-FR"
+    expected_language = (
+        "en-US" if variables and variables.get("sys_user_language") else "fr-FR"
+    )
     assert agent.call_args.kwargs["preview_request"].variables == {
+        **(variables or {}),
         "sys_user_language": expected_language,
-        "language": expected_language,
     }
 
 

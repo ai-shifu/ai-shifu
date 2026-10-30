@@ -9,6 +9,10 @@ from typing import TYPE_CHECKING
 from flaskr.api.markdownflow import Session
 from flaskr.common.cache_provider import cache
 from flaskr.service.common.models import raise_error
+from flaskr.service.learn.agent.retired_profile_memory import (
+    profile_memory_metadata,
+    restore_profile_memory_metadata,
+)
 from flaskr.service.learn.learn_dtos import RunElementSSEMessageDTO
 from flaskr.service.learn.preview_elements import PreviewElementRunAdapter
 
@@ -51,17 +55,20 @@ class DebugSessionStore:
                 != hashlib.sha256(script.encode()).hexdigest()
             ):
                 return None
-            return Session.loads(payload["session"])
+            session = Session.loads(payload["session"])
+            restore_profile_memory_metadata(session, payload)
         except (KeyError, TypeError, ValueError):
             # A deployment may replace the engine while this short-lived session is open.
             # An incompatible history is treated as expired, never replayed into a new turn.
             return None
+        return session
 
     def save(self, session: Session) -> None:
         """Save before the runner emits the turn's terminal event."""
         payload = {
             "script_hash": hashlib.sha256(session.script.script.encode()).hexdigest(),
             "session": session.dumps(),
+            **profile_memory_metadata(session),
         }
         cache.setex(self._key, self.TTL_SECONDS, json.dumps(payload))
 

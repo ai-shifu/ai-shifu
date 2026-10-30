@@ -11,9 +11,7 @@ export type LearnerProfile = {
   max_length: number;
   nickname?: string;
   nickname_max_length?: number;
-  legacy_profile_values?: Partial<
-    Record<'sys_user_nickname' | 'sys_user_style', string>
-  >;
+  legacy_profile_values?: Partial<Record<'sys_user_nickname', string>>;
 };
 
 export type OptimizedLearnerProfile = {

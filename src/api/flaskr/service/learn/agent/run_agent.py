@@ -67,6 +67,10 @@ from flaskr.service.learn.agent.lesson_record import (
 from flaskr.service.learn.agent.listen import LessonVoice
 from flaskr.service.learn.agent.nickname import refresh_nickname
 from flaskr.service.learn.agent.output_language import configure_output_language
+from flaskr.service.learn.agent.retired_profile_memory import (
+    mark_profile_memory_current,
+    refresh_retired_profile_memory,
+)
 from flaskr.service.learn.agent.rewind import (
     RewindPlan,
     RewindUnavailableError,
@@ -319,6 +323,7 @@ def _load_or_start(
     async def make_session() -> Session:
         if stored is not None:
             discard_course_references(stored, teaching_brief=teaching_brief)
+            refresh_retired_profile_memory(stored, user_memory)
             if debug_store is None:
                 refresh_nickname(stored, user_memory)
                 # Deletion generations are permanent, so a key deleted once keeps one.
@@ -366,6 +371,7 @@ def _load_or_start(
         # has a slot for author-supplied rules that arrive as user content.
         bundle = ScriptBundle(script=script, constraints=teaching_brief or None)
         session = await engine.new_session(bundle, user_id=user_bid, listen_mode=False)
+        mark_profile_memory_current(session)
         session.user_memory = dict(user_memory)
         session.memory_generations = dict(generations)
         if on_session_loaded is not None:

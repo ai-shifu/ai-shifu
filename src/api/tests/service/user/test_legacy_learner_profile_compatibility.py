@@ -195,10 +195,14 @@ def test_background_writers_dual_write_canonical_profile_and_variable_history(
 
         assert [(value.key, value.value) for value in values] == [
             ("sys_user_background", "legacy background"),
-            ("sys_user_style", "legacy style"),
             ("sys_user_background", "another background"),
-            ("sys_user_style", "another style"),
         ]
+        assert [
+            row.value
+            for row in VariableValue.query.filter_by(
+                user_bid=user_bid, shifu_bid="course-one", key="sys_user_style"
+            ).order_by(VariableValue.id)
+        ] == ["legacy style", "another style"]
         assert user.learner_profile == "another background"
         assert user.learner_profile_updated_at is not None
         assert profiles["sys_user_background"] == "another background"

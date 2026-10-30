@@ -466,12 +466,12 @@ describe('ShifuEdit draft conflict checks', () => {
     });
   });
 
-  test('keeps preview variable filtering independent of editor props', async () => {
+  test('shows an authored retired style key as a custom preview variable', async () => {
     setLessonNode();
     mockShifuState.mdflow = 'Hello {{sys_user_style}} {{sys_user_input}}';
+    mockShifuState.variables = ['sys_user_style'];
     mockShifuState.systemVariables = [
       { name: 'sys_user_nickname', label: 'Nickname' },
-      { name: 'sys_user_style', label: 'Style' },
       { name: 'sys_user_input', label: 'User Input' },
     ];
     baseActions.previewParse.mockResolvedValue({
@@ -481,11 +481,7 @@ describe('ShifuEdit draft conflict checks', () => {
         sys_user_input: 'Internal input',
       },
       blocksCount: 1,
-      systemVariableKeys: [
-        'sys_user_nickname',
-        'sys_user_style',
-        'sys_user_input',
-      ],
+      systemVariableKeys: ['sys_user_nickname', 'sys_user_input'],
       allVariableKeys: [
         'sys_user_nickname',
         'sys_user_style',
@@ -510,9 +506,12 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(mockLessonPreview).toHaveBeenCalled();
     });
-    expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
-      'sys_user_style',
-    );
+    expect(
+      mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys,
+    ).not.toContain('sys_user_style');
+    expect(mockLessonPreview.mock.lastCall?.[0].variables).toMatchObject({
+      sys_user_style: '',
+    });
     expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
       'sys_user_input',
     );

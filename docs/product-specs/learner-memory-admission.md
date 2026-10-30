@@ -51,8 +51,14 @@ continues. Semantic interpretation remains probabilistic; exact input grounding,
 reserved keys, lifecycle, scope and capacity guards are deterministic.
 
 Admitted undeclared requests use user scope within the current course. They cannot
-write `sys_*` or any key the profile writer routes globally, such as `language`,
-`sex`, `birth` or `avatar`. Declared keys retain existing profile mapping semantics.
+write `sys_*` or any key the profile writer routes globally. The only global
+profile keys are `sys_user_nickname`, `sys_user_language` and
+`sys_user_background`. Former built-ins `language`, `sex`, `birth` and `avatar`
+follow ordinary course scope and admission rules. `sys_user_style` is also
+course-local in retained published lessons, but its prefix still requires an
+existing explicit declaration. New course authoring rejects all `sys_` question
+bindings. Active system declarations in retained published lessons keep their
+canonical profile mapping semantics.
 Canonical account fields remain authoritative. There is no cross-course sharing.
 Only the agent's memory reader opts into additional current-course variable rows;
 other consumers retain definition-based runtime resolution. The supplementary

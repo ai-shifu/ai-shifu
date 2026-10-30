@@ -13,6 +13,7 @@ from flaskr.util.uuid import generate_id
 from markdownflow import MarkdownFlowDocument, normalize_variable_name
 from sqlalchemy import func, inspect, text
 
+from .constants import ACTIVE_SYSTEM_PROFILE_KEYS, RETIRED_PROFILE_KEYS
 from .dtos import (
     DEFAULT_COLOR_SETTINGS,
     ColorSetting,
@@ -134,6 +135,8 @@ def get_profile_item_definition_list(
         return [
             convert_variable_definition_to_profile_item_definition(item)
             for item in (definitions or [])
+            if (normalized_parent_id and item.shifu_bid == normalized_parent_id)
+            or (not item.shifu_bid and item.key in ACTIVE_SYSTEM_PROFILE_KEYS)
         ]
 
 
@@ -221,11 +224,23 @@ def _normalize_definition_key(key: str) -> str:
 
 
 def add_profile_item_quick_internal(
-    app: Flask, parent_id: str, key: str, user_id: str
+    app: Flask,
+    parent_id: str,
+    key: str,
+    user_id: str,
+    *,
+    allow_legacy_runtime_profile: bool = False,
 ) -> ProfileItemDefinition:
-    """Add profile item quick internal."""
+    """Create definitions; only legacy runtime writes may restore retired course keys."""
     key = _normalize_definition_key(key)
-    if parent_id and key.startswith("sys_"):
+    parent_id = parent_id or ""
+    if not parent_id and key not in ACTIVE_SYSTEM_PROFILE_KEYS:
+        raise_error("server.profile.parentIdRequired")
+    if (
+        parent_id
+        and key.startswith("sys_")
+        and not (allow_legacy_runtime_profile and key in RETIRED_PROFILE_KEYS)
+    ):
         raise_error("server.profile.keyReserved")
     bind = db.session.get_bind()
     inspector = inspect(bind)
@@ -365,6 +380,7 @@ def add_profile_item_quick_internal(
                 Variable.deleted == 0,
             ).order_by(Variable.id.asc())
             if row.key == key
+            and (row.shifu_bid == parent_id or key in ACTIVE_SYSTEM_PROFILE_KEYS)
         ),
         None,
     )
