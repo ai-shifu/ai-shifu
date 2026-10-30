@@ -25,7 +25,9 @@ previews, while preserving ordinary follow-up inputs and other forms.
 - [x] 2026-10-30: Integrated main at `ae176d93aa1f78acb4efaf6cf7dd815d8c66f115`,
   preserving its remark-flow 1.4.3 pin and override cleanup while keeping
   markdown-flow-ui 0.3.6. Regenerated the lockfile with npm and clean-installed it.
-- [ ] Review application CI and merge the integration PR.
+- [x] 2026-10-30: Added real installed-Slide integration coverage for Tab
+  completion, listening analytics, preview exclusion and explicit submission.
+- [ ] 2026-10-30: Review application CI and merge the integration PR.
 
 ## Surprises & Discoveries
 

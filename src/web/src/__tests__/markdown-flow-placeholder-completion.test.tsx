@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { deserialize, serialize } from 'node:v8';
 import { ContentRender, MarkdownFlowInput } from 'markdown-flow-ui/renderer';
+import { Slide } from 'markdown-flow-ui/slide';
 import { usePlaceholderAcceptedTracking } from '@/hooks/usePlaceholderAcceptedTracking';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 
@@ -44,6 +45,75 @@ function Question({
     </>
   );
 }
+
+function ListeningQuestion({
+  onSend,
+  preview,
+}: {
+  onSend: jest.Mock;
+  preview: boolean;
+}) {
+  const onPlaceholderAccepted = usePlaceholderAcceptedTracking(
+    'course_listen',
+    !preview,
+  );
+  return (
+    <Slide
+      playerEnabled
+      elementList={[
+        {
+          type: 'interaction',
+          sequence_number: 1,
+          is_new: true,
+          is_marker: true,
+          is_renderable: true,
+          content: '?[{{answer}}...Describe your work]',
+        },
+      ]}
+      onPlaceholderAccepted={onPlaceholderAccepted}
+      onSend={onSend}
+    />
+  );
+}
+
+it.each([false, true])(
+  'tracks real Slide Tab completion only outside preview=%s',
+  async preview => {
+    const user = userEvent.setup();
+    const onSend = jest.fn();
+    render(
+      <ListeningQuestion
+        onSend={onSend}
+        preview={preview}
+      />,
+    );
+    const textarea = await screen.findByRole('textbox');
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+    await user.click(textarea);
+    await user.tab();
+    expect(textarea).toHaveValue('Describe your work');
+    expect(textarea).toHaveFocus();
+    expect(onSend).not.toHaveBeenCalled();
+    const events = preview
+      ? []
+      : [
+          [
+            'learner_interaction_placeholder_accepted',
+            { surface: 'course_listen' },
+          ],
+        ];
+    expect(mockTrackEvent.mock.calls).toEqual(events);
+    await user.keyboard('{Enter}');
+    expect(onSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variableName: 'answer',
+        inputText: 'Describe your work',
+      }),
+      expect.any(Object),
+    );
+    expect(mockTrackEvent.mock.calls).toEqual(events);
+  },
+);
 
 it.each([
   ['text', '?[{{answer}}...Describe your work]'],
