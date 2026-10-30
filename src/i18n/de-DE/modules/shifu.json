@@ -50,12 +50,10 @@
     "variablesHideUnused": "Nicht verwendete Einträge ausblenden",
     "variablesHideUnusedConfirmDesc": "Blenden Sie Erinnerungseinträge aus, die im aktuellen Kurs nicht verwendet werden. Über „Alle anzeigen“ können Sie sie später wieder einblenden.",
     "variablesHideUnusedConfirmTitle": "Nicht verwendete Einträge ausblenden",
-    "variablesHideUnusedTooltip": "Erinnerungseinträge ausblenden, die im aktuellen Kurs nicht verwendet werden",
     "variablesPlaceholder": "Simulierte Antwort eingeben",
     "variablesRestoreHidden": "Alle anzeigen",
     "variablesRestoreHiddenConfirmDesc": "Die ausgeblendeten Erinnerungseinträge des aktuellen Kurses wieder anzeigen.",
     "variablesRestoreHiddenConfirmTitle": "Alle anzeigen",
-    "variablesRestoreHiddenTooltip": "Die ausgeblendeten Erinnerungseinträge des aktuellen Kurses wieder anzeigen",
     "variablesTitle": "Gedächtnis"
   }
 }

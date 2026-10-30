@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import VariableList from './VariableList';
 import styles from './VariableList.module.scss';
 
@@ -8,6 +8,8 @@ const mockTranslations: Record<string, Record<string, string>> = {
     'module.shifu.previewArea.personalInfoPlaceholder': '填写{label}',
     'module.shifu.previewArea.variablesPlaceholder': '填写模拟回答',
     'module.shifu.previewArea.variablesTitle': '记忆',
+    'module.shifu.previewArea.variablesHideUnused': '隐藏未使用项',
+    'module.shifu.previewArea.variablesRestoreHidden': '显示全部',
     'module.shifu.previewArea.variablesHideSingleConfirmTitle': '隐藏此项',
     'module.shifu.previewArea.systemVariableLabels.nickname': '学生昵称',
     'module.shifu.previewArea.systemVariableLabels.background': '学生背景偏好',
@@ -74,7 +76,7 @@ describe('VariableList system variable labels', () => {
     ].forEach(([label, rawKey]) => {
       const nameCell = screen.getByText(label);
       expect(nameCell).toHaveClass(styles.name);
-      expect(nameCell).toHaveAttribute('title', label);
+      expect(nameCell).not.toHaveAttribute('title');
       expect(nameCell).not.toHaveAttribute('tabindex');
       expect(screen.getByPlaceholderText(`填写${label}`)).toHaveValue(
         variables[rawKey as keyof typeof variables],
@@ -107,6 +109,7 @@ describe('VariableList system variable labels', () => {
           custom_topic: 'Testing',
           'What would you like to learn?': 'AI',
           sys_user_future: 'Future',
+          constructor: 'Custom class',
         }}
         systemVariableKeys={['sys_user_future']}
         onChange={onChange}
@@ -119,7 +122,10 @@ describe('VariableList system variable labels', () => {
     expect(screen.queryByTitle('sys_user_future')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: '记忆' })).toHaveValue('Future');
     expect(screen.getByPlaceholderText('填写记忆')).toHaveValue('Future');
-    expect(screen.getAllByPlaceholderText('填写模拟回答')).toHaveLength(2);
+    expect(screen.getByRole('textbox', { name: 'constructor' })).toHaveValue(
+      'Custom class',
+    );
+    expect(screen.getAllByPlaceholderText('填写模拟回答')).toHaveLength(3);
 
     fireEvent.change(screen.getByDisplayValue('AI'), {
       target: { value: 'Practical AI skills' },
@@ -148,7 +154,7 @@ describe('VariableList system variable labels', () => {
       />,
     );
 
-    expect(screen.getByText('avatar')).toHaveAttribute('title', 'avatar');
+    expect(screen.getByText('avatar')).not.toHaveAttribute('title');
     const input = screen.getByRole('textbox', { name: 'avatar' });
     expect(input).toHaveValue('Custom answer');
     expect(input).toHaveAttribute('placeholder', '填写模拟回答');
@@ -159,6 +165,77 @@ describe('VariableList system variable labels', () => {
     fireEvent.click(screen.getByRole('button', { name: '隐藏此项' }));
     expect(onHideVariable).toHaveBeenCalledWith('avatar');
   });
+
+  test.each([
+    { systemVariableKeys: [] },
+    { systemVariableKeys: ['sys_user_nickname', 'sys_user_background'] },
+  ])(
+    'keeps known personal fields friendly when custom metadata overlaps $systemVariableKeys',
+    ({ systemVariableKeys }) => {
+      const onChange = jest.fn();
+      const { container } = render(
+        <VariableList
+          variables={{
+            sys_user_nickname: 'Learner',
+            sys_user_background: 'Teacher',
+          }}
+          systemVariableKeys={systemVariableKeys}
+          customVariableKeys={['sys_user_nickname', 'sys_user_background']}
+          onChange={onChange}
+        />,
+      );
+
+      expect(screen.getByText('学生昵称')).toBeInTheDocument();
+      expect(screen.getByText('学生背景偏好')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('填写学生昵称')).toHaveValue(
+        'Learner',
+      );
+      expect(screen.getByPlaceholderText('填写学生背景偏好')).toHaveValue(
+        'Teacher',
+      );
+      expect(container.textContent).not.toContain('sys_user_');
+      expect(screen.queryByLabelText(/sys_user_/)).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByRole('textbox', { name: '学生昵称' }), {
+        target: { value: 'Updated' },
+      });
+      expect(onChange).toHaveBeenCalledWith('sys_user_nickname', 'Updated');
+    },
+  );
+
+  test.each([
+    ['hide', '隐藏未使用项'],
+    ['restore', '显示全部'],
+  ] as const)(
+    'shows no tooltips for the %s action or memory rows',
+    (actionType, label) => {
+      jest.useFakeTimers();
+      try {
+        const onAction = jest.fn();
+        const { container } = render(
+          <VariableList
+            variables={{ sys_user_nickname: 'Learner' }}
+            systemVariableKeys={['sys_user_nickname']}
+            actionType={actionType}
+            onAction={onAction}
+          />,
+        );
+
+        const button = screen.getByRole('button', { name: label });
+        fireEvent.mouseEnter(button);
+        fireEvent.focus(button);
+        act(() => jest.advanceTimersByTime(500));
+
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        expect(container.querySelector('[title]')).toBeNull();
+        expect(button).not.toHaveAttribute('aria-describedby');
+        fireEvent.click(button);
+        expect(onAction).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
 
   test('updates every visible friendly name when the interface language changes', () => {
     const props = {
