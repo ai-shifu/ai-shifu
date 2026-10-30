@@ -3,7 +3,7 @@
   "__flat__": {
     "avatar": "Avatar",
     "birth": "Date de naissance",
-    "keyInvalid": "Saisissez une question sans caractères de contrôle ni « }} ».",
+    "keyInvalid": "Impossible d’enregistrer cette mémoire : la question ne peut pas être vide ni contenir de caractères de contrôle ou « }} ».",
     "language": "Langue",
     "learnerProfileOptimizationEmptyResponse": "L’IA n’a renvoyé aucun contenu optimisé. Réessayez.",
     "learnerProfileOptimizationFailed": "Le service d’optimisation par IA a rencontré une erreur. Réessayez plus tard.",

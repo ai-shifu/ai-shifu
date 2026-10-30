@@ -3,7 +3,7 @@
   "__flat__": {
     "avatar": "Profilbild",
     "birth": "Geburtsdatum",
-    "keyInvalid": "Bitte geben Sie eine Frage ohne Steuerzeichen oder „}}“ ein.",
+    "keyInvalid": "Die Erinnerung konnte nicht gespeichert werden: Die Frage darf nicht leer sein und keine Steuerzeichen oder „}}“ enthalten.",
     "language": "Sprache",
     "learnerProfileOptimizationEmptyResponse": "Die KI lieferte keine optimierten Inhalte. Bitte versuchen Sie es erneut.",
     "learnerProfileOptimizationFailed": "Der KI-Optimierungsdienst ist auf einen Fehler gestoßen. Bitte versuchen Sie es später noch einmal.",

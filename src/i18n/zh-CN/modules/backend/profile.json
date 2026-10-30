@@ -3,7 +3,7 @@
   "__flat__": {
     "avatar": "头像",
     "birth": "生日",
-    "keyInvalid": "请填写问题，且不要包含控制字符或「}}」。",
+    "keyInvalid": "无法保存记忆：问题不能为空，且不能包含控制字符或「}}」。",
     "language": "语言",
     "learnerProfileOptimizationEmptyResponse": "AI 没有返回优化后的内容，请重试",
     "learnerProfileOptimizationFailed": "AI 优化服务出错，请稍后重试",
