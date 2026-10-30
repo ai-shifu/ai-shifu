@@ -58,6 +58,7 @@
 | `docs/exec-plans/active/gemini-live-configurable-capacity.md` | Configurable Gemini Live admission capacity | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/gemini-live-voice-follow-up.md` | Gemini Live follow-up acceptance | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/german-de-de-localization.md` | German (Germany) Product Localization | `exec-plan-active` | `active` | `repo` | `-` | `true` |
+| `docs/exec-plans/active/interaction-variable-pr-series.md` | Integrate standard interaction bindings | `exec-plan-active` | `active` | `learner` | `2026-10-29` | `true` |
 | `docs/exec-plans/active/lesson-reset-limit.md` | Lesson reset limit backed by SQL | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/local-storage-response-safety.md` | Local storage response safety | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/markdownflow-authored-inputs.md` | Keep Authored Input Hints Out of Choice Buttons | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
@@ -277,7 +278,7 @@
 | `docs/product-specs/index.md` | Product Specs | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/product-specs/language-selection-analytics.md` | Language Selection Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
 | `docs/product-specs/learner-listen-playback.md` | Learner Listen Playback and Timeline | `product-spec` | `implemented` | `frontend` | `2026-09-26` | `true` |
-| `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-10-07` | `true` |
+| `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-10-29` | `true` |
 | `docs/product-specs/lesson-content-updates.md` | Lesson Content Update Recommendations | `product-spec` | `implemented` | `shared` | `2026-10-12` | `true` |
 | `docs/product-specs/lesson-memory-context.md` | Lesson Memory Context | `product-spec` | `implemented` | `backend` | `2026-10-07` | `true` |
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
@@ -301,7 +302,7 @@
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-23` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
-| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-23` | `true` |
+| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-29` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
 | `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
 | `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
@@ -311,7 +312,7 @@
 | `docs/references/i18n.md` | Internationalization (i18n) Guide | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/index.md` | References | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/references/lesson-content-update-performance.md` | Lesson Content Revision Comparison Performance | `reference` | `reference` | `repo` | `-` | `true` |
-| `docs/references/markdownflow-authored-inputs.md` | MarkdownFlow Authored Input Hints | `reference` | `implemented` | `learner` | `2026-10-07` | `true` |
+| `docs/references/markdownflow-authored-inputs.md` | MarkdownFlow Authored Input Hints | `reference` | `implemented` | `learner` | `2026-10-29` | `true` |
 | `docs/references/markdownflow-cache-usage.md` | MarkdownFlow Cache Usage Observations | `reference` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/references/markdownflow-draft-classroom-history.md` | MarkdownFlow Draft Classroom History | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |
 | `docs/references/markdownflow-history-compaction.md` | MarkdownFlow recall history compaction | `reference` | `active` | `learner` | `2026-10-26` | `true` |

@@ -22,6 +22,9 @@ previews, while preserving ordinary follow-up inputs and other forms.
 - [x] 2026-10-30: Reproduced classroom completions being counted as listening
   usage, restricted listening eligibility and added mode-switch regressions.
   Verified standalone previews complete hints with no analytics observer.
+- [x] 2026-10-30: Integrated main at `ae176d93aa1f78acb4efaf6cf7dd815d8c66f115`,
+  preserving its remark-flow 1.4.3 pin and override cleanup while keeping
+  markdown-flow-ui 0.3.6. Regenerated the lockfile with npm and clean-installed it.
 - [ ] Review application CI and merge the integration PR.
 
 ## Surprises & Discoveries
@@ -32,6 +35,9 @@ previews, while preserving ordinary follow-up inputs and other forms.
   in the existing globals list removes those diagnostics in both smoke cases.
 - Next rewrites generated `.next/types` files during builds. Run the standalone
   type check after the build rather than concurrently.
+- Main independently upgraded markdown-flow-ui to 0.3.5 and remark-flow to
+  1.4.3 in PR #3238. Resolve the overlapping manifest/lockfile changes from that
+  upstream baseline, then upgrade only markdown-flow-ui to 0.3.6 with npm.
 
 ## Decision Log
 
@@ -100,6 +106,10 @@ Validation on 2026-10-30:
 - Review follow-up: classroom eligibility and mode-switch tests reproduced two
   failures before the guard fix. Afterward, 13 focused suites / 284 tests and
   type checking passed, including a standalone-preview case with no observer.
+- After integrating main: all 280 frontend suites / 3,590 tests and all 2,836
+  offline MarkdownFlow backend tests passed. Production build, standalone type
+  checking, lint and clean dependency installation also passed. Backend engine
+  and browser-harness sources remain identical to upstream main.
 
 ## Context and Orientation
 

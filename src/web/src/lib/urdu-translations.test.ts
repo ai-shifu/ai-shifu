@@ -69,7 +69,7 @@ test('keeps learner copy and interpolation in Urdu', () => {
 
 test('preserves executable MarkdownFlow syntax in the onboarding prompt', () => {
   const prompt = profileOnboarding.admin.defaultMarkdownflow;
-  expect(prompt).toContain('?[%{{sys_user_nickname}}...');
+  expect(prompt).toContain('?[{{sys_user_nickname}}...');
   expect(prompt.match(/\?\[/g)).toHaveLength(3);
   expect(prompt).not.toMatch(/\u061f\[/);
   expect(prompt).not.toMatch(/[\u3400-\u9fff]/);

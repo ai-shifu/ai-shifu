@@ -8,7 +8,7 @@ jest.mock('remark-flow', () => ({
   ...jest.requireActual('remark-flow/dist/variable-name'),
 }));
 
-describe('authored memory key compatibility', () => {
+describe.each(['%', ''])('authored %s{{key}} compatibility', marker => {
   const parser = createInteractionParser();
 
   it.each([
@@ -35,7 +35,7 @@ describe('authored memory key compatibility', () => {
     'path\\',
     '<b>name</b>',
   ])('preserves %s from parsing through named answer submission', key => {
-    const source = `?[%{{ ${key} }} 男 | 女 | 秘密]`;
+    const source = `?[${marker}{{ ${key} }} 男 | 女 | 秘密]`;
     const interaction = parser.parseToRemarkFormat(source);
 
     expect(extractVariableNames(`${source}\n{{ ${key} }}`)).toEqual([key]);
@@ -57,7 +57,9 @@ describe('authored memory key compatibility', () => {
 
   it('keeps existing display values and multiple selection semantics', () => {
     expect(
-      parser.parseToRemarkFormat('?[%{{skills}} 前端//web || 后端//api]'),
+      parser.parseToRemarkFormat(
+        `?[${marker}{{skills}} 前端//web || 后端//api]`,
+      ),
     ).toEqual({
       variableName: 'skills',
       buttonTexts: ['前端', '后端'],
@@ -67,12 +69,12 @@ describe('authored memory key compatibility', () => {
   });
 
   it.each([
-    'Show `{{` then ?[%{{ q }} A|B]',
-    'Show `{{`\n?[%{{ q }} A|B]',
-    'Text <span title="{{">\n?[%{{ q }} A|B]',
-    'Text <span title="before\n{{">\n?[%{{ q }} A|B]',
-    '\\{{ example ?[%{{ q }} A|B]',
-    'Show \\{{ not a variable }} then ?[%{{ q }} A|B]',
+    `Show \`{{\` then ?[${marker}{{ q }} A|B]`,
+    `Show \`{{\`\n?[${marker}{{ q }} A|B]`,
+    `Text <span title="{{">\n?[${marker}{{ q }} A|B]`,
+    `Text <span title="before\n{{">\n?[${marker}{{ q }} A|B]`,
+    `\\{{ example ?[${marker}{{ q }} A|B]`,
+    `Show \\{{ not a variable }} then ?[${marker}{{ q }} A|B]`,
   ])('extracts preview keys after a literal marker example: %s', source => {
     expect(extractVariableNames(source)).toEqual(['q']);
   });
