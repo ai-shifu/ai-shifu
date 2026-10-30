@@ -18,7 +18,7 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-    flex: 1;
+    flex: 1 1 240px;
     min-width: 0;
   }
 
@@ -36,9 +36,8 @@
     color: rgba(0, 0, 0, 0.45);
     flex: 1;
     min-width: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .link {
@@ -78,7 +77,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .actionsCompact {
@@ -86,6 +85,8 @@
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+    max-width: 100%;
+    margin-inline-start: auto;
   }
 
   .actionButton {
@@ -93,6 +94,7 @@
     align-items: center;
     gap: 6px;
     font-size: 13px;
+    min-width: 0;
     color: #111827;
     border: 1px solid #e5e7eb;
     border-radius: var(--border-radius-rounded-md, 8px);
