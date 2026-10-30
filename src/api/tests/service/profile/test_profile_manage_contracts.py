@@ -21,11 +21,12 @@ def variables(app: object) -> object:
     identity = uuid.uuid4().hex
     keys = {name: f"{name}_{identity}" for name in ("used", "unused", "old", "system")}
     keys["system"] = "sys_user_language"
+    definition_bids = {name: uuid.uuid4().hex for name in keys}
     with app.app_context(), unit_of_work():
         for name, key in keys.items():
             db.session.add(
                 Variable(
-                    variable_bid=uuid.uuid4().hex,
+                    variable_bid=definition_bids[name],
                     shifu_bid="" if name == "system" else identity,
                     key=key,
                     is_hidden=0,
@@ -53,9 +54,72 @@ def variables(app: object) -> object:
             synchronize_session=False
         )
         Variable.query.filter(
-            (Variable.shifu_bid == identity) | Variable.key.in_(list(keys.values()))
+            (Variable.shifu_bid == identity)
+            | Variable.variable_bid.in_(list(definition_bids.values()))
         ).delete(synchronize_session=False)
         DraftOutlineItem.query.filter_by(shifu_bid=identity).delete()
+
+
+def test_variables_fixture_teardown_preserves_preexisting_shared_definitions(
+    app: object,
+) -> None:
+    """Cleaning one test's variables must not erase another course's definitions."""
+    existing = {
+        uuid.uuid4().hex: "",
+        uuid.uuid4().hex: f"other-course-{uuid.uuid4().hex}",
+    }
+    with app.app_context(), unit_of_work():
+        for definition_bid, course in existing.items():
+            db.session.add(
+                Variable(
+                    variable_bid=definition_bid,
+                    shifu_bid=course,
+                    key="sys_user_language",
+                    deleted=0,
+                )
+            )
+        existing_bids = {row.variable_bid for row in Variable.query.all()}
+    try:
+        fixture = variables.__wrapped__(app)
+        owned = next(fixture)
+        try:
+            with app.app_context(), unit_of_work():
+                fixture_bids = {
+                    row.variable_bid for row in Variable.query.all()
+                } - existing_bids
+                db.session.add(
+                    Variable(
+                        variable_bid=uuid.uuid4().hex,
+                        shifu_bid=owned.course,
+                        key="test-created-local-variable",
+                    )
+                )
+        finally:
+            with pytest.raises(StopIteration):
+                next(fixture)
+        with app.app_context():
+            remaining = {
+                row.variable_bid: (row.shifu_bid, row.key, row.deleted)
+                for row in Variable.query.filter(
+                    Variable.variable_bid.in_(list(existing))
+                ).all()
+            }
+            assert remaining == {
+                definition_bid: (course, "sys_user_language", 0)
+                for definition_bid, course in existing.items()
+            }
+            assert Variable.query.filter_by(shifu_bid=owned.course).count() == 0
+            assert (
+                Variable.query.filter(
+                    Variable.variable_bid.in_(list(fixture_bids))
+                ).count()
+                == 0
+            )
+    finally:
+        with app.app_context(), unit_of_work():
+            Variable.query.filter(Variable.variable_bid.in_(list(existing))).delete(
+                synchronize_session=False
+            )
 
 
 def test_definition_list_preserves_fixed_text_fields_and_scope(
