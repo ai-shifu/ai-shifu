@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import ContentBlock from './ContentBlock';
 import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 
@@ -25,10 +25,12 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     content,
     locale,
     lang,
+    onPlaceholderAccepted,
   }: {
     content: string;
     locale: string;
     lang: string;
+    onPlaceholderAccepted?: () => void;
   }) => (
     <div
       data-testid='course-content'
@@ -36,6 +38,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
       lang={lang}
     >
       {content}
+      <button onClick={onPlaceholderAccepted}>accept hint</button>
     </div>
   ),
 }));
@@ -148,4 +151,48 @@ describe('ContentBlock content language', () => {
       'en-US',
     );
   });
+});
+
+it('forwards acceptance, updates memoized observers and excludes readonly/print output', () => {
+  const first = jest.fn();
+  const next = jest.fn();
+  const props = {
+    item: guideInteraction,
+    mobileStyle: false,
+    blockBid: 'question',
+    onSend,
+  };
+  const view = render(
+    <ContentBlock
+      {...props}
+      onPlaceholderAccepted={first}
+    />,
+  );
+  fireEvent.click(screen.getByText('accept hint'));
+  expect(first).toHaveBeenCalledTimes(1);
+  view.rerender(
+    <ContentBlock
+      {...props}
+      onPlaceholderAccepted={next}
+    />,
+  );
+  fireEvent.click(screen.getByText('accept hint'));
+  expect(next).toHaveBeenCalledTimes(1);
+  view.rerender(
+    <ContentBlock
+      {...props}
+      item={{ ...guideInteraction, readonly: true }}
+      onPlaceholderAccepted={next}
+    />,
+  );
+  fireEvent.click(screen.getByText('accept hint'));
+  view.rerender(
+    <ContentBlock
+      {...props}
+      printMode
+      onPlaceholderAccepted={next}
+    />,
+  );
+  fireEvent.click(screen.getByText('accept hint'));
+  expect(next).toHaveBeenCalledTimes(1);
 });

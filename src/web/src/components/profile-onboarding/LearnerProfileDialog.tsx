@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { cn } from '@/lib/utils';
+import { usePlaceholderAcceptedTracking } from '@/hooks/usePlaceholderAcceptedTracking';
 import {
   LearnerProfileSaveView,
   ProfileCollectionView,
@@ -29,6 +30,10 @@ export type {
 export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
   const { open, exitPolicy, externalSubmitting = false, onDefer } = props;
   const { t } = useTranslation();
+  const handlePlaceholderAccepted = usePlaceholderAcceptedTracking(
+    'profile_onboarding',
+    open,
+  );
   const {
     state,
     derived,
@@ -339,6 +344,7 @@ export default function LearnerProfileDialog(props: LearnerProfileDialogProps) {
                     collectionReady={collectionReady}
                     focusRef={collectionViewRef}
                     {...conversationProps}
+                    onPlaceholderAccepted={handlePlaceholderAccepted}
                   />
                 ) : (
                   <LearnerProfileSaveView

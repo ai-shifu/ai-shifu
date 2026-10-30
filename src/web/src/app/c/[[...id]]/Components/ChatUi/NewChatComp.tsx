@@ -22,6 +22,7 @@ import { getDocumentFullscreenElement } from '@/lib/browserFullscreen';
 import { AppContext } from '../AppContext';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 import { useTracking } from '@/hooks/useTracking';
+import { usePlaceholderAcceptedTracking } from '@/hooks/usePlaceholderAcceptedTracking';
 import { useEnvStore } from '@/store/envStore';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/store/useCourseStore';
@@ -823,6 +824,10 @@ export const NewChatComponents = ({
       lessonTitle,
       onError: handleLessonPdfPrintError,
     });
+  const handlePlaceholderAccepted = usePlaceholderAcceptedTracking(
+    'course_read',
+    !previewMode && !isPreparingLessonPdf,
+  );
   const renderedReadModeItems = isPreparingLessonPdf
     ? readModeItems
     : visibleReadModeItems;
@@ -1847,6 +1852,7 @@ export const NewChatComponents = ({
                         }
                         onClickCustomButtonAfterContent={handleClickAskButton}
                         onSend={memoizedOnSend}
+                        onPlaceholderAccepted={handlePlaceholderAccepted}
                         onLongPress={handleLongPress}
                         autoPlayAudio={
                           !isPreparingLessonPdf &&

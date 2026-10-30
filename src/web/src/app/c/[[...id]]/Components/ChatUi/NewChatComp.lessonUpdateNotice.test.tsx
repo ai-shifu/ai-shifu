@@ -21,6 +21,8 @@ let mockReadFeedbackElementBid = '';
 let mockLessonPdfReady = false;
 let mockLessonPdfPreparing = false;
 const mockPrintLessonPdf = jest.fn();
+const mockPlaceholderTrackEvent = jest.fn();
+const mockPlaceholderCallbacks = new Map<string, (() => void) | undefined>();
 
 type MockScrollControlProps = {
   ariaLabel: string;
@@ -180,7 +182,7 @@ jest.mock('./useLessonPdfPrint', () => ({
 
 jest.mock('@/hooks/useTracking', () => ({
   useTracking: () => ({
-    trackEvent: jest.fn(),
+    trackEvent: mockPlaceholderTrackEvent,
     trackTrailProgress: jest.fn(),
   }),
 }));
@@ -290,12 +292,18 @@ jest.mock(
       contentLanguage,
       contentRenderKey,
       enableStreamingTypewriter,
+      onPlaceholderAccepted,
     }: {
       item: { content?: string; element_bid?: string };
       contentLanguage?: string;
       contentRenderKey?: string;
       enableStreamingTypewriter?: boolean;
+      onPlaceholderAccepted?: () => void;
     }) {
+      mockPlaceholderCallbacks.set(
+        item.element_bid || '',
+        onPlaceholderAccepted,
+      );
       return (
         <div
           data-testid={`content-block-${item.element_bid || 'item'}`}
@@ -491,6 +499,7 @@ describe('NewChatComponents', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPlaceholderCallbacks.clear();
     Object.assign(window.location, {
       href: 'http://localhost:3000/c/course-1?lessonid=lesson-1&mode=listen&preview=true#follow-up',
       pathname: '/c/course-1',
@@ -519,6 +528,39 @@ describe('NewChatComponents', () => {
     requestAnimationFrameSpy.mockRestore();
     visibilityStateSpy.mockRestore();
   });
+
+  it.each([false, true])(
+    'tracks reading completion only outside preview=%s',
+    preview => {
+      mockLearningMode = 'read';
+      renderNewChatComponents(
+        jest.fn(),
+        jest.fn(),
+        [
+          {
+            type: 'interaction',
+            element_bid: 'tab-question',
+            content: '?[...Hint]',
+          },
+        ],
+        preview,
+      );
+      const callback = mockPlaceholderCallbacks.get('tab-question');
+      expect(callback).toEqual(expect.any(Function));
+      mockPlaceholderTrackEvent.mockClear();
+      act(() => callback?.());
+      expect(mockPlaceholderTrackEvent.mock.calls).toEqual(
+        preview
+          ? []
+          : [
+              [
+                'learner_interaction_placeholder_accepted',
+                { surface: 'course_read' },
+              ],
+            ],
+      );
+    },
+  );
 
   it('renders the titlebar retake action and opens the existing confirm dialog', async () => {
     renderTitlebarLessonUpdateNotice();

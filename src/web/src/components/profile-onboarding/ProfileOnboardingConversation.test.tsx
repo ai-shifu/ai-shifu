@@ -28,6 +28,7 @@ const mockSendCallbacks = new Map<
   string,
   (value: OnSendContentParams) => void
 >();
+const mockHintCallbacks = new Map<string, (() => void) | undefined>();
 let mockLanguage = 'zh-CN';
 
 type MockScrollControlProps = {
@@ -77,6 +78,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     typewriterPacing,
     typingSpeed,
     onTypeFinished,
+    onPlaceholderAccepted,
   }: {
     content: string;
     locale?: string;
@@ -88,7 +90,9 @@ jest.mock('markdown-flow-ui/renderer', () => ({
     typewriterPacing?: 'fixed' | 'content-aware';
     typingSpeed?: number;
     onTypeFinished?: () => void;
+    onPlaceholderAccepted?: () => void;
   }) => {
+    mockHintCallbacks.set(content, onPlaceholderAccepted);
     mockRenderedContents.push(content);
     if (onSend) mockSendCallbacks.set(content, onSend);
     React.useEffect(() => {
@@ -150,6 +154,7 @@ describe('ProfileOnboardingConversation', () => {
     mockLatestTypeFinished = undefined;
     mockRenderedContents = [];
     mockSendCallbacks.clear();
+    mockHintCallbacks.clear();
     mockScrollToBottomControl.mockClear();
   });
 
@@ -301,6 +306,60 @@ describe('ProfileOnboardingConversation', () => {
       'false',
     );
   });
+
+  test.each([false, true])(
+    'forwards completion observers only for editable Profile questions, disabled=%s',
+    async disabled => {
+      const content = '?[...Describe your background]';
+      const observer = jest.fn();
+      const runSession: ProfileOnboardingRunSession = ({ onMessage }) => {
+        queueMicrotask(() => {
+          onMessage({
+            type: 'element',
+            content: {
+              element_bid: 'hint-profile',
+              element_type: 'interaction',
+              content,
+            },
+          });
+          onMessage({
+            type: 'done',
+            is_terminal: true,
+            content: { done: false, next_turn_index: 1 },
+          });
+        });
+        return { close: jest.fn() };
+      };
+      const props = {
+        createSession: async () => ({ session_id: 'hint-session' }),
+        runSession,
+        onDraftReady: jest.fn(),
+        onError: jest.fn(),
+        onPlaceholderAccepted: observer,
+      };
+      const view = render(<ProfileOnboardingConversation {...props} />);
+      await screen.findByText(content);
+      await waitFor(() =>
+        expect(mockHintCallbacks.get(content)).toEqual(expect.any(Function)),
+      );
+      if (disabled)
+        view.rerender(
+          <ProfileOnboardingConversation
+            {...props}
+            disabled
+          />,
+        );
+      act(() => mockHintCallbacks.get(content)?.());
+      expect(observer).toHaveBeenCalledTimes(disabled ? 0 : 1);
+      view.rerender(
+        <ProfileOnboardingConversation
+          {...props}
+          onPlaceholderAccepted={undefined}
+        />,
+      );
+      expect(mockHintCallbacks.get(content)).toBeUndefined();
+    },
+  );
 
   test('renders HTML content without a typewriter delay', async () => {
     const runSession = jest.fn(({ onMessage }) => {
