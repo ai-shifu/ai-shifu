@@ -4,6 +4,7 @@
     "avatar": "Profilbild",
     "birth": "Geburtsdatum",
     "keyInvalid": "Die Erinnerung konnte nicht gespeichert werden: Die Frage darf nicht leer sein und keine Steuerzeichen oder „}}“ enthalten.",
+    "keyReserved": "Fragen dürfen nicht mit sys_ beginnen; dieses Präfix ist für das System reserviert.",
     "language": "Sprache",
     "learnerProfileOptimizationEmptyResponse": "Die KI lieferte keine optimierten Inhalte. Bitte versuchen Sie es erneut.",
     "learnerProfileOptimizationFailed": "Der KI-Optimierungsdienst ist auf einen Fehler gestoßen. Bitte versuchen Sie es später noch einmal.",

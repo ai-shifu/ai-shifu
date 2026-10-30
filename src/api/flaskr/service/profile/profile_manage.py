@@ -225,6 +225,8 @@ def add_profile_item_quick_internal(
 ) -> ProfileItemDefinition:
     """Add profile item quick internal."""
     key = _normalize_definition_key(key)
+    if parent_id and key.startswith("sys_"):
+        raise_error("server.profile.keyReserved")
     bind = db.session.get_bind()
     inspector = inspect(bind)
     tables = set(inspector.get_table_names())
