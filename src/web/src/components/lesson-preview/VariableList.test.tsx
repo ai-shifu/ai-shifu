@@ -8,6 +8,7 @@ const mockTranslations: Record<string, Record<string, string>> = {
     'module.shifu.previewArea.personalInfoPlaceholder': '填写{label}',
     'module.shifu.previewArea.variablesPlaceholder': '填写模拟回答',
     'module.shifu.previewArea.variablesTitle': '记忆',
+    'module.shifu.previewArea.variablesHideSingleConfirmTitle': '隐藏此项',
     'module.shifu.previewArea.systemVariableLabels.nickname': '学生昵称',
     'module.shifu.previewArea.systemVariableLabels.background': '学生背景偏好',
     'module.shifu.previewArea.systemVariableLabels.input': '最新输入',
@@ -131,6 +132,32 @@ describe('VariableList system variable labels', () => {
       target: { value: 'Updated' },
     });
     expect(onChange).toHaveBeenCalledWith('sys_user_future', 'Updated');
+  });
+
+  test('preserves a custom memory label when a system key has the same name', () => {
+    const onChange = jest.fn();
+    const onHideVariable = jest.fn();
+    render(
+      <VariableList
+        variables={{ avatar: 'Custom answer' }}
+        systemVariableKeys={['avatar']}
+        customVariableKeys={['avatar']}
+        unusedVariableKeys={['avatar']}
+        onChange={onChange}
+        onHideVariable={onHideVariable}
+      />,
+    );
+
+    expect(screen.getByText('avatar')).toHaveAttribute('title', 'avatar');
+    const input = screen.getByRole('textbox', { name: 'avatar' });
+    expect(input).toHaveValue('Custom answer');
+    expect(input).toHaveAttribute('placeholder', '填写模拟回答');
+    expect(screen.queryByPlaceholderText('填写记忆')).not.toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: 'Updated answer' } });
+    expect(onChange).toHaveBeenCalledWith('avatar', 'Updated answer');
+    fireEvent.click(screen.getByRole('button', { name: '隐藏此项' }));
+    expect(onHideVariable).toHaveBeenCalledWith('avatar');
   });
 
   test('updates every visible friendly name when the interface language changes', () => {

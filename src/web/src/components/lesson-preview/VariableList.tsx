@@ -167,12 +167,14 @@ const VariableList: React.FC<VariableListProps> = ({
             {entries.map(([name, value]) => {
               const displayValue = value || '';
               const canHide = customKeySet.has(name) && unusedKeySet.has(name);
-              const systemVariableLabelKey = systemVariableKeySet.has(name)
+              const isSystemOnlyKey =
+                systemVariableKeySet.has(name) && !customKeySet.has(name);
+              const systemVariableLabelKey = isSystemOnlyKey
                 ? resolveSystemVariableLabelKey(name)
                 : undefined;
               const displayName = systemVariableLabelKey
                 ? t(systemVariableLabelKey)
-                : systemVariableKeySet.has(name)
+                : isSystemOnlyKey
                   ? t('module.shifu.previewArea.variablesTitle')
                   : name;
               return (
@@ -195,7 +197,7 @@ const VariableList: React.FC<VariableListProps> = ({
                       value={displayValue}
                       aria-label={displayName}
                       placeholder={
-                        systemVariableKeySet.has(name)
+                        isSystemOnlyKey
                           ? t(
                               'module.shifu.previewArea.personalInfoPlaceholder',
                               {
