@@ -214,6 +214,36 @@ const getMockSlideBuiltInActionClick = () =>
 const originalRequestFullscreen = HTMLElement.prototype.requestFullscreen;
 
 describe('ListenModeSlideRenderer', () => {
+  it.each([false, true])(
+    'tracks listening completion only outside preview=%s',
+    previewMode => {
+      render(
+        <ListenModeSlideRenderer
+          items={[]}
+          mobileStyle={false}
+          chatRef={createChatRef()}
+          previewMode={previewMode}
+        />,
+      );
+      const calls = getMockSlide().mock.calls;
+      const props = calls[calls.length - 1][0] as {
+        onPlaceholderAccepted?: () => void;
+      };
+      expect(props.onPlaceholderAccepted).toEqual(expect.any(Function));
+      mockTrackEvent.mockClear();
+      act(() => props.onPlaceholderAccepted?.());
+      expect(mockTrackEvent.mock.calls).toEqual(
+        previewMode
+          ? []
+          : [
+              [
+                'learner_interaction_placeholder_accepted',
+                { surface: 'course_listen' },
+              ],
+            ],
+      );
+    },
+  );
   beforeEach(() => {
     window.localStorage.clear();
     mockSlideMountId = 0;

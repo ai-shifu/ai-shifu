@@ -28,6 +28,7 @@ import type {
 const mockToast = jest.fn();
 const mockTrackEvent = jest.fn();
 let mockTrackEventIdentity = mockTrackEvent;
+let mockHintAccepted: (() => void) | undefined;
 let mockLanguage = 'en-US';
 const FINISH_COLLECTION_LABEL = 'finish collection';
 const FAIL_COLLECTION_LABEL = 'fail collection';
@@ -114,6 +115,7 @@ const mockAssistantDraftRenders: Array<{
 function MockProfileOnboardingConversation(
   props: ProfileOnboardingConversationProps,
 ) {
+  mockHintAccepted = props.onPlaceholderAccepted;
   // Capture render-time props, including the account-switch render before
   // passive effects restore the next account's draft.
   mockAssistantDraftRenders.push({
@@ -393,6 +395,7 @@ const continueCollectionToSave = async () => {
 describe('LearnerProfileDialog', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockHintAccepted = undefined;
     window.sessionStorage.clear();
     mockConversationControls.splice(0);
     mockAssistantDraftRenders.splice(0);
@@ -414,6 +417,22 @@ describe('LearnerProfileDialog', () => {
       optimized_learner_profile: 'Optimized learner introduction',
     });
     mockRunProfileOnboardingSession.mockReturnValue({ close: jest.fn() });
+  });
+
+  test('tracks learner Profile hint completion with no authored text', async () => {
+    mockGetLearnerProfile.mockResolvedValue(emptyProfile);
+    mockGetProfileOnboardingStatus.mockResolvedValue(onboardingStatus());
+    renderDialog();
+    await waitForCollectionSession();
+    expect(mockHintAccepted).toEqual(expect.any(Function));
+    mockTrackEvent.mockClear();
+    act(() => mockHintAccepted?.());
+    expect(mockTrackEvent.mock.calls).toEqual([
+      [
+        'learner_interaction_placeholder_accepted',
+        { surface: 'profile_onboarding' },
+      ],
+    ]);
   });
 
   test('waits for profile and status before opening the compact collection phase', async () => {

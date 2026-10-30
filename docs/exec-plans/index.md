@@ -49,6 +49,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Account-linked Skill request pageviews](./active/skill-request-analytics.md)
+- [Tab hint completion in MarkdownFlow interactions](./active/tab-placeholder-completion.md)
 
 ## Completed
 

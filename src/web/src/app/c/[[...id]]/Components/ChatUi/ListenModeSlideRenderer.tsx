@@ -64,6 +64,7 @@ import {
   writeListenPlaybackCheckpoint,
 } from './listenPlaybackCheckpoint';
 import { useTracking } from '@/hooks/useTracking';
+import { usePlaceholderAcceptedTracking } from '@/hooks/usePlaceholderAcceptedTracking';
 import AskBlock from './AskBlock';
 import type { AskMessage } from './AskBlock';
 import AskIcon from '@/assets/newchat/light/icon_ask.svg';
@@ -774,6 +775,10 @@ const ListenModeSlideRenderer = ({
 }: ListenModeSlideRendererProps) => {
   const { t, i18n } = useTranslation();
   const { trackEvent } = useTracking();
+  const handlePlaceholderAccepted = usePlaceholderAcceptedTracking(
+    'course_listen',
+    !previewMode,
+  );
   const hostLanguage = i18n.resolvedLanguage ?? i18n.language;
   const markdownFlowLocale = resolveMarkdownFlowLocale(hostLanguage);
   const presentationProfile = resolveListenSlidePresentationProfile(variant);
@@ -2461,6 +2466,7 @@ const ListenModeSlideRenderer = ({
           disableLoadingOverlay={disableLoadingOverlay}
           fullscreenHeader={fullscreenHeader}
           onSend={handleInteractionSend}
+          onPlaceholderAccepted={handlePlaceholderAccepted}
           onMobileViewModeChange={handleMobileViewModeChange}
           playbackRestoreRequest={playbackRestoreRequest}
           playerClassName={cn(
