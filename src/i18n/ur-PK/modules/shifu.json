@@ -50,12 +50,10 @@
     "variablesHideUnused": "غیر استعمال شدہ اندراجات چھپائیں",
     "variablesHideUnusedConfirmDesc": "موجودہ کورس میں یادداشت کے غیر استعمال شدہ اندراجات چھپا دیں۔ انہیں دوبارہ دکھانے کے لیے «سب دکھائیں» استعمال کریں۔",
     "variablesHideUnusedConfirmTitle": "غیر استعمال شدہ اندراجات چھپائیں",
-    "variablesHideUnusedTooltip": "موجودہ کورس میں یادداشت کے غیر استعمال شدہ اندراجات چھپائیں",
     "variablesPlaceholder": "آزمائشی جواب درج کریں",
     "variablesRestoreHidden": "سب دکھائیں",
     "variablesRestoreHiddenConfirmDesc": "موجودہ کورس میں یادداشت کے چھپے ہوئے اندراجات دکھائیں۔",
     "variablesRestoreHiddenConfirmTitle": "سب دکھائیں",
-    "variablesRestoreHiddenTooltip": "موجودہ کورس میں یادداشت کے چھپے ہوئے اندراجات دکھائیں",
     "variablesTitle": "یادداشت"
   }
 }
