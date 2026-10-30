@@ -47,6 +47,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Progressive HTML alongside typed lesson text](./active/progressive-html-typewriter.md)
 - [Define and align MarkdownFlow text variable names](./active/question-memory-key-compatibility.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)
+- [Remove manual memory definition write APIs](./active/remove-manual-memory-definition-apis.md)
 - [Ruff rule minimization](./active/ruff-rule-minimization.md)
 - [Skill Channel Analytics Through Umami](./active/skill-platform-attribution.md)
 - [Account-linked Skill request pageviews](./active/skill-request-analytics.md)

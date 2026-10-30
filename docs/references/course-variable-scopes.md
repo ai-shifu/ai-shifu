@@ -55,9 +55,9 @@ required.
 The wider rule intentionally recognizes some markers that older parsers
 treated as plain text, including names with internal spaces. Existing ordinary
 identifiers and literal quote/backslash keys retain their identity. Invalid
-markers remain literal text and do not expose nested variables. Definition
-create/save and browser submissions trim using the same rule, while existing
-stored memory is not migrated. Machine-only format placeholders in
+markers remain literal text and do not expose nested variables. Automatic
+definition creation and browser submissions trim using the same rule, while
+existing stored memory is not migrated. Machine-only format placeholders in
 `learn/utils_v2.py` have a separate restricted contract and are not teaching
 prompt memory keys.
 
@@ -92,14 +92,24 @@ work. Cross-course model notes and owner-wide custom storage are cancelled.
 ## Memory definition API type compatibility
 
 The definition list has no type filter. Requests use `parent_id` for course scope;
-legacy `type` query parameters are ignored. Saving a definition no longer requires
-`profile_type`. Legacy `profile_type` request fields are ignored along with the
-other retired definition settings. Listed and saved definitions retain the fixed
+legacy `type` query parameters are ignored. Listed definitions retain the fixed
 `profile_type: "text"` response and the existing `profile_type_str` label for
-compatibility. Existing keys, scopes, stored answers and legacy text rows remain
-unchanged.
+compatibility.
 
-This contract concerns memory definition metadata, not MarkdownFlow interaction
-types. Single-choice, multi-choice and free-text controls continue to follow the
-authored interaction syntax; a legacy `profile_type: "option"` request does not
-select or change those controls.
+The manual definition endpoints are removed:
+
+- `POST /api/profiles/add-profile-item-quick`
+- `POST /api/profiles/save-profile-item`
+- `POST /api/profiles/delete-profile-item`
+
+Requests to these unregistered paths receive the standard JSON not-found response
+with `code: 404`. Saving MarkdownFlow content still automatically creates missing
+definitions through the shared internal helper, including its legacy text-table
+fallback. Definition listing, usage inspection, hiding and restoring remain
+available. Existing keys, scopes, stored answers and legacy text rows remain
+unchanged. Learner course-memory deletion and personal-profile editing use their
+own APIs and remain available.
+
+The fixed text fields describe memory definition metadata. Single-choice,
+multi-choice and free-text controls continue to follow the authored MarkdownFlow
+interaction syntax.

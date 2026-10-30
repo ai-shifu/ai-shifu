@@ -3,10 +3,7 @@
   "__flat__": {
     "avatar": "头像",
     "birth": "生日",
-    "keyExist": "键已存在",
     "keyInvalid": "变量名不能为空，不能包含控制字符或 }}。",
-    "keyRequire": "键必填",
-    "keyRequired": "键必填",
     "language": "语言",
     "learnerProfileOptimizationEmptyResponse": "AI 没有返回优化后的内容，请重试",
     "learnerProfileOptimizationFailed": "AI 优化服务出错，请稍后重试",
@@ -16,11 +13,7 @@
     "learnerProfileOptimizationRejected": "这段介绍包含不合规内容，请修改后重试",
     "learnerProfileOptimizationTimedOut": "AI 优化请求超时，请重试",
     "nickname": "昵称",
-    "notFound": "变量不存在",
     "parentIdRequired": "父级ID必填",
-    "prarentRequired": "父级必填",
-    "profileIdRequired": "变量ID必填",
-    "profileKeyRequired": "变量键必填",
     "profileOnboardingBusy": "正在处理你的另一项个性化设置，请稍后再试",
     "profileOnboardingConfigBusy": "另一项配置正在发布，请稍后重试。",
     "profileOnboardingConfigConflict": "已有其他管理员保存了新版本。请刷新配置后重新编辑保存。",
@@ -31,9 +24,6 @@
     "sexMale": "男",
     "sexSecret": "保密",
     "style": "风格",
-    "systemProfileKeyExist": "系统变量键已存在",
-    "systemProfileNotAllowDelete": "系统变量不允许删除",
-    "systemProfileNotAllowUpdate": "系统变量不允许更新",
     "userBackground": "背景"
   }
 }
