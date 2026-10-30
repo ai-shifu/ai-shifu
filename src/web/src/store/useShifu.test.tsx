@@ -6,6 +6,8 @@ const mockSaveMdflow = jest.fn();
 const mockGetShifuDraftMeta = jest.fn();
 const mockGetShifuDetail = jest.fn();
 const mockCreateOutline = jest.fn();
+const mockGetProfileItemDefinitions = jest.fn();
+const mockGetProfileVariableUsage = jest.fn();
 const mockTrackEvent = jest.fn();
 
 jest.mock('@/api', () => ({
@@ -15,6 +17,10 @@ jest.mock('@/api', () => ({
     getShifuDraftMeta: (...args: unknown[]) => mockGetShifuDraftMeta(...args),
     getShifuDetail: (...args: unknown[]) => mockGetShifuDetail(...args),
     createOutline: (...args: unknown[]) => mockCreateOutline(...args),
+    getProfileItemDefinitions: (...args: unknown[]) =>
+      mockGetProfileItemDefinitions(...args),
+    getProfileVariableUsage: (...args: unknown[]) =>
+      mockGetProfileVariableUsage(...args),
   },
 }));
 
@@ -458,5 +464,68 @@ describe('useShifu outline-create analytics producers', () => {
     expect(result.current.cataData['server-outline-1']).toEqual(
       expect.objectContaining({ type: 'trial', is_hidden: true }),
     );
+  });
+});
+
+describe('useShifu memory definition requests', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mockGetProfileItemDefinitions.mockReset();
+    mockGetProfileVariableUsage.mockReset();
+  });
+
+  it('omits the retired type filter while preserving scope, visibility and caching', async () => {
+    mockGetProfileItemDefinitions.mockResolvedValue([
+      {
+        profile_id: 'system-1',
+        profile_key: 'sys_user_nickname',
+        profile_scope: 'system',
+        profile_remark: 'Nickname',
+        profile_type: 'text',
+      },
+      {
+        profile_id: 'question-1',
+        profile_key: 'What would you like to learn?',
+        profile_scope: 'user',
+        profile_type: 'text',
+        is_hidden: false,
+      },
+      {
+        profile_id: 'legacy-1',
+        profile_key: 'legacy_key',
+        profile_scope: 'user',
+        profile_type: 'text',
+        is_hidden: true,
+      },
+    ]);
+    mockGetProfileVariableUsage.mockResolvedValue({
+      used_keys: ['What would you like to learn?'],
+      unused_keys: ['legacy_key'],
+    });
+    const { result } = renderHook(() => useShifu(), { wrapper });
+
+    await act(async () => {
+      await result.current.actions.refreshProfileDefinitions('course-memory');
+    });
+
+    expect(mockGetProfileItemDefinitions).toHaveBeenCalledWith({
+      parent_id: 'course-memory',
+    });
+    expect(result.current.variables).toEqual([
+      'What would you like to learn?',
+      'legacy_key',
+    ]);
+    expect(result.current.systemVariables).toEqual([
+      { name: 'sys_user_nickname', label: 'Nickname' },
+    ]);
+    expect(result.current.hiddenVariables).toEqual(['legacy_key']);
+    expect(result.current.unusedVariables).toEqual(['legacy_key']);
+
+    await act(async () => {
+      await result.current.actions.refreshProfileDefinitions('course-memory');
+    });
+
+    expect(mockGetProfileItemDefinitions).toHaveBeenCalledTimes(1);
+    expect(mockGetProfileVariableUsage).toHaveBeenCalledTimes(1);
   });
 });

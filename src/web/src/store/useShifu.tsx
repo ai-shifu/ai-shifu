@@ -1261,7 +1261,6 @@ export const ShifuProvider = ({
         const [list, usage] = await Promise.all([
           api.getProfileItemDefinitions({
             parent_id: shifuId,
-            type: 'all',
           }),
           api.getProfileVariableUsage({ parent_id: shifuId }),
         ]);

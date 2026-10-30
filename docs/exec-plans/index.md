@@ -147,6 +147,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Responsive canvases for newly generated MarkdownFlow 2.0 visuals](./completed/mdf2-responsive-canvas.md)
 - [Semantic summaries for older MarkdownFlow teaching](./completed/mdf2-teaching-semantic-summary.md)
 - [Unavailable Learner Values](./completed/mdf2-unavailable-learner-values.md)
+- [Remove unused memory definition type configuration](./completed/memory-definition-type-cleanup.md)
 - [Mobile Learner Personalization Dialog](./completed/mobile-personalization-dialog.md)
 - [Centralize model option display normalization](./completed/model-option-display-normalization.md)
 - [Respect the course output language in agent lessons](./completed/multilingual-agent-lessons.md)

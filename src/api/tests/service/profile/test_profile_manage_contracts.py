@@ -11,8 +11,9 @@ from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import AppError
 from flaskr.service.profile import profile_manage as profiles
-from flaskr.service.profile.models import Variable
+from flaskr.service.profile.models import Variable, VariableValue
 from flaskr.service.shifu.models import DraftOutlineItem
+from markdownflow.syntax.parser.interaction import InteractionParser, InteractionType
 from sqlalchemy import MetaData, String, event, text
 
 
@@ -48,10 +49,94 @@ def variables(app: object) -> object:
             )
     yield SimpleNamespace(course=identity, keys=keys)
     with app.app_context(), unit_of_work():
+        VariableValue.query.filter_by(shifu_bid=identity).delete(
+            synchronize_session=False
+        )
         Variable.query.filter(
             (Variable.shifu_bid == identity) | Variable.key.in_(list(keys.values()))
         ).delete(synchronize_session=False)
         DraftOutlineItem.query.filter_by(shifu_bid=identity).delete()
+
+
+def test_definition_list_preserves_fixed_text_fields_and_scope(
+    app: object, variables: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(profiles, "_", lambda key: f"label:{key}")
+    definitions = {
+        item.profile_key: item.__json__()
+        for item in profiles.get_profile_item_definition_list(app, variables.course)
+        if item.profile_key in variables.keys.values()
+    }
+
+    assert set(definitions) == set(variables.keys.values())
+    assert {item["profile_type"] for item in definitions.values()} == {"text"}
+    assert {item["profile_type_str"] for item in definitions.values()} == {
+        "label:PROFILE.PROFILE_TYPE_TEXT"
+    }
+    assert definitions[variables.keys["system"]]["profile_scope"] == "system"
+    assert definitions[variables.keys["used"]]["profile_scope"] == "user"
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_type"),
+    [
+        ("First//first | Second//second", InteractionType.BUTTONS_ONLY),
+        ("First//first || Second//second", InteractionType.BUTTONS_MULTI_SELECT),
+        ("...Write your answer", InteractionType.TEXT_ONLY),
+    ],
+)
+def test_definition_save_preserves_answers_and_authored_question_types(
+    app: object, variables: object, body: str, expected_type: InteractionType
+) -> None:
+    key = variables.keys["used"]
+    content = "?[%{{ " + key + " }} " + body + "]"
+    identity = uuid.uuid4().hex
+    with app.app_context(), unit_of_work():
+        definition = Variable.query.filter_by(shifu_bid=variables.course, key=key).one()
+        definition_id = definition.variable_bid
+        db.session.add(
+            VariableValue(
+                variable_value_bid=identity,
+                variable_bid=definition_id,
+                user_bid=identity,
+                shifu_bid=variables.course,
+                key=key,
+                value="Previously accepted answer",
+            )
+        )
+        outline = DraftOutlineItem(
+            shifu_bid=variables.course,
+            outline_item_bid=identity,
+            content=content,
+            position=0,
+            deleted=0,
+        )
+        db.session.add(outline)
+        db.session.flush()
+        outline_id = outline.id
+
+    parser = InteractionParser()
+    original_control = parser.parse(content)
+    assert original_control["type"] is expected_type
+    if expected_type is not InteractionType.TEXT_ONLY:
+        assert original_control["buttons"] == [
+            {"display": "First", "value": "first"},
+            {"display": "Second", "value": "second"},
+        ]
+
+    updated = profiles.save_profile_item(
+        app, definition_id, variables.course, "teacher", key
+    )
+    assert updated.profile_type == "text"
+    with app.app_context():
+        answer = VariableValue.query.filter_by(variable_value_bid=identity).one()
+        assert answer.value == "Previously accepted answer"
+        assert answer.key == key
+        assert answer.variable_bid == definition_id
+        stored_outline = db.session.get(DraftOutlineItem, outline_id)
+        assert stored_outline is not None
+        assert stored_outline.content == content
+        assert parser.parse(stored_outline.content) == original_control
 
 
 def test_usage_scan_uses_latest_active_outline_and_hides_only_unused_custom_keys(
@@ -418,6 +503,12 @@ def test_legacy_quick_add_reuses_active_identity_and_increments_index(
         )
         assert first.profile_id == duplicate.profile_id
         assert second.profile_id != first.profile_id
+        assert (
+            first.profile_type
+            == duplicate.profile_type
+            == second.profile_type
+            == "text"
+        )
         assert first.profile_scope == (
             profiles.CONST_PROFILE_SCOPE_USER
             if parent
@@ -434,6 +525,9 @@ def test_legacy_quick_add_reuses_active_identity_and_increments_index(
         assert [row["profile_key"] for row in rows] == ["first", "second"]
         assert all(row["created_by"] == "teacher" for row in rows)
         assert all(row["status"] == 1 and row["parent_id"] == parent for row in rows)
+        assert all(
+            int(row["profile_type"]) == profiles.PROFILE_TYPE_INPUT_TEXT for row in rows
+        )
 
 
 def test_legacy_definition_reuse_uses_exact_keys_with_a_case_folding_column(

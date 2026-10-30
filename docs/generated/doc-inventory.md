@@ -179,6 +179,7 @@
 | `docs/exec-plans/completed/mdf2-responsive-canvas.md` | Responsive canvases for newly generated MarkdownFlow 2.0 visuals | `exec-plan-completed` | `completed` | `learner` | `2026-10-20` | `false` |
 | `docs/exec-plans/completed/mdf2-teaching-semantic-summary.md` | Semantic summaries for older MarkdownFlow teaching | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/mdf2-unavailable-learner-values.md` | Unavailable Learner Values | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/memory-definition-type-cleanup.md` | Remove unused memory definition type configuration | `exec-plan-completed` | `completed` | `shared` | `2026-10-30` | `false` |
 | `docs/exec-plans/completed/mobile-personalization-dialog.md` | Mobile Learner Personalization Dialog | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/model-option-display-normalization.md` | Centralize model option display normalization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/multilingual-agent-lessons.md` | Respect the course output language in agent lessons | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
@@ -302,7 +303,7 @@
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-23` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
-| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-29` | `true` |
+| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-30` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
 | `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
 | `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |

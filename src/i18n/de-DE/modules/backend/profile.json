@@ -26,8 +26,6 @@
     "profileOnboardingConfigConflict": "Ein anderer Administrator hat eine neuere Version gespeichert. Laden Sie die aktuelle Konfiguration neu, bevor Sie sie bearbeiten und speichern.",
     "profileOnboardingConfigNotPersistable": "Diese Konfiguration wird von einer Umgebungsvariablen verwaltet und kann hier nicht gespeichert werden. Kontaktieren Sie einen Administrator.",
     "profileOnboardingPromptGenerationFailed": "Der KI-Antwortprompt konnte nicht erstellt werden. Die Konfiguration wurde nicht veröffentlicht. Ihre Eingaben sind erhalten geblieben; bitte versuchen Sie es erneut.",
-    "profileTypeInvalid": "Ungültiger Variablentyp",
-    "profileTypeRequired": "Variablentyp ist erforderlich",
     "sex": "Geschlecht",
     "sexFemale": "Weiblich",
     "sexMale": "Männlich",

@@ -3882,8 +3882,6 @@ export type I18nKey =
   | 'server.profile.profileOnboardingConfigConflict'
   | 'server.profile.profileOnboardingConfigNotPersistable'
   | 'server.profile.profileOnboardingPromptGenerationFailed'
-  | 'server.profile.profileTypeInvalid'
-  | 'server.profile.profileTypeRequired'
   | 'server.profile.sex'
   | 'server.profile.sexFemale'
   | 'server.profile.sexMale'

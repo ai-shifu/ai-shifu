@@ -26,8 +26,6 @@
     "profileOnboardingConfigConflict": "已有其他管理员保存了新版本。请刷新配置后重新编辑保存。",
     "profileOnboardingConfigNotPersistable": "此配置由环境变量管理，无法在此保存。请联系管理员。",
     "profileOnboardingPromptGenerationFailed": "代答提示词生成失败，配置未发布。你的输入仍保留，请重试。",
-    "profileTypeInvalid": "变量类型不正确",
-    "profileTypeRequired": "变量类型必选",
     "sex": "性别",
     "sexFemale": "女",
     "sexMale": "男",
