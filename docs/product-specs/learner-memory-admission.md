@@ -2,7 +2,7 @@
 title: Learner Memory Admission
 status: implemented
 owner_surface: backend
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-29
 canonical: true
 ---
 
@@ -13,8 +13,9 @@ The portable engine retains its optional default and unrestricted recording
 instructions for other hosts; system and tool instructions select the same policy. The existing
 profile writer and the session's unit of work remain responsible for persistence.
 
-A lesson may record a key declared as `%{{key}}` in its main script, outside
-fenced examples. Briefs, reference documents, `{{key}}` substitutions and existing
+A lesson may record a key declared by a leading `?[{{key}} ...]` binding in its
+main script, outside fenced examples. Existing explicit percent-prefixed declarations
+remain compatible. Briefs, reference documents, ordinary `{{key}}` references and existing
 stored keys do not grant write permission. Named interaction answers require the
 same declaration and retain their exact original values and existing scope rules.
 An undeclared interaction variable is dropped without dropping the question.

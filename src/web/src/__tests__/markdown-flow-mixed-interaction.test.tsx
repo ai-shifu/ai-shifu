@@ -1,5 +1,6 @@
 import React from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { deserialize, serialize } from 'node:v8';
 import { ContentRender } from 'markdown-flow-ui/renderer';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
@@ -16,6 +17,139 @@ describe('installed MarkdownFlow mixed interaction replay', () => {
   });
 
   afterEach(cleanup);
+
+  describe.each(['%{{answer}}', '{{answer}}'])('%s binding', binding => {
+    it.each([
+      'single',
+      'text',
+      'mixed-choice',
+      'mixed-text',
+      'multi',
+      'multi-mixed-choice',
+      'multi-mixed-text',
+      'multi-mixed-both',
+    ] as const)(
+      'submits and restores a named %s interaction with readonly controls',
+      async kind => {
+        const user = userEvent.setup();
+        const multi = kind.startsWith('multi');
+        const hasChoices = kind !== 'text';
+        const hasText = kind !== 'single' && kind !== 'multi';
+        const usesText =
+          kind === 'text' ||
+          kind === 'mixed-text' ||
+          kind === 'multi-mixed-text' ||
+          kind === 'multi-mixed-both';
+        const selectsChoices =
+          hasChoices && (!usesText || kind === 'multi-mixed-both');
+        const selectedValues = selectsChoices
+          ? multi
+            ? ['a', 'b']
+            : ['b']
+          : [];
+        const inputText = usesText ? 'My answer, including a comma' : '';
+        const expectedValues = [
+          ...selectedValues,
+          ...(usesText ? [inputText] : []),
+        ];
+        const options = [
+          ...(hasChoices ? ['Visible A//a', 'Visible B//b'] : []),
+          ...(hasText ? ['...Explain'] : []),
+        ];
+        const content = `?[${binding} ${options.join(multi ? ' || ' : ' | ')}]`;
+        const onSend = jest.fn();
+        const view = render(
+          <ContentRender
+            content={content}
+            onSend={onSend}
+          />,
+        );
+
+        if (selectsChoices) {
+          if (multi) {
+            for (const checkbox of view.getAllByRole('checkbox')) {
+              await user.click(checkbox);
+            }
+          } else {
+            await user.click(view.getByText('Visible B'));
+          }
+        }
+        if (usesText) {
+          fireEvent.change(view.getByRole('textbox'), {
+            target: { value: inputText },
+          });
+        }
+        if (multi || usesText) {
+          await user.click(
+            view.getByRole('button', { name: multi ? 'Submit' : 'Send' }),
+          );
+        }
+        expect(onSend).toHaveBeenCalledTimes(1);
+        expect(onSend).toHaveBeenCalledWith(
+          expect.objectContaining({
+            variableName: 'answer',
+            ...(multi
+              ? { selectedValues }
+              : !usesText
+                ? { buttonText: 'b' }
+                : {}),
+            ...(usesText ? { inputText } : {}),
+          }),
+        );
+        const submission = resolveInteractionSubmission(
+          onSend.mock.calls[0][0],
+        );
+        expect(submission).toEqual({
+          values: expectedValues,
+          userInput: expectedValues.join(', '),
+        });
+
+        const props = {
+          content,
+          userInput: submission.userInput,
+          readonly: true,
+          onSend,
+        };
+        view.rerender(<ContentRender {...props} />);
+        view.unmount();
+        const restored = render(<ContentRender {...props} />);
+        if (hasText) {
+          expect(restored.getByRole('textbox')).toHaveValue(inputText);
+          expect(restored.getByRole('textbox')).toBeDisabled();
+        }
+        if (multi) {
+          const checkboxes = restored.getAllByRole('checkbox');
+          expect(checkboxes).toHaveLength(2);
+          for (const checkbox of checkboxes) {
+            expect(checkbox).toBeDisabled();
+            if (selectsChoices) {
+              expect(checkbox).toBeChecked();
+            } else {
+              expect(checkbox).not.toBeChecked();
+            }
+            await user.click(checkbox);
+            if (selectsChoices) {
+              expect(checkbox).toBeChecked();
+            } else {
+              expect(checkbox).not.toBeChecked();
+            }
+          }
+          const submit = restored.getByRole('button', { name: 'Submit' });
+          expect(submit).toBeDisabled();
+          await user.click(submit);
+        } else if (hasChoices) {
+          expect(restored.getByText('Visible A')).toBeDisabled();
+          if (usesText) {
+            expect(restored.getByText('Visible B')).not.toHaveClass('select');
+          } else {
+            expect(restored.getByText('Visible B')).toHaveClass('select');
+          }
+          await user.click(restored.getByText('Visible A'));
+        }
+        expect(onSend).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
 
   it.each([
     ['Ready, I can paste an answer', 'ready'],
