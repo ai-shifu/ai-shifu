@@ -1,6 +1,6 @@
 ---
 title: Remove unused memory definition type configuration
-status: active
+status: completed
 owner_surface: shared
 last_reviewed: 2026-10-30
 canonical: false
@@ -28,8 +28,10 @@ MarkdownFlow single-choice, multi-choice or free-text interaction types.
   parity/usage checks and the repository harness.
 - [x] 2026-10-30 09:43 UTC: All-file pre-commit checks pass, including lint,
   formatting, architecture boundaries, translation usage and repository docs.
-- [ ] 2026-10-30 09:37 UTC: Commit with the required body, push and open a ready PR
-  without merging main.
+- [x] 2026-10-30 09:45 UTC: Committed the verified implementation as `8475f5a89`
+  and opened ready [PR #3251](https://github.com/ai-shifu/ai-shifu/pull/3251)
+  against main. Independent empty-route cleanup is in
+  [PR #3250](https://github.com/ai-shifu/ai-shifu/pull/3250). Neither was merged.
 
 ## Surprises & Discoveries
 
@@ -61,8 +63,10 @@ MarkdownFlow single-choice, multi-choice or free-text interaction types.
 
 Implementation is integrated on the independent type-cleanup branch. All 186
 focused backend tests and 33 frontend tests pass, along with type, translation
-and documentation checks. All-file pre-commit checks also pass. Publication of
-the ready PR remains. No deployment or main-branch merge is part of this task.
+and documentation checks. All-file pre-commit checks also pass. The implementation
+is published in ready [PR #3251](https://github.com/ai-shifu/ai-shifu/pull/3251),
+independently of the empty-route removal. Hosted checks remain separate from
+these local results. No deployment or main-branch merge is part of this task.
 
 ## Context and Orientation
 
