@@ -6,7 +6,7 @@
   "email": "E-mail",
   "memoryChanged": "Cette mémoire a changé. La liste a été actualisée ; vérifiez-la avant de supprimer à nouveau.",
   "memoryConfirm": "Supprimer la mémoire",
-  "memoryConfirmDescription": "Toutes les versions enregistrées de cet élément cesseront de servir de mémoire du cours. Les messages, réponses originales et progrès restent. Une réponse ultérieure ou une demande explicite pourra le réenregistrer.",
+  "memoryConfirmDescription": "Après suppression, le cours n’utilisera plus cet élément de mémoire. Vos données d’apprentissage d’origine seront conservées.",
   "memoryConfirmTitle": "Supprimer cette mémoire du cours ?",
   "memoryDelete": "Supprimer",
   "memoryDeleteFailed": "Impossible de supprimer cette mémoire. Réessayez.",
