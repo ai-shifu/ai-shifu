@@ -46,7 +46,6 @@
 | `docs/exec-plans/active/bounded-lesson-memory-context.md` | Bound Lesson Memory Context | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/course-action-copy.md` | Review the course action PR stack | `exec-plan-active` | `active` | `frontend` | `2026-10-27` | `true` |
 | `docs/exec-plans/active/course-memory-management.md` | Course Memory Management | `exec-plan-active` | `active` | `learner` | `2026-10-07` | `true` |
-| `docs/exec-plans/active/course-question-answer-copy.md` | Present course memory with contextual question and answer wording | `exec-plan-active` | `active` | `shared` | `2026-10-30` | `true` |
 | `docs/exec-plans/active/course-sharing.md` | Course Sharing | `exec-plan-active` | `active` | `repo` | `-` | `true` |
 | `docs/exec-plans/active/course-variable-isolation.md` | Keep custom learner variables within their course | `exec-plan-active` | `active` | `learner` | `2026-10-08` | `true` |
 | `docs/exec-plans/active/creator-brand-domain-payments.md` | Creator Brand Domain And Payments | `exec-plan-active` | `active` | `repo` | `-` | `true` |
@@ -109,6 +108,7 @@
 | `docs/exec-plans/completed/course-only-llm-settings.md` | Course-only models and temperatures | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/course-owner-preview-billing.md` | Charge settings previews to the course owner | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/course-price-market-rules-and-free-unlock.md` | Market-aware course prices and free-course unlock | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
+| `docs/exec-plans/completed/course-question-answer-copy.md` | Present course memory with contextual question and answer wording | `exec-plan-completed` | `completed` | `shared` | `2026-10-30` | `false` |
 | `docs/exec-plans/completed/creator-dashboard-course-ownership-optimization.md` | Creator Dashboard Course Ownership Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/creator-dashboard-course-ratings.md` | Creator Dashboard Course Ratings | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |
 | `docs/exec-plans/completed/creator-dashboard-learners-sql-optimization.md` | Creator Dashboard Learners SQL Optimization | `exec-plan-completed` | `completed` | `repo` | `-` | `false` |

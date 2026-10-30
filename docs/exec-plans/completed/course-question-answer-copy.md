@@ -1,6 +1,6 @@
 ---
 title: Present course memory with contextual question and answer wording
-status: active
+status: completed
 owner_surface: shared
 last_reviewed: 2026-10-30
 canonical: false
@@ -29,7 +29,9 @@ behavior. Do not add a question identity model or answer history.
   using Node 22.23.4 and the existing Python environment.
 - [x] 2026-10-30 08:32 UTC: Passed every all-file pre-commit gate after JSON key
   ordering was normalized; the final diff has no unrelated changes.
-- [ ] Commit and publish a ready pull request without merging main.
+- [x] 2026-10-30 08:34 UTC: Committed the verified implementation as `6cf3aa038`
+  and published ready [PR #3249](https://github.com/ai-shifu/ai-shifu/pull/3249)
+  against main without merging it.
 
 ## Surprises & Discoveries
 
@@ -62,10 +64,13 @@ behavior. Do not add a question identity model or answer history.
 
 ## Outcomes & Retrospective
 
-All eight locales and contextual simulation placeholders are implemented.
-Focused frontend, type, translation, documentation and all-file pre-commit
-checks pass. Publishing the ready PR remains. No merge or deployment is
-authorized or claimed by this plan.
+All eight locales and contextual simulation placeholders are implemented and
+published in ready [PR #3249](https://github.com/ai-shifu/ai-shifu/pull/3249).
+The 183 focused frontend tests, type checking, translation checks, documentation
+harness and all-file pre-commit gates pass with unchanged data and protocol
+contracts. Hosted PR checks remain separate from these local results. The
+implementation and local acceptance scope is complete; no main merge or
+deployment is included.
 
 ## Context and Orientation
 
