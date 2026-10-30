@@ -6,7 +6,7 @@
   "email": "Email",
   "memoryChanged": "This memory changed. The list was refreshed; review it before deleting again.",
   "memoryConfirm": "Delete memory",
-  "memoryConfirmDescription": "All saved versions of this item will stop being used as course memory. Classroom messages, original answers and progress remain. A later answer or explicit request can save it again.",
+  "memoryConfirmDescription": "After deletion, the course will no longer use this memory. Your original learning records will not be affected.",
   "memoryConfirmTitle": "Delete this course memory?",
   "memoryDelete": "Delete",
   "memoryDeleteFailed": "Could not delete this memory. Please retry.",
