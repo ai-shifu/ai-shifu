@@ -29,6 +29,10 @@ interface VariableListProps {
 }
 
 const SYSTEM_VARIABLE_LABEL_KEYS = {
+  avatar: 'server.profile.avatar',
+  birth: 'server.profile.birth',
+  language: 'server.profile.language',
+  sex: 'server.profile.sex',
   sys_user_nickname: 'module.shifu.previewArea.systemVariableLabels.nickname',
   sys_user_style: 'server.profile.style',
   sys_user_background:
@@ -172,43 +176,20 @@ const VariableList: React.FC<VariableListProps> = ({
                 : undefined;
               const displayName = systemVariableLabelKey
                 ? t(systemVariableLabelKey)
-                : name;
+                : systemVariableKeySet.has(name)
+                  ? t('module.shifu.previewArea.variablesTitle')
+                  : name;
               return (
                 <div
                   className={styles.item}
                   key={name}
                 >
-                  {systemVariableLabelKey ? (
-                    <div
-                      tabIndex={0}
-                      className={`${styles.name} ${styles.systemName}`}
-                      aria-label={t(
-                        'module.shifu.previewArea.systemVariableLabels.accessibleName',
-                        { label: displayName, name },
-                      )}
-                    >
-                      <span
-                        className={styles.friendlyName}
-                        aria-hidden='true'
-                      >
-                        {displayName}
-                      </span>
-                      <span
-                        className={styles.rawName}
-                        dir='ltr'
-                        aria-hidden='true'
-                      >
-                        {name}
-                      </span>
-                    </div>
-                  ) : (
-                    <div
-                      className={styles.name}
-                      title={name}
-                    >
-                      {displayName}
-                    </div>
-                  )}
+                  <div
+                    className={styles.name}
+                    title={displayName}
+                  >
+                    {displayName}
+                  </div>
                   <div
                     className={styles.value}
                     title={displayValue}
@@ -216,6 +197,7 @@ const VariableList: React.FC<VariableListProps> = ({
                     <Input
                       type='text'
                       value={displayValue}
+                      aria-label={displayName}
                       placeholder={
                         systemVariableKeySet.has(name)
                           ? t(

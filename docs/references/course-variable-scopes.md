@@ -32,6 +32,11 @@ original interaction: saved answers and explicit requests to remember informatio
 do not all have evidence of an original question. Do not invent questions or
 answer provenance for those entries.
 
+System memory fields use localized labels throughout the simulator, including
+tooltips, input names and placeholders. Hovering or focusing never reveals their
+internal keys; an unknown system field uses the localized Memory label. Authored
+course questions and legacy custom keys retain their existing text and identity.
+
 This wording keeps the existing technical key/value contract. Within a course,
 entries with the same exact key share the current value across lessons. Changing
 the key creates a different entry and does not transfer an existing answer.

@@ -35,7 +35,6 @@
     "open": "Lernsimulation erweitern",
     "personalInfoPlaceholder": "{label} eingeben",
     "systemVariableLabels": {
-      "accessibleName": "{label} ({name})",
       "background": "Hintergrund und Vorlieben der Lernenden",
       "input": "Letzte Eingabe",
       "language": "Unterrichtssprache",

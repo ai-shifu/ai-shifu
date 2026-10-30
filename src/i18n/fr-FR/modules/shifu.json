@@ -35,7 +35,6 @@
     "open": "Développer la simulation d’apprentissage",
     "personalInfoPlaceholder": "Saisir : {label}",
     "systemVariableLabels": {
-      "accessibleName": "{label} ({name})",
       "background": "Profil et préférences de l’élève",
       "input": "Saisie la plus récente",
       "language": "Langue d’enseignement",

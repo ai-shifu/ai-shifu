@@ -35,7 +35,6 @@
     "open": "توسيع محاكاة التعلم",
     "personalInfoPlaceholder": "أدخل {label}",
     "systemVariableLabels": {
-      "accessibleName": "{label} ({name})",
       "background": "خلفية الطالب وتفضيلاته",
       "input": "أحدث إدخال",
       "language": "لغة التدريس",

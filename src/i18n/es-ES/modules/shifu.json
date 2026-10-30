@@ -35,7 +35,6 @@
     "open": "Mostrar simulación de aprendizaje",
     "personalInfoPlaceholder": "Introduce: {label}",
     "systemVariableLabels": {
-      "accessibleName": "{label} ({name})",
       "background": "Contexto y preferencias del alumno",
       "input": "Última respuesta",
       "language": "Idioma de enseñanza",

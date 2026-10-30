@@ -3470,7 +3470,6 @@ export type I18nKey =
   | 'module.shifu.previewArea.loading'
   | 'module.shifu.previewArea.open'
   | 'module.shifu.previewArea.personalInfoPlaceholder'
-  | 'module.shifu.previewArea.systemVariableLabels.accessibleName'
   | 'module.shifu.previewArea.systemVariableLabels.background'
   | 'module.shifu.previewArea.systemVariableLabels.input'
   | 'module.shifu.previewArea.systemVariableLabels.language'

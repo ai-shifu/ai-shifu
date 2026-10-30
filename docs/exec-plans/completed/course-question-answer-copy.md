@@ -41,6 +41,12 @@ behavior. Do not add a question identity model or answer history.
   actual definition-management callers. Fixed misleading type-validation copy
   independently in `e5f734fbd`, then aligned site-wide memory and memory-item
   terminology while restoring the concise course-memory help text.
+- [x] 2026-10-30 10:08 UTC: Removed the system-key hover/focus reveal and raw-key
+  accessibility text. Added localized labels for legacy profile fields and a
+  localized fallback for unknown system fields. The original keys still reach
+  editing callbacks unchanged. All 93 tests in five focused frontend suites and
+  translation parity/usage checks pass; type checking and all-file pre-commit
+  gates also pass. The local page shows only friendly system labels.
 
 ## Surprises & Discoveries
 
@@ -74,6 +80,11 @@ behavior. Do not add a question identity model or answer history.
   phrase to site-wide memory. Use memory item for the individual unit. Missing
   or unsupported definition types are validation errors, not transient save
   failures; their messages must describe the actual failure.
+- Keep system memory keys internal in rendered labels, tooltips, placeholders
+  and accessible names. Remove the obsolete raw-key accessibility translation
+  from all eight locales and regenerate its key inventory. Authored questions
+  and legacy custom key text remain compatible. Removing the display-only
+  reveal creates no new interaction or analytics event.
 
 ## Outcomes & Retrospective
 
@@ -117,8 +128,9 @@ Reuse existing simulation, memory and localization tests and repository checks.
 ## Validation and Acceptance
 
 All eight locales must describe the same actions and retain ICU parameter parity.
-Ordinary legacy keys, complete-question keys and system keys must display and
-submit unchanged. Editing simulated values, hiding/restoring entries, refreshing
+Ordinary legacy custom keys and complete-question keys display unchanged; system
+fields display only localized labels. All keys submit unchanged. Editing
+simulated values, hiding/restoring entries, refreshing
 cached answers and same-course key reuse retain existing behavior. System
 placeholders use their localized labels. Course-memory deletion language must
 retain its existing scope. Environment and notification-template variables are

@@ -35,7 +35,6 @@
     "open": "Expand learning simulation",
     "personalInfoPlaceholder": "Enter {label}",
     "systemVariableLabels": {
-      "accessibleName": "{label} ({name})",
       "background": "Student background and preferences",
       "input": "Latest input",
       "language": "Teaching language",
