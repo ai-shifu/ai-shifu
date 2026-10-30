@@ -30,7 +30,11 @@ prompts or snapshots.
   type-check and the full repository pre-commit gate.
 - [x] 2026-10-30 22:55 UTC: Record the final session boundary: remove the dedicated
   retirement cleanup and marker for both formal and debug sessions. Keep existing
-  saved sessions as-is and apply current course scope to newly created sessions.
+  saved sessions as-is; new formal sessions read current course memory, while
+  editor previews use their supplied variables.
+- [x] 2026-10-30 23:10 UTC: Clarify review feedback on initialization sources:
+  formal sessions use `load_memory`, while editor previews use supplied
+  `preview_variables` without reading learner memory from the database.
 
 ## Surprises & Discoveries
 
@@ -89,10 +93,11 @@ The three canonical fields now own global profile behavior. Retired names use
 course scope, including old courses whose next answer creates a missing local
 definition. Old definitions, values, account columns and applied migrations are
 unchanged. Formal and debug sessions keep their ordinary lifecycle with no
-default-profile cleanup, retirement marker or new cache namespace. New sessions
-use the current scoped reader. Continued sessions retain their saved state under
-the existing generic session logic; old injected prompts are not guaranteed to
-be free of retired defaults.
+default-profile cleanup, retirement marker or new cache namespace. New formal
+sessions initialize from the current scoped `load_memory` result; editor previews
+initialize from supplied `preview_variables` without reading database memory.
+Continued sessions retain their saved state under the existing generic session
+logic; old injected prompts are not guaranteed to be free of retired defaults.
 
 The final session simplification passed all 1,701 agent and route regressions,
 including ordinary continuation of saved inputs and accepted answers and preview
@@ -127,7 +132,8 @@ documentation with focused regression.
 
 1. Implement the profile/user contract and isolated storage regressions.
 2. Implement canonical-only language selection and verify ordinary session
-   continuation, fresh scoped sessions and preview restart isolation.
+   continuation, formal-session memory loading, supplied preview variables and
+   preview restart isolation.
 3. Remove frontend compatibility branches, unused translations and helper code;
    regenerate i18n types and run component/hook regressions.
 4. Run type/lint and repository checks, review the integrated diff, record exact
@@ -147,7 +153,10 @@ documentation with focused regression.
   course `language` values untouched.
 - Existing formal and debug sessions use the original generic lifecycle without
   default-profile snapshot cleanup or retirement metadata. Saved prompts may
-  retain earlier values; new sessions read current course-scoped values.
+  retain earlier values.
+- New formal sessions initialize from `load_memory`; editor previews initialize
+  from supplied `preview_variables` and do not read learner memory from the
+  database.
 - Preview restart uses a fresh debug session ID. Cache key construction and the
   thirty-minute expiry remain unchanged, and continuation retains cached notes.
 - Focused backend and frontend suites, type-check, lint, repo harness,

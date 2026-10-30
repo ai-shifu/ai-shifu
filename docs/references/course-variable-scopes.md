@@ -25,9 +25,8 @@ require a course identifier. Account avatars, language settings and canonical
 learner profiles keep their separate APIs.
 Only `sys_user_language` selects teaching language; an authored `language`
 variable is independent and is never overwritten by that selection.
-These scope rules govern current profile reads and writes and newly created
-sessions. Continued sessions may retain earlier global defaults in their saved
-prompts or snapshots.
+These scope rules govern current profile reads and writes. Continued sessions may
+retain earlier global defaults in their saved prompts or snapshots.
 
 All other durable variables belong to the current course. Two courses can use
 the same key with different answers. If course A records that a learner likes
@@ -151,7 +150,9 @@ Default-profile retirement leaves existing formal and editor-debug sessions unde
 their ordinary loading, continuation and persistence logic. It adds no dedicated
 snapshot cleanup, retirement marker or session migration. Existing generic
 session safeguards continue to apply; old saved prompts may retain retired
-profile defaults. Newly created sessions use the current course-scoped reader.
+profile defaults. New formal sessions initialize from the current course-scoped
+`load_memory` result. Editor-preview sessions instead initialize from supplied
+`preview_variables`, without reading learner memory from the database.
 Restarting an editor preview creates a fresh debug session ID. Cache keys and the
 thirty-minute expiry remain unchanged, with no namespace or version bump.
 Continuing an existing preview retains its cached state, and unused entries
