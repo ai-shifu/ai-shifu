@@ -4,7 +4,7 @@
     "avatar": "Foto de perfil",
     "birth": "Fecha de nacimiento",
     "keyInvalid": "No se pudo guardar la memoria: la pregunta no puede estar vacía ni contener caracteres de control o «}}».",
-    "keyReserved": "Los nombres de las preguntas no pueden empezar por sys_; este prefijo está reservado para el sistema.",
+    "keyReserved": "Las preguntas no pueden empezar por sys_; este prefijo está reservado para el sistema.",
     "language": "Idioma",
     "learnerProfileOptimizationEmptyResponse": "La IA no ha devuelto contenido optimizado. Inténtalo de nuevo.",
     "learnerProfileOptimizationFailed": "Se ha producido un error en el servicio de optimización con IA. Inténtalo más tarde.",

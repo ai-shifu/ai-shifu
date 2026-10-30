@@ -4,7 +4,7 @@
     "avatar": "头像",
     "birth": "生日",
     "keyInvalid": "无法保存记忆：问题不能为空，且不能包含控制字符或「}}」。",
-    "keyReserved": "问题名称不能以 sys_ 开头，该前缀为系统保留。",
+    "keyReserved": "问题不能以 sys_ 开头，该前缀为系统保留。",
     "language": "语言",
     "learnerProfileOptimizationEmptyResponse": "AI 没有返回优化后的内容，请重试",
     "learnerProfileOptimizationFailed": "AI 优化服务出错，请稍后重试",
