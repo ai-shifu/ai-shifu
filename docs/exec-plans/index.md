@@ -76,6 +76,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Course-only models and temperatures](./completed/course-only-llm-settings.md)
 - [Charge settings previews to the course owner](./completed/course-owner-preview-billing.md)
 - [Market-aware course prices and free-course unlock](./completed/course-price-market-rules-and-free-unlock.md)
+- [Present course memory with contextual question and answer wording](./completed/course-question-answer-copy.md)
 - [Creator Dashboard Course Ownership Optimization](./completed/creator-dashboard-course-ownership-optimization.md)
 - [Creator Dashboard Course Ratings](./completed/creator-dashboard-course-ratings.md)
 - [Creator Dashboard Learners SQL Optimization](./completed/creator-dashboard-learners-sql-optimization.md)

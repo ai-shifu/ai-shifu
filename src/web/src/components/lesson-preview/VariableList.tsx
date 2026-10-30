@@ -167,48 +167,27 @@ const VariableList: React.FC<VariableListProps> = ({
             {entries.map(([name, value]) => {
               const displayValue = value || '';
               const canHide = customKeySet.has(name) && unusedKeySet.has(name);
-              const systemVariableLabelKey = systemVariableKeySet.has(name)
+              const isSystemOnlyKey =
+                systemVariableKeySet.has(name) && !customKeySet.has(name);
+              const systemVariableLabelKey = isSystemOnlyKey
                 ? resolveSystemVariableLabelKey(name)
                 : undefined;
               const displayName = systemVariableLabelKey
                 ? t(systemVariableLabelKey)
-                : name;
+                : isSystemOnlyKey
+                  ? t('module.shifu.previewArea.variablesTitle')
+                  : name;
               return (
                 <div
                   className={styles.item}
                   key={name}
                 >
-                  {systemVariableLabelKey ? (
-                    <div
-                      tabIndex={0}
-                      className={`${styles.name} ${styles.systemName}`}
-                      aria-label={t(
-                        'module.shifu.previewArea.systemVariableLabels.accessibleName',
-                        { label: displayName, name },
-                      )}
-                    >
-                      <span
-                        className={styles.friendlyName}
-                        aria-hidden='true'
-                      >
-                        {displayName}
-                      </span>
-                      <span
-                        className={styles.rawName}
-                        dir='ltr'
-                        aria-hidden='true'
-                      >
-                        {name}
-                      </span>
-                    </div>
-                  ) : (
-                    <div
-                      className={styles.name}
-                      title={name}
-                    >
-                      {displayName}
-                    </div>
-                  )}
+                  <div
+                    className={styles.name}
+                    title={displayName}
+                  >
+                    {displayName}
+                  </div>
                   <div
                     className={styles.value}
                     title={displayValue}
@@ -216,9 +195,17 @@ const VariableList: React.FC<VariableListProps> = ({
                     <Input
                       type='text'
                       value={displayValue}
-                      placeholder={t(
-                        'module.shifu.previewArea.variablesPlaceholder',
-                      )}
+                      aria-label={displayName}
+                      placeholder={
+                        isSystemOnlyKey
+                          ? t(
+                              'module.shifu.previewArea.personalInfoPlaceholder',
+                              {
+                                label: displayName,
+                              },
+                            )
+                          : t('module.shifu.previewArea.variablesPlaceholder')
+                      }
                       onChange={e => {
                         const nextValue = e.target.value;
                         onChange?.(name, nextValue);

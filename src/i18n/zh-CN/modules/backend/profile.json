@@ -3,7 +3,7 @@
   "__flat__": {
     "avatar": "头像",
     "birth": "生日",
-    "keyInvalid": "变量名不能为空，不能包含控制字符或 }}。",
+    "keyInvalid": "无法保存记忆：问题不能为空，且不能包含控制字符或「}}」。",
     "language": "语言",
     "learnerProfileOptimizationEmptyResponse": "AI 没有返回优化后的内容，请重试",
     "learnerProfileOptimizationFailed": "AI 优化服务出错，请稍后重试",
@@ -13,7 +13,7 @@
     "learnerProfileOptimizationRejected": "这段介绍包含不合规内容，请修改后重试",
     "learnerProfileOptimizationTimedOut": "AI 优化请求超时，请重试",
     "nickname": "昵称",
-    "parentIdRequired": "父级ID必填",
+    "parentIdRequired": "未能确定所属课程，请刷新后重试。",
     "profileOnboardingBusy": "正在处理你的另一项个性化设置，请稍后再试",
     "profileOnboardingConfigBusy": "另一项配置正在发布，请稍后重试。",
     "profileOnboardingConfigConflict": "已有其他管理员保存了新版本。请刷新配置后重新编辑保存。",

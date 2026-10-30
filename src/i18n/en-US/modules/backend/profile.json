@@ -3,7 +3,7 @@
   "__flat__": {
     "avatar": "Avatar",
     "birth": "Date of birth",
-    "keyInvalid": "Variable names must be nonempty and cannot contain control characters or }}.",
+    "keyInvalid": "Could not save the memory: the question cannot be empty or contain control characters or }}.",
     "language": "Language",
     "learnerProfileOptimizationEmptyResponse": "The AI returned no optimized content. Please try again.",
     "learnerProfileOptimizationFailed": "The AI optimization service encountered an error. Please try again later.",
@@ -13,7 +13,7 @@
     "learnerProfileOptimizationRejected": "This introduction contains disallowed content. Please revise it and try again.",
     "learnerProfileOptimizationTimedOut": "The AI optimization request timed out. Please try again.",
     "nickname": "Nickname",
-    "parentIdRequired": "Parent ID is required",
+    "parentIdRequired": "Could not determine which course this belongs to. Refresh and try again.",
     "profileOnboardingBusy": "Another personalization request is already in progress. Please try again in a moment.",
     "profileOnboardingConfigBusy": "Another configuration is being published. Try again shortly.",
     "profileOnboardingConfigConflict": "Another administrator saved a newer version. Reload the configuration before editing and saving again.",
