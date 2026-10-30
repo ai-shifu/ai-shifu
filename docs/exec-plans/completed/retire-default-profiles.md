@@ -38,8 +38,9 @@ collection remain available. The durable contract is
 - Saved initial prompts can retain injected values after the current profile
   registry changes. Refresh host snapshots while retaining classroom evidence.
 - A preview can remember a course note without persisting it or returning it to
-  the editor's variable map. Retirement is therefore applied once per session,
-  using application-owned serialization metadata rather than engine changes.
+  the editor's variable map. Debug previews skip legacy profile cleanup so those
+  notes survive continuation, and keep no retirement metadata. Restarting a
+  preview selects a fresh session; unused cached sessions expire naturally.
 - Existing courses may have only a retired global definition. The first normal
   scoped assignment creates the missing course definition and uses its ID; no
   historical row is migrated and arbitrary undeclared notes gain no definition.
@@ -51,6 +52,10 @@ collection remain available. The durable contract is
 
 - Keep database models, columns, migrations and historical values unchanged.
   Tests use temporary SQLite storage and mocked providers, never business data.
+- Keep debug cache keys unchanged and remove debug-specific profile retirement
+  compatibility. A preview restart creates a new session ID; existing cached
+  state is left as-is until it expires. Database-backed lesson sessions retain
+  their one-time retirement marker.
 - Keep the three active system keys in a shared exact-name allowlist. A `sys_`
   prefix alone never grants global scope; existing undeclared-memory restrictions
   still apply to `sys_user_style`.
@@ -73,8 +78,10 @@ collection remain available. The durable contract is
 The three canonical fields now own global profile behavior. Retired names use
 course scope, including old courses whose next answer creates a missing local
 definition. Old definitions, values, account columns and applied migrations are
-unchanged. A one-time application metadata marker preserves new preview notes
-after old host snapshots have been retired, without changing engine schemas.
+unchanged. Database-backed lesson sessions use a one-time application metadata
+marker after old host snapshots have been retired, without changing engine
+schemas. Debug previews use their ordinary cache and restart lifecycle with no
+profile retirement metadata or cache-key version branch.
 
 Final integrated backend validation passed 4,311 tests with 90 conditional skips.
 The eight affected frontend suites passed all 193 tests. Type-check, lint,

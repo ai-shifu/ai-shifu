@@ -138,9 +138,8 @@ def test_session_only_course_note_keeps_precedence_over_persisted_values() -> No
     assert parsed.memory == {"language": "Session-only course note"}
 
 
-@pytest.mark.parametrize("debug", [False, True])
 def test_host_resume_uses_scoped_values_and_keeps_accepted_answers(
-    monkeypatch: pytest.MonkeyPatch, debug: bool
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     old = dict.fromkeys(RETIRED_PROFILE_KEYS, "Historical global value")
     current = {"language": "Course programming language", "sex": "Course label"}
@@ -161,7 +160,6 @@ def test_host_resume_uses_scoped_values_and_keeps_accepted_answers(
     monkeypatch.setattr(
         run_agent, "load_memory", lambda *_a, **_kw: MemorySnapshot(variables=current)
     )
-    store = SimpleNamespace(load=lambda **_kw: session) if debug else None
     engine = SimpleNamespace(output_language=None)
     set_language("fr-FR")
     try:
@@ -172,9 +170,7 @@ def test_host_resume_uses_scoped_values_and_keeps_accepted_answers(
             shifu_bid="course",
             outline_bid="lesson",
             script=bundle.script,
-            preview_mode=debug,
-            debug_store=store,
-            preview_variables=dict(current),
+            preview_mode=False,
             use_learner_language=True,
         )
         resumed = asyncio.run(factory())
@@ -193,11 +189,10 @@ def test_host_resume_uses_scoped_values_and_keeps_accepted_answers(
     assert engine.output_language == "Français"
 
 
-@pytest.mark.parametrize("legacy", [False, True])
 def test_debug_user_scope_note_survives_next_request_without_ui_variable_echo(
-    app: object, monkeypatch: pytest.MonkeyPatch, legacy: bool
+    app: object, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A preview remember call must survive even when its value equals the old snapshot."""
+    """Preview notes survive persistence without retirement metadata or a UI echo."""
     values = {}
     cache = SimpleNamespace(
         get=values.get,
@@ -210,25 +205,6 @@ def test_debug_user_scope_note_survives_next_request_without_ui_variable_echo(
     def store() -> debug_session.DebugSessionStore:
         return debug_session.DebugSessionStore(
             app, user_bid=user, shifu_bid=course, outline_bid=lesson, run_bid=run
-        )
-
-    if legacy:
-        bundle = ScriptBundle(script=script)
-        store().save(
-            Session(
-                script=bundle,
-                user_memory={"language": "Python"},
-                initial_variables={"language": "Python"},
-                messages=[
-                    ModelRequest(
-                        parts=[
-                            UserPromptPart(
-                                render_first_prompt(bundle, {"language": "Python"})
-                            )
-                        ]
-                    )
-                ],
-            )
         )
 
     calls = 0
@@ -287,9 +263,9 @@ def test_debug_user_scope_note_survives_next_request_without_ui_variable_echo(
                 first_id = saved.id
             else:
                 assert saved.id == first_id
-            assert (
-                json.loads(next(iter(values.values())))[PROFILE_MEMORY_VERSION_KEY] == 1
-            )
+            payload = json.loads(next(iter(values.values())))
+            assert PROFILE_MEMORY_VERSION_KEY not in payload
+            assert PROFILE_MEMORY_VERSION_KEY not in json.loads(payload["session"])
         assert VariableValue.query.filter_by(user_bid=user).count() == 0
         db.session.remove()
 

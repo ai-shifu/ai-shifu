@@ -42,8 +42,8 @@ def refresh_retired_profile_memory(session: Session, current: dict[str, Any]) ->
     messages and tool results retain their original text.
     """
     if profile_memory_metadata(session):
-        # New and already refreshed sessions may contain legitimate course notes
-        # in user_memory, including notes produced only inside an editor preview.
+        # New and already refreshed lesson sessions may contain legitimate
+        # course notes in user_memory.
         return
     values = {
         key: session.memory[key] for key in session.memory.keys() & RETIRED_PROFILE_KEYS

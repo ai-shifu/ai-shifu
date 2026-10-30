@@ -144,9 +144,12 @@ previously delivered content is historical evidence, not current shared memory.
 Preview/debug sessions also discard retired snapshots. No historical data or
 source-course values are deleted, migrated or retroactively undone.
 
-Restored sessions also refresh host-injected retired profile defaults in current
-memory and initial prompt snapshots. Current-course values, explicitly supplied
-preview variables, accepted classroom answers and later history remain intact.
+Restored database-backed lesson sessions also refresh host-injected retired
+profile defaults in current memory and initial prompt snapshots. Current-course
+values, accepted classroom answers and later history remain intact. Editor debug
+previews do not run this compatibility cleanup or persist its marker. Restarting
+a preview creates a fresh debug session; unused cache entries expire after thirty
+minutes. Continuing an existing preview retains that session's cached state.
 Legacy learning style no longer prefills the canonical learner-profile editor;
 nickname compatibility remains available.
 

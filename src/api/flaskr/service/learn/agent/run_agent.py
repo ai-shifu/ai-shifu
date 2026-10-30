@@ -323,8 +323,8 @@ def _load_or_start(
     async def make_session() -> Session:
         if stored is not None:
             discard_course_references(stored, teaching_brief=teaching_brief)
-            refresh_retired_profile_memory(stored, user_memory)
             if debug_store is None:
+                refresh_retired_profile_memory(stored, user_memory)
                 refresh_nickname(stored, user_memory)
                 # Deletion generations are permanent, so a key deleted once keeps one.
                 # Refresh only deletions this session has not seen yet: an answer given
@@ -371,7 +371,8 @@ def _load_or_start(
         # has a slot for author-supplied rules that arrive as user content.
         bundle = ScriptBundle(script=script, constraints=teaching_brief or None)
         session = await engine.new_session(bundle, user_id=user_bid, listen_mode=False)
-        mark_profile_memory_current(session)
+        if debug_store is None:
+            mark_profile_memory_current(session)
         session.user_memory = dict(user_memory)
         session.memory_generations = dict(generations)
         if on_session_loaded is not None:
