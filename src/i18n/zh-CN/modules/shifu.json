@@ -43,8 +43,8 @@
     },
     "title": "学习模拟",
     "variablesCollapse": "收起",
-    "variablesDescription": "调整学员资料和模拟回答，体验不同的课程效果",
-    "variablesEmpty": "暂无可显示的内容",
+    "variablesDescription": "记忆以问题和回答的形式呈现。调整学员资料和模拟回答，体验不同的课程效果。",
+    "variablesEmpty": "暂无可显示的记忆",
     "variablesExpand": "展开",
     "variablesHideSingleConfirmDesc": "“{name}”将从学习模拟中隐藏，可通过“显示全部”恢复。",
     "variablesHideSingleConfirmTitle": "隐藏此项",
@@ -57,6 +57,6 @@
     "variablesRestoreHiddenConfirmDesc": "显示当前课程中已隐藏的条目。",
     "variablesRestoreHiddenConfirmTitle": "显示全部",
     "variablesRestoreHiddenTooltip": "显示当前课程中已隐藏的条目",
-    "variablesTitle": "问题与回答"
+    "variablesTitle": "记忆"
   }
 }

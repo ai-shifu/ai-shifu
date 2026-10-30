@@ -43,8 +43,8 @@
     },
     "title": "Learning Simulation",
     "variablesCollapse": "Collapse",
-    "variablesDescription": "Adjust learner information and simulated answers to explore different course experiences.",
-    "variablesEmpty": "Nothing to display",
+    "variablesDescription": "Memory is presented as questions and answers. Adjust learner information and simulated answers to explore different course experiences.",
+    "variablesEmpty": "No memory to display",
     "variablesExpand": "Expand",
     "variablesHideSingleConfirmDesc": "“{name}” will be hidden from the learning simulation. Restore it with “Show all”.",
     "variablesHideSingleConfirmTitle": "Hide this item",
@@ -57,6 +57,6 @@
     "variablesRestoreHiddenConfirmDesc": "Show the hidden items in this course.",
     "variablesRestoreHiddenConfirmTitle": "Show all",
     "variablesRestoreHiddenTooltip": "Show the hidden items in this course",
-    "variablesTitle": "Questions and answers"
+    "variablesTitle": "Memory"
   }
 }

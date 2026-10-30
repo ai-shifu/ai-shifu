@@ -10,9 +10,10 @@ canonical: false
 
 ## Purpose / Big Picture
 
-Teachers should understand course authoring and simulation through questions
-and answers. Personal information keeps its specific labels, and mixed learner
-memory remains course memory. Change presentation only, preserving all existing
+The overall feature is Memory, and questions and answers form its entry structure.
+Teachers use those entries to understand course authoring and simulation. Personal
+information keeps its specific labels, and the learner's course-scoped collection
+remains Course memory. Change presentation only, preserving all existing
 keys, identifiers, storage, memory admission, sharing, replacement and deletion
 behavior. Do not add a question identity model or answer history.
 
@@ -32,6 +33,10 @@ behavior. Do not add a question identity model or answer history.
 - [x] 2026-10-30 08:34 UTC: Committed the verified implementation as `6cf3aa038`
   and published ready [PR #3249](https://github.com/ai-shifu/ai-shifu/pull/3249)
   against main without merging it.
+- [x] 2026-10-30 08:45 UTC: Applied the clarified Memory feature hierarchy in
+  all eight locales and the owning documents. Revalidated 183 focused tests,
+  exact translation keys and arguments, translation usage and the repository
+  harness without changing code or data behavior.
 
 ## Surprises & Discoveries
 
@@ -53,9 +58,9 @@ behavior. Do not add a question identity model or answer history.
 - Follow existing variable behavior throughout: exact keys still determine
   identity, same-course reuse and the current value. Changing a key does not
   transfer its saved answer to the new key.
-- Use questions and answers for the teacher panel, specific profile labels for
-  personal information, neutral items for visibility actions, and course memory
-  for learner inspection and deletion.
+- Name the overall feature and teacher panel Memory. Questions and answers are
+  its entry structure; Course memory is the scoped learner-facing name. Preserve
+  specific profile labels and neutral wording for visibility actions.
 - Keep existing translation keys and interpolation arguments. Add one localized
   personal-information placeholder with a `label` argument.
 - Preserve API fields, database schema, local-storage keys, MarkdownFlow syntax,
@@ -64,7 +69,9 @@ behavior. Do not add a question identity model or answer history.
 
 ## Outcomes & Retrospective
 
-All eight locales and contextual simulation placeholders are implemented and
+All eight locales use Memory as the overall feature name and describe its
+questions and answers as the content structure. Contextual simulation placeholders
+are implemented and
 published in ready [PR #3249](https://github.com/ai-shifu/ai-shifu/pull/3249).
 The 183 focused frontend tests, type checking, translation checks, documentation
 harness and all-file pre-commit gates pass with unchanged data and protocol

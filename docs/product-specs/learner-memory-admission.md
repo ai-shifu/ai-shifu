@@ -13,13 +13,15 @@ The portable engine retains its optional default and unrestricted recording
 instructions for other hosts; system and tool instructions select the same policy. The existing
 profile writer and the session's unit of work remain responsible for persistence.
 
-Course authoring describes declared question keys and their values as questions
-and answers. A complete question may serve as the existing key; existing keys
-are not rewritten, and the displayed question remains separate from its binding.
-This product wording does not make every interaction eligible for persistent
-memory, change same-key reuse or overwrite behavior, or introduce a per-question
-memory switch. Information saved through an explicit request remains course
-memory without a fabricated question or claim that it was an original answer.
+The overall product feature is "Memory", with question-and-answer pairs as its
+entry structure. Declared question keys and their values supply the two sides.
+A complete question may serve as the existing key; existing keys are not rewritten,
+and the displayed question remains separate from its binding. This product wording
+does not make every interaction eligible for persistent memory, change same-key
+reuse or overwrite behavior, or introduce a per-question memory switch. Information
+saved through an explicit request remains course memory. Presenting it in the same
+structure does not justify a fabricated original question or a claim that it was
+an original learner answer.
 
 A lesson may record a key declared by a leading `?[{{key}} ...]` binding in its
 main script, outside fenced examples. Existing explicit percent-prefixed declarations

@@ -15,13 +15,15 @@ by personal settings. No other learner, global scope, or other course is exposed
 The list includes stored values even when the prompt budget omits them. It is
 paginated rather than silently capped, and displays values as plain text.
 
-Keep the product label "Course memory" and the existing deletion-scope explanation.
-Entries may include saved answers and information the learner explicitly asked to
-remember. Show their existing keys and values without rewriting keys as questions
-or presenting every entry as an original learner answer. The current record does
-not establish a question, answer provenance or answer count for every entry.
-The authoring phrase "Questions and answers" changes neither this mixed collection
-nor its admission, exact-key matching, overwrite, scope or deletion rules.
+The overall feature is "Memory"; "Course memory" names the learner's course-scoped
+collection. Keep that scoped label and the existing deletion-scope explanation.
+Entries use a question-and-answer structure backed by their existing keys and
+values. They may include saved answers and information the learner explicitly
+asked to remember. Show existing keys and values without rewriting keys as
+questions or presenting every entry as an original learner answer. The display
+structure does not establish a question, answer provenance or answer count for
+every entry. This naming and structure change neither the mixed collection nor
+its admission, exact-key matching, overwrite, scope or deletion rules.
 
 Deletion invalidates every stored version of the selected course key and appends
 an empty deleted generation marker, preventing

@@ -23,12 +23,14 @@ row. No automatic account-wide memory is introduced.
 
 ## Product wording and compatibility
 
-Course authoring uses questions and answers as its product language. The teacher's
-learning simulator labels its panel "Questions and answers" and distinguishes
-simulated answers from personal information such as nickname and teaching language.
-The learner's mixed collection remains "Course memory": saved answers and explicit
-requests to remember information do not all have evidence of an original question.
-Do not invent questions or answer provenance for those entries.
+The overall product feature is "Memory". Its entries have a question-and-answer
+structure backed by the existing key and value. The teacher's learning simulator
+labels its panel "Memory" and distinguishes simulated answers from personal
+information such as nickname and teaching language. The learner's course-scoped
+collection remains "Course memory". This display structure does not establish an
+original interaction: saved answers and explicit requests to remember information
+do not all have evidence of an original question. Do not invent questions or
+answer provenance for those entries.
 
 This wording keeps the existing technical key/value contract. Within a course,
 entries with the same exact key share the current value across lessons. Changing

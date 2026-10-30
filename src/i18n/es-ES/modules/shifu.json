@@ -43,8 +43,8 @@
     },
     "title": "Simulación de aprendizaje",
     "variablesCollapse": "Contraer",
-    "variablesDescription": "Ajusta los datos del alumno y las respuestas simuladas para probar distintas experiencias de curso.",
-    "variablesEmpty": "No hay contenido que mostrar",
+    "variablesDescription": "La memoria se presenta en forma de preguntas y respuestas. Ajusta los datos del alumno y las respuestas simuladas para probar distintas experiencias de curso.",
+    "variablesEmpty": "No hay recuerdos que mostrar",
     "variablesExpand": "Mostrar",
     "variablesHideSingleConfirmDesc": "«{name}» se ocultará en la simulación de aprendizaje. Podrás recuperarlo con «Mostrar todo».",
     "variablesHideSingleConfirmTitle": "Ocultar este elemento",
@@ -57,6 +57,6 @@
     "variablesRestoreHiddenConfirmDesc": "Mostrar los elementos ocultos del curso actual.",
     "variablesRestoreHiddenConfirmTitle": "Mostrar todo",
     "variablesRestoreHiddenTooltip": "Mostrar los elementos ocultos del curso actual",
-    "variablesTitle": "Preguntas y respuestas"
+    "variablesTitle": "Memoria"
   }
 }

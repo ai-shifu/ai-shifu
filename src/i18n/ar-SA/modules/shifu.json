@@ -43,8 +43,8 @@
     },
     "title": "محاكاة التعلم",
     "variablesCollapse": "طي",
-    "variablesDescription": "عدّل معلومات المتعلم والإجابات التجريبية لترى كيف تتغير تجربة الدورة",
-    "variablesEmpty": "لا يوجد محتوى لعرضه حاليًا",
+    "variablesDescription": "تُعرض الذاكرة في صورة أسئلة وإجابات. عدّل معلومات المتعلم والإجابات التجريبية لترى كيف تتغير تجربة الدورة.",
+    "variablesEmpty": "لا توجد ذاكرة لعرضها حاليًا",
     "variablesExpand": "توسيع",
     "variablesHideSingleConfirmDesc": "سيُخفى «{name}» من محاكاة التعلم. يمكنك إظهاره مجددًا عبر «عرض الكل».",
     "variablesHideSingleConfirmTitle": "إخفاء هذا العنصر",
@@ -57,6 +57,6 @@
     "variablesRestoreHiddenConfirmDesc": "عرض العناصر المخفية في الدورة الحالية.",
     "variablesRestoreHiddenConfirmTitle": "عرض الكل",
     "variablesRestoreHiddenTooltip": "عرض العناصر المخفية في الدورة الحالية",
-    "variablesTitle": "الأسئلة والإجابات"
+    "variablesTitle": "الذاكرة"
   }
 }

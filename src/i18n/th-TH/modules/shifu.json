@@ -43,8 +43,8 @@
     },
     "title": "การจำลองการเรียน",
     "variablesCollapse": "ยุบ",
-    "variablesDescription": "ปรับข้อมูลผู้เรียนและคำตอบจำลองเพื่อดูว่าประสบการณ์การเรียนเปลี่ยนไปอย่างไร",
-    "variablesEmpty": "ยังไม่มีเนื้อหาที่จะแสดง",
+    "variablesDescription": "ความจำแสดงในรูปแบบคำถามและคำตอบ ปรับข้อมูลผู้เรียนและคำตอบจำลองเพื่อดูว่าประสบการณ์การเรียนเปลี่ยนไปอย่างไร",
+    "variablesEmpty": "ยังไม่มีความจำที่จะแสดง",
     "variablesExpand": "ขยาย",
     "variablesHideSingleConfirmDesc": "“{name}” จะถูกซ่อนจากการจำลองการเรียน คุณสามารถแสดงรายการนี้อีกครั้งได้ผ่าน “แสดงทั้งหมด”",
     "variablesHideSingleConfirmTitle": "ซ่อนรายการนี้",
@@ -57,6 +57,6 @@
     "variablesRestoreHiddenConfirmDesc": "แสดงรายการที่ซ่อนไว้ในหลักสูตรปัจจุบัน",
     "variablesRestoreHiddenConfirmTitle": "แสดงทั้งหมด",
     "variablesRestoreHiddenTooltip": "แสดงรายการที่ซ่อนไว้ในหลักสูตรปัจจุบัน",
-    "variablesTitle": "คำถามและคำตอบ"
+    "variablesTitle": "ความจำ"
   }
 }

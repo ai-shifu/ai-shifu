@@ -43,8 +43,8 @@
     },
     "title": "Simulation d’apprentissage",
     "variablesCollapse": "Réduire",
-    "variablesDescription": "Modifiez les informations de l’apprenant et les réponses simulées pour tester différentes expériences de cours.",
-    "variablesEmpty": "Aucun contenu à afficher",
+    "variablesDescription": "Les éléments mémorisés sont présentés sous forme de questions et de réponses. Modifiez les informations de l’apprenant et les réponses simulées pour tester différentes expériences de cours.",
+    "variablesEmpty": "Aucun élément mémorisé à afficher",
     "variablesExpand": "Développer",
     "variablesHideSingleConfirmDesc": "L’élément « {name} » sera masqué dans la simulation d’apprentissage. Vous pourrez le réafficher avec « Tout afficher ».",
     "variablesHideSingleConfirmTitle": "Masquer cet élément",
@@ -57,6 +57,6 @@
     "variablesRestoreHiddenConfirmDesc": "Afficher les éléments masqués dans le cours actuel.",
     "variablesRestoreHiddenConfirmTitle": "Tout afficher",
     "variablesRestoreHiddenTooltip": "Afficher les éléments masqués dans le cours actuel",
-    "variablesTitle": "Questions et réponses"
+    "variablesTitle": "Mémoire"
   }
 }

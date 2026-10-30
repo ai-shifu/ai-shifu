@@ -43,8 +43,8 @@
     },
     "title": "Lernsimulation",
     "variablesCollapse": "Einklappen",
-    "variablesDescription": "Passen Sie die Angaben zu den Lernenden und die simulierten Antworten an, um verschiedene Kurserlebnisse zu testen.",
-    "variablesEmpty": "Keine Inhalte zum Anzeigen",
+    "variablesDescription": "Die Erinnerungen werden als Fragen und Antworten dargestellt. Passen Sie die Angaben zu den Lernenden und die simulierten Antworten an, um verschiedene Kurserlebnisse zu testen.",
+    "variablesEmpty": "Keine Erinnerungen zum Anzeigen",
     "variablesExpand": "Erweitern",
     "variablesHideSingleConfirmDesc": "„{name}“ wird in der Lernsimulation ausgeblendet. Über „Alle anzeigen“ können Sie den Eintrag wieder einblenden.",
     "variablesHideSingleConfirmTitle": "Diesen Eintrag ausblenden",
@@ -57,6 +57,6 @@
     "variablesRestoreHiddenConfirmDesc": "Die ausgeblendeten Einträge des aktuellen Kurses wieder anzeigen.",
     "variablesRestoreHiddenConfirmTitle": "Alle anzeigen",
     "variablesRestoreHiddenTooltip": "Die ausgeblendeten Einträge des aktuellen Kurses wieder anzeigen",
-    "variablesTitle": "Fragen und Antworten"
+    "variablesTitle": "Gedächtnis"
   }
 }
