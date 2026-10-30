@@ -209,6 +209,25 @@ def mock_redis_client(monkeypatch: object, request: object) -> object:
     return fake_redis
 
 
+_REAL_BCRYPT = import_module("bcrypt")
+_REAL_GENSALT = _REAL_BCRYPT.gensalt
+
+
+def _minimum_cost_gensalt(rounds: int = 12, prefix: bytes = b"2b") -> bytes:
+    """Hash test passwords at bcrypt's minimum cost; production keeps cost 12.
+
+    checkpw reads the cost from each hash, so verification is unchanged; only
+    the key-stretching work that made password tests take seconds is skipped.
+    """
+    del rounds
+    return _REAL_GENSALT(rounds=4, prefix=prefix)
+
+
+# Patched once for the whole session on the real module: some tests swap a fake
+# into sys.modules["bcrypt"], and no test needs production-cost hashing.
+_REAL_BCRYPT.gensalt = _minimum_cost_gensalt
+
+
 def _should_skip_llm_mock(request: object) -> bool:
     return request.node.get_closest_marker("no_mock_llm") is not None
 
@@ -232,13 +251,18 @@ def mock_llm_calls(monkeypatch: object, request: object) -> None:
 
 
 @pytest.fixture(autouse=True)
-def isolate_env_for_non_app_tests(request: object) -> Iterator[None]:
+def isolate_env_for_non_app_tests(
+    request: object, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
     if "app" in request.fixturenames:
         yield
         return
-    original = {key: os.environ.get(key) for key in ENV_VARS}
+    # Remove keys through monkeypatch so a test's own setenv/delenv calls land on
+    # the same LIFO undo stack and unwind correctly whichever fixture created
+    # monkeypatch first. A separate snapshot restore here would run before or
+    # after that undo depending on fixture order and could drop SECRET_KEY.
     for key in ENV_VARS:
-        os.environ.pop(key, None)
+        monkeypatch.delenv(key, raising=False)
 
     # Some tests monkeypatch env vars while a session-scoped Flask app has
     # already initialized the enhanced config cache. Clear caches so get_config
@@ -252,11 +276,6 @@ def isolate_env_for_non_app_tests(request: object) -> Iterator[None]:
         if config_module.Config._instance is not None:
             config_module.Config._instance.enhanced._cache.clear()
     yield
-    for key, value in original.items():
-        if value is None:
-            os.environ.pop(key, None)
-        else:
-            os.environ[key] = value
 
     with contextlib.suppress(Exception):
         config_module.__ENHANCED_CONFIG__._cache.clear()
