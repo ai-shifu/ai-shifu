@@ -85,6 +85,7 @@ def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object) -> o
 
 import contextlib
 
+from tests.common.fixtures.env_isolation import clear_registered_env
 from tests.common.fixtures.fake_llm import (
     fake_chat_llm,
     fake_get_current_models,
@@ -257,12 +258,7 @@ def isolate_env_for_non_app_tests(
     if "app" in request.fixturenames:
         yield
         return
-    # Remove keys through monkeypatch so a test's own setenv/delenv calls land on
-    # the same LIFO undo stack and unwind correctly whichever fixture created
-    # monkeypatch first. A separate snapshot restore here would run before or
-    # after that undo depending on fixture order and could drop SECRET_KEY.
-    for key in ENV_VARS:
-        monkeypatch.delenv(key, raising=False)
+    clear_registered_env(monkeypatch)
 
     # Some tests monkeypatch env vars while a session-scoped Flask app has
     # already initialized the enhanced config cache. Clear caches so get_config
