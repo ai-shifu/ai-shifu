@@ -36,6 +36,17 @@ class TestProfileRoutes:
             raising=False,
         )
 
+    def test_unimplemented_profile_item_route_is_not_registered(
+        self, app: object, monkeypatch: object, test_client: object
+    ) -> None:
+        self._mock_request_user(monkeypatch)
+        path = "/api/profiles/get-profile-item"
+
+        assert path not in {rule.rule for rule in app.url_map.iter_rules()}
+        response = test_client.post(path, json={"profile_id": "profile_1"})
+        payload = response.get_json(silent=True) or {}
+        assert payload.get("code") == 404
+
     def test_get_profile_item_definitions_passes_type_filter(
         self, monkeypatch: object, test_client: object
     ) -> None:
