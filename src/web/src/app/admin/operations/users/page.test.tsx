@@ -198,7 +198,7 @@ jest.mock('./UserCancellationDialog', () => ({
     ) : null,
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: jest.fn() }),
 }));
 
@@ -307,7 +307,7 @@ jest.mock('@/app/admin/components/AdminDateRangeFilter', () => ({
   ),
 }));
 
-jest.mock('@/components/ui/tooltip', () => ({
+jest.mock('@/components/ui/Tooltip', () => ({
   __esModule: true,
   TooltipProvider: ({ children }: React.PropsWithChildren) => <>{children}</>,
   Tooltip: ({ children }: React.PropsWithChildren) => <>{children}</>,

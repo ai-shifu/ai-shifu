@@ -3,7 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SWRConfig } from 'swr';
 import api from '@/api';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import { useBillingOverview } from '@/hooks/use-billing-data';
 import { AdminBillingPageClient } from './AdminBillingPageClient';
 
 let mockSearchParamsValue = '';
@@ -48,12 +48,12 @@ jest.mock('@/api', () => ({
   },
 }));
 
-jest.mock('@/hooks/useBillingData', () => ({
-  ...jest.requireActual('@/hooks/useBillingData'),
+jest.mock('@/hooks/use-billing-data', () => ({
+  ...jest.requireActual('@/hooks/use-billing-data'),
   useBillingOverview: jest.fn(),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 

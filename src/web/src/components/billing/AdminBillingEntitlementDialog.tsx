@@ -6,7 +6,7 @@ import { useSWRConfig } from 'swr';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import { useEnvStore } from '@/store';
-import { toast } from '@/hooks/useToast';
+import { toast } from '@/hooks/use-toast';
 import {
   isValidContactIdentifier,
   normalizeContactIdentifier,
@@ -704,7 +704,7 @@ export function AdminBillingEntitlementDialog({
           values.branding_enabled &&
           (draftWideLogoFile || draftSquareLogoFile || draftFaviconFile)
         ) {
-          const { uploadFile } = await import('@/lib/file');
+          const { uploadFile } = await import('@/lib/file-upload');
           if (draftWideLogoFile) {
             const response = await uploadFile(
               draftWideLogoFile,

@@ -24,8 +24,8 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
-import { submitFeedback } from '@/api/bz';
-import { toast } from '@/hooks/useToast';
+import { submitFeedback } from '@/api/feedback';
+import { toast } from '@/hooks/use-toast';
 
 const REQUEST_MAX_LENGTH = 300;
 

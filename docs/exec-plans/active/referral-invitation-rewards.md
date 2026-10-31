@@ -345,7 +345,7 @@
 
 文件：
 
-- 修改 `src/web/src/api/api.ts`。
+- 修改 `src/web/src/api/endpoint-definitions.ts`。
 - 在现有前端 API 层创建或修改 referral API wrappers。
 - 如果拆分更清晰，增加 `src/web/src/types/referral.ts`。
 - 更新 `src/i18n/zh-CN`、`src/i18n/en-US`、`src/i18n/fr-FR` 下 JSON。

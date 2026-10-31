@@ -23,7 +23,7 @@ canonical: true
 
 ## Candidate Files
 - `src/web/src/app/c/[[...id]]/layout.tsx`
-- `src/web/src/store/userProvider.tsx`
+- `src/web/src/store/UserProvider.tsx`
 - `src/web/src/api/course.ts`
 
 ## Acceptance Criteria

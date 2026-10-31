@@ -24,7 +24,7 @@ import {
 import {
   type UpdatePolicy,
   useCreditNotificationConfigTabState,
-} from './useCreditNotificationConfigTabState';
+} from './use-credit-notification-config-tab-state';
 
 export function CreditNotificationConfigTab({
   identifierType,

@@ -6,9 +6,9 @@ import {
 } from '../dnd-kit-sortable-tree';
 import React, { useMemo } from 'react';
 import { Outline } from '@/types/shifu';
-import { useShifu } from '@/store/useShifu';
+import { useShifu } from '@/store/use-shifu';
 import { ItemChangedReason } from '../dnd-kit-sortable-tree/types';
-import './OutlineTree.css';
+import './outline-tree.css';
 import MinimalTreeItemComponent from './MinimalTreeItem';
 
 interface ICataTreeProps {

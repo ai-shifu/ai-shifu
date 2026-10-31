@@ -5,7 +5,7 @@ import {
   resolveDebugRegenerationStartIndex,
   resolveDebugRequestBlockIndex,
 } from '@/components/lesson-debug/debug-request-params';
-import { ChatContentItemType } from '@/types/chatUi';
+import { ChatContentItemType } from '@/types/chat-ui';
 
 jest.mock('remark-flow', () =>
   jest.requireActual('remark-flow/dist/variable-name'),

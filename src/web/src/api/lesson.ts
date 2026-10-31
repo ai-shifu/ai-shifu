@@ -1,7 +1,7 @@
 import request from '@/lib/request';
-import { useSystemStore } from '@/store/useSystemStore';
-import { useEnvStore } from '@/store/envStore';
-import { useUserStore } from '@/store/useUserStore';
+import { useSystemStore } from '@/store/use-system-store';
+import { useEnvStore } from '@/store/env-store';
+import { useUserStore } from '@/store/use-user-store';
 import { createRequestId, TRACE_REQUEST_ID_HEADER } from '@/lib/request-trace';
 
 // A reset whose response was lost keeps its request id until a response arrives, so the

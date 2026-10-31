@@ -9,8 +9,8 @@ The frontend has two configuration requests with different owners:
 | `/api/config`         | Next.js (`src/app/api/config/route.ts`)  | Only `apiBaseUrl`; locates the backend.                                                         |
 | `/api/runtime-config` | Flask (`src/api/flaskr/route/config.py`) | Public login, payment, branding, legal, and analytics settings in the shared response envelope. |
 
-[initializeEnvData.ts](../lib/initializeEnvData.ts) loads the backend payload
-into [envStore.ts](../store/envStore.ts). Components consume that store.
+[initialize-runtime-config.ts](../lib/initialize-runtime-config.ts) loads the backend payload
+into [env-store.ts](../store/env-store.ts). Components consume that store.
 [environment.ts](environment.ts) supplies bootstrap defaults; it is not a second
 browser configuration service. A successful Next `/api/config` fallback proves
 only backend-location discovery, not that runtime settings loaded successfully.
@@ -119,7 +119,7 @@ From `src/web`, run the configuration-parser and Next configuration-route tests:
 npm test -- --runInBand --runTestsByPath src/config/environment.test.ts src/app/api/config/route.test.ts
 ```
 
-`initializeEnvData.ts` has no dedicated test suite. These tests do not verify
+`initialize-runtime-config.ts` has no dedicated test suite. These tests do not verify
 its backend payload mapping, fallback behavior, or store updates; changes to
 that bootstrap path need focused regression coverage.
 

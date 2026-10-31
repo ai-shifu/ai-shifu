@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/use-toast';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { TermsConfirmDialog } from '@/components/auth/TermsConfirmDialog';
 import { useTranslation } from 'react-i18next';
@@ -15,11 +15,11 @@ import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { cn } from '@/lib/utils';
 import i18n from '@/i18n';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import {
   buildLoginAttemptAnalytics,
   buildLoginResultAnalytics,
-} from '@/lib/loginAnalytics';
+} from '@/lib/login-analytics';
 
 interface PasswordLoginProps {
   onLoginSuccess: () => void;

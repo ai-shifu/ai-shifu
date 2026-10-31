@@ -7,7 +7,7 @@ import {
   type DebugConsoleEntry,
   type DebugConsoleLevel,
   formatConsoleArgs,
-} from '@/lib/debugConsole';
+} from '@/lib/debug-console';
 
 const MAX_ENTRIES = 200;
 const CONSOLE_METHODS: DebugConsoleLevel[] = ['log', 'info', 'warn', 'error'];

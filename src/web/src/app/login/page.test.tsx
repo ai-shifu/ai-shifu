@@ -150,7 +150,7 @@ jest.mock('@/components/auth/TermsConfirmDialog', () => ({
   TermsConfirmDialog: () => <div data-testid='terms-dialog' />,
 }));
 
-jest.mock('@/hooks/useGoogleAuth', () => ({
+jest.mock('@/hooks/use-google-auth', () => ({
   useGoogleAuth: () => ({
     startGoogleLogin: jest.fn(),
   }),

@@ -181,7 +181,7 @@ jest.mock('@/components/ui/Tabs', () => ({
 jest.mock('react-rnd', () => ({
   Rnd: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-jest.mock('@/hooks/useToast', () => ({ toast: jest.fn() }));
+jest.mock('@/hooks/use-toast', () => ({ toast: jest.fn() }));
 jest.mock('@/store', () => ({
   useEnvStore: jest.fn(() => 'https://example.com'),
   __esModule: true,
@@ -200,16 +200,16 @@ jest.mock('@/store', () => ({
       clearReplay: jest.fn(),
     }),
 }));
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
-jest.mock('@/lib/urlUtils', () => ({
+jest.mock('@/lib/url-utils', () => ({
   buildUrlWithLessonId: jest.fn((url: string, lessonId: string) =>
     lessonId ? `${url}?lessonid=${lessonId}` : url,
   ),
   replaceCurrentUrlWithLessonId: jest.fn(),
 }));
-jest.mock('@/hooks/useOnboarding', () => ({
+jest.mock('@/hooks/use-onboarding', () => ({
   useCreatorOnboardingStatus: () => ({
     data: {
       eligible: false,

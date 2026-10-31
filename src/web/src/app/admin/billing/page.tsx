@@ -1,5 +1,5 @@
 import { AdminBillingPageClient } from './AdminBillingPageClient';
-import { resolveBillingTab, type BillingTab } from './billingTabs';
+import { resolveBillingTab, type BillingTab } from './billing-tabs';
 
 type AdminBillingPageProps = {
   searchParams: Promise<{

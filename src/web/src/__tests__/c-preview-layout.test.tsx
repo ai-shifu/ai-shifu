@@ -8,10 +8,10 @@ import {
 } from '@testing-library/react';
 
 import ChatLayout from '@/app/c/[[...id]]/layout';
-import LearningModeSwitch from '@/app/c/[[...id]]/Components/LearningModeSwitch';
+import LearningModeSwitch from '@/app/c/[[...id]]/components/LearningModeSwitch';
 import { CourseInfoFetchError, getCourseInfo } from '@/api/course';
 import { useCourseStore, useEnvStore } from '@/store';
-import { useSystemStore } from '@/store/useSystemStore';
+import { useSystemStore } from '@/store/use-system-store';
 
 let mockSearchParamsValue = '';
 const mockTrackEvent = jest.fn();
@@ -30,7 +30,7 @@ jest.mock('@/api/course', () => ({
   getCourseInfo: jest.fn(),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
@@ -45,10 +45,10 @@ jest.mock('@/store', () => {
   });
   return {
     __esModule: true,
-    ...jest.requireActual('@/store/envStore'),
-    ...jest.requireActual('@/store/useCourseStore'),
-    ...jest.requireActual('@/store/useSystemStore'),
-    ...jest.requireActual('@/store/useUiLayoutStore'),
+    ...jest.requireActual('@/store/env-store'),
+    ...jest.requireActual('@/store/use-course-store'),
+    ...jest.requireActual('@/store/use-system-store'),
+    ...jest.requireActual('@/store/use-ui-layout-store'),
     UserProvider: ({ children }: { children: React.ReactNode }) => (
       <>{children}</>
     ),
@@ -56,13 +56,13 @@ jest.mock('@/store', () => {
   };
 });
 
-jest.mock('@/store/userProvider', () => ({
+jest.mock('@/store/UserProvider', () => ({
   UserProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
 }));
 
-jest.mock('@/store/useUserStore', () => {
+jest.mock('@/store/use-user-store', () => {
   const initUser = jest.fn();
   const useUserStore = jest.fn(() => ({
     userInfo: null,

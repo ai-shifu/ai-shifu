@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/AlertDialog';
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Loading from '@/components/loading';
 import { useTranslation } from 'react-i18next';
@@ -26,15 +26,15 @@ import ShifuPermissionDialog from '@/components/shifu-setting/ShifuPermissionDia
 import ImportActivationDialog from '@/components/order/ImportActivationDialog';
 import CreatorRedemptionCodeDialog from './orders/CreatorRedemptionCodeDialog';
 import { useUserStore } from '@/store';
-import { useTracking } from '@/hooks/useTracking';
-import { getCourseCreatorUrl } from '@/lib/urlUtils';
-import { copyText } from '@/lib/textutils';
-import { useCreatorOnboardingStatus } from '@/hooks/useOnboarding';
+import { useTracking } from '@/hooks/use-tracking';
+import { getCourseCreatorUrl } from '@/lib/url-utils';
+import { copyText } from '@/lib/text-utils';
+import { useCreatorOnboardingStatus } from '@/hooks/use-onboarding';
 import {
   canManageArchive as canManageArchiveForShifu,
   canManageOwnerCourseAction,
 } from '@/lib/shifu-permissions';
-import { buildGuideCourseTargetId } from '@/lib/onboardingTargets';
+import { buildGuideCourseTargetId } from '@/lib/onboarding-targets';
 import AdminTitle from './components/AdminTitle';
 import ShifuCard from './components/ShifuCard';
 import CourseCreationChoiceDialog from './components/CourseCreationChoiceDialog';
@@ -46,7 +46,7 @@ import {
   buildCourseCreationCancelAnalytics,
   buildCourseCreationResultAnalytics,
   COURSE_CREATION_EVENTS,
-} from './courseCreationAnalytics';
+} from './course-creation-analytics';
 
 const COURSE_TABS_LIST_CLASS =
   'h-auto rounded-[var(--border-radius-rounded-lg,10px)] bg-[var(--base-muted,#F5F5F5)] p-[3px]';

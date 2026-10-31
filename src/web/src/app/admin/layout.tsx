@@ -10,15 +10,15 @@ import React, {
 import { usePathname } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { useDisclosure } from '@/hooks/useDisclosure';
+import { useDisclosure } from '@/hooks/use-disclosure';
 import { useEnvStore } from '@/store';
 import { EnvStoreState } from '@/types/store';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import { useBillingOverview } from '@/hooks/use-billing-data';
 import { useUserStore } from '@/store';
 import { ContactSideRail } from '@/components/contact/ContactSideRail';
 import LearnerProfileDialog from '@/components/profile-onboarding/LearnerProfileDialog';
 import { WelcomeTrialDialog } from '@/components/billing/WelcomeTrialDialog';
-import { applyCreatorBranding } from '@/lib/initializeEnvData';
+import { applyCreatorBranding } from '@/lib/initialize-runtime-config';
 import type { ReferralInviteProfile } from '@/types/referral';
 import { buildAdminMenuItems } from './admin-menu';
 import { SidebarContent } from './SidebarContent';

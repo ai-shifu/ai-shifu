@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import api from '@/api';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import { useBillingOverview } from '@/hooks/use-billing-data';
 import { CONTACT_RAIL_I18N_KEY } from '@/components/contact/ContactSideRail';
 import { buildAdminMenuItems } from './admin-menu';
 import AdminLayout from './layout';
@@ -162,13 +162,13 @@ jest.mock('@/components/contact/ContactSideRail', () => ({
     ) : null,
 }));
 
-jest.mock('@/lib/initializeEnvData', () => ({
+jest.mock('@/lib/initialize-runtime-config', () => ({
   __esModule: true,
   applyCreatorBranding: (creatorBid: string) =>
     mockApplyCreatorBranding(creatorBid),
 }));
 
-jest.mock('@/hooks/useDisclosure', () => {
+jest.mock('@/hooks/use-disclosure', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   return {
     useDisclosure: () => {
@@ -201,7 +201,7 @@ jest.mock('@/store', () => ({
     selector(mockUserStoreState),
 }));
 
-jest.mock('@/store/envStore', () => ({
+jest.mock('@/store/env-store', () => ({
   __esModule: true,
   useEnvStore: (
     selector: ((state: typeof mockEnvState) => unknown) | undefined,
@@ -219,7 +219,7 @@ const mockUserStoreState = {
   refreshUserInfo: mockRefreshUserInfo,
 };
 
-jest.mock('@/components/NavDrawer/NavFooter', () => ({
+jest.mock('@/components/navigation/NavFooter', () => ({
   __esModule: true,
   default: React.forwardRef(function MockNavFooter(
     {
@@ -237,7 +237,7 @@ jest.mock('@/components/NavDrawer/NavFooter', () => ({
   }),
 }));
 
-jest.mock('@/components/NavDrawer/MainMenuModal', () => ({
+jest.mock('@/components/navigation/MainMenuModal', () => ({
   __esModule: true,
   default: (props: MockMainMenuModalProps) => mockMainMenuModal(props),
 }));
@@ -248,12 +248,12 @@ jest.mock('@/components/profile-onboarding/LearnerProfileDialog', () => ({
     mockLearnerProfileDialog(props),
 }));
 
-jest.mock('@/hooks/useBillingData', () => ({
+jest.mock('@/hooks/use-billing-data', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   __esModule: true,
   useTracking: () => ({
     trackEvent: jest.fn(),
