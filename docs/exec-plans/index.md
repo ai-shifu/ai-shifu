@@ -82,6 +82,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Creator Dashboard Learners SQL Optimization](./completed/creator-dashboard-learners-sql-optimization.md)
 - [Creator Dashboard Ratings SQL Optimization](./completed/creator-dashboard-ratings-sql-optimization.md)
 - [Creator Dashboard Request Splitting](./completed/creator-dashboard-request-splitting.md)
+- [Regenerate editor Debug from a selected step](./completed/debug-regenerate-from-step.md)
 - [Device Authorization Skill Analytics](./completed/device-auth-skill-analytics.md)
 - [Reuse production Web Docker dependencies](./completed/docker-web-dependency-reuse.md)
 - [Keep editor previews in the selected language](./completed/editor-preview-language.md)

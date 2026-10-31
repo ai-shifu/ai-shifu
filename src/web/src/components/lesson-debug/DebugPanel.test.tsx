@@ -164,6 +164,73 @@ describe('DebugPanel billing action', () => {
     mockDebugVariablesPanel.mockReset();
   });
 
+  test('offers regeneration retry when no generated output remains', () => {
+    const onRetryRegeneration = jest.fn();
+
+    render(
+      <DebugPanel
+        isLoading={false}
+        items={[]}
+        shifuBid='shifu-1'
+        onRegenerate={jest.fn()}
+        onRetryRegeneration={onRetryRegeneration}
+        onSubmitInteraction={jest.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByText('module.shifu.previewArea.empty'),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.retry' }));
+    expect(onRetryRegeneration).toHaveBeenCalledTimes(1);
+  });
+
+  test('only offers regeneration retry when available and idle', () => {
+    const onRetryRegeneration = jest.fn();
+    const props = {
+      items: [
+        {
+          element_bid: 'debug-error',
+          content: 'Regeneration failed',
+          type: ChatContentItemType.ERROR,
+        },
+      ],
+      shifuBid: 'shifu-1',
+      onRegenerate: jest.fn(),
+      onSubmitInteraction: jest.fn(),
+    };
+    const { rerender } = render(
+      <DebugPanel
+        {...props}
+        isLoading={false}
+      />,
+    );
+    expect(
+      screen.queryByRole('button', { name: 'common.core.retry' }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <DebugPanel
+        {...props}
+        isLoading={false}
+        onRetryRegeneration={onRetryRegeneration}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'common.core.retry' }));
+    expect(onRetryRegeneration).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <DebugPanel
+        {...props}
+        isLoading
+        onRetryRegeneration={onRetryRegeneration}
+      />,
+    );
+    expect(
+      screen.queryByRole('button', { name: 'common.core.retry' }),
+    ).not.toBeInTheDocument();
+  });
+
   test('filters hidden variables and forwards visible system variable keys', () => {
     render(
       <DebugPanel
