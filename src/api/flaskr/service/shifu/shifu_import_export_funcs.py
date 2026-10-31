@@ -6,7 +6,6 @@ from pathlib import Path
 
 from flask import Flask
 from flaskr.api.llm.model_selection import course_model_selection
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, unit_of_work
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
@@ -17,6 +16,9 @@ from flaskr.service.learn.api import (
 )
 from flaskr.service.shifu.consts import FLOW_ENGINE_DEFAULT
 from flaskr.service.shifu.models import DraftOutlineItem, DraftShifu
+from flaskr.service.shifu.question_validation import (
+    assert_course_question_names_allowed,
+)
 from flaskr.service.shifu.shifu_draft_funcs import (
     get_latest_shifu_draft,
     serialize_ask_provider_config,
@@ -29,7 +31,7 @@ from flaskr.service.shifu.shifu_history_manager import (
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc, to_utc_iso
-from markdown_flow import MarkdownFlow
+from markdownflow import MarkdownFlowDocument
 from werkzeug.datastructures import FileStorage
 
 
@@ -214,6 +216,11 @@ def import_shifu(
             raise_error("server.shifu.importFileInvalid")
         if any(not isinstance(item, dict) for item in outline_items_data):
             raise_error("server.shifu.importFileInvalid")
+        for item in outline_items_data:
+            content = item.get("content", "")
+            if not isinstance(content, str):
+                raise_error("server.shifu.importFileInvalid")
+            assert_course_question_names_allowed(MarkdownFlowDocument(content))
         structure_data = import_data.get("structure")
         _import_model_selection(shifu_data, "llm")
         _import_model_selection(shifu_data, "ask_llm")
@@ -437,9 +444,7 @@ def import_shifu(
                 elif item_type == "outline":
                     if old_bid in created_items:
                         item_id = created_items[old_bid].id
-                        mdflow = MarkdownFlow(
-                            created_items[old_bid].content
-                        ).set_output_language(get_markdownflow_output_language())
+                        mdflow = MarkdownFlowDocument(created_items[old_bid].content)
                         block_list = mdflow.get_all_blocks()
                         child_count = len(block_list)
                     else:

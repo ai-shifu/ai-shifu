@@ -11,7 +11,6 @@ from flask import Flask, current_app
 from flaskr.api.llm.model_selection import course_model_selection, selection_model
 from flaskr.common.cache_provider import cache as redis
 from flaskr.common.config import get_redis_key_prefix
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.dao import db
 from flaskr.dao.uow import app_context_scope, on_commit, unit_of_work
 from flaskr.i18n import _
@@ -70,7 +69,7 @@ from flaskr.service.user.utils import (
 )
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
-from markdown_flow import MarkdownFlow
+from markdownflow import MarkdownFlowDocument
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -155,9 +154,7 @@ def _build_outline_history_tree(
     def _count_blocks(content: str) -> int:
         if not content:
             return 0
-        mdflow = MarkdownFlow(content).set_output_language(
-            get_markdownflow_output_language()
-        )
+        mdflow = MarkdownFlowDocument(content)
         return len(mdflow.get_all_blocks())
 
     def _build(parent_bid: str) -> list[HistoryItem]:

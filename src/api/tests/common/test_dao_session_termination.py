@@ -28,7 +28,7 @@ from sqlalchemy.exc import (
 from sqlalchemy.orm.exc import FlushError
 
 
-class _FakeGreenletExit(BaseException):
+class _FakeInterrupt(BaseException):
     pass
 
 
@@ -42,7 +42,7 @@ def _operational(errno: int) -> OperationalError:
     ("exc", "expected"),
     [
         (GeneratorExit(), True),
-        (_FakeGreenletExit(), True),
+        (_FakeInterrupt(), True),
         (ResourceClosedError("no rows"), True),
         (DisconnectionError("desynced"), True),
         (_operational(2013), True),

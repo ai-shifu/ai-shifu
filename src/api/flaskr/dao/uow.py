@@ -220,7 +220,7 @@ def unit_of_work(*, discard: bool = False) -> Iterator[None]:
         raise
     except BaseException:
         if depth == 0:
-            # GreenletExit landing inside the COMMIT's network IO leaves an
+            # A BaseException landing inside the COMMIT's network IO leaves an
             # unread response owed on the wire; discard the connection
             # before any later cleanup could roll back on it.
             dao.invalidate_session(source="unit_of_work interrupt")

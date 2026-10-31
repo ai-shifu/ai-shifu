@@ -138,7 +138,9 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
         <DialogHeader>
           <DialogTitle>{t('module.settings.memoryTitle')}</DialogTitle>
           <DialogDescription>
-            {t('module.settings.memoryDescription')}
+            {t('module.settings.memoryDescription', {
+              entry: t('component.menus.navigationMenus.personalInfo'),
+            })}
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -171,14 +173,16 @@ export default function CourseMemoryDialog({ courseId, onClose }: Props) {
                   key={item.value_id}
                   className='flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40'
                 >
-                  <div className='min-w-0 flex-1 space-y-1.5'>
-                    <span className='inline-block max-w-full break-all rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground'>
+                  <dl className='min-w-0 flex-1 space-y-2.5 text-left'>
+                    <dt className='whitespace-pre-wrap break-words text-sm font-medium leading-relaxed text-foreground'>
                       {item.key}
-                    </span>
-                    <p className='whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground'>
-                      {item.value}
-                    </p>
-                  </div>
+                    </dt>
+                    <dd className='rounded-md bg-muted/50 px-3 py-2.5'>
+                      <p className='whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground'>
+                        {item.value}
+                      </p>
+                    </dd>
+                  </dl>
                   <Button
                     variant='ghost'
                     size='icon'

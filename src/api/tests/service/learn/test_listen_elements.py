@@ -17,8 +17,8 @@ def test_get_listen_element_record_returns_latest_elements_and_events(
     _require_app(app)
 
     from flaskr.dao import db
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.learn_dtos import VariableUpdateDTO
-    from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -251,7 +251,7 @@ def test_get_listen_element_record_serializes_progress_time_as_utc(app: object) 
     from datetime import datetime
 
     from flaskr.dao import db
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -328,7 +328,7 @@ def test_get_listen_element_record_treats_naive_progress_time_as_utc(
     from datetime import datetime
 
     from flaskr.dao import db
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -403,7 +403,7 @@ def test_get_listen_element_record_merges_patch_audio_fields_into_target_snapsho
     _require_app(app)
 
     from flaskr.dao import db
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -528,8 +528,8 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
     _require_app(app)
 
     from flaskr.dao import db
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.learn_dtos import ElementType
-    from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -545,7 +545,7 @@ def test_get_listen_element_record_returns_all_persisted_elements_across_progres
         db.session.commit()
 
         monkeypatch.setattr(
-            "flaskr.service.learn.listen_elements.get_learn_record",
+            "flaskr.service.learn.elements.run_adapter.get_learn_record",
             lambda *_args, **_kwargs: pytest.fail(
                 "persisted element query should not fall back to legacy records"
             ),
@@ -657,15 +657,15 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
     _require_app(app)
 
     from flaskr.dao import db
+    from flaskr.service.learn.elements.legacy_record_builder import (
+        LegacyGeneratedBlockRecord,
+        LegacyLearnRecord,
+    )
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.learn_dtos import (
         BlockType,
         LikeStatus,
     )
-    from flaskr.service.learn.legacy_record_builder import (
-        LegacyGeneratedBlockRecord,
-        LegacyLearnRecord,
-    )
-    from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -680,7 +680,7 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
         db.session.commit()
 
         monkeypatch.setattr(
-            "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
+            "flaskr.service.learn.elements.run_adapter.build_legacy_record_for_progress",
             lambda *_args, **_kwargs: LegacyLearnRecord(
                 records=[
                     LegacyGeneratedBlockRecord(
@@ -701,7 +701,7 @@ def test_get_listen_element_record_keeps_block_order_when_run_sessions_reset_ind
             ),
         )
         monkeypatch.setattr(
-            "flaskr.service.learn.listen_elements.get_learn_record",
+            "flaskr.service.learn.elements.run_adapter.get_learn_record",
             lambda *_args, **_kwargs: pytest.fail(
                 "persisted element query should not fall back to legacy records"
             ),
@@ -800,8 +800,8 @@ def test_get_listen_element_record_ignores_rows_from_inactive_generated_blocks(
     _require_app(app)
 
     from flaskr.dao import db
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.learn_dtos import ElementType
-    from flaskr.service.learn.listen_elements import get_listen_element_record
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -1039,7 +1039,7 @@ def test_get_listen_element_record_dedupes_older_progress_records_with_same_bloc
     _require_app(app)
 
     from flaskr.dao import db
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -1055,7 +1055,7 @@ def test_get_listen_element_record_dedupes_older_progress_records_with_same_bloc
         db.session.commit()
 
         monkeypatch.setattr(
-            "flaskr.service.learn.listen_elements.get_learn_record",
+            "flaskr.service.learn.elements.run_adapter.get_learn_record",
             lambda *_args, **_kwargs: pytest.fail(
                 "persisted element query should not fall back to legacy records"
             ),
@@ -1161,8 +1161,8 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.legacy_record_builder import LegacyLearnRecord
-    from flaskr.service.learn.listen_elements import get_listen_element_record
+    from flaskr.service.learn.elements.legacy_record_builder import LegacyLearnRecord
+    from flaskr.service.learn.elements.run_adapter import get_listen_element_record
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -1288,11 +1288,11 @@ def test_get_listen_element_record_includes_persisted_rows_missing_progress_bid(
         db.session.commit()
 
         monkeypatch.setattr(
-            "flaskr.service.learn.listen_elements.build_legacy_record_for_progress",
+            "flaskr.service.learn.elements.run_adapter.build_legacy_record_for_progress",
             lambda *_args, **_kwargs: LegacyLearnRecord(records=[]),
         )
         monkeypatch.setattr(
-            "flaskr.service.learn.listen_elements.get_learn_record",
+            "flaskr.service.learn.elements.run_adapter.get_learn_record",
             lambda *_args, **_kwargs: pytest.fail(
                 "persisted rows should satisfy the record query without legacy fallback"
             ),
@@ -1391,12 +1391,12 @@ def test_listen_element_adapter_retires_fallback_once_visual_element_arrives(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
     from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
@@ -1510,12 +1510,12 @@ def test_listen_element_adapter_retires_matching_active_rows_by_primary_key(
     _require_app(app)
 
     from flaskr.dao import db
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         ElementChangeType,
         ElementDTO,
         ElementType,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import LearnGeneratedElement
 
     user_bid = "user-listen-retire-active-rows"
@@ -1660,6 +1660,7 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
@@ -1667,7 +1668,6 @@ def test_listen_adapter_finalizes_visuals_and_text_as_independent_elements(
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
     from flaskr.service.tts.pipeline import build_av_segmentation_contract
 
@@ -1896,6 +1896,7 @@ def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(
 ) -> None:
     _require_app(app)
 
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
@@ -1903,7 +1904,6 @@ def test_listen_adapter_finalizes_fallback_text_with_embedded_audio(
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import LearnGeneratedElement
 
     user_bid = "user-listen-fallback-audio"
@@ -2007,16 +2007,16 @@ def test_listen_adapter_handles_mdflow_stream_metadata_without_av_contract(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import (
+        ListenElementRunAdapter,
+        get_listen_element_record,
+    )
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
         ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
-    )
-    from flaskr.service.learn.listen_elements import (
-        ListenElementRunAdapter,
-        get_listen_element_record,
     )
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
@@ -2226,12 +2226,12 @@ def test_listen_adapter_marks_non_text_after_text_as_new_in_stream(app: object) 
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -2355,14 +2355,14 @@ def test_listen_adapter_keeps_html_stream_as_single_element_on_break(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import (
+        ListenElementRunAdapter,
+        get_listen_element_record,
+    )
     from flaskr.service.learn.learn_dtos import (
         ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
-    )
-    from flaskr.service.learn.listen_elements import (
-        ListenElementRunAdapter,
-        get_listen_element_record,
     )
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
@@ -2470,12 +2470,12 @@ def test_listen_adapter_preserves_structural_fragment_without_html_target(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -2562,12 +2562,12 @@ def test_listen_adapter_marks_type_switch_as_new_when_stream_number_reused(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -2666,12 +2666,12 @@ def test_listen_adapter_marks_reentered_image_slot_as_new_after_text(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -2764,6 +2764,7 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
@@ -2771,7 +2772,6 @@ def test_audio_segments_stick_to_first_target_element_without_av_contract(
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -3022,6 +3022,7 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
@@ -3029,7 +3030,6 @@ def test_late_audio_positions_bind_to_latest_text_without_av_contract(
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -3351,6 +3351,7 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app: object) -> 
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
@@ -3358,7 +3359,6 @@ def test_listen_adapter_binds_buffered_audio_to_text_after_html(app: object) -> 
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -3556,6 +3556,7 @@ def test_audio_stream_number_binding_overrides_position_guessing(app: object) ->
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
@@ -3563,7 +3564,6 @@ def test_audio_stream_number_binding_overrides_position_guessing(app: object) ->
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -3748,6 +3748,7 @@ def test_html_only_stream_does_not_absorb_audio_without_av_contract(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
@@ -3755,7 +3756,6 @@ def test_html_only_stream_does_not_absorb_audio_without_av_contract(
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -3891,6 +3891,7 @@ def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         AudioSegmentDTO,
@@ -3898,7 +3899,6 @@ def test_duplicate_audio_segment_events_are_deduplicated_in_run_state(
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import (
         LearnGeneratedBlock,
         LearnGeneratedElement,
@@ -4058,13 +4058,13 @@ def test_listen_adapter_streams_subtitle_cues_on_audio_segment_patch(
 
     from flaskr.dao import db
     from flaskr.service.learn.const import ROLE_TEACHER
+    from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
     from flaskr.service.learn.learn_dtos import (
         AudioSegmentDTO,
         ElementType,
         GeneratedType,
         RunMarkdownFlowDTO,
     )
-    from flaskr.service.learn.listen_elements import ListenElementRunAdapter
     from flaskr.service.learn.models import LearnGeneratedBlock, LearnProgressRecord
     from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
 
@@ -4187,18 +4187,18 @@ def test_build_listen_elements_from_legacy_record_interleaves_visuals_and_text(
 ) -> None:
     _require_app(app)
 
+    from flaskr.service.learn.elements.legacy_record_builder import (
+        LegacyGeneratedBlockRecord,
+        LegacyLearnRecord,
+    )
+    from flaskr.service.learn.elements.run_adapter import (
+        build_listen_elements_from_legacy_record,
+    )
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         BlockType,
         ElementType,
         LikeStatus,
-    )
-    from flaskr.service.learn.legacy_record_builder import (
-        LegacyGeneratedBlockRecord,
-        LegacyLearnRecord,
-    )
-    from flaskr.service.learn.listen_elements import (
-        build_listen_elements_from_legacy_record,
     )
 
     raw_content = "Before intro.\n\n<svg><text>Chart</text></svg>\n\nAfter chart."
@@ -4282,18 +4282,18 @@ def test_build_listen_elements_from_legacy_record_prefers_persisted_visual_eleme
     _require_app(app)
 
     from flaskr.dao import db
+    from flaskr.service.learn.elements.legacy_record_builder import (
+        LegacyGeneratedBlockRecord,
+        LegacyLearnRecord,
+    )
+    from flaskr.service.learn.elements.run_adapter import (
+        build_listen_elements_from_legacy_record,
+    )
     from flaskr.service.learn.learn_dtos import (
         AudioCompleteDTO,
         BlockType,
         ElementType,
         LikeStatus,
-    )
-    from flaskr.service.learn.legacy_record_builder import (
-        LegacyGeneratedBlockRecord,
-        LegacyLearnRecord,
-    )
-    from flaskr.service.learn.listen_elements import (
-        build_listen_elements_from_legacy_record,
     )
     from flaskr.service.learn.models import LearnGeneratedElement
 
@@ -4500,16 +4500,16 @@ def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(
 ) -> None:
     _require_app(app)
 
-    from flaskr.service.learn.learn_dtos import (
-        BlockType,
-        LikeStatus,
-    )
-    from flaskr.service.learn.legacy_record_builder import (
+    from flaskr.service.learn.elements.legacy_record_builder import (
         LegacyGeneratedBlockRecord,
         LegacyLearnRecord,
     )
-    from flaskr.service.learn.listen_elements import (
+    from flaskr.service.learn.elements.run_adapter import (
         build_listen_elements_from_legacy_record,
+    )
+    from flaskr.service.learn.learn_dtos import (
+        BlockType,
+        LikeStatus,
     )
 
     legacy_record = LegacyLearnRecord(
@@ -4531,398 +4531,3 @@ def test_build_listen_elements_from_legacy_record_keeps_interaction_user_input(
     assert element.is_renderable is False
     assert element.payload is not None
     assert element.payload.user_input == "agree"
-
-
-def test_backfill_learn_generated_elements_for_progress_persists_clean_elements(
-    app: object,
-) -> None:
-    _require_app(app)
-
-    from flaskr.dao import db
-    from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.listen_element_legacy import (
-        backfill_learn_generated_elements_for_progress,
-    )
-    from flaskr.service.learn.models import (
-        LearnGeneratedBlock,
-        LearnGeneratedElement,
-        LearnProgressRecord,
-    )
-    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
-    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
-    from flaskr.service.tts.models import (
-        AUDIO_STATUS_COMPLETED,
-        LearnGeneratedAudio,
-    )
-
-    user_bid = "user-backfill-elements"
-    shifu_bid = "shifu-backfill-elements"
-    outline_bid = "outline-backfill-elements"
-    progress_bid = "progress-backfill-elements"
-    generated_block_bid = "generated-backfill-elements"
-    raw_content = "Before intro.\n\n<svg><text>Chart</text></svg>\n\nAfter chart."
-
-    with app.app_context():
-        LearnGeneratedElement.query.delete()
-        LearnGeneratedAudio.query.delete()
-        LearnGeneratedBlock.query.delete()
-        LearnProgressRecord.query.delete()
-        db.session.commit()
-
-        progress = LearnProgressRecord(
-            progress_record_bid=progress_bid,
-            shifu_bid=shifu_bid,
-            outline_item_bid=outline_bid,
-            user_bid=user_bid,
-            status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
-        )
-        stale_block = LearnGeneratedBlock(
-            generated_block_bid=generated_block_bid,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            block_bid="block-backfill-stale",
-            outline_item_bid=outline_bid,
-            shifu_bid=shifu_bid,
-            type=BLOCK_TYPE_MDCONTENT_VALUE,
-            role=ROLE_TEACHER,
-            generated_content="stale content should be ignored",
-            position=0,
-            block_content_conf="",
-            status=1,
-        )
-        final_block = LearnGeneratedBlock(
-            generated_block_bid=generated_block_bid,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            block_bid="block-backfill-final",
-            outline_item_bid=outline_bid,
-            shifu_bid=shifu_bid,
-            type=BLOCK_TYPE_MDCONTENT_VALUE,
-            role=ROLE_TEACHER,
-            generated_content=raw_content,
-            position=0,
-            block_content_conf="",
-            status=1,
-        )
-        empty_block = LearnGeneratedBlock(
-            generated_block_bid="generated-backfill-empty",
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            block_bid="block-backfill-empty",
-            outline_item_bid=outline_bid,
-            shifu_bid=shifu_bid,
-            type=BLOCK_TYPE_MDCONTENT_VALUE,
-            role=ROLE_TEACHER,
-            generated_content="   ",
-            position=1,
-            block_content_conf="",
-            status=1,
-        )
-        audio_0 = LearnGeneratedAudio(
-            audio_bid="audio-backfill-0",
-            generated_block_bid=generated_block_bid,
-            position=0,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            oss_url="https://example.com/backfill-0.mp3",
-            duration_ms=500,
-            status=AUDIO_STATUS_COMPLETED,
-        )
-        audio_1_stale = LearnGeneratedAudio(
-            audio_bid="audio-backfill-1-stale",
-            generated_block_bid=generated_block_bid,
-            position=1,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            oss_url="https://example.com/backfill-1-stale.mp3",
-            duration_ms=700,
-            status=AUDIO_STATUS_COMPLETED,
-        )
-        audio_1_final = LearnGeneratedAudio(
-            audio_bid="audio-backfill-1-final",
-            generated_block_bid=generated_block_bid,
-            position=1,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            oss_url="https://example.com/backfill-1-final.mp3",
-            duration_ms=900,
-            status=AUDIO_STATUS_COMPLETED,
-        )
-        orphan_audio = LearnGeneratedAudio(
-            audio_bid="audio-backfill-orphan",
-            generated_block_bid="generated-backfill-orphan",
-            position=0,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            shifu_bid=shifu_bid,
-            oss_url="https://example.com/backfill-orphan.mp3",
-            duration_ms=300,
-            status=AUDIO_STATUS_COMPLETED,
-        )
-        db.session.add_all(
-            [
-                progress,
-                stale_block,
-                final_block,
-                empty_block,
-                audio_0,
-                audio_1_stale,
-                audio_1_final,
-                orphan_audio,
-            ]
-        )
-        db.session.commit()
-
-        result = backfill_learn_generated_elements_for_progress(app, progress_bid)
-
-        rows = (
-            LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.progress_record_bid == progress_bid,
-                LearnGeneratedElement.deleted == 0,
-                LearnGeneratedElement.status == 1,
-            )
-            .order_by(
-                LearnGeneratedElement.run_event_seq.asc(),
-                LearnGeneratedElement.id.asc(),
-            )
-            .all()
-        )
-
-    assert result.generated_blocks_total == 3
-    assert result.duplicate_blocks_skipped == 1
-    assert result.audio_records_total == 4
-    assert result.duplicate_audios_skipped == 1
-    assert result.orphan_audios_skipped == 1
-    assert result.skipped_empty_blocks == 1
-    assert result.elements_built == 3
-    assert result.inserted_rows == 3
-    assert result.run_session_bid.startswith(f"backfill_{progress_bid}_")
-
-    assert [row.run_event_seq for row in rows] == [1, 2, 3]
-    assert [row.element_type for row in rows] == ["text", "svg", "text"]
-    assert [row.content_text for row in rows] == ["Before intro.", "", "After chart."]
-    assert all(row.event_type == "element" for row in rows)
-    assert all(row.is_final == 1 for row in rows)  # DB model uses int
-
-    payload_1 = json.loads(rows[1].payload)
-    assert payload_1["audio"] is None
-    assert payload_1["previous_visuals"][0]["visual_type"] == "svg"
-    assert payload_1["previous_visuals"][0]["content"].startswith("<svg")
-
-    payload_2 = json.loads(rows[2].payload)
-    assert payload_2["audio"]["audio_bid"] == "audio-backfill-1-final"
-    assert payload_2["previous_visuals"] == []
-
-
-def test_backfill_learn_generated_elements_for_progress_overwrite_replaces_active_rows(
-    app: object,
-) -> None:
-    _require_app(app)
-
-    from flaskr.dao import db
-    from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.listen_element_legacy import (
-        backfill_learn_generated_elements_for_progress,
-    )
-    from flaskr.service.learn.models import (
-        LearnGeneratedBlock,
-        LearnGeneratedElement,
-        LearnProgressRecord,
-    )
-    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
-    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
-
-    user_bid = "user-backfill-overwrite"
-    shifu_bid = "shifu-backfill-overwrite"
-    outline_bid = "outline-backfill-overwrite"
-    progress_bid = "progress-backfill-overwrite"
-    generated_block_bid = "generated-backfill-overwrite"
-
-    with app.app_context():
-        LearnGeneratedElement.query.delete()
-        LearnGeneratedBlock.query.delete()
-        LearnProgressRecord.query.delete()
-        db.session.commit()
-
-        progress = LearnProgressRecord(
-            progress_record_bid=progress_bid,
-            shifu_bid=shifu_bid,
-            outline_item_bid=outline_bid,
-            user_bid=user_bid,
-            status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
-        )
-        block = LearnGeneratedBlock(
-            generated_block_bid=generated_block_bid,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            block_bid="block-backfill-overwrite",
-            outline_item_bid=outline_bid,
-            shifu_bid=shifu_bid,
-            type=BLOCK_TYPE_MDCONTENT_VALUE,
-            role=ROLE_TEACHER,
-            generated_content="Plain text only.",
-            position=0,
-            block_content_conf="",
-            status=1,
-        )
-        existing_row = LearnGeneratedElement(
-            element_bid="legacy-element",
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            generated_block_bid=generated_block_bid,
-            outline_item_bid=outline_bid,
-            shifu_bid=shifu_bid,
-            run_session_bid="legacy-run",
-            run_event_seq=1,
-            event_type="element",
-            role="teacher",
-            element_index=0,
-            element_type="sandbox",
-            element_type_code=102,
-            change_type="render",
-            target_element_bid="",
-            is_navigable=1,
-            is_final=1,
-            content_text="legacy",
-            payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
-        )
-        db.session.add_all([progress, block, existing_row])
-        db.session.commit()
-
-        skipped = backfill_learn_generated_elements_for_progress(app, progress_bid)
-        assert skipped.skipped_existing is True
-        assert skipped.existing_active_rows == 1
-
-        overwritten = backfill_learn_generated_elements_for_progress(
-            app,
-            progress_bid,
-            overwrite=True,
-        )
-
-        rows = (
-            LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.progress_record_bid == progress_bid,
-                LearnGeneratedElement.deleted == 0,
-            )
-            .order_by(LearnGeneratedElement.id.asc())
-            .all()
-        )
-
-    assert overwritten.skipped_existing is False
-    assert overwritten.overwritten_rows == 1
-    assert overwritten.inserted_rows == 1
-
-    assert len(rows) == 2
-    assert rows[0].status == 0
-    assert rows[0].content_text == "legacy"
-    assert rows[1].status == 1
-    assert rows[1].generated_block_bid == generated_block_bid
-
-
-def test_backfill_learn_generated_elements_for_progress_overwrite_dry_run_rebuilds_without_stale_rows(
-    app: object,
-) -> None:
-    _require_app(app)
-
-    from flaskr.dao import db
-    from flaskr.service.learn.const import ROLE_TEACHER
-    from flaskr.service.learn.listen_element_legacy import (
-        backfill_learn_generated_elements_for_progress,
-    )
-    from flaskr.service.learn.models import (
-        LearnGeneratedBlock,
-        LearnGeneratedElement,
-        LearnProgressRecord,
-    )
-    from flaskr.service.order.consts import LEARN_STATUS_IN_PROGRESS
-    from flaskr.service.shifu.consts import BLOCK_TYPE_MDCONTENT_VALUE
-
-    user_bid = "user-backfill-overwrite-dry-run"
-    shifu_bid = "shifu-backfill-overwrite-dry-run"
-    outline_bid = "outline-backfill-overwrite-dry-run"
-    progress_bid = "progress-backfill-overwrite-dry-run"
-    generated_block_bid = "generated-backfill-overwrite-dry-run"
-
-    with app.app_context():
-        LearnGeneratedElement.query.delete()
-        LearnGeneratedBlock.query.delete()
-        LearnProgressRecord.query.delete()
-        db.session.commit()
-
-        progress = LearnProgressRecord(
-            progress_record_bid=progress_bid,
-            shifu_bid=shifu_bid,
-            outline_item_bid=outline_bid,
-            user_bid=user_bid,
-            status=LEARN_STATUS_IN_PROGRESS,
-            block_position=0,
-        )
-        block = LearnGeneratedBlock(
-            generated_block_bid=generated_block_bid,
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            block_bid="block-backfill-overwrite-dry-run",
-            outline_item_bid=outline_bid,
-            shifu_bid=shifu_bid,
-            type=BLOCK_TYPE_MDCONTENT_VALUE,
-            role=ROLE_TEACHER,
-            generated_content="Before intro.\n\n```svg\n<svg><rect /></svg>\n```\n\nAfter chart.",
-            position=0,
-            block_content_conf="",
-            status=1,
-        )
-        existing_row = LearnGeneratedElement(
-            element_bid="legacy-element-dry-run",
-            progress_record_bid=progress_bid,
-            user_bid=user_bid,
-            generated_block_bid=generated_block_bid,
-            outline_item_bid=outline_bid,
-            shifu_bid=shifu_bid,
-            run_session_bid="legacy-run",
-            run_event_seq=1,
-            event_type="element",
-            role="teacher",
-            element_index=0,
-            element_type="text",
-            element_type_code=213,
-            change_type="render",
-            target_element_bid="",
-            is_navigable=1,
-            is_final=1,
-            content_text="legacy",
-            payload=json.dumps({"audio": None, "previous_visuals": []}),
-            status=1,
-        )
-        db.session.add_all([progress, block, existing_row])
-        db.session.commit()
-
-        preview = backfill_learn_generated_elements_for_progress(
-            app,
-            progress_bid,
-            overwrite=True,
-            dry_run=True,
-        )
-
-        rows = (
-            LearnGeneratedElement.query.filter(
-                LearnGeneratedElement.progress_record_bid == progress_bid,
-                LearnGeneratedElement.deleted == 0,
-            )
-            .order_by(LearnGeneratedElement.id.asc())
-            .all()
-        )
-
-    assert preview.dry_run is True
-    assert preview.existing_active_rows == 1
-    assert preview.overwritten_rows == 0
-    assert preview.inserted_rows == 3
-    assert preview.elements_built == 3
-    assert len(rows) == 1
-    assert rows[0].status == 1
-    assert rows[0].content_text == "legacy"

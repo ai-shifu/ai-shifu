@@ -37,7 +37,7 @@ from flaskr.service.profile_research.events import (
 )
 from flaskr.service.profile_research.langfuse_tracing import ProfileTrace
 from flaskr.service.profile_research.provider import (
-    _ProfileResearchLLMProvider,
+    _ProfileResearchGatewayCompletion,
     create_profile_research_model,
 )
 from flaskr.service.profile_research.session import (
@@ -63,11 +63,12 @@ from flaskr.service.profile_research.session import (
     _normalize_profile_research_user_input as _normalize_user_input,
 )
 from flaskr.util import generate_id
-from markdown_flow import USER_ANSWER_CONTEXT_KEY, LLMProvider
+from markdownflow import USER_ANSWER_CONTEXT_KEY
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Mapping
 
+    from flaskr.service.profile_research.provider import ProfileResearchCompletion
     from pydantic_ai.models import Model
 
 __all__ = [
@@ -123,8 +124,8 @@ class ProfileResearchRuntime:
         *,
         store: _ProfileResearchSessionStore | None = None,
         provider_factory: Callable[
-            [Flask, _ProfileResearchSession, object], LLMProvider
-        ] = _ProfileResearchLLMProvider,
+            [Flask, _ProfileResearchSession, object], ProfileResearchCompletion
+        ] = _ProfileResearchGatewayCompletion,
         model_factory: Callable[
             [Flask, _ProfileResearchSession, object], Model
         ] = create_profile_research_model,

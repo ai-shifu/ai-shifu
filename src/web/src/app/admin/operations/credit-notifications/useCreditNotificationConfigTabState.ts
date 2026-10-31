@@ -1,3 +1,4 @@
+import type { LoginIdentifierType } from '@/lib/login-identifiers';
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { TFunction } from 'i18next';
 import { toast } from '@/hooks/useToast';
@@ -27,7 +28,7 @@ const EMAIL_MATCH_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const EMAIL_TEST_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 const CREATOR_ID_PATTERN = /^[A-Za-z0-9_-]{4,80}$/;
 
-const isSmsMobileIdentifier = (value: string) => {
+const isPhoneIdentifier = (value: string) => {
   const normalized = value.trim().replace(/^\+/, '');
   return /^\d{5,20}$/.test(normalized);
 };
@@ -61,14 +62,14 @@ const trimInvalidDisplay = (value: string): string =>
 
 const parseBlockedCreatorInput = (
   value: string,
-  contactMode: 'email' | 'phone',
+  identifierType: LoginIdentifierType,
 ) => {
   const normalized = normalizeListInputCharacters(value).replace(/\t/g, ' ');
   const creatorBids: string[] = [];
   const mobiles: string[] = [];
   const invalidItems: string[] = [];
   const addToken = (token: string) => {
-    if (isSmsMobileIdentifier(token)) {
+    if (isPhoneIdentifier(token)) {
       mobiles.push(token);
       return;
     }
@@ -92,16 +93,16 @@ const parseBlockedCreatorInput = (
       splitIdentifierTokens(line).forEach(addToken);
       return;
     }
-    const contactMatches =
-      contactMode === 'email'
+    const identifierMatches =
+      identifierType === 'email'
         ? findEmailIdentifiers(line)
         : findPhoneIdentifiers(line);
-    if (contactMatches.length > 0) {
-      if (contactMode === 'email') {
-        creatorBids.push(...contactMatches);
+    if (identifierMatches.length > 0) {
+      if (identifierType === 'email') {
+        creatorBids.push(...identifierMatches);
         return;
       }
-      mobiles.push(...contactMatches);
+      mobiles.push(...identifierMatches);
       return;
     }
 
@@ -141,36 +142,36 @@ const buildListDetails = (
 const filterListDetails = (
   items: AdminOperationCreditNotificationPolicyListItem[],
   keyword: string,
-  contactMode: 'email' | 'phone',
+  identifierType: LoginIdentifierType,
 ) => {
   const normalized = keyword.trim().toLowerCase();
   if (!normalized) {
     return items;
   }
   return items.filter(item => {
-    const contactValue =
-      contactMode === 'email'
+    const identifierValue =
+      identifierType === 'email'
         ? item.email || item.identifier
         : item.mobile || item.identifier;
-    const isContactSearch =
-      contactMode === 'email'
+    const isIdentifierSearch =
+      identifierType === 'email'
         ? normalized.includes('@')
         : /^\d+$/.test(normalized);
-    if (isContactSearch) {
-      return contactValue.toLowerCase() === normalized;
+    if (isIdentifierSearch) {
+      return identifierValue.toLowerCase() === normalized;
     }
     return item.nickname.toLowerCase().includes(normalized);
   });
 };
 
 export function useCreditNotificationConfigTabState({
-  contactMode,
+  identifierType,
   policy,
   resolvedLists,
   updatePolicy,
   t,
 }: {
-  contactMode: 'email' | 'phone';
+  identifierType: LoginIdentifierType;
   policy: AdminOperationCreditNotificationPolicy;
   resolvedLists: AdminOperationCreditNotificationPolicyResolvedLists;
   updatePolicy: UpdatePolicy;
@@ -300,7 +301,7 @@ export function useCreditNotificationConfigTabState({
     const normalized = normalizeListInputCharacters(blockedCreatorInput);
     const { creatorBids, invalidItems, mobiles } = parseBlockedCreatorInput(
       normalized,
-      contactMode,
+      identifierType,
     );
     if (invalidItems.length > 0) {
       const sample = invalidItems.slice(0, INVALID_SAMPLE_LIMIT).join(', ');
@@ -375,8 +376,9 @@ export function useCreditNotificationConfigTabState({
     [blockedCreatorDetails, managedListDialog, optedOutCreatorDetails],
   );
   const filteredManagedListDetails = useMemo(
-    () => filterListDetails(managedListDetails, managedListSearch, contactMode),
-    [contactMode, managedListDetails, managedListSearch],
+    () =>
+      filterListDetails(managedListDetails, managedListSearch, identifierType),
+    [identifierType, managedListDetails, managedListSearch],
   );
   const managedListTitle =
     managedListDialog === 'blocked'

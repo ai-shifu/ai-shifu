@@ -18,7 +18,6 @@ from flaskr.service.common.phone_numbers import (
     normalize_phone_identifier,
 )
 from flaskr.service.profile.constants import (
-    LEGACY_LEARNER_PROFILE_KEYS,
     SYS_USER_NICKNAME,
 )
 from flaskr.service.profile.models import VariableValue
@@ -163,7 +162,7 @@ def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
         VariableValue.query.filter(
             VariableValue.user_bid == user.user_bid,
             VariableValue.shifu_bid == "",
-            VariableValue.key.in_(LEGACY_LEARNER_PROFILE_KEYS),
+            VariableValue.key == SYS_USER_NICKNAME,
             VariableValue.deleted == 0,
         )
         .order_by(VariableValue.id.desc())
@@ -179,9 +178,6 @@ def _load_legacy_learner_profile_values(user: UserEntity) -> dict[str, str]:
         value = str(row.value or "").strip()
         if row.key == SYS_USER_NICKNAME:
             legacy_nickname = value
-            continue
-        if value:
-            latest_values[row.key] = value
 
     canonical_nickname = str(user.nickname or "").strip()
     if canonical_nickname and not _nickname_matches_account_identifier(
@@ -207,8 +203,7 @@ def get_learner_profile(*, user_id: str) -> dict[str, object]:
 
     legacy_profile_values = _load_legacy_learner_profile_values(user)
     if load_learner_profile_state(user.user_bid) is not None:
-        # Style may still seed an empty profile draft. Nickname remains
-        # independent and must not be revived after onboarding was handled.
+        # Nickname remains independent and must not be revived after onboarding.
         legacy_profile_values.pop(SYS_USER_NICKNAME, None)
     serialized["legacy_profile_values"] = legacy_profile_values
     return serialized

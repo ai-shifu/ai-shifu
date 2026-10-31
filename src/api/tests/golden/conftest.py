@@ -8,7 +8,7 @@ Determinism strategy:
 
 - A deterministic fake LLM is patched both on ``flaskr.api.llm`` and on the
   names imported directly into ``flaskr.service.learn.check_text`` and
-  ``flaskr.service.learn.handle_input_ask`` (the session-level autouse fake in
+  ``flaskr.service.learn.ask.handler`` (the session-level autouse fake in
   ``tests/conftest.py`` only patches ``flaskr.api.llm`` attributes, which the
   /run path bypasses via ``from flaskr.api.llm import chat_llm``).
 - The fake LLM echoes JSON-looking user messages verbatim (markdown-flow uses
@@ -153,8 +153,8 @@ def golden_llm(monkeypatch: object) -> None:
         "flaskr.api.llm.markdownflow_model": (("chat_llm", golden_chat_llm),),
         # check_text binds invoke_llm at import time.
         "flaskr.service.learn.check_text": (("invoke_llm", golden_invoke_llm),),
-        # handle_input_ask resolves a module-level `chat_llm` global first.
-        "flaskr.service.learn.handle_input_ask": (("chat_llm", golden_chat_llm),),
+        # handle_input_ask binds chat_llm at import time.
+        "flaskr.service.learn.ask.handler": (("chat_llm", golden_chat_llm),),
     }
     for module_path, attrs in targets.items():
         module = sys.modules.get(module_path)

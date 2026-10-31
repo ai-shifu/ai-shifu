@@ -4334,7 +4334,7 @@ def requeue_credit_notification(
         )
         return enqueue_result
     # The reset back to PENDING is this flow's only write and owns its unit
-    # of work; record_credit_notification_event is a metrics-only hook.
+    # of work; record_credit_notification_event only writes a log line.
     with _maybe_app_context(app), unit_of_work():
         notification = (
             NotificationRecord.query.filter(

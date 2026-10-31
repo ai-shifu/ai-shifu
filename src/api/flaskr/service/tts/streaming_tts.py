@@ -37,13 +37,13 @@ from flaskr.api.tts.minimax_provider import MinimaxTTSProvider  # noqa: F401
 from flaskr.common.log import AppLoggerProxy
 from flaskr.dao import cleanup_session_after
 from flaskr.dao.uow import unit_of_work
+from flaskr.service.learn.elements.slide_builder import build_visual_segments_for_block
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
     GeneratedType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_slide_builder import build_visual_segments_for_block
 from flaskr.service.metering import UsageContext
 from flaskr.service.metering.consts import BILL_USAGE_SCENE_PROD
 from flaskr.service.tts import (
@@ -95,11 +95,10 @@ logger = AppLoggerProxy(logging.getLogger(__name__))
 
 # Process-local thread pool for TTS synthesis, created lazily. A
 # module-level instance would be created during the gunicorn master's
-# preload import and inherited by every forked worker; its gevent-patched
-# internals then carry wakeup links bound to the parent's hub, which can
-# crash in AbstractLinkable._notify_links and silently interrupt unrelated
-# greenlets (observed as DB protocol desync). The pid guard hands each
-# process its own executor.
+# preload import and inherited by every forked worker, but its worker
+# threads exist only in the process that started them, so a forked child
+# would queue work onto an executor whose threads and locks it does not
+# own. The pid guard hands each process its own executor.
 @dataclass(slots=True)
 class _TTSExecutorState:
     executor: ThreadPoolExecutor | None = None

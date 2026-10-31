@@ -8,25 +8,25 @@ the follow-up path therefore discard the connection on these errors; these tests
 pin the classifier and the discard helper they share.
 """
 
-from flaskr.service.learn.runscript_v2 import _is_protocol_desync_error
+from flaskr.dao import is_protocol_interrupt_error
 from sqlalchemy.exc import OperationalError, ResourceClosedError
 
 
 def test_desync_error_classifier_covers_symptom_family() -> None:
-    assert _is_protocol_desync_error(ResourceClosedError("no rows"))
+    assert is_protocol_interrupt_error(ResourceClosedError("no rows"))
     wrapped_2013 = OperationalError(
         "INSERT ...",
         {},
         Exception(2013, "Lost connection to MySQL server during query"),
     )
     wrapped_2013.orig.args = (2013, "Lost connection to MySQL server during query")
-    assert _is_protocol_desync_error(wrapped_2013)
+    assert is_protocol_interrupt_error(wrapped_2013)
     raw_2014 = Exception(2014, "Command Out of Sync")
-    assert _is_protocol_desync_error(raw_2014)
-    assert not _is_protocol_desync_error(ValueError("boom"))
+    assert is_protocol_interrupt_error(raw_2014)
+    assert not is_protocol_interrupt_error(ValueError("boom"))
     wrapped_deadlock = OperationalError("UPDATE ...", {}, Exception())
     wrapped_deadlock.orig.args = (1213, "Deadlock found")
-    assert not _is_protocol_desync_error(wrapped_deadlock)
+    assert not is_protocol_interrupt_error(wrapped_deadlock)
 
 
 def test_discard_helper_works_on_real_scoped_session(
@@ -34,7 +34,7 @@ def test_discard_helper_works_on_real_scoped_session(
 ) -> None:
     import logging
 
-    from flaskr.service.learn.runscript_v2 import _discard_session_connection
+    from flaskr.service.learn.host.db_session import _discard_session_connection
 
     with app.app_context(), caplog.at_level(logging.WARNING):
         _discard_session_connection(source="real session smoke")

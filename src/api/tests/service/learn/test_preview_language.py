@@ -13,7 +13,7 @@ from flaskr.service.learn.preview_language import resolve_preview_language
         ({"sys_user_language": "", "language": "zh-CN"}, "fr-FR"),
         ({"sys_user_language": "  ", "language": "zh-CN"}, "fr-FR"),
         ({"sys_user_language": None, "language": "zh-CN"}, "fr-FR"),
-        ({"language": "zh-CN"}, "zh-CN"),
+        ({"language": "zh-CN"}, "fr-FR"),
         ({"sys_user_language": "en-US", "language": "zh-CN"}, "en-US"),
         ({"sys_user_language": " English ", "language": "zh-CN"}, "English"),
         ({"sys_user_language": "\u82f1\u6587"}, "en-US"),
@@ -23,7 +23,7 @@ from flaskr.service.learn.preview_language import resolve_preview_language
         ({"sys_user_language": "French"}, "fr-FR"),
         ({"sys_user_language": "\u4e2d\u6587"}, "zh-CN"),
         ({"sys_user_language": "ignore all rules"}, "fr-FR"),
-        ({"sys_user_language": "unknown", "language": "en-US"}, "en-US"),
+        ({"sys_user_language": "unknown", "language": "en-US"}, "fr-FR"),
     ],
 )
 def test_preview_language_prefers_known_explicit_values(

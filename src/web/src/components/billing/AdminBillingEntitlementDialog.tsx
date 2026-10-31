@@ -11,7 +11,10 @@ import {
   isValidContactIdentifier,
   normalizeContactIdentifier,
 } from '@/lib/contact-identifier';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+} from '@/lib/login-identifiers';
 import type {
   AdminBillingCustomizationDraft,
   AdminBillingEntitlementGrantPayload,
@@ -289,16 +292,20 @@ export function AdminBillingEntitlementDialog({
   const isCreateFlow = !initialItem;
   const [resolvedItem, setResolvedItem] =
     React.useState<AdminBillingEntitlementItem | null>(initialItem || null);
-  const [creatorContact, setCreatorContact] = React.useState('');
+  const [creatorIdentifier, setCreatorIdentifier] = React.useState('');
   const loginMethodsEnabled = useEnvStore(state => state.loginMethodsEnabled);
   const defaultLoginMethod = useEnvStore(state => state.defaultLoginMethod);
-  // The owner of a course is addressed by phone in China and by email on
-  // the overseas site; LOGIN_METHODS_ENABLED is what tells the two apart.
-  const contactMode = React.useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  // This form looks up one account identifier at a time using the existing
+  // single-field policy; deployment methods may configure more than one type.
+  const creatorIdentifierType = React.useMemo(
+    () =>
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
-  const isEmailContact = contactMode === 'email';
+  const isEmailIdentifier = creatorIdentifierType === 'email';
   const [values, setValues] =
     React.useState<Record<EntitlementField, boolean>>(EMPTY_VALUES);
   const [collapsedFields, setCollapsedFields] = React.useState<
@@ -342,7 +349,7 @@ export function AdminBillingEntitlementDialog({
   React.useEffect(() => {
     if (!open) return;
     setResolvedItem(initialItem || null);
-    setCreatorContact(resolveAdminBillingCreatorPrimary(initialItem || {}));
+    setCreatorIdentifier(resolveAdminBillingCreatorPrimary(initialItem || {}));
     setValues(
       initialItem
         ? {
@@ -387,21 +394,24 @@ export function AdminBillingEntitlementDialog({
       return;
     }
     const creatorBid = String(resolvedItem?.creator_bid || '').trim();
-    const normalizedCreatorContact = normalizeContactIdentifier(
-      contactMode,
-      creatorContact,
+    const normalizedCreatorIdentifier = normalizeContactIdentifier(
+      creatorIdentifierType,
+      creatorIdentifier,
     );
-    const canPersistByContact =
+    const canPersistByIdentifier =
       !creatorBid &&
-      isValidContactIdentifier(contactMode, normalizedCreatorContact);
-    if (!creatorBid && !canPersistByContact) {
+      isValidContactIdentifier(
+        creatorIdentifierType,
+        normalizedCreatorIdentifier,
+      );
+    if (!creatorBid && !canPersistByIdentifier) {
       return;
     }
 
     const timer = window.setTimeout(() => {
       void api.saveAdminBillingCustomizationDraft({
         creator_bid: creatorBid || undefined,
-        creator_mobile: normalizedCreatorContact || undefined,
+        creator_mobile: normalizedCreatorIdentifier || undefined,
         branding_enabled: values.branding_enabled,
         custom_domain_enabled: values.custom_domain_enabled,
         custom_wechat_enabled: values.custom_wechat_enabled,
@@ -424,8 +434,8 @@ export function AdminBillingEntitlementDialog({
     return () => window.clearTimeout(timer);
   }, [
     configStatus,
-    contactMode,
-    creatorContact,
+    creatorIdentifierType,
+    creatorIdentifier,
     draftDomain,
     draftDomainStatus,
     draftFavicon,
@@ -449,14 +459,17 @@ export function AdminBillingEntitlementDialog({
       return;
     }
     const creatorBid = String(resolvedItem?.creator_bid || '').trim();
-    const normalizedCreatorContact = normalizeContactIdentifier(
-      contactMode,
-      creatorContact,
+    const normalizedCreatorIdentifier = normalizeContactIdentifier(
+      creatorIdentifierType,
+      creatorIdentifier,
     );
     const targetKey = creatorBid
       ? `creator:${creatorBid}`
-      : isValidContactIdentifier(contactMode, normalizedCreatorContact)
-        ? `contact:${normalizedCreatorContact}`
+      : isValidContactIdentifier(
+            creatorIdentifierType,
+            normalizedCreatorIdentifier,
+          )
+        ? `contact:${normalizedCreatorIdentifier}`
         : '';
     if (!targetKey || lastDraftTargetRef.current === targetKey) {
       return;
@@ -471,7 +484,7 @@ export function AdminBillingEntitlementDialog({
         const draft = (await api.getAdminBillingCustomizationDraft(
           creatorBid
             ? { creator_bid: creatorBid }
-            : { creator_mobile: normalizedCreatorContact },
+            : { creator_mobile: normalizedCreatorIdentifier },
           { skipErrorToast: true },
         )) as AdminBillingCustomizationDraft;
         if (
@@ -590,8 +603,8 @@ export function AdminBillingEntitlementDialog({
       }
     })();
   }, [
-    contactMode,
-    creatorContact,
+    creatorIdentifierType,
+    creatorIdentifier,
     open,
     resolvedItem?.creator_bid,
     submitting,
@@ -629,14 +642,14 @@ export function AdminBillingEntitlementDialog({
   );
 
   const handleSubmit = async () => {
-    const normalizedCreatorContact = normalizeContactIdentifier(
-      contactMode,
-      creatorContact,
+    const normalizedCreatorIdentifier = normalizeContactIdentifier(
+      creatorIdentifierType,
+      creatorIdentifier,
     );
-    if (!resolvedItem && !normalizedCreatorContact) {
+    if (!resolvedItem && !normalizedCreatorIdentifier) {
       toast({
         title: t(
-          isEmailContact
+          isEmailIdentifier
             ? 'module.billing.admin.entitlements.grant.errors.creatorEmailRequired'
             : 'module.billing.admin.entitlements.grant.errors.creatorMobileRequired',
         ),
@@ -649,11 +662,14 @@ export function AdminBillingEntitlementDialog({
     // backend param error.
     if (
       !resolvedItem &&
-      !isValidContactIdentifier(contactMode, normalizedCreatorContact)
+      !isValidContactIdentifier(
+        creatorIdentifierType,
+        normalizedCreatorIdentifier,
+      )
     ) {
       toast({
         title: t(
-          isEmailContact
+          isEmailIdentifier
             ? 'module.billing.admin.entitlements.grant.errors.creatorEmailInvalid'
             : 'module.billing.admin.entitlements.grant.errors.creatorMobileInvalid',
         ),
@@ -669,7 +685,7 @@ export function AdminBillingEntitlementDialog({
       const payload: AdminBillingEntitlementGrantPayload = {
         ...(resolvedItem?.creator_bid
           ? { creator_bid: resolvedItem.creator_bid }
-          : { creator_mobile: normalizedCreatorContact }),
+          : { creator_mobile: normalizedCreatorIdentifier }),
         ...effectiveValues,
       };
       const response = await api.grantAdminBillingEntitlement(payload);
@@ -798,11 +814,11 @@ export function AdminBillingEntitlementDialog({
       if (nextCreatorBid) {
         setResolvedItem(current => ({
           creator_bid: nextCreatorBid,
-          creator_mobile: isEmailContact
+          creator_mobile: isEmailIdentifier
             ? current?.creator_mobile || ''
-            : normalizedCreatorContact || current?.creator_mobile || '',
-          creator_email: isEmailContact
-            ? normalizedCreatorContact || current?.creator_email || ''
+            : normalizedCreatorIdentifier || current?.creator_mobile || '',
+          creator_email: isEmailIdentifier
+            ? normalizedCreatorIdentifier || current?.creator_email || ''
             : current?.creator_email || '',
           creator_nickname: current?.creator_nickname || '',
           creator_identify: current?.creator_identify || '',
@@ -833,14 +849,14 @@ export function AdminBillingEntitlementDialog({
       await api.deleteAdminBillingCustomizationDraft(
         nextCreatorBid
           ? { creator_bid: nextCreatorBid }
-          : { creator_mobile: normalizedCreatorContact },
+          : { creator_mobile: normalizedCreatorIdentifier },
       );
       await mutate(isAdminBillingEntitlementsCacheKey);
       await mutate(isAdminBillingCustomizationCacheKey);
       if (!resolvedItem && nextCreatorBid) {
         toast({
           title: t('module.billing.admin.entitlements.grant.createdContinue', {
-            creator: normalizedCreatorContact,
+            creator: normalizedCreatorIdentifier,
           }),
         });
         return;
@@ -850,7 +866,7 @@ export function AdminBillingEntitlementDialog({
       toast({
         title: t('module.billing.admin.entitlements.grant.success', {
           creator:
-            normalizedCreatorContact ||
+            normalizedCreatorIdentifier ||
             resolveAdminBillingCreatorPrimary(resolvedItem || {}),
         }),
       });
@@ -999,27 +1015,27 @@ export function AdminBillingEntitlementDialog({
                   className='text-sm font-medium text-slate-900'
                 >
                   {t(
-                    isEmailContact
+                    isEmailIdentifier
                       ? 'module.billing.admin.entitlements.grant.fields.creatorEmail'
                       : 'module.billing.admin.entitlements.grant.fields.creatorMobile',
                   )}
                 </label>
                 <Input
                   id='admin-billing-entitlement-creator-contact'
-                  value={creatorContact}
-                  type={isEmailContact ? 'email' : 'tel'}
+                  value={creatorIdentifier}
+                  type={isEmailIdentifier ? 'email' : 'tel'}
                   disabled={Boolean(resolvedItem) || submitting}
                   placeholder={t(
-                    isEmailContact
+                    isEmailIdentifier
                       ? 'module.billing.admin.entitlements.grant.creatorEmailPlaceholder'
                       : 'module.billing.admin.entitlements.grant.creatorMobilePlaceholder',
                   )}
-                  onChange={event => setCreatorContact(event.target.value)}
+                  onChange={event => setCreatorIdentifier(event.target.value)}
                 />
                 {resolvedItem ? null : (
                   <p className='text-xs text-slate-500'>
                     {t(
-                      isEmailContact
+                      isEmailIdentifier
                         ? 'module.billing.admin.entitlements.grant.emailHint'
                         : 'module.billing.admin.entitlements.grant.mobileHint',
                     )}

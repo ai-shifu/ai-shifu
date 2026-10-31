@@ -7,13 +7,13 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.const import ROLE_TEACHER
+from flaskr.service.learn.elements.rows import _element_from_row
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     GeneratedType,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_element_rows import _element_from_row
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,

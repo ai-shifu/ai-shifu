@@ -1,4 +1,4 @@
-"""Script bundle, 1.0-notation detection and variable substitution."""
+"""Script bundle, script notation detection and variable substitution."""
 
 from __future__ import annotations
 
@@ -9,10 +9,15 @@ from functools import partial
 from html import escape
 from typing import TYPE_CHECKING, Any
 
-from .marker_context import analyze_marker_context
+from markdownflow.syntax.variable_names import (
+    find_interaction_spans,
+    read_interaction_variable,
+)
 
-# Anything that only makes sense with the MarkdownFlow 1.0 syntax note.
-V1_SYNTAX_RE = re.compile(
+from .marker_context import MarkerContext, analyze_marker_context, marker_syntax_source
+
+# Anything that only makes sense with the MarkdownFlow syntax note.
+SYNTAX_RE = re.compile(
     r"(^---[ \t]*$)"  # block separator
     r"|(?<!\\)\?\[[^\]\n]*\](?!\()"  # ?[...] interaction (not an escaped one, not a link)
     r"|^!?===.*$",  # ===preserved=== / !=== fences
@@ -26,7 +31,7 @@ def _closes_fence(line: str, opening: str) -> bool:
 
     A fence closes on a line of the same marker, at least as long as the opener, and nothing else.
     Keeping the opening length matters: a ``` line inside a ```` block is content, and closing on
-    it would expose the rest of the block to variable substitution and 1.0 syntax detection.
+    it would expose the rest of the block to variable substitution and script syntax detection.
     """
     # rstrip, not strip: the opening fences recognized here must start at column 0, so an indented
     # marker is content -- a lesson showing a fenced block inside one would otherwise close early.
@@ -80,10 +85,10 @@ class ScriptBundle:
         )
 
 
-def detect_v1_syntax(text: str) -> bool:
-    """Report whether the text uses any MarkdownFlow 1.0 notation outside fenced code blocks."""
+def detect_syntax(text: str) -> bool:
+    """Report whether the text uses any MarkdownFlow notation outside fenced code blocks."""
     source = _strip_fences(text)
-    return bool(V1_SYNTAX_RE.search(source)) or any(
+    return bool(SYNTAX_RE.search(source)) or any(
         marker.name is not None for marker in analyze_marker_context(source).markers
     )
 
@@ -100,12 +105,15 @@ def _project_variable_markers(
     markers = {}
     masked: list[str] = []
     at = 0
-    for marker in analyze_marker_context(text, fence_indent=0).markers:
+    context = analyze_marker_context(text, fence_indent=0)
+    bindings = _interaction_bindings(text, context)
+    for marker in context.markers:
         token = f"{marker_prefix}{len(markers)}\x00"
         markers[token] = (
             text[marker.start : marker.end],
             marker.name,
-            bool(marker.start and text[marker.start - 1] == "%"),
+            marker.start in bindings
+            or bool(marker.start and text[marker.start - 1] == "%"),
         )
         masked.extend((text[at : marker.start], token))
         at = marker.end
@@ -130,16 +138,46 @@ def _strip_fences(text: str) -> str:
     return tokens.sub(lambda match: markers[match.group(0)][0], "\n".join(out))
 
 
+def _interaction_bindings(text: str, context: MarkerContext) -> set[int]:
+    """Locate leading bindings within the existing document control boundaries."""
+    bindings: set[int] = set()
+    syntax = list(marker_syntax_source(text, context))
+    # An unfinished literal example must not consume a later real control's end.
+    for opening, closing in context.literals:
+        at = text.find("?[", opening, closing)
+        while at >= 0:
+            syntax[at] = "\x00"
+            at = text.find("?[", at + 2, closing)
+    literal = 0
+    for start, end in find_interaction_spans(text, syntax_source="".join(syntax)):
+        while literal < len(context.literals) and context.literals[literal][1] <= start:
+            literal += 1
+        if literal < len(context.literals) and context.literals[literal][0] <= start:
+            continue
+        marker = read_interaction_variable(text[start + 2 : end - 1])
+        if marker is not None and marker.name is not None:
+            bindings.add(start + 2 + marker.start)
+    return bindings
+
+
 def collected_names(text: str) -> frozenset[str]:
-    """Return the variables this script fills in during the lesson, named by `%{{name}}`.
+    """Return explicit percent declarations and leading interaction bindings.
 
     Fenced blocks are content the lesson shows, not instructions it follows, so a `%{{name}}`
     inside one is an example of the notation rather than a question. Counted as collected, it
     would drop a real memory value that nothing in the lesson is going to ask for again --
     exactly what a lesson teaching MarkdownFlow would do to itself.
     """
+    # Removing fenced examples must not join surrounding text into a new binding.
+    context = analyze_marker_context(text)
+    bindings = _interaction_bindings(text, context)
+    collected = {
+        marker.name
+        for marker in context.markers
+        if marker.name is not None and marker.start in bindings
+    }
     source = _strip_fences(text)
-    return frozenset(
+    return frozenset(collected) | frozenset(
         marker.name
         for marker in analyze_marker_context(source).markers
         if marker.name is not None and marker.start and source[marker.start - 1] == "%"
@@ -277,7 +315,7 @@ def render_memory_section(
     """Project whole values into one bounded JSON payload without editing stored memory.
 
     Referenced and host-priority keys come first; other keys retain input order. A value that
-    does not fit is omitted, never shortened. Script substitution remains a separate exact path.
+    does not fit is omitted, never shortened.
     """
     collected = collected_names(bundle.script)
     remembered = {k: v for k, v in memory.items() if k not in collected}
@@ -304,7 +342,7 @@ def render_memory_section(
         section += (
             "\n\n<memory_context>Some stored values were omitted to fit the context budget. "
             "An absent key is unknown here, not forgotten or deleted. Do not infer its value. "
-            "Explicit script substitutions retain their complete values.</memory_context>"
+            "Use recall for a needed omitted answer when available.</memory_context>"
         )
     return section, len(selected) < len(remembered)
 
@@ -318,10 +356,8 @@ def render_first_prompt(
 ) -> str:
     """Compose the first user message.
 
-    Learner memory first, then the script with its variables substituted, then optional
-    constraints and extras.
+    Learner memory first, followed by the original script, constraints and extras.
     """
-    collected = collected_names(bundle.script)
     # What this lesson is about to ask for is not something the learner has already said. Shown
     # in memory, an earlier answer is read as the current one -- and a model that has both a
     # stale fact and a fresh tool result tends to trust the fact.
@@ -329,14 +365,10 @@ def render_first_prompt(
         render_memory_section(
             bundle, memory, limit=memory_limit, priority=memory_priority
         )[0],
-        f"<script>\n{substitute_variables(bundle.script, memory, collected=collected, unavailable=True)}\n</script>",
+        f"<script>\n{bundle.script}\n</script>",
     ]
     if bundle.constraints:
-        parts.append(
-            f"<constraints>\n"
-            f"{substitute_variables(bundle.constraints, memory, collected=collected, unavailable=True)}\n"
-            f"</constraints>"
-        )
+        parts.append(f"<constraints>\n{bundle.constraints}\n</constraints>")
     for name, body in bundle.extras.items():
         parts.append(f'<extra name="{name}">\n{body}\n</extra>')
     return "\n\n".join(parts)

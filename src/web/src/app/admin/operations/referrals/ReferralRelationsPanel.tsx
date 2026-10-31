@@ -29,7 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { resolveContactMode } from '@/lib/resolve-contact-mode';
+import {
+  resolveLoginIdentifierTypes,
+  selectSingleLoginIdentifierType,
+  type LoginIdentifierType,
+} from '@/lib/login-identifiers';
 import { ErrorWithCode } from '@/lib/request';
 import type {
   AdminReferralListResponse,
@@ -178,8 +182,12 @@ export default function ReferralRelationsPanel({
   const defaultLoginMethod = useEnvStore(
     (state: EnvStoreState) => state.defaultLoginMethod,
   );
-  const contactMode = React.useMemo(
-    () => resolveContactMode(loginMethodsEnabled, defaultLoginMethod),
+  const searchIdentifierType = React.useMemo(
+    () =>
+      selectSingleLoginIdentifierType(
+        resolveLoginIdentifierTypes(loginMethodsEnabled),
+        defaultLoginMethod,
+      ),
     [defaultLoginMethod, loginMethodsEnabled],
   );
   const [filters, setFilters] = React.useState<ReferralFilters>(
@@ -292,7 +300,7 @@ export default function ReferralRelationsPanel({
     setFilters,
     includeCampaignFilter,
     relationStatusLabel,
-    contactMode,
+    searchIdentifierType,
   });
 
   return (
@@ -436,7 +444,7 @@ function buildFilterItems({
   setFilters,
   includeCampaignFilter,
   relationStatusLabel,
-  contactMode,
+  searchIdentifierType,
 }: {
   t: (key: string, values?: Record<string, unknown>) => string;
   tCommon: (key: string, values?: Record<string, unknown>) => string;
@@ -444,14 +452,14 @@ function buildFilterItems({
   setFilters: React.Dispatch<React.SetStateAction<ReferralFilters>>;
   includeCampaignFilter: boolean;
   relationStatusLabel: (status: number) => string;
-  contactMode: 'email' | 'phone';
+  searchIdentifierType: LoginIdentifierType;
 }) {
   const inviterPlaceholder =
-    contactMode === 'email'
+    searchIdentifierType === 'email'
       ? t('operator.filters.inviterEmailPlaceholder')
       : t('operator.filters.inviterMobilePlaceholder');
   const inviteePlaceholder =
-    contactMode === 'email'
+    searchIdentifierType === 'email'
       ? t('operator.filters.inviteeEmailPlaceholder')
       : t('operator.filters.inviteeMobilePlaceholder');
   const items = [

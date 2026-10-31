@@ -17,9 +17,6 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOG_DIR = ROOT / "logs"
 DEFAULT_LOKI_URL = os.getenv("AI_SHIFU_LOKI_URL", "http://127.0.0.1:3100").rstrip("/")
 DEFAULT_TEMPO_URL = os.getenv("AI_SHIFU_TEMPO_URL", "http://127.0.0.1:3200").rstrip("/")
-DEFAULT_PROMETHEUS_URL = os.getenv(
-    "AI_SHIFU_PROMETHEUS_URL", "http://127.0.0.1:9090"
-).rstrip("/")
 DEFAULT_GRAFANA_URL = os.getenv("AI_SHIFU_GRAFANA_URL", "http://127.0.0.1:3001").rstrip(
     "/"
 )
@@ -55,7 +52,6 @@ def parse_args() -> ArgumentParser:
     )
     parser.add_argument("--loki-url", default=DEFAULT_LOKI_URL)
     parser.add_argument("--tempo-url", default=DEFAULT_TEMPO_URL)
-    parser.add_argument("--prometheus-url", default=DEFAULT_PROMETHEUS_URL)
     parser.add_argument("--grafana-url", default=DEFAULT_GRAFANA_URL)
     return parser
 
@@ -166,36 +162,10 @@ def query_tempo(tempo_url: str, trace_ids: list[str]) -> list[dict[str, object]]
     return summaries
 
 
-def query_prometheus(
-    prometheus_url: str, request_metadata: dict[str, str]
-) -> dict[str, object]:
-    """Query prometheus."""
-    path = request_metadata.get("url")
-    status = request_metadata.get("status")
-    if not path or not status or status == "-":
-        return {"reachable": False, "error": "No path/status found in matched logs."}
-
-    query = (
-        "sum by (method, path, status) (increase(ai_shifu_http_requests_total"
-        f'{{path="{path}",status="{status}"}}[15m]))'
-    )
-    ok, payload = _safe_get_json(
-        f"{prometheus_url}/api/v1/query",
-        {"query": query},
-    )
-    result: dict[str, object] = {"reachable": ok, "query": query}
-    if not ok:
-        result["error"] = payload
-        return result
-    result["samples"] = payload.get("data", {}).get("result", [])
-    return result
-
-
 def build_grafana_links(
     grafana_url: str,
     loki_query: str | None,
     trace_ids: list[str],
-    prometheus_query: str | None,
 ) -> dict[str, str]:
     """Build grafana links."""
     links: dict[str, str] = {}
@@ -205,10 +175,6 @@ def build_grafana_links(
         )
     if trace_ids:
         links["tempo_trace"] = f"{grafana_url}/explore?traceId={trace_ids[0]}"
-    if prometheus_query:
-        links["prometheus_explore"] = (
-            f"{grafana_url}/explore?{urlencode({'left': json.dumps(['now-15m', 'now', 'Prometheus', {'expr': prometheus_query}])})}"
-        )
     return links
 
 
@@ -237,16 +203,10 @@ def main() -> int:
     request_metadata = extract_request_metadata(lines)
     loki_result = query_loki(args.loki_url.rstrip("/"), request_id)
     tempo_result = query_tempo(args.tempo_url.rstrip("/"), trace_ids)
-    prometheus_result = query_prometheus(
-        args.prometheus_url.rstrip("/"), request_metadata
-    )
     grafana_links = build_grafana_links(
         args.grafana_url.rstrip("/"),
         str(loki_result.get("query", "")) or None,
         trace_ids,
-        str(prometheus_result.get("query", ""))
-        if prometheus_result.get("query")
-        else None,
     )
 
     print(f"request_id: {request_id}")
@@ -283,7 +243,6 @@ def main() -> int:
     print("observability:")
     print(f"  - loki: {json.dumps(loki_result, ensure_ascii=False)}")
     print(f"  - tempo: {json.dumps(tempo_result, ensure_ascii=False)}")
-    print(f"  - prometheus: {json.dumps(prometheus_result, ensure_ascii=False)}")
     print(f"  - grafana_links: {json.dumps(grafana_links, ensure_ascii=False)}")
 
     return 0

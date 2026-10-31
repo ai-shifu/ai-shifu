@@ -23,12 +23,17 @@ from flaskr.service.user.auth.factory import has_provider, register_provider
 from flaskr.service.user.auth.oauth_origins import (
     resolve_oauth_return_origin,
 )
-from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
+from flaskr.service.user.consts import (
+    CREDENTIAL_STATE_VERIFIED,
+    USER_STATE_REGISTERED,
+    USER_STATE_UNREGISTERED,
+)
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
-    ensure_user_for_identifier,
+    ensure_user_aggregate,
     find_credential,
+    find_credential_by_subject,
     get_user_entity_by_bid,
     load_user_aggregate,
     load_user_aggregate_by_identifier,
@@ -267,6 +272,8 @@ class GoogleAuthProvider(AuthProvider):
         resp = session.get(self._resolve_userinfo_endpoint(app))
         resp.raise_for_status()
         profile = resp.json()
+        if not isinstance(profile, dict):
+            raise_error("server.user.invalidCredentials")
 
         # If Google returns a locale and we do not yet have a language
         # from the stored state, fall back to the profile locale.
@@ -277,34 +284,59 @@ class GoogleAuthProvider(AuthProvider):
 
         subject_id = profile.get("sub")
         email = profile.get("email")
-        if not subject_id or not email:
+        if (
+            not isinstance(subject_id, str)
+            or not subject_id
+            or subject_id != subject_id.strip()
+            or len(subject_id) > 255
+            or not isinstance(email, str)
+            or not email.strip()
+        ):
             message = "Google profile missing required identifiers"
             raise RuntimeError(message)
 
-        email = email.lower()
-        email_verified = bool(profile.get("email_verified", False))
-        credential = find_credential(provider_name=self.provider_name, identifier=email)
-
-        origin_user_id = getattr(request, "current_user_id", None)
-        origin_aggregate = (
-            load_user_aggregate(origin_user_id) if origin_user_id else None
-        )
-
-        aggregate = None
+        email = email.strip().lower()
+        email_verified = profile.get("email_verified") is True
+        origin_user_id = request.current_user_id
         created_user = False
-        credential_record = None
 
         with unit_of_work():
-            if credential:
-                aggregate = load_user_aggregate(credential.user_bid)
+            # The provider subject authenticates an existing binding independently
+            # of whether the current email claim proves mailbox ownership.
+            credential = find_credential_by_subject(
+                provider_name=self.provider_name, subject_id=subject_id
+            )
+            aggregate = load_user_aggregate(credential.user_bid) if credential else None
+            if credential and aggregate is None:
+                raise_error("server.user.invalidCredentials")
+            has_verified_binding = (
+                credential is not None and credential.state == CREDENTIAL_STATE_VERIFIED
+            )
 
-            if not aggregate:
-                aggregate = load_user_aggregate_by_identifier(
+            associate_email = email_verified
+            if credential is None or email_verified:
+                email_aggregate = load_user_aggregate_by_identifier(
                     email, providers=["email"]
                 )
+                if credential:
+                    # A mailbox collision cannot change which account the subject
+                    # authenticates. Leave mailbox association untouched instead.
+                    if (
+                        email_aggregate
+                        and aggregate is not None
+                        and email_aggregate.user_bid != aggregate.user_bid
+                    ):
+                        associate_email = False
+                else:
+                    email_binding = find_credential(
+                        provider_name=self.provider_name, identifier=email
+                    )
+                    if not email_verified and (email_binding or email_aggregate):
+                        raise_error("server.user.invalidCredentials")
+                    aggregate = email_aggregate
 
-            if not aggregate and origin_aggregate:
-                aggregate = origin_aggregate
+            if not aggregate and origin_user_id:
+                aggregate = load_user_aggregate(origin_user_id)
 
             if aggregate and origin_user_id and aggregate.user_bid != origin_user_id:
                 merge_learner_profile_for_sign_in(
@@ -317,8 +349,10 @@ class GoogleAuthProvider(AuthProvider):
                     aggregate.user_bid, include_deleted=True
                 )
                 if entity:
-                    updates: dict[str, Any] = {"identify": email}
-                    if email_verified and aggregate.state in (
+                    updates: dict[str, Any] = {}
+                    if associate_email:
+                        updates["identify"] = email
+                    if associate_email and aggregate.state in (
                         USER_STATE_UNREGISTERED,
                         0,
                     ):
@@ -333,34 +367,34 @@ class GoogleAuthProvider(AuthProvider):
                         updates["language"] = language
                     update_user_entity_fields(entity, **updates)
 
-                    # Ensure an email credential exists for the resolved user
-                    upsert_credential(
-                        app,
-                        user_bid=aggregate.user_bid,
-                        provider_name="email",
-                        subject_id=email,
-                        subject_format="email",
-                        identifier=email,
-                        metadata={},
-                        verified=profile.get("email_verified", False),
-                    )
+                    # Only a verified claim may create or update mailbox authority.
+                    if associate_email:
+                        upsert_credential(
+                            app,
+                            user_bid=aggregate.user_bid,
+                            provider_name="email",
+                            subject_id=email,
+                            subject_format="email",
+                            identifier=email,
+                            metadata={},
+                            verified=True,
+                        )
             else:
+                user_bid = secrets.token_hex(16)
                 defaults = {
-                    "user_bid": origin_user_id or secrets.token_hex(16),
+                    "identify": email if associate_email else user_bid,
                     "nickname": profile.get("name") or "",
                     "avatar": profile.get("picture"),
                     "language": language,
                     "state": (
                         USER_STATE_REGISTERED
-                        if email_verified
+                        if associate_email
                         else USER_STATE_UNREGISTERED
                     ),
                 }
-                aggregate, created_user = ensure_user_for_identifier(
-                    app,
-                    provider="email",
-                    identifier=email,
-                    defaults=defaults,
+                # Do not re-enter an email-based find-or-create helper here.
+                aggregate, created_user = ensure_user_aggregate(
+                    app, user_bid=user_bid, defaults=defaults
                 )
 
             credential_record = upsert_credential(
@@ -369,21 +403,26 @@ class GoogleAuthProvider(AuthProvider):
                 provider_name=self.provider_name,
                 subject_id=subject_id,
                 subject_format="google",
-                identifier=email,
+                identifier=(
+                    email
+                    if associate_email or credential is None
+                    else credential.identifier
+                ),
                 metadata=profile,
-                verified=profile.get("email_verified", False),
+                verified=associate_email or has_verified_binding,
+                match_by_subject=True,
             )
 
             # Reuse the first-account bootstrap logic across login methods so
             # Google can also initialize a fresh self-hosted deployment.
             creator_granted_now = False
-            if email_verified:
+            if associate_email:
                 from flaskr.service.user.phone_flow import init_first_course
 
                 creator_granted_now = init_first_course(app, aggregate.user_bid)
 
             # Optionally grant creator and demo-course permissions for admin logins
-            creator_granted_now = (
+            creator_granted_now = (associate_email or has_verified_binding) and (
                 ensure_admin_creator_and_demo_permissions(
                     app, aggregate.user_bid, aggregate.language, login_context
                 )

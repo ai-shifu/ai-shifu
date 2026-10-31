@@ -29,18 +29,18 @@ class TestBuildListenElementsFromLegacyRecord:
 
     def test_prefers_persisted_text_elements_for_audio_positions(self) -> None:
         from flaskr.dao import db
+        from flaskr.service.learn.elements.legacy_record_builder import (
+            LegacyGeneratedBlockRecord,
+            LegacyLearnRecord,
+        )
+        from flaskr.service.learn.elements.run_adapter import (
+            build_listen_elements_from_legacy_record,
+        )
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             BlockType,
             ElementType,
             LikeStatus,
-        )
-        from flaskr.service.learn.legacy_record_builder import (
-            LegacyGeneratedBlockRecord,
-            LegacyLearnRecord,
-        )
-        from flaskr.service.learn.listen_elements import (
-            build_listen_elements_from_legacy_record,
         )
 
         generated_block_bid = "generated-legacy-persisted-text"
@@ -166,18 +166,18 @@ class TestBuildListenElementsFromLegacyRecord:
         self,
     ) -> None:
         from flaskr.dao import db
+        from flaskr.service.learn.elements.legacy_record_builder import (
+            LegacyGeneratedBlockRecord,
+            LegacyLearnRecord,
+        )
+        from flaskr.service.learn.elements.run_adapter import (
+            build_listen_elements_from_legacy_record,
+        )
         from flaskr.service.learn.learn_dtos import (
             AudioCompleteDTO,
             BlockType,
             ElementType,
             LikeStatus,
-        )
-        from flaskr.service.learn.legacy_record_builder import (
-            LegacyGeneratedBlockRecord,
-            LegacyLearnRecord,
-        )
-        from flaskr.service.learn.listen_elements import (
-            build_listen_elements_from_legacy_record,
         )
 
         generated_block_bid = "generated-legacy-skip-blank-text"
@@ -337,17 +337,17 @@ class TestBuildListenElementsFromLegacyRecord:
 
     def test_emits_ask_and_answer_with_anchor_for_follow_up_blocks(self) -> None:
         from flaskr.dao import db
+        from flaskr.service.learn.elements.legacy_record_builder import (
+            LegacyGeneratedBlockRecord,
+            LegacyLearnRecord,
+        )
+        from flaskr.service.learn.elements.run_adapter import (
+            build_listen_elements_from_legacy_record,
+        )
         from flaskr.service.learn.learn_dtos import (
             BlockType,
             ElementType,
             LikeStatus,
-        )
-        from flaskr.service.learn.legacy_record_builder import (
-            LegacyGeneratedBlockRecord,
-            LegacyLearnRecord,
-        )
-        from flaskr.service.learn.listen_elements import (
-            build_listen_elements_from_legacy_record,
         )
 
         with self.app.app_context():
@@ -403,16 +403,16 @@ class TestBuildListenElementsFromLegacyRecord:
 
     def test_drops_follow_up_blocks_without_any_prior_anchor(self) -> None:
         from flaskr.dao import db
-        from flaskr.service.learn.learn_dtos import (
-            BlockType,
-            LikeStatus,
-        )
-        from flaskr.service.learn.legacy_record_builder import (
+        from flaskr.service.learn.elements.legacy_record_builder import (
             LegacyGeneratedBlockRecord,
             LegacyLearnRecord,
         )
-        from flaskr.service.learn.listen_elements import (
+        from flaskr.service.learn.elements.run_adapter import (
             build_listen_elements_from_legacy_record,
+        )
+        from flaskr.service.learn.learn_dtos import (
+            BlockType,
+            LikeStatus,
         )
 
         with self.app.app_context():

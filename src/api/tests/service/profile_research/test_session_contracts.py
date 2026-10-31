@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 from flaskr.service.profile_research import session as sessions
 from flaskr.service.profile_research.runtime import ProfileResearchRuntime
-from markdown_flow import USER_ANSWER_CONTEXT_KEY
+from markdownflow import USER_ANSWER_CONTEXT_KEY
 
 from tests.service.profile_research.test_runtime import (
     _assistant_runtime,

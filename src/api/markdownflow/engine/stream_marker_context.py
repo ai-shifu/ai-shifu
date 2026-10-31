@@ -6,7 +6,7 @@ import re
 from bisect import bisect_right
 from string import punctuation
 
-from .document_blocks import (
+from markdownflow.syntax.parser.document_blocks import (
     compact_angle_autolink_prefix,
     container_content_start,
     container_opening,
@@ -15,9 +15,10 @@ from .document_blocks import (
     indentation,
     physical_lines,
 )
+from markdownflow.syntax.variable_names import read_variable_marker
+
 from .marker_context import analyze_marker_context
 from .stream_html_context import pending_html_prefix
-from .variable_names import read_variable_marker
 
 _HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]|$)")
 

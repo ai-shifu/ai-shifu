@@ -10,7 +10,10 @@ from types import SimpleNamespace
 import pytest
 from flask import Flask, has_app_context
 from flaskr.service.common.models import AppError
-from flaskr.service.learn import runscript_v2
+from flaskr.service.learn.host import db_session as host_db_session
+from flaskr.service.learn.host import lesson as host_lesson
+from flaskr.service.learn.host import run as host_run
+from flaskr.service.learn.host import sse as host_sse
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     RunElementSSEMessageDTO,
@@ -20,19 +23,19 @@ from flaskr.service.learn.learn_dtos import (
 
 @pytest.fixture(autouse=True)
 def _route_checkpoint_commit_to_patched_session(monkeypatch: object) -> None:
-    """Make the step checkpoint call ``runscript_v2.db.session.commit()``.
+    """Make the step checkpoint call ``host_db_session.db.session.commit()``.
 
     The checkpoint goes through ``unit_of_work()`` (which commits the real
     scoped session); tests here observe commits on a patched
-    ``runscript_v2.db`` instead, so route the commit there.
+    ``host_db_session.db`` instead, so route the commit there.
     """
 
     @contextlib.contextmanager
     def _fake_unit_of_work() -> Iterator[None]:
         yield
-        runscript_v2.db.session.commit()
+        host_db_session.db.session.commit()
 
-    monkeypatch.setattr(runscript_v2, "unit_of_work", _fake_unit_of_work)
+    monkeypatch.setattr(host_db_session, "unit_of_work", _fake_unit_of_work)
 
 
 @pytest.fixture(autouse=True)
@@ -40,9 +43,7 @@ def _skip_connection_probe(monkeypatch: object) -> None:
     # These tests exercise run-script locking and orchestration with minimal
     # fake sessions; the connection health probe has its own dedicated tests
     # in test_runscript_v2_connection_probe.py.
-    monkeypatch.setattr(
-        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
-    )
+    monkeypatch.setattr(host_lesson, "_ensure_healthy_db_connection", lambda _app: None)
 
 
 class FakeLock:
@@ -157,7 +158,7 @@ def _make_test_app() -> Flask:
 
 
 def test_sse_chunk_serializes_datetime_as_utc_iso_z() -> None:
-    chunk = runscript_v2._to_sse_chunk(
+    chunk = host_sse._to_sse_chunk(
         {
             "created_at": datetime(
                 2026, 6, 30, 19, 57, 3, tzinfo=timezone(timedelta(hours=8))
@@ -171,9 +172,7 @@ def test_sse_chunk_serializes_datetime_as_utc_iso_z() -> None:
 
 
 def _patch_fake_element_adapter(monkeypatch: object) -> None:
-    monkeypatch.setattr(
-        runscript_v2, "ListenElementRunAdapter", FakeListenElementAdapter
-    )
+    monkeypatch.setattr(host_run, "ListenElementRunAdapter", FakeListenElementAdapter)
 
 
 def test_run_script_retries_lock_then_streams(monkeypatch: object) -> None:
@@ -182,8 +181,8 @@ def test_run_script_retries_lock_then_streams(monkeypatch: object) -> None:
     with app.app_context():
         lock = FakeLock([False, True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
-        monkeypatch.setattr(runscript_v2.time, "sleep", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
+        monkeypatch.setattr(host_run.time, "sleep", lambda *_args, **_kwargs: None)
 
         def fake_lesson_events(**_kwargs: object) -> object:
             with app.app_context():
@@ -202,10 +201,10 @@ def test_run_script_retries_lock_then_streams(monkeypatch: object) -> None:
                     ),
                 ]
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -230,7 +229,7 @@ def test_run_script_producer_owns_app_context(monkeypatch: object) -> None:
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
         observed = {"has_app_context": None}
 
         def fake_lesson_events(**_kwargs: object) -> object:
@@ -242,10 +241,10 @@ def test_run_script_producer_owns_app_context(monkeypatch: object) -> None:
                 content="hello",
             )
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -267,9 +266,9 @@ def test_run_script_removes_producer_db_session(monkeypatch: object) -> None:
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
         remove_calls = []
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
         monkeypatch.setattr(
-            runscript_v2,
+            host_db_session,
             "db",
             SimpleNamespace(
                 session=SimpleNamespace(remove=lambda: remove_calls.append("remove"))
@@ -284,10 +283,10 @@ def test_run_script_removes_producer_db_session(monkeypatch: object) -> None:
                 content="hello",
             )
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -310,7 +309,7 @@ def test_run_script_producer_done_survives_db_session_remove_failure(
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
         remove_calls = []
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
 
         def _remove() -> None:
             remove_calls.append("remove")
@@ -318,7 +317,7 @@ def test_run_script_producer_done_survives_db_session_remove_failure(
             raise RuntimeError(message)
 
         monkeypatch.setattr(
-            runscript_v2,
+            host_db_session,
             "db",
             SimpleNamespace(session=SimpleNamespace(remove=_remove)),
         )
@@ -331,10 +330,10 @@ def test_run_script_producer_done_survives_db_session_remove_failure(
                 content="hello",
             )
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -357,7 +356,7 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
 
         def fake_lesson_events(**_kwargs: object) -> object:
             with app.app_context():
@@ -382,10 +381,10 @@ def test_run_script_read_mode_keeps_interaction_after_block_break(
                     ),
                 ]
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -411,7 +410,7 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch: object) -> None:
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
 
         def fake_follow_up(**_kwargs: object) -> object:
             with app.app_context():
@@ -440,10 +439,10 @@ def test_run_script_ask_mode_uses_element_protocol(monkeypatch: object) -> None:
                     ]
                 )
 
-        monkeypatch.setattr(runscript_v2, "_follow_up_events", fake_follow_up)
+        monkeypatch.setattr(host_lesson, "_follow_up_events", fake_follow_up)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -466,7 +465,7 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
         observed: dict[str, object] = {}
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
 
         def fake_follow_up(**_kwargs: object) -> object:
             observed["listen"] = _kwargs["listen"]
@@ -483,10 +482,10 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
                 content="",
             )
 
-        monkeypatch.setattr(runscript_v2, "_follow_up_events", fake_follow_up)
+        monkeypatch.setattr(host_lesson, "_follow_up_events", fake_follow_up)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -506,19 +505,17 @@ def test_run_script_ask_mode_ignores_listen_flag(monkeypatch: object) -> None:
 def test_follow_up_events_route_through_element_adapter_and_commit(
     monkeypatch: object,
 ) -> None:
-    from flaskr.service.learn import ask
+    from flaskr.service.learn.ask import follow_up_run as ask
 
     app = Flask(__name__)
     commits = []
     removed = []
+    monkeypatch.setattr(host_lesson, "_ensure_healthy_db_connection", lambda _app: None)
     monkeypatch.setattr(
-        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
+        host_lesson, "_commit_pending_step", lambda: commits.append(True)
     )
     monkeypatch.setattr(
-        runscript_v2, "_commit_pending_step", lambda: commits.append(True)
-    )
-    monkeypatch.setattr(
-        runscript_v2,
+        host_lesson,
         "_remove_db_session_safely",
         lambda _app, *, source: removed.append(source),
     )
@@ -561,7 +558,7 @@ def test_follow_up_events_route_through_element_adapter_and_commit(
     stop_event = threading.Event()
 
     emitted = list(
-        runscript_v2._follow_up_events(
+        host_lesson._follow_up_events(
             app=app,
             user_bid="user-1",
             outline_bid="outline-1",
@@ -591,24 +588,22 @@ def test_follow_up_events_route_through_element_adapter_and_commit(
 def test_cancelled_follow_up_discards_the_connection_without_committing(
     monkeypatch: object,
 ) -> None:
-    from flaskr.service.learn import ask
+    from flaskr.service.learn.ask import follow_up_run as ask
 
     app = Flask(__name__)
     commits = []
     discarded = []
+    monkeypatch.setattr(host_lesson, "_ensure_healthy_db_connection", lambda _app: None)
     monkeypatch.setattr(
-        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
+        host_lesson, "_commit_pending_step", lambda: commits.append(True)
     )
     monkeypatch.setattr(
-        runscript_v2, "_commit_pending_step", lambda: commits.append(True)
-    )
-    monkeypatch.setattr(
-        runscript_v2,
+        host_lesson,
         "_discard_session_connection",
         lambda *, source: discarded.append(source),
     )
     monkeypatch.setattr(
-        runscript_v2, "_remove_db_session_safely", lambda _app, **_kwargs: None
+        host_lesson, "_remove_db_session_safely", lambda _app, **_kwargs: None
     )
 
     def cancelled(_app: object, **_kwargs: object) -> object:
@@ -619,7 +614,7 @@ def test_cancelled_follow_up_discards_the_connection_without_committing(
     adapter = SimpleNamespace(process=lambda events: events)
 
     emitted = list(
-        runscript_v2._follow_up_events(
+        host_lesson._follow_up_events(
             app=app,
             user_bid="user-1",
             outline_bid="outline-1",
@@ -642,20 +637,18 @@ def test_cancelled_follow_up_discards_the_connection_without_committing(
 def test_failed_follow_up_cleans_the_session_through_the_dao(
     monkeypatch: object,
 ) -> None:
-    from flaskr.service.learn import ask
+    from flaskr.service.learn.ask import follow_up_run as ask
 
     app = Flask(__name__)
     cleaned = []
+    monkeypatch.setattr(host_lesson, "_ensure_healthy_db_connection", lambda _app: None)
     monkeypatch.setattr(
-        runscript_v2, "_ensure_healthy_db_connection", lambda _app: None
-    )
-    monkeypatch.setattr(
-        runscript_v2,
+        host_lesson,
         "cleanup_session_after",
         lambda exc, *, source: cleaned.append((exc, source)),
     )
     monkeypatch.setattr(
-        runscript_v2, "_remove_db_session_safely", lambda _app, **_kwargs: None
+        host_lesson, "_remove_db_session_safely", lambda _app, **_kwargs: None
     )
     failure = RuntimeError("provider failed")
 
@@ -667,7 +660,7 @@ def test_failed_follow_up_cleans_the_session_through_the_dao(
 
     with pytest.raises(RuntimeError) as raised:
         list(
-            runscript_v2._follow_up_events(
+            host_lesson._follow_up_events(
                 app=app,
                 user_bid="user-1",
                 outline_bid="outline-1",
@@ -693,7 +686,7 @@ def test_log_run_script_stream_error_does_not_error_for_app_exception() -> None:
     app.logger.info = lambda *args, **_kwargs: info_calls.append(args)
     app.logger.error = lambda *args, **_kwargs: error_calls.append(args)
 
-    runscript_v2._log_run_script_stream_error(
+    host_sse._log_run_script_stream_error(
         app, AppError("outline unit does not exist", status_code=1001)
     )
 
@@ -709,7 +702,7 @@ def test_log_run_script_stream_error_keeps_error_for_unexpected_exception() -> N
     app.logger.info = lambda *args, **_kwargs: info_calls.append(args)
     app.logger.error = lambda *args, **_kwargs: error_calls.append(args)
 
-    runscript_v2._log_run_script_stream_error(app, RuntimeError("boom"))
+    host_sse._log_run_script_stream_error(app, RuntimeError("boom"))
 
     assert info_calls == []
     assert error_calls[0] == ("run_script error",)
@@ -724,7 +717,7 @@ def test_run_script_listen_keeps_interaction_after_block_done(
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
 
         def fake_lesson_events(**_kwargs: object) -> object:
             with app.app_context():
@@ -752,10 +745,10 @@ def test_run_script_listen_keeps_interaction_after_block_done(
                     ]
                 )
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -777,12 +770,12 @@ def test_run_script_lock_busy_returns_busy_and_done(monkeypatch: object) -> None
     with app.app_context():
         lock = FakeLock([False, False, False, False, False, False])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
-        monkeypatch.setattr(runscript_v2.time, "sleep", lambda *_args, **_kwargs: None)
-        monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
+        monkeypatch.setattr(host_run, "cache_provider", cache)
+        monkeypatch.setattr(host_run.time, "sleep", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(host_run, "_", lambda key: f"translated:{key}")
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -809,12 +802,12 @@ def test_run_script_listen_lock_busy_returns_element_protocol(
     with app.app_context():
         lock = FakeLock([False, False, False, False, False, False])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
-        monkeypatch.setattr(runscript_v2.time, "sleep", lambda *_args, **_kwargs: None)
-        monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
+        monkeypatch.setattr(host_run, "cache_provider", cache)
+        monkeypatch.setattr(host_run.time, "sleep", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(host_run, "_", lambda key: f"translated:{key}")
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -845,18 +838,18 @@ def test_run_script_maps_llm_stream_connection_error_to_retryable_message(
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
-        monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
+        monkeypatch.setattr(host_run, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "_", lambda key: f"translated:{key}")
 
         def fake_lesson_events(**_kwargs: object) -> object:
             message = "litellm.APIConnectionError: APIConnectionError: OpenAIException - [SSL] record layer failure (_ssl.c:2590)"
             raise RuntimeError(message)
             yield  # pragma: no cover
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -881,8 +874,8 @@ def test_run_script_maps_standard_timeout_error_to_retryable_message(
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
-        monkeypatch.setattr(runscript_v2, "_", lambda key: f"translated:{key}")
+        monkeypatch.setattr(host_run, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "_", lambda key: f"translated:{key}")
 
         def fake_lesson_events(**_kwargs: object) -> object:
             message = "stream failed"
@@ -891,10 +884,10 @@ def test_run_script_maps_standard_timeout_error_to_retryable_message(
             )
             yield  # pragma: no cover
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -917,16 +910,16 @@ def test_run_script_listen_done_uses_element_protocol(monkeypatch: object) -> No
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
 
         def fake_lesson_events(**_kwargs: object) -> object:
             if False:
                 yield None
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         chunks = list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",
@@ -956,9 +949,9 @@ def test_get_run_status_ignores_lock_when_running_marker_missing(
     with app.app_context():
         lock = FakeLock([False])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
 
-        status = runscript_v2.get_run_status(
+        status = host_run.get_run_status(
             app=app,
             shifu_bid="shifu-1",
             outline_bid="outline-1",
@@ -976,8 +969,8 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch: object) -
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
-        monkeypatch.setattr(runscript_v2.time, "time", lambda: 120.0)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
+        monkeypatch.setattr(host_run.time, "time", lambda: 120.0)
 
         def fake_lesson_events(**_kwargs: object) -> object:
             with app.app_context():
@@ -988,9 +981,9 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch: object) -
                     content="hello",
                 )
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
-        stream = runscript_v2.run_script(
+        stream = host_run.run_script(
             app=app,
             shifu_bid="shifu-1",
             outline_bid="outline-1",
@@ -1000,14 +993,14 @@ def test_get_run_status_reports_true_while_stream_is_open(monkeypatch: object) -
         )
 
         first_chunk = next(stream)
-        status_during = runscript_v2.get_run_status(
+        status_during = host_run.get_run_status(
             app=app,
             shifu_bid="shifu-1",
             outline_bid="outline-1",
             user_bid="user-1",
         )
         remaining_chunks = list(stream)
-        status_after = runscript_v2.get_run_status(
+        status_after = host_run.get_run_status(
             app=app,
             shifu_bid="shifu-1",
             outline_bid="outline-1",
@@ -1030,7 +1023,7 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
 
         def fake_lesson_events(**_kwargs: object) -> object:
             yield RunMarkdownFlowDTO(
@@ -1040,9 +1033,9 @@ def test_run_script_close_during_data_yield_does_not_raise_runtime_error(
                 content="hello",
             )
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
-        stream = runscript_v2.run_script(
+        stream = host_run.run_script(
             app=app,
             shifu_bid="shifu-1",
             outline_bid="outline-1",
@@ -1076,7 +1069,7 @@ def test_run_script_propagates_explicit_language_to_producer(
     with app.app_context():
         lock = FakeLock([True])
         cache = FakeCacheProvider(lock)
-        monkeypatch.setattr(runscript_v2, "cache_provider", cache)
+        monkeypatch.setattr(host_run, "cache_provider", cache)
 
         seen_languages: list[str] = []
 
@@ -1090,13 +1083,13 @@ def test_run_script_propagates_explicit_language_to_producer(
                     content="hello",
                 )
 
-        monkeypatch.setattr(runscript_v2, "_lesson_events", fake_lesson_events)
+        monkeypatch.setattr(host_run, "_lesson_events", fake_lesson_events)
 
         # Simulate the post-teardown state the generator actually runs in.
         clear_language()
 
         list(
-            runscript_v2.run_script(
+            host_run.run_script(
                 app=app,
                 shifu_bid="shifu-1",
                 outline_bid="outline-1",

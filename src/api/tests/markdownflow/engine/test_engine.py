@@ -186,7 +186,7 @@ async def test_wrong_turn_kinds_yield_errors() -> None:
     assert isinstance(events[0], ErrorEvent)
 
 
-async def test_instructions_include_syntax_note_only_for_v1_scripts() -> None:
+async def test_instructions_include_syntax_note_only_for_marked_scripts() -> None:
     seen: list[str] = []
 
     async def spy(messages: list[ModelMessage], _info: AgentInfo) -> StreamChunks:
@@ -1967,7 +1967,7 @@ async def test_an_option_the_model_made_up_keeps_what_it_wrote() -> None:
 
 def test_the_engine_reads_escapes_exactly_as_the_grammar_does() -> None:
     """The engine keeps its own copy of the rule; it must not drift from MarkdownFlow's."""
-    from markdown_flow.escaping import unescape_interaction_text
+    from markdownflow import unescape_interaction_text
     from markdownflow.engine.tools import _unescape
 
     samples = [
@@ -2026,7 +2026,7 @@ async def test_a_value_the_model_made_up_keeps_what_it_wrote() -> None:
 
 def test_the_engine_splits_a_script_s_options_as_the_grammar_does() -> None:
     """Checked against MarkdownFlow's own parser, so the two cannot drift apart."""
-    from markdown_flow import InteractionParser
+    from markdownflow import InteractionParser
     from markdownflow.engine.tools import script_options
 
     questions = [

@@ -8,14 +8,13 @@ services:
   ai-shifu-api-dev:
     <<: *ai-shifu-api-dev-image
     #    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
-    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-otel-collector/4318'; do sleep 1; done && python scripts/repair_dev_migration_state.py && flask db upgrade && flask console update_demo_shifu && cd /app && exec gunicorn -k gevent -w 1 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
+    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-otel-collector/4318'; do sleep 1; done && python scripts/repair_dev_migration_state.py && flask db upgrade && flask console update_demo_shifu && cd /app && exec gunicorn -k gthread --threads 8 -w 1 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level info --access-logfile /var/log/app.log --reload --capture-output "]
     env_file:
       - ./.env
     environment:
       OBSERVABILITY_TRACES_ENABLED: "true"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://ai-shifu-otel-collector:4318
       OTEL_SERVICE_NAME: ai-shifu-api-dev
-      INTERNAL_METRICS_PATH: /internal/metrics
       INTERNAL_OBSERVABILITY_HEALTH_PATH: /internal/observability/health
       LOGIN_METHODS_ENABLED: phone
       DEFAULT_LOGIN_METHOD: phone
@@ -168,24 +167,10 @@ services:
     volumes:
       - ./observability/otel-collector-config.yml:/etc/otel-collector-config.yml
 
-  ai-shifu-prometheus:
-    image: prom/prometheus:v2.54.1
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-    depends_on:
-      - ai-shifu-api-dev
-      - ai-shifu-otel-collector
-    ports:
-      - "127.0.0.1:${AI_SHIFU_PROMETHEUS_PORT:-9090}:9090"
-    volumes:
-      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
-
   ai-shifu-grafana:
     image: grafana/grafana:11.1.4
     depends_on:
       - ai-shifu-loki
-      - ai-shifu-prometheus
       - ai-shifu-tempo
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true

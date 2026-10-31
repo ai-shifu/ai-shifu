@@ -11,7 +11,7 @@ from flaskr.api.markdownflow import (
     answer_is_usable,
     normalize_answer,
 )
-from markdown_flow import InteractionParser
+from markdownflow import InteractionParser
 from pydantic import ValidationError
 
 from .legacy_protocol import render_interaction
@@ -23,16 +23,17 @@ if TYPE_CHECKING:
 
 def _matches_control(spec: InteractionSpec, content: str) -> bool:
     """Compare original controls without translating an omitted input hint again."""
+    parser = InteractionParser()
+    parsed = parser.parse(content)
     if not spec.placeholder and spec.type in (
         "text",
         "single_or_text",
         "multi_or_text",
     ):
-        parsed = InteractionParser().parse(content)
         if not parsed or not parsed.get("question"):
             return False
         spec = spec.model_copy(update={"placeholder": parsed["question"]})
-    return render_interaction(spec) == content
+    return parser.parse(render_interaction(spec)) == parsed
 
 
 def _unanswered_call_ids(block: LearnGeneratedBlock) -> set[str]:

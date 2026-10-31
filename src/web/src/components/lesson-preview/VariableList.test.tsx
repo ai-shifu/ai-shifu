@@ -1,32 +1,28 @@
 import React from 'react';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import VariableList from './VariableList';
 import styles from './VariableList.module.scss';
 
-const variableListStylesheet = readFileSync(
-  join(__dirname, 'VariableList.module.scss'),
-  'utf8',
-);
-
 const mockTranslations: Record<string, Record<string, string>> = {
   'zh-CN': {
-    'module.shifu.previewArea.systemVariableLabels.accessibleName':
-      '{label}（{name}）',
+    'module.shifu.previewArea.personalInfoPlaceholder': '填写{label}',
+    'module.shifu.previewArea.variablesPlaceholder': '填写模拟回答',
+    'module.shifu.previewArea.variablesTitle': '记忆',
+    'module.shifu.previewArea.variablesHideUnused': '隐藏未使用项',
+    'module.shifu.previewArea.variablesRestoreHidden': '显示全部',
+    'module.shifu.previewArea.variablesHideSingleConfirmTitle': '隐藏此项',
     'module.shifu.previewArea.systemVariableLabels.nickname': '学生昵称',
     'module.shifu.previewArea.systemVariableLabels.background': '学生背景偏好',
-    'module.shifu.previewArea.systemVariableLabels.input': '最新输入',
     'module.shifu.previewArea.systemVariableLabels.language': '授课语言',
   },
   'en-US': {
-    'module.shifu.previewArea.systemVariableLabels.accessibleName':
-      '{label} ({name})',
+    'module.shifu.previewArea.personalInfoPlaceholder': 'Enter {label}',
+    'module.shifu.previewArea.variablesPlaceholder': 'Enter a simulated answer',
+    'module.shifu.previewArea.variablesTitle': 'Memory',
     'module.shifu.previewArea.systemVariableLabels.nickname':
       'Student nickname',
     'module.shifu.previewArea.systemVariableLabels.background':
       'Student background and preferences',
-    'module.shifu.previewArea.systemVariableLabels.input': 'Latest input',
     'module.shifu.previewArea.systemVariableLabels.language':
       'Teaching language',
   },
@@ -50,16 +46,15 @@ describe('VariableList system variable labels', () => {
     mockLanguage = 'zh-CN';
   });
 
-  test('crossfades localized names and raw keys within the same name cell', () => {
+  test('keeps localized labels on hover and exposes no raw system keys', () => {
     const onChange = jest.fn();
     const variables = {
       sys_user_nickname: 'Learner',
       sys_user_background: 'Teacher',
-      sys_user_input: 'Question',
       sys_user_language: 'Chinese',
     };
 
-    render(
+    const { container } = render(
       <VariableList
         variables={variables}
         systemVariableKeys={Object.keys(variables)}
@@ -70,27 +65,28 @@ describe('VariableList system variable labels', () => {
     [
       ['学生昵称', 'sys_user_nickname'],
       ['学生背景偏好', 'sys_user_background'],
-      ['最新输入', 'sys_user_input'],
       ['授课语言', 'sys_user_language'],
     ].forEach(([label, rawKey]) => {
-      const friendlyName = screen.getByText(label);
-      const rawName = screen.getByText(rawKey);
-      const nameCell = friendlyName.parentElement;
-
-      expect(nameCell).not.toBeNull();
-      expect(nameCell?.tagName).toBe('DIV');
-      expect(nameCell).toHaveAttribute('tabindex', '0');
-      expect(nameCell).toHaveClass(styles.name, styles.systemName);
-      expect(nameCell).toContainElement(friendlyName);
-      expect(nameCell).toContainElement(rawName);
-      expect(friendlyName).toHaveClass(styles.friendlyName);
-      expect(rawName).toHaveClass(styles.rawName);
-      expect(rawName).toHaveAttribute('dir', 'ltr');
-      expect(nameCell).toHaveAttribute('aria-label', `${label}（${rawKey}）`);
-
-      nameCell?.focus();
-      expect(nameCell).toHaveFocus();
+      const nameCell = screen.getByText(label);
+      expect(nameCell).toHaveClass(styles.name);
+      expect(nameCell).not.toHaveAttribute('title');
+      expect(nameCell).not.toHaveAttribute('tabindex');
+      expect(screen.getByPlaceholderText(`填写${label}`)).toHaveValue(
+        variables[rawKey as keyof typeof variables],
+      );
+      const input = screen.getByRole('textbox', { name: label });
+      input.focus();
+      expect(input).toHaveFocus();
+      fireEvent.mouseEnter(nameCell);
+      expect(nameCell).toHaveTextContent(label);
+      expect(screen.queryByText(rawKey)).not.toBeInTheDocument();
+      expect(screen.queryByTitle(rawKey)).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText(new RegExp(rawKey)),
+      ).not.toBeInTheDocument();
+      fireEvent.mouseLeave(nameCell);
     });
+    expect(container.textContent).not.toContain('sys_user_');
 
     fireEvent.change(screen.getByDisplayValue('Learner'), {
       target: { value: 'Alex' },
@@ -98,41 +94,187 @@ describe('VariableList system variable labels', () => {
     expect(onChange).toHaveBeenCalledWith('sys_user_nickname', 'Alex');
   });
 
-  test('crossfades a full-row raw layer without changing layout', () => {
-    expect(variableListStylesheet).toMatch(
-      /\.systemName\s*{\s*min-width:\s*0;[\s\S]*?&:hover,\s*&:focus-visible\s*{\s*overflow:\s*visible;/,
-    );
-    expect(variableListStylesheet).toMatch(
-      /&:hover \.friendlyName,\s*&:focus-visible \.friendlyName\s*{\s*opacity:\s*0;/,
-    );
-    expect(variableListStylesheet).toMatch(
-      /&:hover \.rawName,\s*&:focus-visible \.rawName\s*{\s*opacity:\s*1;/,
-    );
-    expect(variableListStylesheet).toMatch(
-      /\.rawName\s*{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?font-size:\s*11px;/,
-    );
-  });
-
-  test('keeps custom variables raw and falls unknown system variables back to raw', () => {
+  test('preserves authored keys and uses a localized fallback for unknown system fields', () => {
+    const onChange = jest.fn();
     render(
       <VariableList
         variables={{
           custom_topic: 'Testing',
+          'What would you like to learn?': 'AI',
           sys_user_future: 'Future',
+          constructor: 'Custom class',
         }}
         systemVariableKeys={['sys_user_future']}
+        onChange={onChange}
       />,
     );
 
     const customNameCell = screen.getByText('custom_topic').closest('div');
-    const unknownSystemNameCell = screen
-      .getByText('sys_user_future')
-      .closest('div');
-
     expect(customNameCell).toHaveClass(styles.name);
-    expect(customNameCell).not.toHaveClass(styles.systemName);
-    expect(unknownSystemNameCell).toHaveClass(styles.name);
-    expect(unknownSystemNameCell).not.toHaveClass(styles.systemName);
+    expect(screen.queryByText('sys_user_future')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('sys_user_future')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '记忆' })).toHaveValue('Future');
+    expect(screen.getByPlaceholderText('填写记忆')).toHaveValue('Future');
+    expect(screen.getByRole('textbox', { name: 'constructor' })).toHaveValue(
+      'Custom class',
+    );
+    expect(screen.getAllByPlaceholderText('填写模拟回答')).toHaveLength(3);
+
+    fireEvent.change(screen.getByDisplayValue('AI'), {
+      target: { value: 'Practical AI skills' },
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      'What would you like to learn?',
+      'Practical AI skills',
+    );
+    fireEvent.change(screen.getByDisplayValue('Future'), {
+      target: { value: 'Updated' },
+    });
+    expect(onChange).toHaveBeenCalledWith('sys_user_future', 'Updated');
+  });
+
+  test('preserves a custom memory label when a system key has the same name', () => {
+    const onChange = jest.fn();
+    const onHideVariable = jest.fn();
+    render(
+      <VariableList
+        variables={{ avatar: 'Custom answer' }}
+        systemVariableKeys={['avatar']}
+        customVariableKeys={['avatar']}
+        unusedVariableKeys={['avatar']}
+        onChange={onChange}
+        onHideVariable={onHideVariable}
+      />,
+    );
+
+    expect(screen.getByText('avatar')).not.toHaveAttribute('title');
+    const input = screen.getByRole('textbox', { name: 'avatar' });
+    expect(input).toHaveValue('Custom answer');
+    expect(input).toHaveAttribute('placeholder', '填写模拟回答');
+    expect(screen.queryByPlaceholderText('填写记忆')).not.toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: 'Updated answer' } });
+    expect(onChange).toHaveBeenCalledWith('avatar', 'Updated answer');
+    fireEvent.click(screen.getByRole('button', { name: '隐藏此项' }));
+    expect(onHideVariable).toHaveBeenCalledWith('avatar');
+  });
+
+  test.each([
+    { systemVariableKeys: [] },
+    { systemVariableKeys: ['sys_user_nickname', 'sys_user_background'] },
+  ])(
+    'keeps known personal fields friendly when custom metadata overlaps $systemVariableKeys',
+    ({ systemVariableKeys }) => {
+      const onChange = jest.fn();
+      const { container } = render(
+        <VariableList
+          variables={{
+            sys_user_nickname: 'Learner',
+            sys_user_background: 'Teacher',
+          }}
+          systemVariableKeys={systemVariableKeys}
+          customVariableKeys={['sys_user_nickname', 'sys_user_background']}
+          onChange={onChange}
+        />,
+      );
+
+      expect(screen.getByText('学生昵称')).toBeInTheDocument();
+      expect(screen.getByText('学生背景偏好')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('填写学生昵称')).toHaveValue(
+        'Learner',
+      );
+      expect(screen.getByPlaceholderText('填写学生背景偏好')).toHaveValue(
+        'Teacher',
+      );
+      expect(container.textContent).not.toContain('sys_user_');
+      expect(screen.queryByLabelText(/sys_user_/)).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByRole('textbox', { name: '学生昵称' }), {
+        target: { value: 'Updated' },
+      });
+      expect(onChange).toHaveBeenCalledWith('sys_user_nickname', 'Updated');
+    },
+  );
+
+  test.each([
+    ['hide', '隐藏未使用项'],
+    ['restore', '显示全部'],
+  ] as const)(
+    'shows no tooltips for the %s action or memory rows',
+    (actionType, label) => {
+      jest.useFakeTimers();
+      try {
+        const onAction = jest.fn();
+        const { container } = render(
+          <VariableList
+            variables={{ sys_user_nickname: 'Learner' }}
+            systemVariableKeys={['sys_user_nickname']}
+            actionType={actionType}
+            onAction={onAction}
+          />,
+        );
+
+        const button = screen.getByRole('button', { name: label });
+        fireEvent.mouseEnter(button);
+        fireEvent.focus(button);
+        act(() => jest.advanceTimersByTime(500));
+
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+        expect(container.querySelector('[title]')).toBeNull();
+        expect(button).not.toHaveAttribute('aria-describedby');
+        fireEvent.click(button);
+        expect(onAction).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test('renders noncanonical profile and input keys as ordinary editable course variables', () => {
+    const onChange = jest.fn();
+    const onHideVariable = jest.fn();
+    const variables = {
+      sex: 'A course answer',
+      birth: 'A course date',
+      avatar: 'A course character',
+      language: 'A programming language',
+      sys_user_style: 'A writing exercise',
+      sys_user_input: 'A course input example',
+    };
+
+    render(
+      <VariableList
+        variables={variables}
+        systemVariableKeys={['sys_user_language']}
+        customVariableKeys={Object.keys(variables)}
+        unusedVariableKeys={['sys_user_input']}
+        onChange={onChange}
+        onHideVariable={onHideVariable}
+      />,
+    );
+
+    Object.entries(variables).forEach(([key, value]) => {
+      expect(screen.getByRole('textbox', { name: key })).toHaveValue(value);
+      expect(screen.getByRole('textbox', { name: key })).toHaveAttribute(
+        'placeholder',
+        '填写模拟回答',
+      );
+    });
+    fireEvent.change(screen.getByDisplayValue('A writing exercise'), {
+      target: { value: 'Revised exercise' },
+    });
+    expect(onChange).toHaveBeenCalledWith('sys_user_style', 'Revised exercise');
+    expect(screen.queryByText('最新输入')).not.toBeInTheDocument();
+    expect(screen.queryByText('Latest input')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('textbox', { name: 'sys_user_input' }), {
+      target: { value: 'Revised input example' },
+    });
+    expect(onChange).toHaveBeenCalledWith(
+      'sys_user_input',
+      'Revised input example',
+    );
+    fireEvent.click(screen.getByRole('button', { name: '隐藏此项' }));
+    expect(onHideVariable).toHaveBeenCalledWith('sys_user_input');
   });
 
   test('updates every visible friendly name when the interface language changes', () => {
@@ -140,13 +282,11 @@ describe('VariableList system variable labels', () => {
       variables: {
         sys_user_nickname: 'Learner',
         sys_user_background: 'Teacher',
-        sys_user_input: 'Question',
         sys_user_language: 'Chinese',
       },
       systemVariableKeys: [
         'sys_user_nickname',
         'sys_user_background',
-        'sys_user_input',
         'sys_user_language',
       ],
     };
@@ -154,8 +294,8 @@ describe('VariableList system variable labels', () => {
 
     expect(screen.getByText('学生昵称')).toBeInTheDocument();
     expect(screen.getByText('学生背景偏好')).toBeInTheDocument();
-    expect(screen.getByText('最新输入')).toBeInTheDocument();
     expect(screen.getByText('授课语言')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('填写授课语言')).toBeInTheDocument();
 
     mockLanguage = 'en-US';
     rerender(<VariableList {...props} />);
@@ -164,16 +304,15 @@ describe('VariableList system variable labels', () => {
     expect(
       screen.getByText('Student background and preferences'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Latest input')).toBeInTheDocument();
     expect(screen.getByText('Teaching language')).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Enter Teaching language'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('学生昵称')).not.toBeInTheDocument();
     expect(
-      screen.getByLabelText('Student nickname (sys_user_nickname)'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', {
-        name: 'Student nickname (sys_user_nickname)',
-      }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('textbox', { name: 'Student nickname' }),
+    ).toHaveValue('Learner');
+    expect(screen.queryByText('sys_user_nickname')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/sys_user_/)).not.toBeInTheDocument();
   });
 });

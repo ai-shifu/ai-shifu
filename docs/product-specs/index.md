@@ -15,9 +15,9 @@ User-facing workflow and page behavior specifications live here.
 - [Course action menu help](../product-specs/course-action-help.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-26` | Canonical: `true`
 - [Course activation import](../product-specs/course-activation-import.md)
-  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-26` | Canonical: `true`
+  - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-27` | Canonical: `true`
 - [Course Memory Management](../product-specs/course-memory-management.md)
-  - Status: `implemented` | Owner: `learner` | Last reviewed: `2026-10-07` | Canonical: `true`
+  - Status: `implemented` | Owner: `learner` | Last reviewed: `2026-10-30` | Canonical: `true`
 - [Internal Course Temperature Settings](../product-specs/course-temperature-settings.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-08` | Canonical: `true`
 - [Dashboard Entry Page Contract](../product-specs/dashboard-entry-page.md)
@@ -29,7 +29,7 @@ User-facing workflow and page behavior specifications live here.
 - [Learner Listen Playback and Timeline](../product-specs/learner-listen-playback.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-09-26` | Canonical: `true`
 - [Learner Memory Admission](../product-specs/learner-memory-admission.md)
-  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-07` | Canonical: `true`
+  - Status: `implemented` | Owner: `backend` | Last reviewed: `2026-10-31` | Canonical: `true`
 - [Lesson Content Update Recommendations](../product-specs/lesson-content-updates.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-12` | Canonical: `true`
 - [Lesson Memory Context](../product-specs/lesson-memory-context.md)
@@ -61,7 +61,7 @@ User-facing workflow and page behavior specifications live here.
 - [Backend-owned outline learning permission default](../product-specs/outline-learning-permission-default.md)
   - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-11` | Canonical: `true`
 - [Password Login Feature Design](../product-specs/password-login-design.md)
-  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-04-17` | Canonical: `true`
+  - Status: `implemented` | Owner: `shared` | Last reviewed: `2026-10-31` | Canonical: `true`
 - [Profile onboarding startup](../product-specs/profile-onboarding-startup.md)
   - Status: `implemented` | Owner: `frontend` | Last reviewed: `2026-10-23` | Canonical: `true`
 - [Skill Usage Analytics](../product-specs/skill-usage-analytics.md)

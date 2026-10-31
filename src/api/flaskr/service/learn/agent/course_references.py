@@ -44,7 +44,7 @@ def discard_course_references(
                 unparsed_prompt = (index, message.parts.index(prompt))
             break
     keys = frozenset(key for key in names if is_course_reference(key))
-    refresh_deleted_memory(session, keys, constraints=teaching_brief)
+    refresh_deleted_memory(session, keys)
     if session.initial_variables is not None:
         session.initial_variables = {
             key: value
@@ -56,7 +56,7 @@ def discard_course_references(
         # Rebuild only the engine-owned initial prompt, never later learner history.
         index, part_index = unparsed_prompt
         message = session.messages[index]
-        values = {**session.all_memory(), **(session.initial_variables or {})}
+        values = session.all_memory()
         bundle = (
             replace(session.script, constraints=teaching_brief)
             if teaching_brief is not None

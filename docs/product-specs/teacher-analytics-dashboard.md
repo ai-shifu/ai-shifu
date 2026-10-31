@@ -50,7 +50,7 @@ This is the **source of truth** for what learners can study in production mode.
 ### Follow-up Q/A logs (追问)
 
 - `learn_generated_blocks` (`LearnGeneratedBlock`)
-  - Follow-up handler: `flaskr.service.learn.handle_input_ask.handle_input_ask`
+  - Follow-up handler: `flaskr.service.learn.ask.handler.handle_input_ask`
   - For follow-ups:
     - Student question: `type = BLOCK_TYPE_MDASK_VALUE`, `role = ROLE_STUDENT`
     - Teacher answer: `type = BLOCK_TYPE_MDANSWER_VALUE`, `role = ROLE_TEACHER`
@@ -77,9 +77,10 @@ these distinct populations and histories:
   orders. It does not union every paid order.
 - `_load_dashboard_course_learned_lesson_count_map` counts distinct eligible
   leaf lessons across all non-deleted, non-reset progress rows for each scoped
-  learner. `_load_dashboard_course_last_learning_map` takes `max(updated_at)`
-  across that learner's non-deleted, non-reset course rows. Neither selects a
-  latest row per lesson.
+  learner. The learner list's last-learning subquery in
+  `_build_dashboard_course_learners` takes `max(updated_at)` across that
+  learner's non-deleted, non-reset course rows. Neither selects a latest row
+  per lesson.
 - `_load_dashboard_course_completed_learner_bids` examines all non-deleted
   status records for each learner/leaf lesson, ordered by `created_at`, then
   `id`. A lesson counts as completed if any record is completed, or if a reset

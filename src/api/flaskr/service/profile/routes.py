@@ -5,12 +5,9 @@ from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response
 from flaskr.service.common import raise_error
 from flaskr.service.profile.profile_manage import (
-    add_profile_item_quick,
-    delete_profile_item,
     get_profile_item_definition_list,
     get_profile_variable_usage,
     hide_unused_profile_items,
-    save_profile_item,
     update_profile_item_hidden_state,
 )
 
@@ -33,12 +30,6 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
             type: string
             description: |
                 parent_id,current pass the scenario_id
-          - name: type
-            in: query
-            required: false
-            type: string
-            description: |
-                type,current pass text or all; both return the same variable list
         description: |
             Get profile item defination
         responses:
@@ -59,11 +50,8 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
                         $ref: '#/components/schemas/ProfileItemDefinition'
         """
         parent_id = request.args.get("parent_id")
-        item_type = request.args.get("type", "all")
         return make_common_response(
-            get_profile_item_definition_list(
-                app, parent_id=parent_id, definition_type=item_type
-            )
+            get_profile_item_definition_list(app, parent_id=parent_id)
         )
 
     @app.route(f"{path_prefix}/hide-unused-profile-items", methods=["POST"])
@@ -163,167 +151,5 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles") -> F
                 user_id=user_id,
             )
         )
-
-    @app.route(f"{path_prefix}/add-profile-item-quick", methods=["POST"])
-    def add_profile_item_quick_api() -> str:
-        """Add profile item.
-
-        ---
-        tags:
-          - profiles
-        parameters:
-          - name: parent_id
-            in: body
-            required: true
-            type: string
-            description: |
-                parent_id,current pass the scenario_id
-          - name: profile_key
-            in: body
-            required: true
-            type: string
-            description: |
-                profile_key , which is the key of the profile item and could be used in prompt
-        description: |
-            Add profile item
-        responses:
-            200:
-                description: Add profile item success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                  type: integer
-                                message:
-                                  type: string
-                                data:
-                                  type: object
-                                  $ref: '#/components/schemas/ProfileItemDefinition'
-        """
-        parent_id = request.get_json().get("parent_id", None)
-        profile_key = request.get_json().get("profile_key", None)
-        user_id = request.user.user_id
-        return make_common_response(
-            add_profile_item_quick(app, parent_id, profile_key, user_id)
-        )
-
-    @app.route(f"{path_prefix}/save-profile-item", methods=["POST"])
-    def save_profile_item_api() -> str:
-        """Save profile item.
-
-        ---
-        tags:
-          - profiles
-        parameters:
-          - name: body
-            in: body
-            required: true
-            description: |
-                body,current pass the profile_id and parent_id and profile_key
-            schema:
-              type: object
-              properties:
-                profile_id:
-                  type: string
-                  required: false
-                  description: |
-                    profile_id,current pass the profile_id
-                    if not pass,it will be a new profile item
-                parent_id:
-                  type: string
-                  required: true
-                  description: |
-                    parent_id,current pass the scenario_id
-                profile_key:
-                  type: string
-                  required: true
-                  description: |
-                    profile_key,current pass the profile_key
-                profile_type:
-                  type: string
-                  required: true
-                  description: |
-                    profile_type,current pass 'text'
-        description: |
-            Save profile item
-        responses:
-          200:
-            description: Save profile item success
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/ProfileItemDefinition'
-        """
-        user_id = request.user.user_id
-        profile_id = request.get_json().get("profile_id", None)
-        parent_id = request.get_json().get("parent_id", None)
-        if not parent_id:
-            raise_error("server.profile.parentIdRequired")
-        profile_key = request.get_json().get("profile_key", None)
-        if not profile_key:
-            raise_error("server.profile.profileKeyRequired")
-
-        profile_type = request.get_json().get("profile_type", None)
-        if not profile_type:
-            raise_error("server.profile.profileTypeRequired")
-        if profile_type != "text":
-            raise_error("server.profile.profileTypeInvalid")
-        return make_common_response(
-            save_profile_item(
-                app,
-                profile_id=profile_id,
-                parent_id=parent_id,
-                user_id=user_id,
-                key=profile_key,
-            )
-        )
-
-    @app.route(f"{path_prefix}/delete-profile-item", methods=["POST"])
-    def delete_profile_item_api() -> str:
-        """Delete profile item.
-
-        ---
-        tags:
-          - profiles
-        parameters:
-          - name: body
-            in: body
-            required: true
-            type: object
-            schema:
-              type: object
-              properties:
-                profile_id:
-                  type: string
-                  required: true
-                  description: |
-                      profile_id,current pass the profile_id
-        description: |
-            Delete profile item
-        responses:
-            200:
-                description: Delete profile item success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                  type: integer
-                                message:
-                                  type: string
-                                data:
-                                  type: object
-                                  $ref: '#/components/schemas/ProfileItemDefinition'
-        """
-        user_id = request.user.user_id
-        profile_id = request.get_json().get("profile_id", None)
-        if not profile_id:
-            raise_error("server.profile.profileIdRequired")
-        return make_common_response(delete_profile_item(app, user_id, profile_id))
-
-    @app.route(f"{path_prefix}/get-profile-item", methods=["POST"])
-    def get_profile_item_api() -> None:
-        """Get profile item."""
 
     return app

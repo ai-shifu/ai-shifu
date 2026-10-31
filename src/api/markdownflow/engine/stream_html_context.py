@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .document_blocks import HTML_BLOCK_TAGS
+from markdownflow.syntax.parser.document_blocks import HTML_BLOCK_TAGS
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

@@ -19,7 +19,7 @@ Both profile entrypoints always use 2.0.
 The entire frozen questionnaire is the script of one native engine Session.
 The engine owns script progression, deferred interactions, accepted answers,
 typed message history and completion. The Profile host never executes individual
-authored blocks or advances an authored cursor. Published 1.0 notation remains
+authored blocks or advances an authored cursor. Published MarkdownFlow notation remains
 supported by the engine and the publication validator; source parsing is not
 runtime orchestration.
 

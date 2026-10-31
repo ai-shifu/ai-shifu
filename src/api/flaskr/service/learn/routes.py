@@ -21,6 +21,8 @@ from flaskr.service.billing.admission import admit_creator_usage
 from flaskr.service.billing.api import admit_creator_preview_usage
 from flaskr.service.common import raise_error
 from flaskr.service.common.models import AppError, raise_param_error
+from flaskr.service.learn.elements.run_adapter import get_listen_element_record
+from flaskr.service.learn.host.run import get_run_status, run_script
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
     RunElementSSEMessageDTO,
@@ -39,14 +41,12 @@ from flaskr.service.learn.lesson_feedback import (
     submit_lesson_feedback,
 )
 from flaskr.service.learn.lesson_reset_limit import get_lesson_reset_status
-from flaskr.service.learn.listen_elements import get_listen_element_record
 from flaskr.service.learn.preview_language import resolve_preview_language
 from flaskr.service.learn.preview_permissions import (
     require_shifu_preview_permission,
     resolve_preview_request_user,
 )
 from flaskr.service.learn.request_stream import RequestCompletion
-from flaskr.service.learn.runscript_v2 import get_run_status, run_script
 from flaskr.service.metering.consts import (
     BILL_USAGE_SCENE_PREVIEW,
     BILL_USAGE_SCENE_PROD,
@@ -57,27 +57,6 @@ from flaskr.service.shifu.utils import get_shifu_creator_bid
 from flaskr.util import generate_id
 from pydantic import ValidationError
 from sqlalchemy import select
-
-
-def _normalize_user_input(value: object) -> dict[str, list[str]] | None:
-    if value is None:
-        return None
-    if isinstance(value, dict):
-        normalized = {}
-        for key, raw in value.items():
-            if raw is None:
-                continue
-            if isinstance(raw, list):
-                cleaned = [str(item) for item in raw if item is not None]
-            else:
-                cleaned = [str(raw)]
-            if cleaned:
-                normalized[str(key)] = cleaned
-        return normalized or None
-    if isinstance(value, list):
-        cleaned = [str(item) for item in value if item is not None]
-        return {"user_input": cleaned} if cleaned else None
-    return {"user_input": [str(value)]}
 
 
 def _to_sse_data_line(message: object) -> str:
@@ -91,7 +70,7 @@ def _is_generator_close_error(exc: RuntimeError) -> bool:
 
 def _release_db_session(app: Flask, *, source: str) -> None:
     # sys.exc_info in finally blocks sees propagating BaseExceptions like
-    # GreenletExit injected into IO deep inside the generator frame; discard
+    # SystemExit raised during IO deep inside the generator frame; discard
     # the connection before removal on stream-interrupting exits. Uses this
     # module's ``db`` so tests that monkeypatch routes.db keep working.
     exc = sys.exc_info()[1]
@@ -518,50 +497,31 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             - name: outline_bid
               type: string
               required: true
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    content:
-                        type: string
-                        required: true
-                        description: Markdown-Flow document content (legacy alias: prompt)
-                    block_index:
-                        type: integer
-                        required: true
-                        description: block index to preview
-                    context:
-                        type: array
-                        required: false
-                        description: chat context forwarded to LLM
-                        items:
-                            type: object
-                    document_prompt:
-                        type: string
-                        required: false
-                        description: document prompt
-                    variables:
+        requestBody:
+            required: true
+            content:
+                application/json:
+                    schema:
                         type: object
-                        required: false
-                        description: variables
-                    user_input:
-                        type: object
-                        required: false
-                        description: user input map (legacy alias: input)
-                    interaction_prompt:
-                        type: string
-                        required: false
-                        description: override interaction render prompt
-                    interaction_error_prompt:
-                        type: string
-                        required: false
-                        description: override interaction error prompt
-                    visual_mode:
-                        type: boolean
-                        required: false
-                        description: Whether to enable MarkdownFlow visual mode for preview (default: false)
+                        required:
+                            - block_index
+                            - debug_session_id
+                        properties:
+                            content:
+                                type: string
+                                description: Markdown-Flow document content
+                            block_index:
+                                type: integer
+                                description: block index to preview
+                            variables:
+                                type: object
+                                description: variables
+                            user_input:
+                                type: object
+                                description: user input map
+                            debug_session_id:
+                                type: string
+                                description: editor debug session identifier
         responses:
             200:
                 description: stream preview block success
@@ -572,29 +532,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                             example: 'data: {"type":"element","event_type":"element","content":{"element_type":"text","content":"..."}}'
         """
         payload = request.get_json(silent=True) or {}
-        normalized_user_input = payload.get("user_input")
-        if normalized_user_input is None and "input" in payload:
-            normalized_user_input = _normalize_user_input(payload.get("input"))
-        visual_mode_raw = payload.get("visual_mode", False)
-        if isinstance(visual_mode_raw, str):
-            visual_mode = visual_mode_raw.strip().lower() == "true"
-        elif visual_mode_raw is None:
-            visual_mode = False
-        else:
-            visual_mode = bool(visual_mode_raw)
-        block_index = payload.get("block_index")
-        if block_index is None:
-            block_index = payload.get("blockIndex")
         preview_payload = {
-            "content": payload.get("content") or payload.get("prompt"),
-            "block_index": block_index,
-            "context": payload.get("context"),
+            "content": payload.get("content"),
+            "block_index": payload.get("block_index"),
             "variables": payload.get("variables"),
-            "user_input": normalized_user_input,
-            "document_prompt": payload.get("document_prompt"),
-            "interaction_prompt": payload.get("interaction_prompt"),
-            "interaction_error_prompt": payload.get("interaction_error_prompt"),
-            "visual_mode": visual_mode,
+            "user_input": payload.get("user_input"),
         }
         try:
             preview_request = PlaygroundPreviewRequest(**preview_payload)
@@ -603,12 +545,11 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
         user_bid = request.user.user_id
         app.logger.info(
-            "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s, visual_mode: %s",
+            "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s",
             shifu_bid,
             outline_bid,
             user_bid,
             preview_request.block_index,
-            visual_mode,
         )
         require_shifu_preview_permission(app, user_bid, shifu_bid)
         _admit_creator_usage_for_shifu(
@@ -626,13 +567,12 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             raise_param_error("Invalid debug session identifier")
 
         # Capture the request fallback before streaming clears request-local i18n.
-        # Both runtimes receive the same authoritative editor language.
+        # Course variables remain independent from the teaching-language setting.
         variables = dict(preview_request.variables or {})
         preview_language = resolve_preview_language(variables)
         preview_request.variables = {
             **variables,
             "sys_user_language": preview_language,
-            "language": preview_language,
         }
         from flaskr.service.learn.agent.debug_session import stream_debug_preview
 

@@ -76,7 +76,8 @@ def test_role_bootstrap_hydrates_latest_global_legacy_values(account_id: str) ->
         ("sys_user_nickname", " Latest name ", "", 0),
         ("sys_user_nickname", " ", "", 0),
         ("avatar", " https://example.com/avatar.png ", "", 0),
-        ("language", " fr-FR ", "", 0),
+        ("language", " retired-language ", "", 0),
+        ("sys_user_language", " fr-FR ", "", 0),
         ("birth", "2000-01-02", "", 0),
         ("birth", "invalid-date", "", 0),
         ("language", "wrong-course-language", "course", 0),
@@ -98,8 +99,8 @@ def test_role_bootstrap_hydrates_latest_global_legacy_values(account_id: str) ->
     assert user.user_identify == account_id
     assert user.nickname == "Latest name"
     assert user.language == "fr-FR"
-    assert user.avatar == "https://example.com/avatar.png"
-    assert user.birthday == date(2000, 1, 2)
+    assert user.avatar == ""
+    assert user.birthday is None
     assert user.is_creator == 1
     assert user.is_operator == 0
     repository.set_user_state(account_id, USER_STATE_PAID)

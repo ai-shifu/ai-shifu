@@ -10,12 +10,11 @@ from __future__ import annotations
 import re
 from copy import deepcopy
 
-from markdown_flow.formatter.classifier import Classifier, _State
-from markdown_flow.formatter.stream import StreamFormatter
-from markdown_flow.formatter.types import ClassifyResult, FormattedElement
-from markdown_flow.parser.code_fence_utils import parse_code_fence_start
-
 from .markdown_text import analyze_markdown_text, clean_markdown_text
+from .syntax.formatter.classifier import Classifier, _State
+from .syntax.formatter.stream import StreamFormatter
+from .syntax.formatter.types import ClassifyResult, FormattedElement
+from .syntax.parser.code_fence_utils import parse_code_fence_start
 
 _PROSE = {"text", "title"}
 _PREFIX = re.compile(r"^([ \t]*)(!?={3,})")

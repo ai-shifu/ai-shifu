@@ -18,6 +18,13 @@ from pydantic_ai.messages import (
     UserPromptPart,
 )
 
+from markdownflow.syntax.variable_names import (
+    find_interaction_spans,
+    normalize_variable_name,
+    read_interaction_variable,
+    read_variable_marker,
+)
+
 from .direction import (
     DirectionFeedback,
     FeedbackReview,
@@ -28,12 +35,6 @@ from .interaction import InteractionSpec, InteractionType, Option
 from .interaction_markup import INTERACTION_MARKUP_RETRY, contains_interaction_markup
 from .marker_context import analyze_marker_context, marker_syntax_source
 from .session import answer_fingerprint
-from .variable_names import (
-    VARIABLE_ASSIGNMENT_SOURCE,
-    find_interaction_spans,
-    normalize_variable_name,
-    read_variable_marker,
-)
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -48,7 +49,7 @@ class Deps:
     memory: dict[str, Any]  # session scope (mutated in place)
     user_memory: dict[str, Any]  # user scope (mutated in place)
     listen_mode: bool = False
-    uses_v1_syntax: bool = False
+    uses_syntax: bool = False
     memory_updates: list[tuple[str, str, Any]] = field(
         default_factory=list
     )  # (scope, key, value)
@@ -75,7 +76,7 @@ class Deps:
     # why not. See `Engine(interaction_check=)`.
     interaction_check: Callable[[InteractionSpec], str | None] | None = None
     # Each option of the script's own `?[...]` questions, as written -> as the grammar reads it,
-    # when the script is in the 1.0 notation; see `_as_the_script_writes_it`.
+    # when the script is in MarkdownFlow notation; see `_as_the_script_writes_it`.
     script_options: dict[str, str] = field(default_factory=dict)
     # Authored text-input questions, used only to repair an extra placeholder button.
     script_text_inputs: tuple[_Question, ...] = ()
@@ -142,9 +143,6 @@ def recall_exclusions(deps: Deps) -> frozenset[str]:
         deps.memory_recall_excluded_keys.difference(answered)
         | deps.memory_recall_blocked_keys
     )
-
-
-_VARIABLE = re.compile(r"^\s*" + VARIABLE_ASSIGNMENT_SOURCE)
 
 
 def _is_escape(text: str, index: int) -> bool:
@@ -231,7 +229,7 @@ def _unescape(text: str) -> str:
 def script_options(script_text: str) -> dict[str, str]:
     """Map every option of the script's `?[...]` questions, as written, to what it means.
 
-    Split the way MarkdownFlow splits them: a leading `%{{variable}}` and a trailing `...`
+    Split the way MarkdownFlow splits them: a leading variable binding and a trailing `...`
     placeholder are not options, `||` separates the choices of a multiple choice and `|` those of
     a single one, and `//` separates what is shown from what is stored. Questions shown inside a
     code fence are examples, not questions. Both halves of `display//value` are entries of their
@@ -285,7 +283,8 @@ def _script_questions(script_text: str) -> list[_Question]:
     ):
         end = end_exclusive - 1
         raw = text[start + 2 : end]
-        body = _VARIABLE.sub("", raw)
+        variable = read_interaction_variable(raw)
+        body = raw[variable.end :].lstrip() if variable is not None else raw
         newline = min(
             (
                 at
@@ -306,9 +305,7 @@ def _script_questions(script_text: str) -> list[_Question]:
             choices = _split_unescaped(body, "||")
         questions.append(
             _Question(
-                variable=normalize_variable_name(match.group(1))
-                if (match := _VARIABLE.match(raw))
-                else None,
+                variable=variable.name if variable is not None else None,
                 text=ellipsis >= 0,
                 choices=choices,
                 placeholder=_unescape(first_line[ellipsis + 3 :].strip())

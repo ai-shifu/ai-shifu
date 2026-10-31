@@ -2,17 +2,50 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-23
+last_reviewed: 2026-10-31
 canonical: true
 ---
 
 # System and course variable isolation
 
-System-recognized profile fields are global to the learner. For example, the
-canonical nickname and language remain consistent between courses. Registration
-in the shared profile-label mapping determines global scope; a `sys_` prefix alone
-never grants global storage or arbitrary profile editing. Existing registered
-legacy label names keep their mappings.
+Only `sys_user_nickname`, `sys_user_language` and `sys_user_background` are
+registered global profile fields. Their canonical account values remain
+consistent between courses. The shared exact-name registry determines global
+scope; a `sys_` prefix alone never grants global storage or arbitrary profile
+editing.
+
+The former built-ins `sex`, `birth`, `avatar` and `language` are ordinary course
+variables. Historical global definitions and values remain stored but are not
+advertised, read as defaults, or mapped to account fields. Ordinary course
+variables use the existing definition and value paths. All non-system variable
+writes require a course identifier. Account avatars, language settings and
+canonical learner profiles keep their separate APIs.
+Only `sys_user_language` selects teaching language; an authored `language`
+variable is independent and is never overwritten by that selection.
+These scope rules govern current profile reads and writes. Continued sessions may
+retain earlier global defaults in their saved prompts or snapshots.
+
+There is no separate registry or runtime exception for former default names.
+Existing course definitions, including a stored `sys_user_style` definition,
+retain ordinary exact-key and course-scope reads and writes. A value write does
+not create a missing definition. The supplementary course-memory reader excludes
+undefined `sys_` keys, so a stored value alone does not make an undefined
+`sys_user_style` available in later lessons. Authoring keeps its generic reserved
+prefix rule without an exception for that name.
+
+`sys_user_input` also has no built-in variable behavior: learner messages do not
+automatically populate or overwrite it, and the simulator gives it no fixed
+hiding rule or dedicated system label. Existing course-defined values and
+explicitly supplied preview values follow ordinary variable handling. The
+generic `sys_` authoring restriction still applies without an exception.
+Normal learner input continues through request messages. The optional
+`get_fmt_prompt` `user_input` argument keeps its ordinary empty-template fallback;
+production callers do not pass that argument.
+
+Value selection uses the key and storage scope. Runtime profile writes through
+`save_user_profiles` retain their existing supplied-BID/definition-fallback rule;
+other writers keep their existing definition resolution. Former default names
+receive no ID rebinding or special definition creation.
 
 All other durable variables belong to the current course. Two courses can use
 the same key with different answers. If course A records that a learner likes
@@ -20,6 +53,30 @@ hamburgers, course B does not receive that fact, even when its lesson concerns
 food or both courses have the same owner. Course B asks its own question when
 needed. A missing course variable never falls back to a global custom-variable
 row. No automatic account-wide memory is introduced.
+
+## Product wording and compatibility
+
+The overall product feature is "Memory". Its entries have a question-and-answer
+structure backed by the existing key and value. The teacher's learning simulator
+labels its panel "Memory" and distinguishes simulated answers from personal
+information such as nickname and teaching language. The learner's course-scoped
+collection remains "Course memory". This display structure does not establish an
+original interaction: saved answers and explicit requests to remember information
+do not all have evidence of an original question. Do not invent questions or
+answer provenance for those entries.
+
+System memory fields use localized labels throughout the simulator, including
+tooltips, input names and placeholders. Hovering or focusing never reveals their
+internal keys; an unknown system field uses the localized Memory label. Authored
+course questions and legacy custom keys retain their existing text and identity.
+
+This wording keeps the existing technical key/value contract. Within a course,
+entries with the same exact key share the current value across lessons. Changing
+the key creates a different entry and does not transfer an existing answer.
+Changing only the displayed question does not change the key. Existing identifiers
+are not rewritten into questions, and no new question identity or answer-history
+model is introduced. API fields, storage, cache keys, runtime prompts and analytics
+contracts retain their existing names and behavior.
 
 ## Authored memory key names
 
@@ -31,17 +88,43 @@ exactly. There is no expression evaluation, quote decoding, backslash decoding
 or recursive recognition of markers inside a key. A literal `}}` remains a
 reserved sequence and cannot be part of a name.
 
-For example, `?[%{{ What is your gender? }} Male | Female | Private]` stores the selected
+For example, `?[{{ What is your gender? }} Male | Female | Private]` stores the selected
 answer under `What is your gender?`. `{{ What is your gender? }}` references that same key.
 `user  name` keeps its two internal spaces. Generate markers with padding on
 both sides (`{{ key }}`) to preserve a key ending in a single `}`. FEFF is key
 content, not trim whitespace. The exact trim set and shared conformance cases
 are owned by the [coordinated MarkdownFlow specification change](https://github.com/ai-shifu/markdown-flow/pull/11).
 
+A complete question can also bind and reference a free-text answer:
+
+```md
+What would you like to learn?
+
+?[{{ What would you like to learn? }}...Share your goal]
+
+Use {{ What would you like to learn? }} to choose a relevant example.
+```
+
+The existing percent-prefixed form
+`?[%{{ What would you like to learn? }}...Share your goal]` binds the same key.
+Neither form changes the memory admission rules or requires historical keys to
+be written as questions.
+
 Names are case-sensitive and are not normalized. Changing a question or its
 punctuation creates a different key; it does not rename an existing answer.
-A question key is a course variable unless it exactly matches a registered
-system key, so this example does not update the system `sex` field.
+A course question key must not start with the case-sensitive prefix `sys_`.
+That namespace is reserved for the system, including unregistered names.
+Draft saving, parsing, history restoration, import and publication reject
+reserved question bindings in both `?[{{sys_name}} ...]` and
+`?[%{{sys_name}} ...]` syntax after trimming outer whitespace. Ordinary question
+keys remain course variables. Neither this example nor a variable named `sex`
+updates an account field.
+
+Body references such as `{{sys_user_nickname}}` remain valid and do not create
+course-owned definitions. Code examples, comments, escaped interactions and
+other literal Markdown are not question declarations. Existing stored answers
+and published courses are not migrated or deleted; a historical draft with a
+reserved question must be corrected before it can be saved or published again.
 
 Both frontend editors use the shared `remark-flow` name helper rather than
 independent character whitelists. The Python library and vendored engine run
@@ -55,9 +138,9 @@ required.
 The wider rule intentionally recognizes some markers that older parsers
 treated as plain text, including names with internal spaces. Existing ordinary
 identifiers and literal quote/backslash keys retain their identity. Invalid
-markers remain literal text and do not expose nested variables. Definition
-create/save and browser submissions trim using the same rule, while existing
-stored memory is not migrated. Machine-only format placeholders in
+markers remain literal text and do not expose nested variables. Automatic
+definition creation and browser submissions trim using the same rule, while
+existing stored memory is not migrated. Machine-only format placeholders in
 `learn/utils_v2.py` have a separate restricted contract and are not teaching
 prompt memory keys.
 
@@ -82,8 +165,48 @@ previously delivered content is historical evidence, not current shared memory.
 Preview/debug sessions also discard retired snapshots. No historical data or
 source-course values are deleted, migrated or retroactively undone.
 
+Default-profile retirement leaves existing formal and editor-debug sessions under
+their ordinary loading, continuation and persistence logic. It adds no dedicated
+snapshot cleanup, retirement marker or session migration. Existing generic
+session safeguards continue to apply; old saved prompts may retain retired
+profile defaults. New formal sessions initialize from the current course-scoped
+`load_memory` result. Editor-preview sessions instead initialize from supplied
+`preview_variables`, without reading learner memory from the database.
+Restarting an editor preview creates a fresh debug session ID. Cache keys and the
+thirty-minute expiry remain unchanged, with no namespace or version bump.
+Continuing an existing preview retains its cached state, and unused entries
+expire naturally.
+Legacy learning style no longer prefills the canonical learner-profile editor;
+nickname compatibility remains available.
+
 This policy supersedes [explicit references](course-memory-references.md) and
 [shared named answers](shared-course-answers.md). It adds no schema, dependency,
 configuration flag or frontend protocol. Sim remains 2.0; production stays 1.0.
 Semantic history summaries and full quality/cache/cost acceptance remain separate
 work. Cross-course model notes and owner-wide custom storage are cancelled.
+
+
+## Memory definition API type compatibility
+
+The definition list has no type filter. Requests use `parent_id` for course scope;
+legacy `type` query parameters are ignored. Listed definitions retain the fixed
+`profile_type: "text"` response and the existing `profile_type_str` label for
+compatibility.
+
+The manual definition endpoints are removed:
+
+- `POST /api/profiles/add-profile-item-quick`
+- `POST /api/profiles/save-profile-item`
+- `POST /api/profiles/delete-profile-item`
+
+Requests to these unregistered paths receive the standard JSON not-found response
+with `code: 404`. Saving MarkdownFlow content still automatically creates missing
+definitions through the shared internal helper, including its legacy text-table
+fallback. Definition listing, usage inspection, hiding and restoring remain
+available. Existing keys, scopes, stored answers and legacy text rows remain
+unchanged. Learner course-memory deletion and personal-profile editing use their
+own APIs and remain available.
+
+The fixed text fields describe memory definition metadata. Single-choice,
+multi-choice and free-text controls continue to follow the authored MarkdownFlow
+interaction syntax.

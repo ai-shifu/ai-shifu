@@ -351,22 +351,6 @@ def _generate_random_coupon_code(length: int = 12) -> str:
     return "".join(secrets.choice(charset) for _ in range(length))
 
 
-def _generate_unique_coupon_code() -> str:
-    for _ in range(20):
-        code = _generate_random_coupon_code()
-        exists = Coupon.query.filter(Coupon.code == code, Coupon.deleted == 0).first()
-        if exists:
-            continue
-        usage_exists = CouponUsage.query.filter(
-            CouponUsage.code == code,
-            CouponUsage.deleted == 0,
-        ).first()
-        if not usage_exists:
-            return code
-    raise_error("server.discount.couponCodeGenerationFailed")
-    return None
-
-
 def _generate_unique_coupon_codes(count: int) -> list[str]:
     if count <= 0:
         return []

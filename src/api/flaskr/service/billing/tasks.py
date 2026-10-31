@@ -47,7 +47,7 @@ from .daily_aggregates import (
     rebuild_daily_aggregates,
 )
 from .domains import verify_domain_binding
-from .models import BillingOrder, BillingRenewalEvent, BillingSubscription, CreditWallet
+from .models import BillingOrder, BillingRenewalEvent
 from .notifications import (
     BILLING_PAID_FEISHU_TASK_NAME as _BILLING_PAID_FEISHU_TASK_NAME,
 )
@@ -320,31 +320,6 @@ def _run_reconcile_provider_reference(
         bill_order_bid=normalized_bill_order_bid,
         session_id=normalized_session_id,
     )
-
-
-def _collect_low_balance_creator_bids() -> list[str]:
-    wallet_creator_rows = (
-        CreditWallet.query.filter(
-            CreditWallet.deleted == 0,
-            CreditWallet.creator_bid != "",
-        )
-        .order_by(CreditWallet.id.asc())
-        .all()
-    )
-    subscription_creator_rows = (
-        BillingSubscription.query.filter(
-            BillingSubscription.deleted == 0,
-            BillingSubscription.creator_bid != "",
-        )
-        .order_by(BillingSubscription.id.asc())
-        .all()
-    )
-    creator_bids = {
-        _normalize_bid(row.creator_bid)
-        for row in (*wallet_creator_rows, *subscription_creator_rows)
-        if _normalize_bid(row.creator_bid)
-    }
-    return sorted(creator_bids)
 
 
 def _expire_pending_billing_orders(

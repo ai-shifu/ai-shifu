@@ -214,12 +214,15 @@ Contributors have one place to check the required commit title and body format.
 - `lefthook run pre-commit --all-files` is the repository-wide verification
   gate before a commit-sized change lands.
 
-## MarkdownFlow component libraries
+## MarkdownFlow component library
 
-ai-shifu consumes two MarkdownFlow component libraries. Changing either is
-usually done in order to use it here, so the overall flow is: **change the
-library → publish a build → point ai-shifu at it → debug locally / on test / in
-prod**.
+ai-shifu consumes one MarkdownFlow component library, `markdown-flow-ui`.
+Changing it is usually done in order to use it here, so the overall flow is:
+**change the library → publish a build → point ai-shifu at it → debug locally /
+on test / in prod**. The backend no longer depends on the Python
+`markdown-flow` package: the syntax layer it used lives in
+`src/api/markdownflow/syntax/` and is edited here, and the architecture
+boundary check rejects any `markdown_flow` import.
 
 Product localization is an exception to this cross-repository flow. Use the
 currently pinned library's supported locales and document any untranslated
@@ -227,35 +230,27 @@ library controls; translate and release that library only as separate work.
 
 | Library            | Kind             | Pinned in                                            | Published from                                                            |
 | ------------------ | ---------------- | ---------------------------------------------------- | ------------------------------------------------------------------------- |
-| `markdown-flow`    | Python (backend) | `src/api/requirements.txt` (`markdown-flow==<ver>`)  | [markdown-flow-agent-py](https://github.com/ai-shifu/markdown-flow-agent-py) (PyPI) |
 | `markdown-flow-ui` | npm (frontend)   | `src/web/package.json` (`"markdown-flow-ui"`)   | [markdown-flow-ui](https://github.com/ai-shifu/markdown-flow-ui) (npm)    |
 
 ### Trying a library change against this project
 
 1. In the library repo, on your branch, run its **Publish** action to release a
-   build — use a `dev` build (`X.Y.Z.devN` on PyPI, `X.Y.Z-dev.N` on npm) for a
-   throwaway test package. Wait for the run to pass; the version is now published.
+   build — use a `dev` build (`X.Y.Z-dev.N` on npm) for a throwaway test
+   package. Wait for the run to pass; the version is now published.
 2. Point this project at that version:
-   - **Locally (uncommitted)**: edit the pin in `src/api/requirements.txt`
-     (backend) or `src/web/package.json` (frontend).
-   - **On an already-pushed feature branch**: run the matching bump action —
-     **Bump markdown-flow** (`bump-markdown-flow.yml`) or **Bump markdown-flow-ui**
-     (`bump-markdown-flow-ui.yml`). Each validates the version is published,
-     updates the pin, and pushes the bump back to the branch. Both refuse to run
-     on `main`. (The frontend bump pins an exact version and refreshes
-     `src/web/package-lock.json` so CI's `npm ci` stays green.)
+   - **Locally (uncommitted)**: edit the pin in `src/web/package.json`.
+   - **On an already-pushed feature branch**: run **Bump markdown-flow-ui**
+     (`bump-markdown-flow-ui.yml`). It validates the version is published,
+     updates the pin, and pushes the bump back to the branch. It refuses to run
+     on `main`, pins an exact version and refreshes `src/web/package-lock.json`
+     so CI's `npm ci` stays green.
 
-### Rule: `main` must pin RELEASE versions of both libraries
+### Rule: `main` must pin a RELEASE version of the library
 
 dev builds are for feature-branch / cross-repo testing only. `main` must always
-pin **release** versions (`X.Y.Z`) of both libraries. The **Static Checks** job
-in `repo-harness.yml` enforces this on every PR into `main` and fails on a
-pre-release/dev pin:
-
-- The `markdown-flow` release pin is checked in `src/api/requirements.txt`.
-- The `markdown-flow-ui` release pin is checked in `src/web/package.json`.
-
-Pin release versions of both before merging.
+pin a **release** version (`X.Y.Z`) of `markdown-flow-ui` in
+`src/web/package.json`. The **Static Checks** job in `repo-harness.yml`
+enforces this on every PR into `main` and fails on a pre-release/dev pin.
 
 ## The MarkdownFlow 2.0 engine library
 
@@ -266,7 +261,7 @@ engine library. Course and Profile runtimes use the shared application binding i
 and the package's `AGENTS.md` for the dependency boundary. The foundation
 extracts the existing course runtime in PR #3163; the dependent Profile migration
 in PR #3161 uses the same library and application binding.
-Unlike the two component libraries above, it is **not** a pinned dependency: the
+Unlike the component library above, it is **not** a pinned dependency: the
 code was copied in and is edited here, in place. `ai-shifu/markdown-flow-agent`
 still exists to serve the playground and the open-source release, but it is not
 an upstream — nothing is synced back and forth, and the two are expected to
@@ -283,7 +278,7 @@ These tests run on `pydantic-ai`'s `FunctionModel`, so they need no network and
 cost nothing. **They must be green for any change under `markdownflow/`.** They cover
 what the surrounding service tests cannot: pausing and resuming on an
 interaction, several interactions raised in one turn, answers surviving a store
-round trip, variables reaching memory, listen-mode segmentation, 1.0 syntax
+round trip, variables reaching memory, listen-mode segmentation, script syntax
 detection, and the confirm guardrails.
 
 ## Tests

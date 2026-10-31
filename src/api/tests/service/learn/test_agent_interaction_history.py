@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 import pytest
 from flaskr.dao import db
 from flaskr.service.learn.agent.legacy_protocol import render_interaction
-from flaskr.service.learn.listen_element_history import (
+from flaskr.service.learn.elements.history import (
     get_final_elements_for_generated_block,
 )
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement

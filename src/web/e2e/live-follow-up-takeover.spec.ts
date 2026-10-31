@@ -11,6 +11,7 @@ const modules: Record<string, string> = {
     'src/components/live-follow-up/liveFollowUpSessionAdmission.ts',
   'ownership.js': 'src/components/live-follow-up/liveFollowUpOwnership.ts',
   'liveVoiceFollowUp.js': 'src/lib/liveVoiceFollowUp.ts',
+  'liveVoiceCapacityScopes.js': 'src/lib/liveVoiceCapacityScopes.ts',
 };
 const scripts = Object.fromEntries(
   Object.entries(modules).map(([name, file]) => [
@@ -26,7 +27,11 @@ const scripts = Object.fromEntries(
         '@/lib/liveVoiceFollowUp',
         '/modules/liveVoiceFollowUp.js',
       )
-      .replaceAll('@/lib/request', '/modules/request.js'),
+      .replaceAll('@/lib/request', '/modules/request.js')
+      .replaceAll(
+        "'./liveVoiceCapacityScopes'",
+        "'/modules/liveVoiceCapacityScopes.js'",
+      ),
   ]),
 );
 

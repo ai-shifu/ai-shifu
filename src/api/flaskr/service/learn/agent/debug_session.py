@@ -51,11 +51,12 @@ class DebugSessionStore:
                 != hashlib.sha256(script.encode()).hexdigest()
             ):
                 return None
-            return Session.loads(payload["session"])
+            session = Session.loads(payload["session"])
         except (KeyError, TypeError, ValueError):
             # A deployment may replace the engine while this short-lived session is open.
             # An incompatible history is treated as expired, never replayed into a new turn.
             return None
+        return session
 
     def save(self, session: Session) -> None:
         """Save before the runner emits the turn's terminal event."""

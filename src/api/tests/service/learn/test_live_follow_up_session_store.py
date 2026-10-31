@@ -160,7 +160,24 @@ def _session(
     )
 
 
-def test_store_round_trip_uses_hashed_key_and_bounded_ttl(
+def _store(app: Flask, session: StoredLiveFollowUpSession) -> None:
+    """Persist a binding the way admission publishes it on completion."""
+    redis = store._require_redis()
+    assert redis.set(
+        store._session_key(app, session.binding.session_bid),
+        store.serialize_live_follow_up_session(session),
+        pxat=math.ceil(
+            (
+                session.binding.expires_at_epoch
+                + store.LIVE_FOLLOW_UP_SESSION_FINALIZATION_GRACE_SECONDS
+            )
+            * 1000
+        ),
+        nx=True,
+    )
+
+
+def test_round_trip_uses_hashed_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     redis = _FakeRedis()
@@ -168,14 +185,11 @@ def test_store_round_trip_uses_hashed_key_and_bounded_ttl(
     app = _app()
     session = _session()
 
-    store.store_live_follow_up_session(app, session=session)
+    _store(app, session)
 
     key = next(iter(redis.values))
     assert key.startswith("test-prefix:live-follow-up:session:")
     assert "session-1" not in key
-    assert redis.absolute_expirations[key] == math.ceil(
-        (session.binding.expires_at_epoch + 30) * 1000
-    )
     assert store.load_live_follow_up_session(app, session_bid="session-1") == session
 
 
@@ -187,7 +201,7 @@ def test_touch_requires_an_existing_binding(monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(LiveFollowUpSessionRejectedError):
         store.touch_live_follow_up_session(app, session_bid="missing")
 
-    store.store_live_follow_up_session(app, session=_session())
+    _store(app, _session())
     store.touch_live_follow_up_session(app, session_bid="session-1")
 
 
@@ -200,7 +214,7 @@ def test_paused_binding_survives_missing_heartbeats_without_extending_access(
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
     session = _session(expires_at_epoch=1_000.000123)
-    store.store_live_follow_up_session(app, session=session)
+    _store(app, session)
     key = next(iter(redis.values))
     deadline = 1_030_001
     assert redis.absolute_expirations[key] == deadline
@@ -232,7 +246,7 @@ def test_finalization_lease_cannot_be_shortened_or_extend_request_admission(
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
     session = _session(expires_at_epoch=1_000)
-    store.store_live_follow_up_session(app, session=session)
+    _store(app, session)
     key = next(iter(redis.values))
 
     store.touch_live_follow_up_session(app, session_bid="session-1", finalizing=True)
@@ -269,7 +283,7 @@ def test_turn_reservations_are_ordered_and_one_time(
     redis = _FakeRedis()
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
-    store.store_live_follow_up_session(app, session=_session())
+    _store(app, _session())
     key = next(iter(redis.values))
     deadline = redis.absolute_expirations[key]
 
@@ -332,7 +346,7 @@ def test_failed_turn_reservation_can_be_retried(
     redis = _FakeRedis()
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
-    store.store_live_follow_up_session(app, session=_session())
+    _store(app, _session())
 
     failed = store.reserve_live_follow_up_turn(
         app,
@@ -355,7 +369,7 @@ def test_orphaned_claim_can_be_replaced_without_advancing_or_reviving_old_owner(
     redis = _FakeRedis()
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
-    store.store_live_follow_up_session(app, session=_session())
+    _store(app, _session())
     abandoned = store.reserve_live_follow_up_turn(
         app, session_bid="session-1", turn_index=1
     )
@@ -389,9 +403,9 @@ def test_turn_reservations_stop_at_the_session_budget(
     redis = _FakeRedis()
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
-    store.store_live_follow_up_session(
+    _store(
         app,
-        session=_session(
+        _session(
             turn_state=LiveFollowUpTurnState(
                 last_committed_index=store.LIVE_FOLLOW_UP_MAX_TURNS - 1,
             )
@@ -418,7 +432,7 @@ def test_consume_is_atomic_and_one_time(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
     session = _session()
-    store.store_live_follow_up_session(app, session=session)
+    _store(app, session)
 
     assert store.consume_live_follow_up_session(app, session_bid="session-1") == session
     with pytest.raises(LiveFollowUpSessionRejectedError):
@@ -432,10 +446,7 @@ def test_expired_binding_is_rejected_without_extending_it(
     monkeypatch.setattr(store.time, "time", lambda: 99)
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
-    store.store_live_follow_up_session(
-        app,
-        session=_session(expires_at_epoch=100.0),
-    )
+    _store(app, _session(expires_at_epoch=100.0))
 
     with pytest.raises(LiveFollowUpSessionRejectedError):
         store.load_live_follow_up_session(
@@ -453,7 +464,7 @@ def test_finalization_grace_does_not_extend_live_access_or_the_deadline(
     monkeypatch.setattr(store, "_redis_client", lambda: redis)
     app = _app()
     session = _session(expires_at_epoch=100.0)
-    store.store_live_follow_up_session(app, session=session)
+    _store(app, session)
 
     with pytest.raises(LiveFollowUpSessionRejectedError):
         store.load_live_follow_up_session(
@@ -479,16 +490,10 @@ def test_finalization_grace_does_not_extend_live_access_or_the_deadline(
         )
 
 
-def test_non_finite_expiry_is_rejected_before_storage(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    redis = _FakeRedis()
-    monkeypatch.setattr(store, "_redis_client", lambda: redis)
-
+def test_non_finite_expiry_is_rejected_before_storage() -> None:
     with pytest.raises(LiveFollowUpSessionRejectedError):
-        store.store_live_follow_up_session(
-            _app(),
-            session=_session(expires_at_epoch=float("nan")),
+        store.serialize_live_follow_up_session(
+            _session(expires_at_epoch=float("nan")),
         )
 
 
@@ -496,4 +501,4 @@ def test_redis_unavailability_fails_closed(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setattr(store, "_redis_client", lambda: None)
 
     with pytest.raises(LiveFollowUpSessionStoreUnavailableError):
-        store.store_live_follow_up_session(_app(), session=_session())
+        store.load_live_follow_up_session(_app(), session_bid="session-1")

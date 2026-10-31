@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import os
 import re
 import sys
 from dataclasses import asdict, dataclass
@@ -35,6 +36,17 @@ FRONTEND_FETCH_ALLOWLIST = {
 }
 BACKEND_SHARED_SERVICES = {"common", "config"}
 BACKEND_STABLE_MODULE_SUFFIXES = {"api", "dtos", "models", "consts"}
+LEARN_ELEMENTS_PACKAGE = "flaskr.service.learn.elements"
+# The lesson host and the follow-up path sit above learn/elements; elements must not reach up.
+LEARN_ELEMENTS_FORBIDDEN_PREFIXES = (
+    "flaskr.service.learn.routes",
+    "flaskr.service.learn.runscript_v2",
+    "flaskr.service.learn.host",
+    "flaskr.service.learn.handle_input_ask",
+    "flaskr.service.learn.ask",
+    "flaskr.service.learn.follow_up_",
+    "flaskr.service.learn.live_follow_up_",
+)
 
 
 @dataclass(frozen=True)
@@ -232,8 +244,15 @@ def resolve_backend_relative_import(
     if not resolved_parts:
         return []
 
-    resolved_module = ".".join(resolved_parts)
-    module_path = backend_root.joinpath(*resolved_parts)
+    return resolve_backend_package_children(backend_root, resolved_parts, node)
+
+
+def resolve_backend_package_children(
+    backend_root: Path, module_parts: list[str], node: ast.ImportFrom
+) -> list[str]:
+    """Return the submodules a from-import names, or the module when none are."""
+    resolved_module = ".".join(module_parts)
+    module_path = backend_root.joinpath(*module_parts)
     if not module_path.is_dir():
         return [resolved_module]
 
@@ -266,7 +285,11 @@ def iter_python_imports(path: Path, backend_root: Path) -> list[str]:
                 )
                 continue
             if module:
-                imports.append(module)
+                imports.extend(
+                    resolve_backend_package_children(
+                        backend_root, module.split("."), node
+                    )
+                )
     return imports
 
 
@@ -303,9 +326,163 @@ def collect_engine_library_violations(backend_root: Path) -> list[Violation]:
     return violations
 
 
+# The external package was retired once its syntax layer moved into markdownflow/syntax.
+RETIRED_BACKEND_PACKAGES = frozenset({"markdown_flow"})
+
+
+SKIPPED_BACKEND_DIRECTORIES = frozenset(
+    {"__pycache__", "node_modules", "site-packages"}
+)
+
+
+def iter_backend_python_files(backend_root: Path) -> list[Path]:
+    """List backend Python files, pruning caches and virtualenvs before descending."""
+    files: list[Path] = []
+    for directory, subdirectories, filenames in os.walk(backend_root):
+        current = Path(directory)
+        # Any virtualenv has pyvenv.cfg, whatever the directory is called.
+        subdirectories[:] = sorted(
+            name
+            for name in subdirectories
+            if not name.startswith(".")
+            and name not in SKIPPED_BACKEND_DIRECTORIES
+            and not (current / name / "pyvenv.cfg").exists()
+        )
+        files.extend(current / name for name in filenames if name.endswith(".py"))
+    return sorted(files)
+
+
+def collect_retired_package_violations(backend_root: Path) -> list[Violation]:
+    """Reject imports of retired packages anywhere in the backend, entry points included."""
+    violations: list[Violation] = []
+    for path in iter_backend_python_files(backend_root):
+        source = normalize_posix(path.relative_to(backend_root))
+        for module in iter_python_imports(path, backend_root):
+            if module.partition(".")[0] not in RETIRED_BACKEND_PACKAGES:
+                continue
+            rule_id = "backend.imports_retired_package"
+            violations.append(
+                Violation(
+                    key=make_key(rule_id, source, module),
+                    rule_id=rule_id,
+                    source=source,
+                    target=module,
+                    message=f"{source} imports retired package {module}.",
+                    remediation=(
+                        "Import the MarkdownFlow syntax layer from markdownflow "
+                        "instead; the markdown-flow package is not installed."
+                    ),
+                )
+            )
+    return violations
+
+
+LEARN_HOST_PACKAGE = "flaskr.service.learn.host"
+# Routes sit above the lesson host; the host must not reach up into them.
+LEARN_HOST_FORBIDDEN_PREFIXES = ("flaskr.service.learn.routes",)
+
+
+def collect_learn_host_violations(backend_root: Path) -> list[Violation]:
+    """Keep learn/host below the learn routes."""
+    violations: list[Violation] = []
+    host_root = backend_root / Path(*LEARN_HOST_PACKAGE.split("."))
+    if not host_root.is_dir():
+        return violations
+    for path in sorted(host_root.rglob("*.py")):
+        source = normalize_posix(path.relative_to(backend_root))
+        for module in iter_python_imports(path, backend_root):
+            if not module.startswith(LEARN_HOST_FORBIDDEN_PREFIXES):
+                continue
+            rule_id = "backend.learn_host_imports_routes"
+            violations.append(
+                Violation(
+                    key=make_key(rule_id, source, module),
+                    rule_id=rule_id,
+                    source=source,
+                    target=module,
+                    message=f"{source} imports learn route module {module}.",
+                    remediation=(
+                        "Have the route pass request data into the host; keep "
+                        "learn/host free of route modules."
+                    ),
+                )
+            )
+    return violations
+
+
+LEARN_ASK_PACKAGE = "flaskr.service.learn.ask"
+# The lesson host calls into learn/ask; follow-up code must not call back up
+# into the host or the learn routes.
+LEARN_ASK_FORBIDDEN_PREFIXES = (
+    "flaskr.service.learn.routes",
+    "flaskr.service.learn.host",
+    "flaskr.service.learn.runscript_v2",
+)
+
+
+def collect_learn_ask_violations(backend_root: Path) -> list[Violation]:
+    """Keep learn/ask below the lesson host and the learn routes."""
+    violations: list[Violation] = []
+    ask_root = backend_root / Path(*LEARN_ASK_PACKAGE.split("."))
+    if not ask_root.is_dir():
+        return violations
+    for path in sorted(ask_root.rglob("*.py")):
+        source = normalize_posix(path.relative_to(backend_root))
+        for module in iter_python_imports(path, backend_root):
+            if not module.startswith(LEARN_ASK_FORBIDDEN_PREFIXES):
+                continue
+            rule_id = "backend.learn_ask_imports_host"
+            violations.append(
+                Violation(
+                    key=make_key(rule_id, source, module),
+                    rule_id=rule_id,
+                    source=source,
+                    target=module,
+                    message=f"{source} imports lesson host or route module {module}.",
+                    remediation=(
+                        "Have the host pass what a follow-up needs through "
+                        "AskContext; keep learn/ask free of host and route modules."
+                    ),
+                )
+            )
+    return violations
+
+
+def collect_learn_elements_violations(backend_root: Path) -> list[Violation]:
+    """Keep learn/elements below the lesson host and the follow-up path."""
+    violations: list[Violation] = []
+    elements_root = backend_root / Path(*LEARN_ELEMENTS_PACKAGE.split("."))
+    if not elements_root.is_dir():
+        return violations
+    for path in sorted(elements_root.rglob("*.py")):
+        source = normalize_posix(path.relative_to(backend_root))
+        for module in iter_python_imports(path, backend_root):
+            if not module.startswith(LEARN_ELEMENTS_FORBIDDEN_PREFIXES):
+                continue
+            rule_id = "backend.learn_elements_imports_host"
+            violations.append(
+                Violation(
+                    key=make_key(rule_id, source, module),
+                    rule_id=rule_id,
+                    source=source,
+                    target=module,
+                    message=f"{source} imports lesson host or follow-up module {module}.",
+                    remediation=(
+                        "Pass what the element layer needs in from the host; keep "
+                        "learn/elements free of run, route and follow-up modules."
+                    ),
+                )
+            )
+    return violations
+
+
 def collect_backend_violations(backend_root: Path) -> list[Violation]:
     """Collect backend violations."""
     violations = collect_engine_library_violations(backend_root)
+    violations += collect_retired_package_violations(backend_root)
+    violations += collect_learn_elements_violations(backend_root)
+    violations += collect_learn_host_violations(backend_root)
+    violations += collect_learn_ask_violations(backend_root)
     service_root = backend_root / "flaskr" / "service"
 
     for path in sorted(service_root.rglob("*.py")):

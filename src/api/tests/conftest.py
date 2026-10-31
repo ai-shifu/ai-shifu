@@ -54,7 +54,6 @@ from sqlalchemy.ext.compiler import compiles
 class _TestPluginManager:
     def __init__(self) -> None:
         self.extension_functions = {}
-        self.extensible_generic_functions = {}
         self.is_enabled = False
 
     def register_extension(self, target_func_name: object, func: object) -> None:
@@ -69,14 +68,6 @@ class _TestPluginManager:
     ) -> object:
         _ = (args, kwargs)
         return result
-
-    def register_extensible_generic(self, func_name: object, func: object) -> None:
-        self.extensible_generic_functions.setdefault(func_name, []).append(func)
-
-    def execute_extensible_generic(
-        self, _func_name: object, *args: object, **kwargs: object
-    ) -> None:
-        _ = (args, kwargs)
 
 
 set_plugin_manager(_TestPluginManager())
@@ -203,7 +194,7 @@ def mock_redis_client(monkeypatch: object, request: object) -> object:
         "flaskr.service.user.auth.providers.google",
         "flaskr.service.config.funcs",
         "flaskr.service.shifu.funcs",
-        "flaskr.service.learn.runscript_v2",
+        "flaskr.service.learn.host.run",
         "flaskr.service.order.funs",
     ]
     for module_path in module_paths:
@@ -234,6 +225,10 @@ def mock_llm_calls(monkeypatch: object, request: object) -> None:
     monkeypatch.setattr(
         llm, "get_current_models", fake_get_current_models, raising=False
     )
+    # handle_input_ask binds chat_llm at import time.
+    ask = sys.modules.get("flaskr.service.learn.ask.handler")
+    if ask is not None:
+        monkeypatch.setattr(ask, "chat_llm", fake_chat_llm, raising=False)
 
 
 @pytest.fixture(autouse=True)

@@ -69,7 +69,7 @@ async def test_combined_scopes_are_bounded_only_for_enabled_hosts(
     value, length = _memory(seen[0])
     assert value["goal"] == "session goal"
     assert value["sys_user_nickname"] == "Learner"
-    assert "Teach session goal." in seen[0]
+    assert "Teach {{goal}}." in seen[0]
     assert (session.memory, session.user_memory) == before
     assert any(isinstance(e, TurnDone) for e in events)
     if limit is None:
@@ -95,7 +95,7 @@ def test_json_budget_counts_escaping_and_keeps_whole_values(value: object) -> No
     assert memory == {"answer": value}
 
 
-def test_long_referenced_answer_stays_exact_outside_bounded_memory() -> None:
+def test_long_referenced_answer_is_not_inserted_outside_bounded_memory() -> None:
     answer = "Original answer.\n" + "z" * 40000
     memory = {"answer": answer, "small": "yes", "again": "old answer"}
     prompt = render_first_prompt(
@@ -109,8 +109,9 @@ def test_long_referenced_answer_stays_exact_outside_bounded_memory() -> None:
     values, length = _memory(prompt)
     assert values == {"small": "yes"}
     assert length <= 100
-    assert "Teach " + answer + "." in prompt
-    assert "Use " + answer + "." in prompt
+    assert "Teach {{answer}}." in prompt
+    assert "Use {{answer}}." in prompt
+    assert answer not in prompt
     assert "echo {{again}}" in prompt
     assert memory["answer"] == answer
 
@@ -284,11 +285,11 @@ def test_invalid_budget_fails_at_construction(limit: int) -> None:
 
 
 def test_independent_brief_references_do_not_inherit_an_open_script_fence() -> None:
-    """Each author document has its own fence state, as exact substitution already does."""
+    """Each author document has its own fence state for memory reference priority."""
     prompt = render_first_prompt(
         ScriptBundle(script="```\n{{example}}", constraints="Use {{brief}}."),
         {"noise": "n" * 15, "brief": "important"},
         memory_limit=45,
     )
     assert _memory(prompt)[0] == {"brief": "important"}
-    assert "Use important." in prompt
+    assert "Use {{brief}}." in prompt

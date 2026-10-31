@@ -3,13 +3,13 @@
 from itertools import count
 
 import pytest
-from flaskr.service.learn import listen_element_factory as factory
-from flaskr.service.learn.learn_dtos import ElementAudioDTO, ElementType
-from flaskr.service.learn.listen_slide_builder import VisualSegment
-from flaskr.service.learn.listen_source_span_utils import (
+from flaskr.service.learn.elements import factory
+from flaskr.service.learn.elements.slide_builder import VisualSegment
+from flaskr.service.learn.elements.source_spans import (
     normalize_source_span,
     slice_source_by_span,
 )
+from flaskr.service.learn.learn_dtos import ElementAudioDTO, ElementType
 
 
 @pytest.fixture(autouse=True)

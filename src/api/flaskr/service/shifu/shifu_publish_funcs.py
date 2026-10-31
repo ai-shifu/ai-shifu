@@ -21,7 +21,6 @@ from flaskr.api.llm.model_selection import (
     selection_metadata,
     selection_model,
 )
-from flaskr.common.i18n_utils import get_markdownflow_output_language
 from flaskr.common.shifu_context import (
     apply_shifu_context_snapshot,
     get_shifu_context_snapshot,
@@ -47,6 +46,9 @@ from flaskr.service.shifu.models import (
     PublishedShifu,
 )
 from flaskr.service.shifu.outline_write_lock import lock_shifu_for_outline_write
+from flaskr.service.shifu.question_validation import (
+    assert_course_question_names_allowed,
+)
 from flaskr.service.shifu.shifu_draft_funcs import (
     get_latest_shifu_draft,
     serialize_ask_provider_config,
@@ -68,9 +70,9 @@ from flaskr.service.shifu.shifu_struct_manager import (
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
 from flaskr.util.prompt_loader import load_prompt_template
-from markdown_flow import (
+from markdownflow import (
     BlockType,
-    MarkdownFlow,
+    MarkdownFlowDocument,
 )
 
 
@@ -134,6 +136,10 @@ def publish_shifu_draft(
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
         outline_items = load_existing_outline_items(shifu_id, include_content=True)
+        for outline in outline_items:
+            assert_course_question_names_allowed(
+                MarkdownFlowDocument(outline.content or "")
+            )
         normalized_provider_config, live_contract_error = (
             normalize_live_follow_up_course_config(
                 course_model=course_model_selection(selection_model(shifu_draft))[
@@ -230,9 +236,7 @@ def publish_shifu_draft(
             outline_item.content = draft_outline_item.content
             db.session.add(outline_item)
             db.session.flush()
-            markdown_flow = MarkdownFlow(
-                draft_outline_item.content
-            ).set_output_language(get_markdownflow_output_language())
+            markdown_flow = MarkdownFlowDocument(draft_outline_item.content)
             blocks = markdown_flow.get_all_blocks()
             outline_item_history_item = HistoryItem(
                 bid=node.outline_id,
@@ -587,9 +591,7 @@ def _generate_summaries(
                     "outline_item: %s has mdflow content,make summary from mdflow",
                     section.bid,
                 )
-                mdflow = MarkdownFlow(content).set_output_language(
-                    get_markdownflow_output_language()
-                )
+                mdflow = MarkdownFlowDocument(content)
                 blocks = mdflow.get_all_blocks()
                 for block in blocks:
                     if block.block_type == BlockType.CONTENT:

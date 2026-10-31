@@ -14,7 +14,6 @@ from flaskr.api import langfuse_markdownflow
 from flaskr.api.langfuse import MockClient
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
-from flaskr.service.learn import runscript_v2 as runtime
 from flaskr.service.learn.agent import lesson_entry
 from flaskr.service.learn.agent.models import LearnAgentSession
 from flaskr.service.learn.agent.preview_history import (
@@ -26,6 +25,11 @@ from flaskr.service.learn.agent.session_store import (
     preview_presentation,
     save_agent_session,
 )
+from flaskr.service.learn.elements.run_adapter import (
+    ListenElementRunAdapter,
+    get_listen_element_record,
+)
+from flaskr.service.learn.host import lesson as host_lesson
 from flaskr.service.learn.learn_dtos import (
     ElementType,
     GeneratedType,
@@ -33,10 +37,6 @@ from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
 )
 from flaskr.service.learn.learn_funcs import get_outline_item_tree, reset_learn_record
-from flaskr.service.learn.listen_elements import (
-    ListenElementRunAdapter,
-    get_listen_element_record,
-)
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
@@ -172,7 +172,7 @@ def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
                 persist_only_final=True,
             )
             return list(
-                runtime._lesson_events(
+                host_lesson._lesson_events(
                     app=app,
                     user_bid=identity,
                     shifu_bid=identity,

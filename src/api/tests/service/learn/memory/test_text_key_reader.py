@@ -73,12 +73,16 @@ def test_course_supplement_compares_reserved_keys_exactly() -> None:
     _store(
         ("sys_note", "reserved", "course"),
         ("SYS_note", "local", "course"),
-        ("sex", "registered", "course"),
+        ("sys_user_language", "registered", "course"),
+        ("Sys_user_language", "distinct system spelling", "course"),
+        ("sex", "ordinary course variable", "course"),
         ("Sex", "distinct", "course"),
     )
     assert load_course_variables("learner", "course") == {
         "SYS_note": "local",
         "Sex": "distinct",
+        "sex": "ordinary course variable",
+        "Sys_user_language": "distinct system spelling",
     }
 
 

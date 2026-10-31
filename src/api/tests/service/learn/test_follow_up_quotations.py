@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from flaskr.service.learn.follow_up_quotations import (
+from flaskr.service.learn.ask.quotations import (
     QUOTATION_RESULT_BYTES,
     LearnerQuotationSource,
 )

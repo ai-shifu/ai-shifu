@@ -5,8 +5,8 @@ from unittest.mock import patch
 import pytest
 from markdown_it.common.html_re import HTML_TAG_RE
 from markdownflow.engine import stream_html_context
-from markdownflow.engine.document_blocks import HTML_BLOCK_TAGS
 from markdownflow.engine.stream_html_context import pending_html_prefix
+from markdownflow.syntax.parser.document_blocks import HTML_BLOCK_TAGS
 
 
 @pytest.mark.parametrize(

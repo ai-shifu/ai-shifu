@@ -139,7 +139,6 @@ describe('referral api definitions', () => {
 
 describe('billing api definitions', () => {
   test('exposes creator billing endpoints', () => {
-    expect(api.getBillingBootstrap).toBe('GET /billing');
     expect(api.getBillingCatalog).toBe('GET /billing/catalog');
     expect(api.getBillingOverview).toBe('GET /billing/overview');
     expect(api.acknowledgeBillingTrialWelcome).toBe(
@@ -230,12 +229,6 @@ describe('billing api definitions', () => {
     );
     expect(api.getAdminBillingFocusTeachers).toBe(
       'GET /admin/billing/reports/focus-teachers',
-    );
-    expect(api.getAdminBillingDailyUsageMetrics).toBe(
-      'GET /admin/billing/reports/usage-daily',
-    );
-    expect(api.getAdminBillingDailyLedgerSummary).toBe(
-      'GET /admin/billing/reports/ledger-daily',
     );
   });
 });

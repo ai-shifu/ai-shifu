@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
-import json
 import math
 import uuid
 from dataclasses import dataclass
@@ -13,12 +12,12 @@ from typing import TYPE_CHECKING, Any
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
-from flaskr.service.learn.learn_dtos import ElementPayloadDTO, ElementType
-from flaskr.service.learn.listen_element_payloads import _serialize_payload
-from flaskr.service.learn.listen_element_queries import (
+from flaskr.service.learn.elements.element_types import ELEMENT_TYPE_CODES
+from flaskr.service.learn.elements.payloads import _serialize_payload
+from flaskr.service.learn.elements.queries import (
     _load_latest_active_element_row,
 )
-from flaskr.service.learn.listen_element_types import ELEMENT_TYPE_CODES
+from flaskr.service.learn.learn_dtos import ElementPayloadDTO, ElementType
 from flaskr.service.learn.models import LearnGeneratedBlock, LearnGeneratedElement
 from flaskr.service.metering.api import (
     BillUsageRecord,
@@ -577,8 +576,3 @@ def persist_live_follow_up_turn(
         usage_bid=usage_bid,
         history_saved=history_saved,
     )
-
-
-def serialize_live_turn_result(result: LiveTurnPersistenceResult) -> str:
-    """Return a compact JSON representation for low-level integration tests."""
-    return json.dumps(result.__dict__, sort_keys=True, separators=(",", ":"))

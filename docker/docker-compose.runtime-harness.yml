@@ -13,17 +13,17 @@ services:
         && flask db upgrade
         && flask console update_demo_shifu
         && cd /app
-        && exec gunicorn -k gevent -w 1 -b 0.0.0.0:5800 'app:app'
+        && exec gunicorn -k gthread --threads 8 -w 1 -b 0.0.0.0:5800 'app:app'
         --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
     env_file:
       - ./.env
     environment:
       OBSERVABILITY_TRACES_ENABLED: "false"
-      INTERNAL_METRICS_PATH: /internal/metrics
       INTERNAL_OBSERVABILITY_HEALTH_PATH: /internal/observability/health
       LOGIN_METHODS_ENABLED: phone
       DEFAULT_LOGIN_METHOD: phone
       CAPTCHA_CODE_OVERRIDE: "0000"
+      OPENAI_BASE_URL: http://ai-shifu-interaction-model:8000/v1
       CREATOR_INTEGRATION_ENCRYPTION_KEY: ${AI_SHIFU_CREATOR_INTEGRATION_ENCRYPTION_KEY:?runtime harness encryption key is required}
       SAAS_DB_URI: mysql://root:${AI_SHIFU_MYSQL_PASSWORD:?runtime harness MySQL password is required}@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
       REDIS_HOST: ai-shifu-redis
@@ -37,6 +37,14 @@ services:
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis
+      - ai-shifu-interaction-model
+
+  # Replace only the external model transport; business APIs and stores stay real.
+  ai-shifu-interaction-model:
+    image: ai-shifu-api-dev:latest
+    command: ["python", "/harness/interaction_model_stub.py"]
+    volumes:
+      - ../scripts/harness/interaction_model_stub.py:/harness/interaction_model_stub.py:ro
 
   ai-shifu-cook-web-dev:
     build:

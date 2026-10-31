@@ -1,10 +1,9 @@
-"""Verify manual durations and absolute compensation expiries."""
+"""Verify manual credit grant durations."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from decimal import Decimal
-from functools import partial
 from unittest.mock import Mock
 
 import pytest
@@ -45,25 +44,6 @@ def _grant(
         amount="10",
         grant_source="reward",
         **validity,
-    )
-
-
-def _grant_with_expiry(
-    app: object,
-    expires_at: object,
-    *,
-    audit_metadata: dict[str, object] | None = None,
-) -> object:
-    return grants.grant_manual_credits_with_expiry(
-        app,
-        user_bid="compensation",
-        operator_user_bid="operator",
-        request_id="compensation-request",
-        amount="10",
-        grant_source="compensation",
-        expires_at=expires_at,
-        grant_channel="cache_overcharge_compensation_script",
-        audit_metadata=audit_metadata,
     )
 
 
@@ -242,82 +222,9 @@ def test_retry_of_historical_grant_preserves_expiry_and_metadata(
     frozen_grants.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "expires_at",
-    [
-        datetime(2026, 2, 3, 17, 18, 19, 123456),
-        datetime(2026, 2, 3, 17, 18, 19, 123456, tzinfo=UTC),
-        datetime(2026, 2, 4, 1, 18, 19, 123456, tzinfo=timezone(timedelta(hours=8))),
-    ],
-)
-def test_absolute_expiry_is_exact_utc_and_idempotent(
-    billing_wallet_lifecycle_app: object, frozen_grants: Mock, expires_at: datetime
-) -> None:
-    expected = datetime(2026, 2, 3, 17, 18, 19, 123456)
-    first = _grant_with_expiry(billing_wallet_lifecycle_app, expires_at)
-    repeated = _grant_with_expiry(
-        billing_wallet_lifecycle_app, expires_at + timedelta(days=10)
-    )
-    assert first.expires_at == repeated.expires_at == expected
-    assert first.ledger_bid == repeated.ledger_bid
-    assert first.validity_value is None
-    assert first.validity_unit is None
-    with billing_wallet_lifecycle_app.app_context():
-        bucket = CreditWalletBucket.query.one()
-        ledger = CreditLedgerEntry.query.one()
-        assert bucket.effective_to == ledger.expires_at == expected
-        assert bucket.effective_from == ledger.consumable_from == START
-        for metadata in (bucket.metadata_json, ledger.metadata_json):
-            assert "validity_preset" not in metadata
-            assert "validity_value" not in metadata
-            assert "validity_unit" not in metadata
-    frozen_grants.assert_called_once()
-
-
-def test_absolute_expiry_persists_audit_metadata_with_initial_grant(
-    billing_wallet_lifecycle_app: object, frozen_grants: Mock
-) -> None:
-    audit_metadata = {
-        "recovery_campaign_id": "campaign-a",
-        "source_wallet_bucket_bid": "source-bucket-a",
-        "source_expire_ledger_bid": "source-expire-a",
-    }
-
-    result = _grant_with_expiry(
-        billing_wallet_lifecycle_app,
-        START + timedelta(days=1),
-        audit_metadata=audit_metadata,
-    )
-
-    assert all(
-        result.metadata_json[key] == value for key, value in audit_metadata.items()
-    )
-    with billing_wallet_lifecycle_app.app_context():
-        ledger = CreditLedgerEntry.query.one()
-        assert all(
-            ledger.metadata_json[key] == value for key, value in audit_metadata.items()
-        )
-    frozen_grants.assert_called_once()
-
-
-@pytest.mark.parametrize(
-    "expires_at", [None, "2026-03-01T00:00:00Z", START, START - timedelta(seconds=1)]
-)
-def test_invalid_absolute_expiry_does_not_write_or_notify(
-    billing_wallet_lifecycle_app: object, frozen_grants: Mock, expires_at: object
-) -> None:
-    with pytest.raises(AppError):
-        _grant_with_expiry(billing_wallet_lifecycle_app, expires_at)
-    with billing_wallet_lifecycle_app.app_context():
-        assert CreditWalletBucket.query.count() == CreditLedgerEntry.query.count() == 0
-    frozen_grants.assert_not_called()
-
-
-@pytest.mark.parametrize("absolute", [False, True])
 def test_grant_reuses_context_and_notifies_only_after_committed_wallet(
     billing_wallet_lifecycle_app: object,
     frozen_grants: Mock,
-    absolute: bool,
 ) -> None:
     from flaskr import dao
 
@@ -336,19 +243,14 @@ def test_grant_reuses_context_and_notifies_only_after_committed_wallet(
             assert len(rows) == 1
 
         frozen_grants.side_effect = assert_committed
-        if absolute:
-            _grant_with_expiry(app, START + timedelta(days=1))
-        else:
-            _grant(app, validity_value=1, validity_unit="day")
+        _grant(app, validity_value=1, validity_unit="day")
     frozen_grants.assert_called_once()
 
 
-@pytest.mark.parametrize("absolute", [False, True])
 def test_grant_wallet_failure_rolls_back_without_notification(
     billing_wallet_lifecycle_app: object,
     frozen_grants: Mock,
     monkeypatch: pytest.MonkeyPatch,
-    absolute: bool,
 ) -> None:
     def fail_snapshot(*_: object, **__: object) -> None:
         message = "snapshot failure"
@@ -356,13 +258,8 @@ def test_grant_wallet_failure_rolls_back_without_notification(
 
     monkeypatch.setattr(wallets, "persist_credit_wallet_snapshot", fail_snapshot)
     app = billing_wallet_lifecycle_app
-    grant = (
-        partial(_grant_with_expiry, app, START + timedelta(days=1))
-        if absolute
-        else partial(_grant, app, validity_value=1, validity_unit="day")
-    )
     with app.app_context(), pytest.raises(RuntimeError, match="snapshot failure"):
-        grant()
+        _grant(app, validity_value=1, validity_unit="day")
     with app.app_context():
         assert CreditWalletBucket.query.count() == CreditLedgerEntry.query.count() == 0
     frozen_grants.assert_not_called()

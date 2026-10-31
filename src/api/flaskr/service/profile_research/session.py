@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from flaskr.common.cache_provider import CacheLock, CacheProvider, redis_cache
-from markdown_flow import USER_ANSWER_CONTEXT_KEY
+from markdownflow import USER_ANSWER_CONTEXT_KEY
 
 if TYPE_CHECKING:
     from flask import Flask

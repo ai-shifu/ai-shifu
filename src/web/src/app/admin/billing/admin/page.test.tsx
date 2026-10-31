@@ -57,9 +57,7 @@ jest.mock('@/lib/browser-timezone', () => ({
 jest.mock('@/api', () => ({
   __esModule: true,
   default: {
-    getBillingBootstrap: jest.fn(),
     getAdminBillingFocusTeachers: jest.fn(),
-    getAdminBillingDailyLedgerSummary: jest.fn(),
     getAdminBillingEntitlements: jest.fn(),
     grantAdminBillingEntitlement: jest.fn(),
     getAdminBillingCustomizationDraft: jest.fn(),
@@ -89,11 +87,8 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => undefined;
 }
 
-const mockGetBillingBootstrap = api.getBillingBootstrap as jest.Mock;
 const mockGetAdminBillingFocusTeachers =
   api.getAdminBillingFocusTeachers as jest.Mock;
-const mockGetAdminBillingDailyLedgerSummary =
-  api.getAdminBillingDailyLedgerSummary as jest.Mock;
 const mockGetAdminBillingEntitlements =
   api.getAdminBillingEntitlements as jest.Mock;
 const mockGrantAdminBillingEntitlement =
@@ -142,9 +137,7 @@ describe('AdminBillingOperationsConsole', () => {
     mockEnvState.loginMethodsEnabled = ['phone'];
     mockEnvState.defaultLoginMethod = 'phone';
     mockEnvState.runtimeConfigLoaded = true;
-    mockGetBillingBootstrap.mockReset();
     mockGetAdminBillingFocusTeachers.mockReset();
-    mockGetAdminBillingDailyLedgerSummary.mockReset();
     mockGetAdminBillingEntitlements.mockReset();
     mockGrantAdminBillingEntitlement.mockReset();
     mockGetAdminBillingCustomizationDraft.mockReset();
@@ -214,35 +207,6 @@ describe('AdminBillingOperationsConsole', () => {
     mockSaveAdminBillingCustomizationDraft.mockResolvedValue({});
     mockDeleteAdminBillingCustomizationDraft.mockResolvedValue({
       status: 'deleted',
-    });
-
-    mockGetBillingBootstrap.mockResolvedValue({
-      service: 'billing',
-      status: 'bootstrap',
-      path_prefix: '/api/billing',
-      creator_routes: [],
-      admin_routes: [],
-      capabilities: [
-        {
-          key: 'renewal_task_queue',
-          status: 'default_disabled',
-          audience: 'ops',
-          user_visible: false,
-          default_enabled: false,
-          entry_points: [],
-          notes: [],
-        },
-        {
-          key: 'renewal_compensation',
-          status: 'internal_only',
-          audience: 'worker',
-          user_visible: false,
-          default_enabled: true,
-          entry_points: [],
-          notes: [],
-        },
-      ],
-      notes: [],
     });
 
     mockGetAdminBillingSubscriptions.mockResolvedValue({
@@ -343,25 +307,6 @@ describe('AdminBillingOperationsConsole', () => {
       page: 1,
       page_count: 1,
       page_size: 10,
-      total: 1,
-    });
-    mockGetAdminBillingDailyLedgerSummary.mockResolvedValue({
-      items: [
-        {
-          creator_bid: 'creator-2',
-          daily_ledger_summary_bid: 'daily-ledger-1',
-          stat_date: '2026-04-06',
-          entry_type: 'consume',
-          source_type: 'usage',
-          amount: -6.5,
-          entry_count: 4,
-          window_started_at: '2026-04-06T00:00:00Z',
-          window_ended_at: '2026-04-07T00:00:00Z',
-        },
-      ],
-      page: 1,
-      page_count: 1,
-      page_size: 6,
       total: 1,
     });
   });

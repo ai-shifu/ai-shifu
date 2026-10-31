@@ -75,7 +75,6 @@ interface StartPreviewParams {
   block_index?: number;
   max_block_count?: number;
   systemVariableKeys?: string[];
-  visual_mode?: boolean;
 }
 
 type PreviewSseSource = InstanceType<typeof SSE>;
@@ -576,14 +575,8 @@ export function usePreviewChat({
     if (!name) {
       return;
     }
-    const isLanguage = name === 'sys_user_language' || name === 'language';
-    const otherLanguageKey =
-      name === 'language' ? 'sys_user_language' : 'language';
     const update = { [name]: value };
-    if (isLanguage && otherLanguageKey in (sseParams.current.variables || {})) {
-      update[otherLanguageKey] = value;
-    }
-    if (initialVariablesRef.current && isLanguage) {
+    if (initialVariablesRef.current && name === 'sys_user_language') {
       // Language is a preview setting, not an answer to discard on restart.
       initialVariablesRef.current = {
         ...initialVariablesRef.current,
@@ -1286,7 +1279,6 @@ export function usePreviewChat({
       variables,
       max_block_count,
       systemVariableKeys,
-      visual_mode = false,
     }: StartPreviewParams) => {
       if (creditInsufficientAudience === null) {
         return;
@@ -1323,7 +1315,6 @@ export function usePreviewChat({
         variables,
         max_block_count,
         systemVariableKeys,
-        visual_mode,
       };
       const {
         shifuBid: finalShifuBid,
@@ -1332,7 +1323,6 @@ export function usePreviewChat({
         block_index: finalBlockIndex = 0,
         variables: finalVariables = {},
         max_block_count: finalMaxBlockCount,
-        visual_mode: finalVisualMode = false,
       } = mergedParams;
       previewFailedRef.current = false;
       sseParams.current = mergedParams;
@@ -1392,7 +1382,6 @@ export function usePreviewChat({
           block_index: finalBlockIndex,
           content: finalMdflow,
           variables: finalVariables,
-          visual_mode: finalVisualMode,
           ...(debugSessionIdRef.current
             ? { debug_session_id: debugSessionIdRef.current }
             : {}),

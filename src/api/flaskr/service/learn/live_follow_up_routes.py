@@ -31,7 +31,7 @@ from flaskr.service.config import (
     get_config,
     has_config_override,
 )
-from flaskr.service.learn.follow_up_context import (
+from flaskr.service.learn.ask.context import (
     build_follow_up_conversation_context,
 )
 from flaskr.service.learn.gemini_live_token import (
@@ -117,7 +117,6 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 LIVE_FOLLOW_UP_SESSION_SECONDS = 15 * 60
-LIVE_FOLLOW_UP_WARNING_SECONDS = 14 * 60 + 30
 _ALLOWED_LEARNING_MODES = frozenset({"read", "listen"})
 _ALLOWED_SURFACES = frozenset({"read_content", "listen_player", "teacher_preview"})
 _MAX_DIRECT_TRANSCRIPT_CHARS = 32_000

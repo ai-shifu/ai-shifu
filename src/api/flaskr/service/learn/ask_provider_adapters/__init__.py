@@ -1,36 +1,28 @@
-"""Ask provider adapters package."""
+"""Moved to :mod:`flaskr.service.learn.ask.providers`; this alias keeps the old import path for one release.
 
-from .base import (
-    AskProviderAdapter,
-    AskProviderChunk,
-    AskProviderConfigError,
-    AskProviderError,
-    AskProviderRuntime,
-    AskProviderTimeoutError,
-)
-from .common import apply_knowledge_to_messages
-from .coze_adapter import CozeAskProviderAdapter
-from .coze_workflow_adapter import CozeWorkflowAskProviderAdapter
-from .dify_adapter import DifyAskProviderAdapter
-from .get_biji_knowledge_adapter import GetBijiKnowledgeAskProviderAdapter
-from .llm_adapter import LlmAskProviderAdapter
-from .registry import get_ask_provider_adapter, stream_ask_provider_response
-from .volc_knowledge_adapter import VolcKnowledgeAskProviderAdapter
+Submodules are aliased too, so ``ask_provider_adapters.<name>`` resolves to the
+same module object instead of loading the file a second time.
+"""
 
-__all__ = [
-    "AskProviderAdapter",
-    "AskProviderChunk",
-    "AskProviderConfigError",
-    "AskProviderError",
-    "AskProviderRuntime",
-    "AskProviderTimeoutError",
-    "CozeAskProviderAdapter",
-    "CozeWorkflowAskProviderAdapter",
-    "DifyAskProviderAdapter",
-    "GetBijiKnowledgeAskProviderAdapter",
-    "LlmAskProviderAdapter",
-    "VolcKnowledgeAskProviderAdapter",
-    "apply_knowledge_to_messages",
-    "get_ask_provider_adapter",
-    "stream_ask_provider_response",
-]
+import importlib
+import sys
+
+from flaskr.service.learn.ask import providers
+
+for _name in (
+    "base",
+    "common",
+    "consts",
+    "coze_adapter",
+    "coze_workflow_adapter",
+    "dify_adapter",
+    "get_biji_knowledge_adapter",
+    "llm_adapter",
+    "registry",
+    "volc_knowledge_adapter",
+):
+    sys.modules[f"{__name__}.{_name}"] = importlib.import_module(
+        f"{providers.__name__}.{_name}"
+    )
+
+sys.modules[__name__] = providers

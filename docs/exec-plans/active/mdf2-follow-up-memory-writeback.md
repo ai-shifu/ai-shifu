@@ -48,8 +48,8 @@ semantic admission, gateway, native-thread bridge and scoped profile facade.
 
 Follow-up history flushes during streaming, then its host commits after the stream
 fully drains. The native engine bridge already owns asynchronous model execution
-and cancellation under gevent. Reusing it avoids running an event loop on request
-greenlets. External provider-only answers must remain independent of LLM setup.
+and cancellation on its own producer thread. Reusing it avoids running an event
+loop on request threads. External provider-only answers must remain independent of LLM setup.
 
 ## Decision Log
 
@@ -82,7 +82,7 @@ this PR. New follow-up/admission calls have full attribution.
 
 ## Context and Orientation
 
-handle_input_ask.py constructs providers and contextual LLM factories.
+ask/handler.py constructs providers and contextual LLM factories.
 context_v2.py owns post-stream history durability. agent/engine/tools.py owns
 remember admission/capacity; agent/bridge.py owns thread/loop cancellation.
 The memory facade stages scoped variables and filters deletion generations.

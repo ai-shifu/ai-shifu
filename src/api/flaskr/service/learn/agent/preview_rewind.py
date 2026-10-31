@@ -20,8 +20,8 @@ from flaskr.service.learn.agent.session_store import (
     load_agent_session,
     preview_presentation,
 )
+from flaskr.service.learn.elements.history import _build_final_elements_from_rows
 from flaskr.service.learn.learn_dtos import ElementType
-from flaskr.service.learn.listen_element_history import _build_final_elements_from_rows
 from flaskr.service.learn.models import LearnGeneratedElement
 
 if TYPE_CHECKING:

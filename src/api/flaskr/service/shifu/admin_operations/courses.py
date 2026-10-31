@@ -46,8 +46,8 @@ from flaskr.service.learn.const import (
     ROLE_STUDENT,
     ROLE_TEACHER,
 )
+from flaskr.service.learn.elements.payloads import _deserialize_payload
 from flaskr.service.learn.learn_dtos import ElementType
-from flaskr.service.learn.listen_element_payloads import _deserialize_payload
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,
@@ -395,7 +395,7 @@ from flaskr.service.user.utils import (
 )
 from flaskr.util import generate_id
 from flaskr.util.datetime import now_utc
-from markdown_flow import MarkdownFlow
+from markdownflow import MarkdownFlowDocument
 from sqlalchemy import and_, case, false, literal, not_, or_
 from sqlalchemy.orm import defer
 

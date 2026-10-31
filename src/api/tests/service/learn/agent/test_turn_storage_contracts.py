@@ -8,13 +8,13 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import in_unit_of_work, unit_of_work
 from flaskr.service.learn.agent import lesson_record, run_agent
+from flaskr.service.learn.elements.run_adapter import ListenElementRunAdapter
 from flaskr.service.learn.learn_dtos import (
     GeneratedType,
     LearnStatus,
     OutlineItemUpdateDTO,
     RunMarkdownFlowDTO,
 )
-from flaskr.service.learn.listen_elements import ListenElementRunAdapter
 from flaskr.service.learn.models import (
     LearnGeneratedBlock,
     LearnGeneratedElement,

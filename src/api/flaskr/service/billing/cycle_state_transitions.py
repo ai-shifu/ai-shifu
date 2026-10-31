@@ -59,18 +59,6 @@ def resolve_effective_subscription_cycle_window(
     return SubscriptionCycleWindow(start_at=start_at, end_at=end_at)
 
 
-def subscription_has_effective_cycle(
-    subscription: BillingSubscription | None,
-    *,
-    as_of: datetime,
-) -> bool:
-    """Return whether subscription has effective cycle."""
-    return (
-        resolve_effective_subscription_cycle_window(subscription, as_of=as_of)
-        is not None
-    )
-
-
 def realign_active_topup_bucket_effective_to(
     *,
     creator_bid: str,

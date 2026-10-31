@@ -8,7 +8,7 @@ from string import punctuation
 
 from markdown_it.common.html_re import HTML_TAG_RE
 
-from .document_blocks import (
+from markdownflow.syntax.parser.document_blocks import (
     DocumentBlocks,
     container_content_info,
     container_content_start,
@@ -16,7 +16,10 @@ from .document_blocks import (
     indentation,
     read_angle_autolink,
 )
-from .variable_names import normalize_variable_name, read_variable_marker
+from markdownflow.syntax.variable_names import (
+    normalize_variable_name,
+    read_variable_marker,
+)
 
 _BACKTICK_RUN = re.compile(r"`+")
 _DOLLAR_RUN = re.compile(r"\$+")

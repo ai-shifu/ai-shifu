@@ -4,13 +4,11 @@ import copy
 import json
 
 import pytest
-from flaskr.service.learn import listen_element_payloads as payloads
-from flaskr.service.learn import listen_element_rows as rows
+from flaskr.service.learn.elements import payloads, rows
 from flaskr.service.learn.learn_dtos import (
     AudioCompleteDTO,
     AudioSegmentDTO,
     ElementAudioDTO,
-    ElementChangeType,
     ElementDTO,
     ElementPayloadDTO,
     ElementType,
@@ -21,7 +19,7 @@ from flaskr.service.learn.learn_dtos import (
     SubtitleCueDTO,
     VariableUpdateDTO,
 )
-from flaskr.service.learn.models import LearnGeneratedElement, LearnProgressRecord
+from flaskr.service.learn.models import LearnGeneratedElement
 
 
 def _cue() -> dict:
@@ -224,46 +222,6 @@ def test_audio_dto_conversions_preserve_subtitle_alignment() -> None:
     result = payloads._make_audio_payload(complete)
     assert result.__json__() == complete.__json__()
     assert result.subtitle_cues is not complete.subtitle_cues
-
-
-def test_element_storage_round_trip_preserves_identity_and_drops_transient_audio_bytes() -> (
-    None
-):
-    source = _element(
-        change_type=ElementChangeType.RENDER,
-        is_renderable=False,
-        is_speakable=True,
-        is_final=True,
-        audio_url="https://example.test/audio.mp3",
-        audio_segments=[_segment()],
-        payload=ElementPayloadDTO(user_input="answer"),
-        target_element_bid="target",
-        sequence_number=8,
-    )
-    progress = LearnProgressRecord(
-        progress_record_bid="progress",
-        user_bid="user",
-        outline_item_bid="outline",
-        shifu_bid="course",
-    )
-    row = rows._serialize_element_row(
-        progress_record=progress, element=source, run_session_bid="run", run_event_seq=9
-    )
-    assert (
-        row.progress_record_bid,
-        row.user_bid,
-        row.outline_item_bid,
-        row.shifu_bid,
-    ) == ("progress", "user", "outline", "course")
-    restored = rows._element_from_row(row)
-    assert restored.element_bid == source.element_bid
-    assert restored.content_text == "Narration"
-    assert restored.run_session_bid == "run"
-    assert restored.run_event_seq == 9
-    assert restored.audio_segments == [_segment(audio_data="", is_final=True)]
-    assert restored.payload.user_input == "answer"
-    assert not restored.is_renderable
-    assert restored.is_speakable
 
 
 @pytest.mark.parametrize(

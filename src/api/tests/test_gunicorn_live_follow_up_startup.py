@@ -23,7 +23,6 @@ def test_post_fork_initializes_live_after_resetting_resources(
     tracing = SimpleNamespace(
         _TRACER_PROVIDER=object(), _TRACER_PROVIDER_SET_ONCE=object()
     )
-    install_observer = Mock()
 
     def rebuild_tracing(flask_app: Flask) -> None:
         assert flask_app is app
@@ -38,7 +37,6 @@ def test_post_fork_initializes_live_after_resetting_resources(
         assert "AI_SHIFU_PRELOAD_MASTER" not in os.environ
         for engine in engines.values():
             engine.dispose.assert_called_once_with(close=False)
-        install_observer.assert_called_once_with(app.logger)
         init_tracing.assert_called_once_with(app)
         if preparation_fails:
             raise RuntimeError
@@ -47,9 +45,6 @@ def test_post_fork_initializes_live_after_resetting_resources(
     isolated_imports = {
         "app": SimpleNamespace(app=app),
         "flaskr.dao": SimpleNamespace(db=SimpleNamespace(engines=engines)),
-        "flaskr.common.gevent_hub_observer": SimpleNamespace(
-            install_hub_error_observer=install_observer
-        ),
         "flaskr.api.langfuse": SimpleNamespace(init_langfuse=init_tracing),
         "langfuse._client.resource_manager": SimpleNamespace(
             LangfuseResourceManager=resources
@@ -65,14 +60,12 @@ def test_post_fork_initializes_live_after_resetting_resources(
     monkeypatch.setattr(sys, "argv", ["gunicorn", "-k", "gthread", "app:app"])
     # Register the environment mutation with monkeypatch for test cleanup.
     monkeypatch.setenv("AI_SHIFU_PRELOAD_MASTER", "1")
-    monkeypatch.setattr("flaskr.metrics_runtime.prepare_metrics_directory", Mock())
     config = runpy.run_path(
         str(Path(__file__).resolve().parents[1] / "gunicorn.conf.py")
     )
     assert config["preload_app"] is True
     init_live.assert_not_called()
     init_tracing.assert_not_called()
-    install_observer.assert_not_called()
     once_factory.assert_not_called()
     assert resources._instances
 

@@ -2,13 +2,13 @@
 title: MarkdownFlow Authored Input Hints
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-07
+last_reviewed: 2026-10-29
 canonical: true
 ---
 
 # MarkdownFlow Authored Input Hints
 
-In `?[%{{path}} First | Second | ...Describe your project]`, the trailing
+In `?[{{path}} First | Second | ...Describe your project]`, the trailing
 `...Describe your project` declares a text-input placeholder. It is not an
 additional selectable answer. MarkdownFlow 2.0 occasionally emits that hint
 both as an option and as the placeholder of its `interact` tool call.
