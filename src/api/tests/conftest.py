@@ -85,6 +85,9 @@ def _compile_bigint_sqlite(_type: object, _compiler: object, **_kw: object) -> o
 
 import contextlib
 
+from flask_sqlalchemy import SQLAlchemy
+
+from tests.common.fixtures.db_template import create_all_from_template
 from tests.common.fixtures.env_isolation import clear_registered_env
 from tests.common.fixtures.fake_llm import (
     fake_chat_llm,
@@ -92,6 +95,11 @@ from tests.common.fixtures.fake_llm import (
     fake_invoke_llm,
 )
 from tests.common.fixtures.fake_redis import FakeRedis
+
+# Patched once for the whole session: test modules call db.create_all() in their
+# own per-test app fixtures, and copying a cached schema is much cheaper than
+# rebuilding it on every file-backed SQLite database.
+SQLAlchemy.create_all = create_all_from_template
 
 
 @pytest.fixture(scope="session")
