@@ -60,6 +60,37 @@ SPEC = {
     "placeholder": "Your answer",
     "variable": "answer",
 }
+REVIEW_MARKUP = [
+    ('<interact type="text" prompt="Is A > B?"', ""),
+    ('<interact type="text" prompt="Is A < B?', ""),
+    (
+        '<interact>\n<parameter name="prompt">Type </interact> to proceed</parameter>\n'
+        '<parameter name="type">text</parameter>\n</interact>',
+        "",
+    ),
+    (
+        '<interact>\n<parameter name="prompt" title="Use </interact>">Question</parameter>\n'
+        "</interact>",
+        "",
+    ),
+    ("<interact>\nQuestion text\n</interact>", ""),
+    ("<interact\r\n>\r\nQuestion text\r\n</interact>", ""),
+    ('<interact type="text" /> Continue teaching', ""),
+    ('<interact type="text"></interact> Continue teaching', " Continue teaching"),
+    ("<interact>\n</interact> Continue teaching", " Continue teaching"),
+    ('<interact>\n</interact>    <interact type="text" />', ""),
+    ('<interact>\n</interact>\t<interact type="text" />', ""),
+    (
+        '<interact>\n<parameter name="type">text</parameter>\n'
+        '</interact><interact type="text" />',
+        "",
+    ),
+    (
+        '<interact>\n<parameter name="prompt"\ntitle="Use </interact>">'
+        "Type </interact> here</parameter>\n</interact> Remaining teaching.",
+        " Remaining teaching.",
+    ),
+]
 
 
 def _said(events: list[object]) -> str:
@@ -379,9 +410,70 @@ def test_stream_filter_is_independent_of_every_two_chunk_boundary(tag: str) -> N
         actual = (
             filter_.feed(source[:cut]) + filter_.feed(source[cut:]) + filter_.flush()
         )
-        assert actual == "Ordinary prose.\nMore prose."
+        expected = (
+            "Ordinary prose.\n"
+            if tag == MARKUP.replace(" />", ">")
+            else "Ordinary prose.\nMore prose."
+        )
+        assert actual == expected
         assert filter_.invalid
     assert contains_interaction_markup(source, frozenset())
+
+
+@pytest.mark.parametrize(("source", "expected"), REVIEW_MARKUP)
+def test_review_markup_boundaries_do_not_leak(source: str, expected: str) -> None:
+    for cut in range(len(source) + 1):
+        filter_ = InteractionMarkupFilter()
+        actual = (
+            filter_.feed(source[:cut]) + filter_.feed(source[cut:]) + filter_.flush()
+        )
+        assert actual == expected
+        assert filter_.invalid
+
+
+@pytest.mark.parametrize(("source", "expected"), REVIEW_MARKUP)
+async def test_review_markup_requires_a_real_tool_call(
+    source: str, expected: str
+) -> None:
+    calls = 0
+
+    async def model(
+        _messages: list[ModelMessage], _info: AgentInfo
+    ) -> AsyncIterator[str | dict[int, DeltaToolCall]]:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            for character in source:
+                yield character
+        else:
+            yield {
+                0: DeltaToolCall(
+                    name="interact",
+                    json_args=json.dumps(SPEC),
+                    tool_call_id="recovered",
+                )
+            }
+
+    engine = Engine(FunctionModel(stream_function=model))
+    session = await engine.new_session("Ask for %{{answer}} and wait.")
+    events = [event async for event in engine.run_turn(session)]
+    assert calls == 2
+    assert _said(events) == expected
+    assert len(session.pending) == 1
+    assert session.pending[0].spec.variable == "answer"
+    assert not session.finished
+    assert not session.memory
+    assert events[-1].reason == "interaction"
+
+
+@pytest.mark.parametrize(("source", "_expected"), REVIEW_MARKUP)
+def test_review_examples_in_fenced_code_remain_literal(
+    source: str, _expected: str
+) -> None:
+    text = "```xml\n" + source + "\n```"
+    filter_ = InteractionMarkupFilter()
+    assert "".join(filter_.feed(c) for c in text) + filter_.flush() == text
+    assert not filter_.invalid
 
 
 def test_ordinary_prose_streams_immediately_and_incomplete_tags_are_refused() -> None:

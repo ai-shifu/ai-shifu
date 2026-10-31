@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import re
 
-_OPEN = re.compile(
-    r"""[ ]{0,3}<interact(?=[ \t/>"'])(?:["'](?=>))?"""
-    r"""(?:[^<>"'\n]|"[^"\n]*"|'[^'\n]*')*"""
-    r"/?>"
-)
-_INCOMPLETE = re.compile(r"""[ ]{0,3}<interact(?=$|[ \t/"'])[^<>]*$""")
+_OPEN = re.compile(r"""[ ]{0,3}<interact(?=$|[ \t\r\n/>"'])""")
 _PARAMETER = re.compile(r"[ \t]*<parameter(?=[ \t/>])")
 _CLOSE = re.compile(r"""</interact["']?[ \t]*>""")
+_BLOCK_TAG = re.compile(
+    r"""</?(?:parameter|interact)(?=[ \t\r\n/>"'])"""
+    r"|</\uff5c\uff5cDSML\uff5c\uff5c[ \t]+parameter(?=[ \t>])"
+)
 _FENCE = re.compile(r"[ ]{0,3}(`{3,}|~{3,})(.*)$")
 INTERACTION_MARKUP_RETRY = (
     "You wrote an <interact ...> tag as text instead of calling a tool. "
@@ -19,6 +18,23 @@ INTERACTION_MARKUP_RETRY = (
     "Call the actual `interact` tool for that unanswered question now. "
     "Do not repeat the tag, assume an answer, advance or call `finish`."
 )
+
+
+def _tag_end(text: str, start: int) -> int | None:
+    """Find an unquoted tag terminator, tolerating the observed stray name quote."""
+    quote = ""
+    if text[start : start + 1] in ('"', "'") and text[start + 1 : start + 2] == ">":
+        start += 1
+    for at in range(start, len(text)):
+        character = text[at]
+        if quote:
+            if character == quote:
+                quote = ""
+        elif character in ('"', "'"):
+            quote = character
+        elif character == ">":
+            return at + 1
+    return None
 
 
 def authored_interaction_markup(script: str) -> frozenset[str]:
@@ -47,8 +63,9 @@ class InteractionMarkupFilter:
         self._line = ""
         self._sent = 0
         self._fence: str | None = None
-        self._after_open = False
         self._parameter_block = False
+        self._in_parameter = False
+        self._pending_tag = ""
 
     def feed(self, text: str) -> str:
         """Return display text while retaining a potentially invalid tag line."""
@@ -65,21 +82,15 @@ class InteractionMarkupFilter:
     def flush(self) -> str:
         """End a response's protocol fragment without losing literal-code fences."""
         result = self._settle()
-        self._after_open = False
         self._parameter_block = False
+        self._in_parameter = False
+        self._pending_tag = ""
         return result
 
     def _could_be_control_line(self) -> bool:
         stripped = self._line.lstrip(" ")
         if self._parameter_block:
             return True
-        if self._after_open:
-            continuation = self._line.lstrip(" \t")
-            if any(
-                prefix.startswith(continuation) or continuation.startswith(prefix)
-                for prefix in ("<parameter", "</interact")
-            ):
-                return True
         if len(self._line) - len(stripped) > 3:
             return False
         if not stripped:
@@ -87,59 +98,72 @@ class InteractionMarkupFilter:
         if "<interact".startswith(stripped):
             return True
         if stripped.startswith("<interact"):
-            return len(stripped) == 9 or stripped[9] in " \t/>\"'"
+            return _OPEN.match(self._line) is not None
         return stripped[0] in "`~" and all(c == stripped[0] for c in stripped)
 
-    def _settle(self) -> str:
-        line = self._line.rstrip("\r\n")
-        result = self._line[self._sent :]
-        suppressed = False
-        if self._fence is None:
-            opening = _OPEN.match(line)
-            suffix = line[opening.end() :].strip() if opening else ""
-            parameters = _PARAMETER.match(suffix) if opening else None
-            invalid = line.strip() not in self.literals and (
-                (
-                    opening is not None
-                    and (
-                        not suffix
-                        or _CLOSE.fullmatch(suffix) is not None
-                        or parameters is not None
-                    )
-                )
-                or _INCOMPLETE.fullmatch(line) is not None
-            )
-            if self._parameter_block:
-                suppressed = True
-            elif self._after_open and (
-                _PARAMETER.match(line.lstrip()) or _CLOSE.fullmatch(line.strip())
-            ):
-                self._parameter_block = True
-                suppressed = True
-            elif invalid:
-                self.invalid = True
-                self._parameter_block = opening is None or bool(parameters)
-                self._after_open = bool(
-                    opening
-                    and not opening.group().endswith("/>")
-                    and not _CLOSE.fullmatch(suffix)
-                )
-                suppressed = True
-            elif line.strip():
-                self._after_open = False
-        if suppressed:
-            result = ""
-            # A quoted argument may contain a closing-tag example; only the body ends here.
-            body_start = opening.end() if opening and invalid else 0
-            if closing := _CLOSE.search(self._line, body_start):
-                result = self._line[closing.end() :]
-                # A standalone closing tag consumes its newline just like an opener.
-                if not result.strip():
-                    result = ""
+    def _discard_block(self, text: str) -> str | None:
+        """Return only text after a structural close, ignoring closes in parameters."""
+        text = self._pending_tag + text
+        self._pending_tag = ""
+        at = 0
+        while tag := _BLOCK_TAG.search(text, at):
+            end = _tag_end(text, tag.end())
+            if end is None:
+                self._pending_tag = text[tag.start() :]
+                return None
+            token = tag.group()
+            if "parameter" in token:
+                if token.startswith("</"):
+                    self._in_parameter = False
+                elif not self._in_parameter:
+                    self._in_parameter = not text[:end].endswith("/>")
+            elif token.startswith("</") and not self._in_parameter:
                 self._parameter_block = False
-                self._after_open = False
-        match = _FENCE.fullmatch(line)
-        if match and not suppressed:
+                return text[end:]
+            at = end
+        return None
+
+    def _settle(self) -> str:
+        text, sent = self._line, self._sent
+        self._line = ""
+        self._sent = 0
+        after_close = False
+        while self._fence is None:
+            if self._parameter_block:
+                remainder = self._discard_block(text)
+                if remainder is None or not remainder.strip():
+                    return ""
+                text, sent = remainder, 0
+                after_close = True
+            if text.strip() in self.literals:
+                break
+            # Whitespace after a removed tag is not Markdown code indentation.
+            start = len(text) - len(text.lstrip(" \t")) if after_close else 0
+            opening = _OPEN.match(text, start)
+            if opening is None:
+                break
+            end = _tag_end(text, opening.end())
+            if end is None:
+                self.invalid = True
+                self._parameter_block = True
+                self._pending_tag = text
+                return ""
+            suffix = text[end:].strip()
+            self_closing = text[:end].endswith("/>")
+            if not (
+                self_closing
+                or not suffix
+                or _CLOSE.match(suffix)
+                or _PARAMETER.match(suffix)
+            ):
+                break  # Nonempty inline examples are ordinary content.
+            self.invalid = True
+            if self_closing:
+                return ""  # Do not advance on prose attached to an unexecuted call.
+            self._parameter_block = True
+            text, sent = text[end:], 0
+        match = _FENCE.fullmatch(text.rstrip("\r\n"))
+        if match:
             run, suffix = match.groups()
             if self._fence is None:
                 self._fence = run
@@ -149,9 +173,7 @@ class InteractionMarkupFilter:
                 and not suffix.strip()
             ):
                 self._fence = None
-        self._line = ""
-        self._sent = 0
-        return result
+        return text[sent:]
 
 
 def contains_interaction_markup(text: str, literals: frozenset[str]) -> bool:
