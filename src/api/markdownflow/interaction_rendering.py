@@ -6,23 +6,8 @@ from dataclasses import dataclass
 
 from .engine.interaction import InteractionSpec, Option
 from .syntax.escaping import escape_interaction_text
-from .syntax.parser.interaction import InteractionParser as SyntaxInteractionParser
-from .syntax.variable_names import format_variable_assignment, read_interaction_variable
-
-
-class InteractionParser(SyntaxInteractionParser):
-    """Read standard bindings while retaining the syntax parser's control grammar."""
-
-    def _layer2_detect_variable(
-        self, inner_content: str
-    ) -> tuple[bool, str | None, str]:
-        marker = read_interaction_variable(inner_content)
-        if marker is None:
-            return False, None, inner_content
-        if marker.name is None:
-            message = "Invalid variable name"
-            raise ValueError(message)
-        return True, marker.name, inner_content[marker.end :].strip()
+from .syntax.parser.interaction import InteractionParser
+from .syntax.variable_names import format_variable_assignment
 
 
 @dataclass(frozen=True)
