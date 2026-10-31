@@ -1230,6 +1230,9 @@ class Engine:
         def _flush_markup() -> list[Event]:
             return _markup_output(markup.flush())
 
+        def _settle_markup() -> list[Event]:
+            return _markup_output(markup.settle())
+
         try:
             async with self.agent.run_stream_events(prompt, **kwargs) as events:
                 async for ev in events:
@@ -1289,8 +1292,15 @@ class Engine:
                         elif carried_on:
                             held.clear()
                     silent = deps.finished is not None and not speak_after_finish
-                    if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
+                    if isinstance(ev, PartStartEvent) and ev.index == 0:
+                        # A new response ends a rejected block the previous one left open,
+                        # including one rejected by output validation with no tool event.
                         for e in _flush_markup():
+                            yield e
+                    if isinstance(ev, PartStartEvent) and isinstance(ev.part, TextPart):
+                        # A later text part of the same response can still carry that
+                        # block's parameter body, so it is only settled here.
+                        for e in _settle_markup():
                             yield e
                         if ev.part.content and not silent:
                             for e in _text(ev.part.content):
