@@ -15,6 +15,7 @@ import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 import { toast, toastOnce } from '@/hooks/use-toast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
 import { getCreditInsufficientMessage } from '@/lib/credit-insufficient-toast';
+import { getDynamicApiBaseUrl } from '@/config/environment';
 import {
   buildDebugBusinessErrorItem,
   replaceDebugLoadingWithBusinessError,
@@ -323,6 +324,423 @@ describe('useDebugSession helpers and business error rendering', () => {
     await act(async () => result.current.startRun(params));
     const third = JSON.parse((SSE as jest.Mock).mock.calls[2][1].payload);
     expect(third.debug_session_id).not.toBe(first.debug_session_id);
+  });
+
+  describe('selected-step Debug regeneration', () => {
+    const emit = (source: MockSseSource, payload: Record<string, unknown>) => {
+      source.listeners.message?.({ data: JSON.stringify(payload) });
+    };
+    const close = (source: MockSseSource) => {
+      source.listeners.readystatechange?.({ readyState: 2 } as never);
+    };
+    const emitText = (
+      source: MockSseSource,
+      elementBid: string,
+      generatedBlockBid: string,
+      content: string,
+    ) => {
+      emit(source, {
+        type: 'element',
+        content: {
+          element_bid: elementBid,
+          generated_block_bid: generatedBlockBid,
+          element_type: 'text',
+          content,
+          is_final: true,
+        },
+      });
+    };
+    const prepare = async () => {
+      const sources: MockSseSource[] = [];
+      (SSE as jest.Mock).mockImplementation(() => {
+        const source = buildMockSseSource();
+        sources.push(source);
+        return source;
+      });
+      const hook = renderHook(() =>
+        useDebugSession({ creditInsufficientAudience: 'teacher' }),
+      );
+      await act(async () =>
+        hook.result.current.startRun({
+          shifuBid: 'course',
+          outlineBid: 'lesson',
+          mdflow: 'Private draft',
+          variableValues: {
+            earlierAnswer: 'Keep me',
+            laterAnswer: 'Discard me',
+          },
+        }),
+      );
+      act(() => {
+        emit(sources[0], { type: 'preview_engine', content: '2.0' });
+        emitText(sources[0], 'earlier-text', 'earlier-turn', 'Earlier result');
+        emitText(sources[0], 'target-intro', 'selected-turn', 'Selected intro');
+        emitText(sources[0], 'target-text', 'selected-turn', 'Selected result');
+        emitText(sources[0], 'later-text', 'later-turn', 'Later result');
+        emit(sources[0], { type: 'done', is_terminal: true });
+      });
+      mockTrackEvent.mockClear();
+      return { ...hook, sources };
+    };
+    const regenerationEvents = () =>
+      mockTrackEvent.mock.calls.filter(([name]) =>
+        String(name).startsWith('teacher_debug_regenerate_'),
+      );
+
+    test('preserves earlier results and helpers while replacing the selected generated turn and its suffix', async () => {
+      const { result, sources } = await prepare();
+      const originalRequest = JSON.parse(
+        (SSE as jest.Mock).mock.calls[0][1].payload,
+      );
+      const selectedTurnStart = result.current.items.findIndex(
+        item => item.element_bid === 'target-intro',
+      );
+      const preservedPrefix = result.current.items.slice(0, selectedTurnStart);
+      expect(preservedPrefix).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ element_bid: 'earlier-text' }),
+          expect.objectContaining({
+            type: ChatContentItemType.LIKE_STATUS,
+            parent_element_bid: 'earlier-text',
+          }),
+        ]),
+      );
+
+      await act(async () => result.current.regenerateContent('target-text'));
+
+      expect(SSE).toHaveBeenCalledTimes(2);
+      const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+      expect(request.debug_session_id).toBe(originalRequest.debug_session_id);
+      expect(request.reload_generated_block_bid).toBe('selected-turn');
+      expect(request.user_input).toBeUndefined();
+      expect(
+        result.current.items.filter(item => item.element_bid !== 'loading'),
+      ).toEqual(preservedPrefix);
+
+      act(() => {
+        emitText(sources[0], 'stale-text', 'later-turn', 'Stale old response');
+        emit(sources[0], { type: 'done', is_terminal: true });
+        emit(sources[1], {
+          type: 'debug_variables',
+          content: { earlierAnswer: 'Keep me' },
+        });
+        emitText(sources[1], 'new-target', 'replacement-turn', 'New result');
+        emit(sources[1], { type: 'done', is_terminal: true });
+      });
+
+      expect(result.current.items.slice(0, preservedPrefix.length)).toEqual(
+        preservedPrefix,
+      );
+      expect(result.current.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            element_bid: 'new-target',
+            content: 'New result',
+          }),
+        ]),
+      );
+      for (const removedBid of [
+        'target-intro',
+        'target-text',
+        'later-text',
+        'stale-text',
+      ]) {
+        expect(
+          result.current.items.map(item => item.element_bid),
+        ).not.toContain(removedBid);
+      }
+      expect(result.current.variableValues).toEqual({
+        earlierAnswer: 'Keep me',
+      });
+      expect(regenerationEvents()).toEqual([
+        [
+          'teacher_debug_regenerate_start',
+          { shifu_bid: 'course', outline_bid: 'lesson' },
+        ],
+        [
+          'teacher_debug_regenerate_result',
+          { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
+        ],
+      ]);
+      expect(JSON.stringify(regenerationEvents())).not.toMatch(
+        /Private draft|selected-turn|target-text|Keep me|Discard me|New result/,
+      );
+    });
+
+    test('keeps repeated regeneration in the same session and omits the anchor from the next answer', async () => {
+      mockParseToRemarkFormat.mockReturnValue({ variableName: 'answer' });
+      const { result, sources } = await prepare();
+      const firstRequest = JSON.parse(
+        (SSE as jest.Mock).mock.calls[0][1].payload,
+      );
+      await act(async () => result.current.regenerateContent('target-text'));
+      act(() => {
+        emitText(
+          sources[1],
+          'replacement-text',
+          'replacement-turn',
+          'Replacement',
+        );
+        emit(sources[1], { type: 'done', is_terminal: true });
+      });
+      await act(async () =>
+        result.current.regenerateContent('replacement-text'),
+      );
+      const secondRegeneration = JSON.parse(
+        (SSE as jest.Mock).mock.lastCall[1].payload,
+      );
+      expect(secondRegeneration.reload_generated_block_bid).toBe(
+        'replacement-turn',
+      );
+      expect(secondRegeneration.debug_session_id).toBe(
+        firstRequest.debug_session_id,
+      );
+      act(() => {
+        emit(sources[2], {
+          type: 'element',
+          content: {
+            element_bid: 'new-question',
+            generated_block_bid: 'new-question-turn',
+            element_type: 'interaction',
+            content: '?[answer]',
+            is_final: true,
+          },
+        });
+        emit(sources[2], { type: 'done', is_terminal: false });
+        sources[2].listeners.readystatechange?.({ readyState: 1 } as never);
+      });
+      expect(result.current.isStreaming).toBe(true);
+      expect(regenerationEvents()).toHaveLength(3);
+      act(() => {
+        close(sources[2]);
+        close(sources[2]);
+        sources[2].listeners.error?.({});
+      });
+      expect(result.current.isStreaming).toBe(false);
+      expect(regenerationEvents()).toEqual([
+        [
+          'teacher_debug_regenerate_start',
+          { shifu_bid: 'course', outline_bid: 'lesson' },
+        ],
+        [
+          'teacher_debug_regenerate_result',
+          { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
+        ],
+        [
+          'teacher_debug_regenerate_start',
+          { shifu_bid: 'course', outline_bid: 'lesson' },
+        ],
+        [
+          'teacher_debug_regenerate_result',
+          { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
+        ],
+      ]);
+      await act(async () =>
+        result.current.submitInteraction(
+          { variableName: 'answer', selectedValues: ['New choice'] },
+          'new-question',
+        ),
+      );
+      expect(SSE).toHaveBeenCalledTimes(4);
+      const answerRequest = JSON.parse(
+        (SSE as jest.Mock).mock.lastCall[1].payload,
+      );
+      expect(answerRequest.debug_session_id).toBe(
+        firstRequest.debug_session_id,
+      );
+      expect(answerRequest.reload_generated_block_bid).toBeUndefined();
+      expect(answerRequest.user_input).toEqual({ answer: ['New choice'] });
+      act(() => {
+        close(sources[0]);
+        close(sources[1]);
+        close(sources[2]);
+        emit(sources[2], { type: 'done', is_terminal: true });
+      });
+      expect(result.current.isStreaming).toBe(true);
+      expect(regenerationEvents()).toHaveLength(4);
+    });
+
+    test('restarts an edited draft with a new session instead of rewinding an old step', async () => {
+      const { result } = await prepare();
+      const firstRequest = JSON.parse(
+        (SSE as jest.Mock).mock.calls[0][1].payload,
+      );
+      mockGetCurrentMdflow.mockReturnValue('Edited draft');
+      await act(async () => result.current.regenerateContent('target-text'));
+      const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+      expect(request.content).toBe('Edited draft');
+      expect(request.debug_session_id).not.toBe(firstRequest.debug_session_id);
+      expect(request.reload_generated_block_bid).toBeUndefined();
+      expect(
+        result.current.items.filter(item => item.element_bid !== 'loading'),
+      ).toEqual([]);
+      expect(regenerationEvents()).toEqual([]);
+    });
+
+    test('ignores unknown anchors and blocks another regeneration while output is streaming', async () => {
+      const { result } = await prepare();
+      const originalItems = result.current.items;
+      await act(async () => result.current.regenerateContent('missing-text'));
+      expect(SSE).toHaveBeenCalledTimes(1);
+      expect(result.current.items).toEqual(originalItems);
+      expect(regenerationEvents()).toEqual([]);
+      await act(async () => result.current.regenerateContent('target-text'));
+      await act(async () => result.current.regenerateContent('earlier-text'));
+      expect(SSE).toHaveBeenCalledTimes(2);
+      expect(regenerationEvents()).toEqual([
+        [
+          'teacher_debug_regenerate_start',
+          { shifu_bid: 'course', outline_bid: 'lesson' },
+        ],
+      ]);
+      expect(toast).toHaveBeenCalledWith({
+        title: 'module.chat.outputInProgress',
+      });
+    });
+
+    test.each([
+      'business',
+      'transport',
+      'close',
+      'stop',
+      'reset',
+      'unmount',
+    ] as const)(
+      'records one terminal outcome when regeneration ends through %s',
+      async ending => {
+        const { result, sources, unmount } = await prepare();
+        await act(async () => result.current.regenerateContent('target-text'));
+        act(() => {
+          if (ending === 'business') {
+            emit(sources[1], {
+              type: 'error',
+              content: 'Private backend error',
+            });
+          } else if (ending === 'transport') {
+            sources[1].listeners.error?.({});
+          } else if (ending === 'close') {
+            close(sources[1]);
+          } else if (ending === 'stop') {
+            result.current.stopRun();
+          } else if (ending === 'reset') {
+            result.current.resetSession();
+          } else {
+            unmount();
+          }
+          close(sources[1]);
+          close(sources[1]);
+          emit(sources[1], { type: 'done', is_terminal: true });
+        });
+        expect(regenerationEvents()).toEqual([
+          [
+            'teacher_debug_regenerate_start',
+            { shifu_bid: 'course', outline_bid: 'lesson' },
+          ],
+          [
+            'teacher_debug_regenerate_result',
+            {
+              shifu_bid: 'course',
+              outline_bid: 'lesson',
+              result:
+                ending === 'business' ||
+                ending === 'transport' ||
+                ending === 'close'
+                  ? 'failed'
+                  : 'cancelled',
+            },
+          ],
+        ]);
+        expect(JSON.stringify(regenerationEvents())).not.toContain(
+          'Private backend error',
+        );
+      },
+    );
+
+    test('regenerates successfully when analytics throws', async () => {
+      const { result, sources } = await prepare();
+      mockTrackEvent.mockImplementation(() => {
+        throw new Error('Analytics unavailable');
+      });
+      await act(async () => result.current.regenerateContent('target-text'));
+      act(() => {
+        emitText(sources[1], 'new-text', 'new-turn', 'Regenerated content');
+        emit(sources[1], { type: 'done', is_terminal: true });
+      });
+      expect(SSE).toHaveBeenCalledTimes(2);
+      expect(result.current.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            element_bid: 'new-text',
+            content: 'Regenerated content',
+          }),
+        ]),
+      );
+      expect(result.current.isStreaming).toBe(false);
+    });
+
+    test('does not start a late regeneration after reset during API URL resolution', async () => {
+      const { result } = await prepare();
+      let resolveBaseUrl: (value: string) => void = () => {};
+      (getDynamicApiBaseUrl as jest.Mock).mockReturnValueOnce(
+        new Promise<string>(resolve => {
+          resolveBaseUrl = resolve;
+        }),
+      );
+      act(() => {
+        result.current.regenerateContent('target-text');
+        result.current.resetSession();
+      });
+      await act(async () => resolveBaseUrl('https://example.com'));
+      expect(SSE).toHaveBeenCalledTimes(1);
+      expect(result.current.items).toEqual([]);
+      expect(result.current.isStreaming).toBe(false);
+      expect(regenerationEvents()).toEqual([
+        [
+          'teacher_debug_regenerate_start',
+          { shifu_bid: 'course', outline_bid: 'lesson' },
+        ],
+        [
+          'teacher_debug_regenerate_result',
+          { shifu_bid: 'course', outline_bid: 'lesson', result: 'cancelled' },
+        ],
+      ]);
+    });
+
+    test('ends regeneration with a recoverable error when API URL resolution rejects', async () => {
+      const { result, sources } = await prepare();
+      (getDynamicApiBaseUrl as jest.Mock).mockRejectedValueOnce(
+        new Error('Private API configuration failure'),
+      );
+      await act(async () => result.current.regenerateContent('target-text'));
+      expect(SSE).toHaveBeenCalledTimes(1);
+      expect(result.current.isStreaming).toBe(false);
+      expect(result.current.errorMessage).toBeTruthy();
+      expect(regenerationEvents()).toEqual([
+        [
+          'teacher_debug_regenerate_start',
+          { shifu_bid: 'course', outline_bid: 'lesson' },
+        ],
+        [
+          'teacher_debug_regenerate_result',
+          { shifu_bid: 'course', outline_bid: 'lesson', result: 'failed' },
+        ],
+      ]);
+      expect(JSON.stringify(regenerationEvents())).not.toContain(
+        'Private API configuration failure',
+      );
+      await act(async () => result.current.regenerateContent('earlier-text'));
+      expect(SSE).toHaveBeenCalledTimes(2);
+      act(() => {
+        emitText(sources[1], 'retry-text', 'retry-turn', 'Recovered');
+        emit(sources[1], { type: 'done', is_terminal: true });
+      });
+      expect(result.current.errorMessage).toBeNull();
+      expect(result.current.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ content: 'Recovered' }),
+        ]),
+      );
+    });
   });
 
   test('sends the current interface language on each preview request', async () => {
@@ -1253,9 +1671,7 @@ describe('useDebugSession helpers and business error rendering', () => {
     });
     let preview!: ReturnType<typeof useDebugSession>;
     function Harness() {
-      preview = useDebugSession({
-        creditInsufficientAudience: 'teacher',
-      });
+      preview = useDebugSession({ creditInsufficientAudience: 'teacher' });
       const track = preview.items.find(
         item => item.generated_block_bid === 'audio',
       )?.audioTracks?.[0];
