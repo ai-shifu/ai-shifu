@@ -79,8 +79,15 @@ def test_debug_session_resumes_only_the_same_run_and_script(
     assert first.load(script="Edited draft") is None
     assert other.load(script="Current draft") is None
     assert list(cache.ttls.values()) == [30 * 60]
+    restarted = Session(script=ScriptBundle(script="Current draft"))
+    restarted.memory["answer"] = "fresh answer"
+    other.save(restarted)
+    assert other.load(script="Current draft").memory["answer"] == "fresh answer"
+    assert first.load(script="Current draft").memory["answer"] == "yes"
+    assert cache.ttls[other._key] == 30 * 60
     cache.values[first._key] = "invalid history"
     assert first.load(script="Current draft") is None
+    assert other.load(script="Current draft").memory["answer"] == "fresh answer"
 
 
 def test_editor_debug_uses_the_existing_lesson_and_element_pipeline(

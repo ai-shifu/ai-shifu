@@ -466,28 +466,34 @@ describe('ShifuEdit draft conflict checks', () => {
     });
   });
 
-  test('keeps preview variable filtering independent of editor props', async () => {
+  test('shows explicit input and style keys through ordinary preview variables', async () => {
     setLessonNode();
     mockShifuState.mdflow = 'Hello {{sys_user_style}} {{sys_user_input}}';
+    mockShifuState.variables = ['sys_user_style', 'sys_user_input'];
+    mockShifuState.hiddenVariables = ['hidden_topic'];
     mockShifuState.systemVariables = [
       { name: 'sys_user_nickname', label: 'Nickname' },
-      { name: 'sys_user_style', label: 'Style' },
-      { name: 'sys_user_input', label: 'User Input' },
+      { name: 'sys_user_language', label: 'Teaching language' },
+      { name: 'sys_user_background', label: 'Background' },
     ];
     baseActions.previewParse.mockResolvedValue({
       variables: {
         sys_user_nickname: 'Learner',
+        sys_user_language: 'Chinese',
+        sys_user_background: 'Teacher',
         sys_user_style: 'Concise',
-        sys_user_input: 'Internal input',
+        sys_user_input: 'Course input example',
       },
       blocksCount: 1,
       systemVariableKeys: [
         'sys_user_nickname',
-        'sys_user_style',
-        'sys_user_input',
+        'sys_user_language',
+        'sys_user_background',
       ],
       allVariableKeys: [
         'sys_user_nickname',
+        'sys_user_language',
+        'sys_user_background',
         'sys_user_style',
         'sys_user_input',
       ],
@@ -510,14 +516,17 @@ describe('ShifuEdit draft conflict checks', () => {
     await waitFor(() => {
       expect(mockLessonPreview).toHaveBeenCalled();
     });
-    expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
-      'sys_user_style',
-    );
-    expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toContain(
-      'sys_user_input',
-    );
+    expect(mockLessonPreview.mock.lastCall?.[0].hiddenVariableKeys).toEqual([
+      'hidden_topic',
+    ]);
+    expect(mockLessonPreview.mock.lastCall?.[0].variables).toMatchObject({
+      sys_user_style: '',
+      sys_user_input: '',
+    });
     expect(mockLessonPreview.mock.lastCall?.[0].systemVariableKeys).toEqual([
       'sys_user_nickname',
+      'sys_user_language',
+      'sys_user_background',
     ]);
     expect(baseActions.previewParse).toHaveBeenCalledWith(
       'Hello {{sys_user_style}} {{sys_user_input}}',

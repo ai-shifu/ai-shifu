@@ -35,8 +35,9 @@ so a persisted undeclared variable disappears on the next host request.
 Deferred questions may collect several answers before the model resumes;
 request evidence must survive that serialization and a failed model call.
 Model-authored choice values are not evidence of a learner's free-text request.
-Legacy profile keys such as `language`, `sex`, `birth` and `avatar` route globally
-without a `sys_` prefix; the host supplies the writer's complete reserved-key set.
+The host supplies the writer's complete reserved-key set. As of 2026-10-30, only
+the three canonical `sys_user_*` profile keys route globally; former defaults
+such as `language`, `sex`, `birth` and `avatar` follow ordinary course scope.
 Admission awaits another model call, so writes must recheck capacity and finished
 state afterward.
 The first normal HTTP request paused before recording an explicit request, so the

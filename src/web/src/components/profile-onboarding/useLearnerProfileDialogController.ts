@@ -29,10 +29,7 @@ import {
   type LearnerProfileDialogProps,
   type ProfileCollectionResult,
 } from './learnerProfileDialogModel';
-import {
-  buildLearnerProfileDraft,
-  resolveLearnerNicknameDraft,
-} from './learnerProfileDraft';
+import { resolveLearnerNicknameDraft } from './learnerProfileDraft';
 import { countUnicodeCodePoints } from './ProfileDraftEditor';
 import type { ProfileOnboardingConversationProps } from './ProfileOnboardingConversation';
 import {
@@ -338,10 +335,7 @@ export const useLearnerProfileDialogController = ({
         }
 
         const hasCanonicalProfile = Boolean(response.has_learner_profile);
-        const profile = buildLearnerProfileDraft(
-          response,
-          translationRef.current,
-        );
+        const profile = response.learner_profile.trim();
         const nickname = resolveLearnerNicknameDraft(response);
         dispatch({
           type: 'patch_form',
@@ -531,10 +525,7 @@ export const useLearnerProfileDialogController = ({
 
   const applyProfileResponse = React.useCallback(
     (response: Awaited<ReturnType<typeof updateLearnerProfile>>) => {
-      const profile = buildLearnerProfileDraft(
-        response,
-        translationRef.current,
-      );
+      const profile = response.learner_profile.trim();
       const nickname = resolveLearnerNicknameDraft(response);
       dispatch({
         type: 'patch_form',

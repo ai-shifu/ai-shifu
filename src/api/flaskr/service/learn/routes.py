@@ -567,13 +567,12 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
             raise_param_error("Invalid debug session identifier")
 
         # Capture the request fallback before streaming clears request-local i18n.
-        # Both runtimes receive the same authoritative editor language.
+        # Course variables remain independent from the teaching-language setting.
         variables = dict(preview_request.variables or {})
         preview_language = resolve_preview_language(variables)
         preview_request.variables = {
             **variables,
             "sys_user_language": preview_language,
-            "language": preview_language,
         }
         from flaskr.service.learn.agent.debug_session import stream_debug_preview
 

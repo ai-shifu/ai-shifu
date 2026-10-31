@@ -2,17 +2,50 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-30
+last_reviewed: 2026-10-31
 canonical: true
 ---
 
 # System and course variable isolation
 
-System-recognized profile fields are global to the learner. For example, the
-canonical nickname and language remain consistent between courses. Registration
-in the shared profile-label mapping determines global scope; a `sys_` prefix alone
-never grants global storage or arbitrary profile editing. Existing registered
-legacy label names keep their mappings.
+Only `sys_user_nickname`, `sys_user_language` and `sys_user_background` are
+registered global profile fields. Their canonical account values remain
+consistent between courses. The shared exact-name registry determines global
+scope; a `sys_` prefix alone never grants global storage or arbitrary profile
+editing.
+
+The former built-ins `sex`, `birth`, `avatar` and `language` are ordinary course
+variables. Historical global definitions and values remain stored but are not
+advertised, read as defaults, or mapped to account fields. Ordinary course
+variables use the existing definition and value paths. All non-system variable
+writes require a course identifier. Account avatars, language settings and
+canonical learner profiles keep their separate APIs.
+Only `sys_user_language` selects teaching language; an authored `language`
+variable is independent and is never overwritten by that selection.
+These scope rules govern current profile reads and writes. Continued sessions may
+retain earlier global defaults in their saved prompts or snapshots.
+
+There is no separate registry or runtime exception for former default names.
+Existing course definitions, including a stored `sys_user_style` definition,
+retain ordinary exact-key and course-scope reads and writes. A value write does
+not create a missing definition. The supplementary course-memory reader excludes
+undefined `sys_` keys, so a stored value alone does not make an undefined
+`sys_user_style` available in later lessons. Authoring keeps its generic reserved
+prefix rule without an exception for that name.
+
+`sys_user_input` also has no built-in variable behavior: learner messages do not
+automatically populate or overwrite it, and the simulator gives it no fixed
+hiding rule or dedicated system label. Existing course-defined values and
+explicitly supplied preview values follow ordinary variable handling. The
+generic `sys_` authoring restriction still applies without an exception.
+Normal learner input continues through request messages. The optional
+`get_fmt_prompt` `user_input` argument keeps its ordinary empty-template fallback;
+production callers do not pass that argument.
+
+Value selection uses the key and storage scope. Runtime profile writes through
+`save_user_profiles` retain their existing supplied-BID/definition-fallback rule;
+other writers keep their existing definition resolution. Former default names
+receive no ID rebinding or special definition creation.
 
 All other durable variables belong to the current course. Two courses can use
 the same key with different answers. If course A records that a learner likes
@@ -84,8 +117,8 @@ That namespace is reserved for the system, including unregistered names.
 Draft saving, parsing, history restoration, import and publication reject
 reserved question bindings in both `?[{{sys_name}} ...]` and
 `?[%{{sys_name}} ...]` syntax after trimming outer whitespace. Ordinary question
-keys remain course variables, so this example does not update the system `sex`
-field.
+keys remain course variables. Neither this example nor a variable named `sex`
+updates an account field.
 
 Body references such as `{{sys_user_nickname}}` remain valid and do not create
 course-owned definitions. Code examples, comments, escaped interactions and
@@ -131,6 +164,20 @@ write either course. Original answers and later classroom history remain intact;
 previously delivered content is historical evidence, not current shared memory.
 Preview/debug sessions also discard retired snapshots. No historical data or
 source-course values are deleted, migrated or retroactively undone.
+
+Default-profile retirement leaves existing formal and editor-debug sessions under
+their ordinary loading, continuation and persistence logic. It adds no dedicated
+snapshot cleanup, retirement marker or session migration. Existing generic
+session safeguards continue to apply; old saved prompts may retain retired
+profile defaults. New formal sessions initialize from the current course-scoped
+`load_memory` result. Editor-preview sessions instead initialize from supplied
+`preview_variables`, without reading learner memory from the database.
+Restarting an editor preview creates a fresh debug session ID. Cache keys and the
+thirty-minute expiry remain unchanged, with no namespace or version bump.
+Continuing an existing preview retains its cached state, and unused entries
+expire naturally.
+Legacy learning style no longer prefills the canonical learner-profile editor;
+nickname compatibility remains available.
 
 This policy supersedes [explicit references](course-memory-references.md) and
 [shared named answers](shared-course-answers.md). It adds no schema, dependency,

@@ -575,14 +575,8 @@ export function usePreviewChat({
     if (!name) {
       return;
     }
-    const isLanguage = name === 'sys_user_language' || name === 'language';
-    const otherLanguageKey =
-      name === 'language' ? 'sys_user_language' : 'language';
     const update = { [name]: value };
-    if (isLanguage && otherLanguageKey in (sseParams.current.variables || {})) {
-      update[otherLanguageKey] = value;
-    }
-    if (initialVariablesRef.current && isLanguage) {
+    if (initialVariablesRef.current && name === 'sys_user_language') {
       // Language is a preview setting, not an answer to discard on restart.
       initialVariablesRef.current = {
         ...initialVariablesRef.current,

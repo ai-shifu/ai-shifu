@@ -1,8 +1,6 @@
 {
   "__namespace__": "server.profile",
   "__flat__": {
-    "avatar": "Avatar",
-    "birth": "Date of birth",
     "keyInvalid": "Could not save the memory: the question cannot be empty or contain control characters or }}.",
     "keyReserved": "Questions cannot start with sys_; this prefix is reserved for the system.",
     "language": "Language",
@@ -20,11 +18,6 @@
     "profileOnboardingConfigConflict": "Another administrator saved a newer version. Reload the configuration before editing and saving again.",
     "profileOnboardingConfigNotPersistable": "This configuration is managed by an environment variable and cannot be saved here. Contact an administrator.",
     "profileOnboardingPromptGenerationFailed": "Could not generate the assistant prompt. The configuration was not published and your input is still here. Try again.",
-    "sex": "Sex",
-    "sexFemale": "Female",
-    "sexMale": "Male",
-    "sexSecret": "Prefer not to say",
-    "style": "Style",
     "userBackground": "Background"
   }
 }

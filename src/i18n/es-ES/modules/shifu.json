@@ -36,7 +36,6 @@
     "personalInfoPlaceholder": "Introduce: {label}",
     "systemVariableLabels": {
       "background": "Contexto y preferencias del alumno",
-      "input": "Última respuesta",
       "language": "Idioma de enseñanza",
       "nickname": "Nombre del alumno"
     },

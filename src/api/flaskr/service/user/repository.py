@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from flaskr.dao import (
@@ -26,6 +25,8 @@ from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
 
 if TYPE_CHECKING:
+    from datetime import date, datetime
+
     from flask import Flask
 
 logger = logging.getLogger(__name__)
@@ -352,8 +353,6 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     identify = user_bid
     nickname: str | None = None
     language: str | None = None
-    avatar: str | None = None
-    birthday: date | None = None
 
     try:
         from flaskr.service.profile.models import (
@@ -370,9 +369,7 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
                     VariableValue.user_bid == user_bid,
                     VariableValue.deleted == 0,
                     VariableValue.shifu_bid == "",
-                    VariableValue.key.in_(
-                        ["sys_user_nickname", "avatar", "language", "birth"]
-                    ),
+                    VariableValue.key.in_(["sys_user_nickname", "sys_user_language"]),
                 )
                 .order_by(VariableValue.id.desc())
                 .all()
@@ -386,23 +383,14 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
                 continue
             if row.key == "sys_user_nickname" and not nickname:
                 nickname = value
-            elif row.key == "avatar" and not avatar:
-                avatar = value
-            elif row.key == "language" and not language:
+            elif row.key == "sys_user_language" and not language:
                 language = value
-            elif row.key == "birth" and not birthday:
-                try:
-                    birthday = date.fromisoformat(value)
-                except ValueError:
-                    continue
 
     return create_user_entity(
         user_bid=user_bid,
         identify=identify,
         nickname=nickname,
         language=language,
-        avatar=avatar,
-        birthday=birthday,
     )
 
 

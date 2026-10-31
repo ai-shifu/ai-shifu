@@ -36,7 +36,6 @@
     "personalInfoPlaceholder": "填写{label}",
     "systemVariableLabels": {
       "background": "学生背景偏好",
-      "input": "最新输入",
       "language": "授课语言",
       "nickname": "学生昵称"
     },

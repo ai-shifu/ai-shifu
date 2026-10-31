@@ -91,9 +91,6 @@
     "informationUsageTitle": "How is this information used?",
     "interactiveCollection": "Answer questions",
     "keepEditing": "Keep editing",
-    "legacyPrefill": {
-      "style": "My preferred language style: {value}"
-    },
     "loadFailed": "Could not load these details. Try again.",
     "loading": "Loading Personalization settings…",
     "manualFallback": "Automatic collection is unavailable right now. You can enter your introduction directly.",

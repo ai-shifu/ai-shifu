@@ -91,9 +91,6 @@
     "informationUsageTitle": "Utilisation des informations ?",
     "interactiveCollection": "Répondre aux questions",
     "keepEditing": "Continuer à modifier",
-    "legacyPrefill": {
-      "style": "Mon style de langage préféré : {value}"
-    },
     "loadFailed": "Impossible de charger ces informations. Réessayez.",
     "loading": "Chargement des Paramètres de personnalisation…",
     "manualFallback": "La collecte automatique est temporairement indisponible. Vous pouvez saisir directement votre présentation.",
