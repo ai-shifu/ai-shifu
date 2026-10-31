@@ -278,7 +278,12 @@ def _after_the_repeat(held: Sequence[str], said: str) -> str:
     classifier = EnvelopeClassifier()
     prose_end = 0
     for line in text.splitlines(keepends=True):
-        if not is_text_family(classifier.classify_line(line.rstrip("\r\n")).type):
+        source = line.rstrip("\r\n")
+        # An unfinished table row is still text to the classifier, whose row pattern
+        # needs the closing bar; it is the start of a visual all the same.
+        if source == line and source.lstrip().startswith("|"):
+            break
+        if not is_text_family(classifier.classify_line(source).type):
             break
         prose_end += len(line)
     cut, seen = 0, ""

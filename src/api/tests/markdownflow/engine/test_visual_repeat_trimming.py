@@ -189,3 +189,17 @@ def test_a_repeated_visual_before_new_narration_keeps_its_complete_source(
     """Only the prose recap can be removed; a repeated visual remains a complete unit."""
     said = "".join((_RECAP + visual).split())
     assert _after_the_repeat([_RECAP + visual + _NEXT], said) == visual + _NEXT
+
+
+def test_an_unfinished_table_row_is_not_cut_inside() -> None:
+    """A held row without its closing bar yet still starts a table."""
+    said = "".join((_RECAP + "| Step 1. Read the chapter | Done |\n").split())
+    row = "| Step 1. Review the notes"
+    assert _after_the_repeat([_RECAP, row], said) == row
+
+
+def test_an_unfinished_prose_line_is_still_trimmed() -> None:
+    """Only a table-like line is protected; repeated prose without a newline is cut."""
+    recap = _RECAP.rstrip("\n")
+    said = "".join((recap + " That was the last step.").split())
+    assert _after_the_repeat([recap + " Now try it"], said) == " Now try it"
