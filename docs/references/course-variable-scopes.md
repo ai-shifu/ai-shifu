@@ -2,7 +2,7 @@
 title: System and course variable isolation
 status: implemented
 owner_surface: learner
-last_reviewed: 2026-10-30
+last_reviewed: 2026-10-31
 canonical: true
 ---
 
@@ -16,17 +16,27 @@ editing.
 
 The former built-ins `sex`, `birth`, `avatar` and `language` are ordinary course
 variables. Historical global definitions and values remain stored but are not
-advertised, read as defaults, or mapped to account fields. Their names do not
-block automatic creation of course definitions. Legacy `sys_user_style` answers
-also use course scope: existing published courses can create a missing local
-definition during normal answer persistence. This narrow runtime compatibility
-does not permit new authored `sys_` questions. All non-system variable writes
-require a course identifier. Account avatars, language settings and canonical
-learner profiles keep their separate APIs.
+advertised, read as defaults, or mapped to account fields. Ordinary course
+variables use the existing definition and value paths. All non-system variable
+writes require a course identifier. Account avatars, language settings and
+canonical learner profiles keep their separate APIs.
 Only `sys_user_language` selects teaching language; an authored `language`
 variable is independent and is never overwritten by that selection.
 These scope rules govern current profile reads and writes. Continued sessions may
 retain earlier global defaults in their saved prompts or snapshots.
+
+There is no separate registry or runtime exception for former default names.
+Existing course definitions, including a stored `sys_user_style` definition,
+retain ordinary exact-key and course-scope reads and writes. A value write does
+not create a missing definition. The supplementary course-memory reader excludes
+undefined `sys_` keys, so a stored value alone does not make an undefined
+`sys_user_style` available in later lessons. Authoring keeps its generic reserved
+prefix rule without an exception for that name.
+
+Value selection uses the key and storage scope. Runtime profile writes through
+`save_user_profiles` retain their existing supplied-BID/definition-fallback rule;
+other writers keep their existing definition resolution. Former default names
+receive no ID rebinding or special definition creation.
 
 All other durable variables belong to the current course. Two courses can use
 the same key with different answers. If course A records that a learner likes

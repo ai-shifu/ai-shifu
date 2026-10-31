@@ -367,44 +367,17 @@ def test_course_definition_cannot_reuse_a_system_prefixed_definition(
             Variable.query.filter_by(variable_bid=definition_bid).delete()
 
 
-@pytest.mark.parametrize(
-    "key",
-    [
-        "sys_",
-        "sys_custom_question",
-        "sys_user_language",
-        "sys_user_nickname",
-        "sys_user_background",
-    ],
-)
-def test_legacy_runtime_option_never_allows_other_system_definitions(
-    app: object, variables: object, key: str
-) -> None:
-    with app.app_context(), pytest.raises(AppError) as exc, unit_of_work():
-        profiles.add_profile_item_quick_internal(
-            app, variables.course, key, "learner", allow_legacy_runtime_profile=True
-        )
-    assert exc.value.code == ERROR_CODE["server.profile.keyReserved"]
-    with app.app_context():
-        assert (
-            Variable.query.filter_by(shifu_bid=variables.course, key=key).count() == 0
-        )
-
-
-def test_legacy_runtime_option_never_creates_a_global_retired_definition(
+@pytest.mark.parametrize("key", ["sys_user_style", "favorite_color", "language"])
+def test_global_definition_requires_a_registered_system_key(
     app: object,
+    key: str,
 ) -> None:
     with app.app_context():
-        before = Variable.query.filter_by(shifu_bid="", key="sys_user_style").count()
+        before = Variable.query.filter_by(shifu_bid="", key=key).count()
     with app.app_context(), pytest.raises(AppError), unit_of_work():
-        profiles.add_profile_item_quick_internal(
-            app, "", "sys_user_style", "learner", allow_legacy_runtime_profile=True
-        )
+        profiles.add_profile_item_quick_internal(app, "", key, "teacher")
     with app.app_context():
-        assert (
-            Variable.query.filter_by(shifu_bid="", key="sys_user_style").count()
-            == before
-        )
+        assert Variable.query.filter_by(shifu_bid="", key=key).count() == before
 
 
 @pytest.mark.parametrize("prefix", ["SYS_", "course_sys_"])

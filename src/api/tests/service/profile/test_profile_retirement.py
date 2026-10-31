@@ -9,22 +9,16 @@ import pytest
 from flaskr.dao import db
 from flaskr.dao.uow import unit_of_work
 from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.learn.memory.reader import load_course_variables
 from flaskr.service.profile import funcs, profile_manage
-from flaskr.service.profile.constants import (
-    ACTIVE_SYSTEM_PROFILE_KEYS,
-    RETIRED_PROFILE_KEYS,
-)
+from flaskr.service.profile.constants import ACTIVE_SYSTEM_PROFILE_KEYS
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.profile.models import Variable, VariableValue
-from flaskr.service.shifu.question_validation import (
-    assert_course_question_names_allowed,
-)
 from flaskr.service.user.repository import (
     UserEntity,
     create_user_entity,
     load_user_aggregate,
 )
-from markdownflow import MarkdownFlowDocument
 
 
 @pytest.fixture
@@ -49,39 +43,43 @@ def retired_profile_user(app: object) -> object:
         UserEntity.query.filter_by(user_bid=identity).delete()
 
 
+@pytest.mark.parametrize(
+    "key", ["sex", "birth", "avatar", "language", "sys_user_style", "favorite_color"]
+)
 @pytest.mark.parametrize("writer", ["runtime", "settings"])
-def test_retired_global_definitions_and_values_stay_stored_but_are_not_active(
+def test_custom_course_values_do_not_use_or_change_global_definitions(
     retired_profile_user: object,
+    key: str,
     writer: str,
 ) -> None:
     user = retired_profile_user
+    global_definition_bid = f"{user.bid}-global-{key}"
+    local_definition_bid = f"{user.bid}-local-{key}"
     with user.app.app_context(), unit_of_work():
-        for key in RETIRED_PROFILE_KEYS:
-            db.session.add(
-                Variable(variable_bid=f"{user.bid}-global-{key}", shifu_bid="", key=key)
+        db.session.add(
+            Variable(variable_bid=global_definition_bid, shifu_bid="", key=key)
+        )
+        db.session.add(
+            VariableValue(
+                variable_value_bid=uuid4().hex,
+                user_bid=user.bid,
+                shifu_bid="",
+                key=key,
+                value="Historical global value",
             )
-            db.session.add(
-                VariableValue(
-                    variable_value_bid=uuid4().hex,
-                    user_bid=user.bid,
-                    shifu_bid="",
-                    key=key,
-                    value=f"Old global {key}",
-                )
-            )
+        )
     with user.app.app_context():
         old_rows = {
             row.id: (row.key, row.value, row.deleted)
             for row in VariableValue.query.filter_by(user_bid=user.bid).all()
         }
-        definitions = profile_manage.get_profile_item_definition_list(
-            user.app, user.course
-        )
-        assert not (RETIRED_PROFILE_KEYS & {item.profile_key for item in definitions})
-        assert not (
-            RETIRED_PROFILE_KEYS
-            & funcs.get_user_profiles(user.app, user.bid, user.course).keys()
-        )
+        assert key not in {
+            item.profile_key
+            for item in profile_manage.get_profile_item_definition_list(
+                user.app, user.course
+            )
+        }
+        assert key not in funcs.get_user_profiles(user.app, user.bid, user.course)
         assert set(funcs.get_profile_labels()) == ACTIVE_SYSTEM_PROFILE_KEYS
         assert {
             item.key
@@ -90,49 +88,47 @@ def test_retired_global_definitions_and_values_stay_stored_but_are_not_active(
             ).profiles
         } == ACTIVE_SYSTEM_PROFILE_KEYS
         with unit_of_work():
+            # Model an existing course definition without granting new sys_ declarations.
+            db.session.add(
+                Variable(
+                    variable_bid=local_definition_bid, shifu_bid=user.course, key=key
+                )
+            )
             if writer == "runtime":
                 funcs.save_user_profiles(
                     user.app,
                     user.bid,
                     user.course,
-                    [
-                        ProfileToSave(key, f"Local {key}", f"{user.bid}-global-{key}")
-                        for key in RETIRED_PROFILE_KEYS
-                    ],
+                    [ProfileToSave(key, "Course value", local_definition_bid)],
                 )
             else:
                 funcs.update_user_profile_with_lable(
                     user.app,
                     user.bid,
-                    [
-                        {"key": key, "value": f"Local {key}"}
-                        for key in RETIRED_PROFILE_KEYS
-                    ],
+                    [{"key": key, "value": "Course value"}],
                     course_id=user.course,
                 )
         db.session.remove()
-        local_definitions = {
-            item.profile_key: item
+        local_definition = next(
+            item
             for item in profile_manage.get_profile_item_definition_list(
                 user.app, user.course
             )
-            if item.profile_key in RETIRED_PROFILE_KEYS
-        }
-        assert set(local_definitions) == RETIRED_PROFILE_KEYS
-        for key, item in local_definitions.items():
-            assert item.profile_scope == "user"
-            assert item.profile_id != f"{user.bid}-global-{key}"
-            row = VariableValue.query.filter_by(
-                user_bid=user.bid, shifu_bid=user.course, key=key
-            ).one()
-            assert row.variable_bid == item.profile_id
-        runtime = funcs.get_user_profiles(user.app, user.bid, user.course)
-        for key in RETIRED_PROFILE_KEYS:
-            assert runtime[key] == f"Local {key}"
-        assert not (
-            RETIRED_PROFILE_KEYS
-            & funcs.get_user_profiles(user.app, user.bid, "other-course").keys()
+            if item.profile_key == key
         )
+        assert (local_definition.profile_scope, local_definition.profile_id) == (
+            "user",
+            local_definition_bid,
+        )
+        row = VariableValue.query.filter_by(
+            user_bid=user.bid, shifu_bid=user.course, key=key
+        ).one()
+        assert row.variable_bid == local_definition_bid
+        assert (
+            funcs.get_user_profiles(user.app, user.bid, user.course)[key]
+            == "Course value"
+        )
+        assert key not in funcs.get_user_profiles(user.app, user.bid, "other-course")
         account = load_user_aggregate(user.bid)
         assert (account.avatar, account.language, account.birthday) == (
             "current-avatar.png",
@@ -145,11 +141,18 @@ def test_retired_global_definitions_and_values_stay_stored_but_are_not_active(
                 user_bid=user.bid, shifu_bid=""
             ).all()
         } == old_rows
-        assert Variable.query.filter(
-            Variable.variable_bid.in_(
-                [f"{user.bid}-global-{key}" for key in RETIRED_PROFILE_KEYS]
-            )
-        ).count() == len(RETIRED_PROFILE_KEYS)
+        global_definition = Variable.query.filter_by(
+            variable_bid=global_definition_bid
+        ).one()
+        assert (
+            global_definition.shifu_bid,
+            global_definition.key,
+            global_definition.deleted,
+        ) == (
+            "",
+            key,
+            0,
+        )
 
 
 @pytest.mark.parametrize("writer", ["runtime", "settings"])
@@ -218,37 +221,101 @@ def test_profile_update_api_keeps_envelope_and_rejects_unscoped_retired_fields(
         assert VariableValue.query.filter_by(user_bid=user.bid).count() == 0
 
 
-@pytest.mark.parametrize("key", ["learner_requested_note", "SYS_USER_STYLE"])
-def test_unrelated_undeclared_memory_never_gains_a_definition(
-    retired_profile_user: object, key: str
+@pytest.mark.parametrize(
+    "key",
+    [
+        "sex",
+        "birth",
+        "avatar",
+        "language",
+        "sys_user_style",
+        "learner_requested_note",
+        "SYS_USER_STYLE",
+    ],
+)
+@pytest.mark.parametrize("writer", ["runtime", "settings"])
+def test_undeclared_course_values_never_gain_a_definition(
+    retired_profile_user: object,
+    key: str,
+    writer: str,
 ) -> None:
     user = retired_profile_user
     with user.app.app_context(), unit_of_work():
-        funcs.save_user_profiles(
-            user.app, user.bid, user.course, [ProfileToSave(key, "Requested note", "")]
-        )
+        if writer == "runtime":
+            funcs.save_user_profiles(
+                user.app,
+                user.bid,
+                user.course,
+                [ProfileToSave(key, "Requested note", "")],
+            )
+        else:
+            funcs.update_user_profile_with_lable(
+                user.app,
+                user.bid,
+                [{"key": key, "value": "Requested note"}],
+                course_id=user.course,
+            )
     with user.app.app_context():
         assert Variable.query.filter_by(shifu_bid=user.course, key=key).count() == 0
         assert key not in funcs.get_user_profiles(user.app, user.bid, user.course)
+        row = VariableValue.query.filter_by(
+            user_bid=user.bid, shifu_bid=user.course, key=key
+        ).one()
+        assert (row.value, row.variable_bid) == ("Requested note", "")
+        supplementary = load_course_variables(user.bid, user.course)
+        if key.startswith("sys_"):
+            assert key not in supplementary
+        else:
+            assert supplementary[key] == "Requested note"
 
 
-@pytest.mark.parametrize("marker", ["{{sys_user_style}}", "%{{sys_user_style}}"])
-def test_legacy_runtime_definition_never_allows_new_reserved_question_bindings(
-    retired_profile_user: object, marker: str
+@pytest.mark.parametrize("key", ["language", "sys_user_style", "favorite_color"])
+def test_course_value_keeps_supplied_definition_id_and_reads_by_course_key(
+    retired_profile_user: object, key: str
 ) -> None:
     user = retired_profile_user
+    supplied_bid = f"{user.bid}-old-global-{key}"
+    local_bid = f"{user.bid}-current-course-{key}"
+    global_value_bid = uuid4().hex
     with user.app.app_context(), unit_of_work():
-        funcs.save_user_profiles(
-            user.app,
-            user.bid,
-            user.course,
-            [ProfileToSave("sys_user_style", "Legacy published-course answer", "")],
+        db.session.add_all(
+            [
+                Variable(variable_bid=supplied_bid, shifu_bid="", key=key),
+                Variable(variable_bid=local_bid, shifu_bid=user.course, key=key),
+                VariableValue(
+                    variable_value_bid=global_value_bid,
+                    variable_bid=supplied_bid,
+                    user_bid=user.bid,
+                    shifu_bid="",
+                    key=key,
+                    value="Existing global value",
+                ),
+            ]
         )
-    document = MarkdownFlowDocument(f"?[{marker}...Answer]")
-    with pytest.raises(AppError) as error:
-        assert_course_question_names_allowed(document)
-    assert error.value.code == ERROR_CODE["server.profile.keyReserved"]
     with user.app.app_context():
-        assert funcs.get_user_profiles(user.app, user.bid, user.course)[
-            "sys_user_style"
-        ] == ("Legacy published-course answer")
+        with unit_of_work():
+            funcs.save_user_profiles(
+                user.app,
+                user.bid,
+                user.course,
+                [ProfileToSave(key, "Current course value", supplied_bid)],
+            )
+        db.session.expire_all()
+        row = VariableValue.query.filter_by(
+            user_bid=user.bid, shifu_bid=user.course, key=key
+        ).one()
+        assert row.variable_bid == supplied_bid
+        assert funcs.get_user_profiles(user.app, user.bid, user.course)[key] == (
+            "Current course value"
+        )
+        assert key not in funcs.get_user_profiles(user.app, user.bid, "other-course")
+        historical = VariableValue.query.filter_by(
+            variable_value_bid=global_value_bid
+        ).one()
+        assert (
+            historical.variable_bid,
+            historical.shifu_bid,
+            historical.key,
+            historical.value,
+            historical.deleted,
+        ) == (supplied_bid, "", key, "Existing global value", 0)

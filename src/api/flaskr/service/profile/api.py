@@ -1,11 +1,6 @@
 """Stable public entry points for cross-service profile operations."""
 
-from flaskr.service.profile.constants import (
-    ACTIVE_SYSTEM_PROFILE_KEYS,
-    RETIRED_PROFILE_KEYS,
-    SYS_USER_LANGUAGE,
-    SYS_USER_NICKNAME,
-)
+from flaskr.service.profile.constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from flaskr.service.profile.course_memory import (
     course_memory_deletion_state,
     course_memory_value_versions,
@@ -31,11 +26,9 @@ from flaskr.service.profile.learner_profile import (
 )
 
 __all__ = [
-    "ACTIVE_SYSTEM_PROFILE_KEYS",
     "COURSE_REFERENCE_PREFIX",
     "LEARNER_PROFILE_MAX_LENGTH",
     "LEARNER_PROFILE_NICKNAME_MAX_LENGTH",
-    "RETIRED_PROFILE_KEYS",
     "SHARED_ANSWER_PREFIX",
     "SYS_USER_LANGUAGE",
     "SYS_USER_NICKNAME",

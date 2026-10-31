@@ -7,6 +7,3 @@ SYS_USER_BACKGROUND = "sys_user_background"
 ACTIVE_SYSTEM_PROFILE_KEYS = frozenset(
     {SYS_USER_NICKNAME, SYS_USER_LANGUAGE, SYS_USER_BACKGROUND}
 )
-RETIRED_PROFILE_KEYS = frozenset(
-    {"sex", "birth", "avatar", "language", "sys_user_style"}
-)

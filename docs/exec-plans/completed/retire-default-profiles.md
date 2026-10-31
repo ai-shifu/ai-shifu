@@ -3,7 +3,8 @@
 ## Purpose / Big Picture
 
 Retire the built-in meanings of `sex`, `birth`, `avatar`, `language` and
-`sys_user_style`. These exact names remain usable as ordinary course variables.
+`sys_user_style`. Ordinary course variables retain their existing definition,
+read and write rules, including the generic `sys_` authoring restriction.
 Only `sys_user_nickname`, `sys_user_language` and `sys_user_background` retain
 global profile semantics. Account settings and canonical learner-profile
 collection remain available. The durable contract is
@@ -35,14 +36,22 @@ prompts or snapshots.
 - [x] 2026-10-30 23:10 UTC: Clarify review feedback on initialization sources:
   formal sessions use `load_memory`, while editor previews use supplied
   `preview_variables` without reading learner memory from the database.
+- [x] 2026-10-31 00:35 UTC: Remove the remaining retired-name compatibility scope:
+  no retired-key registry, missing-definition repair, ID rebinding or reserved
+  prefix exception. Keep the three active system keys and ordinary course rules.
+- [x] 2026-10-31 00:40 UTC: Validate the final scope with 5,565 integrated backend
+  regressions and 93 conditional skips, three additional supplied-ID cases, and
+  the full repository pre-commit gate.
 
 ## Surprises & Discoveries
 
 - The current main branch has already removed the old `context_v2` runtime and
   manual variable-definition APIs. This change uses the remaining shared engine
-  host and automatic definition creation rather than restoring removed paths.
-- Historical global definitions survive a code cleanup. Definition reads and
-  automatic collision handling must filter them without changing stored rows.
+  host and ordinary authoring-time definition creation rather than restoring
+  removed paths.
+- Historical global definitions survive a code cleanup. Definition reads expose
+  only registered system fields and existing course definitions, without changing
+  stored rows.
 - The old `language` name also participates in output-language selection and
   preview restart handling. Removing only its profile label leaves that behavior.
 - Saved initial prompts can retain injected values after the current profile
@@ -52,9 +61,9 @@ prompts or snapshots.
   the editor's variable map. Continuing that preview uses its existing cached
   state. Restarting selects a fresh session; unused cached sessions expire
   naturally.
-- Existing courses may have only a retired global definition. The first normal
-  scoped assignment creates the missing course definition and uses its ID; no
-  historical row is migrated and arbitrary undeclared notes gain no definition.
+- Existing courses may have only a historical global definition. A later value
+  write does not repair that missing course definition. Undefined `sys_` keys
+  remain excluded from supplementary reads under the existing generic rule.
 - Pre-existing untracked `logs/` contain example identifiers unrelated to source
   validation. Repository checks use a temporary Git excludes file for those logs;
   the logs remain untracked and are not edited or committed.
@@ -70,17 +79,19 @@ prompts or snapshots.
   creates a new session ID; existing cached state remains available for its run
   until it expires. No namespace or cache version is introduced.
 - Keep the three active system keys in a shared exact-name allowlist. A `sys_`
-  prefix alone never grants global scope; existing undeclared-memory restrictions
-  still apply to `sys_user_style`.
+  prefix alone never grants global scope. Keep no retired-key registry or
+  reserved-prefix exception for former defaults.
 - Ordinary variables require a course identifier before any writes are staged.
   Fresh scoped reads do not use old global defaults for a missing course value
   or account field. Existing session prompts may still contain earlier values.
 - Preserve generic profile endpoint paths and response envelopes. Their built-in
   labels contain only the active fields, including canonical language.
-- Keep the newer authoring rule that rejects all `sys_` question bindings.
-  Retained published courses still persist exact retired `sys_user_style`
-  answers through a narrow runtime-only definition option; that option cannot
-  create any other reserved course definition and is never enabled by authoring.
+- Keep the authoring rule that rejects all `sys_` question bindings. Existing
+  stored course definitions use ordinary key/scope reads and writes. Value writes
+  do not create missing definitions, and undefined `sys_` keys remain excluded
+  from supplementary course-memory reads.
+- Keep each writer's existing definition-BID resolution. Former names receive no
+  forced ID rebinding; runtime value selection remains by key and scope.
 - Preserve current request/canonical language precedence, supported-language
   normalization and disabled-multilingual behavior. Course `language` values do
   not select teaching language and are never automatically overwritten.
@@ -89,25 +100,32 @@ prompts or snapshots.
 
 ## Outcomes & Retrospective
 
-The three canonical fields now own global profile behavior. Retired names use
-course scope, including old courses whose next answer creates a missing local
-definition. Old definitions, values, account columns and applied migrations are
-unchanged. Formal and debug sessions keep their ordinary lifecycle with no
-default-profile cleanup, retirement marker or new cache namespace. New formal
-sessions initialize from the current scoped `load_memory` result; editor previews
-initialize from supplied `preview_variables` without reading database memory.
+The three canonical fields own global profile behavior. Other variables use
+ordinary course paths, without a retired-name registry, definition repair, ID
+rebinding or reserved-prefix exception. Old definitions, values, account columns
+and applied migrations are unchanged. Formal and debug sessions keep their
+ordinary lifecycle with no default-profile cleanup, retirement marker or new
+cache namespace. New formal sessions initialize from the current scoped
+`load_memory` result; editor previews initialize from supplied `preview_variables`
+without reading database memory.
 Continued sessions retain their saved state under the existing generic session
 logic; old injected prompts are not guaranteed to be free of retired defaults.
 
-The final session simplification passed all 1,701 agent and route regressions,
+Final registry-removal validation passed 5,565 profile, user, learning, authoring
+and golden regressions with 93 conditional skips in isolated SQLite storage.
+Three supplied-definition-ID cases added after that suite's collection also
+passed separately. The full repository pre-commit gate passed, including the
+harness, architecture boundaries, translations, lint and formatting.
+
+Earlier session simplification passed all 1,701 agent and route regressions,
 including ordinary continuation of saved inputs and accepted answers and preview
 notes surviving requests without an editor variable echo.
 
 Earlier integrated backend validation passed 4,311 tests with 90 conditional skips.
 The eight affected frontend suites passed all 193 tests. Type-check, lint,
 translation usage/parity, architecture boundaries, repository harness and the
-full pre-commit gate passed. Independent review found and verified fixes for
-legacy-definition assignment and preview user-scope note persistence. No live
+full pre-commit gate passed. These results precede the final removal of the
+retired-name compatibility paths and do not validate that final scope. No live
 provider calls, business-database changes, deployment or main merge were needed.
 
 ## Context and Orientation
@@ -121,11 +139,13 @@ wire contracts; locale JSON and generated key types live in the shared i18n tree
 ## Plan of Work
 
 Unify active system keys, remove retired field metadata and account mappings, and
-filter global definition reads and automatic creation without changing course
-definitions. Remove legacy style prefill and account recovery. Coordinate the
-canonical language policy with frontend preview controls. Keep existing session
-snapshots under the ordinary lifecycle and remove the dedicated default-profile
-compatibility module, marker and storage hooks. Update fixtures and source-backed
+restrict global definition reads to active fields without changing ordinary
+course-definition paths. Remove the retired-key registry, definition repair,
+ID rebinding and reserved-prefix exception. Remove legacy style prefill and
+account recovery. Coordinate canonical language policy with frontend preview
+controls. Keep existing session snapshots under the ordinary lifecycle and remove
+the dedicated default-profile compatibility module, marker and storage hooks.
+Update fixtures and source-backed
 documentation with focused regression.
 
 ## Concrete Steps
@@ -141,14 +161,18 @@ documentation with focused regression.
 
 ## Validation and Acceptance
 
-- All five names can hold independent current-course values without reading old
-  global rows or modifying account fields. Exact-case identity is preserved.
-- Old global definitions remain stored but are neither advertised nor reused for
-  automatic course-variable creation. Reads never mutate or delete old values.
+- Existing course definitions use ordinary exact-key and course-scope values
+  without reading old global defaults or modifying account fields.
+- The system definition list includes only the three active fields. Ordinary
+  value writes do not repair definitions or apply retired-name-specific ID
+  rebinding. Existing authoring and supplemental-reader prefix rules apply
+  without exceptions.
+- Historical definitions and values remain stored. Reads never mutate or delete
+  old values; an undefined `sys_user_style` value is not loaded by the supplement.
 - Active nickname/language/background mappings, moderation, clear behavior and
   sign-in merge remain covered. Mixed invalid writes fail before partial changes.
-- Empty canonical learner profiles never prefill old style. Explicit authored
-  style variables remain visible through generic preview controls.
+- Empty canonical learner profiles never prefill old style. Existing course
+  variables remain visible through generic preview controls.
 - Output-language selection uses canonical `sys_user_language` and leaves ordinary
   course `language` values untouched.
 - Existing formal and debug sessions use the original generic lifecycle without

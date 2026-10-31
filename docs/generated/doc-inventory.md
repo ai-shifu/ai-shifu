@@ -283,7 +283,7 @@
 | `docs/product-specs/index.md` | Product Specs | `generated-doc` | `generated` | `repo` | `-` | `false` |
 | `docs/product-specs/language-selection-analytics.md` | Language Selection Analytics | `product-spec` | `implemented` | `frontend` | `-` | `true` |
 | `docs/product-specs/learner-listen-playback.md` | Learner Listen Playback and Timeline | `product-spec` | `implemented` | `frontend` | `2026-09-26` | `true` |
-| `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-10-30` | `true` |
+| `docs/product-specs/learner-memory-admission.md` | Learner Memory Admission | `product-spec` | `implemented` | `backend` | `2026-10-31` | `true` |
 | `docs/product-specs/lesson-content-updates.md` | Lesson Content Update Recommendations | `product-spec` | `implemented` | `shared` | `2026-10-12` | `true` |
 | `docs/product-specs/lesson-memory-context.md` | Lesson Memory Context | `product-spec` | `implemented` | `backend` | `2026-10-07` | `true` |
 | `docs/product-specs/mdflow-element-backfill.md` | MDFlow Element Backfill | `product-spec` | `implemented` | `shared` | `2026-04-17` | `true` |
@@ -307,7 +307,7 @@
 | `docs/product-specs/web-umami-contract-remediation.md` | Cook Web Umami Contract Remediation | `product-spec` | `implemented` | `frontend` | `2026-10-23` | `true` |
 | `docs/references/architecture-boundaries.md` | Architecture Boundaries | `reference` | `reference` | `repo` | `-` | `true` |
 | `docs/references/course-memory-references.md` | Retired explicit course references | `reference` | `superseded` | `learner` | `2026-10-08` | `false` |
-| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-30` | `true` |
+| `docs/references/course-variable-scopes.md` | System and course variable isolation | `reference` | `implemented` | `learner` | `2026-10-31` | `true` |
 | `docs/references/docker-base-images.md` | Production Docker base images | `reference` | `active` | `cross-surface` | `2026-10-21` | `true` |
 | `docs/references/docker-image-publication.md` | Docker image publication | `reference` | `canonical` | `repository` | `2026-10-22` | `true` |
 | `docs/references/follow-up-classroom-context.md` | Follow-up Classroom Context | `reference` | `implemented` | `learner` | `2026-10-09` | `true` |

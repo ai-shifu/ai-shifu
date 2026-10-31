@@ -15,10 +15,7 @@ from flaskr.service.common import raise_error
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.profile.course_references import is_course_reference
 from flaskr.service.profile.dtos import ProfileToSave
-from flaskr.service.profile.profile_manage import (
-    add_profile_item_quick_internal,
-    get_profile_item_definition_list,
-)
+from flaskr.service.profile.profile_manage import get_profile_item_definition_list
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
 from flaskr.service.user.repository import (
     UserAggregate,
@@ -32,7 +29,6 @@ from flaskr.util.uuid import generate_id
 
 from .constants import (
     ACTIVE_SYSTEM_PROFILE_KEYS,
-    RETIRED_PROFILE_KEYS,
     SYS_USER_BACKGROUND,
     SYS_USER_LANGUAGE,
     SYS_USER_NICKNAME,
@@ -261,17 +257,8 @@ def save_user_profiles(
         profile_item = next(
             (item for item in profiles_items if item.profile_key == profile.key), None
         )
-        if profile.key in RETIRED_PROFILE_KEYS and profile_item is None:
-            # Retained published courses may lack a local definition for a retired field.
-            profile_item = add_profile_item_quick_internal(
-                app, course_id, profile.key, user_id, allow_legacy_runtime_profile=True
-            )
-            profiles_items.append(profile_item)
-        variable_bid = (
-            profile_item.profile_id
-            if profile.key in RETIRED_PROFILE_KEYS and profile_item
-            else (profile.bid or "").strip()
-            or (profile_item.profile_id if profile_item else "")
+        variable_bid = (profile.bid or "").strip() or (
+            profile_item.profile_id if profile_item else ""
         )
         target_shifu = "" if profile.key in profile_labels else (course_id or "")
 
@@ -606,13 +593,6 @@ def update_user_profile_with_lable(
             profile_value not in (None, "") and profile_value != default_value
         )
         if should_persist_value:
-            if key in RETIRED_PROFILE_KEYS and (
-                profile_item is None or profile_item.profile_key != key
-            ):
-                profile_item = add_profile_item_quick_internal(
-                    app, course_id, key, user_id, allow_legacy_runtime_profile=True
-                )
-                profile_items.append(profile_item)
             latest_value = _get_latest_variable_value(
                 user_values,
                 variable_key=key,
