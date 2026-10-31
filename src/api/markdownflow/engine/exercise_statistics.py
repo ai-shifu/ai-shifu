@@ -352,9 +352,17 @@ def _coverage_error(references: dict[str, int], used: list[str]) -> str:
 def _hint_counts(
     row: ExerciseQuestion, records: dict[str, dict[str, Any]]
 ) -> tuple[int | None, int | None] | None:
-    """Derive counts from supplied round judgments; None means conflicting evidence."""
+    """Derive counts from supplied round judgments; None means conflicting evidence.
+
+    A question with no submissions has no rounds to derive from: hints after a
+    confirmation pause have no submission to carry them. Its total is the asserted
+    `hints`, which must cover a qualifying `hint_before`, and stays unknown when
+    omitted. With no first answer, its timing is known only when that total is zero.
+    """
     if not row.submissions:
-        return None, None
+        if row.hints is not None and row.hint_before is True and row.hints == 0:
+            return None
+        return row.hints, 0 if row.hints == 0 else None
     groups: dict[int, bool | None] = {}
     first = None
     for submission in row.submissions:
@@ -426,7 +434,9 @@ async def calculate_exercise_statistics(
     counts or provide matching assertions; unsupported counts are refused.
     Keep unknown hint timing null, never assume zero from not_answer alone.
     Zero non-answer counts are omitted from rows and totals; absence means zero.
-    Include unanswered questions with empty submissions. This tool
+    Include unanswered questions with empty submissions, and assert their hints
+    from the original teaching, including rounds after a confirmation pause;
+    without that assertion their count stays unknown. This tool
     verifies coverage and arithmetic, not semantic grading or question identity.
     Its counts are not evidence of personal misconceptions or causes. Ground
     every personal statement in the final table, advice and closing prose in an
