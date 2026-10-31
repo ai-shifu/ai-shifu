@@ -52,11 +52,11 @@ import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { useTranslation } from 'react-i18next';
 import { useTracking } from '@/hooks/useTracking';
-import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
+import { DebugVariablesMap, saveDebugVariables } from './variableStorage';
 import {
-  buildPreviewInteractionUserInput,
-  resolvePreviewGeneratedBlockBid,
-} from './preview-submission';
+  buildDebugInteractionUserInput,
+  resolveDebugGeneratedBlockBid,
+} from './debug-submission';
 
 interface InteractionParseResult {
   variableName?: string;
@@ -66,7 +66,7 @@ interface InteractionParseResult {
   isMultiSelect?: boolean;
 }
 
-interface StartPreviewParams {
+interface StartDebugParams {
   shifuBid?: string;
   outlineBid?: string;
   mdflow?: string;
@@ -77,11 +77,11 @@ interface StartPreviewParams {
   systemVariableKeys?: string[];
 }
 
-type PreviewSseSource = InstanceType<typeof SSE>;
+type DebugSseSource = InstanceType<typeof SSE>;
 
-// The preview API requires a debug session ID, so every browser context gets one.
+// The editor Debug API requires a session ID, so every browser context gets one.
 // The server keys a debug session by author, course, lesson and this ID, so the
-// fallback only has to differ between this author's previews; it is not a secret.
+// fallback only has to differ between this author's Debug runs; it is not a secret.
 let fallbackDebugSessionCount = 0;
 const fallbackDebugSessionId = () => {
   fallbackDebugSessionCount += 1;
@@ -102,20 +102,20 @@ const newDebugSessionId = () => {
   return fallbackDebugSessionId();
 };
 
-export const buildInteractionContinuationPreviewParams = ({
+export const buildInteractionContinuationDebugParams = ({
   currentParams,
   latestMdflow,
   blockIndex,
   variables,
   userInput,
 }: {
-  currentParams: StartPreviewParams;
+  currentParams: StartDebugParams;
   latestMdflow: string;
   blockIndex: number;
-  variables: PreviewVariablesMap;
+  variables: DebugVariablesMap;
   userInput?: Record<string, string[]>;
-}): StartPreviewParams => {
-  const nextParams: StartPreviewParams = {
+}): StartDebugParams => {
+  const nextParams: StartDebugParams = {
     ...currentParams,
     mdflow: latestMdflow,
     block_index: blockIndex,
@@ -131,8 +131,8 @@ export const buildInteractionContinuationPreviewParams = ({
   return nextParams;
 };
 
-enum PREVIEW_SSE_OUTPUT_TYPE {
-  PREVIEW_ENGINE = 'preview_engine',
+enum DEBUG_SSE_OUTPUT_TYPE {
+  DEBUG_ENGINE = 'preview_engine',
   ELEMENT = 'element',
   INTERACTION = 'interaction',
   CONTENT = 'content',
@@ -143,7 +143,7 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
   AUDIO_COMPLETE = 'audio_complete',
 }
 
-type PreviewSseResponseData = {
+type DebugSseResponseData = {
   type?: string;
   event_type?: string;
   code?: number;
@@ -153,8 +153,8 @@ type PreviewSseResponseData = {
   is_terminal?: unknown;
 };
 
-const resolvePreviewBusinessCode = (
-  response: PreviewSseResponseData,
+const resolveDebugBusinessCode = (
+  response: DebugSseResponseData,
 ): number | undefined => {
   if (typeof response.code === 'number') {
     return response.code;
@@ -168,8 +168,8 @@ const resolvePreviewBusinessCode = (
   return undefined;
 };
 
-const PREVIEW_LOADING_ITEM_BID = 'loading';
-const PREVIEW_BUSINESS_ERROR_ITEM_BID = 'preview-business-error';
+const DEBUG_LOADING_ITEM_BID = 'loading';
+const DEBUG_BUSINESS_ERROR_ITEM_BID = 'preview-business-error';
 
 const parseObjectPayload = <T extends Record<string, unknown>>(
   input: unknown,
@@ -201,7 +201,7 @@ const parseObjectPayload = <T extends Record<string, unknown>>(
 };
 
 const resolveResponsePayload = (
-  response: PreviewSseResponseData,
+  response: DebugSseResponseData,
 ): Record<string, unknown> | null => {
   return (
     parseObjectPayload<Record<string, unknown>>(response.content) ||
@@ -210,7 +210,7 @@ const resolveResponsePayload = (
 };
 
 const resolveResponseStringPayload = (
-  response: PreviewSseResponseData,
+  response: DebugSseResponseData,
 ): string => {
   const contentPayload =
     typeof response.content === 'string' ? response.content : '';
@@ -231,7 +231,7 @@ const resolveResponseStringPayload = (
 };
 
 const resolveDoneIsTerminal = (
-  response: PreviewSseResponseData,
+  response: DebugSseResponseData,
 ): boolean | null => {
   const topLevelFlag = readBooleanField(response as Record<string, unknown>, [
     'is_terminal',
@@ -282,14 +282,14 @@ const readBooleanField = (
 };
 
 const resolveElementPayload = (
-  response: PreviewSseResponseData,
+  response: DebugSseResponseData,
 ): Partial<StudyRecordItem> | null => {
   return resolveResponsePayload(response) as Partial<StudyRecordItem> | null;
 };
 
 const resolveElementBid = (
   elementRecord: Partial<StudyRecordItem> | null,
-  response: PreviewSseResponseData,
+  response: DebugSseResponseData,
 ): string => {
   if (!elementRecord) {
     return '';
@@ -335,11 +335,11 @@ const resolveElementIndex = (
 
 const buildVariablesSnapshot = (
   variables?: Record<string, unknown>,
-): PreviewVariablesMap => {
+): DebugVariablesMap => {
   if (!variables) {
     return {};
   }
-  return Object.entries(variables).reduce<PreviewVariablesMap>((acc, entry) => {
+  return Object.entries(variables).reduce<DebugVariablesMap>((acc, entry) => {
     const [key, value] = entry;
     if (value === undefined || value === null) {
       acc[key] = '';
@@ -355,7 +355,7 @@ const buildVariablesSnapshot = (
   }, {});
 };
 
-const resolvePreviewItemBid = (
+const resolveDebugItemBid = (
   item?: Pick<ChatContentItem, 'generated_block_bid' | 'element_bid'> | null,
 ): string => {
   if (!item) {
@@ -364,13 +364,13 @@ const resolvePreviewItemBid = (
   return item.element_bid || item.generated_block_bid || '';
 };
 
-const isPreviewActionableItem = (
+const isDebugActionableItem = (
   item?: Pick<
     ChatContentItem,
     'type' | 'generated_block_bid' | 'element_bid'
   > | null,
 ): boolean => {
-  const resolvedBid = resolvePreviewItemBid(item);
+  const resolvedBid = resolveDebugItemBid(item);
   if (!resolvedBid || resolvedBid === 'loading') {
     return false;
   }
@@ -380,13 +380,13 @@ const isPreviewActionableItem = (
   );
 };
 
-const resolveLatestPreviewActionableItem = (
+const resolveLatestDebugActionableItem = (
   items: ChatContentItem[],
 ): ChatContentItem | undefined => {
-  return [...items].reverse().find(item => isPreviewActionableItem(item));
+  return [...items].reverse().find(item => isDebugActionableItem(item));
 };
 
-const matchPreviewItemBid = (item: ChatContentItem, bid: string) => {
+const matchDebugItemBid = (item: ChatContentItem, bid: string) => {
   if (!bid) {
     return false;
   }
@@ -394,11 +394,11 @@ const matchPreviewItemBid = (item: ChatContentItem, bid: string) => {
   return item.element_bid === bid;
 };
 
-const syncPreviewActionableFinalState = (items: ChatContentItem[]) => {
+const syncDebugActionableFinalState = (items: ChatContentItem[]) => {
   let lastActionableIndex = -1;
 
   for (let index = items.length - 1; index >= 0; index -= 1) {
-    if (isPreviewActionableItem(items[index])) {
+    if (isDebugActionableItem(items[index])) {
       lastActionableIndex = index;
       break;
     }
@@ -410,7 +410,7 @@ const syncPreviewActionableFinalState = (items: ChatContentItem[]) => {
 
   let hasChanges = false;
   const nextItems = items.map((item, index) => {
-    if (!isPreviewActionableItem(item) || index >= lastActionableIndex) {
+    if (!isDebugActionableItem(item) || index >= lastActionableIndex) {
       return item;
     }
 
@@ -438,19 +438,19 @@ const syncPreviewActionableFinalState = (items: ChatContentItem[]) => {
   return hasChanges ? nextItems : items;
 };
 
-export const buildPreviewBusinessErrorItem = (
+export const buildDebugBusinessErrorItem = (
   message: string,
   businessCode?: number,
 ): ChatContentItem => ({
-  element_bid: PREVIEW_BUSINESS_ERROR_ITEM_BID,
-  generated_block_bid: PREVIEW_BUSINESS_ERROR_ITEM_BID,
+  element_bid: DEBUG_BUSINESS_ERROR_ITEM_BID,
+  generated_block_bid: DEBUG_BUSINESS_ERROR_ITEM_BID,
   content: message,
   readonly: true,
   type: ChatContentItemType.ERROR,
   business_code: businessCode,
 });
 
-export const replacePreviewLoadingWithBusinessError = (
+export const replaceDebugLoadingWithBusinessError = (
   items: ChatContentItem[],
   message: string,
   businessCode?: number,
@@ -458,23 +458,23 @@ export const replacePreviewLoadingWithBusinessError = (
   const normalizedMessage = message.trim();
   if (!normalizedMessage) {
     return items.filter(
-      item => item.generated_block_bid !== PREVIEW_LOADING_ITEM_BID,
+      item => item.generated_block_bid !== DEBUG_LOADING_ITEM_BID,
     );
   }
 
   const nextList = items.filter(
     item =>
-      item.generated_block_bid !== PREVIEW_LOADING_ITEM_BID &&
-      item.generated_block_bid !== PREVIEW_BUSINESS_ERROR_ITEM_BID,
+      item.generated_block_bid !== DEBUG_LOADING_ITEM_BID &&
+      item.generated_block_bid !== DEBUG_BUSINESS_ERROR_ITEM_BID,
   );
 
   return [
     ...nextList,
-    buildPreviewBusinessErrorItem(normalizedMessage, businessCode),
+    buildDebugBusinessErrorItem(normalizedMessage, businessCode),
   ];
 };
 
-export function usePreviewChat({
+export function useDebugChat({
   creditInsufficientAudience,
 }: {
   creditInsufficientAudience: CreditInsufficientAudience | null;
@@ -502,22 +502,23 @@ export function usePreviewChat({
   const currentContentRef = useRef<string>('');
   const currentContentIdRef = useRef<string | null>(null);
   const currentStreamingElementBidRef = useRef<string | null>(null);
-  const sseParams = useRef<StartPreviewParams>({});
+  const sseParams = useRef<StartDebugParams>({});
   const initialVariablesRef = useRef<Record<string, unknown> | null>(null);
-  const sseRef = useRef<PreviewSseSource | null>(null);
-  const ttsSseRef = useRef<Record<string, PreviewSseSource>>({});
+  const sseRef = useRef<DebugSseSource | null>(null);
+  const ttsSseRef = useRef<Record<string, DebugSseSource>>({});
   const ttsCancelRef = useRef<Record<string, () => void>>({});
-  const previewRunIdRef = useRef(0);
+  const debugRunIdRef = useRef(0);
   const debugSessionIdRef = useRef(newDebugSessionId());
   // Whether a run of the current debug session has started streaming. Editing
   // the script only restarts the debug session once a run has started.
-  const previewRunStartedRef = useRef(false);
+  const debugRunStartedRef = useRef(false);
   const trackedEngineSessionIdRef = useRef<string | null>(null);
   const isStreamingRef = useRef(false);
-  const previewFailedRef = useRef(false);
+  const debugFailedRef = useRef(false);
   const doneTerminalStateRef = useRef<boolean | null>(null);
-  const [variablesSnapshot, setVariablesSnapshot] =
-    useState<PreviewVariablesMap>({});
+  const [variablesSnapshot, setVariablesSnapshot] = useState<DebugVariablesMap>(
+    {},
+  );
   const interactionParserRef = useRef(createInteractionParser());
   const freshAgentInteractionBidsRef = useRef<Set<string>>(new Set());
   const resolveLatestMdflow = useCallback(() => {
@@ -538,7 +539,7 @@ export function usePreviewChat({
     });
   }, [t]);
 
-  const showPreviewErrorToast = useCallback(
+  const showDebugErrorToast = useCallback(
     (message: string, fallbackMessage: string) => {
       return showAiServiceErrorToast({
         message,
@@ -562,7 +563,7 @@ export function usePreviewChat({
             ? (updater as (prev: ChatContentItem[]) => ChatContentItem[])(prev)
             : updater;
         const normalizedNext = normalizeLegacyBlockCompatList(
-          syncPreviewActionableFinalState(next),
+          syncDebugActionableFinalState(next),
         );
         contentListRef.current = normalizedNext;
         return normalizedNext;
@@ -577,7 +578,7 @@ export function usePreviewChat({
     }
     const update = { [name]: value };
     if (initialVariablesRef.current && name === 'sys_user_language') {
-      // Language is a preview setting, not an answer to discard on restart.
+      // Language is a Debug setting, not an answer to discard on restart.
       initialVariablesRef.current = {
         ...initialVariablesRef.current,
         ...update,
@@ -599,11 +600,11 @@ export function usePreviewChat({
     }: {
       shifuBid?: string;
       systemVariableKeys?: string[];
-      variables?: PreviewVariablesMap;
+      variables?: DebugVariablesMap;
     }) => {
       const resolvedVariables =
         variables ||
-        (sseParams.current.variables as PreviewVariablesMap) ||
+        (sseParams.current.variables as DebugVariablesMap) ||
         variablesSnapshot;
       const resolvedShifuBid = shifuBid || sseParams.current.shifuBid;
       const resolvedSystemKeys =
@@ -611,7 +612,7 @@ export function usePreviewChat({
       if (!resolvedShifuBid) {
         return;
       }
-      savePreviewVariables(
+      saveDebugVariables(
         resolvedShifuBid,
         resolvedVariables,
         resolvedSystemKeys,
@@ -648,7 +649,7 @@ export function usePreviewChat({
   }, []);
 
   const closeAllTtsStreams = useCallback(() => {
-    // Cancellation settles callers even after stopPreview invalidates the run.
+    // Cancellation settles callers even after stopDebug invalidates the run.
     Object.values(ttsCancelRef.current).forEach(cancel => cancel());
     ttsCancelRef.current = {};
     Object.values(ttsSseRef.current).forEach(source => {
@@ -657,18 +658,18 @@ export function usePreviewChat({
     ttsSseRef.current = {};
   }, []);
 
-  const invalidatePreviewRun = useCallback(() => {
-    previewRunIdRef.current += 1;
-    return previewRunIdRef.current;
+  const invalidateDebugRun = useCallback(() => {
+    debugRunIdRef.current += 1;
+    return debugRunIdRef.current;
   }, []);
 
-  const isCurrentPreviewRun = useCallback(
-    (runId: number) => previewRunIdRef.current === runId,
+  const isCurrentDebugRun = useCallback(
+    (runId: number) => debugRunIdRef.current === runId,
     [],
   );
 
-  const stopPreview = useCallback(() => {
-    invalidatePreviewRun();
+  const stopDebug = useCallback(() => {
+    invalidateDebugRun();
     if (sseRef.current) {
       sseRef.current.close();
       sseRef.current = null;
@@ -677,11 +678,11 @@ export function usePreviewChat({
     isStreamingRef.current = false;
     currentStreamingElementBidRef.current = null;
     setIsLoading(false);
-  }, [closeAllTtsStreams, invalidatePreviewRun]);
+  }, [closeAllTtsStreams, invalidateDebugRun]);
 
-  const handlePreviewBusinessError = useCallback(
+  const handleDebugBusinessError = useCallback(
     (errorOrMessage?: string | ErrorWithCode | null, fallbackCode?: number) => {
-      previewFailedRef.current = true;
+      debugFailedRef.current = true;
       const resolvedToast = resolveLearnerErrorToast({
         error: typeof errorOrMessage === 'string' ? undefined : errorOrMessage,
         message:
@@ -696,7 +697,7 @@ export function usePreviewChat({
       let displayMessage: string;
       if (isCreditError) {
         if (creditInsufficientAudience === null) {
-          stopPreview();
+          stopDebug();
           return;
         }
         displayMessage = getCreditInsufficientMessage(
@@ -708,33 +709,33 @@ export function usePreviewChat({
           code: resolvedCode,
         });
       } else {
-        displayMessage = showPreviewErrorToast(
+        displayMessage = showDebugErrorToast(
           resolvedToast.message,
           t('module.preview.llmError'),
         );
       }
       setTrackedContentList(prev =>
-        replacePreviewLoadingWithBusinessError(
+        replaceDebugLoadingWithBusinessError(
           prev,
           displayMessage,
           resolvedCode,
         ),
       );
       setError(displayMessage);
-      stopPreview();
+      stopDebug();
     },
     [
       creditInsufficientAudience,
       setTrackedContentList,
-      showPreviewErrorToast,
-      stopPreview,
+      showDebugErrorToast,
+      stopDebug,
       t,
     ],
   );
 
-  const resetPreview = useCallback(() => {
-    previewFailedRef.current = false;
-    stopPreview();
+  const resetDebug = useCallback(() => {
+    debugFailedRef.current = false;
+    stopDebug();
     setTrackedContentList([]);
     setError(null);
     currentContentRef.current = '';
@@ -744,9 +745,9 @@ export function usePreviewChat({
     setVariablesSnapshot({});
     initialVariablesRef.current = null;
     debugSessionIdRef.current = newDebugSessionId();
-    previewRunStartedRef.current = false;
+    debugRunStartedRef.current = false;
     trackedEngineSessionIdRef.current = null;
-  }, [stopPreview, setTrackedContentList]);
+  }, [stopDebug, setTrackedContentList]);
 
   const clearFreshAgentInteractionAnswer = useCallback(
     (itemBid: string, variableName?: string) => {
@@ -755,7 +756,7 @@ export function usePreviewChat({
       }
       freshAgentInteractionBidsRef.current.add(itemBid);
       const currentVariables = (sseParams.current.variables ||
-        {}) as PreviewVariablesMap;
+        {}) as DebugVariablesMap;
       if (!(variableName in currentVariables)) {
         return;
       }
@@ -794,7 +795,7 @@ export function usePreviewChat({
       blockId: string,
       defaults: Partial<ChatContentItem> = {},
     ) => {
-      const hasTarget = items.some(item => matchPreviewItemBid(item, blockId));
+      const hasTarget = items.some(item => matchDebugItemBid(item, blockId));
       if (hasTarget) {
         return items;
       }
@@ -848,7 +849,7 @@ export function usePreviewChat({
     [buildLikeStatusItem],
   );
 
-  const finalizePreviewElementOutputInList = useCallback(
+  const finalizeDebugElementOutputInList = useCallback(
     (items: ChatContentItem[], completedElementBid: string) => {
       if (!completedElementBid) {
         return items;
@@ -878,28 +879,28 @@ export function usePreviewChat({
     [appendLikeStatusIfMissing],
   );
 
-  const finalizePreviewItems = useCallback(() => {
+  const finalizeDebugItems = useCallback(() => {
     flushSync(() => {
       setTrackedContentList((prev: ChatContentItem[]) => {
         const updatedList = [...prev].filter(
           item => item.generated_block_bid !== 'loading',
         );
-        const latestActionableBid = resolvePreviewItemBid(
-          resolveLatestPreviewActionableItem(updatedList),
+        const latestActionableBid = resolveDebugItemBid(
+          resolveLatestDebugActionableItem(updatedList),
         );
         if (!latestActionableBid) {
           return updatedList;
         }
-        return finalizePreviewElementOutputInList(
+        return finalizeDebugElementOutputInList(
           updatedList,
           latestActionableBid,
         );
       });
     });
-  }, [finalizePreviewElementOutputInList, setTrackedContentList]);
+  }, [finalizeDebugElementOutputInList, setTrackedContentList]);
 
-  const upsertElementPreviewItem = useCallback(
-    (response: PreviewSseResponseData) => {
+  const upsertElementDebugItem = useCallback(
+    (response: DebugSseResponseData) => {
       const elementRecord = resolveElementPayload(response);
       const itemBid = resolveElementBid(elementRecord, response);
       if (!itemBid) {
@@ -907,7 +908,7 @@ export function usePreviewChat({
       }
 
       const elementType = resolveElementType(elementRecord);
-      const generatedBlockBid = resolvePreviewGeneratedBlockBid({
+      const generatedBlockBid = resolveDebugGeneratedBlockBid({
         elementGeneratedBlockBid: elementRecord?.generated_block_bid,
         responseGeneratedBlockBid: response.generated_block_bid,
         fallbackBid: itemBid,
@@ -944,24 +945,23 @@ export function usePreviewChat({
           const previousItem = nextList.find(
             item => item.element_bid === previousStreamingElementBid,
           );
-          const previousItemBid = resolvePreviewItemBid(previousItem);
-          if (isPreviewActionableItem(previousItem) && previousItemBid) {
+          const previousItemBid = resolveDebugItemBid(previousItem);
+          if (isDebugActionableItem(previousItem) && previousItemBid) {
             completedElementBid = previousItemBid;
           }
         }
 
         if (!completedElementBid && !hasIncomingItem) {
           const latestActionableItem =
-            resolveLatestPreviewActionableItem(nextList);
-          const latestActionableBid =
-            resolvePreviewItemBid(latestActionableItem);
+            resolveLatestDebugActionableItem(nextList);
+          const latestActionableBid = resolveDebugItemBid(latestActionableItem);
           if (latestActionableBid && latestActionableBid !== itemBid) {
             completedElementBid = latestActionableBid;
           }
         }
 
         if (completedElementBid) {
-          nextList = finalizePreviewElementOutputInList(
+          nextList = finalizeDebugElementOutputInList(
             nextList,
             completedElementBid,
           );
@@ -1028,7 +1028,7 @@ export function usePreviewChat({
     },
     [
       clearFreshAgentInteractionAnswer,
-      finalizePreviewElementOutputInList,
+      finalizeDebugElementOutputInList,
       parseInteractionBlock,
       setTrackedContentList,
     ],
@@ -1041,9 +1041,7 @@ export function usePreviewChat({
         if (!normalizedPayload) {
           return;
         }
-        const response = JSON.parse(
-          normalizedPayload,
-        ) as PreviewSseResponseData;
+        const response = JSON.parse(normalizedPayload) as DebugSseResponseData;
         const responseType =
           typeof response.type === 'string'
             ? response.type
@@ -1060,18 +1058,18 @@ export function usePreviewChat({
             ? payloadObject.generated_block_bid
             : '');
         if (
-          responseType === PREVIEW_SSE_OUTPUT_TYPE.ELEMENT ||
-          responseType === PREVIEW_SSE_OUTPUT_TYPE.INTERACTION ||
-          responseType === PREVIEW_SSE_OUTPUT_TYPE.CONTENT
+          responseType === DEBUG_SSE_OUTPUT_TYPE.ELEMENT ||
+          responseType === DEBUG_SSE_OUTPUT_TYPE.INTERACTION ||
+          responseType === DEBUG_SSE_OUTPUT_TYPE.CONTENT
         ) {
           setTrackedContentList(prev =>
             prev.filter(item => item.generated_block_bid !== 'loading'),
           );
         }
 
-        if (responseType === PREVIEW_SSE_OUTPUT_TYPE.ELEMENT) {
-          upsertElementPreviewItem(response);
-        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.INTERACTION) {
+        if (responseType === DEBUG_SSE_OUTPUT_TYPE.ELEMENT) {
+          upsertElementDebugItem(response);
+        } else if (responseType === DEBUG_SSE_OUTPUT_TYPE.INTERACTION) {
           const interactionContent = resolveResponseStringPayload(response);
           const interactionInfo = parseInteractionBlock(interactionContent);
           const variableName = interactionInfo?.variableName;
@@ -1115,7 +1113,7 @@ export function usePreviewChat({
               const lastContentBid =
                 lastContent.generated_block_bid || lastContent.element_bid;
               if (lastContentBid) {
-                nextList = finalizePreviewElementOutputInList(
+                nextList = finalizeDebugElementOutputInList(
                   nextList,
                   lastContentBid,
                 );
@@ -1123,7 +1121,7 @@ export function usePreviewChat({
             }
 
             const hitIndex = nextList.findIndex(item =>
-              matchPreviewItemBid(item, currentBlockBid),
+              matchDebugItemBid(item, currentBlockBid),
             );
             if (hitIndex > -1) {
               const updatedList = [...nextList];
@@ -1138,7 +1136,7 @@ export function usePreviewChat({
             nextList = [...nextList, interactionBlock];
             return appendLikeStatusIfMissing(nextList, currentBlockBid);
           });
-        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.CONTENT) {
+        } else if (responseType === DEBUG_SSE_OUTPUT_TYPE.CONTENT) {
           const markdownPayload = resolveResponseStringPayload(response);
           const contentId = ensureContentItem(
             currentStreamingElementBidRef.current ||
@@ -1147,7 +1145,7 @@ export function usePreviewChat({
               'preview-content',
           );
           const existingItem = contentListRef.current.find(item =>
-            matchPreviewItemBid(item, contentId),
+            matchDebugItemBid(item, contentId),
           );
           const prevText =
             currentContentRef.current ||
@@ -1162,7 +1160,7 @@ export function usePreviewChat({
           const displayText = maskIncompleteMermaidBlock(nextText);
           setTrackedContentList(prev =>
             prev.map(item =>
-              matchPreviewItemBid(item, contentId)
+              matchDebugItemBid(item, contentId)
                 ? {
                     ...item,
                     content: displayText,
@@ -1173,8 +1171,8 @@ export function usePreviewChat({
                 : item,
             ),
           );
-        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.PREVIEW_ENGINE) {
-          previewRunStartedRef.current = true;
+        } else if (responseType === DEBUG_SSE_OUTPUT_TYPE.DEBUG_ENGINE) {
+          debugRunStartedRef.current = true;
           if (
             response.content === '2.0' &&
             trackedEngineSessionIdRef.current !== debugSessionIdRef.current
@@ -1186,31 +1184,31 @@ export function usePreviewChat({
               outline_bid: sseParams.current.outlineBid,
             });
           }
-        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.DONE) {
+        } else if (responseType === DEBUG_SSE_OUTPUT_TYPE.DONE) {
           const doneIsTerminal = resolveDoneIsTerminal(response);
-          finalizePreviewItems();
+          finalizeDebugItems();
           doneTerminalStateRef.current = doneIsTerminal;
           currentContentIdRef.current = null;
           currentContentRef.current = '';
           currentStreamingElementBidRef.current = null;
           if (doneIsTerminal === true) {
-            stopPreview();
+            stopDebug();
           }
-        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END) {
-          finalizePreviewItems();
+        } else if (responseType === DEBUG_SSE_OUTPUT_TYPE.TEXT_END) {
+          finalizeDebugItems();
           currentContentIdRef.current = null;
           currentContentRef.current = '';
           currentStreamingElementBidRef.current = null;
-          stopPreview();
-        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.ERROR) {
+          stopDebug();
+        } else if (responseType === DEBUG_SSE_OUTPUT_TYPE.ERROR) {
           const errorMessage =
             resolveResponseStringPayload(response) ||
             t('module.preview.llmError');
-          handlePreviewBusinessError(
+          handleDebugBusinessError(
             errorMessage,
-            resolvePreviewBusinessCode(response),
+            resolveDebugBusinessCode(response),
           );
-        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+        } else if (responseType === DEBUG_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
           const audioSegment = normalizeAudioSegmentPayload(
             resolveResponsePayload(response),
           );
@@ -1224,7 +1222,7 @@ export function usePreviewChat({
               ),
             );
           }
-        } else if (responseType === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+        } else if (responseType === DEBUG_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
           const audioComplete = normalizeAudioCompletePayload(
             resolveResponsePayload(response),
           );
@@ -1251,25 +1249,25 @@ export function usePreviewChat({
       clearFreshAgentInteractionAnswer,
       ensureAudioItem,
       ensureContentItem,
-      finalizePreviewElementOutputInList,
-      finalizePreviewItems,
-      handlePreviewBusinessError,
+      finalizeDebugElementOutputInList,
+      finalizeDebugItems,
+      handleDebugBusinessError,
       parseInteractionBlock,
-      stopPreview,
+      stopDebug,
       trackEvent,
       setTrackedContentList,
       t,
-      upsertElementPreviewItem,
+      upsertElementDebugItem,
     ],
   );
 
   useEffect(() => {
     return () => {
-      stopPreview();
+      stopDebug();
     };
-  }, [stopPreview]);
+  }, [stopDebug]);
 
-  const startPreview = useCallback(
+  const startDebug = useCallback(
     async ({
       shifuBid,
       outlineBid,
@@ -1279,7 +1277,7 @@ export function usePreviewChat({
       variables,
       max_block_count,
       systemVariableKeys,
-    }: StartPreviewParams) => {
+    }: StartDebugParams) => {
       if (creditInsufficientAudience === null) {
         return;
       }
@@ -1292,11 +1290,11 @@ export function usePreviewChat({
         )
           ? user_input
           : undefined;
-      if (previewRunStartedRef.current && mdflow !== sseParams.current.mdflow) {
+      if (debugRunStartedRef.current && mdflow !== sseParams.current.mdflow) {
         // An answer to an edited question belongs to the old script. Start the
         // new draft from its beginning with a new debug session instead.
         variables = { ...(initialVariablesRef.current || {}) };
-        resetPreview();
+        resetDebug();
         normalizedUserInput = undefined;
         block_index = 0;
       }
@@ -1306,7 +1304,7 @@ export function usePreviewChat({
       if (!debugSessionIdRef.current) {
         debugSessionIdRef.current = newDebugSessionId();
       }
-      const mergedParams: StartPreviewParams = {
+      const mergedParams: StartDebugParams = {
         ...sseParams.current,
         shifuBid,
         outlineBid,
@@ -1324,7 +1322,7 @@ export function usePreviewChat({
         variables: finalVariables = {},
         max_block_count: finalMaxBlockCount,
       } = mergedParams;
-      previewFailedRef.current = false;
+      debugFailedRef.current = false;
       sseParams.current = mergedParams;
       setVariablesSnapshot(buildVariablesSnapshot(finalVariables));
 
@@ -1338,12 +1336,12 @@ export function usePreviewChat({
         finalMaxBlockCount >= 0 &&
         finalBlockIndex >= finalMaxBlockCount
       ) {
-        stopPreview();
+        stopDebug();
         return;
       }
 
-      stopPreview();
-      const previewRunId = invalidatePreviewRun();
+      stopDebug();
+      const debugRunId = invalidateDebugRun();
       doneTerminalStateRef.current = null;
       const resolvedBaseUrl = await resolveBaseUrl();
       if (!resolvedBaseUrl) {
@@ -1353,8 +1351,8 @@ export function usePreviewChat({
       setTrackedContentList(prev => [
         ...prev.filter(item => item.generated_block_bid !== 'loading'),
         {
-          element_bid: PREVIEW_LOADING_ITEM_BID,
-          generated_block_bid: PREVIEW_LOADING_ITEM_BID,
+          element_bid: DEBUG_LOADING_ITEM_BID,
+          generated_block_bid: DEBUG_LOADING_ITEM_BID,
           content: '',
           customRenderBar: () => <LoadingBar />,
           type: ChatContentItemType.CONTENT,
@@ -1411,13 +1409,13 @@ export function usePreviewChat({
             if (sseRef.current !== source) {
               return;
             }
-            handlePreviewBusinessError(error);
+            handleDebugBusinessError(error);
           },
         });
         source.addEventListener('message', event => {
           if (
-            !isCurrentPreviewRun(previewRunId) ||
-            previewFailedRef.current ||
+            !isCurrentDebugRun(debugRunId) ||
+            debugFailedRef.current ||
             sseRef.current !== source
           ) {
             return;
@@ -1431,60 +1429,60 @@ export function usePreviewChat({
           }
         });
         source.addEventListener('error', err => {
-          if (!isCurrentPreviewRun(previewRunId) || sseRef.current !== source) {
+          if (!isCurrentDebugRun(debugRunId) || sseRef.current !== source) {
             return;
           }
           debugError('[preview-chat] preview SSE error', err);
-          finalizePreviewItems();
+          finalizeDebugItems();
           const hasReceivedNonTerminalDone =
             doneTerminalStateRef.current === false;
           if (hasReceivedNonTerminalDone) {
-            stopPreview();
+            stopDebug();
             return;
           }
-          handlePreviewBusinessError(t('module.preview.streamError'));
+          handleDebugBusinessError(t('module.preview.streamError'));
         });
         source.stream();
       } catch (err) {
-        previewFailedRef.current = true;
+        debugFailedRef.current = true;
         debugError('[preview-chat] preview stream error', err);
-        handlePreviewBusinessError(
+        handleDebugBusinessError(
           resolveLearnerErrorMessage({
             error: err as ErrorWithCode,
             fallbackMessage: t('module.preview.requestFailed'),
           }),
         );
-        stopPreview();
+        stopDebug();
         setIsLoading(false);
       }
     },
     [
-      finalizePreviewItems,
+      finalizeDebugItems,
       creditInsufficientAudience,
-      handlePreviewBusinessError,
+      handleDebugBusinessError,
       handlePayload,
-      invalidatePreviewRun,
-      isCurrentPreviewRun,
+      invalidateDebugRun,
+      isCurrentDebugRun,
       resolveBaseUrl,
-      resetPreview,
+      resetDebug,
       setTrackedContentList,
-      stopPreview,
+      stopDebug,
       t,
     ],
   );
 
-  const restartAgentPreview = useCallback(() => {
+  const restartAgentDebug = useCallback(() => {
     const currentParams = { ...sseParams.current };
     const initialVariables = { ...(initialVariablesRef.current || {}) };
-    resetPreview();
-    void startPreview({
+    resetDebug();
+    void startDebug({
       ...currentParams,
       mdflow: resolveLatestMdflow(),
       variables: initialVariables,
       block_index: 0,
       user_input: undefined,
     });
-  }, [resetPreview, resolveLatestMdflow, startPreview]);
+  }, [resetDebug, resolveLatestMdflow, startDebug]);
 
   const updateContentListWithUserOperate = useCallback(
     (
@@ -1501,7 +1499,7 @@ export function usePreviewChat({
         ) || [];
       if (sameVariableValueItems.length > 1) {
         needChangeItemIndex = newList.findIndex(item =>
-          matchPreviewItemBid(item, blockBid),
+          matchDebugItemBid(item, blockBid),
         );
       }
       if (needChangeItemIndex !== -1) {
@@ -1534,7 +1532,7 @@ export function usePreviewChat({
   const resolveLastActionableBlockBid = useCallback(
     (items: ChatContentItem[]) => {
       const lastActionableItem = [...items].reverse().find(item => {
-        const elementBid = resolvePreviewItemBid(item);
+        const elementBid = resolveDebugItemBid(item);
         if (!elementBid || elementBid === 'loading') {
           return false;
         }
@@ -1545,7 +1543,7 @@ export function usePreviewChat({
         );
       });
 
-      return resolvePreviewItemBid(lastActionableItem) || '';
+      return resolveDebugItemBid(lastActionableItem) || '';
     },
     [],
   );
@@ -1564,7 +1562,7 @@ export function usePreviewChat({
         return false;
       }
       if (resolveLatestMdflow() !== sseParams.current.mdflow) {
-        restartAgentPreview();
+        restartAgentDebug();
         return true;
       }
 
@@ -1594,7 +1592,7 @@ export function usePreviewChat({
         }
         // Editor debug has no persisted turn blocks to rewind. Start a new lesson
         // rather than send an old answer to the current debug session.
-        restartAgentPreview();
+        restartAgentDebug();
         return true;
       }
 
@@ -1615,45 +1613,45 @@ export function usePreviewChat({
       const nextValue = values.join(',');
 
       if (hasVariableName) {
-        const nextVariables: PreviewVariablesMap = {
-          ...(sseParams.current.variables as PreviewVariablesMap),
+        const nextVariables: DebugVariablesMap = {
+          ...(sseParams.current.variables as DebugVariablesMap),
           [normalizedVariableName]: nextValue,
         };
         sseParams.current.variables = nextVariables;
         setVariablesSnapshot(buildVariablesSnapshot(nextVariables));
-        savePreviewVariables(
+        saveDebugVariables(
           sseParams.current.shifuBid,
           { [normalizedVariableName]: nextValue },
           sseParams.current.systemVariableKeys || [],
         );
       }
 
-      const requestVariables: PreviewVariablesMap =
-        (sseParams.current.variables as PreviewVariablesMap) || {};
-      const userInputPayload = buildPreviewInteractionUserInput(
+      const requestVariables: DebugVariablesMap =
+        (sseParams.current.variables as DebugVariablesMap) || {};
+      const userInputPayload = buildDebugInteractionUserInput(
         normalizedVariableName,
         values,
       );
 
-      const nextParams = buildInteractionContinuationPreviewParams({
+      const nextParams = buildInteractionContinuationDebugParams({
         currentParams: sseParams.current,
         latestMdflow: resolveLatestMdflow(),
         blockIndex: sseParams.current.block_index ?? 0,
         variables: requestVariables,
         userInput: userInputPayload,
       });
-      startPreview(nextParams);
+      startDebug(nextParams);
       return true;
     },
     [
       creditInsufficientAudience,
       setTrackedContentList,
       showOutputInProgressToast,
-      startPreview,
+      startDebug,
       updateContentListWithUserOperate,
       resolveLastActionableBlockBid,
       resolveLatestMdflow,
-      restartAgentPreview,
+      restartAgentDebug,
     ],
   );
 
@@ -1667,10 +1665,10 @@ export function usePreviewChat({
       showOutputInProgressToast();
       return;
     }
-    restartAgentPreview();
+    restartAgentDebug();
   }, [
     creditInsufficientAudience,
-    restartAgentPreview,
+    restartAgentDebug,
     showOutputInProgressToast,
   ]);
 
@@ -1722,10 +1720,10 @@ export function usePreviewChat({
       if (creditInsufficientAudience === null || !shifuBid || !blockId) {
         return null;
       }
-      const previewRunId = previewRunIdRef.current;
+      const debugRunId = debugRunIdRef.current;
 
       const existingItem = contentListRef.current.find(item =>
-        matchPreviewItemBid(item, blockId),
+        matchDebugItemBid(item, blockId),
       );
       const cachedTrack = getAudioTrackByPosition(
         existingItem?.audioTracks ?? [],
@@ -1743,14 +1741,14 @@ export function usePreviewChat({
       }
 
       const resolvedBaseUrl = await resolveBaseUrl();
-      if (!isCurrentPreviewRun(previewRunId)) {
+      if (!isCurrentDebugRun(debugRunId)) {
         throw new DOMException('Preview audio request cancelled', 'AbortError');
       }
 
       setTrackedContentList(prevState =>
         ensureAudioItem(
           prevState.map(item => {
-            if (!matchPreviewItemBid(item, blockId)) {
+            if (!matchDebugItemBid(item, blockId)) {
               return item;
             }
             return {
@@ -1800,7 +1798,7 @@ export function usePreviewChat({
           setTrackedContentList(prevState =>
             ensureAudioItem(
               prevState.map(item =>
-                matchPreviewItemBid(item, blockId)
+                matchDebugItemBid(item, blockId)
                   ? {
                       ...item,
                       isAudioStreaming: false,
@@ -1818,7 +1816,7 @@ export function usePreviewChat({
           reject(error);
         };
         const fail = (error: Error) => {
-          if (isCurrentPreviewRun(previewRunId)) settleFailure(error);
+          if (isCurrentDebugRun(debugRunId)) settleFailure(error);
         };
         ttsCancelRef.current[blockId] = () =>
           settleFailure(
@@ -1839,8 +1837,8 @@ export function usePreviewChat({
 
         source.addEventListener('message', event => {
           if (
-            !isCurrentPreviewRun(previewRunId) ||
-            previewFailedRef.current ||
+            !isCurrentDebugRun(debugRunId) ||
+            debugFailedRef.current ||
             ttsSseRef.current[blockId] !== source
           ) {
             return;
@@ -1863,7 +1861,7 @@ export function usePreviewChat({
               );
               return;
             }
-            if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
+            if (response?.type === DEBUG_SSE_OUTPUT_TYPE.AUDIO_SEGMENT) {
               const audioPayload = response.content ?? response.data;
               const audioSegment = normalizeAudioSegmentPayload(audioPayload);
               if (!audioSegment) {
@@ -1880,7 +1878,7 @@ export function usePreviewChat({
               return;
             }
 
-            if (response?.type === PREVIEW_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
+            if (response?.type === DEBUG_SSE_OUTPUT_TYPE.AUDIO_COMPLETE) {
               const audioPayload = response.content ?? response.data;
               const audioComplete = normalizeAudioCompletePayload(audioPayload);
               if (!audioComplete) {
@@ -1921,7 +1919,7 @@ export function usePreviewChat({
       closeTtsStream,
       creditInsufficientAudience,
       ensureAudioItem,
-      isCurrentPreviewRun,
+      isCurrentDebugRun,
       resolveBaseUrl,
       setTrackedContentList,
     ],
@@ -1932,9 +1930,9 @@ export function usePreviewChat({
     isLoading,
     isStreaming: isStreamingRef.current,
     error,
-    startPreview,
-    stopPreview,
-    resetPreview,
+    startDebug,
+    stopDebug,
+    resetDebug,
     onSend,
     onRefresh,
     persistVariables,

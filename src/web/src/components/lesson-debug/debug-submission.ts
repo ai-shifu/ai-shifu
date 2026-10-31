@@ -1,7 +1,7 @@
 import type { ChatContentItem } from '@/types/chatUi';
 import { normalizeVariableName } from 'remark-flow';
 
-export const resolvePreviewRequestBlockIndex = (
+export const resolveDebugRequestBlockIndex = (
   generatedBlockBid: string,
   fallbackBlockIndex = 0,
 ): number => {
@@ -12,7 +12,7 @@ export const resolvePreviewRequestBlockIndex = (
     : fallbackBlockIndex;
 };
 
-export const resolvePreviewRegenerateStartIndex = (
+export const resolveDebugRegenerateStartIndex = (
   items: Pick<ChatContentItem, 'generated_block_bid' | 'element_bid'>[],
   targetIndex: number,
 ): number => {
@@ -35,7 +35,7 @@ export const resolvePreviewRegenerateStartIndex = (
   return firstBlockIndex === -1 ? targetIndex : firstBlockIndex;
 };
 
-export const resolvePreviewRegenerateFallbackBlockIndex = (
+export const resolveDebugRegenerateFallbackBlockIndex = (
   items: Pick<ChatContentItem, 'type' | 'element_index'>[],
   blockStartIndex: number,
 ): number => {
@@ -57,7 +57,7 @@ export const resolvePreviewRegenerateFallbackBlockIndex = (
   }).length;
 };
 
-export const buildPreviewInteractionUserInput = (
+export const buildDebugInteractionUserInput = (
   variableName: string,
   values: string[],
 ): Record<string, string[]> | undefined => {
@@ -70,7 +70,7 @@ export const buildPreviewInteractionUserInput = (
   };
 };
 
-export const resolvePreviewGeneratedBlockBid = ({
+export const resolveDebugGeneratedBlockBid = ({
   elementGeneratedBlockBid,
   responseGeneratedBlockBid,
   fallbackBid,

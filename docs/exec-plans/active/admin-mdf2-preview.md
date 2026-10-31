@@ -40,7 +40,7 @@ The editor now sends a run ID and current draft to its existing preview endpoint
 
 ## Context and Orientation
 
-The editor hook is `src/web/src/components/lesson-preview/usePreviewChat.tsx`. It calls `POST /api/learn/shifu/<shifu_bid>/preview/<outline_bid>` in `src/api/flaskr/service/learn/routes.py`. That endpoint currently invokes `RunScriptPreviewContextV2`. The learner's 2.0 path is `agent_lesson_events` in `src/api/flaskr/service/learn/agent/lesson_entry.py`, using `run_agent_lesson` and the element adapter.
+The editor hook is `src/web/src/components/lesson-debug/useDebugChat.tsx`. It calls `POST /api/learn/shifu/<shifu_bid>/preview/<outline_bid>` in `src/api/flaskr/service/learn/routes.py`. That endpoint uses the independent Debug session store and shared agent lesson runtime. The learner's 2.0 path is `agent_lesson_events` in `src/api/flaskr/service/learn/agent/lesson_entry.py`, using `run_agent_lesson` and the element adapter.
 
 ## Plan of Work
 

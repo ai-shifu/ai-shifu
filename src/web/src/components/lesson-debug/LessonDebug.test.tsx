@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import LessonPreview from './LessonPreview';
-import { resolveLessonPreviewItemKey } from './LessonPreview';
+import LessonDebug from './LessonDebug';
+import { resolveLessonDebugItemKey } from './LessonDebug';
 import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 
 const mockPush = jest.fn();
@@ -157,7 +157,7 @@ jest.mock('./VariableList', () => ({
   },
 }));
 
-describe('LessonPreview billing action', () => {
+describe('LessonDebug billing action', () => {
   beforeEach(() => {
     mockPush.mockReset();
     mockCopyText.mockReset();
@@ -166,7 +166,7 @@ describe('LessonPreview billing action', () => {
 
   test('filters hidden variables and forwards visible system variable keys', () => {
     render(
-      <LessonPreview
+      <LessonDebug
         loading
         items={[]}
         variables={{
@@ -207,7 +207,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         creditInsufficientAudience='teacher'
@@ -238,7 +238,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         creditInsufficientAudience='teacher-collaborator'
@@ -290,7 +290,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         shifuBid='shifu-1'
@@ -311,7 +311,7 @@ describe('LessonPreview billing action', () => {
 
   test('shows the provided preview error message when preview is empty', () => {
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         errorMessage='Preview parameters are incomplete.'
         items={[]}
@@ -343,7 +343,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         shifuBid='shifu-1'
@@ -376,7 +376,7 @@ describe('LessonPreview billing action', () => {
 
   test('builds stable preview item keys from business ids and falls back to idx only when needed', () => {
     expect(
-      resolveLessonPreviewItemKey({
+      resolveLessonDebugItemKey({
         element_bid: 'text-1',
         generated_block_bid: 'block-1',
         content: '第一段内容',
@@ -385,7 +385,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('content:text-1');
 
     expect(
-      resolveLessonPreviewItemKey({
+      resolveLessonDebugItemKey({
         element_bid: 'feedback-1',
         generated_block_bid: 'feedback-block-1',
         parent_element_bid: 'text-1',
@@ -395,7 +395,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('like:feedback-1');
 
     expect(
-      resolveLessonPreviewItemKey({
+      resolveLessonDebugItemKey({
         generated_block_bid: 'preview-business-error',
         content: 'error',
         type: ChatContentItemType.ERROR,
@@ -403,7 +403,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('error:preview-business-error');
 
     expect(
-      resolveLessonPreviewItemKey({
+      resolveLessonDebugItemKey({
         element_bid: 'interaction-1',
         generated_block_bid: 'block-2',
         content: '请选择',
@@ -412,7 +412,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('interaction:interaction-1');
 
     expect(
-      resolveLessonPreviewItemKey(
+      resolveLessonDebugItemKey(
         {
           content: 'streaming text that should not become the key',
           type: ChatContentItemType.CONTENT,
@@ -422,7 +422,7 @@ describe('LessonPreview billing action', () => {
     ).toBe('content:idx-7');
 
     expect(
-      resolveLessonPreviewItemKey(
+      resolveLessonDebugItemKey(
         {
           content: '',
           type: ChatContentItemType.ERROR,
@@ -446,7 +446,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     const { rerender } = render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         shifuBid='shifu-1'
@@ -461,7 +461,7 @@ describe('LessonPreview billing action', () => {
     );
 
     rerender(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={[
           {
@@ -504,7 +504,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         shifuBid='shifu-1'
@@ -548,7 +548,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         shifuBid='shifu-1'
@@ -587,7 +587,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         shifuBid='shifu-1'
@@ -613,7 +613,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         shifuBid='shifu-1'
@@ -645,7 +645,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         shifuBid='shifu-1'
@@ -680,7 +680,7 @@ describe('LessonPreview billing action', () => {
     ];
 
     render(
-      <LessonPreview
+      <LessonDebug
         loading={false}
         items={items}
         shifuBid='shifu-1'

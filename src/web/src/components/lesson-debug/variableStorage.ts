@@ -6,14 +6,15 @@ import {
 } from '@/lib/runtimeStorage';
 import { debugWarn } from '@/lib/debugConsole';
 
+// Preserve saved editor Debug variables under the existing storage key.
 const STORAGE_PREFIX = 'lesson_preview_variables';
 const GLOBAL_STORAGE_KEY = STORAGE_PREFIX;
 
-export type PreviewVariablesMap = Record<string, string>;
+export type DebugVariablesMap = Record<string, string>;
 
 export interface StoredVariablesByScope {
-  system: PreviewVariablesMap;
-  custom: PreviewVariablesMap;
+  system: DebugVariablesMap;
+  custom: DebugVariablesMap;
 }
 
 const normalizeValue = (value: unknown): string => {
@@ -36,7 +37,7 @@ const buildCustomStorageKey = (shifuBid?: string) => {
   return `${STORAGE_PREFIX}:${shifuBid}`;
 };
 
-const readStorage = (key: string): PreviewVariablesMap => {
+const readStorage = (key: string): DebugVariablesMap => {
   if (typeof window === 'undefined' || !key) {
     return {};
   }
@@ -54,7 +55,7 @@ const readStorage = (key: string): PreviewVariablesMap => {
     if (!parsed || typeof parsed !== 'object') {
       return {};
     }
-    return Object.entries(parsed).reduce<PreviewVariablesMap>((acc, entry) => {
+    return Object.entries(parsed).reduce<DebugVariablesMap>((acc, entry) => {
       const [name, storedValue] = entry;
       acc[name] = normalizeValue(storedValue);
       return acc;
@@ -68,7 +69,7 @@ const readStorage = (key: string): PreviewVariablesMap => {
   }
 };
 
-const writeStorage = (key: string, data: PreviewVariablesMap) => {
+const writeStorage = (key: string, data: DebugVariablesMap) => {
   if (typeof window === 'undefined' || !key) {
     return;
   }
@@ -79,7 +80,7 @@ const writeStorage = (key: string, data: PreviewVariablesMap) => {
   );
 };
 
-export const getStoredPreviewVariables = (
+export const getStoredDebugVariables = (
   shifuBid?: string,
 ): StoredVariablesByScope => {
   const customKey = buildCustomStorageKey(shifuBid);
@@ -93,25 +94,25 @@ export const mapKeysToStoredVariables = (
   keys: string[],
   stored: StoredVariablesByScope,
   systemVariableKeys: Set<string> | string[],
-): PreviewVariablesMap => {
+): DebugVariablesMap => {
   const systemSet = new Set(systemVariableKeys);
-  return keys.reduce<PreviewVariablesMap>((acc, key) => {
+  return keys.reduce<DebugVariablesMap>((acc, key) => {
     const source = systemSet.has(key) ? stored.system : stored.custom;
     acc[key] = source?.[key] || '';
     return acc;
   }, {});
 };
 
-export const savePreviewVariables = (
+export const saveDebugVariables = (
   shifuBid?: string,
-  variables?: PreviewVariablesMap,
+  variables?: DebugVariablesMap,
   systemVariableKeys: Set<string> | string[] = [],
 ) => {
   if (typeof window === 'undefined') {
     return;
   }
   const systemSet = new Set(systemVariableKeys);
-  const stored = getStoredPreviewVariables(shifuBid);
+  const stored = getStoredDebugVariables(shifuBid);
   const customKey = buildCustomStorageKey(shifuBid);
   let hasSystemChanges = false;
   let hasCustomChanges = false;

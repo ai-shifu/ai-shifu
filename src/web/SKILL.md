@@ -7,7 +7,7 @@ by scenario; detailed procedures belong in focused skills. The complete
 | Scenario                                                            | Start here                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Chat streaming, typewriter or timeout                               | [Element streaming](skills/chat-element-streaming/SKILL.md)                                                                                                                                                                                    |
-| Preview typewriter or speaker helpers                               | [Preview gate](skills/chat-element-streaming/SKILL.md#preview-typewriter-and-speaker-helpers)                                                                                                                                                  |
+| Editor Debug typewriter or speaker helpers                          | [Debug gate](skills/chat-element-streaming/SKILL.md#editor-debug-typewriter-and-speaker-helpers)                                                                                                                                               |
 | Learner preview header, banner or content offsets                   | [Preview header layout](skills/listen-mode-slide-mobile-integration/SKILL.md#learner-preview-header-layout)                                                                                                                                    |
 | Learner initialization or authentication troubleshooting            | [Debug console workflow](skills/deep-link-lessonid-routing/SKILL.md#learner-debug-console-workflow)                                                                                                                                            |
 | Follow-up entry, messages or mode-dependent visibility              | [Ask placement and shared state](skills/chat-actionbar-ask-placement/SKILL.md)                                                                                                                                                                 |
@@ -22,12 +22,17 @@ by scenario; detailed procedures belong in focused skills. The complete
 
 For billing terminology and display rules, use the owning
 [billing design](../../docs/design-docs/billing-subscription-design.md) and shared components.
-For a preview/debug business failure before the first content element, use the
-existing `usePreviewChat` error path to replace the loading placeholder with the
+For an editor Debug business failure before the first content element, use the
+existing `useDebugChat` error path to replace the loading placeholder with the
 backend message. Preserve the structured business code on the rendered error
-item and let `LessonPreview` choose a directed action; do not branch on message
-text. `src/components/lesson-preview/usePreviewChat.test.ts` covers the loading
+item and let `LessonDebug` choose a directed action; do not branch on message
+text. `src/components/lesson-debug/useDebugChat.test.ts` covers the loading
 replacement and retained business code.
+
+`src/components/lesson-debug/` owns the lesson editor's Debug panel and transient
+Debug conversation. Full-course classroom preview uses the learner chat flow.
+Existing preview API paths, SSE event names, analytics event names, storage keys
+and translation namespaces retain their compatibility contracts.
 
 Add a focused skill only for a recurring workflow. Its `SKILL.md` must declare
 `name` and a concrete trigger in `description`; keep reference details there,

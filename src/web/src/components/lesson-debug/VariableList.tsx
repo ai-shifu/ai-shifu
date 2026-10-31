@@ -3,12 +3,12 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './VariableList.module.scss';
-import type { PreviewVariablesMap } from './variableStorage';
+import type { DebugVariablesMap } from './variableStorage';
 import { Input } from '../ui/Input';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
 interface VariableListProps {
-  variables?: PreviewVariablesMap;
+  variables?: DebugVariablesMap;
   collapsed?: boolean;
   onToggle?: () => void;
   onChange?: (name: string, value: string) => void;

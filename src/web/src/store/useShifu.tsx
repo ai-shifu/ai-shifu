@@ -34,12 +34,12 @@ import {
   useRef,
 } from 'react';
 import {
-  getStoredPreviewVariables,
+  getStoredDebugVariables,
   mapKeysToStoredVariables,
-  PreviewVariablesMap,
-  savePreviewVariables,
+  DebugVariablesMap,
+  saveDebugVariables,
   StoredVariablesByScope,
-} from '@/components/lesson-preview/variableStorage';
+} from '@/components/lesson-debug/variableStorage';
 import { useTracking } from '@/hooks/useTracking';
 import {
   buildOutlineCreateAnalytics,
@@ -1329,12 +1329,12 @@ export const ShifuProvider = ({
     }
   };
 
-  const previewParse = async (
+  const debugParse = async (
     value: string,
     shifuId: string,
     outlineId: string,
   ): Promise<{
-    variables: PreviewVariablesMap;
+    variables: DebugVariablesMap;
     blocksCount: number;
     systemVariableKeys: string[];
     allVariableKeys?: string[];
@@ -1359,13 +1359,13 @@ export const ShifuProvider = ({
           : systemVariables?.map(variable => variable.name).filter(Boolean) ||
             [];
       const storedVariables: StoredVariablesByScope =
-        getStoredPreviewVariables(resolvedShifuId);
+        getStoredDebugVariables(resolvedShifuId);
       const variablesMap = mapKeysToStoredVariables(
         variableKeys,
         storedVariables,
         resolvedSystemKeys,
       );
-      savePreviewVariables(resolvedShifuId, variablesMap, resolvedSystemKeys);
+      saveDebugVariables(resolvedShifuId, variablesMap, resolvedSystemKeys);
       return {
         variables: variablesMap,
         blocksCount: result?.blocks_count ?? 0,
@@ -1760,7 +1760,7 @@ export const ShifuProvider = ({
       setDraftConflict: setHasDraftConflict,
       setAutosavePaused,
       parseMdflow,
-      previewParse,
+      debugParse,
       hideUnusedVariables,
       restoreHiddenVariables,
       hideVariableByKey,

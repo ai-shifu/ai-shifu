@@ -1,6 +1,6 @@
 export type ModelIndex = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
-import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
+import type { DebugVariablesMap } from '@/components/lesson-debug/variableStorage';
 import type { LearningPermission } from '@/api/studyV2';
 
 export type BlockType =
@@ -267,12 +267,12 @@ export interface ShifuActions {
     shifuId: string,
     outlineId: string,
   ) => Promise<void>;
-  previewParse: (
+  debugParse: (
     value: string,
     shifuId: string,
     outlineId: string,
   ) => Promise<{
-    variables: PreviewVariablesMap;
+    variables: DebugVariablesMap;
     blocksCount: number;
     systemVariableKeys: string[];
     allVariableKeys?: string[];

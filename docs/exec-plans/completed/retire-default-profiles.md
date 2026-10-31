@@ -157,7 +157,7 @@ provider calls, business-database changes, deployment or main merge were needed.
 The profile service owns field registration, scoped variable definitions and
 canonical mapping. User repository recovery and phone/email merges consume those
 helpers. The learning agent host owns output-language policy and resumed-session
-memory. Shared frontend profile and lesson-preview components consume the same
+memory. Shared frontend profile and lesson-debug components consume the same
 wire contracts; locale JSON and generated key types live in the shared i18n tree.
 
 ## Plan of Work

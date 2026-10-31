@@ -15,9 +15,9 @@ import { ChatContentItem, ChatContentItemType } from '@/types/chatUi';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { getAudioTrackByPosition } from '@/lib/audio-utils';
 import VariableList from './VariableList';
-import PreviewCopyButton from './PreviewCopyButton';
-import { type PreviewVariablesMap } from './variableStorage';
-import styles from './LessonPreview.module.scss';
+import DebugCopyButton from './DebugCopyButton';
+import { type DebugVariablesMap } from './variableStorage';
+import styles from './LessonDebug.module.scss';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -36,19 +36,19 @@ import {
 import { Button } from '@/components/ui/Button';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
-  buildVisiblePreviewItems,
-  normalizePreviewTypewriterContent,
-  shouldEnablePreviewTypewriter,
-  syncPreviewTypewriterCache,
-  type PreviewTypewriterCache,
-} from './previewTypewriterGate';
+  buildVisibleDebugItems,
+  normalizeDebugTypewriterContent,
+  shouldEnableDebugTypewriter,
+  syncDebugTypewriterCache,
+  type DebugTypewriterCache,
+} from './debugTypewriterGate';
 
-interface LessonPreviewProps {
+interface LessonDebugProps {
   loading: boolean;
   errorMessage?: string | null;
   items: ChatContentItem[];
   creditInsufficientAudience?: CreditInsufficientAudience;
-  variables?: PreviewVariablesMap;
+  variables?: DebugVariablesMap;
   shifuBid: string;
   onRefresh: (elementBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
@@ -76,9 +76,9 @@ interface LessonPreviewProps {
 }
 
 const noop = () => {};
-const ENABLE_PREVIEW_TYPEWRITER = false;
+const ENABLE_DEBUG_TYPEWRITER = false;
 
-const isRegeneratablePreviewParent = (
+const isRegeneratableDebugParent = (
   item?: ChatContentItem,
 ): item is ChatContentItem => {
   if (!item) {
@@ -105,16 +105,16 @@ const shouldPreferGeneratedBlockItem = (
   currentItem: ChatContentItem,
   nextItem: ChatContentItem,
 ): boolean => {
-  if (isRegeneratablePreviewParent(currentItem)) {
+  if (isRegeneratableDebugParent(currentItem)) {
     return false;
   }
-  if (isRegeneratablePreviewParent(nextItem)) {
+  if (isRegeneratableDebugParent(nextItem)) {
     return true;
   }
   return false;
 };
 
-const resolveLessonPreviewItemIdentity = (
+const resolveLessonDebugItemIdentity = (
   item: ChatContentItem,
   index?: number,
 ) =>
@@ -124,7 +124,7 @@ const resolveLessonPreviewItemIdentity = (
   item.parent_block_bid ||
   (index !== undefined ? `idx-${index}` : '');
 
-const resolveLessonPreviewItemTypeKey = (item: ChatContentItem) => {
+const resolveLessonDebugItemTypeKey = (item: ChatContentItem) => {
   if (item.type === ChatContentItemType.LIKE_STATUS) {
     return 'like';
   }
@@ -144,16 +144,16 @@ const resolveLessonPreviewItemTypeKey = (item: ChatContentItem) => {
   return 'content';
 };
 
-export const resolveLessonPreviewItemKey = (
+export const resolveLessonDebugItemKey = (
   item: ChatContentItem,
   index?: number,
 ) =>
-  `${resolveLessonPreviewItemTypeKey(item)}:${resolveLessonPreviewItemIdentity(
+  `${resolveLessonDebugItemTypeKey(item)}:${resolveLessonDebugItemIdentity(
     item,
     index,
   )}`;
 
-const resolveLessonPreviewContentRenderKey = (
+const resolveLessonDebugContentRenderKey = (
   item: ChatContentItem,
   enableStreamingTypewriter: boolean,
 ) => {
@@ -165,7 +165,7 @@ const resolveLessonPreviewContentRenderKey = (
 
   return [
     'preview',
-    resolveLessonPreviewItemTypeKey(item),
+    resolveLessonDebugItemTypeKey(item),
     item.element_bid || item.generated_block_bid || '',
     item.element_type || '',
     enableStreamingTypewriter || hasStreamingTypewriterIntent
@@ -174,7 +174,7 @@ const resolveLessonPreviewContentRenderKey = (
   ].join(':');
 };
 
-const LessonPreview: React.FC<LessonPreviewProps> = ({
+const LessonDebug: React.FC<LessonDebugProps> = ({
   loading,
   errorMessage,
   items = [],
@@ -202,8 +202,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   const [variablesCollapsed, setVariablesCollapsed] = React.useState(false);
 
   const showEmpty = !loading && items.length === 0;
-  const [previewTypewriterCache, setPreviewTypewriterCache] =
-    React.useState<PreviewTypewriterCache>({});
+  const [debugTypewriterCache, setDebugTypewriterCache] =
+    React.useState<DebugTypewriterCache>({});
 
   const resolvedVariables = React.useMemo(() => {
     if (variables && Object.keys(variables).length) {
@@ -220,7 +220,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   const visibleVariables = React.useMemo(() => {
     if (!resolvedVariables) return undefined;
     if (!hiddenSet.size) return resolvedVariables;
-    return Object.entries(resolvedVariables).reduce<PreviewVariablesMap>(
+    return Object.entries(resolvedVariables).reduce<DebugVariablesMap>(
       (acc, [key, value]) => {
         if (hiddenSet.has(key)) {
           return acc;
@@ -257,10 +257,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
   const visibleItems = React.useMemo(
     () =>
-      ENABLE_PREVIEW_TYPEWRITER
-        ? buildVisiblePreviewItems(items, previewTypewriterCache)
+      ENABLE_DEBUG_TYPEWRITER
+        ? buildVisibleDebugItems(items, debugTypewriterCache)
         : items,
-    [items, previewTypewriterCache],
+    [items, debugTypewriterCache],
   );
 
   const { showAlert } = useAlert();
@@ -302,7 +302,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     router.push(BILLING_PACKAGES_HREF);
   }, [router]);
 
-  const handlePreviewTypeFinished = React.useCallback(
+  const handleDebugTypeFinished = React.useCallback(
     (blockBid: string, content: string) => {
       if (!blockBid) {
         return;
@@ -314,8 +314,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         return;
       }
 
-      const normalizedContent = normalizePreviewTypewriterContent(content);
-      setPreviewTypewriterCache(prevCache => {
+      const normalizedContent = normalizeDebugTypewriterContent(content);
+      setDebugTypewriterCache(prevCache => {
         const existingEntry = prevCache[resolvedCacheKey];
         if (
           existingEntry?.content === normalizedContent &&
@@ -337,16 +337,16 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   );
 
   React.useEffect(() => {
-    if (!ENABLE_PREVIEW_TYPEWRITER) {
+    if (!ENABLE_DEBUG_TYPEWRITER) {
       return;
     }
-    setPreviewTypewriterCache(prevCache =>
-      syncPreviewTypewriterCache(items, prevCache),
+    setDebugTypewriterCache(prevCache =>
+      syncDebugTypewriterCache(items, prevCache),
     );
   }, [items]);
 
   return (
-    <div className={cn(styles.lessonPreview, 'text-sm')}>
+    <div className={cn(styles.lessonDebug, 'text-sm')}>
       <div className='flex items-baseline gap-2 pt-[4px]'>
         <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
           {t('module.shifu.previewArea.title')}
@@ -359,7 +359,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         </span>
       </div>
 
-      <div className={styles.previewArea}>
+      <div className={styles.debugArea}>
         {!showEmpty && (
           <div className={styles.variableListWrapper}>
             <VariableList
@@ -380,7 +380,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         )}
 
         <TooltipProvider delayDuration={150}>
-          <div className={styles.previewAreaContent}>
+          <div className={styles.debugAreaContent}>
             {loading && items.length === 0 && (
               <div className='flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground'>
                 <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
@@ -440,21 +440,21 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   );
                   const shouldRenderGenerateAction = Boolean(
                     showGenerateBtn &&
-                    isRegeneratablePreviewParent(parentContentItem) &&
+                    isRegeneratableDebugParent(parentContentItem) &&
                     parentActionBid,
                   );
-                  const hasPreviewAudioCapability = Boolean(
+                  const hasDebugAudioCapability = Boolean(
                     onRequestAudioForBlock && parentActionBid,
                   );
                   if (
                     !shouldRenderGenerateAction &&
-                    (!shouldRenderAudioAction || !hasPreviewAudioCapability)
+                    (!shouldRenderAudioAction || !hasDebugAudioCapability)
                   ) {
                     return null;
                   }
                   return (
                     <div
-                      key={resolveLessonPreviewItemKey(item, idx)}
+                      key={resolveLessonDebugItemKey(item, idx)}
                       className='p-0'
                       style={{ maxWidth: '100%' }}
                     >
@@ -500,7 +500,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   );
                   return (
                     <div
-                      key={resolveLessonPreviewItemKey(item, idx)}
+                      key={resolveLessonDebugItemKey(item, idx)}
                       className='p-0 relative'
                       style={{ maxWidth: '100%' }}
                     >
@@ -510,14 +510,14 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                         blockBid={
                           item.element_bid || item.generated_block_bid || ''
                         }
-                        contentRenderKey={resolveLessonPreviewContentRenderKey(
+                        contentRenderKey={resolveLessonDebugContentRenderKey(
                           item,
                           false,
                         )}
                         onSend={onSend}
                         onTypeFinished={
-                          ENABLE_PREVIEW_TYPEWRITER
-                            ? handlePreviewTypeFinished
+                          ENABLE_DEBUG_TYPEWRITER
+                            ? handleDebugTypeFinished
                             : undefined
                         }
                       />
@@ -537,7 +537,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
 
                 return (
                   <div
-                    key={resolveLessonPreviewItemKey(item, idx)}
+                    key={resolveLessonDebugItemKey(item, idx)}
                     className='p-0 relative'
                     style={{
                       maxWidth: '100%',
@@ -546,10 +546,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   >
                     {(() => {
                       const enableStreamingTypewriter =
-                        ENABLE_PREVIEW_TYPEWRITER &&
-                        shouldEnablePreviewTypewriter(
+                        ENABLE_DEBUG_TYPEWRITER &&
+                        shouldEnableDebugTypewriter(
                           item,
-                          previewTypewriterCache[item.element_bid || ''],
+                          debugTypewriterCache[item.element_bid || ''],
                         );
 
                       return (
@@ -559,22 +559,22 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                           blockBid={
                             item.element_bid || item.generated_block_bid || ''
                           }
-                          contentRenderKey={resolveLessonPreviewContentRenderKey(
+                          contentRenderKey={resolveLessonDebugContentRenderKey(
                             item,
                             enableStreamingTypewriter,
                           )}
                           enableStreamingTypewriter={enableStreamingTypewriter}
                           onSend={onSend}
                           onTypeFinished={
-                            ENABLE_PREVIEW_TYPEWRITER
-                              ? handlePreviewTypeFinished
+                            ENABLE_DEBUG_TYPEWRITER
+                              ? handleDebugTypeFinished
                               : undefined
                           }
                         />
                       );
                     })()}
                     {item.type === ChatContentItemType.CONTENT ? (
-                      <PreviewCopyButton content={item.content || ''} />
+                      <DebugCopyButton content={item.content || ''} />
                     ) : null}
                   </div>
                 );
@@ -616,4 +616,4 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   );
 };
 
-export default LessonPreview;
+export default LessonDebug;
