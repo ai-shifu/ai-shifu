@@ -110,3 +110,13 @@ def post_fork(server: object, worker: object) -> None:
         init_live_follow_up_readiness(flask_app)
     except Exception:  # pragma: no cover - defensive: never kill a booting worker
         worker.log.warning("post_fork Live readiness initialization unavailable")
+
+
+def post_worker_init(worker: object) -> None:
+    """Start development watchers after the worker loads its WSGI application."""
+    _ = worker
+    from flaskr.framework.plugin.plugin_manager import get_plugin_manager
+
+    manager = get_plugin_manager()
+    if manager is not None and manager.app.config.get("ENV") == "development":
+        manager.enable_hot_reload()
