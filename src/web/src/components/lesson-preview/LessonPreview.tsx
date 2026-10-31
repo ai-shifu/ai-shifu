@@ -263,6 +263,25 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
     [items, previewTypewriterCache],
   );
 
+  const previewActionParents = React.useMemo(() => {
+    const parents = new Set<string>();
+    visibleItems.forEach(item => {
+      if (item.type !== ChatContentItemType.LIKE_STATUS) return;
+      const parent =
+        (item.parent_element_bid
+          ? itemByElementBid.get(item.parent_element_bid)
+          : undefined) ||
+        (item.parent_block_bid
+          ? itemByElementBid.get(item.parent_block_bid) ||
+            itemByGeneratedBlockBid.get(item.parent_block_bid)
+          : undefined);
+      if (parent) {
+        parents.add(resolveLessonPreviewItemKey(parent));
+      }
+    });
+    return parents;
+  }, [visibleItems, itemByElementBid, itemByGeneratedBlockBid]);
+
   const { showAlert } = useAlert();
 
   const handleActionConfirm = React.useCallback(() => {
@@ -415,83 +434,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             {!showEmpty &&
               visibleItems.map((item, idx) => {
                 if (item.type === ChatContentItemType.LIKE_STATUS) {
-                  const parentElementBid = item.parent_element_bid || '';
-                  const parentBlockBid = item.parent_block_bid || '';
-                  const parentContentItem =
-                    (parentElementBid
-                      ? itemByElementBid.get(parentElementBid)
-                      : undefined) ||
-                    (parentBlockBid
-                      ? itemByElementBid.get(parentBlockBid) ||
-                        itemByGeneratedBlockBid.get(parentBlockBid)
-                      : undefined);
-                  const parentActionBid =
-                    parentContentItem?.element_bid ||
-                    parentElementBid ||
-                    parentBlockBid;
-                  const isTextParent =
-                    parentContentItem?.type === ChatContentItemType.CONTENT &&
-                    parentContentItem?.element_type === 'text';
-                  // Hide preview audio action when backend marks this element as non-speakable.
-                  const shouldRenderAudioAction =
-                    isTextParent && parentContentItem?.is_speakable !== false;
-                  const parentPrimaryTrack = getAudioTrackByPosition(
-                    parentContentItem?.audioTracks ?? [],
-                  );
-                  const shouldRenderGenerateAction = Boolean(
-                    showGenerateBtn &&
-                    isRegeneratablePreviewParent(parentContentItem) &&
-                    parentActionBid,
-                  );
-                  const hasPreviewAudioCapability = Boolean(
-                    onRequestAudioForBlock && parentActionBid,
-                  );
-                  if (
-                    !shouldRenderGenerateAction &&
-                    (!shouldRenderAudioAction || !hasPreviewAudioCapability)
-                  ) {
-                    return null;
-                  }
-                  return (
-                    <div
-                      key={resolveLessonPreviewItemKey(item, idx)}
-                      className='p-0'
-                      style={{ maxWidth: '100%' }}
-                    >
-                      <InteractionBlock
-                        shifu_bid={shifuBid}
-                        element_bid={parentActionBid}
-                        onRefresh={onRefresh}
-                        onToggleAskExpanded={noop}
-                        disableAskButton
-                        disableInteractionButtons
-                        showGenerateBtn={shouldRenderGenerateAction}
-                        extraActions={
-                          onRequestAudioForBlock && shouldRenderAudioAction ? (
-                            <AudioPlayer
-                              audioUrl={parentPrimaryTrack?.audioUrl}
-                              streamingSegments={
-                                parentPrimaryTrack?.audioSegments
-                              }
-                              isStreaming={Boolean(
-                                parentPrimaryTrack?.isAudioStreaming,
-                              )}
-                              alwaysVisible={true}
-                              onRequestAudio={() =>
-                                onRequestAudioForBlock({
-                                  shifuBid,
-                                  blockId: parentActionBid,
-                                  text: parentContentItem?.content || '',
-                                })
-                              }
-                              className='interaction-icon-btn'
-                              size={16}
-                            />
-                          ) : undefined
-                        }
-                      />
-                    </div>
-                  );
+                  return null;
                 }
 
                 if (item.type === ChatContentItemType.ERROR) {
@@ -535,6 +478,29 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                   );
                 }
 
+                const hasPreviewActionRow = previewActionParents.has(
+                  resolveLessonPreviewItemKey(item),
+                );
+                const actionBid =
+                  item.element_bid || item.generated_block_bid || '';
+                const shouldRenderGenerateAction = Boolean(
+                  hasPreviewActionRow &&
+                  showGenerateBtn &&
+                  isRegeneratablePreviewParent(item) &&
+                  actionBid,
+                );
+                const shouldRenderAudioAction = Boolean(
+                  hasPreviewActionRow &&
+                  item.type === ChatContentItemType.CONTENT &&
+                  item.element_type === 'text' &&
+                  item.is_speakable !== false &&
+                  onRequestAudioForBlock &&
+                  actionBid,
+                );
+                const primaryTrack = getAudioTrackByPosition(
+                  item.audioTracks ?? [],
+                );
+
                 return (
                   <div
                     key={resolveLessonPreviewItemKey(item, idx)}
@@ -573,8 +539,50 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                         />
                       );
                     })()}
-                    {item.type === ChatContentItemType.CONTENT ? (
-                      <PreviewCopyButton content={item.content || ''} />
+                    {item.type === ChatContentItemType.CONTENT &&
+                    (item.content ||
+                      shouldRenderGenerateAction ||
+                      shouldRenderAudioAction) ? (
+                      <div className='mt-2 flex items-center justify-between gap-3'>
+                        {shouldRenderGenerateAction ||
+                        shouldRenderAudioAction ? (
+                          <InteractionBlock
+                            className='interaction-block--no-padding-top'
+                            shifu_bid={shifuBid}
+                            element_bid={actionBid}
+                            onRefresh={onRefresh}
+                            onToggleAskExpanded={noop}
+                            disableAskButton
+                            disableInteractionButtons
+                            showGenerateBtn={shouldRenderGenerateAction}
+                            extraActions={
+                              onRequestAudioForBlock &&
+                              shouldRenderAudioAction ? (
+                                <AudioPlayer
+                                  audioUrl={primaryTrack?.audioUrl}
+                                  streamingSegments={
+                                    primaryTrack?.audioSegments
+                                  }
+                                  isStreaming={Boolean(
+                                    primaryTrack?.isAudioStreaming,
+                                  )}
+                                  alwaysVisible={true}
+                                  onRequestAudio={() =>
+                                    onRequestAudioForBlock({
+                                      shifuBid,
+                                      blockId: actionBid,
+                                      text: item.content || '',
+                                    })
+                                  }
+                                  className='interaction-icon-btn'
+                                  size={16}
+                                />
+                              ) : undefined
+                            }
+                          />
+                        ) : null}
+                        <PreviewCopyButton content={item.content || ''} />
+                      </div>
                     ) : null}
                   </div>
                 );
