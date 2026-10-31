@@ -35,9 +35,19 @@ def _bind_keys(
 
 
 def _database_identity(engine: Engine) -> Hashable:
-    """Name the database an engine writes to; in-memory engines are each their own."""
+    """Name the database an engine writes to; in-memory engines are each their own.
+
+    A named URI memory database is shared only with ``cache=shared``; with a
+    private cache, each connection opens a separate database.
+    """
     database = engine.url.database
-    if engine.dialect.name == "sqlite" and database not in (None, "", ":memory:"):
+    query = engine.url.query
+    private_memory = query.get("mode") == "memory" and query.get("cache") != "shared"
+    if (
+        engine.dialect.name == "sqlite"
+        and database not in (None, "", ":memory:")
+        and not private_memory
+    ):
         return ("file", database)
     return ("engine", id(engine))
 

@@ -165,3 +165,34 @@ def test_binds_on_separate_files_each_receive_only_their_tables(
         "template_bound_row",
         "ix_template_bound_row_name",
     }
+
+
+def _table_names(engine: object) -> set[str]:
+    with engine.connect() as connection:
+        return {
+            row[0]
+            for row in connection.execute(
+                text("SELECT name FROM sqlite_master WHERE type = 'table'")
+            )
+        }
+
+
+def test_private_uri_memory_binds_are_not_grouped_as_one_database() -> None:
+    uri = "sqlite:///file:template-memdb?mode=memory&cache=private&uri=true"
+    with _local_app(uri, uri).app_context():
+        _local_db.create_all()
+        assert _table_names(_local_db.engines[None]) == {"template_default_row"}
+        assert _table_names(_local_db.engines["extra"]) == {"template_bound_row"}
+        for engine in _local_db.engines.values():
+            engine.dispose()
+
+
+def test_shared_uri_memory_binds_are_copied_together() -> None:
+    uri = "sqlite:///file:template-shared?mode=memory&cache=shared&uri=true"
+    with _local_app(uri, uri).app_context():
+        _local_db.create_all()
+        expected = {"template_default_row", "template_bound_row"}
+        assert _table_names(_local_db.engines[None]) == expected
+        assert _table_names(_local_db.engines["extra"]) == expected
+        for engine in _local_db.engines.values():
+            engine.dispose()
