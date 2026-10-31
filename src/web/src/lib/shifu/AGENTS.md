@@ -3,7 +3,7 @@
 This module owns course business orchestration for shifu and state transform
 helpers consumed by learner flows and shared stores.
 
-Entry files in this directory: `Shifu.ts`, `shifuUtils.ts`, `storeUtil.ts`.
+Entry files in this directory: `shifu-runtime.ts`, `layout-utils.ts`, `token-storage.ts`.
 
 Shared compatibility, i18n, privacy and verification rules are inherited from
 the root and `src/web/AGENTS.md`; the constraints below are local.

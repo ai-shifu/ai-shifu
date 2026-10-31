@@ -11,14 +11,14 @@ import {
   type AudioCompleteData,
   type ElementType,
   type StudyRecordItem,
-} from '@/api/studyV2';
-import { getStringEnv } from '@/lib/envUtils';
+} from '@/api/learning';
+import { getStringEnv } from '@/lib/env-utils';
 import { resolveInteractionSubmission } from '@/lib/interaction-user-input';
 import {
   mergeStreamingMarkdownText,
   maskIncompleteMermaidBlock,
-} from '@/lib/markdownUtils';
-import { debugError, debugWarn } from '@/lib/debugConsole';
+} from '@/lib/markdown-utils';
+import { debugError, debugWarn } from '@/lib/debug-console';
 import {
   getAudioTrackByPosition,
   normalizeAudioCompletePayload,
@@ -27,23 +27,23 @@ import {
   upsertAudioComplete,
   upsertAudioSegment,
 } from '@/lib/audio-utils';
-import LoadingBar from '@/components/ChatUi/LoadingBar';
-import { ChatContentItem, ChatContentItemType } from '@/types/chatUi';
-import { normalizeLegacyBlockCompatList } from '@/lib/chatUiCompat';
+import LoadingBar from '@/components/chat/LoadingBar';
+import { ChatContentItem, ChatContentItemType } from '@/types/chat-ui';
+import { normalizeLegacyBlockCompatList } from '@/lib/chat-ui-compat';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { useShifu, useUserStore } from '@/store';
-import { toast } from '@/hooks/useToast';
+import { toast } from '@/hooks/use-toast';
 import {
   resolveLearnerErrorMessage,
   resolveLearnerErrorToast,
-} from '@/lib/learnerError';
-import { showAiServiceErrorToast } from '@/lib/aiServiceToast';
+} from '@/lib/learner-error';
+import { showAiServiceErrorToast } from '@/lib/ai-service-toast';
 import {
   type CreditInsufficientAudience,
   getCreditInsufficientMessage,
   isCreditInsufficientBusinessCode,
   showCreditInsufficientToast,
-} from '@/lib/creditInsufficientToast';
+} from '@/lib/credit-insufficient-toast';
 import {
   attachSseBusinessResponseFallback,
   getCurrentLanguageHeaders,
@@ -51,7 +51,7 @@ import {
 import type { ErrorWithCode } from '@/lib/request';
 import { buildTraceHeaders } from '@/lib/request-trace';
 import { useTranslation } from 'react-i18next';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import type {
   DebugRunParams,
   DebugVariableValues,

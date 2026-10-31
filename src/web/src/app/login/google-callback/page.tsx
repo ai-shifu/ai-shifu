@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useGoogleAuth } from '@/hooks/use-google-auth';
 import { resolveGoogleCallbackOrigin } from '@/lib/google-oauth-callback-origin';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useTranslation } from 'react-i18next';

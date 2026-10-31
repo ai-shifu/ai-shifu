@@ -1,6 +1,6 @@
 'use client';
 
-import { useI18nLoadingStore } from '@/store/useI18nLoadingStore';
+import { useI18nLoadingStore } from '@/store/use-i18n-loading-store';
 import Loading from '@/components/loading';
 import { usePathname } from 'next/navigation';
 

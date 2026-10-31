@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/Table';
 import { cn } from '@/lib/utils';
 import type { BillingLedgerItem, BillingPagedResponse } from '@/types/billing';
-import { BILLING_SUBSECTION_TITLE_CLASS } from '@/components/billing/billingSectionTitleClass';
+import { BILLING_SUBSECTION_TITLE_CLASS } from '@/components/billing/billing-section-title-class';
 import {
   buildBillingSwrKey,
   formatBillingCreditDetail,
@@ -22,7 +22,7 @@ import {
   registerBillingTranslationUsage,
   resolveBillingLedgerReasonLabel,
 } from '@/lib/billing';
-import { useAdminPaginatedListState } from '@/hooks/useAdminPaginatedListState';
+import { useAdminPaginatedListState } from '@/hooks/use-admin-paginated-list-state';
 
 const RECENT_ITEMS_LIMIT = 20;
 const BILLING_PASSIVE_REQUEST_CONFIG = { skipErrorToast: true } as const;

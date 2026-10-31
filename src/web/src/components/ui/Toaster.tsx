@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 
-import { useToast } from '@/hooks/useToast';
+import { useToast } from '@/hooks/use-toast';
 import {
   Toast,
   ToastClose,

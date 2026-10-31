@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import { getPaymentDetail, syncStripeCheckout } from '@/api/order';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
-import { useTracking } from '@/hooks/useTracking';
+import { useTracking } from '@/hooks/use-tracking';
 import {
   buildLearnerPaymentResultAnalytics,
   buildLearnerPaymentStatusAnalytics,
   type LearnerPaymentFailureCategory,
-} from '@/lib/paymentAnalytics';
+} from '@/lib/payment-analytics';
 
 interface StripeResultState {
   status: 'loading' | 'success' | 'pending' | 'error';

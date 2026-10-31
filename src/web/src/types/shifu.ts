@@ -1,7 +1,7 @@
 export type ModelIndex = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 
 import type { DebugSessionPreparation } from '@/types/debug-session';
-import type { LearningPermission } from '@/api/studyV2';
+import type { LearningPermission } from '@/api/learning';
 
 export type BlockType =
   | 'content'

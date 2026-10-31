@@ -3,13 +3,13 @@
 import type { CSSProperties, ReactNode } from 'react';
 import Loading from '@/components/loading';
 import { TableCell, TableEmpty, TableRow } from '@/components/ui/Table';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@/components/ui/Tooltip';
 import { cn } from '@/lib/utils';
 import { AdminPagination, type AdminPaginationProps } from './AdminPagination';
 import {
   ADMIN_TABLE_DESCENDANT_CLASS,
   ADMIN_TABLE_SHELL_CLASS,
-} from './adminTableStyles';
+} from './admin-table-styles';
 
 type AdminTableRenderer = (emptyRow: ReactNode | null) => ReactNode;
 

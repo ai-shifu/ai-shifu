@@ -6,8 +6,8 @@ import api from '@/api';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
-} from '@/app/admin/lib/dateTime';
-import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+} from '@/app/admin/lib/date-time';
+import { useAdminResizableColumns } from '@/app/admin/hooks/use-admin-resizable-columns';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 import { ErrorWithCode } from '@/lib/request';
@@ -35,7 +35,7 @@ import {
   type OrderFilters,
   type OrderListResponse,
   type OrdersPageTab,
-} from './ordersPageShared';
+} from './orders-page-shared';
 import {
   resolveLoginIdentifierTypes,
   selectSingleLoginIdentifierType,
@@ -49,7 +49,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
   ORDER_TABS_LIST_CLASSNAME,
   ORDER_TABS_TRIGGER_CLASSNAME,
-} from '@/app/admin/operations/orders/orderUiShared';
+} from '@/app/admin/operations/orders/order-ui-shared';
 
 const OrdersPage = () => {
   const { t } = useTranslation();

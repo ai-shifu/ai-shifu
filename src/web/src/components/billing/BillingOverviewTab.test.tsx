@@ -2,8 +2,8 @@ import React from 'react';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import api from '@/api';
-import { toast } from '@/hooks/useToast';
-import { useBillingOverview } from '@/hooks/useBillingData';
+import { toast } from '@/hooks/use-toast';
+import { useBillingOverview } from '@/hooks/use-billing-data';
 import {
   rememberStripeBillingOrderForAnalytics,
   rememberStripeCheckoutSession,
@@ -20,7 +20,7 @@ const mockEnvState = {
 };
 const mockTrackEvent = jest.fn();
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
@@ -106,13 +106,13 @@ jest.mock(
   { virtual: true },
 );
 
-jest.mock('@/hooks/useBillingData', () => ({
+jest.mock('@/hooks/use-billing-data', () => ({
   __esModule: true,
   useBillingOverview: jest.fn(),
   BILLING_WALLET_BUCKETS_SWR_KEY: 'billing-wallet-buckets',
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   __esModule: true,
   toast: jest.fn(),
 }));

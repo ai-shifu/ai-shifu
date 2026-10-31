@@ -1,6 +1,6 @@
 'use client';
 
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +16,7 @@ import {
   createDateRangeFilterItem,
   createSelectFilterItem,
   createTextFilterItem,
-} from '@/app/admin/components/adminFilterFieldBuilders';
+} from '@/app/admin/components/admin-filter-field-builders';
 import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -58,7 +58,7 @@ import {
   DASHBOARD_FILTER_SELECT_CONTENT_CLASS,
   DASHBOARD_FILTER_TEXT_CONTENT_BALANCED_CLASS,
   DASHBOARD_FILTER_TEXT_CONTENT_LEAD_CLASS,
-} from '../../dashboardFilterUiShared';
+} from '../../dashboard-filter-ui-shared';
 import FollowUpDetailSheet from './FollowUpDetailSheet';
 
 type ErrorState = { message: string; code?: number };

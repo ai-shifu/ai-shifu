@@ -4,12 +4,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import LogoWithText from '@/components/logo/LogoWithText';
-import MainMenuModal from '@/components/NavDrawer/MainMenuModal';
-import NavFooter from '@/components/NavDrawer/NavFooter';
+import MainMenuModal from '@/components/navigation/MainMenuModal';
+import NavFooter from '@/components/navigation/NavFooter';
 import { BillingSidebarCard } from '@/components/billing/BillingSidebarCard';
 import { cn } from '@/lib/utils';
 import { CreatorBillingOverview } from '@/types/billing';
-import adminSidebarStyles from './AdminSidebar.module.scss';
+import adminSidebarStyles from './SidebarContent.module.scss';
 import { AdminMenuItem } from './admin-menu';
 import styles from './layout.module.scss';
 

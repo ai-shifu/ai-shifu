@@ -7,13 +7,13 @@ import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminDateRangeFilter from '@/app/admin/components/AdminDateRangeFilter';
 import AdminBreadcrumb from '@/app/admin/components/AdminBreadcrumb';
 import AdminTitle from '@/app/admin/components/AdminTitle';
-import { isGlobalBillingExperience } from '@/app/admin/billing/billingExperience';
+import { isGlobalBillingExperience } from '@/app/admin/billing/billing-experience';
 import {
   formatAdminDateRangeEndUtc,
   formatAdminDateRangeStartUtc,
-} from '@/app/admin/lib/dateTime';
-import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/components/admin/adminTableStyles';
-import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
+} from '@/app/admin/lib/date-time';
+import { ADMIN_TABLE_RESIZE_HANDLE_CLASS } from '@/components/admin/admin-table-styles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/use-admin-resizable-columns';
 import type {
   AdminBillingCampaignDetail,
   AdminBillingCampaignItem,
@@ -25,7 +25,7 @@ import type {
   AdminReferralCampaignDetail,
   AdminReferralCampaignItem,
 } from '@/app/admin/operations/operation-promotion-types';
-import useOperatorGuard from '@/app/admin/operations/useOperatorGuard';
+import useOperatorGuard from '@/app/admin/operations/use-operator-guard';
 import { useEnvStore } from '@/store';
 import type { EnvStoreState } from '@/types/store';
 import {
@@ -36,7 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { showDefaultToast, showErrorToast } from '@/hooks/useToast';
+import { showDefaultToast, showErrorToast } from '@/hooks/use-toast';
 import {
   PackageCampaignDialog,
   PromotionCampaignDialog,
@@ -96,7 +96,7 @@ import {
   SINGLE_SELECT_ITEM_CLASS,
   downloadExcelCompatibleCodesFile,
   canEditCampaignStrategyFields,
-} from './promotionPageShared';
+} from './promotion-page-shared';
 
 /**
  * t('module.operationsPromotion.actions.createReferralCampaign')

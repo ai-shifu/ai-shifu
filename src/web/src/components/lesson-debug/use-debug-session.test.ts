@@ -11,10 +11,10 @@ import {
 import AudioPlayer from '@/components/audio/AudioPlayer';
 import { SSE } from 'sse.js';
 import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
-import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
-import { toast, toastOnce } from '@/hooks/useToast';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
+import { toast, toastOnce } from '@/hooks/use-toast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
-import { getCreditInsufficientMessage } from '@/lib/creditInsufficientToast';
+import { getCreditInsufficientMessage } from '@/lib/credit-insufficient-toast';
 import {
   buildDebugBusinessErrorItem,
   replaceDebugLoadingWithBusinessError,
@@ -26,7 +26,7 @@ const mockTrackEvent = jest.fn();
 const mockGetCurrentMdflow = jest.fn();
 let mockRequestLanguage = 'en-US';
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 
@@ -41,7 +41,7 @@ jest.mock('remark-flow', () => ({
   }),
 }));
 
-jest.mock('@/api/studyV2', () => ({
+jest.mock('@/api/learning', () => ({
   ELEMENT_TYPE: {
     TEXT: 'text',
     HTML: 'html',
@@ -68,7 +68,7 @@ jest.mock('@/store', () => {
   };
 });
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   toast: jest.fn(),
   toastOnce: jest.fn(),
 }));
@@ -90,7 +90,7 @@ jest.mock('@/config/environment', () => ({
   getDynamicApiBaseUrl: jest.fn(async () => ''),
 }));
 
-jest.mock('@/lib/envUtils', () => ({
+jest.mock('@/lib/env-utils', () => ({
   getStringEnv: jest.fn(() => ''),
 }));
 
@@ -115,7 +115,7 @@ const buildMockSseSource = (): MockSseSource => {
   };
 };
 
-jest.mock('@/lib/markdownUtils', () => ({
+jest.mock('@/lib/markdown-utils', () => ({
   mergeStreamingMarkdownText: jest.fn((_prev: string, next: string) => next),
   maskIncompleteMermaidBlock: jest.fn((content: string) => content),
 }));

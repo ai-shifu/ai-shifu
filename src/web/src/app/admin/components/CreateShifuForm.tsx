@@ -15,11 +15,11 @@ import {
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
-import { TITLE_MAX_LENGTH } from '@/constants/uiConstants';
+import { TITLE_MAX_LENGTH } from '@/constants/ui-constants';
 import {
   buildOnboardingTargetProps,
   ONBOARDING_TARGET_IDS,
-} from '@/lib/onboardingTargets';
+} from '@/lib/onboarding-targets';
 
 export interface CreateShifuValues {
   name: string;
