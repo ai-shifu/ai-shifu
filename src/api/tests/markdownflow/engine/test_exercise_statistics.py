@@ -816,7 +816,15 @@ async def test_unanswered_hint_timing_preserves_known_zero_and_unknown_evidence(
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     ("hint_before", "asserted", "total", "before"),
-    [(False, 0, 0, 0), (True, 1, 1, None), (None, None, None, None)],
+    [
+        (False, 0, 0, 0),
+        (None, 0, 0, 0),
+        # A second hint after a confirmation pause is visible only to the model.
+        (True, 2, 2, None),
+        # Without an assertion, hint_before alone cannot rule out later rounds.
+        (True, None, None, None),
+        (False, None, None, None),
+    ],
 )
 async def test_a_question_without_submissions_keeps_report_hint_totals(
     hint_before: bool | None,
@@ -845,6 +853,19 @@ async def test_a_question_without_submissions_keeps_report_hint_totals(
         assert result["totals"]["hints"] is None
     else:
         assert result["totals"]["hints"] == sum(q["hints"] for q in others) + total
+
+
+@pytest.mark.anyio
+async def test_a_zero_assertion_cannot_contradict_an_initial_hint() -> None:
+    ctx = _fixture()
+    rows = [
+        *_questions(ctx),
+        ExerciseQuestion(
+            question="never answered", submissions=[], hint_before=True, hints=0
+        ),
+    ]
+    result = json.loads(await calculate_exercise_statistics(ctx, rows))
+    assert result == {"status": "conflicting_hint_round", "question": "never answered"}
 
 
 @pytest.mark.anyio
