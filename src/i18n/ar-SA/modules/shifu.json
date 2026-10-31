@@ -36,7 +36,6 @@
     "personalInfoPlaceholder": "أدخل {label}",
     "systemVariableLabels": {
       "background": "خلفية الطالب وتفضيلاته",
-      "input": "أحدث إدخال",
       "language": "لغة التدريس",
       "nickname": "اسم شهرة الطالب"
     },

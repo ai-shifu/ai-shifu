@@ -36,7 +36,6 @@
     "personalInfoPlaceholder": "{label} eingeben",
     "systemVariableLabels": {
       "background": "Hintergrund und Vorlieben der Lernenden",
-      "input": "Letzte Eingabe",
       "language": "Unterrichtssprache",
       "nickname": "Name des Lernenden"
     },

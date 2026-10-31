@@ -36,7 +36,6 @@
     "personalInfoPlaceholder": "Enter {label}",
     "systemVariableLabels": {
       "background": "Student background and preferences",
-      "input": "Latest input",
       "language": "Teaching language",
       "nickname": "Student nickname"
     },

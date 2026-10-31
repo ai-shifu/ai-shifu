@@ -33,6 +33,15 @@ undefined `sys_` keys, so a stored value alone does not make an undefined
 `sys_user_style` available in later lessons. Authoring keeps its generic reserved
 prefix rule without an exception for that name.
 
+`sys_user_input` also has no built-in variable behavior: learner messages do not
+automatically populate or overwrite it, and the simulator gives it no fixed
+hiding rule or dedicated system label. Existing course-defined values and
+explicitly supplied preview values follow ordinary variable handling. The
+generic `sys_` authoring restriction still applies without an exception.
+Normal learner input continues through request messages. The optional
+`get_fmt_prompt` `user_input` argument keeps its ordinary empty-template fallback;
+production callers do not pass that argument.
+
 Value selection uses the key and storage scope. Runtime profile writes through
 `save_user_profiles` retain their existing supplied-BID/definition-fallback rule;
 other writers keep their existing definition resolution. Former default names

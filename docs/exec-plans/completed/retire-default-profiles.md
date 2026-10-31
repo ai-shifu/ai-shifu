@@ -2,9 +2,10 @@
 
 ## Purpose / Big Picture
 
-Retire the built-in meanings of `sex`, `birth`, `avatar`, `language` and
-`sys_user_style`. Ordinary course variables retain their existing definition,
-read and write rules, including the generic `sys_` authoring restriction.
+Retire the built-in meanings of `sex`, `birth`, `avatar`, `language`,
+`sys_user_style` and `sys_user_input`. Ordinary course variables retain their
+existing definition, read and write rules, including the generic `sys_` authoring
+restriction.
 Only `sys_user_nickname`, `sys_user_language` and `sys_user_background` retain
 global profile semantics. Account settings and canonical learner-profile
 collection remain available. The durable contract is
@@ -39,9 +40,16 @@ prompts or snapshots.
 - [x] 2026-10-31 00:35 UTC: Remove the remaining retired-name compatibility scope:
   no retired-key registry, missing-definition repair, ID rebinding or reserved
   prefix exception. Keep the three active system keys and ordinary course rules.
-- [x] 2026-10-31 00:40 UTC: Validate the final scope with 5,565 integrated backend
-  regressions and 93 conditional skips, three additional supplied-ID cases, and
-  the full repository pre-commit gate.
+- [x] 2026-10-31 00:40 UTC: Validate the registry-removal scope with 5,565 integrated
+  backend regressions and 93 conditional skips, three additional supplied-ID
+  cases, and the full repository pre-commit gate.
+- [x] 2026-10-31 01:25 UTC: Extend the cleanup to `sys_user_input`: remove automatic
+  variable injection and overwrites, fixed hiding and the dedicated system label.
+  Keep ordinary defined/explicit preview values, request messages and the
+  formatter's empty-template fallback under their existing rules.
+- [x] 2026-10-31 01:31 UTC: Validate the input-variable cleanup with 5,584 backend
+  regressions and 93 conditional skips, 120 frontend tests, type checking, lint
+  and the full repository pre-commit gate.
 
 ## Surprises & Discoveries
 
@@ -92,6 +100,12 @@ prompts or snapshots.
   from supplementary course-memory reads.
 - Keep each writer's existing definition-BID resolution. Former names receive no
   forced ID rebinding; runtime value selection remains by key and scope.
+- Remove the built-in `sys_user_input` injection, overwrite and UI rules. Existing
+  course-defined values and explicitly supplied preview values follow ordinary
+  variable handling, with no exception to reserved-prefix authoring rules.
+- Keep normal learner input in request messages. Preserve the optional
+  `get_fmt_prompt` `user_input` empty-template fallback; production callers do not
+  pass that argument.
 - Preserve current request/canonical language precedence, supported-language
   normalization and disabled-multilingual behavior. Course `language` values do
   not select teaching language and are never automatically overwritten.
@@ -110,12 +124,22 @@ cache namespace. New formal sessions initialize from the current scoped
 without reading database memory.
 Continued sessions retain their saved state under the existing generic session
 logic; old injected prompts are not guaranteed to be free of retired defaults.
+`sys_user_input` receives no automatic value or dedicated UI treatment; ordinary
+request messages and explicit variable values retain their existing behavior.
 
-Final registry-removal validation passed 5,565 profile, user, learning, authoring
+The input-variable follow-up passed 5,584 profile, user, learning, authoring,
+golden and formatter regressions with 93 conditional skips in isolated SQLite
+storage. Four affected frontend suites passed all 120 tests. Type checking,
+lint, translation parity/usage, generated i18n types and the full pre-commit gate
+passed. The historical migration is unchanged.
+
+Earlier registry-removal validation passed 5,565 profile, user, learning, authoring
 and golden regressions with 93 conditional skips in isolated SQLite storage.
 Three supplied-definition-ID cases added after that suite's collection also
 passed separately. The full repository pre-commit gate passed, including the
 harness, architecture boundaries, translations, lint and formatting.
+The prior `f2b3c9b45` implementation also passed its complete CI. Those results
+precede the `sys_user_input` follow-up and do not validate that added scope.
 
 Earlier session simplification passed all 1,701 agent and route regressions,
 including ordinary continuation of saved inputs and accepted answers and preview
@@ -173,6 +197,13 @@ documentation with focused regression.
   sign-in merge remain covered. Mixed invalid writes fail before partial changes.
 - Empty canonical learner profiles never prefill old style. Existing course
   variables remain visible through generic preview controls.
+- `sys_user_input` is not automatically injected or overwritten and has no fixed
+  hiding rule or dedicated system label. Defined course values and explicit
+  preview values retain ordinary behavior; generic `sys_` authoring restrictions
+  remain unchanged.
+- Normal learner input still travels through request messages. The formatter's
+  optional empty-template input fallback remains available without adding
+  production callers of that argument.
 - Output-language selection uses canonical `sys_user_language` and leaves ordinary
   course `language` values untouched.
 - Existing formal and debug sessions use the original generic lifecycle without
