@@ -114,9 +114,11 @@ def post_fork(server: object, worker: object) -> None:
 
 def post_worker_init(worker: object) -> None:
     """Start development watchers after the worker loads its WSGI application."""
-    _ = worker
-    from flaskr.framework.plugin.plugin_manager import get_plugin_manager
+    try:
+        from flaskr.framework.plugin.plugin_manager import get_plugin_manager
 
-    manager = get_plugin_manager()
-    if manager is not None and manager.app.config.get("ENV") == "development":
-        manager.enable_hot_reload()
+        manager = get_plugin_manager()
+        if manager is not None and manager.app.config.get("ENV") == "development":
+            manager.enable_hot_reload()
+    except Exception:
+        worker.log.exception("post_worker_init plugin hot reload unavailable")
