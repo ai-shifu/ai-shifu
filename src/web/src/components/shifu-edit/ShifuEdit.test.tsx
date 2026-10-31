@@ -16,6 +16,8 @@ const mockMarkdownFlowEditor = jest.fn();
 const mockDebugPanel = jest.fn();
 const mockTrackEvent = jest.fn();
 const mockUseDebugSession = jest.fn();
+const mockRetryRegeneration = jest.fn();
+let mockCanRetryRegeneration = false;
 const mockRefreshUserInfo = jest.fn();
 let mockUserToken = 'token';
 
@@ -254,6 +256,8 @@ jest.mock('@/components/lesson-debug/use-debug-session', () => ({
       stopRun: jest.fn(),
       resetSession: jest.fn(),
       regenerateContent: jest.fn(),
+      retryRegeneration: mockRetryRegeneration,
+      canRetryRegeneration: mockCanRetryRegeneration,
       submitInteraction: jest.fn(),
       persistVariableValues: jest.fn(),
       setVariableValue: jest.fn(),
@@ -389,6 +393,8 @@ describe('ShifuEdit draft conflict checks', () => {
     mockDebugPanel.mockReset();
     mockTrackEvent.mockReset();
     mockUseDebugSession.mockReset();
+    mockRetryRegeneration.mockReset();
+    mockCanRetryRegeneration = false;
     mockRefreshUserInfo.mockReset();
     mockUserToken = 'token';
     mockUserStoreState.isInitialized = true;
@@ -1245,6 +1251,28 @@ describe('ShifuEdit draft conflict checks', () => {
       }),
     );
   });
+
+  test.each([true, false])(
+    'forwards regeneration retry only when available: %s',
+    async canRetry => {
+      setLessonNode();
+      mockCanRetryRegeneration = canRetry;
+
+      render(<ScriptEditor id='shifu-1' />);
+      fireEvent.click(screen.getByLabelText('module.shifu.previewArea.open'));
+      await waitFor(() => expect(mockDebugPanel).toHaveBeenCalled());
+
+      const panelProps = mockDebugPanel.mock.lastCall?.[0];
+      if (canRetry) {
+        expect(panelProps.onRetryRegeneration).toBe(mockRetryRegeneration);
+        panelProps.onRetryRegeneration();
+        expect(mockRetryRegeneration).toHaveBeenCalledTimes(1);
+      } else {
+        expect(panelProps.onRetryRegeneration).toBeUndefined();
+        expect(mockRetryRegeneration).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   test('does not enable regenerate actions before shifu data is ready', async () => {
     setLessonNode();

@@ -337,6 +337,127 @@ def test_debug_regeneration_keeps_prefix_and_replays_only_the_selected_turn(
         store.plan_rewind(script="Current draft", block_bid="future")
 
 
+def test_debug_regeneration_retry_follows_only_the_first_replacement(
+    app: object, monkeypatch: object
+) -> None:
+    """A lost response can retry the original request without reviving its retired suffix."""
+    from flaskr.service.learn.agent.rewind import restore
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    store = _store(app)
+    store.begin_request()
+    session = Session(script=ScriptBundle(script="Current draft"))
+    store.save(session, generated_block_bid="A", turn_record=_record(session))
+    session.memory["prefix"] = "kept"
+    selected = _record(session, ["original answer"])
+    store.save(session, generated_block_bid="B", turn_record=selected)
+    session.memory["future"] = "discard"
+    store.save(session, generated_block_bid="C", turn_record=_record(session))
+
+    plan = store.plan_rewind(script="Current draft", block_bid="B")
+    # Failing before the replacement saves leaves the original checkpoint available.
+    assert store.plan_rewind(script="Current draft", block_bid="B") == plan
+    restore(session, plan.checkpoint)
+    store.save(
+        session, generated_block_bid="B-prime", turn_record=selected, rewind=plan
+    )
+    # Automatic continuation must keep the retry at the first replacement, not its tail.
+    session.memory["replacement"] = "discard on retry"
+    store.save(session, generated_block_bid="D", turn_record=_record(session))
+    retry = _store(app).plan_rewind(script="Current draft", block_bid="B")
+    assert retry.checkpoint == plan.checkpoint
+    assert retry.replay_values == ["original answer"]
+    assert retry.retired_block_bids == ["B-prime", "D"]
+    assert retry.retry_anchor == "B"
+    restore(session, retry.checkpoint)
+    store.save(
+        session,
+        generated_block_bid="B-double-prime",
+        turn_record=selected,
+        rewind=retry,
+    )
+    repeated = store.plan_rewind(script="Current draft", block_bid="B")
+    assert repeated.checkpoint == plan.checkpoint
+    assert repeated.retired_block_bids == ["B-double-prime"]
+    assert repeated.retry_anchor == "B"
+    for retired in ("C", "B-prime", "D"):
+        with pytest.raises(RewindUnavailableError):
+            store.plan_rewind(script="Current draft", block_bid=retired)
+
+
+@pytest.mark.parametrize("new_anchor", ["A", "replacement", "continuation"])
+def test_a_different_debug_regeneration_replaces_the_retry_anchor(
+    app: object, monkeypatch: object, new_anchor: str
+) -> None:
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    store = _store(app)
+    session = Session(script=ScriptBundle(script="Current draft"))
+    for block_bid in ("A", "B", "C"):
+        store.save(session, generated_block_bid=block_bid, turn_record=_record(session))
+    first = store.plan_rewind(script="Current draft", block_bid="B")
+    store.save(
+        session,
+        generated_block_bid="replacement",
+        turn_record=_record(session),
+        rewind=first,
+    )
+    store.save(
+        session, generated_block_bid="continuation", turn_record=_record(session)
+    )
+    different = store.plan_rewind(script="Current draft", block_bid=new_anchor)
+    store.save(
+        session,
+        generated_block_bid="new-replacement",
+        turn_record=_record(session),
+        rewind=different,
+    )
+    assert store.plan_rewind(
+        script="Current draft", block_bid=new_anchor
+    ).retired_block_bids == ["new-replacement"]
+    for retired in ("B", "C"):
+        with pytest.raises(RewindUnavailableError):
+            store.plan_rewind(script="Current draft", block_bid=retired)
+
+
+@pytest.mark.parametrize(
+    "context", ["user", "course", "outline", "run", "script", "expired", "inactive"]
+)
+def test_debug_regeneration_retry_requires_its_unchanged_active_run(
+    app: object, monkeypatch: object, context: str
+) -> None:
+    cache = _Cache()
+    monkeypatch.setattr(debug_session, "cache", cache)
+    store = _store(app)
+    session = Session(script=ScriptBundle(script="Current draft"))
+    store.save(session, generated_block_bid="B", turn_record=_record(session))
+    plan = store.plan_rewind(script="Current draft", block_bid="B")
+    store.save(
+        session,
+        generated_block_bid="replacement",
+        turn_record=_record(session),
+        rewind=plan,
+    )
+    if context == "expired":
+        del cache.values[store._key]
+    elif context == "inactive":
+        payload = store._payload(script="Current draft")
+        payload["turns"] = []
+        cache.values[store._key] = json.dumps(payload)
+    elif context != "script":
+        store = debug_session.DebugSessionStore(
+            app,
+            user_bid="other" if context == "user" else "teacher",
+            shifu_bid="other" if context == "course" else "course",
+            outline_bid="other" if context == "outline" else "lesson",
+            run_bid="other" if context == "run" else "one",
+        )
+    with pytest.raises(RewindUnavailableError):
+        store.plan_rewind(
+            script="Edited draft" if context == "script" else "Current draft",
+            block_bid="B",
+        )
+
+
 @pytest.mark.parametrize(
     "invalid", ["unknown", "element-in-selected", "prefix-from-other-run"]
 )
@@ -436,30 +557,42 @@ def test_expired_debug_regeneration_does_not_restart_the_lesson(
     assert exc_info.value.code == 4019
 
 
+@pytest.mark.parametrize("provider_error", [False, True])
 def test_real_debug_turns_record_replayable_checkpoints_and_discard_future_history(
-    app: object, monkeypatch: object
+    app: object, monkeypatch: object, provider_error: bool
 ) -> None:
     """Exercise the real engine, cache saves and rewind rather than constructing turn metadata."""
     from flaskr.service.learn.agent import run_agent
     from markdownflow.engine import Engine
+    from markdownflow.engine.events import ErrorEvent, TurnDone
 
     from tests.service.learn.agent.test_memory_integration import _drive
 
     monkeypatch.setattr(debug_session, "cache", _Cache())
     calls = 0
     replay_history: list[str] = []
+    failed_events: list[object] = []
 
     async def model(messages: list, _info: object) -> object:
         nonlocal calls
         calls += 1
-        if calls == 4:
+        if calls >= 4:
             replay_history.extend(
                 part.content
                 for message in messages
                 for part in message.parts
                 if isinstance(part, UserPromptPart) and isinstance(part.content, str)
             )
+        if calls == 4 and provider_error:
+            msg = "Provider failed before producing content"
+            raise RuntimeError(msg)
         yield f"Teaching step {calls}."
+
+    def drive(make_events: Callable, **kwargs: object) -> Iterator:
+        events = list(_drive(make_events, **kwargs))
+        if calls == 4 and provider_error:
+            failed_events.extend(events)
+        return iter(events)
 
     engine = Engine(FunctionModel(stream_function=model))
     with app.app_context():
@@ -504,11 +637,40 @@ def test_real_debug_turns_record_replayable_checkpoints_and_discard_future_histo
                 debug_store=store,
                 preview_variables={"goal": "echoed", "future_answer": "discard"},
                 rewind=plan,
-                iter_turn=_drive,
+                iter_turn=drive,
             )
         )
+        if provider_error:
+            assert any(isinstance(event, ErrorEvent) for event in failed_events)
+            assert not any(isinstance(event, TurnDone) for event in failed_events)
+            # Even a bare provider error commits the failed replacement checkpoint.
+            failed_turns = store._payload(script="Current draft")["turns"]
+            assert turns[1]["block_bid"] not in {
+                turn["block_bid"] for turn in failed_turns
+            }
+            store = _store(app)
+            retry = store.plan_rewind(
+                script="Current draft", block_bid=turns[1]["block_bid"]
+            )
+            assert retry.checkpoint == plan.checkpoint
+            assert retry.replay_values == ["Original selected request"]
+            list(
+                run_agent.run_agent_lesson(
+                    app,
+                    engine=engine,
+                    script="Current draft",
+                    user_bid="teacher",
+                    shifu_bid="course",
+                    outline_bid="lesson",
+                    preview_mode=True,
+                    debug_store=store,
+                    preview_variables={"goal": "echoed", "future_answer": "discard"},
+                    rewind=retry,
+                    iter_turn=drive,
+                )
+            )
         after = store.load(script="Current draft")
-    assert calls == 4
+    assert calls == (5 if provider_error else 4)
     assert after.id == before.id
     assert after.turn == 2
     assert after.user_memory == {"goal": "original"}

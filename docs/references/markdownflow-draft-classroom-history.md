@@ -86,6 +86,17 @@ terminal-result family, as defined in the frontend analytics reference.
 
 ## Editor Debug regeneration
 
+A failed or stopped regeneration retains a retry target independently of the
+visible rows. The panel offers Retry even when the selected step is no longer
+visible. It does not restore discarded answers or old output after an uncertain
+failure: the backend may already have saved replacement state. The cache keeps
+one mapping from the requested logical target to its first replacement block.
+Only that mapping, while its replacement is still active in the same Debug
+session and script, can resolve a retired target for retry. Ordinary subsequent
+turns preserve it; another regeneration replaces it. Other retired suffix
+anchors remain unavailable. Success, reset and a new script clear the frontend
+retry target, and stale callbacks cannot bring it back.
+
 Editor Debug uses its separate 30-minute cache, scoped to the authenticated
 teacher, course, lesson and browser-generated Debug run ID. Its cached sidecar
 records each turn's checkpoint and original inputs alongside the engine session;

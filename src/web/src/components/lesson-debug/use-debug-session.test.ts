@@ -14,7 +14,10 @@ import type { OnSendContentParams } from 'markdown-flow-ui/renderer';
 import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import { toast, toastOnce } from '@/hooks/useToast';
 import { attachSseBusinessResponseFallback } from '@/lib/request';
-import { getCreditInsufficientMessage } from '@/lib/creditInsufficientToast';
+import {
+  getCreditInsufficientMessage,
+  type CreditInsufficientAudience,
+} from '@/lib/creditInsufficientToast';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import {
   buildDebugBusinessErrorItem,
@@ -357,8 +360,10 @@ describe('useDebugSession helpers and business error rendering', () => {
         sources.push(source);
         return source;
       });
-      const hook = renderHook(() =>
-        useDebugSession({ creditInsufficientAudience: 'teacher' }),
+      const hook = renderHook(
+        ({ audience }: { audience: CreditInsufficientAudience | null }) =>
+          useDebugSession({ creditInsufficientAudience: audience }),
+        { initialProps: { audience: 'teacher' } },
       );
       await act(async () =>
         hook.result.current.startRun({
@@ -452,6 +457,7 @@ describe('useDebugSession helpers and business error rendering', () => {
       expect(result.current.variableValues).toEqual({
         earlierAnswer: 'Keep me',
       });
+      expect(result.current.canRetryRegeneration).toBe(false);
       expect(regenerationEvents()).toEqual([
         [
           'teacher_debug_regenerate_start',
@@ -728,18 +734,242 @@ describe('useDebugSession helpers and business error rendering', () => {
       expect(JSON.stringify(regenerationEvents())).not.toContain(
         'Private API configuration failure',
       );
-      await act(async () => result.current.regenerateContent('earlier-text'));
+      expect(result.current.canRetryRegeneration).toBe(true);
+      await act(async () => result.current.retryRegeneration());
       expect(SSE).toHaveBeenCalledTimes(2);
+      expect(
+        JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload)
+          .reload_generated_block_bid,
+      ).toBe('selected-turn');
       act(() => {
         emitText(sources[1], 'retry-text', 'retry-turn', 'Recovered');
         emit(sources[1], { type: 'done', is_terminal: true });
       });
       expect(result.current.errorMessage).toBeNull();
+      expect(result.current.canRetryRegeneration).toBe(false);
       expect(result.current.items).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ content: 'Recovered' }),
         ]),
       );
+    });
+
+    test.each(['business', 'transport', 'close', 'stop'] as const)(
+      'retries the missing selected turn after %s without restoring discarded answers',
+      async ending => {
+        const { result, sources } = await prepare();
+        const firstRequest = JSON.parse(
+          (SSE as jest.Mock).mock.calls[0][1].payload,
+        );
+        const prefix = result.current.items.slice(
+          0,
+          result.current.items.findIndex(
+            item => item.element_bid === 'target-intro',
+          ),
+        );
+        await act(async () => result.current.regenerateContent('target-text'));
+        expect(result.current.canRetryRegeneration).toBe(false);
+        act(() => {
+          emit(sources[1], {
+            type: 'debug_variables',
+            content: { earlierAnswer: 'Keep me' },
+          });
+          if (ending === 'business') {
+            emit(sources[1], { type: 'error', content: 'Private failure' });
+          } else if (ending === 'transport') {
+            sources[1].listeners.error?.({});
+          } else if (ending === 'close') {
+            close(sources[1]);
+          } else {
+            result.current.stopRun();
+          }
+        });
+        expect(result.current.isStreaming).toBe(false);
+        expect(result.current.canRetryRegeneration).toBe(true);
+        expect(
+          result.current.items.map(item => item.element_bid),
+        ).not.toContain('loading');
+        expect(
+          result.current.items.map(item => item.element_bid),
+        ).not.toContain('target-text');
+        expect(result.current.variableValues).toEqual({
+          earlierAnswer: 'Keep me',
+        });
+
+        await act(async () => {
+          result.current.retryRegeneration();
+          result.current.retryRegeneration();
+        });
+        expect(SSE).toHaveBeenCalledTimes(3);
+        const retryRequest = JSON.parse(
+          (SSE as jest.Mock).mock.lastCall[1].payload,
+        );
+        expect(retryRequest.debug_session_id).toBe(
+          firstRequest.debug_session_id,
+        );
+        expect(retryRequest.reload_generated_block_bid).toBe('selected-turn');
+        expect(retryRequest.user_input).toBeUndefined();
+        expect(retryRequest.variables).toEqual({ earlierAnswer: 'Keep me' });
+        expect(
+          result.current.items.filter(item => item.element_bid !== 'loading'),
+        ).toEqual(prefix);
+        expect(result.current.canRetryRegeneration).toBe(false);
+        act(() => {
+          emit(sources[1], { type: 'done', is_terminal: true });
+          emitText(
+            sources[2],
+            'retried-text',
+            'retried-turn',
+            'Retried result',
+          );
+          emit(sources[2], { type: 'done', is_terminal: true });
+        });
+        expect(result.current.canRetryRegeneration).toBe(false);
+        expect(regenerationEvents()).toEqual([
+          [
+            'teacher_debug_regenerate_start',
+            { shifu_bid: 'course', outline_bid: 'lesson' },
+          ],
+          [
+            'teacher_debug_regenerate_result',
+            {
+              shifu_bid: 'course',
+              outline_bid: 'lesson',
+              result: ending === 'stop' ? 'cancelled' : 'failed',
+            },
+          ],
+          [
+            'teacher_debug_regenerate_start',
+            { shifu_bid: 'course', outline_bid: 'lesson' },
+          ],
+          [
+            'teacher_debug_regenerate_result',
+            { shifu_bid: 'course', outline_bid: 'lesson', result: 'success' },
+          ],
+        ]);
+        expect(JSON.stringify(regenerationEvents())).not.toMatch(
+          /selected-turn|retried-turn|Private|Keep me|Discard me|Retried result/,
+        );
+      },
+    );
+
+    test('retries the same logical turn after replacement output and repeated connection failures', async () => {
+      const { result, sources } = await prepare();
+      await act(async () => result.current.regenerateContent('target-text'));
+      act(() => {
+        emitText(
+          sources[1],
+          'replacement-text',
+          'replacement-turn',
+          'Partial replacement',
+        );
+        sources[1].listeners.error?.({});
+      });
+      expect(result.current.items.map(item => item.element_bid)).toContain(
+        'replacement-text',
+      );
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        await act(async () => result.current.retryRegeneration());
+        expect(
+          JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload)
+            .reload_generated_block_bid,
+        ).toBe('selected-turn');
+        expect(
+          result.current.items.map(item => item.element_bid),
+        ).not.toContain('replacement-text');
+        act(() => sources[attempt + 2].listeners.error?.({}));
+        expect(result.current.canRetryRegeneration).toBe(true);
+      }
+      expect(SSE).toHaveBeenCalledTimes(4);
+      expect(regenerationEvents().map(([name]) => name)).toEqual([
+        'teacher_debug_regenerate_start',
+        'teacher_debug_regenerate_result',
+        'teacher_debug_regenerate_start',
+        'teacher_debug_regenerate_result',
+        'teacher_debug_regenerate_start',
+        'teacher_debug_regenerate_result',
+      ]);
+    });
+
+    test('clears a failed target on reset and ignores stale completion callbacks', async () => {
+      const { result, sources } = await prepare();
+      await act(async () => result.current.regenerateContent('target-text'));
+      act(() => sources[1].listeners.error?.({}));
+      expect(result.current.canRetryRegeneration).toBe(true);
+      act(() => {
+        result.current.resetSession();
+        emitText(sources[1], 'stale-text', 'stale-turn', 'Stale result');
+        emit(sources[1], { type: 'done', is_terminal: true });
+        result.current.retryRegeneration();
+      });
+      expect(result.current.canRetryRegeneration).toBe(false);
+      expect(result.current.items).toEqual([]);
+      expect(SSE).toHaveBeenCalledTimes(2);
+      expect(regenerationEvents()).toHaveLength(2);
+    });
+
+    test('starts a fresh session when the draft changes before retrying', async () => {
+      const { result, sources } = await prepare();
+      const originalRequest = JSON.parse(
+        (SSE as jest.Mock).mock.calls[0][1].payload,
+      );
+      await act(async () => result.current.regenerateContent('target-text'));
+      act(() => sources[1].listeners.error?.({}));
+      mockGetCurrentMdflow.mockReturnValue('Edited draft');
+      await act(async () => result.current.retryRegeneration());
+      const request = JSON.parse((SSE as jest.Mock).mock.lastCall[1].payload);
+      expect(request.content).toBe('Edited draft');
+      expect(request.debug_session_id).not.toBe(
+        originalRequest.debug_session_id,
+      );
+      expect(request.reload_generated_block_bid).toBeUndefined();
+      expect(result.current.canRetryRegeneration).toBe(false);
+      expect(regenerationEvents()).toHaveLength(2);
+    });
+
+    test('blocks retry while ownership is unresolved and clears it on a different run', async () => {
+      const { result, sources, rerender } = await prepare();
+      await act(async () => result.current.regenerateContent('target-text'));
+      act(() => sources[1].listeners.error?.({}));
+      rerender({ audience: null });
+      await act(async () => result.current.retryRegeneration());
+      expect(result.current.canRetryRegeneration).toBe(false);
+      expect(SSE).toHaveBeenCalledTimes(2);
+      rerender({ audience: 'teacher' });
+      await act(async () =>
+        result.current.startRun({
+          shifuBid: 'other-course',
+          outlineBid: 'other-lesson',
+          mdflow: 'Private draft',
+        }),
+      );
+      act(() => emit(sources[2], { type: 'done', is_terminal: true }));
+      await act(async () => result.current.retryRegeneration());
+      expect(result.current.canRetryRegeneration).toBe(false);
+      expect(SSE).toHaveBeenCalledTimes(3);
+      expect(regenerationEvents()).toHaveLength(2);
+    });
+
+    test('retry remains available and succeeds when analytics throws', async () => {
+      const { result, sources } = await prepare();
+      mockTrackEvent.mockImplementation(() => {
+        throw new Error('Analytics unavailable');
+      });
+      await act(async () => result.current.regenerateContent('target-text'));
+      act(() => sources[1].listeners.error?.({}));
+      expect(result.current.canRetryRegeneration).toBe(true);
+      await act(async () => result.current.retryRegeneration());
+      act(() => {
+        emitText(sources[2], 'retried-text', 'retried-turn', 'Recovered');
+        emit(sources[2], { type: 'done', is_terminal: true });
+      });
+      expect(SSE).toHaveBeenCalledTimes(3);
+      expect(result.current.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ content: 'Recovered' }),
+        ]),
+      );
+      expect(result.current.canRetryRegeneration).toBe(false);
     });
   });
 

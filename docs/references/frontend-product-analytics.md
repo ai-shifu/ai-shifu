@@ -416,6 +416,14 @@ solely because historical Umami rows or queries exist.
 
 ## Editor Debug step regeneration
 
+Accepted retries after a failed or stopped regeneration use the same attempt
+and terminal-result family below. The retry control is available only for the
+current Debug session's retained logical target and is hidden during a running
+request; repeated or blocked callbacks do not create additional attempts.
+Retrying is a distinct accepted request, so it gets one new start and at most
+one result. The payload schema and consumer stay unchanged. The retry target,
+checkpoint, discarded content and errors are never included in analytics.
+
 - Business question: Can teachers rerun a selected Debug step and its following
   steps successfully while keeping earlier output?
 - Metric: Weekly initiated regeneration attempts and their terminal success,
