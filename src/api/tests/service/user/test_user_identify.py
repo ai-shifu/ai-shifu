@@ -219,6 +219,8 @@ def test_phone_flow_marks_temp_phone_claim_as_created_new_user(
     from flaskr.service.user.models import UserInfo as UserEntity
 
     app = Flask(__name__)
+    # Dedicated test startup for the temporary-identity workflow.
+    app.extensions["development_verification_codes"] = True
     db_uri = f"sqlite:///{tmp_path / 'phone-claim.db'}"
     app.config.update(
         SECRET_KEY="test-secret-key",
@@ -295,6 +297,8 @@ def test_email_flow_marks_temp_email_claim_as_created_new_user(
     from flaskr.service.user.models import UserInfo as UserEntity
 
     app = Flask(__name__)
+    # Dedicated test startup for the temporary-identity workflow.
+    app.extensions["development_verification_codes"] = True
     db_uri = f"sqlite:///{tmp_path / 'email-claim.db'}"
     app.config.update(
         SECRET_KEY="test-secret-key",

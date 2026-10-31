@@ -13,7 +13,7 @@ services:
         && flask db upgrade
         && flask console update_demo_shifu
         && cd /app
-        && exec gunicorn -k gthread --threads 8 -w 1 -b 0.0.0.0:5800 'app:app'
+        && exec gunicorn -k gthread --threads 8 -w 1 -b 0.0.0.0:5800 --pythonpath /harness 'runtime_app:app'
         --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
     env_file:
       - ./.env
@@ -23,6 +23,11 @@ services:
       LOGIN_METHODS_ENABLED: phone
       DEFAULT_LOGIN_METHOD: phone
       CAPTCHA_CODE_OVERRIDE: "0000"
+      # Placeholder settings for the mounted harness-only SMS transport.
+      ALIBABA_CLOUD_SMS_ACCESS_KEY_ID: runtime-harness-placeholder
+      ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET: runtime-harness-placeholder
+      ALIBABA_CLOUD_SMS_SIGN_NAME: RuntimeHarness
+      ALIBABA_CLOUD_SMS_TEMPLATE_CODE: runtime-harness-placeholder
       OPENAI_BASE_URL: http://ai-shifu-interaction-model:8000/v1
       CREATOR_INTEGRATION_ENCRYPTION_KEY: ${AI_SHIFU_CREATOR_INTEGRATION_ENCRYPTION_KEY:?runtime harness encryption key is required}
       SAAS_DB_URI: mysql://root:${AI_SHIFU_MYSQL_PASSWORD:?runtime harness MySQL password is required}@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4
@@ -32,6 +37,8 @@ services:
       CELERY_BROKER_URL: redis://ai-shifu-redis:6379/0
       CELERY_RESULT_BACKEND: redis://ai-shifu-redis:6379/1
       GEMINI_LIVE_ENABLED: "${GEMINI_LIVE_ENABLED:-false}"
+    volumes:
+      - ../scripts/harness/runtime_app.py:/harness/runtime_app.py:ro
     ports:
       - "127.0.0.1:${AI_SHIFU_API_PORT:-5800}:5800"
     depends_on:

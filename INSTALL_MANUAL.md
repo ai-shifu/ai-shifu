@@ -103,6 +103,35 @@ These variables are essential for the application to run:
 - For production deployments, use environment-specific configurations
 - Refer to the example files for detailed explanations of each variable
 
+#### Verification codes and existing deployments
+
+Verification-code login and password setup/reset require a current code
+actually issued through the configured SMS or email provider. Configure the
+provider for each enabled code-based login method before use. The normal
+`app:app` and `python app.py` entries, including latest and pinned-release
+Compose deployments, ignore `UNIVERSAL_VERIFICATION_CODE` even when `ENV` is
+mistakenly set to `development`. The generated template leaves that variable
+empty.
+
+For an existing deployment:
+
+1. Remove the old `UNIVERSAL_VERIFICATION_CODE` override from environment
+   files, Compose environment blocks, and custom overlays. Preserve the
+   existing `SECRET_KEY` and other deployment configuration.
+2. Update or rebuild the API image to a version containing this fix and use
+   its updated deployment files. Keep the normal `app:app` startup entry;
+   never select the dedicated development entry in a deployed service.
+3. Restart the API containers with that image and configuration. Check actual
+   SMS or email delivery and verify login with the issued code. Removing an
+   override alone does not update an older running image or startup command.
+
+Local development/test code overrides require both the dedicated
+`development_app:app` entry and an explicitly configured nonempty
+`UNIVERSAL_VERIFICATION_CODE`; see [Local Demo Login](#local-demo-login).
+`docker-compose.dev.yml` selects that entry explicitly, but does not supply a
+default code. Environment labels alone never enable it. A configured override
+does not turn SMS provider failure into successful delivery.
+
 #### Secret key preservation and recovery
 
 - The installer automatically generates and saves an independent `SECRET_KEY`;
@@ -300,11 +329,12 @@ validated and preserved.
 python3 scripts/prepare_env.py --output src/api/.env
 ```
 
-The Docker template includes demo authentication settings such as
-`UNIVERSAL_VERIFICATION_CODE`. The API and frontend commands below bind to
-loopback so those settings are not exposed through either development server.
-Before making the application remotely accessible, clear the universal code,
-and configure a real login provider. Keep the generated `SECRET_KEY` unchanged.
+The template leaves `UNIVERSAL_VERIFICATION_CODE` empty. The normal API
+command below requires actual SMS or email delivery for code-based login.
+For an optional local test shortcut, use the explicit development entry in
+[Local Demo Login](#local-demo-login) and configure a test code yourself.
+Keep development servers bound to loopback and preserve the generated
+`SECRET_KEY`.
 
 Edit `src/api/.env`, retaining the provider key and required `LLM_MODEL_1_ID`
 mapping. Replace Docker service hostnames with the addresses of your local
@@ -525,8 +555,22 @@ do not call the LLM.
 
 ### Local Demo Login
 
-With the unmodified Docker template, phone login is enabled and
-`UNIVERSAL_VERIFICATION_CODE=1024` accepts the demo code without SMS delivery.
-Use a valid test phone number. This shortcut applies only while that setting
-is enabled; installations with it cleared require their configured login
-provider.
+There is no default demo verification code. With the normal API entry,
+request a code through the configured SMS or email provider and use that
+issued code.
+
+For local development or automated tests only, explicitly configure a
+nonempty `UNIVERSAL_VERIFICATION_CODE` in the local environment file and
+select the dedicated entry. The development Compose file already selects
+it. For manual development, replace the normal API command with:
+
+```bash
+cd src/api
+gunicorn -k gthread --threads 8 -w 1 -b 127.0.0.1:5800 'development_app:app' --timeout 300 --log-level info
+```
+
+Use a valid test identifier and submit the configured test code directly.
+Requesting an SMS still requires successful provider delivery; a test-code
+override never makes a failed send appear successful. Without both the
+explicit entry and a nonempty configured value, only actual issued codes are
+accepted. Keep this entry local and use `app:app` for deployed services.

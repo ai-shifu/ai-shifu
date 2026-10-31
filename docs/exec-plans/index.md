@@ -44,6 +44,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Generate and persist installation secret keys](./active/persistent-secret-key.md)
 - [PR-first product release workflow](./active/pr-first-release-workflow.md)
 - [Preserve Independent Credit Validity](./active/preserve-independent-credit-validity.md)
+- [Require issued verification codes in normal deployments](./active/production-verification-codes.md)
 - [Progressive HTML alongside typed lesson text](./active/progressive-html-typewriter.md)
 - [Define and align MarkdownFlow text variable names](./active/question-memory-key-compatibility.md)
 - [老带新邀请奖励实施计划](./active/referral-invitation-rewards.md)

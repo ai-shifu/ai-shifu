@@ -1362,12 +1362,12 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
         required=False,
-        example="1024",
+        default="",
         description=(
-            "Universal verification code for testing.\n"
-            "**SECURITY WARNING:** Do NOT set this in production environments.\n"
-            "If set, it will allow anyone to bypass verification.\n"
-            "Only use for local development or testing."
+            "Optional local test code, disabled by default.\n"
+            "Accepted only by the explicit development_app:app startup entry.\n"
+            "Normal app:app startup ignores it, regardless of ENV.\n"
+            "Never configure this in a deployed environment."
         ),
         group="auth",
     ),

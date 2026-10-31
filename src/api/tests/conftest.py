@@ -123,7 +123,7 @@ def app() -> Iterator[Flask | None]:
     from app import create_app
     from flask_migrate import upgrade
 
-    app = create_app()
+    app = create_app(development_verification_codes=True)
     app.config["SQLALCHEMY_BINDS"] = {
         "ai_shifu_saas": _test_db_uri,
         "ai_shifu_admin": _test_db_uri,

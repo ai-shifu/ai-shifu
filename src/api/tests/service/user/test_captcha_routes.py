@@ -256,10 +256,11 @@ def test_console_sms_uses_resolved_client_ip(
     assert captured == ["198.51.100.20"]
 
 
-def test_console_send_sms_code_accepts_configured_universal_code_without_provider(
+def test_console_send_sms_code_rejects_failed_delivery_with_configured_override(
     test_client: object, app: object, monkeypatch: object
 ) -> None:
     import flaskr.service.user.utils as user_utils
+    from flaskr.service.common.models import ERROR_CODE
 
     monkeypatch.setattr(
         user_utils,
@@ -275,7 +276,7 @@ def test_console_send_sms_code_accepts_configured_universal_code_without_provide
     )
 
     assert response.status_code == 200
-    assert body["code"] == 0
+    assert body["code"] == ERROR_CODE["server.common.unknownError"]
 
 
 def test_console_send_sms_code_normalizes_cn_prefix(

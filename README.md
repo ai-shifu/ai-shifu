@@ -54,6 +54,7 @@ python3 ../scripts/prepare_env.py
 # Edit .env: configure an LLM provider API key and set LLM_MODEL_1_ID
 # to a text model ID served by that provider (required; no default).
 # LLM_MODEL_1_NAME is optional; an empty name displays the model ID.
+# Configure SMS or SMTP delivery for verification-code login.
 
 # Start all services
 docker compose -f docker-compose.latest.yml up -d
@@ -64,7 +65,7 @@ Notes
 - `LLM_MODEL_1_ID` is required and has no default. Configure optional model IDs for numbers 2-9; gaps are supported. All `LLM_MODEL_<number>_NAME` values are optional: omitted or blank names display the configured model ID. A name without a model ID does not enable an option. Historical selections automatically use model 1 when they do not reference a configured number; no data cleanup is needed.
 - For an existing installation, follow [Upgrading to numbered models](INSTALL_MANUAL.md#upgrading-to-numbered-models) before starting the new images. This applies to latest, pinned-release and development Compose modes.
 - First verified user is automatically promoted to Admin and Creator; the bundled demo course is assigned to this user.
-- Default universal verification code for demos is 1024 (change via `UNIVERSAL_VERIFICATION_CODE`).
+- Verification-code login and password setup/reset require a code actually issued through the configured SMS or email provider. Standard deployment entries ignore `UNIVERSAL_VERIFICATION_CODE`, including when `ENV=development`. Existing deployments must follow the [verification-code upgrade steps](INSTALL_MANUAL.md#verification-codes-and-existing-deployments).
 - `docker-compose.latest.yml` pulls the freshest `:latest` images (or your own locally built `latest` tags). For a fresh pinned-release installation, use both `docker-compose.yml` and `docker-compose.secret-key.yml` as described below.
 - The installer creates `.env` with a private random `SECRET_KEY` once. Keep and securely back up this file across restarts and upgrades; all backend containers and workers reuse it. Existing files are validated and never overwritten. See [key preservation and recovery](INSTALL_MANUAL.md#secret-key-preservation-and-recovery) before changing existing configuration.
 
@@ -84,7 +85,8 @@ python3 ../scripts/prepare_env.py
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
 # - REDIS_HOST: Optional; set to enable Redis caching/locks (leave empty to disable)
 # - SECRET_KEY: Already generated and saved by the installer; preserve this value
-# - UNIVERSAL_VERIFICATION_CODE: Test verification code (remove/empty in production)
+# - SMS / SMTP settings: Configure actual verification-code delivery
+# - UNIVERSAL_VERIFICATION_CODE: Leave empty for normal deployments
 # - Any other optional integrations
 
 docker compose -f docker-compose.latest.yml up -d
@@ -109,6 +111,8 @@ python3 ../scripts/prepare_env.py
 ```
 
 `dev_in_docker.sh` builds the backend and frontend images from your local source tree and then launches `docker-compose.dev.yml` (hot reload + bind mounts). Use it whenever you need to iterate on code without managing Python/Node runtimes locally.
+
+The dev Compose file explicitly selects `development_app:app`. Only this dedicated local development/test entry accepts a nonempty `UNIVERSAL_VERIFICATION_CODE` that you explicitly configure; the template leaves it empty. The normal `app:app` and `python app.py` entries never enable that shortcut from environment settings. SMS delivery still requires a successful provider response, even with a test code configured. See [local demo login](INSTALL_MANUAL.md#local-demo-login) for direct development startup.
 
 It stops before building when `.env` is absent. For a new installation, run
 the configuration installer above; for an existing installation, restore the
@@ -144,7 +148,7 @@ for automatic triggers, manual backfills and use with the existing Compose bundl
 After Docker starts:
 
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
-2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
+2. Use your phone number or email address and the code delivered by its configured provider. There is no default demo verification code.
 3. The first verified user becomes Admin and Creator
 
 ## Internationalization (i18n)
