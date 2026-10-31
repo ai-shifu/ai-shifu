@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 _OPEN = re.compile(r"""[ ]{0,3}<interact(?=$|[ \t\r\n/>"'])""")
-_PARAMETER = re.compile(r"[ \t]*<parameter(?=[ \t/>])")
+_PARAMETER = re.compile(r"[ \t]*<parameter(?=$|[ \t\r\n/>])")
 _CLOSE = re.compile(r"""</interact["']?[ \t]*>""")
 _BLOCK_TAG = re.compile(
     r"""</?(?:parameter|interact)(?=[ \t\r\n/>"'])"""
@@ -38,12 +38,21 @@ def _tag_end(text: str, start: int) -> int | None:
 
 
 def authored_interaction_markup(script: str) -> frozenset[str]:
-    """Preserve exact literal tag examples present in the author's documents."""
-    return frozenset(
-        line.strip()
-        for line in script.splitlines()
-        if contains_interaction_markup(line, frozenset())
-    )
+    """Preserve exact literal tag examples present in the author's documents.
+
+    A multiline example keeps its following lines up to a blank line, so the
+    complete authored example is exempt but a different generated body is not.
+    """
+    literals: set[str] = set()
+    in_example = False
+    for line in script.splitlines():
+        if contains_interaction_markup(line, frozenset()):
+            in_example = True
+        elif not line.strip():
+            in_example = False
+        if in_example:
+            literals.add(line.strip())
+    return frozenset(literals)
 
 
 class InteractionMarkupFilter:
@@ -66,6 +75,7 @@ class InteractionMarkupFilter:
         self._parameter_block = False
         self._in_parameter = False
         self._pending_tag = ""
+        self._after_literal = False
 
     def feed(self, text: str) -> str:
         """Return display text while retaining a potentially invalid tag line."""
@@ -79,12 +89,17 @@ class InteractionMarkupFilter:
                 self._sent = len(self._line)
         return "".join(out)
 
+    def settle(self) -> str:
+        """Settle the last line at a part boundary; a rejected block stays open."""
+        return self._settle()
+
     def flush(self) -> str:
         """End a response's protocol fragment without losing literal-code fences."""
         result = self._settle()
         self._parameter_block = False
         self._in_parameter = False
         self._pending_tag = ""
+        self._after_literal = False
         return result
 
     def _could_be_control_line(self) -> bool:
@@ -93,6 +108,10 @@ class InteractionMarkupFilter:
             return True
         if len(self._line) - len(stripped) > 3:
             return False
+        if self._after_literal and (
+            "<parameter".startswith(stripped) or stripped.startswith("<parameter")
+        ):
+            return True
         if not stripped:
             return True
         if "<interact".startswith(stripped):
@@ -136,7 +155,15 @@ class InteractionMarkupFilter:
                 text, sent = remainder, 0
                 after_close = True
             if text.strip() in self.literals:
+                self._after_literal = True
                 break
+            if self._after_literal:
+                self._after_literal = not text.strip()
+                if _PARAMETER.match(text):
+                    # The authored lines were shown; a generated body after them is not.
+                    self.invalid = True
+                    self._parameter_block = True
+                    continue
             # Whitespace after a removed tag is not Markdown code indentation.
             start = len(text) - len(text.lstrip(" \t")) if after_close else 0
             opening = _OPEN.match(text, start)

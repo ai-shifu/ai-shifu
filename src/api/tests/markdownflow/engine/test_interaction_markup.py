@@ -16,6 +16,7 @@ from markdownflow.engine import (
 )
 from markdownflow.engine.interaction_markup import (
     InteractionMarkupFilter,
+    authored_interaction_markup,
     contains_interaction_markup,
 )
 from pydantic_ai.messages import (
@@ -518,6 +519,53 @@ def test_prose_after_the_protocol_closing_tag_is_preserved() -> None:
             == " Remaining teaching."
         )
         assert filter_.invalid
+
+
+def test_a_parameter_opener_split_after_its_name_is_refused() -> None:
+    source = '<interact><parameter\n name="type">text</parameter>\n</interact>\nAfter.'
+    for cut in range(len(source) + 1):
+        filter_ = InteractionMarkupFilter()
+        actual = (
+            filter_.feed(source[:cut]) + filter_.feed(source[cut:]) + filter_.flush()
+        )
+        assert actual == "After."
+        assert filter_.invalid
+
+
+def test_an_authored_opener_does_not_exempt_a_different_generated_body() -> None:
+    literals = authored_interaction_markup("Show this opener:\n<interact>\n")
+    source = (
+        '<interact>\n\n<parameter name="type">text</parameter>\n</interact>\nAfter.'
+    )
+    for cut in range(len(source) + 1):
+        filter_ = InteractionMarkupFilter(literals)
+        actual = (
+            filter_.feed(source[:cut]) + filter_.feed(source[cut:]) + filter_.flush()
+        )
+        assert actual == "<interact>\n\nAfter."
+        assert filter_.invalid
+
+
+def test_a_complete_authored_multiline_example_stays_literal() -> None:
+    literals = authored_interaction_markup("Example:\n" + MULTILINE_MARKUP + "\n")
+    filter_ = InteractionMarkupFilter(literals)
+    actual = "".join(filter_.feed(c) for c in MULTILINE_MARKUP) + filter_.flush()
+    assert actual == MULTILINE_MARKUP
+    assert not filter_.invalid
+
+
+def test_a_rejected_block_survives_a_part_boundary_but_not_a_response() -> None:
+    filter_ = InteractionMarkupFilter()
+    assert filter_.feed('<interact">\n<parameter name="prompt">Explain') == ""
+    assert filter_.settle() == ""
+    # A later text part of the same response still carries the parameter body.
+    assert filter_.feed(" program control</parameter>\n</interact>") == ""
+    assert filter_.feed(" Remaining teaching.\n") == " Remaining teaching.\n"
+    assert filter_.invalid
+    filter_.feed('<interact">\n<parameter name="prompt">Explain')
+    assert filter_.flush() == ""
+    # A new response starts outside the block.
+    assert filter_.feed("Please explain.") == "Please explain."
 
 
 @pytest.mark.parametrize("markup", INVALID_MARKUP)
