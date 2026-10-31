@@ -63,6 +63,14 @@ if TYPE_CHECKING:
     from pydantic_ai.models.function import AgentInfo
 
 
+def _shown(user_input: str | None) -> str:
+    """Read the submitted text or choices from a restored control's structured default."""
+    if not user_input:
+        return ""
+    data = json.loads(user_input)
+    return data["inputText"] or ",".join(data["selectedValues"])
+
+
 @pytest.fixture
 def classroom(app: Flask, monkeypatch: pytest.MonkeyPatch) -> tuple:
     """Exercise the real engine, adapter, database and classroom orchestrator offline."""
@@ -254,7 +262,7 @@ def test_multiple_requests_keep_order_and_accepted_answers(classroom: tuple) -> 
     ]
     assert "question 1" in records[0].content
     assert "question 2" in records[2].content
-    assert records[1].payload.user_input == "My answer"
+    assert _shown(records[1].payload.user_input) == "My answer"
     assert not records[-1].payload or not records[-1].payload.user_input
     assert len(calls) == 2
     assert history(user="someone-else").elements == []
@@ -625,13 +633,16 @@ def test_multiple_deferred_questions_keep_controls_and_individual_answers(
         e for e in history().elements if e.element_type == ElementType.INTERACTION
     ]
     assert len(controls) == 2
-    assert controls[0].payload.user_input == "First answer"
+    assert _shown(controls[0].payload.user_input) == "First answer"
     assert not controls[1].payload.user_input
     run("Second answer")
     controls = [
         e for e in history().elements if e.element_type == ElementType.INTERACTION
     ]
-    assert [e.payload.user_input for e in controls] == ["First answer", "Second answer"]
+    assert [_shown(e.payload.user_input) for e in controls] == [
+        "First answer",
+        "Second answer",
+    ]
     assert load_agent_session(app, identity, identity, preview_mode=True).finished
 
 

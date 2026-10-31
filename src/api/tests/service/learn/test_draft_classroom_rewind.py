@@ -42,6 +42,14 @@ if TYPE_CHECKING:
     from flask import Flask
 
 
+def _shown(user_input: str | None) -> str:
+    """Read the submitted text or choices from a restored control's structured default."""
+    if not user_input:
+        return ""
+    data = json.loads(user_input)
+    return data["inputText"] or ",".join(data["selectedValues"])
+
+
 def test_editing_an_old_draft_answer_replaces_only_its_future(
     app: Flask, classroom: tuple
 ) -> None:
@@ -64,7 +72,7 @@ def test_editing_an_old_draft_answer_replaces_only_its_future(
     ]
     assert elements[0].element_bid == original[0].element_bid
     assert elements[1].element_bid == original[1].element_bid
-    assert elements[1].payload.user_input == "New choice"
+    assert _shown(elements[1].payload.user_input) == "New choice"
     assert "question 4" in elements[2].content
     session = load_agent_session(app, identity, identity, preview_mode=True)
     serialized = json.dumps(session.to_dict())
@@ -88,7 +96,7 @@ def test_draft_content_regeneration_reuses_the_original_answer(
     restored = history()
     assert restored.last_progress_updated_at == old.last_progress_updated_at
     assert restored.elements[0].element_bid == old.elements[0].element_bid
-    assert restored.elements[1].payload.user_input == "Original answer"
+    assert _shown(restored.elements[1].payload.user_input) == "Original answer"
     assert "question 3" in restored.elements[2].content
     assert "question 2" not in " ".join(e.content or "" for e in restored.elements)
     assert "Original answer" in json.dumps(
@@ -108,7 +116,7 @@ def test_anchored_first_pending_answer_does_not_require_a_checkpoint(
         data["ai_shifu_preview_presentation"].pop("turns", None)
         row.session_data = json.dumps(data)
     run("First answer", anchor=anchor)
-    assert history().elements[1].payload.user_input == "First answer"
+    assert _shown(history().elements[1].payload.user_input) == "First answer"
 
 
 def test_missing_old_checkpoint_does_not_discard_existing_history(
@@ -276,7 +284,7 @@ def test_editing_one_of_two_questions_restores_its_own_accepting_turn(
     assert [e.element_bid for e in restored_controls] == [
         e.element_bid for e in controls
     ]
-    assert [e.payload.user_input or "" for e in restored_controls] == (
+    assert [_shown(e.payload.user_input) for e in restored_controls] == (
         ["Replacement", ""] if question == 0 else ["First answer", "Replacement"]
     )
     session = load_agent_session(app, identity, identity, preview_mode=True)
@@ -434,7 +442,7 @@ def test_separate_model_turns_keep_earlier_displayed_answers(
         run(anchor=third_teaching)
     elements = history().elements
     controls = [e for e in elements if e.element_type == ElementType.INTERACTION]
-    assert [e.payload.user_input or "" for e in controls] == [
+    assert [_shown(e.payload.user_input) for e in controls] == [
         "First answer",
         "Replacement second answer" if operation == "edit" else "Second answer",
         "",
