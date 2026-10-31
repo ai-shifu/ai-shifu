@@ -7,7 +7,6 @@ variable detection, and content parsing.
 from enum import Enum
 from typing import Any
 
-from markdownflow.syntax.constants import COMPILED_LAYER2_VARIABLE_REGEX
 from markdownflow.syntax.escaping import (
     find_unescaped,
     split_on_ellipsis,
@@ -17,23 +16,23 @@ from markdownflow.syntax.escaping import (
 )
 from markdownflow.syntax.variable_names import (
     find_interaction_spans,
-    normalize_variable_name,
+    read_interaction_variable,
 )
 
 
 class InteractionType(Enum):
     """Interaction input type enumeration."""
 
-    TEXT_ONLY = "text_only"  # Text input only: ?[%{{var}}...question]
-    BUTTONS_ONLY = "buttons_only"  # Button selection only: ?[%{{var}} A|B]
+    TEXT_ONLY = "text_only"  # Text input only: ?[{{var}}...question]
+    BUTTONS_ONLY = "buttons_only"  # Button selection only: ?[{{var}} A|B]
     BUTTONS_WITH_TEXT = (
-        "buttons_with_text"  # Buttons + text: ?[%{{var}} A|B|...question]
+        "buttons_with_text"  # Buttons + text: ?[{{var}} A|B|...question]
     )
     BUTTONS_MULTI_SELECT = (
-        "buttons_multi_select"  # Multi-select buttons: ?[%{{var}} A||B]
+        "buttons_multi_select"  # Multi-select buttons: ?[{{var}} A||B]
     )
     BUTTONS_MULTI_WITH_TEXT = (
-        "buttons_multi_with_text"  # Multi-select + text: ?[%{{var}} A||B||...question]
+        "buttons_multi_with_text"  # Multi-select + text: ?[{{var}} A||B||...question]
     )
     NON_ASSIGNMENT_BUTTON = (
         "non_assignment_button"  # Display buttons: ?[Continue|Cancel]
@@ -102,7 +101,7 @@ class InteractionParser:
     def _layer2_detect_variable(
         self, inner_content: str
     ) -> tuple[bool, str | None, str]:
-        """Layer 2: Detect variables and classify patterns.
+        """Layer 2: Detect a leading `{{var}}` binding, with or without the legacy `%`.
 
         Args:
             inner_content: Content extracted from layer 1
@@ -111,19 +110,14 @@ class InteractionParser:
             Tuple of (has_variable, variable_name, remaining_content)
 
         """
-        match = COMPILED_LAYER2_VARIABLE_REGEX.match(inner_content)
-
-        if not match:
+        marker = read_interaction_variable(inner_content)
+        if marker is None:
             # No variable, use entire content for display button parsing
-            return False, None, inner_content  # type: ignore[unreachable]
-
-        variable_name = normalize_variable_name(match.group(1))
-        if variable_name is None:
+            return False, None, inner_content
+        if marker.name is None:
             msg = "Invalid variable name"
             raise ValueError(msg)
-        remaining_content = match.group(2).strip()
-
-        return True, variable_name, remaining_content
+        return True, marker.name, inner_content[marker.end :].strip()
 
     def _layer3_parse_variable_interaction(
         self, variable_name: str, content: str

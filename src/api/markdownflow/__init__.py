@@ -55,7 +55,6 @@ from .engine.session import (
     SQLiteSessionStore,
 )
 from .interaction_rendering import (
-    InteractionParser,
     QuestionLabels,
     QuestionRenderer,
     UnrepresentableInteractionError,
@@ -65,6 +64,7 @@ from .resources import load_prompt
 from .syntax import (
     USER_ANSWER_CONTEXT_KEY,
     BlockType,
+    InteractionParser,
     MarkdownFlowDocument,
     StreamFormatter,
     escape_interaction_text,

@@ -2,12 +2,6 @@
 
 import re
 
-from .variable_names import VARIABLE_ASSIGNMENT_SOURCE
-
-COMPILED_LAYER2_VARIABLE_REGEX = re.compile(
-    r"^\s*" + VARIABLE_ASSIGNMENT_SOURCE + r"(.*)$"
-)
-
 COMPILED_VARIABLE_NAME_PLACEHOLDER_REGEX = re.compile(r"\x00mdf-name:+[0-9]+\x00")
 
 # Inline HTML owns braces in its tag source before document-level MDF scanning.
