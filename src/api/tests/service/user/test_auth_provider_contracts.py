@@ -1,5 +1,6 @@
 """Verify authentication provider dispatch and credential result contracts."""
 
+import json
 from types import SimpleNamespace
 from unittest.mock import Mock, call
 
@@ -286,6 +287,12 @@ def test_password_login_finds_password_by_account_across_identifier_types(
     identifier: str,
     normalized: str,
 ) -> None:
+    from flaskr.service.user.password_utils import (
+        hash_password,
+        password_credential_version,
+    )
+
+    stored_hash = hash_password("correct")
     aggregate = SimpleNamespace(user_bid="account-1")
     credential = AuthCredential(
         credential_bid="password-credential-1",
@@ -297,7 +304,7 @@ def test_password_login_finds_password_by_account_across_identifier_types(
     credentials = Mock(return_value=[credential])
     monkeypatch.setattr(password, "load_user_aggregate_by_identifier", lookup)
     monkeypatch.setattr(password, "list_credentials", credentials)
-    monkeypatch.setattr(password, "get_password_hash", Mock(return_value="stored-hash"))
+    monkeypatch.setattr(password, "get_password_hash", Mock(return_value=stored_hash))
     verifier = Mock(return_value=True)
     monkeypatch.setattr(password, "verify_password", verifier)
     monkeypatch.setattr(
@@ -318,7 +325,7 @@ def test_password_login_finds_password_by_account_across_identifier_types(
     ]
     mint.assert_called_once_with(app, "account-1")
     credentials.assert_called_once_with(user_bid="account-1", provider_name="password")
-    verifier.assert_called_once_with("correct", "stored-hash")
+    verifier.assert_called_once_with("correct", stored_hash)
     assert result.user is user_token.userInfo
     assert result.token.token == "issued-token"
     assert result.credential is credential
@@ -328,4 +335,9 @@ def test_password_login_finds_password_by_account_across_identifier_types(
         "verified_identifier": normalized,
         "password_credential_bid": "password-credential-1",
         "password_credential_identifier": "another-login@example.com",
+        "credential_version": password_credential_version(stored_hash),
     }
+    metadata_json = json.dumps(result.metadata)
+    assert "correct" not in metadata_json
+    assert stored_hash not in metadata_json
+    assert "$2b$" not in metadata_json

@@ -31,12 +31,18 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
         USER_STATE_REGISTERED,
     )
     from flaskr.service.user.models import AuthCredential, UserInfo, UserToken
+    from flaskr.service.user.password_utils import (
+        hash_password,
+        password_credential_version,
+    )
     from flaskr.service.user.token_store import token_store
 
     token = f"password-failed-{uuid.uuid4().hex}"
     user_id = uuid.uuid4().hex
     identifier = "user@example.com"
-    password_credential_bid = f"password-{user_id}"
+    password_credential_bid = uuid.uuid4().hex
+    stored_hash = hash_password("CommitFailure123")
+    commits: list[bool] = []
 
     with app.app_context():
         db.session.add(
@@ -50,7 +56,7 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
         db.session.add_all(
             [
                 AuthCredential(
-                    credential_bid=f"email-{user_id}",
+                    credential_bid=uuid.uuid4().hex,
                     user_bid=user_id,
                     provider_name="email",
                     subject_id=identifier,
@@ -67,7 +73,7 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
                     subject_id=identifier,
                     subject_format="email",
                     identifier=identifier,
-                    raw_profile="{}",
+                    raw_profile=json.dumps({"password_hash": stored_hash}),
                     state=CREDENTIAL_STATE_VERIFIED,
                     deleted=0,
                 ),
@@ -91,10 +97,12 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
                     "verified_identifier": identifier,
                     "password_credential_bid": password_credential_bid,
                     "password_credential_identifier": identifier,
+                    "credential_version": password_credential_version(stored_hash),
                 },
             )
 
     def fail_commit() -> None:
+        commits.append(True)
         message = "simulated password login commit failure"
         raise RuntimeError(message)
 
@@ -109,6 +117,7 @@ def test_password_login_commit_failure_does_not_populate_token_cache(
         {"identifier": identifier, "password": "password"},
     )
     assert body["code"] == -1
+    assert commits == [True]
 
     with app.app_context():
         assert UserToken.query.filter_by(token=token).count() == 0
