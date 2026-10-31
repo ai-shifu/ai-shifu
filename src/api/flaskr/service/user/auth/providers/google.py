@@ -309,6 +309,9 @@ class GoogleAuthProvider(AuthProvider):
             aggregate = load_user_aggregate(credential.user_bid) if credential else None
             if credential and aggregate is None:
                 raise_error("server.user.invalidCredentials")
+            has_verified_binding = (
+                credential is not None and credential.state == CREDENTIAL_STATE_VERIFIED
+            )
 
             associate_email = email_verified
             if credential is None or email_verified:
@@ -406,11 +409,7 @@ class GoogleAuthProvider(AuthProvider):
                     else credential.identifier
                 ),
                 metadata=profile,
-                verified=associate_email
-                or (
-                    credential is not None
-                    and credential.state == CREDENTIAL_STATE_VERIFIED
-                ),
+                verified=associate_email or has_verified_binding,
                 match_by_subject=True,
             )
 
@@ -423,7 +422,7 @@ class GoogleAuthProvider(AuthProvider):
                 creator_granted_now = init_first_course(app, aggregate.user_bid)
 
             # Optionally grant creator and demo-course permissions for admin logins
-            creator_granted_now = associate_email and (
+            creator_granted_now = (associate_email or has_verified_binding) and (
                 ensure_admin_creator_and_demo_permissions(
                     app, aggregate.user_bid, aggregate.language, login_context
                 )

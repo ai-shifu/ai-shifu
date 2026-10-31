@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 import pytest
 from flaskr.dao import db
 from flaskr.service.common.models import ERROR_CODE, AppError
+from flaskr.service.shifu.models import AiCourseAuth
+from flaskr.service.user import utils as user_utils
 from flaskr.service.user.auth.providers import google
 from flaskr.service.user.consts import (
     CREDENTIAL_STATE_UNVERIFIED,
@@ -485,3 +487,130 @@ def test_subject_linking_does_not_revive_deleted_other_subject(
     assert deleted.subject_id == "deleted-subject"
     assert result.credential.subject_id == "google-subject"
     assert result.credential.credential_bid != deleted.credential_bid
+
+
+@pytest.mark.parametrize("bound_verified", [False, True])
+@pytest.mark.parametrize("claim", [False, "true"])
+@pytest.mark.parametrize("changed_email", [False, True])
+def test_admin_demo_grants_follow_previously_verified_subject_trust(
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    bound_verified: bool,
+    claim: object,
+    changed_email: bool,
+) -> None:
+    """Honor configured demo grants without trusting the current mailbox claim."""
+    owner = _account("owner@example.com")
+    binding = _credential(
+        app,
+        owner,
+        "google",
+        "owner@example.com",
+        subject="bound-subject",
+        verified=bound_verified,
+    )
+    _account("victim@example.com")
+    demo_id = uuid.uuid4().hex
+    monkeypatch.setitem(app.config, "ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO", value=True)
+    monkeypatch.setattr(user_utils, "load_existing_demo_shifu_ids", lambda: {demo_id})
+    db.session.commit()
+    try:
+        result = _run_google_callback(
+            app,
+            monkeypatch,
+            _profile(
+                claim,
+                subject="bound-subject",
+                email="victim@example.com" if changed_email else "owner@example.com",
+            ),
+            login_context="admin",
+        )
+        db.session.expire_all()
+        assert result.user.user_id == owner.user_bid
+        assert result.user.is_creator is bound_verified
+        assert owner.is_creator == int(bound_verified)
+        assert owner.is_operator == 0
+        assert (owner.creator_activated_at is not None) is bound_verified
+        assert result.metadata["creator_granted_now"] is bound_verified
+        assert owner.user_identify == binding.identifier == "owner@example.com"
+        assert AuthCredential.query.filter_by(provider_name="email").count() == 0
+        grants = AiCourseAuth.query.filter_by(
+            user_id=owner.user_bid, course_id=demo_id
+        ).all()
+        assert len(grants) == int(bound_verified)
+        if grants:
+            assert grants[0].status == 1
+            assert grants[0].auth_type == '["view"]'
+        assert UserTokenModel.query.one().user_id == owner.user_bid
+        retry = _run_google_callback(
+            app,
+            monkeypatch,
+            _profile(claim, subject="bound-subject"),
+            login_context="admin",
+        )
+        assert retry.user.user_id == owner.user_bid
+        assert retry.metadata["creator_granted_now"] is False
+        assert AiCourseAuth.query.filter_by(
+            user_id=owner.user_bid, course_id=demo_id
+        ).count() == int(bound_verified)
+    finally:
+        AiCourseAuth.query.filter_by(course_id=demo_id).delete()
+        db.session.commit()
+
+
+@pytest.mark.parametrize(("enabled", "context"), [(False, "admin"), (True, None)])
+def test_bound_subject_demo_grants_still_require_flag_and_admin_context(
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+    enabled: bool,
+    context: str | None,
+) -> None:
+    """Preserve both deployment and login-context controls for trusted subjects."""
+    owner = _account("owner@example.com")
+    _credential(app, owner, "google", "owner@example.com", subject="bound-subject")
+    monkeypatch.setitem(app.config, "ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO", enabled)
+    db.session.commit()
+    result = _run_google_callback(
+        app,
+        monkeypatch,
+        _profile(claim=False, subject="bound-subject"),
+        login_context=context,
+    )
+    assert result.user.user_id == owner.user_bid
+    assert result.user.is_creator is False
+    assert owner.is_creator == owner.is_operator == 0
+    assert owner.creator_activated_at is None
+    assert result.metadata["creator_granted_now"] is False
+
+
+def test_bound_subject_demo_grants_roll_back_with_session_failure(
+    app: Flask,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failed admin sign-in cannot leave creator/demo grants or a session."""
+    owner = _account("owner@example.com")
+    _credential(app, owner, "google", "owner@example.com", subject="bound-subject")
+    demo_id = uuid.uuid4().hex
+    monkeypatch.setitem(app.config, "ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO", value=True)
+    monkeypatch.setattr(user_utils, "load_existing_demo_shifu_ids", lambda: {demo_id})
+    db.session.commit()
+    before = _snapshot()
+
+    def fail_snapshot(*_args: object) -> None:
+        message = "injected failure after admin grants and session write"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(
+        google, "build_user_profile_snapshot_from_aggregate", fail_snapshot
+    )
+    with pytest.raises(RuntimeError, match="injected failure"):
+        _run_google_callback(
+            app,
+            monkeypatch,
+            _profile(claim=False, subject="bound-subject"),
+            login_context="admin",
+        )
+    db.session.expire_all()
+    assert _snapshot() == before
+    assert owner.creator_activated_at is None
+    assert AiCourseAuth.query.filter_by(course_id=demo_id).count() == 0

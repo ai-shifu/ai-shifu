@@ -106,10 +106,11 @@ cache publication; retry creates exactly one binding and usable session.
 
 ## Idempotence and Recovery
 
-Use only this isolated worktree and branch. No production calls, deployment,
-push, PR publication or merge is authorized. Rejected and failed callbacks can
-retry without partial writes. Do not alter the independent password task or the
-first-administrator branch.
+Use only this isolated worktree and branch. Publication and review follow-up
+are authorized for the independent PR #3261. Production calls, deployment,
+merging and modifying #3183 remain outside the authorized scope. Rejected and
+failed callbacks can retry without partial writes. Do not alter the independent
+password task or the first-administrator branch.
 
 ## Interfaces and Dependencies
 
@@ -128,6 +129,9 @@ task does not modify that branch or cherry-pick its installation contracts.
 
 
 ## Verification Results
+
+These results describe the initial local foundation commit `0a3efa514`.
+The later publication and review follow-up are recorded below.
 
 Commands use `/Users/sunner/src/ai-shifu/.venv/bin/python` (Python 3.11), with
 Ruff 0.17.3 on PATH. A local `python3` wrapper selects that interpreter for hooks;
@@ -186,10 +190,39 @@ packaging or remote CI. No push, PR publication, deployment or merge occurred.
   subject-keyed credential persistence.
 - `src/api/tests/service/user/test_google_auth.py`: reusable callback arguments,
   accurate result type and authorized display-name control.
-- `src/api/tests/service/user/test_google_email_linking.py`: 55 security,
+- `src/api/tests/service/user/test_google_email_linking.py`: 66 security,
   compatibility, rollback and retry parametrizations.
 - This completed plan and generated plan/doc indexes: independent delivery,
   validation limits and #3183 reconciliation instructions.
+
+## PR Review Follow-up
+
+Published [PR #3261](https://github.com/ai-shifu/ai-shifu/pull/3261) as non-draft
+on `0a3efa514`. Its initial CI passed: backend contract/targeted tests,
+production image smoke checks, fast-value/browser runtime checks, lint, static
+checks, CodeQL and GitGuardian. Frontend tests used their expected no-change
+skip; Cursor's security check was neutral.
+
+[Devin's admin-grant finding](https://github.com/ai-shifu/ai-shifu/pull/3261#discussion_r4431266041)
+identified a real compatibility regression: an exact, previously verified Google
+subject could authenticate with an unverified current mailbox but missed the
+explicitly configured admin/demo grants. The focused reproduction on the
+initial candidate produced four failures and four passing unverified-binding
+controls.
+
+Capture historical verification only from the exact active subject credential
+before updating it. Permit admin/demo grants for that prior trust or a newly
+verified mailbox association. The shared helper still enforces its deployment
+flag and explicit admin context. First-account initialization remains gated by
+current verified mailbox association; no installation behavior changes.
+
+The follow-up adds eleven real-persistence regressions covering creator/demo
+grants, unverified-binding exclusions, changed unverified mailbox, retries,
+disabled flags, non-admin logins and rollback. Local validation: 75 focused
+Google/grant-helper tests passed; the complete user suite passed 985 tests with
+five existing MySQL-only skips. Ruff/formatting/compilation passed. Focused mypy
+still exits 1 with the same 58 inherited diagnostics and none in the new tests.
+An independent source review found no concrete remaining concern in this fix.
 
 ## Proposed Pull Request
 
@@ -205,7 +238,9 @@ continue to log in when current mailbox association is untrusted or conflicts.
 Keep verified mailbox linking, fresh accounts and current guest/account linking
 compatible. Add rejection, preserved trust/permissions, duplicate subject labels,
 deleted bindings, rollback after session persistence and retry regressions.
-Validation: 122 focused tests and 974 user-service tests passed; five unrelated
+Preserve configured admin/demo grants for exact subjects with historical verified
+bindings even when the current mailbox is unverified. Validation: 75 focused
+Google/grant-helper tests and 985 user-service tests passed; five unrelated
 MySQL-only cases skipped. Full repository hooks passed. Focused mypy reports no
 new diagnostics (58 inherited versus 64 on base); its command remains failing.
 This PR is independent of #3183; remove overlapping Google validation changes
