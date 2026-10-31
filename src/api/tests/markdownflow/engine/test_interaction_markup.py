@@ -36,6 +36,24 @@ PAIRED_NAVIGATION = (
     '<interact type="single" prompt="Continue" options="[{"display":"Next"}]">'
     "</interact>"
 )
+MULTILINE_MARKUP = (
+    "<interact>\n"
+    '<parameter name="type">text</parameter>\n'
+    '<parameter name="prompt">Explain program control</parameter>\n'
+    "</interact>"
+)
+MALFORMED_MARKUP = (
+    '<interact">\n'
+    '<parameter name="type">text</｜｜DSML｜｜ parameter>\n'
+    '<parameter name="prompt">Explain program control</｜｜DSML｜｜ parameter>'
+)
+INVALID_MARKUP = [
+    MARKUP,
+    PAIRED_MARKUP,
+    MULTILINE_MARKUP,
+    MALFORMED_MARKUP,
+    '<interact type="text"',
+]
 SPEC = {
     "type": "text",
     "prompt": "Explain program control",
@@ -48,7 +66,7 @@ def _said(events: list[object]) -> str:
     return "".join(e.text for e in events if isinstance(e, ContentDelta))
 
 
-@pytest.mark.parametrize("markup", [MARKUP, PAIRED_MARKUP])
+@pytest.mark.parametrize("markup", INVALID_MARKUP)
 async def test_markup_is_retried_as_a_real_question_and_answer_survives_reload(
     markup: str,
 ) -> None:
@@ -112,7 +130,7 @@ async def test_markup_is_retried_as_a_real_question_and_answer_survives_reload(
     assert final_events[-1].reason == "finished"
 
 
-@pytest.mark.parametrize("markup", [MARKUP, PAIRED_MARKUP, PAIRED_NAVIGATION])
+@pytest.mark.parametrize("markup", [*INVALID_MARKUP, PAIRED_NAVIGATION])
 async def test_repeated_markup_has_a_bounded_retry_and_never_finishes(
     markup: str,
 ) -> None:
@@ -130,7 +148,7 @@ async def test_repeated_markup_has_a_bounded_retry_and_never_finishes(
     events = [e async for e in engine.run_turn(session)]
     assert calls == 2
     assert any(isinstance(e, ErrorEvent) for e in events)
-    assert not any(isinstance(e, TurnDone) and e.reason == "finished" for e in events)
+    assert not any(isinstance(e, TurnDone) for e in events)
     assert not session.finished
     assert not session.pending
     assert not session.memory
@@ -141,6 +159,8 @@ async def test_repeated_markup_has_a_bounded_retry_and_never_finishes(
     "markup",
     [
         MARKUP,
+        MULTILINE_MARKUP,
+        MALFORMED_MARKUP,
         PAIRED_NAVIGATION,
         PAIRED_NAVIGATION.replace('prompt="Continue"', 'prompt="Is x < y?"'),
         PAIRED_NAVIGATION.replace('prompt="Continue"', "prompt='Is x < y?'"),
@@ -179,7 +199,7 @@ async def test_finish_cannot_replace_a_refused_markup_question(markup: str) -> N
     assert events[-1].reason == "interaction"
 
 
-@pytest.mark.parametrize("markup", [MARKUP, PAIRED_NAVIGATION])
+@pytest.mark.parametrize("markup", [*INVALID_MARKUP, PAIRED_NAVIGATION])
 async def test_same_response_markup_and_finish_does_not_complete_the_lesson(
     markup: str,
 ) -> None:
@@ -294,6 +314,11 @@ async def test_paired_navigation_after_an_answer_requires_an_actual_click() -> N
         "<interact>Next ></interact>",
         '<interact title="Comparison >">Next ></interact>',
         '<interact title="Comparison <">Next ></interact>',
+        "```xml\n" + MALFORMED_MARKUP + "\n```",
+        "    " + MALFORMED_MARKUP.replace("\n", "\n    "),
+        "<interact-card>\n<parameter>Illustrative content</parameter>\n</interact-card>",
+        "<parameter>Ordinary visual content</parameter>",
+        "```xml\n" + MULTILINE_MARKUP + "\n```",
     ],
 )
 async def test_code_and_ordinary_content_remain_verbatim(text: str) -> None:
@@ -310,7 +335,7 @@ async def test_code_and_ordinary_content_remain_verbatim(text: str) -> None:
     assert events[-1].reason == "end"
 
 
-@pytest.mark.parametrize("markup", [MARKUP, PAIRED_MARKUP, PAIRED_NAVIGATION])
+@pytest.mark.parametrize("markup", [*INVALID_MARKUP, PAIRED_NAVIGATION])
 async def test_an_exact_authored_literal_tag_is_not_a_tool_request(markup: str) -> None:
     async def model(
         _messages: list[ModelMessage], _info: AgentInfo
@@ -328,6 +353,12 @@ async def test_an_exact_authored_literal_tag_is_not_a_tool_request(markup: str) 
     "tag",
     [
         MARKUP,
+        MULTILINE_MARKUP,
+        MALFORMED_MARKUP + "\n</interact>",
+        MULTILINE_MARKUP.replace("\n", ""),
+        MULTILINE_MARKUP.replace("<interact>", "<interact'>"),
+        MULTILINE_MARKUP.replace("<interact>", '<interact type="text"\n>'),
+        MULTILINE_MARKUP.replace("\n<", "\n\t<"),
         "  " + MARKUP,
         MARKUP.replace(" />", ">"),
         PAIRED_MARKUP,
@@ -335,6 +366,7 @@ async def test_an_exact_authored_literal_tag_is_not_a_tool_request(markup: str) 
         "   " + PAIRED_MARKUP,
         PAIRED_MARKUP.replace("Explain program control", "Explain A > B"),
         PAIRED_MARKUP.replace("Explain program control", "Explain A < B"),
+        MARKUP.replace("Explain program control", "Explain </interact>"),
         PAIRED_MARKUP.replace(
             'prompt="Explain program control"', "prompt='Explain A < B'"
         ),
@@ -352,7 +384,7 @@ def test_stream_filter_is_independent_of_every_two_chunk_boundary(tag: str) -> N
     assert contains_interaction_markup(source, frozenset())
 
 
-def test_ordinary_prose_streams_immediately_and_incomplete_tags_are_retained() -> None:
+def test_ordinary_prose_streams_immediately_and_incomplete_tags_are_refused() -> None:
     filter_ = InteractionMarkupFilter()
     assert (
         filter_.feed("A paragraph without a newline") == "A paragraph without a newline"
@@ -360,11 +392,43 @@ def test_ordinary_prose_streams_immediately_and_incomplete_tags_are_retained() -
     assert filter_.flush() == ""
     incomplete = '<interact type="text"'
     assert filter_.feed(incomplete) == ""
-    assert filter_.flush() == incomplete
-    assert not filter_.invalid
+    assert filter_.flush() == ""
+    assert filter_.invalid
 
 
-@pytest.mark.parametrize("markup", [MARKUP, PAIRED_MARKUP])
+def test_unclosed_parameters_do_not_leak_or_hide_the_next_model_response() -> None:
+    filter_ = InteractionMarkupFilter()
+    for character in MALFORMED_MARKUP:
+        assert filter_.feed(character) == ""
+    assert filter_.flush() == ""
+    assert filter_.invalid
+    assert (
+        filter_.feed("Please explain program control.")
+        == "Please explain program control."
+    )
+    assert filter_.flush() == ""
+
+
+@pytest.mark.parametrize("ending", ["", "\n</interact>"])
+def test_multiline_parameter_values_are_hidden(ending: str) -> None:
+    source = '<interact">\n<parameter name="prompt">\nA long\nquestion.' + ending
+    filter_ = InteractionMarkupFilter()
+    assert "".join(filter_.feed(c) for c in source) + filter_.flush() == ""
+    assert filter_.invalid
+
+
+def test_prose_after_the_protocol_closing_tag_is_preserved() -> None:
+    source = MULTILINE_MARKUP + " Remaining teaching."
+    for cut in range(len(source) + 1):
+        filter_ = InteractionMarkupFilter()
+        assert (
+            filter_.feed(source[:cut]) + filter_.feed(source[cut:]) + filter_.flush()
+            == " Remaining teaching."
+        )
+        assert filter_.invalid
+
+
+@pytest.mark.parametrize("markup", INVALID_MARKUP)
 async def test_a_real_interact_in_the_same_response_hides_only_the_textual_copy(
     markup: str,
 ) -> None:
