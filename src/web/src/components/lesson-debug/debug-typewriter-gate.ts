@@ -1,36 +1,33 @@
 import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
 import { stripCustomButtonAfterContent } from '@/lib/customButtonAfterContent';
 
-export interface PreviewTypewriterCacheEntry {
+export interface DebugTypewriterCacheEntry {
   content: string;
   isFinished: boolean;
 }
 
-export type PreviewTypewriterCache = Record<
-  string,
-  PreviewTypewriterCacheEntry
->;
+export type DebugTypewriterCache = Record<string, DebugTypewriterCacheEntry>;
 
-export const normalizePreviewTypewriterContent = (content?: string | null) =>
+export const normalizeDebugTypewriterContent = (content?: string | null) =>
   stripCustomButtonAfterContent(content) || '';
 
 const getItemContent = (item: ChatContentItem) =>
-  normalizePreviewTypewriterContent(item.content);
+  normalizeDebugTypewriterContent(item.content);
 
-export const isPreviewTextContentItem = (item: ChatContentItem) =>
+export const isDebugTextContentItem = (item: ChatContentItem) =>
   item.type === ChatContentItemType.CONTENT && item.element_type === 'text';
 
-const isPreviewLikeStatusItem = (item: ChatContentItem) =>
+const isDebugLikeStatusItem = (item: ChatContentItem) =>
   item.type === ChatContentItemType.LIKE_STATUS;
 
 const resolveParentElementBid = (item: ChatContentItem) =>
   item.parent_element_bid || item.parent_block_bid || '';
 
-export const shouldEnablePreviewTypewriter = (
+export const shouldEnableDebugTypewriter = (
   item: ChatContentItem,
-  cacheEntry?: PreviewTypewriterCacheEntry,
+  cacheEntry?: DebugTypewriterCacheEntry,
 ) => {
-  if (!isPreviewTextContentItem(item) || item.shouldUseTypewriter !== true) {
+  if (!isDebugTextContentItem(item) || item.shouldUseTypewriter !== true) {
     return false;
   }
 
@@ -50,18 +47,18 @@ export const shouldEnablePreviewTypewriter = (
   return !cacheEntry.isFinished || hasAppendedContentBeyondCache;
 };
 
-const shouldTrackPreviewTypewriter = (
+const shouldTrackDebugTypewriter = (
   item: ChatContentItem,
-  cacheEntry?: PreviewTypewriterCacheEntry,
+  cacheEntry?: DebugTypewriterCacheEntry,
 ) =>
-  isPreviewTextContentItem(item) &&
+  isDebugTextContentItem(item) &&
   (item.shouldUseTypewriter === true || Boolean(cacheEntry));
 
-export const syncPreviewTypewriterCache = (
+export const syncDebugTypewriterCache = (
   items: ChatContentItem[],
-  previousCache: PreviewTypewriterCache,
-): PreviewTypewriterCache => {
-  const nextCache: PreviewTypewriterCache = {};
+  previousCache: DebugTypewriterCache,
+): DebugTypewriterCache => {
+  const nextCache: DebugTypewriterCache = {};
 
   items.forEach(item => {
     const itemBid = item.element_bid || '';
@@ -70,7 +67,7 @@ export const syncPreviewTypewriterCache = (
     }
 
     const previousEntry = previousCache[itemBid];
-    if (!shouldTrackPreviewTypewriter(item, previousEntry)) {
+    if (!shouldTrackDebugTypewriter(item, previousEntry)) {
       return;
     }
 
@@ -89,11 +86,11 @@ export const syncPreviewTypewriterCache = (
   return nextCache;
 };
 
-export const isPreviewTextContentItemReady = (
+export const isDebugTextContentItemReady = (
   item: ChatContentItem,
-  cache: PreviewTypewriterCache,
+  cache: DebugTypewriterCache,
 ) => {
-  if (!isPreviewTextContentItem(item)) {
+  if (!isDebugTextContentItem(item)) {
     return true;
   }
 
@@ -110,9 +107,9 @@ export const isPreviewTextContentItemReady = (
   );
 };
 
-export const buildVisiblePreviewItems = (
+export const buildVisibleDebugItems = (
   items: ChatContentItem[],
-  cache: PreviewTypewriterCache,
+  cache: DebugTypewriterCache,
 ) => {
   const visibleItems: ChatContentItem[] = [];
   const itemByBid = new Map<string, ChatContentItem>();
@@ -125,18 +122,18 @@ export const buildVisiblePreviewItems = (
   });
 
   for (const item of items) {
-    if (isPreviewLikeStatusItem(item)) {
+    if (isDebugLikeStatusItem(item)) {
       const parentElementBid = resolveParentElementBid(item);
       const parentItem = parentElementBid
         ? itemByBid.get(parentElementBid)
         : undefined;
 
       // Keep helper rows aligned with the finished text block only.
-      if (!parentItem || !isPreviewTextContentItem(parentItem)) {
+      if (!parentItem || !isDebugTextContentItem(parentItem)) {
         continue;
       }
 
-      if (!isPreviewTextContentItemReady(parentItem, cache)) {
+      if (!isDebugTextContentItemReady(parentItem, cache)) {
         break;
       }
 
@@ -145,7 +142,7 @@ export const buildVisiblePreviewItems = (
     }
 
     visibleItems.push(item);
-    if (!isPreviewTextContentItemReady(item, cache)) {
+    if (!isDebugTextContentItemReady(item, cache)) {
       break;
     }
   }

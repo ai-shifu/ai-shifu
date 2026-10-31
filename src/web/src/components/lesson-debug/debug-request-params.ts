@@ -1,7 +1,11 @@
+import type {
+  DebugRunParams,
+  DebugVariableValues,
+} from '@/types/debug-session';
 import type { ChatContentItem } from '@/types/chatUi';
 import { normalizeVariableName } from 'remark-flow';
 
-export const resolvePreviewRequestBlockIndex = (
+export const resolveDebugRequestBlockIndex = (
   generatedBlockBid: string,
   fallbackBlockIndex = 0,
 ): number => {
@@ -12,7 +16,7 @@ export const resolvePreviewRequestBlockIndex = (
     : fallbackBlockIndex;
 };
 
-export const resolvePreviewRegenerateStartIndex = (
+export const resolveDebugRegenerationStartIndex = (
   items: Pick<ChatContentItem, 'generated_block_bid' | 'element_bid'>[],
   targetIndex: number,
 ): number => {
@@ -35,7 +39,7 @@ export const resolvePreviewRegenerateStartIndex = (
   return firstBlockIndex === -1 ? targetIndex : firstBlockIndex;
 };
 
-export const resolvePreviewRegenerateFallbackBlockIndex = (
+export const resolveDebugRegenerationBlockIndex = (
   items: Pick<ChatContentItem, 'type' | 'element_index'>[],
   blockStartIndex: number,
 ): number => {
@@ -57,7 +61,7 @@ export const resolvePreviewRegenerateFallbackBlockIndex = (
   }).length;
 };
 
-export const buildPreviewInteractionUserInput = (
+export const buildDebugInteractionInput = (
   variableName: string,
   values: string[],
 ): Record<string, string[]> | undefined => {
@@ -70,7 +74,7 @@ export const buildPreviewInteractionUserInput = (
   };
 };
 
-export const resolvePreviewGeneratedBlockBid = ({
+export const resolveDebugGeneratedBlockBid = ({
   elementGeneratedBlockBid,
   responseGeneratedBlockBid,
   fallbackBid,
@@ -92,4 +96,33 @@ export const resolvePreviewGeneratedBlockBid = ({
     return responseGeneratedBlockBid;
   }
   return fallbackBid;
+};
+
+export const buildDebugContinuationParams = ({
+  currentParams,
+  latestMdflow,
+  blockIndex,
+  variableValues,
+  userInput,
+}: {
+  currentParams: DebugRunParams;
+  latestMdflow: string;
+  blockIndex: number;
+  variableValues: DebugVariableValues;
+  userInput?: Record<string, string[]>;
+}): DebugRunParams => {
+  const nextParams: DebugRunParams = {
+    ...currentParams,
+    mdflow: latestMdflow,
+    blockIndex,
+    variableValues,
+  };
+
+  if (userInput) {
+    nextParams.userInput = userInput;
+  } else if ('userInput' in nextParams) {
+    delete nextParams.userInput;
+  }
+
+  return nextParams;
 };

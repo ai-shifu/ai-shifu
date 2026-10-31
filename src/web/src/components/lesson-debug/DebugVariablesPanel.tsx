@@ -2,22 +2,22 @@
 
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import styles from './VariableList.module.scss';
-import type { PreviewVariablesMap } from './variableStorage';
+import styles from './DebugVariablesPanel.module.scss';
+import type { DebugVariableValues } from '@/types/debug-session';
 import { Input } from '../ui/Input';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 
-interface VariableListProps {
-  variables?: PreviewVariablesMap;
+interface DebugVariablesPanelProps {
+  variableValues?: DebugVariableValues;
   collapsed?: boolean;
-  onToggle?: () => void;
-  onChange?: (name: string, value: string) => void;
+  onToggleCollapsed?: () => void;
+  onVariableChange?: (name: string, value: string) => void;
   variableOrder?: string[];
   systemVariableKeys?: string[];
-  actionType?: 'hide' | 'restore';
-  onAction?: () => void;
-  actionDisabled?: boolean;
-  customVariableKeys?: string[];
+  variableVisibilityAction?: 'hide' | 'restore';
+  onApplyVisibilityAction?: () => void;
+  isVisibilityActionDisabled?: boolean;
+  courseVariableKeys?: string[];
   unusedVariableKeys?: string[];
   onHideVariable?: (name: string) => void;
 }
@@ -36,26 +36,26 @@ const resolveSystemVariableLabelKey = (name: string) =>
       ]
     : undefined;
 
-const VariableList: React.FC<VariableListProps> = ({
-  variables,
+const DebugVariablesPanel: React.FC<DebugVariablesPanelProps> = ({
+  variableValues,
   collapsed = false,
-  onToggle,
-  onChange,
+  onToggleCollapsed,
+  onVariableChange,
   variableOrder = [],
   systemVariableKeys,
-  actionType,
-  onAction,
-  actionDisabled = false,
-  customVariableKeys,
+  variableVisibilityAction,
+  onApplyVisibilityAction,
+  isVisibilityActionDisabled = false,
+  courseVariableKeys,
   unusedVariableKeys,
   onHideVariable,
 }) => {
   const { t } = useTranslation();
 
-  const isHideAction = actionType === 'hide';
-  const customKeySet = useMemo(
-    () => new Set(customVariableKeys || []),
-    [customVariableKeys],
+  const isHideAction = variableVisibilityAction === 'hide';
+  const courseVariableKeySet = useMemo(
+    () => new Set(courseVariableKeys || []),
+    [courseVariableKeys],
   );
   const unusedKeySet = useMemo(
     () => new Set(unusedVariableKeys || []),
@@ -67,7 +67,7 @@ const VariableList: React.FC<VariableListProps> = ({
   );
 
   const entries = useMemo(() => {
-    const sourceEntries = Object.entries(variables || {});
+    const sourceEntries = Object.entries(variableValues || {});
     if (!variableOrder.length) {
       return sourceEntries;
     }
@@ -83,13 +83,13 @@ const VariableList: React.FC<VariableListProps> = ({
       orderedEntries.push([key, value]);
     });
     return orderedEntries;
-  }, [variableOrder, variables]);
+  }, [variableOrder, variableValues]);
 
   const hasVisible = entries.length > 0;
   const isEmptyView = !hasVisible;
 
   return (
-    <div className={styles.variableList}>
+    <div className={styles.debugVariablesPanel}>
       <div className={styles.header}>
         <div className={styles.topRow}>
           <div className={styles.titleWrapper}>
@@ -101,23 +101,23 @@ const VariableList: React.FC<VariableListProps> = ({
             </div>
           </div>
           <div className={styles.actionsCompact}>
-            {actionType && onAction && (
+            {variableVisibilityAction && onApplyVisibilityAction && (
               <button
                 type='button'
                 className={styles.actionButton}
-                onClick={onAction}
-                disabled={actionDisabled}
+                onClick={onApplyVisibilityAction}
+                disabled={isVisibilityActionDisabled}
               >
                 {isHideAction
                   ? t('module.shifu.previewArea.variablesHideUnused')
                   : t('module.shifu.previewArea.variablesRestoreHidden')}
               </button>
             )}
-            {onToggle && (
+            {onToggleCollapsed && (
               <button
                 type='button'
                 className={styles.toggle}
-                onClick={onToggle}
+                onClick={onToggleCollapsed}
               >
                 {collapsed ? (
                   <ChevronDown
@@ -147,11 +147,13 @@ const VariableList: React.FC<VariableListProps> = ({
         >
           {entries.map(([name, value]) => {
             const displayValue = value || '';
-            const canHide = customKeySet.has(name) && unusedKeySet.has(name);
+            const canHide =
+              courseVariableKeySet.has(name) && unusedKeySet.has(name);
             const systemVariableLabelKey = resolveSystemVariableLabelKey(name);
             const isSystemField =
               Boolean(systemVariableLabelKey) ||
-              (systemVariableKeySet.has(name) && !customKeySet.has(name));
+              (systemVariableKeySet.has(name) &&
+                !courseVariableKeySet.has(name));
             const displayName = systemVariableLabelKey
               ? t(systemVariableLabelKey)
               : isSystemField
@@ -180,7 +182,7 @@ const VariableList: React.FC<VariableListProps> = ({
                     }
                     onChange={e => {
                       const nextValue = e.target.value;
-                      onChange?.(name, nextValue);
+                      onVariableChange?.(name, nextValue);
                     }}
                   />
                   {canHide && onHideVariable && (
@@ -218,4 +220,4 @@ const VariableList: React.FC<VariableListProps> = ({
   );
 };
 
-export default VariableList;
+export default DebugVariablesPanel;
