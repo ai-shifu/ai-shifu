@@ -21,6 +21,7 @@ from .base import (
     AskProviderError,
     AskProviderRuntime,
     AskProviderTimeoutError,
+    retrieval_query,
 )
 from .common import extract_text, provider_timeout_seconds, raise_for_provider_response
 from .consts import ASK_PROVIDER_GET_BIJI_KNOWLEDGE
@@ -147,7 +148,7 @@ class GetBijiKnowledgeAskProviderAdapter:
 
         payload = {
             "topic_id": topic_id,
-            "query": user_query,
+            "query": retrieval_query(user_query, runtime),
             "top_k": _top_k_value(config.get("top_k")),
         }
         headers = {

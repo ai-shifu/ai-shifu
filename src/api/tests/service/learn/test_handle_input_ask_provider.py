@@ -284,9 +284,11 @@ def _setup_handle_input_ask_patches(
             self,
             llm_stream_factory: object = None,
             llm_context_stream_factory: object = None,
+            search_query: object = None,
         ) -> None:
             self.llm_stream_factory = llm_stream_factory
             self.llm_context_stream_factory = llm_context_stream_factory
+            self.search_query = search_query
 
     class _DummyAskProviderTimeoutError(AskProviderError):
         pass
@@ -524,6 +526,9 @@ def test_handle_input_ask_get_biji_synthesizes_via_context_factory(
         runtime = kwargs.get("runtime")
         assert runtime is not None
         assert runtime.llm_context_stream_factory is not None
+        # Retrieval searches with the learner's question, not the host's wrapper.
+        assert runtime.search_query == "hello"
+        assert kwargs["user_query"] != "hello"
         return (
             types.SimpleNamespace(content=chunk.result)
             for chunk in runtime.llm_context_stream_factory("knowledge snippets")
