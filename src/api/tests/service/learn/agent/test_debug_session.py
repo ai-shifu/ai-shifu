@@ -553,6 +553,100 @@ def test_new_debug_request_prevents_a_stopped_stream_from_overwriting_its_save(
     ] == ["replacement"]
 
 
+def test_debug_rewind_retires_a_turn_saved_before_the_replacement_claim(
+    app: object, monkeypatch: object
+) -> None:
+    """The runtime re-plans after claiming the request, including a racing old save."""
+    from flaskr.service.learn.agent.rewind import restore
+    from flaskr.service.learn.agent.run_agent import TurnOutcome
+
+    from tests.service.learn.agent.test_lesson_entry_contracts import _entry_with_runner
+
+    monkeypatch.setattr(debug_session, "cache", _Cache())
+    older = _store(app)
+    older.begin_request()
+    session = Session(script=ScriptBundle(script="Current draft"))
+    first = _record(session)
+    session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching A")]))
+    session.memory["prefix"] = "kept"
+    older.save(session, generated_block_bid="A", turn_record=first)
+    selected = _record(session)
+    session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching B")]))
+    session.memory["selected"] = "old B"
+    older.save(session, generated_block_bid="B", turn_record=selected)
+
+    begin_request = debug_session.DebugSessionStore.begin_request
+
+    def racing_claim(store: debug_session.DebugSessionStore) -> None:
+        # The stopped host completes between the preview's early plan and token claim.
+        racing = _record(session)
+        session.messages.append(ModelRequest(parts=[UserPromptPart("Teaching C")]))
+        session.memory["future"] = "discard"
+        older.save(session, generated_block_bid="C", turn_record=racing)
+        begin_request(store)
+
+    monkeypatch.setattr(debug_session.DebugSessionStore, "begin_request", racing_claim)
+    runner = _entry_with_runner(monkeypatch)
+    retired: list[str] = []
+
+    def replacement_turn(_app: object, **kwargs: object) -> object:
+        store = kwargs["debug_store"]
+        plan = kwargs["rewind"]
+        retired.extend(plan.retired_block_bids)
+        restored = store.load(script="Current draft")
+        restore(restored, plan.checkpoint)
+        restored.user_memory = dict(plan.checkpoint["user_memory"])
+        assert restored.all_memory() == {"prefix": "kept"}
+        # Once the replacement claims its token, the stopped host cannot save again.
+        with pytest.raises(RewindUnavailableError):
+            older.save(session)
+        restored.memory["replacement"] = "new B"
+        store.save(
+            restored,
+            generated_block_bid="replacement",
+            turn_record=selected,
+            rewind=plan,
+        )
+        yield RunMarkdownFlowDTO(
+            outline_bid="lesson",
+            generated_block_bid="replacement",
+            type=GeneratedType.DONE,
+            content="",
+        )
+        return TurnOutcome(reason="interaction", taught=True)
+
+    runner.side_effect = replacement_turn
+    messages = _request_messages(
+        app,
+        lambda: debug_session.stream_debug_preview(
+            app,
+            preview_request=PlaygroundPreviewRequest(
+                content="Current draft", block_index=0, reload_generated_block_bid="B"
+            ),
+            shifu_bid="course",
+            outline_bid="lesson",
+            user_bid="teacher",
+            run_bid="one",
+        ),
+    )
+    assert retired == ["B", "C"]
+    snapshots = [
+        json.loads(message.content)
+        for message in messages
+        if message.type == "debug_variables"
+    ]
+    assert snapshots == [
+        {"prefix": "kept"},
+        {"prefix": "kept", "replacement": "new B"},
+    ]
+    latest = _store(app)
+    assert [
+        turn["block_bid"] for turn in latest._payload(script="Current draft")["turns"]
+    ] == ["A", "replacement"]
+    with pytest.raises(RewindUnavailableError):
+        latest.plan_rewind(script="Current draft", block_bid="C")
+
+
 def test_debug_automatic_continuation_preserves_restored_output_language(
     app: object, monkeypatch: object
 ) -> None:
