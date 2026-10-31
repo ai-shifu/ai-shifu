@@ -90,6 +90,7 @@ Active and completed ExecPlans live here. The structure and required sections ar
 - [Preserve the classroom context of anchored follow-ups](./completed/follow-up-classroom-history.md)
 - [Explicit course memory in follow-up prompts](./completed/follow-up-course-memory.md)
 - [Verify follow-up dispatch through the lesson caller](./completed/follow-up-dispatch-regressions.md)
+- [Frontend structure and file naming](./completed/frontend-structure-naming.md)
 - [Frontend Unused Function Cleanup Stack](./completed/frontend-unused-function-stack.md)
 - [Gemini 3.8 TTS migration](./completed/gemini-3-8-tts.md)
 - [Gemini TTS Provider](./completed/gemini-tts.md)

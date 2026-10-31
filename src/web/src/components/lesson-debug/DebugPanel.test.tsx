@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import DebugPanel from './DebugPanel';
 import { resolveDebugItemKey } from './DebugPanel';
-import { ChatContentItemType, type ChatContentItem } from '@/types/chatUi';
+import { ChatContentItemType, type ChatContentItem } from '@/types/chat-ui';
 
 const mockPush = jest.fn();
 const mockCopyText = jest.fn();
@@ -26,13 +26,13 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/components/ui/UseAlert', () => ({
+jest.mock('@/components/ui/AlertProvider', () => ({
   useAlert: () => ({
     showAlert: jest.fn(),
   }),
 }));
 
-jest.mock('@/components/ui/tooltip', () => {
+jest.mock('@/components/ui/Tooltip', () => {
   const React = jest.requireActual('react');
   const TooltipProviderContext = React.createContext(false);
 
@@ -58,8 +58,8 @@ jest.mock('@/components/ui/tooltip', () => {
   };
 });
 
-jest.mock('@/lib/textutils', () => {
-  const actual = jest.requireActual('@/lib/textutils');
+jest.mock('@/lib/text-utils', () => {
+  const actual = jest.requireActual('@/lib/text-utils');
   return {
     ...actual,
     copyText: (...args: unknown[]) => mockCopyText(...args),
@@ -87,7 +87,7 @@ jest.mock('@/components/ui/Dialog', () => ({
   ),
 }));
 
-jest.mock('@/components/ChatUi/ContentBlock', () => ({
+jest.mock('@/components/chat/ContentBlock', () => ({
   __esModule: true,
   default: ({
     item,
@@ -120,7 +120,7 @@ jest.mock('@/components/ChatUi/ContentBlock', () => ({
   ),
 }));
 
-jest.mock('@/components/ChatUi/InteractionBlock', () => ({
+jest.mock('@/components/chat/InteractionBlock', () => ({
   __esModule: true,
   default: ({
     element_bid,

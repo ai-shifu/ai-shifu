@@ -6,9 +6,9 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
-import AskBlock from '@/app/c/[[...id]]/Components/ChatUi/AskBlock';
-import { AppContext } from '@/components/AppContext';
-import { useAskStateStore } from '@/app/c/[[...id]]/Components/ChatUi/useAskStateStore';
+import AskBlock from '@/app/c/[[...id]]/components/chat/AskBlock';
+import { AppContext } from '@/components/app-context';
+import { useAskStateStore } from '@/app/c/[[...id]]/components/chat/use-ask-state-store';
 
 const mockContentRender = jest.fn<null, [Record<string, unknown>]>(() => null);
 
@@ -31,19 +31,19 @@ jest.mock('@/i18n', () => ({
   },
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   toast: jest.fn(),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: jest.fn() }),
 }));
 
-jest.mock('@/store/useCourseStore', () => ({
+jest.mock('@/store/use-course-store', () => ({
   useCourseStore: jest.fn(() => ''),
 }));
 
-jest.mock('@/store/useSystemStore', () => ({
+jest.mock('@/store/use-system-store', () => ({
   useSystemStore: jest.fn(() => false),
 }));
 
@@ -84,7 +84,7 @@ jest.mock('markdown-flow-ui/renderer', () => ({
   ),
 }));
 
-jest.mock('@/api/studyV2', () => ({
+jest.mock('@/api/learning', () => ({
   BLOCK_TYPE: {
     ASK: 'ask',
     ANSWER: 'answer',

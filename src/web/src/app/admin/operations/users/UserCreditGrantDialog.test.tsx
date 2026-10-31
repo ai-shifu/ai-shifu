@@ -8,12 +8,12 @@ import {
 } from '@testing-library/react';
 import api from '@/api';
 import UserCreditGrantDialog from './UserCreditGrantDialog';
-import { formatOperatorUtcDateTime } from './dateTime';
+import { formatOperatorUtcDateTime } from './date-time';
 
 const mockToast = jest.fn();
 const mockTranslationValues = jest.fn();
 const mockTrackEvent = jest.fn();
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({ trackEvent: mockTrackEvent }),
 }));
 const mockGetAdminOperationUserGrantBootstrap =
@@ -58,7 +58,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
     toast: mockToast,
   }),

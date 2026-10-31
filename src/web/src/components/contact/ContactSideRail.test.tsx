@@ -29,7 +29,7 @@ jest.mock('@/store', () => ({
   ) => selector?.(mockEnvState) ?? mockEnvState.contactUsUrl,
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),

@@ -10,8 +10,8 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+} from '@/components/admin/admin-table-styles';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import type { OrderSummary } from '@/components/order/order-types';
 import { Button } from '@/components/ui/Button';
 import {
@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/Table';
 import { cn } from '@/lib/utils';
-import { DEFAULT_COLUMN_WIDTHS, type ColumnKey } from './ordersPageShared';
+import { DEFAULT_COLUMN_WIDTHS, type ColumnKey } from './orders-page-shared';
 
 type OrdersTableProps = {
   orders: OrderSummary[];

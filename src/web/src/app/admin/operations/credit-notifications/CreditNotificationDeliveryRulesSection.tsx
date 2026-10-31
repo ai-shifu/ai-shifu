@@ -21,7 +21,7 @@ import {
   QuietHoursCard,
   SoftlimitCard,
 } from './CreditNotificationDeliveryRuleCards';
-import type { UpdatePolicy } from './useCreditNotificationConfigTabState';
+import type { UpdatePolicy } from './use-credit-notification-config-tab-state';
 
 export type CreditNotificationDeliveryRulesSectionProps = {
   notificationChannel: CreditNotificationRule['channel'];

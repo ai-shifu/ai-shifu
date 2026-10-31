@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 import AdminClearableInput from '@/components/admin/AdminClearableInput';
 import AdminTableShell from '@/components/admin/AdminTableShell';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
 import type {
   AdminBillingCampaignDetail,
   AdminBillingCampaignProductOption,
@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/Table';
-import { showErrorToast } from '@/hooks/useToast';
+import { showErrorToast } from '@/hooks/use-toast';
 import { formatBillingCreditAmount, formatBillingPrice } from '@/lib/billing';
 import {
   EMPTY_VALUE,
@@ -44,7 +44,7 @@ import {
   TABLE_CELL_CLASS,
   TABLE_HEAD_CLASS,
   TABLE_LAST_CELL_CLASS,
-} from './promotionPageShared';
+} from './promotion-page-shared';
 
 type CouponUsageFetchParams = {
   coupon_bid: string;

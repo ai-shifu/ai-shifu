@@ -68,7 +68,7 @@ previously filtered only SMS must include the existing email rows and distinguis
 refresh success, template-save success and actual email delivery.
 
 Source: `src/web/src/app/admin/operations/credit-notifications/page.tsx`,
-`CreditNotificationTemplateManagementTab.tsx`, and `notificationTemplateTracking.ts`.
+`CreditNotificationTemplateManagementTab.tsx`, and `notification-template-tracking.ts`.
 The adjacent `page.test.tsx` covers SMS sync, email exposure and create success/
 failure, status actions, allowed payloads and tracking failure isolation. These
 fixtures are not a claim that every email edit/filter/refresh variant is directly
@@ -114,7 +114,7 @@ or infer a dynamic migrated-rule total from the constant payload. The same
 privacy exclusions and best-effort delivery apply.
 
 Sources: `CreditNotificationRuleManagementSection.tsx`,
-`notificationRuleTracking.ts`, and the callback wiring in `page.tsx`, all under
+`notification-rule-tracking.ts`, and the callback wiring in `page.tsx`, all under
 `src/web/src/app/admin/operations/credit-notifications/`. The adjacent page suite
 covers SMS action payloads, email rule creation and the confirmation migration
 payload. It does not directly assert the email action's mislabeled channel; that

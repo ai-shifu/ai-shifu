@@ -9,7 +9,7 @@ import {
   resolvePackageCampaignProviderDiscountLabel,
   resolvePackageCampaignProductSummary,
   resolvePromotionStatusBadgeClassName,
-} from './promotionPageShared';
+} from './promotion-page-shared';
 import {
   mockCreatePackageCampaign,
   mockGetCoupons,
@@ -21,7 +21,7 @@ import {
   mockToast,
   mockUpdatePackageCampaignStatus,
   setMockPaymentChannels,
-} from './promotionsTestUtils.test-support';
+} from './promotions-test-utils.test-support';
 import AdminOperationPromotionsPage from './page';
 
 describe('AdminOperationPromotionsPage package campaigns', () => {

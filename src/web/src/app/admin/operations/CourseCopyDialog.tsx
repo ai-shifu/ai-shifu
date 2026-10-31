@@ -30,7 +30,7 @@ import type { AdminOperationCourseItem } from './operation-course-types';
 import {
   SINGLE_SELECT_ITEM_CLASS,
   type TransferContactType,
-} from './operationCoursePageShared';
+} from './operation-course-page-shared';
 
 type ActorDisplay = {
   primary: string;

@@ -36,12 +36,12 @@ jest.mock('react-i18next', () => ({
 }));
 
 let mockCurrencySymbol = '€';
-jest.mock('@/store/envStore', () => ({
+jest.mock('@/store/env-store', () => ({
   useEnvStore: (selector: (state: { currencySymbol: string }) => unknown) =>
     selector({ currencySymbol: mockCurrencySymbol }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   showDefaultToast: jest.fn(),
   showErrorToast: jest.fn(),
 }));

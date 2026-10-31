@@ -161,7 +161,7 @@ are not backfilled under another name.
 Allowed enums are `save_type=auto|manual`, `follow_up_mode=text|live_voice`,
 `price_tier=free|micro_paid|standard_paid`,
 `variant=chapter|lesson`, and `learning_permission=normal|trial|guest`, as
-defined by `LEARNING_PERMISSION` in `src/web/src/api/studyV2.ts`.
+defined by `LEARNING_PERMISSION` in `src/web/src/api/learning.ts`.
 Course/chapter/lesson names, descriptions, system prompts, model names, voice
 IDs, provider configuration, URLs, and route text are excluded from these
 contracts.

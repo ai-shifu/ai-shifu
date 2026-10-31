@@ -15,10 +15,10 @@ import {
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
   getAdminStickyRightCellClass,
   getAdminStickyRightHeaderClass,
-} from '@/components/admin/adminTableStyles';
-import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
-import { formatAdminCount } from '@/app/admin/lib/numberFormat';
+} from '@/components/admin/admin-table-styles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/use-admin-resizable-columns';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
+import { formatAdminCount } from '@/app/admin/lib/number-format';
 import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -57,7 +57,7 @@ import type {
   AdminOperationCourseFollowUpItem,
   AdminOperationCourseFollowUpListResponse,
 } from '../../operation-course-types';
-import useOperatorGuard from '../../useOperatorGuard';
+import useOperatorGuard from '../../use-operator-guard';
 import FollowUpDetailSheet from './FollowUpDetailSheet';
 
 type ErrorState = { message: string; code?: number };

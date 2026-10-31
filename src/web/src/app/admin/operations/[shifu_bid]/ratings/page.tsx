@@ -13,10 +13,10 @@ import AdminTooltipText from '@/app/admin/components/AdminTooltipText';
 import {
   ADMIN_TABLE_HEADER_CELL_CENTER_CLASS,
   ADMIN_TABLE_RESIZE_HANDLE_CLASS,
-} from '@/components/admin/adminTableStyles';
-import { useAdminResizableColumns } from '@/app/admin/hooks/useAdminResizableColumns';
-import { formatAdminUtcDateTime } from '@/app/admin/lib/dateTime';
-import { formatAdminCount } from '@/app/admin/lib/numberFormat';
+} from '@/components/admin/admin-table-styles';
+import { useAdminResizableColumns } from '@/app/admin/hooks/use-admin-resizable-columns';
+import { formatAdminUtcDateTime } from '@/app/admin/lib/date-time';
+import { formatAdminCount } from '@/app/admin/lib/number-format';
 import { useEnvStore } from '@/store';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import Loading from '@/components/loading';
@@ -53,7 +53,7 @@ import type {
   AdminOperationCourseRatingItem,
   AdminOperationCourseRatingListResponse,
 } from '../../operation-course-types';
-import useOperatorGuard from '../../useOperatorGuard';
+import useOperatorGuard from '../../use-operator-guard';
 
 type ErrorState = { message: string; code?: number };
 type RatingCommentFilter = 'all' | 'commented';

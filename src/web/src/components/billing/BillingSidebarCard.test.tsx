@@ -47,7 +47,7 @@ jest.mock('next/link', () => ({
   ),
 }));
 
-jest.mock('@/hooks/useTracking', () => ({
+jest.mock('@/hooks/use-tracking', () => ({
   useTracking: () => ({
     trackEvent: mockTrackEvent,
   }),

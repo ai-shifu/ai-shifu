@@ -2,7 +2,7 @@ import type {
   DebugRunParams,
   DebugVariableValues,
 } from '@/types/debug-session';
-import type { ChatContentItem } from '@/types/chatUi';
+import type { ChatContentItem } from '@/types/chat-ui';
 import { normalizeVariableName } from 'remark-flow';
 
 export const resolveDebugRequestBlockIndex = (

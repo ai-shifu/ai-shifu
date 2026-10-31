@@ -2,7 +2,7 @@ import AdminFilter, {
   type AdminFilterItem,
 } from '@/app/admin/components/AdminFilter';
 import type { CourseOverviewCard } from './CourseOverviewSection';
-import type { CourseQuickFilterKey } from './operationCoursePageShared';
+import type { CourseQuickFilterKey } from './operation-course-page-shared';
 
 type CourseFiltersSectionProps = {
   items: AdminFilterItem[];

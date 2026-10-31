@@ -28,8 +28,8 @@ FRONTEND_IMPORT_EXTENSIONS = (".ts", ".tsx", ".js", ".jsx")
 FRONTEND_FETCH_ALLOWLIST = {
     "lib/request.ts",
     "lib/api.ts",
-    "lib/file.ts",
-    "lib/initializeEnvData.ts",
+    "lib/file-upload.ts",
+    "lib/initialize-runtime-config.ts",
     "lib/mock-fixture.ts",
     "lib/unified-i18n-backend.ts",
     "config/environment.ts",

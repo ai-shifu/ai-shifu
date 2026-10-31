@@ -1,4 +1,4 @@
-import * as learnerProfileApi from '@/api/learnerProfile';
+import * as learnerProfileApi from '@/api/learner-profile';
 import {
   completeProfileOnboarding,
   createProfileOnboardingSession,
@@ -10,7 +10,7 @@ import {
 } from './user';
 import request from '@/lib/request';
 
-jest.mock('@/lib/profileOnboardingSse', () => ({
+jest.mock('@/lib/profile-onboarding-sse', () => ({
   streamProfileOnboardingRuntime: jest.fn(),
 }));
 
@@ -24,7 +24,7 @@ jest.mock('@/lib/request', () => ({
   },
 }));
 
-jest.mock('@/store/useSystemStore', () => ({
+jest.mock('@/store/use-system-store', () => ({
   useSystemStore: { getState: jest.fn(() => ({})) },
 }));
 

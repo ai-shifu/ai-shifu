@@ -35,7 +35,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-jest.mock('@/hooks/useToast', () => ({
+jest.mock('@/hooks/use-toast', () => ({
   __esModule: true,
   toast: (...args: unknown[]) => mockToast(...args),
   useToast: () => ({ toast: mockToast }),

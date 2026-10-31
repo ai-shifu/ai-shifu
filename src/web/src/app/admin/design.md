@@ -218,7 +218,7 @@ src/app/admin/components/AdminFilter.tsx
 
 ```text
 src/components/admin/AdminTableShell.tsx
-src/components/admin/adminTableStyles.ts
+src/components/admin/admin-table-styles.ts
 src/components/ui/Table.tsx
 ```
 
@@ -586,7 +586,7 @@ src/components/admin/AdminTableShell.tsx
 src/app/admin/components/AdminCountCard.tsx
 src/components/admin/AdminPagination.tsx
 src/app/admin/components/AdminTooltipText.tsx
-src/components/admin/adminTableStyles.ts
+src/components/admin/admin-table-styles.ts
 ```
 
 除非有明确业务原因，不应在具体页面重新实现上述组件已覆盖的布局和视觉能力。
