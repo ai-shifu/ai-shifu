@@ -9,7 +9,9 @@ from typing import TYPE_CHECKING
 
 from flaskr.common.cache_provider import cache
 from flaskr.dao import db, uow
+from flaskr.service.common.session_attribution import discard_session_skill_attribution
 from flaskr.service.user.models import UserToken as UserTokenModel
+from flaskr.service.user.repository import lock_user_for_auth
 from flaskr.util.datetime import now_utc
 
 if TYPE_CHECKING:
@@ -73,6 +75,9 @@ class TokenStoreProvider:
         if not user_id or not token:
             return
 
+        # Share the recovery lock before reading or inserting token rows. A save
+        # committed before reset is revoked; a later save waits for reset.
+        lock_user_for_auth(user_id)
         ttl_seconds = int(ttl_seconds)
         now = now_utc()
         expires_at = now + dt.timedelta(seconds=ttl_seconds)
@@ -112,6 +117,33 @@ class TokenStoreProvider:
         # Authentication flows own their transaction. Do not expose a token in
         # cache when that transaction later rolls back.
         uow.on_commit(populate_cache)
+
+    def revoke_all(self, app: Flask, *, user_id: str) -> int:
+        """Delete every session within recovery's UOW; evict only on commit."""
+        records = (
+            UserTokenModel.query.filter_by(user_id=user_id).with_for_update().all()
+        )
+        tokens = [record.token for record in records if record.token]
+        for record in records:
+            db.session.delete(record)
+
+        def evict_revoked_sessions() -> None:
+            for token in tokens:
+                # Durable rows are authoritative even when an eviction fails.
+                for key in (
+                    self._cache_key(app, token),
+                    self._refresh_marker_key(app, token),
+                ):
+                    try:
+                        self._cache.delete(key)
+                    except Exception:
+                        app.logger.warning(
+                            "could not evict a recovered account session"
+                        )
+                discard_session_skill_attribution(app, token=token)
+
+        uow.on_commit(evict_revoked_sessions)
+        return len(records)
 
     def _refresh_marker_key(self, app: Flask, token: str) -> str:
         return f"{self._cache_key(app, token)}:row"

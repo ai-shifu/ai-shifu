@@ -23,6 +23,7 @@ from flaskr.service.user.consts import (
 from flaskr.service.user.models import AuthCredential
 from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
+from sqlalchemy import update
 
 if TYPE_CHECKING:
     from datetime import date, datetime
@@ -337,13 +338,51 @@ def _build_user_aggregate(
 
 
 def get_user_entity_by_bid(
-    user_bid: str, *, include_deleted: bool = False
+    user_bid: str, *, include_deleted: bool = False, for_update: bool = False
 ) -> UserEntity | None:
     """Return user entity by BID."""
     query = UserEntity.query.filter_by(user_bid=user_bid)
     if not include_deleted:
         query = query.filter_by(deleted=0)
+    if for_update:
+        query = query.populate_existing().with_for_update()
     return query.first()
+
+
+def lock_user_for_auth(user_bid: str) -> UserEntity | None:
+    """Serialize password writes and session issuance in the caller's transaction.
+
+    The no-op write also acquires a writer lock on SQLite, which ignores
+    SELECT FOR UPDATE. Preserve the profile timestamp while taking the lock.
+    Missing accounts remain a no-op for legacy token-store callers.
+    """
+    conditions = (UserEntity.user_bid == user_bid, UserEntity.deleted == 0)
+    db.session.execute(
+        update(UserEntity)
+        .where(*conditions)
+        .values(updated_at=UserEntity.updated_at)
+        .execution_options(synchronize_session=False)
+    )
+    return (
+        UserEntity.query.filter(*conditions)
+        .order_by(UserEntity.id.asc())
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
+
+
+def lock_password_credential(*, user_bid: str) -> AuthCredential | None:
+    """Refresh the effective password after the caller locks its account row."""
+    return (
+        AuthCredential.query.filter_by(
+            user_bid=user_bid, provider_name="password", deleted=0
+        )
+        .order_by(AuthCredential.id.asc())
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
 
 
 def _ensure_user_entity(user_bid: str) -> UserEntity:
@@ -399,9 +438,12 @@ def load_user_aggregate(
     *,
     include_deleted: bool = False,
     with_credentials: bool = True,
+    for_update: bool = False,
 ) -> UserAggregate | None:
     """Load user aggregate."""
-    entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
+    entity = get_user_entity_by_bid(
+        user_bid, include_deleted=include_deleted, for_update=for_update
+    )
     if not entity:
         return None
     credentials: list[AuthCredential] = []
@@ -414,6 +456,7 @@ def load_user_aggregate_by_identifier(
     identifier: str,
     *,
     providers: list[str] | None = None,
+    for_update: bool = False,
 ) -> UserAggregate | None:
     """Load user aggregate by identifier."""
     normalized = identifier.strip() if identifier else ""
@@ -435,14 +478,13 @@ def load_user_aggregate_by_identifier(
 
     # Direct match on canonical identifiers first.
     for lookup_identifier in lookup_identifiers:
-        entity = (
-            UserEntity.query.filter(
-                UserEntity.user_identify == lookup_identifier,
-                UserEntity.deleted == 0,
-            )
-            .order_by(UserEntity.id.asc())
-            .first()
-        )
+        query = UserEntity.query.filter(
+            UserEntity.user_identify == lookup_identifier,
+            UserEntity.deleted == 0,
+        ).order_by(UserEntity.id.asc())
+        if for_update:
+            query = query.populate_existing().with_for_update()
+        entity = query.first()
         if entity:
             return _build_user_aggregate(
                 entity,
@@ -454,9 +496,10 @@ def load_user_aggregate_by_identifier(
             credential = find_credential(
                 provider_name=provider,
                 identifier=lookup_identifier,
+                for_update=for_update,
             )
             if credential:
-                return load_user_aggregate(credential.user_bid)
+                return load_user_aggregate(credential.user_bid, for_update=for_update)
 
     return None
 
@@ -844,7 +887,11 @@ def upsert_credential(
 
 
 def find_credential(
-    *, provider_name: str, identifier: str, user_bid: str | None = None
+    *,
+    provider_name: str,
+    identifier: str,
+    user_bid: str | None = None,
+    for_update: bool = False,
 ) -> AuthCredential | None:
     """Find credential."""
     raw_identifier = (identifier or "").strip()
@@ -859,6 +906,8 @@ def find_credential(
     )
     if user_bid:
         query = query.filter(AuthCredential.user_bid == user_bid)
+    if for_update:
+        query = query.populate_existing().with_for_update()
     return query.order_by(AuthCredential.id.asc()).first()
 
 

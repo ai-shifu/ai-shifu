@@ -2,7 +2,7 @@
 title: Password Login Feature Design
 status: implemented
 owner_surface: shared
-last_reviewed: 2026-04-17
+last_reviewed: 2026-10-31
 canonical: true
 ---
 
@@ -22,6 +22,31 @@ Add password login capability to AI-Shifu, allowing users to log in via **phone 
 | Password login | Enter phone/email + password → Login |
 | Forgot password | Enter phone/email → Get verification code → Verify → Reset password |
 | Change password | Logged in → Enter old password + new password → Done |
+
+### 1.2 Password and session consistency
+
+Password login resolves the current canonical identifier or a current phone/email
+credential. The identifier stored on a password credential does not become an
+additional login alias. Login verifies the effective account password (the oldest
+active password credential), then confirms the same active account, credential
+and verified bcrypt-hash version under the account lock in the token-persistence
+transaction. A committed intervening password write invalidates that evidence.
+
+Ordinary password changes compare the verified old hash with a freshly locked
+credential before writing, so a concurrent change cannot be silently overwritten.
+They preserve existing sessions. Verification-code password recovery updates the
+same effective account password, including when another linked contact is used
+for recovery, and deletes every persisted session in one unit of work. Session
+cache entries, refresh markers and attribution are evicted only after the outer
+transaction commits; rollback retains the original password and sessions.
+
+Session issuance uses the same account lock as password writes. A session saved
+before recovery commits is revoked by recovery; stale password evidence cannot
+issue a session afterward. Other authentication methods remain authorized by
+their own existing rules. Cache eviction is best-effort: durable session rows
+remain authoritative even if eviction fails or an earlier login's delayed cache
+callback runs after recovery. Verification-code consumption and attempt limits
+retain their existing fail-closed behavior.
 
 ## 2. Existing Architecture Analysis
 
